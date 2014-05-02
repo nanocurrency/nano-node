@@ -1,2 +1,2 @@
-crypto
+mu_coin
 ======
