@@ -1,14 +1,14 @@
 #include <mu_coin/ledger.hpp>
+#include <mu_coin/block.hpp>
 
-mu_coin::balance & mu_coin::ledger_memory::balance (mu_coin::address const & address_a)
+mu_coin::block * mu_coin::ledger::previous (mu_coin::address const & address_a)
 {
+    assert (has_balance (address_a));
     auto existing (entries.find (address_a));
-    if (existing != entries.end ())
-    {
-        return *existing->second;
-    }
-    else
-    {
-        return empty_balance;
-    }
+    return existing->second;
+}
+
+bool mu_coin::ledger::has_balance (mu_coin::address const & address_a)
+{
+    return entries.find (address_a) != entries.end ();
 }
