@@ -31,8 +31,9 @@ namespace mu_coin {
     class block
     {
     public:
-        boost::multiprecision::uint512_t signature;
+        uint512_union signature;
         virtual void sign (EC::PrivateKey const &) = 0;
+        virtual bool validate (EC::PublicKey const &) = 0;
         virtual boost::multiprecision::uint256_t fee () const = 0;
         virtual boost::multiprecision::uint256_t hash () const = 0;
     };
@@ -50,6 +51,7 @@ namespace mu_coin {
         boost::multiprecision::uint256_t fee () const override;
         boost::multiprecision::uint256_t hash () const override;
         void sign (EC::PrivateKey const &) override;
+        bool validate (EC::PublicKey const &) override;
         std::vector <entry> inputs;
         std::vector <entry> outputs;
         bool balanced () const;

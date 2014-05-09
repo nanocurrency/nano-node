@@ -32,7 +32,14 @@ TEST (transaction_block, empty)
     boost::multiprecision::uint256_t hash (block.hash ());
     std::string str (hash.convert_to <std::string> ());
     ASSERT_EQ (boost::multiprecision::uint256_t ("0xE3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"), hash);
-    mu_coin::EC::PrivateKey key;
-    key.Initialize (mu_coin::pool (), mu_coin::curve ());
-    block.sign (key);
+    mu_coin::EC::PrivateKey prv;
+    prv.Initialize (mu_coin::pool (), mu_coin::curve ());
+    block.sign (prv);
+    mu_coin::EC::PublicKey pub;
+    prv.MakePublicKey (pub);
+    bool valid1 (block.validate (pub));
+    ASSERT_TRUE (valid1);
+    block.signature.bytes [32] ^= 0x1;
+    bool valid2 (block.validate (pub));
+    ASSERT_FALSE (valid2);
 }

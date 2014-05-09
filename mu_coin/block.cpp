@@ -146,7 +146,14 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::fee () const
 void mu_coin::transaction_block::sign (EC::PrivateKey const & private_key)
 {
     EC::Signer signer (private_key);
-    mu_coin::uint256_union number (hash ());
-    mu_coin::uint512_union signature_l;
-    signer.SignMessage (pool (), number.bytes.data (), sizeof (number), signature_l.bytes.data ());
+    mu_coin::uint256_union message (hash ());
+    signer.SignMessage (pool (), message.bytes.data (), sizeof (message), signature.bytes.data ());
+}
+
+bool mu_coin::transaction_block::validate (EC::PublicKey const & public_key)
+{
+    EC::Verifier verifier (public_key);
+    mu_coin::uint256_union message (hash ());
+    auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message), signature.bytes.data (), sizeof (signature)));
+    return result;
 }
