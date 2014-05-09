@@ -21,7 +21,8 @@ add_library (mu_coin
     mu_coin/delta.cpp
     mu_coin/delta.hpp
 	mu_coin/ledger.hpp
-	mu_coin/ledger.cpp)
+	mu_coin/ledger.cpp
+    mu_coin/types.hpp)
 
 add_executable (mu_coin_test 
 	mu_coin_test/entry.cpp
