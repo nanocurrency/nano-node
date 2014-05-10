@@ -73,15 +73,15 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
 {
     CryptoPP::SHA256 hash;
     mu_coin::uint256_union digest;
-    for (std::vector <mu_coin::entry>::const_iterator i (inputs.begin ()), j (inputs.end ()); i != j; ++i)
+    for (auto i (inputs.begin ()), j (inputs.end ()); i != j; ++i)
     {
-        hash_number (hash, i->previous);
-        hash_number (hash, i->coins);
+        hash_number (hash, i->second.previous);
+        hash_number (hash, i->second.coins);
     }
-    for (std::vector <mu_coin::entry>::const_iterator i (outputs.begin ()), j (outputs.end ()); i != j; ++i)
+    for (auto i (outputs.begin ()), j (outputs.end ()); i != j; ++i)
     {
-        hash_number (hash, i->previous);
-        hash_number (hash, i->coins);
+        hash_number (hash, i->second.previous);
+        hash_number (hash, i->second.coins);
     }
     hash.Final (digest.bytes.data ());
     return digest.number ();
@@ -126,14 +126,14 @@ boost::multiprecision::uint512_t mu_coin::uint512_union::number ()
 bool mu_coin::transaction_block::balanced () const
 {
     boost::multiprecision::uint256_t input_sum;
-    for (std::vector <mu_coin::entry>::const_iterator i (inputs.begin ()), j (inputs.end ()); i != j; ++i)
+    for (auto i (inputs.begin ()), j (inputs.end ()); i != j; ++i)
     {
-        input_sum += i->coins;
+        input_sum += i->second.coins;
     }
     boost::multiprecision::uint256_t output_sum;
-    for (std::vector <mu_coin::entry>::const_iterator i (outputs.begin ()), j (outputs.end ()); i != j; ++i)
+    for (auto i (outputs.begin ()), j (outputs.end ()); i != j; ++i)
     {
-        output_sum += i->coins;
+        output_sum += i->second.coins;
     }
     return input_sum - fee () == output_sum;
 }
@@ -156,4 +156,9 @@ bool mu_coin::transaction_block::validate (EC::PublicKey const & public_key)
     mu_coin::uint256_union message (hash ());
     auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message), signature.bytes.data (), sizeof (signature)));
     return result;
+}
+
+mu_coin::uint256_union::uint256_union (mu_coin::EC::PublicKey const & pub)
+{
+    pub.GetGroupParameters ().GetCurve ().EncodePoint (bytes.data (), pub.GetPublicElement(), true);
 }

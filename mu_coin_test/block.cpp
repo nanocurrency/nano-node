@@ -43,3 +43,8 @@ TEST (transaction_block, empty)
     bool valid2 (block.validate (pub));
     ASSERT_FALSE (valid2);
 }
+
+TEST (transaction_block, predecessor_check)
+{
+    mu_coin::transaction_block block;
+}

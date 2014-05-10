@@ -2,13 +2,27 @@
 #include <mu_coin/address.hpp>
 #include <unordered_map>
 
-namespace mu_coin {
-class block;
-class ledger
+namespace std
 {
-public:
-    mu_coin::block * previous (mu_coin::address const &);
-    bool has_balance (mu_coin::address const &);
-    std::unordered_map <mu_coin::address, mu_coin::block *> entries;
-};
+    template <>
+    struct hash <boost::multiprecision::uint256_t>
+    {
+        size_t operator () (boost::multiprecision::uint256_t const & number_a) const
+        {
+            return number_a.convert_to <size_t> ();
+        }
+    };
+}
+namespace mu_coin {
+    class transaction_block;
+    class ledger
+    {
+    public:
+        mu_coin::transaction_block * previous (mu_coin::address const &);
+        mu_coin::transaction_block * block (boost::multiprecision::uint256_t const &);
+        bool has_balance (mu_coin::address const &);
+        void replace (mu_coin::address const &, mu_coin::transaction_block *);
+        std::unordered_map <mu_coin::address, mu_coin::transaction_block *> latest;
+        std::unordered_map <boost::multiprecision::uint256_t, mu_coin::transaction_block *> blocks;
+    };
 }

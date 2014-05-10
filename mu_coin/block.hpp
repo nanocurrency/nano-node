@@ -5,6 +5,7 @@
 #include <cryptopp/eccrypto.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
+#include <unordered_map>
 
 namespace mu_coin {
     using EC = CryptoPP::ECDSA <CryptoPP::ECP, CryptoPP::SHA256>;
@@ -14,6 +15,7 @@ namespace mu_coin {
     {
         uint256_union () = default;
         uint256_union (boost::multiprecision::uint256_t const &);
+        uint256_union (EC::PublicKey const &);
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
         void clear ();
@@ -52,8 +54,8 @@ namespace mu_coin {
         boost::multiprecision::uint256_t hash () const override;
         void sign (EC::PrivateKey const &) override;
         bool validate (EC::PublicKey const &) override;
-        std::vector <entry> inputs;
-        std::vector <entry> outputs;
+        std::unordered_map <mu_coin::address, entry> inputs;
+        std::unordered_map <mu_coin::address, entry> outputs;
         bool balanced () const;
     };
     class delegate_block : public mu_coin::block
