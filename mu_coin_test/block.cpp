@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <mu_coin/block.hpp>
+#include <mu_coin/mu_coin.hpp>
 
 TEST (transaction_block, big_endian_union_constructor)
 {
@@ -25,20 +25,23 @@ TEST (transaction_block, big_endian_union_function)
 
 TEST (transaction_block, empty)
 {
-    mu_coin::transaction_block block;
-    ASSERT_EQ (0, block.entries.size ());
-    boost::multiprecision::uint256_t hash (block.hash ());
-    std::string str (hash.convert_to <std::string> ());
-    ASSERT_EQ (boost::multiprecision::uint256_t ("0xE3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"), hash);
     mu_coin::EC::PrivateKey prv;
     prv.Initialize (mu_coin::pool (), mu_coin::curve ());
-    block.sign (prv);
     mu_coin::EC::PublicKey pub;
     prv.MakePublicKey (pub);
-    bool valid1 (block.validate (pub));
+    mu_coin::uint256_union address_number (pub);
+    mu_coin::address address (address_number.number ());
+    mu_coin::transaction_block block;
+    block.entries [address] = mu_coin::entry (0, 0);
+    ASSERT_EQ (1, block.entries.size ());
+    boost::multiprecision::uint256_t hash (block.hash ());
+    block.entries [address].sign (prv, hash);
+    std::string str (hash.convert_to <std::string> ());
+    ASSERT_EQ (boost::multiprecision::uint256_t ("0xF5A5FD42D16A20302798EF6ED309979B43003D2320D9F0E8EA9831A92759FB4B"), hash);
+    bool valid1 (block.entries [address].validate (pub, hash));
     ASSERT_TRUE (valid1);
-    block.signature.bytes [32] ^= 0x1;
-    bool valid2 (block.validate (pub));
+    block.entries [address].signature.bytes [32] ^= 0x1;
+    bool valid2 (block.entries [address].validate (pub, hash));
     ASSERT_FALSE (valid2);
 }
 

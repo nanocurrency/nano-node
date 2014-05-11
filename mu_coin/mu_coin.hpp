@@ -1,14 +1,49 @@
 #pragma once
 #include <boost/multiprecision/cpp_int.hpp>
-#include <mu_coin/address.hpp>
-#include <mu_coin/delta.hpp>
+
+#include <cryptopp/eccrypto.h>
 #include <cryptopp/eccrypto.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
+
 #include <unordered_map>
 
 namespace mu_coin {
+    using uint256_t = boost::multiprecision::uint256_t;
     using EC = CryptoPP::ECDSA <CryptoPP::ECP, CryptoPP::SHA256>;
+    class address
+    {
+    public:
+        address () = default;
+        address (boost::multiprecision::uint256_t const &);
+        address (mu_coin::EC::PublicKey const &);
+        bool operator == (mu_coin::address const &) const;
+        uint256_t number;
+    };
+}
+
+namespace std
+{
+    template <>
+    struct hash <mu_coin::address>
+    {
+        size_t operator () (mu_coin::address const & address_a) const
+        {
+            size_t hash (address_a.number.convert_to <size_t> ());
+            return hash;
+        }
+    };
+    template <>
+    struct hash <mu_coin::uint256_t>
+    {
+        size_t operator () (mu_coin::uint256_t const & number_a) const
+        {
+            return number_a.convert_to <size_t> ();
+        }
+    };
+}
+
+namespace mu_coin {
     CryptoPP::RandomNumberGenerator & pool ();
     CryptoPP::OID & curve ();
     union uint256_union
@@ -33,9 +68,6 @@ namespace mu_coin {
     class block
     {
     public:
-        uint512_union signature;
-        virtual void sign (EC::PrivateKey const &) = 0;
-        virtual bool validate (EC::PublicKey const &) = 0;
         virtual boost::multiprecision::uint256_t fee () const = 0;
         virtual boost::multiprecision::uint256_t hash () const = 0;
     };
@@ -44,26 +76,27 @@ namespace mu_coin {
     public:
         entry () = default;
         entry (boost::multiprecision::uint256_t const &, boost::multiprecision::uint256_t const &);
+        void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
+        bool validate (EC::PublicKey const &, mu_coin::uint256_union const &);
         boost::multiprecision::uint256_t previous;
         boost::multiprecision::uint256_t coins;
+        uint512_union signature;
     };
     class transaction_block : public mu_coin::block
     {
     public:
         boost::multiprecision::uint256_t fee () const override;
         boost::multiprecision::uint256_t hash () const override;
-        void sign (EC::PrivateKey const &) override;
-        bool validate (EC::PublicKey const &) override;
         std::unordered_map <mu_coin::address, entry> entries;
     };
-    class delegate_block : public mu_coin::block
+    class ledger
     {
     public:
-        delegate_block (boost::multiprecision::uint256_t const &);
-        boost::multiprecision::uint256_t fee () const override;
-        boost::multiprecision::uint256_t hash () const override;
-        void sign (EC::PrivateKey const &) override;
-        boost::multiprecision::uint256_t previous;
-        mu_coin::address address;
+        mu_coin::transaction_block * previous (mu_coin::address const &);
+        mu_coin::transaction_block * block (boost::multiprecision::uint256_t const &);
+        bool has_balance (mu_coin::address const &);
+        bool process (mu_coin::transaction_block *);
+        std::unordered_map <mu_coin::address, mu_coin::transaction_block *> latest;
+        std::unordered_map <boost::multiprecision::uint256_t, mu_coin::transaction_block *> blocks;
     };
 }
