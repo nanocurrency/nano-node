@@ -26,9 +26,7 @@ TEST (transaction_block, big_endian_union_function)
 TEST (transaction_block, empty)
 {
     mu_coin::transaction_block block;
-    ASSERT_EQ (0, block.inputs.size ());
-    ASSERT_EQ (0, block.outputs.size ());
-    ASSERT_FALSE (block.balanced ());
+    ASSERT_EQ (0, block.entries.size ());
     boost::multiprecision::uint256_t hash (block.hash ());
     std::string str (hash.convert_to <std::string> ());
     ASSERT_EQ (boost::multiprecision::uint256_t ("0xE3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"), hash);

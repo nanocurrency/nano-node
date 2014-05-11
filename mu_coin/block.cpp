@@ -73,12 +73,7 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
 {
     CryptoPP::SHA256 hash;
     mu_coin::uint256_union digest;
-    for (auto i (inputs.begin ()), j (inputs.end ()); i != j; ++i)
-    {
-        hash_number (hash, i->second.previous);
-        hash_number (hash, i->second.coins);
-    }
-    for (auto i (outputs.begin ()), j (outputs.end ()); i != j; ++i)
+    for (auto i (entries.begin ()), j (entries.end ()); i != j; ++i)
     {
         hash_number (hash, i->second.previous);
         hash_number (hash, i->second.coins);
@@ -121,21 +116,6 @@ boost::multiprecision::uint512_t mu_coin::uint512_union::number ()
     result <<= 64;
     result |= temp.qwords [0];
     return result;
-}
-
-bool mu_coin::transaction_block::balanced () const
-{
-    boost::multiprecision::uint256_t input_sum;
-    for (auto i (inputs.begin ()), j (inputs.end ()); i != j; ++i)
-    {
-        input_sum += i->second.coins;
-    }
-    boost::multiprecision::uint256_t output_sum;
-    for (auto i (outputs.begin ()), j (outputs.end ()); i != j; ++i)
-    {
-        output_sum += i->second.coins;
-    }
-    return input_sum - fee () == output_sum;
 }
 
 boost::multiprecision::uint256_t mu_coin::transaction_block::fee () const

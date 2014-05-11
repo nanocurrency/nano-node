@@ -54,9 +54,7 @@ namespace mu_coin {
         boost::multiprecision::uint256_t hash () const override;
         void sign (EC::PrivateKey const &) override;
         bool validate (EC::PublicKey const &) override;
-        std::unordered_map <mu_coin::address, entry> inputs;
-        std::unordered_map <mu_coin::address, entry> outputs;
-        bool balanced () const;
+        std::unordered_map <mu_coin::address, entry> entries;
     };
     class delegate_block : public mu_coin::block
     {
