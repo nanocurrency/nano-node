@@ -29,6 +29,7 @@ TEST (transaction_block, empty)
     prv.Initialize (mu_coin::pool (), mu_coin::curve ());
     mu_coin::EC::PublicKey pub;
     prv.MakePublicKey (pub);
+    mu_coin::uint256_t thing;
     mu_coin::uint256_union address_number (pub);
     mu_coin::address address (address_number.number ());
     mu_coin::transaction_block block;
