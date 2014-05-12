@@ -38,7 +38,7 @@ TEST (transaction_block, empty)
     boost::multiprecision::uint256_t hash (block.hash ());
     block.entries [0].sign (prv, hash);
     std::string str (hash.convert_to <std::string> ());
-    ASSERT_EQ (boost::multiprecision::uint256_t ("0xF5A5FD42D16A20302798EF6ED309979B43003D2320D9F0E8EA9831A92759FB4B"), hash);
+    ASSERT_EQ (boost::multiprecision::uint256_t ("0xEFBB03B7A7F6FD3C29391D4D0281E1830A85CAADD831C3F04716FACA4107A42E"), hash);
     bool valid1 (block.entries [0].validate (pub, hash));
     ASSERT_TRUE (valid1);
     block.entries [0].signature.bytes [32] ^= 0x1;

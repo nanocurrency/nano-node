@@ -44,9 +44,10 @@ TEST (ledger, simple_spend)
     prv1.Initialize (mu_coin::pool (), mu_coin::oid ());
     mu_coin::EC::PublicKey pub1;
     prv1.MakePublicKey (pub1);
+    mu_coin::address address1 (pub1);
     mu_coin::transaction_block genesis;
     boost::multiprecision::uint256_t max (std::numeric_limits <boost::multiprecision::uint256_t>::max ());
-    genesis.entries.push_back (mu_coin::entry (0, max, 0));
+    genesis.entries.push_back (mu_coin::entry (address1.number, max, 0));
     genesis.entries [0].sign (prv1, genesis.hash ());
     mu_coin::ledger ledger;
     ledger.latest [mu_coin::address (pub1)] = &genesis;
@@ -54,9 +55,10 @@ TEST (ledger, simple_spend)
     prv2.Initialize (mu_coin::pool (), mu_coin::oid ());
     mu_coin::EC::PublicKey pub2;
     prv2.MakePublicKey (pub2);
+    mu_coin::address address2 (pub2);
     mu_coin::transaction_block spend;
-    spend.entries.push_back (mu_coin::entry (mu_coin::address (pub1).number, genesis.hash (), 0));
-    spend.entries.push_back (mu_coin::entry (mu_coin::address (pub2).number, max - 1, 0));
+    spend.entries.push_back (mu_coin::entry (address1.number, 0, 1));
+    spend.entries.push_back (mu_coin::entry (address2.number, max - 1, 0));
     spend.entries [0].sign (prv1, spend.hash ());
     spend.entries [1].sign (prv2, spend.hash ());
     auto error (ledger.process (&spend));
