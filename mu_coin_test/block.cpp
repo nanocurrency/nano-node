@@ -33,16 +33,16 @@ TEST (transaction_block, empty)
     mu_coin::uint256_union address_number (pub);
     mu_coin::address address (address_number.number ());
     mu_coin::transaction_block block;
-    block.entries [address] = mu_coin::entry (0, 0);
+    block.entries.push_back (mu_coin::entry (0, 0, 0));
     ASSERT_EQ (1, block.entries.size ());
     boost::multiprecision::uint256_t hash (block.hash ());
-    block.entries [address].sign (prv, hash);
+    block.entries [0].sign (prv, hash);
     std::string str (hash.convert_to <std::string> ());
     ASSERT_EQ (boost::multiprecision::uint256_t ("0xF5A5FD42D16A20302798EF6ED309979B43003D2320D9F0E8EA9831A92759FB4B"), hash);
-    bool valid1 (block.entries [address].validate (pub, hash));
+    bool valid1 (block.entries [0].validate (pub, hash));
     ASSERT_TRUE (valid1);
-    block.entries [address].signature.bytes [32] ^= 0x1;
-    bool valid2 (block.entries [address].validate (pub, hash));
+    block.entries [0].signature.bytes [32] ^= 0x1;
+    bool valid2 (block.entries [0].validate (pub, hash));
     ASSERT_FALSE (valid2);
 }
 

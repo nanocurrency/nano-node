@@ -28,9 +28,9 @@ CryptoPP::OID & mu_coin::curve ()
     return result;
 };
 
-mu_coin::entry::entry (boost::multiprecision::uint256_t const & previous_a, boost::multiprecision::uint256_t const & coins_a) :
-previous (previous_a),
-coins (coins_a)
+mu_coin::entry::entry (boost::multiprecision::uint256_t const & address_a, boost::multiprecision::uint256_t const & coins_a, uint8_t sequence_a) :
+address (address_a),
+sequence_coins (coins_a << 8 | sequence_a)
 {
 }
 
@@ -90,8 +90,8 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
     mu_coin::uint256_union digest;
     for (auto i (entries.begin ()), j (entries.end ()); i != j; ++i)
     {
-        hash_number (hash, i->second.previous);
-        hash_number (hash, i->second.coins);
+        hash_number (hash, i->address);
+        hash_number (hash, i->sequence_coins);
     }
     hash.Final (digest.bytes.data ());
     return digest.number ();
@@ -175,30 +175,45 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     boost::multiprecision::uint256_t next;
     for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); !result && i != j; ++i)
     {
-        auto existing (latest.find (i->first));
-        if (existing != latest.end ())
+        auto & address (i->address);
+        auto existing (latest.find (address));
+        if (i->sequence () > 0)
         {
-            if (existing->second->hash () == i->second.previous)
+            if (existing != latest.end ())
             {
-                auto last (existing->second->entries.find (i->first));
-                if (last != existing->second->entries.end ())
+                auto previous_entry (std::find_if (existing->second->entries.begin (), existing->second->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.address;}));
+                if (previous_entry != existing->second->entries.end ())
                 {
-                    previous += last->second.coins;
-                    next += i->second.coins;
+                    if (previous_entry->sequence () + 1 == i->sequence ())
+                    {
+                        previous += previous_entry->coins ();
+                        next += i->coins ();
+                    }
+                    else
+                    {
+                        result = true;
+                    }
                 }
                 else
                 {
-                    result = false;
+                    result = true;
                 }
             }
             else
             {
-                result = false;
+                result = true;
             }
         }
         else
         {
-            result = true;
+            if (existing == latest.end ())
+            {
+                next += i->coins ();
+            }
+            else
+            {
+                result = true;
+            }
         }
     }
     if (!result)
@@ -212,9 +227,8 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
             {
                 for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); i != j; ++i)
                 {
-                    latest [i->first] = block_a;
+                    latest [i->address] = block_a;
                 }
-                blocks [block_a->hash()] = block_a;
             }
             else
             {
@@ -227,4 +241,14 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
         }
     }
     return result;
+}
+
+mu_coin::uint256_t mu_coin::entry::coins ()
+{
+    return sequence_coins >> 8;
+}
+
+uint8_t mu_coin::entry::sequence ()
+{
+    return sequence_coins.convert_to <uint8_t> ();
 }

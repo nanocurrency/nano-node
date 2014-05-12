@@ -75,11 +75,13 @@ namespace mu_coin {
     {
     public:
         entry () = default;
-        entry (boost::multiprecision::uint256_t const &, boost::multiprecision::uint256_t const &);
+        entry (boost::multiprecision::uint256_t const &, boost::multiprecision::uint256_t const &, uint8_t);
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool validate (EC::PublicKey const &, mu_coin::uint256_union const &);
-        boost::multiprecision::uint256_t previous;
-        boost::multiprecision::uint256_t coins;
+        mu_coin::uint256_t coins ();
+        uint8_t sequence ();
+        mu_coin::uint256_t address;
+        mu_coin::uint256_t sequence_coins;
         uint512_union signature;
     };
     class transaction_block : public mu_coin::block
@@ -87,7 +89,7 @@ namespace mu_coin {
     public:
         boost::multiprecision::uint256_t fee () const override;
         boost::multiprecision::uint256_t hash () const override;
-        std::unordered_map <mu_coin::address, entry> entries;
+        std::vector <entry> entries;
     };
     class ledger
     {
@@ -97,6 +99,5 @@ namespace mu_coin {
         bool has_balance (mu_coin::address const &);
         bool process (mu_coin::transaction_block *);
         std::unordered_map <mu_coin::address, mu_coin::transaction_block *> latest;
-        std::unordered_map <boost::multiprecision::uint256_t, mu_coin::transaction_block *> blocks;
     };
 }
