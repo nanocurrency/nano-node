@@ -44,8 +44,9 @@ namespace std
 }
 
 namespace mu_coin {
+    CryptoPP::OID & oid ();
     CryptoPP::RandomNumberGenerator & pool ();
-    CryptoPP::OID & curve ();
+    CryptoPP::ECP const & curve ();
     union uint256_union
     {
         uint256_union () = default;
@@ -54,7 +55,8 @@ namespace mu_coin {
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
         void clear ();
-        boost::multiprecision::uint256_t number ();
+        boost::multiprecision::uint256_t number () const;
+        EC::PublicKey key () const;
     };
     union uint512_union
     {

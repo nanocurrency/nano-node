@@ -26,7 +26,7 @@ TEST (transaction_block, big_endian_union_function)
 TEST (transaction_block, empty)
 {
     mu_coin::EC::PrivateKey prv;
-    prv.Initialize (mu_coin::pool (), mu_coin::curve ());
+    prv.Initialize (mu_coin::pool (), mu_coin::oid ());
     mu_coin::EC::PublicKey pub;
     prv.MakePublicKey (pub);
     mu_coin::uint256_t thing;

@@ -16,16 +16,22 @@ number (mu_coin::uint256_union (pub).number ())
 {
 }
 
+CryptoPP::OID & mu_coin::oid ()
+{
+    static CryptoPP::OID result (CryptoPP::ASN1::secp256k1 ());
+    return result;
+}
+
 CryptoPP::RandomNumberGenerator & mu_coin::pool ()
 {
     static CryptoPP::AutoSeededRandomPool result;
     return result;
 }
 
-CryptoPP::OID & mu_coin::curve ()
+CryptoPP::ECP const & mu_coin::curve ()
 {
-    static CryptoPP::OID result (CryptoPP::ASN1::secp256k1 ());
-    return result;
+    static CryptoPP::DL_GroupParameters_EC <CryptoPP::ECP> result (oid ());
+    return result.GetCurve ();
 };
 
 mu_coin::entry::entry (boost::multiprecision::uint256_t const & address_a, boost::multiprecision::uint256_t const & coins_a, uint8_t sequence_a) :
@@ -97,7 +103,7 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
     return digest.number ();
 }
 
-boost::multiprecision::uint256_t mu_coin::uint256_union::number ()
+boost::multiprecision::uint256_t mu_coin::uint256_union::number () const
 {
     mu_coin::uint256_union temp (*this);
     std::reverse (&temp.bytes [0], &temp.bytes [32]);
@@ -153,7 +159,7 @@ bool mu_coin::entry::validate (EC::PublicKey const & public_key, mu_coin::uint25
 
 mu_coin::uint256_union::uint256_union (mu_coin::EC::PublicKey const & pub)
 {
-    pub.GetGroupParameters ().GetCurve ().EncodePoint (bytes.data (), pub.GetPublicElement(), true);
+    curve ().EncodePoint (bytes.data (), pub.GetPublicElement(), true);
 }
 
 mu_coin::transaction_block * mu_coin::ledger::previous (mu_coin::address const & address_a)
@@ -176,6 +182,7 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); !result && i != j; ++i)
     {
         auto & address (i->address);
+        
         auto existing (latest.find (address));
         if (i->sequence () > 0)
         {
@@ -251,4 +258,13 @@ mu_coin::uint256_t mu_coin::entry::coins ()
 uint8_t mu_coin::entry::sequence ()
 {
     return sequence_coins.convert_to <uint8_t> ();
+}
+
+mu_coin::EC::PublicKey mu_coin::uint256_union::key () const
+{
+    mu_coin::EC::PublicKey::Element element;
+    curve ().DecodePoint (element, bytes.data (), bytes.size ());
+    mu_coin::EC::PublicKey result;
+    result.SetPublicElement (element);
+    return result;
 }
