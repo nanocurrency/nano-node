@@ -14,9 +14,10 @@ TEST (ledger, genesis_balance)
     prv.Initialize (mu_coin::pool (), mu_coin::oid ());
     mu_coin::EC::PublicKey pub;
     prv.MakePublicKey (pub);
+    mu_coin::address address (pub);
     mu_coin::transaction_block genesis;
     boost::multiprecision::uint256_t max (std::numeric_limits <boost::multiprecision::uint256_t>::max ());
-    genesis.entries.push_back (mu_coin::entry (0, max, 0));
+    genesis.entries.push_back (mu_coin::entry (address, max, 0));
     genesis.entries [0].sign (prv, genesis.hash ());
     mu_coin::ledger ledger;
     ledger.latest [mu_coin::address (pub)] = &genesis;

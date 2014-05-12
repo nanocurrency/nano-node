@@ -33,7 +33,7 @@ TEST (transaction_block, empty)
     mu_coin::uint256_union address_number (pub);
     mu_coin::address address (address_number.number ());
     mu_coin::transaction_block block;
-    block.entries.push_back (mu_coin::entry (0, 0, 0));
+    block.entries.push_back (mu_coin::entry (mu_coin::address (mu_coin::uint256_union ().key ()), 0, 0));
     ASSERT_EQ (1, block.entries.size ());
     boost::multiprecision::uint256_t hash (block.hash ());
     block.entries [0].sign (prv, hash);

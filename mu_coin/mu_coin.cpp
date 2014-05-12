@@ -34,7 +34,7 @@ CryptoPP::ECP const & mu_coin::curve ()
     return result.GetCurve ();
 };
 
-mu_coin::entry::entry (boost::multiprecision::uint256_t const & address_a, boost::multiprecision::uint256_t const & coins_a, uint16_t sequence_a) :
+mu_coin::entry::entry (mu_coin::address const & address_a, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
 address (address_a),
 coins (coins_a),
 sequence (sequence_a)
@@ -97,7 +97,7 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
     mu_coin::uint256_union digest;
     for (auto i (entries.begin ()), j (entries.end ()); i != j; ++i)
     {
-        hash_number (hash, i->address);
+        hash_number (hash, i->address.number);
         hash_number (hash, i->coins);
         hash.Update (reinterpret_cast <uint8_t const *> (&i->sequence), sizeof (decltype (i->sequence)));
     }
@@ -228,21 +228,11 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     {
         if (next < previous)
         {
-            std::string nextstr (next.convert_to<std::string>());
-            std::string feestr (block_a->fee ().convert_to<std::string>());
-            std::string previousstr (previous.convert_to<std::string>());
             if (next + block_a->fee () == previous)
             {
                 for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); i != j; ++i)
                 {
-                    if (i->coins == 0)
-                    {
-                        latest.erase (i->address);
-                    }
-                    else
-                    {
-                        latest [i->address] = block_a;
-                    }
+                    latest [i->address] = block_a;
                 }
             }
             else

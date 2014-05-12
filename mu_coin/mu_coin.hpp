@@ -77,11 +77,11 @@ namespace mu_coin {
     {
     public:
         entry () = default;
-        entry (boost::multiprecision::uint256_t const &, boost::multiprecision::uint256_t const &, uint16_t);
+        entry (mu_coin::address const &, mu_coin::uint256_t const &, uint16_t);
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool validate (EC::PublicKey const &, mu_coin::uint256_union const &);
         uint512_union signature;
-        mu_coin::uint256_t address;
+        mu_coin::address address;
         mu_coin::uint256_t coins;
         uint16_t sequence;
     };
