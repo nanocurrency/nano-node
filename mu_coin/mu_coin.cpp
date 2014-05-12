@@ -1,4 +1,5 @@
 #include <mu_coin/mu_coin.hpp>
+#include <cryptopp/sha.h>
 
 bool mu_coin::address::operator == (mu_coin::address const & other_a) const
 {
@@ -11,10 +12,9 @@ number (number_a)
 }
 
 mu_coin::address::address (mu_coin::EC::PublicKey const & pub) :
-number ()
+number (mu_coin::uint256_union (pub).number ())
 {
 }
-#include <cryptopp/sha.h>
 
 CryptoPP::RandomNumberGenerator & mu_coin::pool ()
 {
@@ -28,7 +28,7 @@ CryptoPP::OID & mu_coin::curve ()
     return result;
 };
 
-mu_coin::entry::entry (boost::multiprecision::uint256_t const & coins_a, boost::multiprecision::uint256_t const & previous_a) :
+mu_coin::entry::entry (boost::multiprecision::uint256_t const & previous_a, boost::multiprecision::uint256_t const & coins_a) :
 previous (previous_a),
 coins (coins_a)
 {
@@ -205,6 +205,9 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     {
         if (next < previous)
         {
+            std::string nextstr (next.convert_to<std::string>());
+            std::string feestr (block_a->fee ().convert_to<std::string>());
+            std::string previousstr (previous.convert_to<std::string>());
             if (next + block_a->fee () == previous)
             {
                 for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); i != j; ++i)

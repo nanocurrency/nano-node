@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.8)
 project (mu_coin)
 
+add_definitions (-std=c++11)
+
 include_directories (${CMAKE_SOURCE_DIR})
 
 find_package (Boost REQUIRED)
