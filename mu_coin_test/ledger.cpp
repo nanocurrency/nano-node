@@ -64,4 +64,7 @@ TEST (ledger, simple_spend)
     spend.entries [1].sign (prv2, spend.hash ());
     auto error (ledger.process (&spend));
     ASSERT_FALSE (error);
+    auto block1 (ledger.latest.find (address1));
+    auto block2 (ledger.latest.find (address2));
+    ASSERT_EQ (block1->second, block2->second);
 }
