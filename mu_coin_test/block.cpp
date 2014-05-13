@@ -37,10 +37,10 @@ TEST (transaction_block, empty)
     ASSERT_EQ (1, block.entries.size ());
     boost::multiprecision::uint256_t hash (block.hash ());
     block.entries [0].sign (prv, hash);
-    bool valid1 (block.entries [0].validate (pub, hash));
+    bool valid1 (block.entries [0].validate (hash));
     ASSERT_TRUE (valid1);
     block.entries [0].signature.bytes [32] ^= 0x1;
-    bool valid2 (block.entries [0].validate (pub, hash));
+    bool valid2 (block.entries [0].validate (hash));
     ASSERT_FALSE (valid2);
 }
 

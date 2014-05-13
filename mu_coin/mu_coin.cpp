@@ -149,9 +149,9 @@ void mu_coin::entry::sign (EC::PrivateKey const & private_key, mu_coin::uint256_
     signer.SignMessage (pool (), message.bytes.data (), sizeof (message), signature.bytes.data ());
 }
 
-bool mu_coin::entry::validate (EC::PublicKey const & public_key, mu_coin::uint256_union const & message)
+bool mu_coin::entry::validate (mu_coin::uint256_union const & message)
 {
-    EC::Verifier verifier (public_key);
+    EC::Verifier verifier (key ());
     auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message), signature.bytes.data (), sizeof (signature)));
     return result;
 }
@@ -182,7 +182,7 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); !result && i != j; ++i)
     {
         auto & address (i->address);
-        i->validate (i->key (), message);
+        i->validate (message);
         auto existing (latest.find (address));
         if (i->sequence > 0)
         {

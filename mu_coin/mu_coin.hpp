@@ -85,7 +85,7 @@ namespace mu_coin {
         entry () = default;
         entry (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
-        bool validate (EC::PublicKey const &, mu_coin::uint256_union const &);
+        bool validate (mu_coin::uint256_union const &);
         mu_coin::EC::PublicKey key () const;
         uint512_union signature;
         mu_coin::address address;
