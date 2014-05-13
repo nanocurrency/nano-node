@@ -25,18 +25,15 @@ TEST (transaction_block, big_endian_union_function)
 
 TEST (transaction_block, empty)
 {
-    mu_coin::EC::PrivateKey prv;
-    prv.Initialize (mu_coin::pool (), mu_coin::oid ());
-    mu_coin::EC::PublicKey pub;
-    prv.MakePublicKey (pub);
+    mu_coin::keypair key1;
     mu_coin::uint256_t thing;
     mu_coin::transaction_block block;
-    mu_coin::entry entry (pub, 0, 0);
-    ASSERT_EQ (pub, entry.key ());
+    mu_coin::entry entry (key1.pub, 0, 0);
+    ASSERT_EQ (key1.pub, entry.key ());
     block.entries.push_back (entry);
     ASSERT_EQ (1, block.entries.size ());
     boost::multiprecision::uint256_t hash (block.hash ());
-    block.entries [0].sign (prv, hash);
+    block.entries [0].sign (key1.prv, hash);
     bool valid1 (block.entries [0].validate (hash));
     ASSERT_TRUE (valid1);
     block.entries [0].signature.bytes [32] ^= 0x1;
