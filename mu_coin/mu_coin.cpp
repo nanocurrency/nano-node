@@ -288,3 +288,9 @@ mu_coin::EC::PublicKey mu_coin::entry::key () const
     mu_coin::point_encoding point (point_type, address.number);
     return point.key ();
 }
+
+mu_coin::keypair::keypair ()
+{
+    prv.Initialize (pool (), oid ());
+    prv.MakePublicKey (pub);
+}

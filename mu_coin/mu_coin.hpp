@@ -109,4 +109,11 @@ namespace mu_coin {
         bool process (mu_coin::transaction_block *);
         std::unordered_map <mu_coin::address, mu_coin::transaction_block *> latest;
     };
+    class keypair
+    {
+    public:
+        keypair ();
+        mu_coin::EC::PublicKey pub;
+        mu_coin::EC::PrivateKey prv;
+    };
 }
