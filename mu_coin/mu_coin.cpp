@@ -182,19 +182,26 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); !result && i != j; ++i)
     {
         auto & address (i->address);
-        i->validate (message);
-        auto existing (latest.find (address));
-        if (i->sequence > 0)
+        auto valid (i->validate (message));
+        if (valid)
         {
-            if (existing != latest.end ())
+            auto existing (latest.find (address));
+            if (i->sequence > 0)
             {
-                auto previous_entry (std::find_if (existing->second->entries.begin (), existing->second->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.address;}));
-                if (previous_entry != existing->second->entries.end ())
+                if (existing != latest.end ())
                 {
-                    if (previous_entry->sequence + 1 == i->sequence)
+                    auto previous_entry (std::find_if (existing->second->entries.begin (), existing->second->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.address;}));
+                    if (previous_entry != existing->second->entries.end ())
                     {
-                        previous += previous_entry->coins;
-                        next += i->coins;
+                        if (previous_entry->sequence + 1 == i->sequence)
+                        {
+                            previous += previous_entry->coins;
+                            next += i->coins;
+                        }
+                        else
+                        {
+                            result = true;
+                        }
                     }
                     else
                     {
@@ -208,19 +215,19 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
             }
             else
             {
-                result = true;
+                if (existing == latest.end ())
+                {
+                    next += i->coins;
+                }
+                else
+                {
+                    result = true;
+                }
             }
         }
         else
         {
-            if (existing == latest.end ())
-            {
-                next += i->coins;
-            }
-            else
-            {
-                result = true;
-            }
+            result = true;
         }
     }
     if (!result)
