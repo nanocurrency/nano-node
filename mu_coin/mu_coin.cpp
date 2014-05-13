@@ -149,7 +149,7 @@ void mu_coin::entry::sign (EC::PrivateKey const & private_key, mu_coin::uint256_
     signer.SignMessage (pool (), message.bytes.data (), sizeof (message), signature.bytes.data ());
 }
 
-bool mu_coin::entry::validate (mu_coin::uint256_union const & message)
+bool mu_coin::entry::validate (mu_coin::uint256_union const & message) const
 {
     EC::Verifier verifier (key ());
     auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message), signature.bytes.data (), sizeof (signature)));
@@ -161,37 +161,37 @@ mu_coin::point_encoding::point_encoding (mu_coin::EC::PublicKey const & pub)
     curve ().EncodePoint (bytes.data (), pub.GetPublicElement(), true);
 }
 
-mu_coin::transaction_block * mu_coin::ledger::previous (mu_coin::address const & address_a)
+std::unique_ptr <mu_coin::transaction_block> mu_coin::ledger::previous (mu_coin::address const & address_a)
 {
     assert (has_balance (address_a));
-    auto existing (latest.find (address_a));
-    return existing->second;
+    auto existing (store.latest (address_a));
+    return existing;
 }
 
 bool mu_coin::ledger::has_balance (mu_coin::address const & address_a)
 {
-    return latest.find (address_a) != latest.end ();
+    return store.latest (address_a) != nullptr;
 }
 
-bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
+bool mu_coin::ledger::process (mu_coin::transaction_block const & block_a)
 {
     auto result (false);
-    mu_coin::uint256_t message (block_a->hash ());
+    mu_coin::uint256_t message (block_a.hash ());
     boost::multiprecision::uint256_t previous;
     boost::multiprecision::uint256_t next;
-    for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); !result && i != j; ++i)
+    for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); !result && i != j; ++i)
     {
         auto & address (i->address);
         auto valid (i->validate (message));
         if (valid)
         {
-            auto existing (latest.find (address));
+            auto existing (store.latest (address));
             if (i->sequence > 0)
             {
-                if (existing != latest.end ())
+                if (existing != nullptr)
                 {
-                    auto previous_entry (std::find_if (existing->second->entries.begin (), existing->second->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.address;}));
-                    if (previous_entry != existing->second->entries.end ())
+                    auto previous_entry (std::find_if (existing->entries.begin (), existing->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.address;}));
+                    if (previous_entry != existing->entries.end ())
                     {
                         if (previous_entry->sequence + 1 == i->sequence)
                         {
@@ -215,7 +215,7 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
             }
             else
             {
-                if (existing == latest.end ())
+                if (existing == nullptr)
                 {
                     next += i->coins;
                 }
@@ -234,11 +234,11 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     {
         if (next < previous)
         {
-            if (next + block_a->fee () == previous)
+            if (next + block_a.fee () == previous)
             {
-                for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); i != j; ++i)
+                for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); i != j; ++i)
                 {
-                    latest [i->address] = block_a;
+                    store.insert (i->address, block_a);
                 }
             }
             else
@@ -293,4 +293,57 @@ mu_coin::keypair::keypair ()
 {
     prv.Initialize (pool (), oid ());
     prv.MakePublicKey (pub);
+}
+
+std::unique_ptr <mu_coin::transaction_block> mu_coin::block_store_memory::latest (mu_coin::address const & address_a)
+{
+    auto existing (blocks.find (address_a));
+    if (existing != blocks.end ())
+    {
+        return std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block (existing->second->back ()));
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
+void mu_coin::block_store_memory::insert (mu_coin::address const & address_a, mu_coin::transaction_block const & block)
+{
+    auto existing (blocks.find (address_a));
+    if (existing != blocks.end ())
+    {
+        existing->second->push_back (block);
+    }
+    else
+    {
+        auto blocks_l (new std::vector <mu_coin::transaction_block>);
+        blocks [address_a] = blocks_l;
+        blocks_l->push_back (block);
+    }
+}
+
+mu_coin::ledger::ledger (mu_coin::block_store & store_a) :
+store (store_a)
+{
+}
+
+bool mu_coin::entry::operator == (mu_coin::entry const & other_a) const
+{
+    return signature == other_a.signature && address == other_a.address && coins == other_a.coins && sequence == other_a.sequence && point_type == other_a.point_type;
+}
+
+bool mu_coin::uint256_union::operator == (mu_coin::uint256_union const & other_a) const
+{
+    return bytes == other_a.bytes;
+}
+
+bool mu_coin::uint512_union::operator == (mu_coin::uint512_union const & other_a) const
+{
+    return bytes == other_a.bytes;
+}
+
+bool mu_coin::transaction_block::operator == (mu_coin::transaction_block const & other_a) const
+{
+    return entries == other_a.entries;
 }

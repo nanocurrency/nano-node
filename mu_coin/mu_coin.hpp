@@ -7,6 +7,7 @@
 #include <cryptopp/oids.h>
 
 #include <unordered_map>
+#include <memory>
 
 namespace mu_coin {
     using uint256_t = boost::multiprecision::uint256_t;
@@ -18,6 +19,7 @@ namespace mu_coin {
     {
         uint256_union () = default;
         uint256_union (boost::multiprecision::uint256_t const &);
+        bool operator == (mu_coin::uint256_union const &) const;
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
         void clear ();
@@ -36,6 +38,7 @@ namespace mu_coin {
     {
         uint512_union () = default;
         uint512_union (boost::multiprecision::uint512_t const &);
+        bool operator == (mu_coin::uint512_union const &) const;
         std::array <uint8_t, 64> bytes;
         std::array <uint64_t, 8> qwords;
         void clear ();
@@ -85,7 +88,8 @@ namespace mu_coin {
         entry () = default;
         entry (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
-        bool validate (mu_coin::uint256_union const &);
+        bool validate (mu_coin::uint256_union const &) const;
+        bool operator == (mu_coin::entry const &) const;
         mu_coin::EC::PublicKey key () const;
         uint512_union signature;
         mu_coin::address address;
@@ -98,16 +102,33 @@ namespace mu_coin {
     public:
         boost::multiprecision::uint256_t fee () const override;
         boost::multiprecision::uint256_t hash () const override;
+        bool operator == (mu_coin::transaction_block const &) const;
         std::vector <entry> entries;
+    };
+    class block_store
+    {
+    public:
+        virtual std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) = 0;
+        virtual void insert (mu_coin::address const &, mu_coin::transaction_block const &) = 0;
     };
     class ledger
     {
     public:
-        mu_coin::transaction_block * previous (mu_coin::address const &);
+        ledger (mu_coin::block_store &);
+        std::unique_ptr <mu_coin::transaction_block> previous (mu_coin::address const &);
         mu_coin::transaction_block * block (boost::multiprecision::uint256_t const &);
         bool has_balance (mu_coin::address const &);
-        bool process (mu_coin::transaction_block *);
-        std::unordered_map <mu_coin::address, mu_coin::transaction_block *> latest;
+        bool process (mu_coin::transaction_block const &);
+    private:
+        mu_coin::block_store & store;
+    };
+    class block_store_memory : public block_store
+    {
+    public:
+        std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) override;
+        void insert (mu_coin::address const &, mu_coin::transaction_block const &) override;
+    private:
+        std::unordered_map <mu_coin::address, std::vector <mu_coin::transaction_block> *> blocks;
     };
     class keypair
     {
