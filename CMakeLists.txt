@@ -12,7 +12,7 @@ find_package (GTest REQUIRED)
 include_directories (${GTEST_INCLUDE_DIR})
 
 find_package (CryptoPP REQUIRED)
-include_directories (${CRYPTOPP_INCLUDE_DIRS})
+include_directories (${CRYPTOPP_INCLUDE_DIR})
 
 add_library (mu_coin 
 	mu_coin/entry.cpp

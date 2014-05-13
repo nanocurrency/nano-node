@@ -3,16 +3,11 @@
 
 bool mu_coin::address::operator == (mu_coin::address const & other_a) const
 {
-    return number == other_a.number;
+    return number.bytes == other_a.number.bytes;
 }
 
-mu_coin::address::address (boost::multiprecision::uint256_t const & number_a) :
+mu_coin::address::address (uint256_union const & number_a) :
 number (number_a)
-{
-}
-
-mu_coin::address::address (mu_coin::EC::PublicKey const & pub) :
-number (mu_coin::uint256_union (pub).number ())
 {
 }
 
@@ -34,11 +29,13 @@ CryptoPP::ECP const & mu_coin::curve ()
     return result.GetCurve ();
 };
 
-mu_coin::entry::entry (mu_coin::address const & address_a, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
-address (address_a),
+mu_coin::entry::entry (EC::PublicKey const & pub, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
 coins (coins_a),
 sequence (sequence_a)
 {
+    mu_coin::point_encoding encoding (pub);
+    point_type = encoding.type ();
+    address.number = encoding.point ();
 }
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
@@ -97,7 +94,7 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
     mu_coin::uint256_union digest;
     for (auto i (entries.begin ()), j (entries.end ()); i != j; ++i)
     {
-        hash_number (hash, i->address.number);
+        hash_number (hash, i->address.number.number ());
         hash_number (hash, i->coins);
         hash.Update (reinterpret_cast <uint8_t const *> (&i->sequence), sizeof (decltype (i->sequence)));
     }
@@ -159,7 +156,7 @@ bool mu_coin::entry::validate (EC::PublicKey const & public_key, mu_coin::uint25
     return result;
 }
 
-mu_coin::uint256_union::uint256_union (mu_coin::EC::PublicKey const & pub)
+mu_coin::point_encoding::point_encoding (mu_coin::EC::PublicKey const & pub)
 {
     curve ().EncodePoint (bytes.data (), pub.GetPublicElement(), true);
 }
@@ -179,11 +176,13 @@ bool mu_coin::ledger::has_balance (mu_coin::address const & address_a)
 bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
 {
     auto result (false);
+    mu_coin::uint256_t message (block_a->hash ());
     boost::multiprecision::uint256_t previous;
     boost::multiprecision::uint256_t next;
     for (auto i (block_a->entries.begin ()), j (block_a->entries.end ()); !result && i != j; ++i)
     {
         auto & address (i->address);
+        i->validate (i->key (), message);
         auto existing (latest.find (address));
         if (i->sequence > 0)
         {
@@ -248,11 +247,37 @@ bool mu_coin::ledger::process (mu_coin::transaction_block * block_a)
     return result;
 }
 
-mu_coin::EC::PublicKey mu_coin::uint256_union::key () const
+mu_coin::EC::PublicKey mu_coin::point_encoding::key () const
 {
     mu_coin::EC::PublicKey::Element element;
-    curve ().DecodePoint (element, bytes.data (), bytes.size ());
+    auto valid (curve ().DecodePoint (element, bytes.data (), bytes.size ()));
+    assert (valid);
     mu_coin::EC::PublicKey result;
-    result.SetPublicElement (element);
+    result.Initialize (oid (), element);
     return result;
+}
+
+mu_coin::point_encoding::point_encoding (uint8_t type_a, uint256_union const & point_a)
+{
+    assert (type_a == 2 || type_a == 3);
+    bytes [0] = type_a;
+    std::copy (point_a.bytes.begin (), point_a.bytes.end (), bytes.begin () + 1);
+}
+
+uint8_t mu_coin::point_encoding::type () const
+{
+    return bytes [0];
+}
+
+mu_coin::uint256_union mu_coin::point_encoding::point () const
+{
+    uint256_union result;
+    std::copy (bytes.begin () + 1, bytes.end (), result.bytes.begin ());
+    return result;
+}
+
+mu_coin::EC::PublicKey mu_coin::entry::key () const
+{
+    mu_coin::point_encoding point (point_type, address.number);
+    return point.key ();
 }

@@ -5,7 +5,7 @@
 TEST (ledger, empty)
 {
     mu_coin::ledger ledger;
-    ASSERT_FALSE (ledger.has_balance (mu_coin::address (0)));
+    ASSERT_FALSE (ledger.has_balance (mu_coin::address (mu_coin::uint256_union (0))));
 }
 
 TEST (ledger, genesis_balance)
@@ -14,13 +14,13 @@ TEST (ledger, genesis_balance)
     prv.Initialize (mu_coin::pool (), mu_coin::oid ());
     mu_coin::EC::PublicKey pub;
     prv.MakePublicKey (pub);
-    mu_coin::address address (pub);
     mu_coin::transaction_block genesis;
     boost::multiprecision::uint256_t max (std::numeric_limits <boost::multiprecision::uint256_t>::max ());
-    genesis.entries.push_back (mu_coin::entry (address, max, 0));
+    mu_coin::entry entry (pub, max, 0);
+    genesis.entries.push_back (entry);
     genesis.entries [0].sign (prv, genesis.hash ());
     mu_coin::ledger ledger;
-    ledger.latest [mu_coin::address (pub)] = &genesis;
+    ledger.latest [entry.address] = &genesis;
 }
 
 TEST (address, two_addresses)
@@ -34,8 +34,10 @@ TEST (address, two_addresses)
     mu_coin::EC::PublicKey pub2;
     prv2.MakePublicKey (pub2);
     ASSERT_FALSE (pub1 == pub2);
-    mu_coin::address addr1 (pub1);
-    mu_coin::address addr2 (pub2);
+    mu_coin::point_encoding point1 (pub1);
+    mu_coin::address addr1 (point1.point ());
+    mu_coin::point_encoding point2 (pub2);
+    mu_coin::address addr2 (point2.point ());
     ASSERT_FALSE (addr1 == addr2);
 }
 
@@ -45,26 +47,27 @@ TEST (ledger, simple_spend)
     prv1.Initialize (mu_coin::pool (), mu_coin::oid ());
     mu_coin::EC::PublicKey pub1;
     prv1.MakePublicKey (pub1);
-    mu_coin::address address1 (pub1);
     mu_coin::transaction_block genesis;
     boost::multiprecision::uint256_t max (std::numeric_limits <boost::multiprecision::uint256_t>::max ());
-    genesis.entries.push_back (mu_coin::entry (address1.number, max, 0));
+    mu_coin::entry entry1 (pub1, max, 0);
+    genesis.entries.push_back (entry1);
     genesis.entries [0].sign (prv1, genesis.hash ());
     mu_coin::ledger ledger;
-    ledger.latest [mu_coin::address (pub1)] = &genesis;
+    ledger.latest [entry1.address] = &genesis;
     mu_coin::EC::PrivateKey prv2;
     prv2.Initialize (mu_coin::pool (), mu_coin::oid ());
     mu_coin::EC::PublicKey pub2;
     prv2.MakePublicKey (pub2);
-    mu_coin::address address2 (pub2);
     mu_coin::transaction_block spend;
-    spend.entries.push_back (mu_coin::entry (address1.number, 0, 1));
-    spend.entries.push_back (mu_coin::entry (address2.number, max - 1, 0));
+    mu_coin::entry entry2 (pub1, 0, 1);
+    spend.entries.push_back (entry2);
+    mu_coin::entry entry3 (pub2, max - 1, 0);
+    spend.entries.push_back (entry3);
     spend.entries [0].sign (prv1, spend.hash ());
     spend.entries [1].sign (prv2, spend.hash ());
     auto error (ledger.process (&spend));
     ASSERT_FALSE (error);
-    auto block1 (ledger.latest.find (address1));
-    auto block2 (ledger.latest.find (address2));
+    auto block1 (ledger.latest.find (entry2.address));
+    auto block2 (ledger.latest.find (entry3.address));
     ASSERT_EQ (block1->second, block2->second);
 }
