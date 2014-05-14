@@ -3,6 +3,14 @@
 #include <db_cxx.h>
 
 namespace mu_coin_store {
+    class dbt
+    {
+    public:
+        dbt () = default;
+        dbt (mu_coin::address const &);
+        std::unique_ptr <mu_coin::transaction_block> block ();
+        Dbt data;
+    };
     struct block_store_db_temp
     {
     };

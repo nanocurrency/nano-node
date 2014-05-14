@@ -82,6 +82,36 @@ namespace mu_coin {
         virtual boost::multiprecision::uint256_t fee () const = 0;
         virtual boost::multiprecision::uint256_t hash () const = 0;
     };
+    class byte_read_stream
+    {
+    public:
+        byte_read_stream (uint8_t *, uint8_t *);
+        byte_read_stream (uint8_t *, size_t);
+        template <typename T>
+        bool read (T & value)
+        {
+            return read (reinterpret_cast <uint8_t *> (&value), sizeof (value));
+        }
+        bool read (uint8_t *, size_t);
+        size_t size ();
+        uint8_t * data;
+        uint8_t * end;
+    };
+    class byte_write_stream
+    {
+    public:
+        byte_write_stream ();
+        ~byte_write_stream ();
+        void extend (size_t);
+        template <typename T>
+        void write (T const & value)
+        {
+            write (reinterpret_cast <uint8_t const *> (&value), sizeof (value));
+        }
+        void write (uint8_t const *, size_t);
+        uint8_t * data;
+        size_t size;
+    };
     class entry
     {
     public:
@@ -93,7 +123,7 @@ namespace mu_coin {
         mu_coin::EC::PublicKey key () const;
         uint512_union signature;
         mu_coin::address address;
-        mu_coin::uint256_t coins;
+        mu_coin::uint256_union coins;
         uint16_t sequence;
         uint8_t point_type;
     };
@@ -103,6 +133,8 @@ namespace mu_coin {
         boost::multiprecision::uint256_t fee () const override;
         boost::multiprecision::uint256_t hash () const override;
         bool operator == (mu_coin::transaction_block const &) const;
+        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::byte_read_stream &);
         std::vector <entry> entries;
     };
     class block_store

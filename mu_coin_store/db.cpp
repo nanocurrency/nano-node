@@ -1,16 +1,38 @@
 #include <mu_coin_store/db.hpp>
+#include <boost/filesystem.hpp>
 
 mu_coin_store::block_store_db::block_store_db (block_store_db_temp const &) :
 handle (nullptr, 0)
 {
+    boost::filesystem::path temp (boost::filesystem::unique_path ());
+    handle.open (nullptr, temp.native().c_str (), nullptr, DB_BTREE, DB_CREATE | DB_EXCL, 0);
 }
 
-std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::latest (mu_coin::address const &)
+std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::latest (mu_coin::address const & address_a)
+{
+    std::unique_ptr <mu_coin::transaction_block> result;
+    dbt key (address_a);
+    dbt value;
+    int error (handle.get (nullptr, &key.data, &value.data, 0));
+    if (value.data.get_size () > 0)
+    {
+        auto item (std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block));
+        mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t *> (value.data.get_data ()), reinterpret_cast <uint8_t *> (value.data.get_data ()) + value.data.get_size ());
+        auto error (item->deserialize (stream));
+        if (!error)
+        {
+            result = std::move (item);
+        }
+    }
+    return result;
+}
+
+void mu_coin_store::block_store_db::insert (mu_coin::address const & address_a, mu_coin::transaction_block const & block_a)
 {
     
 }
 
-void mu_coin_store::block_store_db::insert (mu_coin::address const &, mu_coin::transaction_block const &)
+mu_coin_store::dbt::dbt (mu_coin::address const & address_a)
 {
     
 }

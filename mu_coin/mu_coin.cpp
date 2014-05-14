@@ -95,7 +95,7 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
     for (auto i (entries.begin ()), j (entries.end ()); i != j; ++i)
     {
         hash_number (hash, i->address.number.number ());
-        hash_number (hash, i->coins);
+        hash_number (hash, i->coins.number ());
         hash.Update (reinterpret_cast <uint8_t const *> (&i->sequence), sizeof (decltype (i->sequence)));
     }
     hash.Final (digest.bytes.data ());
@@ -195,8 +195,8 @@ bool mu_coin::ledger::process (mu_coin::transaction_block const & block_a)
                     {
                         if (previous_entry->sequence + 1 == i->sequence)
                         {
-                            previous += previous_entry->coins;
-                            next += i->coins;
+                            previous += previous_entry->coins.number ();
+                            next += i->coins.number ();
                         }
                         else
                         {
@@ -217,7 +217,7 @@ bool mu_coin::ledger::process (mu_coin::transaction_block const & block_a)
             {
                 if (existing == nullptr)
                 {
-                    next += i->coins;
+                    next += i->coins.number ();
                 }
                 else
                 {
@@ -346,4 +346,114 @@ bool mu_coin::uint512_union::operator == (mu_coin::uint512_union const & other_a
 bool mu_coin::transaction_block::operator == (mu_coin::transaction_block const & other_a) const
 {
     return entries == other_a.entries;
+}
+
+void mu_coin::transaction_block::serialize (mu_coin::byte_write_stream & data_a)
+{
+    uint32_t size (entries.size ());
+    data_a.write (size);
+    for (auto & i: entries)
+    {
+        data_a.write (i.signature.bytes);
+        data_a.write (i.address.number.bytes);
+        data_a.write (i.coins.bytes);
+        data_a.write (i.sequence);
+        data_a.write (i.point_type);
+    }
+}
+
+bool mu_coin::transaction_block::deserialize (byte_read_stream & data)
+{
+    auto error (false);
+    uint32_t size;
+    error = data.read (size);
+    if (!error)
+    {
+        for (uint32_t i (0), j (size); i < j && !error; ++i)
+        {
+            static size_t const entry_size (sizeof (mu_coin::uint512_union) + sizeof (mu_coin::uint256_union) + sizeof (uint16_t));
+            if (data.size () >= entry_size)
+            {
+                entries.push_back (mu_coin::entry ());
+                auto & signature (entries.back ().signature.bytes);
+                data.read (signature);
+                auto & address (entries.back ().address.number.bytes);
+                data.read (address);
+                auto & coins (entries.back ().coins.bytes);
+                data.read (coins);
+                auto & sequence (entries.back ().sequence);
+                data.read (sequence);
+                auto & point_type (entries.back ().point_type);
+                data.read (point_type);
+            }
+            else
+            {
+                error = true;
+            }
+        }
+        if (data.size () > 0)
+        {
+            error = true;
+        }
+    }
+    else
+    {
+        error = true;
+    }    
+    return error;
+}
+
+size_t mu_coin::byte_read_stream::byte_read_stream::size ()
+{
+    return end - data;
+}
+
+mu_coin::byte_read_stream::byte_read_stream (uint8_t * data_a, uint8_t * end_a) :
+data (data_a),
+end (end_a)
+{
+}
+
+mu_coin::byte_read_stream::byte_read_stream (uint8_t * data_a, size_t size_a) :
+data (data_a),
+end (data_a + size_a)
+{
+}
+
+bool mu_coin::byte_read_stream::read (uint8_t * value, size_t size_a)
+{
+    auto result (false);
+    if (data + size_a <= end)
+    {
+        std::copy (data, data + size_a, value);
+        data += size_a;
+    }
+    else
+    {
+       result = true;
+    }
+    return result;
+}
+
+mu_coin::byte_write_stream::byte_write_stream () :
+data (nullptr),
+size (0)
+{
+}
+
+mu_coin::byte_write_stream::~byte_write_stream ()
+{
+    free (data);
+}
+
+void mu_coin::byte_write_stream::extend (size_t additional)
+{
+    data = size ? reinterpret_cast <uint8_t *> (realloc (data, size + additional)) : reinterpret_cast <uint8_t *> (malloc (additional));
+    size += additional;
+}
+
+void mu_coin::byte_write_stream::write (uint8_t const * data_a, size_t size_a)
+{
+    extend (size_a);
+    std::copy (data_a, data_a + size_a, data + size - size_a);
 }
