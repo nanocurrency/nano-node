@@ -8,7 +8,7 @@ include_directories (${CMAKE_SOURCE_DIR})
 find_package (BerkeleyDB REQUIRED)
 include_directories (${BerkeleyDB_INCLUDE_DIR})
 
-find_package (Boost REQUIRED)
+find_package (Boost REQUIRED COMPONENTS filesystem system)
 include_directories (${Boost_INCLUDE_DIR})
 
 find_package (GTest REQUIRED)
@@ -31,4 +31,4 @@ add_executable (mu_coin_test
 	mu_coin_test/block.cpp
     mu_coin_test/db.cpp)
 
-target_link_libraries (mu_coin_test mu_coin_store ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} mu_coin)
+target_link_libraries (mu_coin_test mu_coin_store ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} mu_coin)

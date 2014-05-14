@@ -1,7 +1,9 @@
 #include <mu_coin_store/db.hpp>
 #include <boost/filesystem.hpp>
 
-mu_coin_store::block_store_db::block_store_db (block_store_db_temp const &) :
+mu_coin_store::block_store_db_temp_t mu_coin_store::block_store_db_temp;
+
+mu_coin_store::block_store_db::block_store_db (block_store_db_temp_t const &) :
 handle (nullptr, 0)
 {
     boost::filesystem::path temp (boost::filesystem::unique_path ());
