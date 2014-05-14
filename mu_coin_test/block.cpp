@@ -70,3 +70,35 @@ TEST (transaction_block, serialize_one_entry)
     block2.deserialize (input);
     ASSERT_EQ (block1, block2);
 }
+
+TEST (transaction_block, serialize_one_unequeal)
+{
+    mu_coin::transaction_block block1;
+    mu_coin::byte_write_stream stream;
+    mu_coin::keypair key1;
+    mu_coin::entry entry1 (key1.pub, 37, 43);
+    block1.entries.push_back (entry1);
+    block1.serialize (stream);
+    stream.data [0] ^= 1;
+    mu_coin::byte_read_stream input (stream.data, stream.size);
+    mu_coin::transaction_block block2;
+    block2.deserialize (input);
+    ASSERT_FALSE (block1 == block2);
+}
+
+TEST (transaction_block, serialize_two_entries)
+{
+    mu_coin::transaction_block block1;
+    mu_coin::byte_write_stream stream;
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    mu_coin::entry entry1 (key1.pub, 37, 43);
+    block1.entries.push_back (entry1);
+    mu_coin::entry entry2 (key2.pub, 7, 11);
+    block1.entries.push_back (entry2);
+    block1.serialize (stream);
+    mu_coin::byte_read_stream input (stream.data, stream.size);
+    mu_coin::transaction_block block2;
+    block2.deserialize (input);
+    ASSERT_EQ (block1, block2);
+}
