@@ -27,6 +27,7 @@ namespace mu_coin {
     };
     struct point_encoding
     {
+        point_encoding () = default;
         point_encoding (EC::PublicKey const &);
         point_encoding (uint8_t, uint256_union const &);
         std::array <uint8_t, 33> bytes;
@@ -48,9 +49,10 @@ namespace mu_coin {
     {
     public:
         address () = default;
-        address (uint256_union const &);
+        address (EC::PublicKey const &);
+        address (point_encoding const &);
         bool operator == (mu_coin::address const &) const;
-        uint256_union number;
+        point_encoding point;
     };
 }
 
@@ -61,7 +63,7 @@ namespace std
     {
         size_t operator () (mu_coin::address const & address_a) const
         {
-            size_t hash (address_a.number.qwords [0]);
+            size_t hash (*reinterpret_cast <size_t const *> (address_a.point.bytes.data ()));
             return hash;
         }
     };
@@ -79,8 +81,8 @@ namespace mu_coin {
     class block
     {
     public:
-        virtual boost::multiprecision::uint256_t fee () const = 0;
-        virtual boost::multiprecision::uint256_t hash () const = 0;
+        virtual mu_coin::uint256_t fee () const = 0;
+        virtual mu_coin::uint256_t hash () const = 0;
     };
     class byte_read_stream
     {
@@ -112,6 +114,16 @@ namespace mu_coin {
         uint8_t * data;
         size_t size;
     };
+    class block_id
+    {
+    public:
+        block_id () = default;
+        block_id (EC::PublicKey const &, uint16_t);
+        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::byte_read_stream &);
+        mu_coin::address address;
+        uint16_t sequence;
+    };
     class entry
     {
     public:
@@ -122,10 +134,8 @@ namespace mu_coin {
         bool operator == (mu_coin::entry const &) const;
         mu_coin::EC::PublicKey key () const;
         uint512_union signature;
-        mu_coin::address address;
         mu_coin::uint256_union coins;
-        uint16_t sequence;
-        uint8_t point_type;
+        mu_coin::block_id id;
     };
     class transaction_block : public mu_coin::block
     {

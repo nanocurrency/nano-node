@@ -3,11 +3,11 @@
 
 bool mu_coin::address::operator == (mu_coin::address const & other_a) const
 {
-    return number.bytes == other_a.number.bytes;
+    return point.bytes == other_a.point.bytes;
 }
 
-mu_coin::address::address (uint256_union const & number_a) :
-number (number_a)
+mu_coin::address::address (point_encoding const & point_a) :
+point (point_a)
 {
 }
 
@@ -31,11 +31,8 @@ CryptoPP::ECP const & mu_coin::curve ()
 
 mu_coin::entry::entry (EC::PublicKey const & pub, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
 coins (coins_a),
-sequence (sequence_a)
+id (pub, sequence_a)
 {
-    mu_coin::point_encoding encoding (pub);
-    point_type = encoding.type ();
-    address.number = encoding.point ();
 }
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
@@ -94,9 +91,9 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::hash () const
     mu_coin::uint256_union digest;
     for (auto i (entries.begin ()), j (entries.end ()); i != j; ++i)
     {
-        hash_number (hash, i->address.number.number ());
         hash_number (hash, i->coins.number ());
-        hash.Update (reinterpret_cast <uint8_t const *> (&i->sequence), sizeof (decltype (i->sequence)));
+        hash.Update (i->id.address.point.bytes.data (), sizeof (i->id.address.point.bytes));
+        hash.Update (reinterpret_cast <uint8_t const *> (&i->id.sequence), sizeof (decltype (i->id.sequence)));
     }
     hash.Final (digest.bytes.data ());
     return digest.number ();
@@ -181,19 +178,19 @@ bool mu_coin::ledger::process (mu_coin::transaction_block const & block_a)
     boost::multiprecision::uint256_t next;
     for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); !result && i != j; ++i)
     {
-        auto & address (i->address);
+        auto & address (i->id.address);
         auto valid (i->validate (message));
         if (valid)
         {
             auto existing (store.latest (address));
-            if (i->sequence > 0)
+            if (i->id.sequence > 0)
             {
                 if (existing != nullptr)
                 {
-                    auto previous_entry (std::find_if (existing->entries.begin (), existing->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.address;}));
+                    auto previous_entry (std::find_if (existing->entries.begin (), existing->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.id.address;}));
                     if (previous_entry != existing->entries.end ())
                     {
-                        if (previous_entry->sequence + 1 == i->sequence)
+                        if (previous_entry->id.sequence + 1 == i->id.sequence)
                         {
                             previous += previous_entry->coins.number ();
                             next += i->coins.number ();
@@ -238,7 +235,7 @@ bool mu_coin::ledger::process (mu_coin::transaction_block const & block_a)
             {
                 for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); i != j; ++i)
                 {
-                    store.insert (i->address, block_a);
+                    store.insert (i->id.address, block_a);
                 }
             }
             else
@@ -285,8 +282,7 @@ mu_coin::uint256_union mu_coin::point_encoding::point () const
 
 mu_coin::EC::PublicKey mu_coin::entry::key () const
 {
-    mu_coin::point_encoding point (point_type, address.number);
-    return point.key ();
+    return id.address.point.key ();
 }
 
 mu_coin::keypair::keypair ()
@@ -330,7 +326,7 @@ store (store_a)
 
 bool mu_coin::entry::operator == (mu_coin::entry const & other_a) const
 {
-    return signature == other_a.signature && address == other_a.address && coins == other_a.coins && sequence == other_a.sequence && point_type == other_a.point_type;
+    return signature == other_a.signature && id.address == other_a.id.address && coins == other_a.coins && id.sequence == other_a.id.sequence;
 }
 
 bool mu_coin::uint256_union::operator == (mu_coin::uint256_union const & other_a) const
@@ -355,10 +351,8 @@ void mu_coin::transaction_block::serialize (mu_coin::byte_write_stream & data_a)
     for (auto & i: entries)
     {
         data_a.write (i.signature.bytes);
-        data_a.write (i.address.number.bytes);
         data_a.write (i.coins.bytes);
-        data_a.write (i.sequence);
-        data_a.write (i.point_type);
+        i.id.serialize (data_a);
     }
 }
 
@@ -377,14 +371,9 @@ bool mu_coin::transaction_block::deserialize (byte_read_stream & data)
                 entries.push_back (mu_coin::entry ());
                 auto & signature (entries.back ().signature.bytes);
                 data.read (signature);
-                auto & address (entries.back ().address.number.bytes);
-                data.read (address);
                 auto & coins (entries.back ().coins.bytes);
                 data.read (coins);
-                auto & sequence (entries.back ().sequence);
-                data.read (sequence);
-                auto & point_type (entries.back ().point_type);
-                data.read (point_type);
+                error = entries.back ().id.deserialize (data);
             }
             else
             {
@@ -456,4 +445,39 @@ void mu_coin::byte_write_stream::write (uint8_t const * data_a, size_t size_a)
 {
     extend (size_a);
     std::copy (data_a, data_a + size_a, data + size - size_a);
+}
+
+mu_coin::block_id::block_id (EC::PublicKey const & pub, uint16_t sequence_a) :
+address (pub),
+sequence (sequence_a)
+{
+}
+
+mu_coin::address::address (EC::PublicKey const & pub_a) :
+point (pub_a)
+{
+}
+
+void mu_coin::block_id::serialize (mu_coin::byte_write_stream & stream_a)
+{
+    stream_a.write (address.point.bytes);
+    stream_a.write (sequence);
+}
+
+bool mu_coin::block_id::deserialize (mu_coin::byte_read_stream & stream_a)
+{
+    auto result (false);
+    static size_t const block_id_size (sizeof (decltype (address.point.bytes)) + sizeof (decltype (sequence)));
+    if (stream_a.size () >= block_id_size)
+    {
+        auto & point (address.point.bytes);
+        stream_a.read (point);
+        auto & sequence_l (sequence);
+        stream_a.read (sequence_l);
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
 }

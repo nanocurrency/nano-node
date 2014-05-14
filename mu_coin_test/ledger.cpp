@@ -6,7 +6,8 @@ TEST (ledger, empty)
 {
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    ASSERT_FALSE (ledger.has_balance (mu_coin::address (mu_coin::uint256_union (0))));
+    mu_coin::address address;
+    ASSERT_FALSE (ledger.has_balance (address));
 }
 
 TEST (ledger, genesis_balance)
@@ -19,7 +20,7 @@ TEST (ledger, genesis_balance)
     genesis.entries [0].sign (key1.prv, genesis.hash ());
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    store.insert (entry.address, genesis);
+    store.insert (entry.id.address, genesis);
 }
 
 TEST (address, two_addresses)
@@ -28,9 +29,9 @@ TEST (address, two_addresses)
     mu_coin::keypair key2;
     ASSERT_FALSE (key1.pub == key2.pub);
     mu_coin::point_encoding point1 (key1.pub);
-    mu_coin::address addr1 (point1.point ());
+    mu_coin::address addr1 (point1.key ());
     mu_coin::point_encoding point2 (key2.pub);
-    mu_coin::address addr2 (point2.point ());
+    mu_coin::address addr2 (point2.key ());
     ASSERT_FALSE (addr1 == addr2);
 }
 
@@ -45,7 +46,7 @@ TEST (ledger, simple_spend)
     genesis.entries [0].sign (key1.prv, genesis.hash ());
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    store.insert (entry1.address, genesis);
+    store.insert (entry1.id.address, genesis);
     mu_coin::transaction_block spend;
     mu_coin::entry entry2 (key1.pub, 0, 1);
     spend.entries.push_back (entry2);
@@ -55,8 +56,8 @@ TEST (ledger, simple_spend)
     spend.entries [1].sign (key2.prv, spend.hash ());
     auto error (ledger.process (spend));
     ASSERT_FALSE (error);
-    auto block1 (store.latest (entry2.address));
-    auto block2 (store.latest (entry3.address));
+    auto block1 (store.latest (entry2.id.address));
+    auto block2 (store.latest (entry3.id.address));
     ASSERT_NE (nullptr, block1);
     ASSERT_NE (nullptr, block2);
     ASSERT_EQ (*block1, *block2);
@@ -73,7 +74,7 @@ TEST (ledger, fail_out_of_sequence)
     genesis.entries [0].sign (key1.prv, genesis.hash ());
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    store.insert (entry1.address, genesis);
+    store.insert (entry1.id.address, genesis);
     mu_coin::transaction_block spend;
     mu_coin::entry entry2 (key1.pub, 0, 2);
     spend.entries.push_back (entry2);
@@ -96,7 +97,7 @@ TEST (ledger, fail_fee_too_high)
     genesis.entries [0].sign (key1.prv, genesis.hash ());
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    store.insert (entry1.address, genesis);
+    store.insert (entry1.id.address, genesis);
     mu_coin::transaction_block spend;
     mu_coin::entry entry2 (key1.pub, 0, 1);
     spend.entries.push_back (entry2);
@@ -119,7 +120,7 @@ TEST (ledger, fail_fee_too_low)
     genesis.entries [0].sign (key1.prv, genesis.hash ());
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    store.insert (entry1.address, genesis);
+    store.insert (entry1.id.address, genesis);
     mu_coin::transaction_block spend;
     mu_coin::entry entry2 (key1.pub, 0, 1);
     spend.entries.push_back (entry2);
@@ -142,7 +143,7 @@ TEST (ledger, fail_bad_signature)
     genesis.entries [0].sign (key1.prv, genesis.hash ());
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    store.insert (entry1.address, genesis);
+    store.insert (entry1.id.address, genesis);
     mu_coin::transaction_block spend;
     mu_coin::entry entry2 (key1.pub, 0, 1);
     spend.entries.push_back (entry2);
@@ -167,7 +168,7 @@ TEST (ledger, join_spend)
     genesis.entries [0].sign (key1.prv, genesis.hash ());
     mu_coin::block_store_memory store;
     mu_coin::ledger ledger (store);
-    store.insert (entry1.address, genesis);
+    store.insert (entry1.id.address, genesis);
     mu_coin::transaction_block spend1;
     mu_coin::entry entry2 (key1.pub, 0, 1);
     spend1.entries.push_back (entry2);
