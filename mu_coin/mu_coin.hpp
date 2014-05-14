@@ -10,6 +10,36 @@
 #include <memory>
 
 namespace mu_coin {
+    class byte_read_stream
+    {
+    public:
+        byte_read_stream (uint8_t *, uint8_t *);
+        byte_read_stream (uint8_t *, size_t);
+        template <typename T>
+        bool read (T & value)
+        {
+            return read (reinterpret_cast <uint8_t *> (&value), sizeof (value));
+        }
+        bool read (uint8_t *, size_t);
+        size_t size ();
+        uint8_t * data;
+        uint8_t * end;
+    };
+    class byte_write_stream
+    {
+    public:
+        byte_write_stream ();
+        ~byte_write_stream ();
+        void extend (size_t);
+        template <typename T>
+        void write (T const & value)
+        {
+            write (reinterpret_cast <uint8_t const *> (&value), sizeof (value));
+        }
+        void write (uint8_t const *, size_t);
+        uint8_t * data;
+        size_t size;
+    };
     using uint256_t = boost::multiprecision::uint256_t;
     using EC = CryptoPP::ECDSA <CryptoPP::ECP, CryptoPP::SHA256>;
     CryptoPP::OID & oid ();
@@ -52,6 +82,8 @@ namespace mu_coin {
         address (EC::PublicKey const &);
         address (point_encoding const &);
         bool operator == (mu_coin::address const &) const;
+        void serialize (mu_coin::byte_write_stream &) const;
+        bool deserialize (mu_coin::byte_read_stream &);
         point_encoding point;
     };
 }
@@ -84,42 +116,12 @@ namespace mu_coin {
         virtual mu_coin::uint256_t fee () const = 0;
         virtual mu_coin::uint256_t hash () const = 0;
     };
-    class byte_read_stream
-    {
-    public:
-        byte_read_stream (uint8_t *, uint8_t *);
-        byte_read_stream (uint8_t *, size_t);
-        template <typename T>
-        bool read (T & value)
-        {
-            return read (reinterpret_cast <uint8_t *> (&value), sizeof (value));
-        }
-        bool read (uint8_t *, size_t);
-        size_t size ();
-        uint8_t * data;
-        uint8_t * end;
-    };
-    class byte_write_stream
-    {
-    public:
-        byte_write_stream ();
-        ~byte_write_stream ();
-        void extend (size_t);
-        template <typename T>
-        void write (T const & value)
-        {
-            write (reinterpret_cast <uint8_t const *> (&value), sizeof (value));
-        }
-        void write (uint8_t const *, size_t);
-        uint8_t * data;
-        size_t size;
-    };
     class block_id
     {
     public:
         block_id () = default;
         block_id (EC::PublicKey const &, uint16_t);
-        void serialize (mu_coin::byte_write_stream &);
+        void serialize (mu_coin::byte_write_stream &) const;
         bool deserialize (mu_coin::byte_read_stream &);
         mu_coin::address address;
         uint16_t sequence;
@@ -143,7 +145,7 @@ namespace mu_coin {
         boost::multiprecision::uint256_t fee () const override;
         boost::multiprecision::uint256_t hash () const override;
         bool operator == (mu_coin::transaction_block const &) const;
-        void serialize (mu_coin::byte_write_stream &);
+        void serialize (mu_coin::byte_write_stream &) const;
         bool deserialize (mu_coin::byte_read_stream &);
         std::vector <entry> entries;
     };

@@ -8,6 +8,7 @@ namespace mu_coin_store {
     public:
         dbt () = default;
         dbt (mu_coin::address const &);
+        dbt (mu_coin::transaction_block const &);
         std::unique_ptr <mu_coin::transaction_block> block ();
         Dbt data;
     };

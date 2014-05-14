@@ -29,6 +29,6 @@ add_executable (mu_coin_test
 	mu_coin_test/entry.cpp
 	mu_coin_test/ledger.cpp
 	mu_coin_test/block.cpp
-    mu_coin_test/db.cpp)
+    mu_coin_test/db_test.cpp)
 
 target_link_libraries (mu_coin_test mu_coin_store ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} mu_coin)

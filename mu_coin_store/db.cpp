@@ -31,10 +31,25 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::late
 
 void mu_coin_store::block_store_db::insert (mu_coin::address const & address_a, mu_coin::transaction_block const & block_a)
 {
-    
+    dbt key (address_a);
+    dbt data (block_a);
+    int error (handle.put (nullptr, &key.data, &data.data, 0));
+}
+
+mu_coin_store::dbt::dbt (mu_coin::transaction_block const & block_a)
+{
+    mu_coin::byte_write_stream stream;
+    block_a.serialize (stream);
+    data.set_data (stream.data);
+    data.set_size (stream.size);
+    stream.data = nullptr;
 }
 
 mu_coin_store::dbt::dbt (mu_coin::address const & address_a)
 {
-    
+    mu_coin::byte_write_stream stream;
+    address_a.serialize (stream);
+    data.set_data (stream.data);
+    data.set_size (stream.size);
+    stream.data = nullptr;
 }

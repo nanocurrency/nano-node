@@ -344,7 +344,7 @@ bool mu_coin::transaction_block::operator == (mu_coin::transaction_block const &
     return entries == other_a.entries;
 }
 
-void mu_coin::transaction_block::serialize (mu_coin::byte_write_stream & data_a)
+void mu_coin::transaction_block::serialize (mu_coin::byte_write_stream & data_a) const
 {
     uint32_t size (entries.size ());
     data_a.write (size);
@@ -458,7 +458,7 @@ point (pub_a)
 {
 }
 
-void mu_coin::block_id::serialize (mu_coin::byte_write_stream & stream_a)
+void mu_coin::block_id::serialize (mu_coin::byte_write_stream & stream_a) const
 {
     stream_a.write (address.point.bytes);
     stream_a.write (sequence);
@@ -470,8 +470,7 @@ bool mu_coin::block_id::deserialize (mu_coin::byte_read_stream & stream_a)
     static size_t const block_id_size (sizeof (decltype (address.point.bytes)) + sizeof (decltype (sequence)));
     if (stream_a.size () >= block_id_size)
     {
-        auto & point (address.point.bytes);
-        stream_a.read (point);
+        result = address.deserialize (stream_a);
         auto & sequence_l (sequence);
         stream_a.read (sequence_l);
     }
@@ -480,4 +479,15 @@ bool mu_coin::block_id::deserialize (mu_coin::byte_read_stream & stream_a)
         result = true;
     }
     return result;
+}
+
+void mu_coin::address::serialize (mu_coin::byte_write_stream & stream_a) const
+{
+    stream_a.write (point.bytes);
+}
+
+bool mu_coin::address::deserialize (mu_coin::byte_read_stream & stream_a)
+{
+    auto & point_l (point.bytes);
+    return stream_a.read (point_l);
 }
