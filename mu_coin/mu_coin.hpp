@@ -121,6 +121,7 @@ namespace mu_coin {
     public:
         block_id () = default;
         block_id (EC::PublicKey const &, uint16_t);
+        block_id (mu_coin::address const &, uint16_t);
         void serialize (mu_coin::byte_write_stream &) const;
         bool deserialize (mu_coin::byte_read_stream &);
         mu_coin::address address;
@@ -153,7 +154,8 @@ namespace mu_coin {
     {
     public:
         virtual std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) = 0;
-        virtual void insert (mu_coin::address const &, mu_coin::transaction_block const &) = 0;
+        virtual void insert (mu_coin::block_id const &, mu_coin::transaction_block const &) = 0;
+        virtual std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) = 0;
     };
     class ledger
     {
@@ -170,7 +172,8 @@ namespace mu_coin {
     {
     public:
         std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) override;
-        void insert (mu_coin::address const &, mu_coin::transaction_block const &) override;
+        void insert (mu_coin::block_id const &, mu_coin::transaction_block const &) override;
+        std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) override;
     private:
         std::unordered_map <mu_coin::address, std::vector <mu_coin::transaction_block> *> blocks;
     };

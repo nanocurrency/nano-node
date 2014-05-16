@@ -9,6 +9,9 @@ namespace mu_coin_store {
         dbt () = default;
         dbt (mu_coin::address const &);
         dbt (mu_coin::transaction_block const &);
+        dbt (mu_coin::block_id const &);
+        dbt (uint16_t);
+        void adopt (mu_coin::byte_write_stream &);
         std::unique_ptr <mu_coin::transaction_block> block ();
         Dbt data;
     };
@@ -20,9 +23,11 @@ namespace mu_coin_store {
     {
     public:
         block_store_db (block_store_db_temp_t const &);
-        std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &);
-        void insert (mu_coin::address const &, mu_coin::transaction_block const &);
+        std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) override;
+        std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) override;
+        void insert (mu_coin::block_id const &, mu_coin::transaction_block const &) override;
     private:
+        void latest_sequence (mu_coin::address const &, uint16_t & sequence, bool & exists);
         Db handle;
     };
 }

@@ -235,7 +235,7 @@ bool mu_coin::ledger::process (mu_coin::transaction_block const & block_a)
             {
                 for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); i != j; ++i)
                 {
-                    store.insert (i->id.address, block_a);
+                    store.insert (i->id, block_a);
                 }
             }
             else
@@ -304,17 +304,19 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin::block_store_memory::latest
     }
 }
 
-void mu_coin::block_store_memory::insert (mu_coin::address const & address_a, mu_coin::transaction_block const & block)
+void mu_coin::block_store_memory::insert (mu_coin::block_id const & block_id_a, mu_coin::transaction_block const & block)
 {
-    auto existing (blocks.find (address_a));
+    auto existing (blocks.find (block_id_a.address));
     if (existing != blocks.end ())
     {
+        assert (existing->second->size () == block_id_a.sequence);
         existing->second->push_back (block);
     }
     else
     {
+        assert (block_id_a.sequence == 0);
         auto blocks_l (new std::vector <mu_coin::transaction_block>);
-        blocks [address_a] = blocks_l;
+        blocks [block_id_a.address] = blocks_l;
         blocks_l->push_back (block);
     }
 }
@@ -490,4 +492,25 @@ bool mu_coin::address::deserialize (mu_coin::byte_read_stream & stream_a)
 {
     auto & point_l (point.bytes);
     return stream_a.read (point_l);
+}
+
+std::unique_ptr <mu_coin::transaction_block> mu_coin::block_store_memory::block (mu_coin::block_id const & id_a)
+{
+    std::unique_ptr <mu_coin::transaction_block> result;
+    auto existing (blocks.find (id_a.address));
+    if (existing != blocks.end ())
+    {
+        if (existing->second->size () > id_a.sequence)
+        {
+            std::unique_ptr <mu_coin::transaction_block> data (new mu_coin::transaction_block ((*existing->second) [id_a.sequence]));
+            result = std::move (data);
+        }
+    }
+    return result;
+}
+
+mu_coin::block_id::block_id (mu_coin::address const & address_a, uint16_t sequence_a) :
+address (address_a),
+sequence (sequence_a)
+{
 }
