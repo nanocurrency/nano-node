@@ -1,5 +1,14 @@
 package mu_coin_network;
 
+enum type {
+    keepalive_req = 1;
+    keepalive_ack = 2;
+}
+
+message message_type {
+    required type type = 1;
+}
+
 message address {
     required bytes point = 1;
 }
