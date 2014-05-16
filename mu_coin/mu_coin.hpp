@@ -124,6 +124,7 @@ namespace mu_coin {
         block_id (mu_coin::address const &, uint16_t);
         void serialize (mu_coin::byte_write_stream &) const;
         bool deserialize (mu_coin::byte_read_stream &);
+        bool operator == (mu_coin::block_id const &) const;
         mu_coin::address address;
         uint16_t sequence;
     };

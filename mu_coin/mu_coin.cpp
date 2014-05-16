@@ -514,3 +514,8 @@ address (address_a),
 sequence (sequence_a)
 {
 }
+
+bool mu_coin::block_id::operator == (mu_coin::block_id const & other_a) const
+{
+    return address == other_a.address && sequence == other_a.sequence;
+}

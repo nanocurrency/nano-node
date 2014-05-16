@@ -1,0 +1,20 @@
+package mu_coin_network;
+
+message address {
+    required bytes point = 1;
+}
+
+message block_id {
+    required address address = 1;
+    required uint32 sequence = 2;
+}
+
+message entry {
+    required bytes signature = 1;
+    required bytes coins = 2;
+    required block_id id = 3;
+}
+
+message transaction_block {
+    repeated entry entries = 1;
+}
