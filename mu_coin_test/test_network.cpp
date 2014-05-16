@@ -17,7 +17,10 @@ TEST (network, send_keepalive)
     node1.receive ();
     node2.receive ();
     boost::thread network_thread ([&service] () {service.run ();});
-    node1.send_keepalive (node2.socket.local_endpoint());
+    node1.send_keepalive (node2.socket.local_endpoint ());
+    boost::this_thread::yield ();
+    node1.stop ();
+    node2.stop ();
     network_thread.join ();
     ASSERT_EQ (1, node2.keepalive_req);
     ASSERT_EQ (1, node1.keepalive_ack);

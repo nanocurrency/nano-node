@@ -1,8 +1,11 @@
 package mu_coin_network;
 
 enum type {
-    keepalive_req = 1;
-    keepalive_ack = 2;
+    keepalive_req_type = 1;
+    keepalive_ack_type = 2;
+    publish_req_type = 3;
+    publish_ack_type = 4;
+    publish_nak_type = 5;
 }
 
 message message_type {
@@ -27,3 +30,18 @@ message entry {
 message transaction_block {
     repeated entry entries = 1;
 }
+
+message publish_req {
+    required transaction_block block = 1;
+}
+
+message publish_ack {
+    required bytes signature = 1;
+    required block_id id = 2;
+};
+
+message publish_nak {
+    required bytes signature = 1;
+    required block_id id = 2;
+    repeated transaction_block collision = 3;
+};

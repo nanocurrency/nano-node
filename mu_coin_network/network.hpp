@@ -9,6 +9,7 @@ namespace mu_coin_network {
     public:
         node (boost::asio::io_service &, uint16_t);
         void receive ();
+        void stop ();
         void receive_action (boost::system::error_code const &, size_t);
         void send_keepalive (boost::asio::ip::udp::endpoint const &);
         boost::asio::ip::udp::endpoint remote;
@@ -17,5 +18,6 @@ namespace mu_coin_network {
         boost::asio::io_service & service;
         uint64_t keepalive_req;
         uint64_t keepalive_ack;
+        bool on;
     };
 }
