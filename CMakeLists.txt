@@ -17,6 +17,11 @@ include_directories (${GTEST_INCLUDE_DIR})
 find_package (CryptoPP REQUIRED)
 include_directories (${CRYPTOPP_INCLUDE_DIR})
 
+find_package (Qt4 REQUIRED)
+include_directories (/opt/local/include)
+include_directories (${QT_QTCORE_INCLUDE_DIR})
+include_directories (${QT_QTGUI_INCLUDE_DIR})
+
 add_library (mu_coin
 	mu_coin/mu_coin.hpp
 	mu_coin/mu_coin.cpp)
@@ -30,5 +35,10 @@ add_executable (mu_coin_test
 	mu_coin_test/ledger.cpp
 	mu_coin_test/block.cpp
     mu_coin_test/db_test.cpp)
+    
+add_executable (mu_coin_client
+    mu_coin_client/entry.cpp)
 
 target_link_libraries (mu_coin_test mu_coin_store ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} mu_coin)
+
+target_link_libraries (mu_coin_client mu_coin_store ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} mu_coin)
