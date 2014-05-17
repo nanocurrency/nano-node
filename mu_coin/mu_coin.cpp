@@ -519,3 +519,10 @@ bool mu_coin::block_id::operator == (mu_coin::block_id const & other_a) const
 {
     return address == other_a.address && sequence == other_a.sequence;
 }
+
+bool mu_coin::point_encoding::validate ()
+{
+    mu_coin::EC::PublicKey::Element element;
+    auto valid (curve ().DecodePoint (element, bytes.data (), bytes.size ()));
+    return !valid;
+}

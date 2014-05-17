@@ -60,6 +60,7 @@ namespace mu_coin {
         point_encoding () = default;
         point_encoding (EC::PublicKey const &);
         point_encoding (uint8_t, uint256_union const &);
+        bool validate ();
         std::array <uint8_t, 33> bytes;
         EC::PublicKey key () const;
         uint8_t type () const;

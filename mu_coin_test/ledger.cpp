@@ -35,6 +35,19 @@ TEST (address, two_addresses)
     ASSERT_FALSE (addr1 == addr2);
 }
 
+TEST (point_encoding, validation_fail)
+{
+    mu_coin::point_encoding encoding;
+    ASSERT_TRUE (encoding.validate ());
+}
+
+TEST (point_encoding, validation_succeed)
+{
+    mu_coin::keypair key1;
+    mu_coin::point_encoding encoding (key1.pub);
+    ASSERT_FALSE (encoding.validate ());
+}
+
 TEST (ledger, simple_spend)
 {
     mu_coin::keypair key1;

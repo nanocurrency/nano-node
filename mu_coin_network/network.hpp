@@ -8,6 +8,7 @@ namespace mu_coin
 {
     class transaction_block;
     class byte_read_stream;
+    class byte_write_stream;
     class ledger;
 }
 namespace mu_coin_network {
@@ -43,10 +44,12 @@ namespace mu_coin_network {
     public:
         publish_req ();
         publish_req (std::unique_ptr <mu_coin::transaction_block>);
+        void build_buffers ();
         bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
         std::vector <boost::asio::const_buffer> buffers;
         uint16_t type;
-        uint8_t entry_count;
+        uint16_t entry_count;
         std::unique_ptr <mu_coin::transaction_block> block;
     };
     class publish_ack : public message
