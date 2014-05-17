@@ -8,13 +8,16 @@ namespace mu_coin
 {
     class transaction_block;
     class byte_read_stream;
+    class ledger;
 }
 namespace mu_coin_network {
     enum class type : uint16_t
     {
         keepalive_req,
         keepalive_ack,
-        publish_req
+        publish_req,
+        publish_ack,
+        publish_nak
     };
     class message
     {
@@ -43,13 +46,27 @@ namespace mu_coin_network {
         bool deserialize (mu_coin::byte_read_stream &);
         std::vector <boost::asio::const_buffer> buffers;
         uint16_t type;
-        uint32_t entry_count;
+        uint8_t entry_count;
         std::unique_ptr <mu_coin::transaction_block> block;
+    };
+    class publish_ack : public message
+    {
+    public:
+        publish_ack ();
+        std::array <boost::asio::const_buffer, 1> buffers;
+        uint16_t type;
+    };
+    class publish_nak : public message
+    {
+    public:
+        publish_nak ();
+        std::array <boost::asio::const_buffer, 1> buffers;
+        uint16_t type;
     };
     class node
     {
     public:
-        node (boost::asio::io_service &, uint16_t);
+        node (boost::asio::io_service &, uint16_t, mu_coin::ledger &);
         void receive ();
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
@@ -59,9 +76,12 @@ namespace mu_coin_network {
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
+        mu_coin::ledger & ledger;
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;
+        uint64_t publish_ack_count;
+        uint64_t publish_nak_count;
         uint64_t unknown_count;
         bool on;
     };
