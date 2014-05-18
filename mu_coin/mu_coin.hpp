@@ -62,6 +62,7 @@ namespace mu_coin {
     {
         uint256_union () = default;
         uint256_union (boost::multiprecision::uint256_t const &);
+        uint256_union (std::string const &);
         uint256_union (EC::PrivateKey const &);
         uint256_union (EC::PrivateKey const &, uint256_union const &, uint128_union const &);
         EC::PrivateKey key (uint256_union const &, uint128_union const &);

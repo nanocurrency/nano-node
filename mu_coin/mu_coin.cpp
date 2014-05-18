@@ -571,3 +571,10 @@ mu_coin::uint128_union mu_coin::point_encoding::iv () const
     std::copy (bytes.begin (), bytes.begin () + sizeof (result.bytes), result.bytes.begin ());
     return result;
 }
+
+mu_coin::uint256_union::uint256_union (std::string const & password_a)
+{
+    CryptoPP::SHA256 hash;
+    hash.Update (reinterpret_cast <uint8_t const *> (password_a.c_str ()), password_a.size ());
+    hash.Final (bytes.data ());
+}

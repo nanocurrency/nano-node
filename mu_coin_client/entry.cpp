@@ -1,10 +1,8 @@
-#include <QApplication>
-#include <QPushButton>
+#include <mu_coin_client/client.hpp>
 
 int main (int argc, char ** argv)
 {
-    QApplication app (argc, argv);
-    QPushButton button ("Hello world !");
-    button.show ();
-    return app.exec ();
+    mu_coin_client::client client (argc, argv);
+    client.main_window.show ();
+    return client.application.exec ();
 }

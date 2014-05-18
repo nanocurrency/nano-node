@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 2.8.11)
 project (mu_coin)
 
 add_definitions (-std=c++11)
@@ -17,10 +17,7 @@ include_directories (${GTEST_INCLUDE_DIR})
 find_package (CryptoPP REQUIRED)
 include_directories (${CRYPTOPP_INCLUDE_DIR})
 
-find_package (Qt4 REQUIRED)
-include_directories (/opt/local/include)
-include_directories (${QT_QTCORE_INCLUDE_DIR})
-include_directories (${QT_QTGUI_INCLUDE_DIR})
+find_package (Qt5 REQUIRED COMPONENTS Core Gui Widgets)
 
 add_library (mu_coin
 	mu_coin/mu_coin.hpp
@@ -47,8 +44,10 @@ add_executable (mu_coin_test
     mu_coin_test/wallet_test.cpp)
     
 add_executable (mu_coin_client
-    mu_coin_client/entry.cpp)
+    mu_coin_client/entry.cpp
+    mu_coin_client/client.cpp
+    mu_coin_client/client.hpp)
 
 target_link_libraries (mu_coin_test mu_coin_store mu_coin_network mu_coin_wallet ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} mu_coin)
 
-target_link_libraries (mu_coin_client mu_coin_store mu_coin_network mu_coin_wallet ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} mu_coin)
+target_link_libraries (mu_coin_client mu_coin_store mu_coin_network mu_coin_wallet ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} mu_coin)
