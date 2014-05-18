@@ -23,6 +23,7 @@ void mu_coin_wallet::dbt::adopt (mu_coin::byte_write_stream & stream_a)
 {
     data.set_data (stream_a.data);
     data.set_size (stream_a.size);
+    stream_a.data = nullptr;
 }
 
 mu_coin_wallet::wallet::wallet (mu_coin_wallet::wallet_temp_t const &) :
@@ -38,6 +39,7 @@ void mu_coin_wallet::wallet::insert (mu_coin::EC::PublicKey const & pub, mu_coin
     dbt key (pub);
     dbt value (prv, key_a, encoding.iv ());
     auto error (handle.put (0, &key.data, &value.data, 0));
+    assert (error == 0);
 }
 
 void mu_coin_wallet::wallet::insert (mu_coin::EC::PrivateKey const & prv, mu_coin::uint256_union const & key)
@@ -49,20 +51,27 @@ void mu_coin_wallet::wallet::insert (mu_coin::EC::PrivateKey const & prv, mu_coi
 
 void mu_coin_wallet::wallet::fetch (mu_coin::EC::PublicKey const & pub, mu_coin::uint256_union const & key_a, mu_coin::EC::PrivateKey & prv, bool & failure)
 {
-    mu_coin::point_encoding encoding (pub);
     dbt key (pub);
     dbt value;
     failure = false;
     auto error (handle.get (0, &key.data, &value.data, 0));
-    value.key (key_a, encoding.iv (), prv, failure);
-    if (!failure)
+    if (error == 0)
     {
-        mu_coin::EC::PublicKey compare;
-        prv.MakePublicKey (compare);
-        if (!(pub == compare))
+        mu_coin::point_encoding encoding (pub);
+        value.key (key_a, encoding.iv (), prv, failure);
+        if (!failure)
         {
-            failure = true;
+            mu_coin::EC::PublicKey compare;
+            prv.MakePublicKey (compare);
+            if (!(pub == compare))
+            {
+                failure = true;
+            }
         }
+    }
+    else
+    {
+        failure = true;
     }
 }
 
