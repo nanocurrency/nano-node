@@ -53,3 +53,23 @@ TEST (wallet, one_item_iteration)
         ASSERT_EQ (key1.pub, key);
     }
 }
+
+TEST (wallet, two_item_iteration)
+{
+    mu_coin_wallet::wallet wallet (mu_coin_wallet::wallet_temp);
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    mu_coin::uint256_union secret;
+    secret.bytes.fill (0);
+    wallet.insert (key1.prv, secret);
+    wallet.insert (key2.prv, secret);
+    std::vector <mu_coin::EC::PublicKey> keys;
+    for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
+    {
+        mu_coin::EC::PublicKey key (*i);
+        keys.push_back (key);
+    }
+    ASSERT_EQ (2, keys.size ());
+    ASSERT_EQ (key1.pub, keys [0]);
+    ASSERT_EQ (key2.pub, keys [1]);
+}
