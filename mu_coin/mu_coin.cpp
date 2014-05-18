@@ -525,8 +525,14 @@ bool mu_coin::block_id::operator == (mu_coin::block_id const & other_a) const
 bool mu_coin::point_encoding::validate ()
 {
     mu_coin::EC::PublicKey::Element element;
-    auto valid (curve ().DecodePoint (element, bytes.data (), bytes.size ()));
-    return !valid;
+    auto result (!curve ().DecodePoint (element, bytes.data (), bytes.size ()));
+    if (!result)
+    {
+        mu_coin::EC::PublicKey pub;
+        pub.Initialize (mu_coin::oid (), element);
+        result = !pub.Validate (mu_coin::pool (), 3);
+    }
+    return result;
 }
 
 mu_coin::uint512_union::uint512_union (EC::PrivateKey const & prv, uint256_union const & key)

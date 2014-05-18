@@ -216,4 +216,7 @@ TEST (uint512_union, key_encryption)
     mu_coin::uint512_union key3 (key1.prv, key2);
     mu_coin::EC::PrivateKey key4 (key3.key (key2));
     ASSERT_EQ (key1.prv.GetPrivateExponent (), key4.GetPrivateExponent());
+    mu_coin::EC::PublicKey pub;
+    key4.MakePublicKey (pub);
+    ASSERT_EQ (key1.pub, pub);
 }

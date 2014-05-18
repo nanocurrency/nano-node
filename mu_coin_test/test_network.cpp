@@ -50,8 +50,10 @@ TEST (network, publish_req_invalid_point)
 TEST (network, publish_req)
 {
     auto block (std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block));
-    block->entries.push_back (mu_coin::entry ());
-    block->entries.push_back (mu_coin::entry ());
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    block->entries.push_back (mu_coin::entry (key1.pub, 100, 200));
+    block->entries.push_back (mu_coin::entry (key2.pub, 300, 400));
     mu_coin_network::publish_req req (std::move (block));
     ASSERT_EQ (htons (2), req.entry_count);
     mu_coin::byte_write_stream stream;
