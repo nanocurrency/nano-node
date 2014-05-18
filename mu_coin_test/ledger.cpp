@@ -208,13 +208,14 @@ TEST (ledger, join_spend)
     ASSERT_FALSE (error2);
 }
 
-TEST (uint512_union, key_encryption)
+TEST (uint256_union, key_encryption)
 {
     mu_coin::keypair key1;
-    mu_coin::uint256_union key2;
-    key2.bytes.fill (0);
-    mu_coin::uint512_union key3 (key1.prv, key2);
-    mu_coin::EC::PrivateKey key4 (key3.key (key2));
+    mu_coin::uint256_union secret_key;
+    secret_key.bytes.fill (0);
+    mu_coin::point_encoding encoded (key1.pub);
+    mu_coin::uint256_union encrypted (key1.prv, secret_key, encoded.owords [0]);
+    mu_coin::EC::PrivateKey key4 (encrypted.key (secret_key, encoded.owords [0]));
     ASSERT_EQ (key1.prv.GetPrivateExponent (), key4.GetPrivateExponent());
     mu_coin::EC::PublicKey pub;
     key4.MakePublicKey (pub);

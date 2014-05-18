@@ -11,9 +11,9 @@ mu_coin_wallet::dbt::dbt (mu_coin::EC::PublicKey const & pub)
     adopt (stream);
 }
 
-mu_coin_wallet::dbt::dbt (mu_coin::EC::PrivateKey const & prv, mu_coin::uint256_union const & key)
+mu_coin_wallet::dbt::dbt (mu_coin::EC::PrivateKey const & prv, mu_coin::uint256_union const & key, mu_coin::uint128_union const & iv)
 {
-    mu_coin::uint512_union encrypted (prv, key);
+    mu_coin::uint256_union encrypted (prv, key, iv);
     mu_coin::byte_write_stream stream;
     stream.write (encrypted.bytes);
     adopt (stream);

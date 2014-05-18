@@ -40,16 +40,31 @@ namespace mu_coin {
         uint8_t * data;
         size_t size;
     };
+    using uint128_t = boost::multiprecision::uint128_t;
     using uint256_t = boost::multiprecision::uint256_t;
     using EC = CryptoPP::ECDSA <CryptoPP::ECP, CryptoPP::SHA256>;
     CryptoPP::OID & oid ();
     CryptoPP::RandomNumberGenerator & pool ();
     CryptoPP::ECP const & curve ();
+    union uint128_union
+    {
+    public:
+        uint128_union () = default;
+        uint128_union (mu_coin::uint128_union const &) = default;
+        uint128_union (mu_coin::uint128_t const &);
+        union
+        {
+            std::array <uint8_t, 16> bytes;
+            std::array <uint64_t, 2> qwords;
+        };
+    };
     union uint256_union
     {
         uint256_union () = default;
         uint256_union (boost::multiprecision::uint256_t const &);
         uint256_union (EC::PrivateKey const &);
+        uint256_union (EC::PrivateKey const &, uint256_union const &, uint128_union const &);
+        EC::PrivateKey key (uint256_union const &, uint128_union const &);
         EC::PrivateKey key ();
         bool operator == (mu_coin::uint256_union const &) const;
         std::array <uint8_t, 32> bytes;
@@ -63,7 +78,12 @@ namespace mu_coin {
         point_encoding (EC::PublicKey const &);
         point_encoding (uint8_t, uint256_union const &);
         bool validate ();
-        std::array <uint8_t, 33> bytes;
+        union
+        {
+            std::array <uint8_t, 33> bytes;
+            std::array <uint64_t, 4> qwords;
+            std::array <uint128_union, 2> owords;
+        };
         EC::PublicKey key () const;
         uint8_t type () const;
         uint256_union point () const;
@@ -72,8 +92,6 @@ namespace mu_coin {
     {
         uint512_union () = default;
         uint512_union (boost::multiprecision::uint512_t const &);
-        uint512_union (EC::PrivateKey const &, uint256_union const &);
-        EC::PrivateKey key (uint256_union const &);
         bool operator == (mu_coin::uint512_union const &) const;
         std::array <uint8_t, 64> bytes;
         std::array <uint64_t, 8> qwords;

@@ -8,7 +8,7 @@ namespace mu_coin_wallet {
     {
     public:
         dbt (mu_coin::EC::PublicKey const &);
-        dbt (mu_coin::EC::PrivateKey const & prv, mu_coin::uint256_union const & key);
+        dbt (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &, mu_coin::uint128_union const &);
         void adopt (mu_coin::byte_write_stream &);
         Dbt data;
     };
