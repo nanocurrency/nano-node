@@ -85,3 +85,55 @@ void mu_coin_wallet::dbt::key (mu_coin::uint256_union const & key_a, mu_coin::ui
         prv = encrypted.key (key_a, iv);
     }
 }
+
+mu_coin_wallet::key_iterator::key_iterator (Dbc * cursor_a) :
+cursor (cursor_a)
+{
+}
+
+mu_coin_wallet::key_iterator & mu_coin_wallet::key_iterator::operator ++ ()
+{
+    auto result (cursor->get (&key.data, &data.data, DB_NEXT));
+    if (result == DB_NOTFOUND)
+    {
+        cursor->close ();
+        cursor = nullptr;
+    }
+    return *this;
+}
+
+mu_coin::EC::PublicKey mu_coin_wallet::key_iterator::operator * ()
+{
+    return key.key ();
+}
+
+mu_coin::EC::PublicKey mu_coin_wallet::dbt::key ()
+{
+    mu_coin::point_encoding encoding;
+    std::copy (reinterpret_cast <uint8_t *> (data.get_data ()), reinterpret_cast <uint8_t *> (data.get_data ()) + data.get_size (), encoding.bytes.begin ());
+    return encoding.key ();
+}
+
+mu_coin_wallet::key_iterator mu_coin_wallet::wallet::begin ()
+{
+    Dbc * cursor;
+    handle.cursor (0, &cursor, 0);
+    mu_coin_wallet::key_iterator result (cursor);
+    ++result;
+    return result;
+}
+
+mu_coin_wallet::key_iterator mu_coin_wallet::wallet::end ()
+{
+    return mu_coin_wallet::key_iterator (nullptr);
+}
+
+bool mu_coin_wallet::key_iterator::operator == (mu_coin_wallet::key_iterator const & other_a) const
+{
+    return cursor == other_a.cursor;
+}
+
+bool mu_coin_wallet::key_iterator::operator != (mu_coin_wallet::key_iterator const & other_a) const
+{
+    return !(*this == other_a);
+}
