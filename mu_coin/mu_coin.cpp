@@ -1,5 +1,7 @@
 #include <mu_coin/mu_coin.hpp>
 #include <cryptopp/sha.h>
+#include <cryptopp/aes.h>
+#include <cryptopp/modes.h>
 
 bool mu_coin::address::operator == (mu_coin::address const & other_a) const
 {
@@ -525,4 +527,37 @@ bool mu_coin::point_encoding::validate ()
     mu_coin::EC::PublicKey::Element element;
     auto valid (curve ().DecodePoint (element, bytes.data (), bytes.size ()));
     return !valid;
+}
+
+mu_coin::uint512_union::uint512_union (EC::PrivateKey const & prv, uint256_union const & key)
+{
+    mu_coin::uint256_union exponent (prv);
+    CryptoPP::SHA256 hash;
+    hash.Update (exponent.bytes.data (), sizeof (exponent.bytes));
+    hash.Final (uint256s [0].bytes.data ());
+    CryptoPP::AES::Encryption alg (key.bytes.data (), sizeof (key.bytes));
+    CryptoPP::CBC_Mode_ExternalCipher::Encryption enc (alg, uint256s [0].bytes.data ());
+    enc.ProcessData (uint256s [1].bytes.data (), exponent.bytes.data (), sizeof (exponent.bytes));
+}
+
+mu_coin::uint256_union::uint256_union (EC::PrivateKey const & prv)
+{
+    prv.GetPrivateExponent ().Encode (bytes.data (), sizeof (bytes));
+}
+
+mu_coin::EC::PrivateKey mu_coin::uint512_union::key (uint256_union const & key_a)
+{
+    CryptoPP::AES::Decryption alg (key_a.bytes.data (), sizeof (key_a.bytes));
+    CryptoPP::CBC_Mode_ExternalCipher::Decryption dec (alg, uint256s [0].bytes.data ());
+    mu_coin::uint256_union exponent;
+    dec.ProcessData (exponent.bytes.data (), uint256s [1].bytes.data (), sizeof (uint256s [1].bytes));
+    mu_coin::EC::PrivateKey result (exponent.key ());
+    return result;
+}
+
+mu_coin::EC::PrivateKey mu_coin::uint256_union::key ()
+{
+    mu_coin::EC::PrivateKey result;
+    result.Initialize (oid (), CryptoPP::Integer (bytes.data (), sizeof (bytes)));
+    return result;
 }

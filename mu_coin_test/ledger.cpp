@@ -207,3 +207,13 @@ TEST (ledger, join_spend)
     auto error2 (ledger.process (spend2));
     ASSERT_FALSE (error2);
 }
+
+TEST (uint512_union, key_encryption)
+{
+    mu_coin::keypair key1;
+    mu_coin::uint256_union key2;
+    key2.bytes.fill (0);
+    mu_coin::uint512_union key3 (key1.prv, key2);
+    mu_coin::EC::PrivateKey key4 (key3.key (key2));
+    ASSERT_EQ (key1.prv.GetPrivateExponent (), key4.GetPrivateExponent());
+}

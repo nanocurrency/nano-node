@@ -49,6 +49,8 @@ namespace mu_coin {
     {
         uint256_union () = default;
         uint256_union (boost::multiprecision::uint256_t const &);
+        uint256_union (EC::PrivateKey const &);
+        EC::PrivateKey key ();
         bool operator == (mu_coin::uint256_union const &) const;
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
@@ -70,9 +72,12 @@ namespace mu_coin {
     {
         uint512_union () = default;
         uint512_union (boost::multiprecision::uint512_t const &);
+        uint512_union (EC::PrivateKey const &, uint256_union const &);
+        EC::PrivateKey key (uint256_union const &);
         bool operator == (mu_coin::uint512_union const &) const;
         std::array <uint8_t, 64> bytes;
         std::array <uint64_t, 8> qwords;
+        std::array <uint256_union, 2> uint256s;
         void clear ();
         boost::multiprecision::uint512_t number ();
     };
