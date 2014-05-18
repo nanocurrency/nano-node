@@ -214,8 +214,8 @@ TEST (uint256_union, key_encryption)
     mu_coin::uint256_union secret_key;
     secret_key.bytes.fill (0);
     mu_coin::point_encoding encoded (key1.pub);
-    mu_coin::uint256_union encrypted (key1.prv, secret_key, encoded.owords [0]);
-    mu_coin::EC::PrivateKey key4 (encrypted.key (secret_key, encoded.owords [0]));
+    mu_coin::uint256_union encrypted (key1.prv, secret_key, encoded.iv ());
+    mu_coin::EC::PrivateKey key4 (encrypted.key (secret_key, encoded.iv ()));
     ASSERT_EQ (key1.prv.GetPrivateExponent (), key4.GetPrivateExponent());
     mu_coin::EC::PublicKey pub;
     key4.MakePublicKey (pub);

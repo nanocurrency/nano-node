@@ -7,8 +7,10 @@ namespace mu_coin_wallet {
     class dbt
     {
     public:
+        dbt () = default;
         dbt (mu_coin::EC::PublicKey const &);
         dbt (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &, mu_coin::uint128_union const &);
+        void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::EC::PrivateKey &, bool &);
         void adopt (mu_coin::byte_write_stream &);
         Dbt data;
     };
@@ -20,6 +22,9 @@ namespace mu_coin_wallet {
     {
     public:
         wallet (wallet_temp_t const &);
+        void insert (mu_coin::EC::PublicKey const &, mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
+        void insert (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
+        void fetch (mu_coin::EC::PublicKey const &, mu_coin::uint256_union const &, mu_coin::EC::PrivateKey &, bool &);
     private:
         Db handle;
     };

@@ -564,3 +564,10 @@ mu_coin::EC::PrivateKey mu_coin::uint256_union::key ()
     result.Initialize (oid (), CryptoPP::Integer (bytes.data (), sizeof (bytes)));
     return result;
 }
+
+mu_coin::uint128_union mu_coin::point_encoding::iv () const
+{
+    mu_coin::uint128_union result;
+    std::copy (bytes.begin (), bytes.begin () + sizeof (result.bytes), result.bytes.begin ());
+    return result;
+}

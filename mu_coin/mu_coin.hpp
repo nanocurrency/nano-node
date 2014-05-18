@@ -78,12 +78,8 @@ namespace mu_coin {
         point_encoding (EC::PublicKey const &);
         point_encoding (uint8_t, uint256_union const &);
         bool validate ();
-        union
-        {
-            std::array <uint8_t, 33> bytes;
-            std::array <uint64_t, 4> qwords;
-            std::array <uint128_union, 2> owords;
-        };
+        std::array <uint8_t, 33> bytes;
+        uint128_union iv () const;
         EC::PublicKey key () const;
         uint8_t type () const;
         uint256_union point () const;
