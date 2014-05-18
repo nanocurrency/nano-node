@@ -43,7 +43,8 @@ add_executable (mu_coin_test
 	mu_coin_test/ledger.cpp
 	mu_coin_test/block.cpp
     mu_coin_test/db_test.cpp
-    mu_coin_test/test_network.cpp)
+    mu_coin_test/test_network.cpp
+    mu_coin_test/wallet_test.cpp)
     
 add_executable (mu_coin_client
     mu_coin_client/entry.cpp)

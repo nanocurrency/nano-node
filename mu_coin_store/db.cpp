@@ -7,7 +7,7 @@ mu_coin_store::block_store_db::block_store_db (block_store_db_temp_t const &) :
 handle (nullptr, 0)
 {
     boost::filesystem::path temp (boost::filesystem::unique_path ());
-    handle.open (nullptr, temp.native().c_str (), nullptr, DB_BTREE, DB_CREATE | DB_EXCL, 0);
+    handle.open (nullptr, temp.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::latest (mu_coin::address const & address_a)
