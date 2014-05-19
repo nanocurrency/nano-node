@@ -5,7 +5,11 @@ mu_coin_client::client::client (int argc, char ** argv) :
 store (mu_coin_store::block_store_db_temp),
 ledger (store),
 wallet (mu_coin_wallet::wallet_temp),
+network (service, 24000, ledger),
 application (argc, argv),
+send_address_label ("Address:"),
+send_count_label ("Coins:"),
+send_coins_send ("Send"),
 send_coins_cancel ("Cancel"),
 send_coins ("Send"),
 wallet_add_key ("Add Key"),
@@ -26,6 +30,14 @@ new_key_cancel ("Cancel")
     store.insert (entry.id, block);
     /////////
     
+    network.receive ();
+    network_thread = boost::thread ([this] () {service.run ();});
+    
+    send_coins_layout.addWidget (&send_address_label);
+    send_coins_layout.addWidget (&send_address);
+    send_coins_layout.addWidget (&send_count_label);
+    send_coins_layout.addWidget (&send_count);
+    send_coins_layout.addWidget (&send_coins_send);
     send_coins_layout.addWidget (&send_coins_cancel);
     send_coins_window.setLayout (&send_coins_layout);
     
@@ -49,6 +61,15 @@ new_key_cancel ("Cancel")
     
     main_stack.addWidget (&wallet_window);
     main_window.setCentralWidget (&main_stack);
+    connect (&send_coins_send, &QPushButton::released, [this] ()
+    {
+        
+    });
+    connect (&application, &QApplication::aboutToQuit, [this] ()
+    {
+        network.stop ();
+        network_thread.join ();
+    });
     connect (&wallet_view, &QListView::pressed, [this] (QModelIndex const & index)
     {
         wallet_model_selection = index;
