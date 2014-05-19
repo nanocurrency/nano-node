@@ -6,12 +6,22 @@ store (mu_coin_store::block_store_db_temp),
 ledger (store),
 wallet (mu_coin_wallet::wallet_temp),
 application (argc, argv),
-wallet_balance_label ("Balance: 0"),
 wallet_add_key ("Add Key"),
 new_key_password_label ("Password:"),
 new_key_add_key ("Add Key"),
 new_key_cancel ("Cancel")
 {
+    /////////
+    mu_coin::keypair genesis;
+    mu_coin::uint256_union secret;
+    secret.bytes.fill (0);
+    wallet.insert (genesis.pub, genesis.prv, secret);
+    mu_coin::transaction_block block;
+    mu_coin::entry entry (genesis.pub, 1000000, 0);
+    block.entries.push_back (entry);
+    store.insert (entry.id, block);
+    /////////
+    
     wallet_view.setModel (&wallet_model);
     wallet_layout.addWidget (&wallet_balance_label);
     wallet_layout.addWidget (&wallet_add_key);
@@ -50,6 +60,7 @@ new_key_cancel ("Cancel")
     {
         main_stack.removeWidget (main_stack.currentWidget ());
     });
+    refresh_wallet ();
 }
 
 void mu_coin_client::client::refresh_wallet ()
