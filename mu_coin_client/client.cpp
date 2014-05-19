@@ -10,6 +10,7 @@ send_coins_cancel ("Cancel"),
 send_coins ("Send"),
 wallet_add_key ("Add Key"),
 wallet_key_copy ("Copy", &wallet_key_menu),
+wallet_key_cancel ("Cancel", &wallet_key_menu),
 new_key_password_label ("Password:"),
 new_key_add_key ("Add Key"),
 new_key_cancel ("Cancel")
@@ -37,6 +38,7 @@ new_key_cancel ("Cancel")
     wallet_window.setLayout (&wallet_layout);
     
     wallet_key_menu.addAction (&wallet_key_copy);
+    wallet_key_menu.addAction (&wallet_key_cancel);
     
     new_key_layout.addWidget (&new_key_password_label);
     new_key_password.setEchoMode (QLineEdit::EchoMode::Password);
@@ -47,6 +49,19 @@ new_key_cancel ("Cancel")
     
     main_stack.addWidget (&wallet_window);
     main_window.setCentralWidget (&main_stack);
+    connect (&wallet_view, &QListView::pressed, [this] (QModelIndex const & index)
+    {
+        wallet_model_selection = index;
+    });
+    connect (&wallet_key_copy, &QAction::triggered, [this] (bool)
+    {
+        auto & value (wallet_model.stringList ().at (wallet_model_selection.row ()));
+        application.clipboard ()->setText (value);
+    });
+    connect (&wallet_key_cancel, &QAction::triggered, [this] (bool)
+    {
+        wallet_key_menu.hide ();
+    });
     connect (&wallet_view, &QListView::customContextMenuRequested, [this] (QPoint const & pos)
     {
         wallet_key_menu.popup (wallet_view.viewport ()->mapToGlobal (pos));

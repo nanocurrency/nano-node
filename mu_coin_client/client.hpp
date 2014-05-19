@@ -14,6 +14,7 @@ namespace mu_coin_client {
         mu_coin_store::block_store_db store;
         mu_coin::ledger ledger;
         mu_coin_wallet::wallet wallet;
+        
         QApplication application;
         QMainWindow main_window;
         QStackedWidget main_stack;
@@ -25,6 +26,7 @@ namespace mu_coin_client {
         QWidget wallet_window;
         QVBoxLayout wallet_layout;
         QStringListModel wallet_model;
+        QModelIndex wallet_model_selection;
         QLabel wallet_balance_label;
         QListView wallet_view;
         QPushButton send_coins;
@@ -32,6 +34,7 @@ namespace mu_coin_client {
         
         QMenu wallet_key_menu;
         QAction wallet_key_copy;
+        QAction wallet_key_cancel;
         
         QWidget new_key_window;
         QVBoxLayout new_key_layout;
