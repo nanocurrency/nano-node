@@ -69,7 +69,8 @@ TEST (wallet, two_item_iteration)
     secret.bytes.fill (0);
     wallet.insert (key1.prv, secret);
     wallet.insert (key2.prv, secret);
-    std::vector <std::pair <mu_coin::EC::PublicKey, mu_coin::EC::PrivateKey>> keys;
+    std::vector <mu_coin::EC::PublicKey> keys1;
+    std::vector <mu_coin::EC::PrivateKey> keys2;
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         mu_coin::EC::PublicKey key (*i);
@@ -78,11 +79,13 @@ TEST (wallet, two_item_iteration)
         bool failed;
         i.data.key (secret, encoding.iv (), prv, failed);
         ASSERT_FALSE (failed);
-        keys.push_back ({key, prv});
+        keys1.push_back (key);
+        keys2.push_back (prv);
     }
-    ASSERT_EQ (2, keys.size ());
-    ASSERT_EQ (key1.pub, keys [0].first);
-    ASSERT_EQ (key1.prv.GetPrivateExponent (), keys [0].second.GetPrivateExponent ());
-    ASSERT_EQ (key2.pub, keys [1].first);
-    ASSERT_EQ (key2.prv.GetPrivateExponent (), keys [1].second.GetPrivateExponent ());
+    ASSERT_EQ (2, keys1.size ());
+    ASSERT_EQ (2, keys2.size ());
+    ASSERT_EQ (key1.pub, keys1 [0]);
+    ASSERT_EQ (key1.prv.GetPrivateExponent (), keys2 [0].GetPrivateExponent ());
+    ASSERT_EQ (key2.pub, keys1 [1]);
+    ASSERT_EQ (key2.prv.GetPrivateExponent (), keys2 [1].GetPrivateExponent ());
 }

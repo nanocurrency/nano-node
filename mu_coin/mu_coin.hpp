@@ -190,12 +190,10 @@ namespace mu_coin {
         send_entry (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool validate (mu_coin::uint256_union const &) const;
-        bool operator == (mu_coin::entry const &) const;
+        bool operator == (mu_coin::send_entry const &) const;
         mu_coin::EC::PublicKey key () const;
-        uint512_union signature;
         mu_coin::block_id source;
         mu_coin::uint256_union coins;
-        uint16_t sequence;
     };
     class send_block : public mu_coin::block
     {
@@ -205,8 +203,10 @@ namespace mu_coin {
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) override;
-        mu_coin::address destination;
-        std::vector <send_entry> inputs;
+        bool operator == (mu_coin::send_block const &) const;
+        uint512_union signature;
+        std::vector <mu_coin::send_entry> inputs;
+        std::vector <mu_coin::address> outputs;
     };
     class receive_entry
     {

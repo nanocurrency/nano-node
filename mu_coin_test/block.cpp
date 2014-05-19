@@ -111,4 +111,22 @@ TEST (send_block, empty_serialize)
     mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
     mu_coin::send_block block2;
     block2.deserialize (stream2);
+    ASSERT_EQ (block1, block2);
+}
+
+TEST (send_block, one_entry_serialize)
+{
+    mu_coin::send_block block1;
+    mu_coin::byte_write_stream stream1;
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    mu_coin::send_entry entry1 (key1.pub, 37, 43);
+    block1.inputs.push_back (entry1);
+    mu_coin::address address1 (key2.pub);
+    block1.outputs.push_back (address1);
+    block1.serialize (stream1);
+    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    mu_coin::send_block block2;
+    block2.deserialize (stream2);
+    ASSERT_EQ (block1, block2);
 }
