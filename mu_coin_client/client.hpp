@@ -12,6 +12,7 @@ namespace mu_coin_client {
         client (int, char **);
         ~client ();
         mu_coin_store::block_store_db store;
+        mu_coin::ledger ledger;
         mu_coin_wallet::wallet wallet;
         QApplication application;
         QMainWindow main_window;

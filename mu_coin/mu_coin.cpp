@@ -162,14 +162,33 @@ mu_coin::point_encoding::point_encoding (mu_coin::EC::PublicKey const & pub)
 
 std::unique_ptr <mu_coin::transaction_block> mu_coin::ledger::previous (mu_coin::address const & address_a)
 {
-    assert (has_balance (address_a));
     auto existing (store.latest (address_a));
     return existing;
 }
 
+mu_coin::uint256_union mu_coin::ledger::balance (mu_coin::address const & address_a)
+{
+    auto previous_l (previous (address_a));
+    if (previous_l != nullptr)
+    {
+        for (auto i (previous_l->entries.begin ()), j (previous_l->entries.end ()); i != j; ++i)
+        {
+            if (i->id.address == address_a)
+            {
+                return i->coins;
+            }
+        }
+        assert (false);
+    }
+    else
+    {
+        return mu_coin::uint256_t (0);
+    }
+}
+
 bool mu_coin::ledger::has_balance (mu_coin::address const & address_a)
 {
-    return store.latest (address_a) != nullptr;
+    return !balance (address_a).number ().is_zero ();
 }
 
 bool mu_coin::ledger::process (mu_coin::transaction_block const & block_a)

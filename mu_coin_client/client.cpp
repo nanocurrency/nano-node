@@ -3,14 +3,17 @@
 
 mu_coin_client::client::client (int argc, char ** argv) :
 store (mu_coin_store::block_store_db_temp),
+ledger (store),
 wallet (mu_coin_wallet::wallet_temp),
 application (argc, argv),
+wallet_balance_label ("Balance: 0"),
 wallet_add_key ("Add Key"),
 new_key_password_label ("Password:"),
 new_key_add_key ("Add Key"),
 new_key_cancel ("Cancel")
 {
     wallet_view.setModel (&wallet_model);
+    wallet_layout.addWidget (&wallet_balance_label);
     wallet_layout.addWidget (&wallet_add_key);
     wallet_layout.addWidget (&wallet_view);
     wallet_window.setLayout (&wallet_layout);
@@ -52,9 +55,11 @@ new_key_cancel ("Cancel")
 void mu_coin_client::client::refresh_wallet ()
 {
     keys = QStringList ();
+    mu_coin::uint256_t balance;
     for (auto i (wallet.begin()), j (wallet.end ()); i != j; ++i)
     {
         mu_coin::EC::PublicKey key (*i);
+        balance += ledger.balance (mu_coin::address (key)).number ();
         mu_coin::point_encoding encoding (key);
         std::stringstream stream;
         stream << std::hex;
@@ -66,6 +71,7 @@ void mu_coin_client::client::refresh_wallet ()
         QString string (stream.str ().c_str ());
         keys << string;
     }
+    wallet_balance_label.setText (QString ((std::string ("Balance: ") + balance.str ()).c_str ()));
     wallet_model.setStringList (keys);
 }
 

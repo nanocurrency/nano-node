@@ -185,6 +185,7 @@ namespace mu_coin {
         ledger (mu_coin::block_store &);
         std::unique_ptr <mu_coin::transaction_block> previous (mu_coin::address const &);
         mu_coin::transaction_block * block (boost::multiprecision::uint256_t const &);
+        mu_coin::uint256_union balance (mu_coin::address const &);
         bool has_balance (mu_coin::address const &);
         bool process (mu_coin::transaction_block const &);
     private:
