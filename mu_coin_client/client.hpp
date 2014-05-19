@@ -18,12 +18,20 @@ namespace mu_coin_client {
         QMainWindow main_window;
         QStackedWidget main_stack;
         
+        QWidget send_coins_window;
+        QVBoxLayout send_coins_layout;
+        QPushButton send_coins_cancel;
+        
         QWidget wallet_window;
         QVBoxLayout wallet_layout;
         QStringListModel wallet_model;
         QLabel wallet_balance_label;
         QListView wallet_view;
+        QPushButton send_coins;
         QPushButton wallet_add_key;
+        
+        QMenu wallet_key_menu;
+        QAction wallet_key_copy;
         
         QWidget new_key_window;
         QVBoxLayout new_key_layout;

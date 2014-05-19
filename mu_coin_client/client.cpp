@@ -6,7 +6,10 @@ store (mu_coin_store::block_store_db_temp),
 ledger (store),
 wallet (mu_coin_wallet::wallet_temp),
 application (argc, argv),
+send_coins_cancel ("Cancel"),
+send_coins ("Send"),
 wallet_add_key ("Add Key"),
+wallet_key_copy ("Copy", &wallet_key_menu),
 new_key_password_label ("Password:"),
 new_key_add_key ("Add Key"),
 new_key_cancel ("Cancel")
@@ -22,11 +25,18 @@ new_key_cancel ("Cancel")
     store.insert (entry.id, block);
     /////////
     
+    send_coins_layout.addWidget (&send_coins_cancel);
+    send_coins_window.setLayout (&send_coins_layout);
+    
     wallet_view.setModel (&wallet_model);
+    wallet_view.setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
     wallet_layout.addWidget (&wallet_balance_label);
     wallet_layout.addWidget (&wallet_add_key);
+    wallet_layout.addWidget (&send_coins);
     wallet_layout.addWidget (&wallet_view);
     wallet_window.setLayout (&wallet_layout);
+    
+    wallet_key_menu.addAction (&wallet_key_copy);
     
     new_key_layout.addWidget (&new_key_password_label);
     new_key_password.setEchoMode (QLineEdit::EchoMode::Password);
@@ -37,6 +47,19 @@ new_key_cancel ("Cancel")
     
     main_stack.addWidget (&wallet_window);
     main_window.setCentralWidget (&main_stack);
+    connect (&wallet_view, &QListView::customContextMenuRequested, [this] (QPoint const & pos)
+    {
+        wallet_key_menu.popup (wallet_view.viewport ()->mapToGlobal (pos));
+    });
+    connect (&send_coins_cancel, &QPushButton::released, [this] ()
+    {
+        main_stack.removeWidget (main_stack.currentWidget ());
+    });
+    connect (&send_coins, &QPushButton::released, [this] ()
+    {
+        main_stack.addWidget (&send_coins_window);
+        main_stack.setCurrentIndex (main_stack.count () - 1);
+    });
     connect (&wallet_add_key, &QPushButton::released, [this] ()
     {
         main_stack.addWidget (&new_key_window);
