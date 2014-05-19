@@ -622,9 +622,9 @@ mu_coin::uint256_t mu_coin::send_block::hash () const
 {
     mu_coin::uint256_union result;
     CryptoPP::SHA256 hash;
-    hash.Update (signature.bytes.data (), sizeof (signature.bytes));
     for (auto & i: inputs)
     {
+        hash.Update (i.signature.bytes.data (), sizeof (i.signature.bytes));
         hash.Update (i.source.address.point.bytes.data (), sizeof (i.source.address.point.bytes));
         hash.Update (reinterpret_cast <uint8_t const *> (&i.source.sequence), sizeof (i.source.sequence));
         hash.Update (i.coins.bytes.data (), sizeof (i.coins.bytes));
@@ -640,11 +640,11 @@ mu_coin::uint256_t mu_coin::send_block::hash () const
 void mu_coin::send_block::serialize (mu_coin::byte_write_stream & stream) const
 {
     stream.write (static_cast <uint8_t> (mu_coin::block_type::send));
-    stream.write (signature.bytes);
     uint16_t input_count (inputs.size ());
     stream.write (input_count);
     for (auto & i: inputs)
     {
+        stream.write (i.signature.bytes);
         stream.write (i.source.address.point.bytes);
         stream.write (i.coins.bytes);
         stream.write (htons (i.source.sequence));
@@ -666,18 +666,18 @@ bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
     assert (static_cast <mu_coin::block_type> (type) == mu_coin::block_type::send);
     if (!result)
     {
-        result = stream.read (signature.bytes);
+        uint16_t input_count;
+        result = stream.read (input_count);
         if (!result)
         {
-            uint16_t input_count;
-            result = stream.read (input_count);
-            if (!result)
+            inputs.reserve (input_count);
+            for (uint16_t i (0); !result && i < input_count; ++i)
             {
-                inputs.reserve (input_count);
-                for (uint16_t i (0); !result && i < input_count; ++i)
+                inputs.push_back (mu_coin::send_entry ());
+                auto & back (inputs.back ());
+                result = stream.read (back.signature.bytes);
+                if (!result)
                 {
-                    inputs.push_back (mu_coin::send_entry ());
-                    auto & back (inputs.back ());
                     result = stream.read (back.source.address.point.bytes);
                     if (!result)
                     {
@@ -693,22 +693,22 @@ bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
                         }
                     }
                 }
+            }
+            if (!result)
+            {
+                uint16_t output_count;
+                result = stream.read (output_count);
+                outputs.reserve (output_count);
                 if (!result)
                 {
-                    uint16_t output_count;
-                    result = stream.read (output_count);
-                    outputs.reserve (output_count);
-                    if (!result)
+                    for (uint16_t i (0); !result && i < output_count; ++i)
                     {
-                        for (uint16_t i (0); !result && i < output_count; ++i)
+                        outputs.push_back (mu_coin::address ());
+                        auto & back (outputs.back ());
+                        result = stream.read (back.point.bytes);
+                        if (!result)
                         {
-                            outputs.push_back (mu_coin::address ());
-                            auto & back (outputs.back ());
-                            result = stream.read (back.point.bytes);
-                            if (!result)
-                            {
-                                result = back.point.validate ();
-                            }
+                            result = back.point.validate ();
                         }
                     }
                 }
@@ -720,13 +720,13 @@ bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
 
 bool mu_coin::send_block::operator == (mu_coin::send_block const & other_a) const
 {
-    auto result (inputs == other_a.inputs && outputs == other_a.outputs && signature == other_a.signature);
+    auto result (inputs == other_a.inputs && outputs == other_a.outputs);
     return result;
 }
 
 bool mu_coin::send_entry::send_entry::operator == (mu_coin::send_entry const & other_a) const
 {
-    auto result (source == other_a.source && coins == other_a.coins);
+    auto result (source == other_a.source && coins == other_a.coins && signature == other_a.signature);
     return result;
 }
 

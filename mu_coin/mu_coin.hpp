@@ -192,6 +192,7 @@ namespace mu_coin {
         bool validate (mu_coin::uint256_union const &) const;
         bool operator == (mu_coin::send_entry const &) const;
         mu_coin::EC::PublicKey key () const;
+        uint512_union signature;
         mu_coin::block_id source;
         mu_coin::uint256_union coins;
     };
@@ -204,7 +205,6 @@ namespace mu_coin {
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) override;
         bool operator == (mu_coin::send_block const &) const;
-        uint512_union signature;
         std::vector <mu_coin::send_entry> inputs;
         std::vector <mu_coin::address> outputs;
     };
