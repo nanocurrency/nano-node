@@ -120,12 +120,14 @@ TEST (send_block, two_entry_send_serialize)
     mu_coin::byte_write_stream stream1;
     mu_coin::keypair key1;
     mu_coin::keypair key2;
-    mu_coin::send_entry entry1 (key1.pub, 37, 43);
+    mu_coin::send_input entry1 (key1.pub, 37, 43);
     block1.inputs.push_back (entry1);
-    mu_coin::send_entry entry2 (key1.pub, 11, 17);
+    mu_coin::send_input entry2 (key1.pub, 11, 17);
     block1.inputs.push_back (entry2);
-    mu_coin::address address1 (key2.pub);
-    block1.outputs.push_back (address1);
+    block1.inputs [0].sign (key1.prv, block1.hash ());
+    block1.inputs [1].sign (key1.prv, block1.hash ());
+    mu_coin::send_output entry3 (key2.pub, 23);
+    block1.outputs.push_back (entry3);
     block1.serialize (stream1);
     mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
     mu_coin::send_block block2;

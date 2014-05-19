@@ -142,10 +142,15 @@ boost::multiprecision::uint256_t mu_coin::transaction_block::fee () const
     return 1;
 }
 
+static void sign_message (mu_coin::EC::PrivateKey const & private_key, mu_coin::uint256_union const & message, mu_coin::uint512_union & signature)
+{
+    mu_coin::EC::Signer signer (private_key);
+    signer.SignMessage (mu_coin::pool (), message.bytes.data (), sizeof (message), signature.bytes.data ());
+}
+
 void mu_coin::entry::sign (EC::PrivateKey const & private_key, mu_coin::uint256_union const & message)
 {
-    EC::Signer signer (private_key);
-    signer.SignMessage (pool (), message.bytes.data (), sizeof (message), signature.bytes.data ());
+    sign_message (private_key, message, signature);
 }
 
 bool mu_coin::entry::validate (mu_coin::uint256_union const & message) const
@@ -624,14 +629,14 @@ mu_coin::uint256_t mu_coin::send_block::hash () const
     CryptoPP::SHA256 hash;
     for (auto & i: inputs)
     {
-        hash.Update (i.signature.bytes.data (), sizeof (i.signature.bytes));
         hash.Update (i.source.address.point.bytes.data (), sizeof (i.source.address.point.bytes));
         hash.Update (reinterpret_cast <uint8_t const *> (&i.source.sequence), sizeof (i.source.sequence));
         hash.Update (i.coins.bytes.data (), sizeof (i.coins.bytes));
     }
     for (auto & i: outputs)
     {
-        hash.Update (i.point.bytes.data (), sizeof (i.point.bytes));
+        hash.Update (i.address.point.bytes.data (), sizeof (i.address.point.bytes));
+        hash.Update (i.coins.bytes.data (), sizeof (i.coins.bytes));
     }
     hash.Final (result.bytes.data ());
     return result.number ();
@@ -653,7 +658,8 @@ void mu_coin::send_block::serialize (mu_coin::byte_write_stream & stream) const
     stream.write (output_count);
     for (auto & i: outputs)
     {
-        stream.write (i.point.bytes);
+        stream.write (i.address.point.bytes);
+        stream.write (i.coins.bytes);
     }
 }
 
@@ -673,7 +679,7 @@ bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
             inputs.reserve (input_count);
             for (uint16_t i (0); !result && i < input_count; ++i)
             {
-                inputs.push_back (mu_coin::send_entry ());
+                inputs.push_back (mu_coin::send_input ());
                 auto & back (inputs.back ());
                 result = stream.read (back.signature.bytes);
                 if (!result)
@@ -703,12 +709,16 @@ bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
                 {
                     for (uint16_t i (0); !result && i < output_count; ++i)
                     {
-                        outputs.push_back (mu_coin::address ());
+                        outputs.push_back (mu_coin::send_output ());
                         auto & back (outputs.back ());
-                        result = stream.read (back.point.bytes);
+                        result = stream.read (back.address.point.bytes);
                         if (!result)
                         {
-                            result = back.point.validate ();
+                            result = back.address.point.validate ();
+                            if (!result)
+                            {
+                                result = stream.read (back.coins);
+                            }
                         }
                     }
                 }
@@ -724,14 +734,36 @@ bool mu_coin::send_block::operator == (mu_coin::send_block const & other_a) cons
     return result;
 }
 
-bool mu_coin::send_entry::send_entry::operator == (mu_coin::send_entry const & other_a) const
+bool mu_coin::send_input::send_input::operator == (mu_coin::send_input const & other_a) const
 {
     auto result (source == other_a.source && coins == other_a.coins && signature == other_a.signature);
     return result;
 }
 
-mu_coin::send_entry::send_entry (EC::PublicKey const & pub_a, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
+mu_coin::send_input::send_input (EC::PublicKey const & pub_a, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
 source (pub_a, sequence_a),
 coins (coins_a)
 {
+}
+
+mu_coin::send_output::send_output (EC::PublicKey const & pub, mu_coin::uint256_t const & coins_a) :
+address (pub),
+coins (coins_a)
+{
+}
+
+bool mu_coin::send_output::operator == (mu_coin::send_output const & other_a) const
+{
+    auto result (address == other_a.address && coins == other_a.coins);
+    return result;
+}
+
+void mu_coin::send_input::sign (EC::PrivateKey const &, mu_coin::uint256_union const &)
+{
+    
+}
+
+void mu_coin::receive_entry::sign (EC::PrivateKey const &, mu_coin::uint256_union const &)
+{
+    
 }
