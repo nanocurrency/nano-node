@@ -131,11 +131,21 @@ namespace std
 }
 
 namespace mu_coin {
+    class block_visitor;
+    enum class block_type : uint8_t
+    {
+        transaction,
+        send,
+        receive
+    };
     class block
     {
     public:
         virtual mu_coin::uint256_t fee () const = 0;
         virtual mu_coin::uint256_t hash () const = 0;
+        virtual void serialize (mu_coin::byte_write_stream &) const = 0;
+        virtual bool deserialize (mu_coin::byte_read_stream &) = 0;
+        virtual void visit (mu_coin::block_visitor &) = 0;
     };
     class block_id
     {
@@ -168,9 +178,66 @@ namespace mu_coin {
         boost::multiprecision::uint256_t fee () const override;
         boost::multiprecision::uint256_t hash () const override;
         bool operator == (mu_coin::transaction_block const &) const;
-        void serialize (mu_coin::byte_write_stream &) const;
-        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &) const override;
+        bool deserialize (mu_coin::byte_read_stream &) override;
+        void visit (mu_coin::block_visitor &) override;
         std::vector <entry> entries;
+    };
+    class send_entry
+    {
+    public:
+        send_entry () = default;
+        send_entry (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
+        void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
+        bool validate (mu_coin::uint256_union const &) const;
+        bool operator == (mu_coin::entry const &) const;
+        mu_coin::EC::PublicKey key () const;
+        uint512_union signature;
+        mu_coin::block_id source;
+        mu_coin::uint256_union coins;
+        uint16_t sequence;
+    };
+    class send_block : public mu_coin::block
+    {
+    public:
+        mu_coin::uint256_t fee () const override;
+        mu_coin::uint256_t hash () const override;
+        void serialize (mu_coin::byte_write_stream &) const override;
+        bool deserialize (mu_coin::byte_read_stream &) override;
+        void visit (mu_coin::block_visitor &) override;
+        mu_coin::address destination;
+        std::vector <send_entry> inputs;
+    };
+    class receive_entry
+    {
+    public:
+        receive_entry () = default;
+        receive_entry (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
+        void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
+        bool validate (mu_coin::uint256_union const &) const;
+        bool operator == (mu_coin::entry const &) const;
+        mu_coin::EC::PublicKey key () const;
+        uint512_union signature;
+        mu_coin::uint256_union coins;
+        uint16_t sequence;
+    };
+    class receive_block : public mu_coin::block
+    {
+    public:
+        mu_coin::uint256_t fee () const override;
+        mu_coin::uint256_t hash () const override;
+        void serialize (mu_coin::byte_write_stream &) const override;
+        bool deserialize (mu_coin::byte_read_stream &) override;
+        void visit (mu_coin::block_visitor &) override;
+        mu_coin::block_id source;
+        mu_coin::receive_entry output;
+    };
+    class block_visitor
+    {
+    public:
+        virtual void send_block (mu_coin::send_block &) = 0;
+        virtual void receive_block (mu_coin::receive_block &) = 0;
+        virtual void transaction_block (mu_coin::transaction_block &) = 0;
     };
     class block_store
     {

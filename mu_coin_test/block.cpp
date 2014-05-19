@@ -102,3 +102,13 @@ TEST (transaction_block, serialize_two_entries)
     block2.deserialize (input);
     ASSERT_EQ (block1, block2);
 }
+
+TEST (send_block, empty_serialize)
+{
+    mu_coin::send_block block1;
+    mu_coin::byte_write_stream stream1;
+    block1.serialize (stream1);
+    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    mu_coin::send_block block2;
+    block2.deserialize (stream2);
+}
