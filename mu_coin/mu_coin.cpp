@@ -758,12 +758,53 @@ bool mu_coin::send_output::operator == (mu_coin::send_output const & other_a) co
     return result;
 }
 
-void mu_coin::send_input::sign (EC::PrivateKey const &, mu_coin::uint256_union const &)
+void mu_coin::send_input::sign (EC::PrivateKey const & prv, mu_coin::uint256_union const & message)
+{
+    sign_message (prv, message, signature);
+}
+
+void mu_coin::receive_entry::sign (EC::PrivateKey const & prv, mu_coin::uint256_union const & message)
+{
+    sign_message (prv, message, signature);
+}
+
+bool mu_coin::receive_block::operator == (mu_coin::receive_block const & other_a) const
+{
+    auto result (output == other_a.output && source == other_a.source);
+    return result;
+}
+
+mu_coin::receive_entry::receive_entry (EC::PublicKey const & pub, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
+address (pub),
+coins (coins_a),
+sequence (sequence_a)
+{
+}
+
+bool mu_coin::receive_entry::operator == (mu_coin::receive_entry const & other_a) const
+{
+    auto result (signature == other_a.signature && address == other_a.address && coins == other_a.coins && sequence == other_a.sequence);
+    return result;
+}
+
+bool mu_coin::receive_block::deserialize (mu_coin::byte_read_stream & stream_a)
 {
     
 }
 
-void mu_coin::receive_entry::sign (EC::PrivateKey const &, mu_coin::uint256_union const &)
+void mu_coin::receive_block::serialize (mu_coin::byte_write_stream & stream_a) const
 {
     
+}
+
+mu_coin::uint256_t mu_coin::receive_block::fee () const
+{
+    return 1;
+}
+
+mu_coin::uint256_t mu_coin::receive_block::hash () const
+{
+    CryptoPP::SHA256 hash;
+    hash.Update (source.address.point.bytes.data (), sizeof (source.address.point.bytes));
+    hash.Update (reinterpret_cast <uint8_t const *> (&source.sequence), sizeof (source.sequence));
 }

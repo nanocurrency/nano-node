@@ -224,9 +224,10 @@ namespace mu_coin {
         receive_entry (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool validate (mu_coin::uint256_union const &) const;
-        bool operator == (mu_coin::entry const &) const;
+        bool operator == (mu_coin::receive_entry const &) const;
         mu_coin::EC::PublicKey key () const;
         uint512_union signature;
+        mu_coin::address address;
         mu_coin::uint256_union coins;
         uint16_t sequence;
     };
@@ -238,6 +239,7 @@ namespace mu_coin {
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) override;
+        bool operator == (mu_coin::receive_block const &) const;
         mu_coin::block_id source;
         mu_coin::receive_entry output;
     };
