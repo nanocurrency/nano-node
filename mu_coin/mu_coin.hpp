@@ -143,6 +143,7 @@ namespace mu_coin {
     public:
         virtual mu_coin::uint256_t fee () const = 0;
         virtual mu_coin::uint256_t hash () const = 0;
+        virtual bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) = 0;
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
         virtual bool deserialize (mu_coin::byte_read_stream &) = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
@@ -175,8 +176,9 @@ namespace mu_coin {
     class transaction_block : public mu_coin::block
     {
     public:
-        boost::multiprecision::uint256_t fee () const override;
-        boost::multiprecision::uint256_t hash () const override;
+        mu_coin::uint256_t fee () const override;
+        mu_coin::uint256_t hash () const override;
+        bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
         bool operator == (mu_coin::transaction_block const &) const;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
@@ -210,6 +212,7 @@ namespace mu_coin {
     public:
         mu_coin::uint256_t fee () const override;
         mu_coin::uint256_t hash () const override;
+        bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) const override;
@@ -222,6 +225,7 @@ namespace mu_coin {
     public:
         mu_coin::uint256_t fee () const override;
         mu_coin::uint256_t hash () const override;
+        bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) const override;

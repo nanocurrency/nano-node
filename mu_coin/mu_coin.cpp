@@ -160,6 +160,18 @@ bool mu_coin::entry::validate (mu_coin::uint256_union const & message) const
     return result;
 }
 
+bool mu_coin::send_input::validate (mu_coin::uint256_union const & message) const
+{
+    EC::Verifier verifier (key ());
+    auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message.bytes), signature.bytes.data (), sizeof (signature.bytes)));
+    return result;
+}
+
+mu_coin::EC::PublicKey mu_coin::send_input::key () const
+{
+    return source.address.point.key ();
+}
+
 mu_coin::point_encoding::point_encoding (mu_coin::EC::PublicKey const & pub)
 {
     curve ().EncodePoint (bytes.data (), pub.GetPublicElement(), true);
@@ -765,7 +777,33 @@ mu_coin::uint256_t mu_coin::receive_block::hash () const
 
 void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
 {
-    assert (false);
+    result = false;
+    mu_coin::uint256_t message (block_a.hash ());
+    mu_coin::uint256_t previous;
+    mu_coin::uint256_t next;
+    for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); !result && i != j; ++i)
+    {
+        auto & address (i->source.address);
+        result = !i->validate (message);
+        if (!result)
+        {
+            if (i->source.sequence > 0)
+            {
+                auto existing (ledger.store.latest (address));
+                if (existing != nullptr)
+                {
+                }
+                else
+                {
+                    result = true;
+                }
+            }
+            else
+            {
+                result = true;
+            }
+        }
+    }
 }
 
 void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & block_a)
@@ -777,8 +815,8 @@ void mu_coin::ledger_processor::transaction_block (mu_coin::transaction_block co
 {
     result = false;
     mu_coin::uint256_t message (block_a.hash ());
-    boost::multiprecision::uint256_t previous;
-    boost::multiprecision::uint256_t next;
+    mu_coin::uint256_t previous;
+    mu_coin::uint256_t next;
     for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); !result && i != j; ++i)
     {
         auto & address (i->id.address);
@@ -790,22 +828,17 @@ void mu_coin::ledger_processor::transaction_block (mu_coin::transaction_block co
             {
                 if (existing != nullptr)
                 {
-                    auto previous_entry (std::find_if (existing->entries.begin (), existing->entries.end (), [&address] (mu_coin::entry const & entry_a) {return address == entry_a.id.address;}));
-                    if (previous_entry != existing->entries.end ())
+                    mu_coin::uint256_t coins;
+                    uint16_t sequence;
+                    result = existing->balance (address, coins, sequence);
+                    if (!result)
                     {
-                        if (previous_entry->id.sequence + 1 == i->id.sequence)
+                        result = sequence + 1 != i->id.sequence;
+                        if (!result)
                         {
-                            previous += previous_entry->coins.number ();
                             next += i->coins.number ();
+                            previous += coins;
                         }
-                        else
-                        {
-                            result = true;
-                        }
-                    }
-                    else
-                    {
-                        result = true;
                     }
                 }
                 else
@@ -856,4 +889,31 @@ void mu_coin::ledger_processor::transaction_block (mu_coin::transaction_block co
 mu_coin::ledger_processor::ledger_processor (mu_coin::ledger & ledger_a) :
 ledger (ledger_a)
 {
+}
+
+bool mu_coin::send_block::balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &)
+{
+    assert (false);
+}
+
+bool mu_coin::receive_block::balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &)
+{
+    assert (false);
+}
+
+bool mu_coin::transaction_block::balance (mu_coin::address const & address_a, mu_coin::uint256_t & coins_a, uint16_t & sequence_a)
+{
+    auto previous_entry (std::find_if (entries.begin (), entries.end (), [&address_a] (mu_coin::entry const & entry_a) {return address_a == entry_a.id.address;}));
+    bool result;
+    if (previous_entry != entries.end ())
+    {
+        result = false;
+        coins_a = previous_entry->coins.number ();
+        sequence_a = previous_entry->id.sequence;
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
 }
