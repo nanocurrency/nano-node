@@ -135,28 +135,17 @@ TEST (send_block, two_entry_send_serialize)
     ASSERT_EQ (block1, block2);
 }
 
-TEST (send_block, DISABLED_empty_receive_serialize)
+TEST (send_block, receive_serialize)
 {
     mu_coin::receive_block block1;
-    mu_coin::byte_write_stream stream1;
-    block1.serialize (stream1);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
-    mu_coin::receive_block block2;
-    block2.deserialize (stream2);
-    ASSERT_EQ (block1, block2);
-}
-
-TEST (send_block, DISABLED_entry_receive_serialize)
-{
-    mu_coin::receive_block block1;
-    mu_coin::byte_write_stream stream1;
     mu_coin::keypair key1;
-    mu_coin::receive_entry entry1 (key1.pub, 43, 9);
-    block1.output = entry1;
-    block1.output.sign (key1.prv, block1.hash ());
+    mu_coin::byte_write_stream stream1;
+    block1.source = mu_coin::block_id (key1.pub, 17);
+    block1.output = mu_coin::block_id (key1.pub, 23);
     block1.serialize (stream1);
     mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
     mu_coin::receive_block block2;
-    block2.deserialize (stream2);
+    auto error (block2.deserialize (stream2));
+    ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }

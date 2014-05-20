@@ -763,38 +763,60 @@ void mu_coin::send_input::sign (EC::PrivateKey const & prv, mu_coin::uint256_uni
     sign_message (prv, message, signature);
 }
 
-void mu_coin::receive_entry::sign (EC::PrivateKey const & prv, mu_coin::uint256_union const & message)
+void mu_coin::receive_block::sign (EC::PrivateKey const & prv, mu_coin::uint256_union const & message)
 {
     sign_message (prv, message, signature);
 }
 
 bool mu_coin::receive_block::operator == (mu_coin::receive_block const & other_a) const
 {
-    auto result (output == other_a.output && source == other_a.source);
-    return result;
-}
-
-mu_coin::receive_entry::receive_entry (EC::PublicKey const & pub, mu_coin::uint256_t const & coins_a, uint16_t sequence_a) :
-address (pub),
-coins (coins_a),
-sequence (sequence_a)
-{
-}
-
-bool mu_coin::receive_entry::operator == (mu_coin::receive_entry const & other_a) const
-{
-    auto result (signature == other_a.signature && address == other_a.address && coins == other_a.coins && sequence == other_a.sequence);
+    auto result (signature == other_a.signature && output == other_a.output && source == other_a.source && coins == other_a.coins);
     return result;
 }
 
 bool mu_coin::receive_block::deserialize (mu_coin::byte_read_stream & stream_a)
 {
-    
+    auto result (false);
+    result = stream_a.read (signature.bytes);
+    if (!result)
+    {
+        result = stream_a.read (source.address.point.bytes);
+        if (!result)
+        {
+            result = source.address.point.validate ();
+            if (!result)
+            {
+                result = stream_a.read (source.sequence);
+                if (!result)
+                {
+                    result = stream_a.read (output.address.point.bytes);
+                    if (!result)
+                    {
+                        result = stream_a.read (output.sequence);
+                        if (!result)
+                        {
+                            result = output.address.point.validate ();
+                            if (!result)
+                            {
+                                result = stream_a.read (coins.bytes);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return result;
 }
 
 void mu_coin::receive_block::serialize (mu_coin::byte_write_stream & stream_a) const
 {
-    
+    stream_a.write (signature.bytes);
+    stream_a.write (source.address.point.bytes);
+    stream_a.write (source.sequence);
+    stream_a.write (output.address.point.bytes);
+    stream_a.write (output.sequence);
+    stream_a.write (coins.bytes);
 }
 
 mu_coin::uint256_t mu_coin::receive_block::fee () const
@@ -807,4 +829,10 @@ mu_coin::uint256_t mu_coin::receive_block::hash () const
     CryptoPP::SHA256 hash;
     hash.Update (source.address.point.bytes.data (), sizeof (source.address.point.bytes));
     hash.Update (reinterpret_cast <uint8_t const *> (&source.sequence), sizeof (source.sequence));
+    hash.Update (output.address.point.bytes.data (), sizeof (output.address.point.bytes));
+    hash.Update (coins.bytes.data (), sizeof (coins.bytes));
+    hash.Update (reinterpret_cast <uint8_t const *> (&output.sequence), sizeof (output.sequence));
+    mu_coin::uint256_union result;
+    hash.Final (result.bytes.data ());
+    return result.number ();
 }
