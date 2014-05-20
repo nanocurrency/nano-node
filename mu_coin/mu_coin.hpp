@@ -145,7 +145,7 @@ namespace mu_coin {
         virtual mu_coin::uint256_t hash () const = 0;
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
         virtual bool deserialize (mu_coin::byte_read_stream &) = 0;
-        virtual void visit (mu_coin::block_visitor &) = 0;
+        virtual void visit (mu_coin::block_visitor &) const = 0;
     };
     class block_id
     {
@@ -180,7 +180,7 @@ namespace mu_coin {
         bool operator == (mu_coin::transaction_block const &) const;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
-        void visit (mu_coin::block_visitor &) override;
+        void visit (mu_coin::block_visitor &) const override;
         std::vector <entry> entries;
     };
     class send_input
@@ -212,7 +212,7 @@ namespace mu_coin {
         mu_coin::uint256_t hash () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
-        void visit (mu_coin::block_visitor &) override;
+        void visit (mu_coin::block_visitor &) const override;
         bool operator == (mu_coin::send_block const &) const;
         std::vector <mu_coin::send_input> inputs;
         std::vector <mu_coin::send_output> outputs;
@@ -224,7 +224,7 @@ namespace mu_coin {
         mu_coin::uint256_t hash () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
-        void visit (mu_coin::block_visitor &) override;
+        void visit (mu_coin::block_visitor &) const override;
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool validate (mu_coin::uint256_union const &) const;
         bool operator == (mu_coin::receive_block const &) const;
@@ -236,9 +236,9 @@ namespace mu_coin {
     class block_visitor
     {
     public:
-        virtual void send_block (mu_coin::send_block &) = 0;
-        virtual void receive_block (mu_coin::receive_block &) = 0;
-        virtual void transaction_block (mu_coin::transaction_block &) = 0;
+        virtual void send_block (mu_coin::send_block const &) = 0;
+        virtual void receive_block (mu_coin::receive_block const &) = 0;
+        virtual void transaction_block (mu_coin::transaction_block const &) = 0;
     };
     class block_store
     {
@@ -255,9 +255,18 @@ namespace mu_coin {
         mu_coin::transaction_block * block (boost::multiprecision::uint256_t const &);
         mu_coin::uint256_union balance (mu_coin::address const &);
         bool has_balance (mu_coin::address const &);
-        bool process (mu_coin::transaction_block const &);
-    private:
+        bool process (mu_coin::block const &);
         mu_coin::block_store & store;
+    };
+    class ledger_processor : public block_visitor
+    {
+    public:
+        ledger_processor (mu_coin::ledger &);
+        void send_block (mu_coin::send_block const &);
+        void receive_block (mu_coin::receive_block const &);
+        void transaction_block (mu_coin::transaction_block const &);
+        mu_coin::ledger & ledger;
+        bool result;
     };
     class block_store_memory : public block_store
     {
