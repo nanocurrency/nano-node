@@ -84,8 +84,8 @@ TEST (wallet, two_item_iteration)
     }
     ASSERT_EQ (2, keys1.size ());
     ASSERT_EQ (2, keys2.size ());
-    ASSERT_EQ (key1.pub, keys1 [0]);
-    ASSERT_EQ (key1.prv.GetPrivateExponent (), keys2 [0].GetPrivateExponent ());
-    ASSERT_EQ (key2.pub, keys1 [1]);
-    ASSERT_EQ (key2.prv.GetPrivateExponent (), keys2 [1].GetPrivateExponent ());
+    ASSERT_TRUE ((key1.pub == keys1 [0]) || key1.pub == keys1 [1]);
+    ASSERT_TRUE ((key1.prv.GetPrivateExponent () == keys2 [0].GetPrivateExponent ()) || (key1.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()));
+    ASSERT_TRUE ((key2.pub == keys1 [1]) || key2.pub == keys1 [0]);
+    ASSERT_TRUE ((key2.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()) || (key2.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()));
 }
