@@ -891,14 +891,36 @@ ledger (ledger_a)
 {
 }
 
-bool mu_coin::send_block::balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &)
+bool mu_coin::send_block::balance (mu_coin::address const & address_a, mu_coin::uint256_t & coins_a, uint16_t & sequence_a)
 {
-    assert (false);
+    bool result (true);
+    for (auto i (inputs.begin ()), j (inputs.end ()); i != j && result; ++i)
+    {
+        auto & entry (*i);
+        if (entry.source.address == address_a)
+        {
+            coins_a = entry.coins.number ();
+            sequence_a = entry.source.sequence;
+            result = false;
+        }
+    }
+    return result;
 }
 
-bool mu_coin::receive_block::balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &)
+bool mu_coin::receive_block::balance (mu_coin::address const & address_a, mu_coin::uint256_t & coins_a, uint16_t & sequence_a)
 {
-    assert (false);
+    bool result;
+    if (output.address == address_a)
+    {
+        coins_a = coins.number ();
+        sequence_a = output.sequence;
+        result = false;
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
 }
 
 bool mu_coin::transaction_block::balance (mu_coin::address const & address_a, mu_coin::uint256_t & coins_a, uint16_t & sequence_a)

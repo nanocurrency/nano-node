@@ -149,3 +149,47 @@ TEST (send_block, receive_serialize)
     ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }
+
+TEST (send_block, balance)
+{
+    mu_coin::send_block block;
+    mu_coin::keypair key1;
+    mu_coin::address address1 (key1.pub);
+    mu_coin::send_input entry1 (key1.pub, 42, 37);
+    block.inputs.push_back (entry1);
+    mu_coin::keypair key2;
+    mu_coin::address address2 (key2.pub);
+    mu_coin::send_output entry2 (key2.pub, 17);
+    mu_coin::uint256_t coins;
+    uint16_t sequence;
+    auto error1 (block.balance (address1, coins, sequence));
+    ASSERT_FALSE (error1);
+    auto error2 (block.balance (address2, coins, sequence));
+    ASSERT_TRUE (error2);
+    ASSERT_EQ (42, coins);
+    ASSERT_EQ (37, sequence);
+    mu_coin::keypair key3;
+    mu_coin::address address3 (key3.pub);
+    auto error3 (block.balance (address3, coins, sequence));
+    ASSERT_TRUE (error3);
+}
+
+TEST (receive_block, balance)
+{
+    mu_coin::receive_block block;
+    mu_coin::keypair key1;
+    block.output.address = key1.pub;
+    block.coins = mu_coin::uint256_t (42);
+    block.output.sequence = 97;
+    mu_coin::uint256_t coins;
+    uint16_t sequence;
+    mu_coin::address address1 (key1.pub);
+    auto error1 (block.balance (address1, coins, sequence));
+    ASSERT_FALSE (error1);
+    ASSERT_EQ (mu_coin::uint256_t (42), coins);
+    ASSERT_EQ (97, sequence);
+    mu_coin::keypair key2;
+    mu_coin::address address2 (key2.pub);
+    auto error2 (block.balance (address2, coins, sequence));
+    ASSERT_TRUE (error2);
+}
