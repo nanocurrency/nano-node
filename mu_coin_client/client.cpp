@@ -1,4 +1,5 @@
 #include <mu_coin_client/client.hpp>
+
 #include <sstream>
 
 mu_coin_client::client::client (int argc, char ** argv) :

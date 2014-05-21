@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <mu_coin/mu_coin.hpp>
 #include <cryptopp/filters.h>
+#include <cryptopp/randpool.h>
 
 TEST (ledger, empty)
 {
@@ -247,4 +248,35 @@ TEST (ledger, process_send)
     receive.coins = mu_coin::uint256_t (50);
     auto error2 (ledger.process (receive));
     ASSERT_FALSE (error2);
+}
+
+TEST (cached_password_store, multiple_passwords)
+{
+    std::vector <mu_coin::uint256_union> passwords1;
+    for (auto i (0); i < 100; ++i)
+    {
+        passwords1.push_back (decltype (passwords1)::value_type ());
+        mu_coin::pool ().GenerateBlock (passwords1.back ().bytes.data (), sizeof (passwords1.back ().bytes));
+    }
+    mu_coin::uint256_union pin;
+    mu_coin::pool ().GenerateBlock (pin.bytes.data (), sizeof (pin.bytes));
+    mu_coin::cached_password_store store;
+    for (auto i (passwords1.begin ()), j (passwords1.end ()); i != j; ++i)
+    {
+        store.encrypt (pin, *i);
+    }
+    std::vector <mu_coin::uint256_union> passwords2;
+    for (size_t i (0), j (store.size ()); i != j; ++i)
+    {
+        passwords2.push_back (decltype (passwords2)::value_type ());
+        store.decrypt (pin, passwords2.back (), i);
+    }
+    ASSERT_EQ (passwords1, passwords2);
+    std::vector <mu_coin::uint256_union> passwords3;
+    for (size_t i (0), j (store.size ()); i != j; ++i)
+    {
+        passwords3.push_back (decltype (passwords3)::value_type ());
+        store.decrypt (pin, passwords2.back (), i);
+    }
+    ASSERT_NE (passwords1, passwords3);
 }

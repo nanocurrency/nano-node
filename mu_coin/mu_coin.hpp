@@ -337,4 +337,13 @@ namespace mu_coin {
         mu_coin::EC::PublicKey pub;
         mu_coin::EC::PrivateKey prv;
     };
+    class cached_password_store
+    {
+    public:
+        size_t size ();
+        void decrypt (mu_coin::uint256_union const &, mu_coin::uint256_union &, size_t);
+        void encrypt (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
+        void clear ();
+        std::vector <mu_coin::uint256_union> passwords;
+    };
 }

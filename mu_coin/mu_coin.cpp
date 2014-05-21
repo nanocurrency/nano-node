@@ -1183,3 +1183,40 @@ mu_coin::block_type mu_coin::receive_block::type () const
 {
     return mu_coin::block_type::receive;
 }
+
+void mu_coin::cached_password_store::decrypt (mu_coin::uint256_union const & pin_hash, mu_coin::uint256_union & password, size_t index_a)
+{
+    assert (passwords.size () > index_a);
+    CryptoPP::AES::Decryption alg (pin_hash.bytes.data (), sizeof (pin_hash.bytes));
+    CryptoPP::ECB_Mode_ExternalCipher::Decryption dec (alg);
+    dec.ProcessData (password.bytes.data (), passwords [index_a].bytes.data (), sizeof (passwords [index_a].bytes));
+}
+
+void mu_coin::cached_password_store::encrypt (mu_coin::uint256_union const & pin_hash, mu_coin::uint256_union const & password)
+{
+    CryptoPP::AES::Encryption alg (pin_hash.bytes.data (), sizeof (pin_hash.bytes));
+    CryptoPP::ECB_Mode_ExternalCipher::Encryption enc (alg);
+    if (passwords.capacity () <= passwords.size ())
+    {
+        std::vector <mu_coin::uint256_union> passwords_l;
+        passwords_l.reserve (passwords.size () + 1);
+        passwords_l.assign (passwords.begin (), passwords.end ());
+        clear ();
+        passwords.swap (passwords_l);
+    }
+    passwords.push_back (decltype (passwords)::value_type ());
+    enc.ProcessData (passwords.back ().bytes.data (), password.bytes.data (), sizeof (password.bytes));
+}
+
+size_t mu_coin::cached_password_store::size ()
+{
+    return passwords.size ();
+}
+
+void mu_coin::cached_password_store::clear ()
+{
+    for (auto i (passwords.begin ()), j (passwords.end ()); i != j; ++i)
+    {
+        i->bytes.fill (0);
+    }
+}
