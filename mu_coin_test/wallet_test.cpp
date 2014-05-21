@@ -70,7 +70,7 @@ TEST (wallet, two_item_iteration)
     wallet.insert (key1.prv, secret);
     wallet.insert (key2.prv, secret);
     std::vector <mu_coin::EC::PublicKey> keys1;
-    std::vector <mu_coin::EC::PrivateKey> keys2;
+    std::vector <CryptoPP::Integer> keys2;
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         mu_coin::EC::PublicKey key (*i);
@@ -80,12 +80,12 @@ TEST (wallet, two_item_iteration)
         i.data.key (secret, encoding.iv (), prv, failed);
         ASSERT_FALSE (failed);
         keys1.push_back (key);
-        keys2.push_back (prv);
+        keys2.push_back (prv.GetPrivateExponent ());
     }
     ASSERT_EQ (2, keys1.size ());
     ASSERT_EQ (2, keys2.size ());
     ASSERT_NE (keys1.end (), std::find (keys1.begin (), keys1.end (), key1.pub));
-    ASSERT_TRUE ((key1.prv.GetPrivateExponent () == keys2 [0].GetPrivateExponent ()) || (key1.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()));
+    ASSERT_NE (keys2.end (), std::find (keys2.begin (), keys2.end (), key1.prv.GetPrivateExponent ()));
     ASSERT_NE (keys1.end (), std::find (keys1.begin (), keys1.end (), key2.pub));
-    ASSERT_TRUE ((key2.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()) || (key2.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()));
+    ASSERT_NE (keys2.end (), std::find (keys2.begin (), keys2.end (), key2.prv.GetPrivateExponent ()));
 }
