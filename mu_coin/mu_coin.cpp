@@ -153,18 +153,21 @@ void mu_coin::entry::sign (EC::PrivateKey const & private_key, mu_coin::uint256_
     sign_message (private_key, message, signature);
 }
 
-bool mu_coin::entry::validate (mu_coin::uint256_union const & message) const
+static bool validate_message (mu_coin::uint256_union const & message, mu_coin::uint512_union const & signature, mu_coin::EC::PublicKey const & key)
 {
-    EC::Verifier verifier (key ());
+    mu_coin::EC::Verifier verifier (key);
     auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message), signature.bytes.data (), sizeof (signature)));
     return result;
 }
 
+bool mu_coin::entry::validate (mu_coin::uint256_union const & message) const
+{
+    return validate_message (message, signature, key ());
+}
+
 bool mu_coin::send_input::validate (mu_coin::uint256_union const & message) const
 {
-    EC::Verifier verifier (key ());
-    auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message.bytes), signature.bytes.data (), sizeof (signature.bytes)));
-    return result;
+    return validate_message (message, signature, key ());
 }
 
 mu_coin::EC::PublicKey mu_coin::send_input::key () const
@@ -783,7 +786,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
     for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); !result && i != j; ++i)
     {
         auto & address (i->source.address);
-        result = !i->validate (message);
+        result = i->validate (message);
         if (!result)
         {
             if (i->source.sequence > 0)
@@ -837,7 +840,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
             {
                 for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
                 {
-                    ledger.store.insert_send (i->address, block_a.inputs.front ().source);
+                    ledger.store.insert_send (i->address, block_a);
                 }
             }
             else
@@ -850,7 +853,62 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
 
 void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & block_a)
 {
-    assert (false);
+    result = block_a.validate (block_a.hash ());
+    if (!result)
+    {
+        auto block (ledger.store.send (block_a.output.address, block_a.source));
+        result = block == nullptr;
+        if (!result)
+        {
+            auto entry (std::find_if (block->outputs.begin (), block->outputs.end (), [&block_a] (mu_coin::send_output const & output_a) {return output_a.address == block_a.output.address;}));
+            assert (entry != block->outputs.end ());
+            auto previous (ledger.previous (block_a.output.address));
+            if (block_a.output.sequence > 0)
+            {
+                if (previous != nullptr)
+                {
+                    mu_coin::uint256_t coins;
+                    uint16_t sequence;
+                    result = previous->balance (block_a.output.address, coins, sequence);
+                    if (!result)
+                    {
+                        if (block_a.coins == coins + entry->coins.number ())
+                        {
+                            ledger.store.clear (block_a.output.address, block_a.source);
+                            assert (false);
+//                            ledger.store.insert_block (block_a.output, );
+                        }
+                        else
+                        {
+                            result = true;
+                        }
+                    }
+                }
+                else
+                {
+                    result = true;
+                }
+            }
+            else
+            {
+                if (previous == nullptr)
+                {
+                    if (block_a.coins == entry->coins)
+                    {
+                        
+                    }
+                    else
+                    {
+                        result = true;
+                    }
+                }
+                else
+                {
+                    result = true;
+                }
+            }
+        }
+    }
 }
 
 void mu_coin::ledger_processor::transaction_block (mu_coin::transaction_block const & block_a)
@@ -982,23 +1040,40 @@ bool mu_coin::transaction_block::balance (mu_coin::address const & address_a, mu
     return result;
 }
 
-bool mu_coin::block_store_memory::receive (mu_coin::address const & address_a, mu_coin::block_id const & block_a)
+std::unique_ptr <mu_coin::send_block> mu_coin::block_store_memory::send (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
 {
-    auto existing (open.find (address_a));
-    bool result;
+    std::unique_ptr <mu_coin::send_block> result;
+    auto existing (open.find (mu_coin::send_source ({address_a, id_a})));
     if (existing == open.end ())
     {
-        result = true;
-    }
-    else
-    {
-        open.erase (existing);
-        result = false;
+        result.reset (new mu_coin::send_block (*existing->second));
     }
     return result;
 }
 
-void mu_coin::block_store_memory::insert_send (mu_coin::address const &, mu_coin::block_id const &)
+void mu_coin::block_store_memory::insert_send (mu_coin::address const & address_a, mu_coin::send_block const & block_a)
 {
-    assert (false);
+    open.insert (decltype (open)::value_type (mu_coin::send_source ({address_a, block_a.inputs.front ().source}), std::unique_ptr <mu_coin::send_block> (new mu_coin::send_block (block_a))));
+}
+
+mu_coin::send_block::send_block (send_block const & other_a) :
+inputs (other_a.inputs),
+outputs (other_a.outputs)
+{
+}
+
+void mu_coin::block_store_memory::clear (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
+{
+    auto erased (open.erase (mu_coin::send_source ({address_a, id_a})));
+    assert (erased == 1);
+}
+
+bool mu_coin::send_source::operator == (mu_coin::send_source const & other_a) const
+{
+    return address == other_a.address && source == other_a.source;
+}
+
+bool mu_coin::receive_block::validate (mu_coin::uint256_union const & message) const
+{
+    return validate_message (message, signature, output.address.point.key ());
 }

@@ -221,3 +221,29 @@ TEST (uint256_union, key_encryption)
     key4.MakePublicKey (pub);
     ASSERT_EQ (key1.pub, pub);
 }
+
+TEST (ledger, process_send)
+{
+    mu_coin::keypair key1;
+    mu_coin::transaction_block genesis;
+    mu_coin::entry entry1 (key1.pub, 100, 0);
+    genesis.entries.push_back (entry1);
+    genesis.entries [0].sign (key1.prv, genesis.hash ());
+    mu_coin::block_store_memory store;
+    mu_coin::ledger ledger (store);
+    store.insert_block (entry1.id, genesis);
+    mu_coin::send_block send;
+    mu_coin::send_input entry2 (key1.pub, 49, 1);
+    mu_coin::keypair key2;
+    send.inputs.push_back (entry2);
+    mu_coin::send_output entry3 (key2.pub, 50);
+    send.outputs.push_back (entry3);
+    entry2.sign (key1.prv, send.hash ());
+    auto error1 (ledger.process (send));
+    ASSERT_FALSE (error1);
+    mu_coin::receive_block receive;
+    receive.source = entry2.source;
+    receive.output = mu_coin::block_id (key2.pub, 0);
+    auto error2 (ledger.process (receive));
+    ASSERT_FALSE (error2);
+}
