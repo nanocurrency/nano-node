@@ -244,6 +244,7 @@ TEST (ledger, process_send)
     mu_coin::receive_block receive;
     receive.source = entry2.source;
     receive.output = mu_coin::block_id (key2.pub, 0);
+    receive.coins = mu_coin::uint256_t (50);
     auto error2 (ledger.process (receive));
     ASSERT_FALSE (error2);
 }

@@ -830,19 +830,16 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
         {
             outputs += i->coins.number ();
         }
-        if (!result)
+        if (outputs + block_a.fee () == inputs)
         {
-            if (outputs + block_a.fee () == inputs)
+            for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
             {
-                for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
-                {
-                    ledger.store.insert_send (i->address, block_a);
-                }
+                ledger.store.insert_send (i->address, block_a);
             }
-            else
-            {
-                result = true;
-            }
+        }
+        else
+        {
+            result = true;
         }
     }
 }
@@ -871,8 +868,7 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
                         if (block_a.coins == coins + entry->coins.number ())
                         {
                             ledger.store.clear (block_a.output.address, block_a.source);
-                            assert (false);
-//                            ledger.store.insert_block (block_a.output, );
+                            ledger.store.insert_block (block_a.output, block_a);
                         }
                         else
                         {
@@ -891,7 +887,8 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
                 {
                     if (block_a.coins == entry->coins)
                     {
-                        
+                        ledger.store.clear (block_a.output.address, block_a.source);
+                        ledger.store.insert_block (block_a.output, block_a);
                     }
                     else
                     {
@@ -1040,7 +1037,7 @@ std::unique_ptr <mu_coin::send_block> mu_coin::block_store_memory::send (mu_coin
 {
     std::unique_ptr <mu_coin::send_block> result;
     auto existing (open.find (mu_coin::send_source ({address_a, id_a})));
-    if (existing == open.end ())
+    if (existing != open.end ())
     {
         result.reset (new mu_coin::send_block (*existing->second));
     }
