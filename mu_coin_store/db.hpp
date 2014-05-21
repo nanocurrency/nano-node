@@ -25,7 +25,9 @@ namespace mu_coin_store {
         block_store_db (block_store_db_temp_t const &);
         std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) override;
         std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) override;
-        void insert (mu_coin::block_id const &, mu_coin::transaction_block const &) override;
+        void insert_block (mu_coin::block_id const &, mu_coin::transaction_block const &) override;
+        void insert_send (mu_coin::address const &, mu_coin::block_id const &) override;
+        bool receive (mu_coin::address const &, mu_coin::block_id const &) override;
     private:
         void latest_sequence (mu_coin::address const &, uint16_t & sequence, bool & exists);
         Db handle;

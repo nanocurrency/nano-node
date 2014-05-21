@@ -84,8 +84,8 @@ TEST (wallet, two_item_iteration)
     }
     ASSERT_EQ (2, keys1.size ());
     ASSERT_EQ (2, keys2.size ());
-    ASSERT_TRUE ((key1.pub == keys1 [0]) || key1.pub == keys1 [1]);
+    ASSERT_NE (keys1.end (), std::find (keys1.begin (), keys1.end (), key1.pub));
     ASSERT_TRUE ((key1.prv.GetPrivateExponent () == keys2 [0].GetPrivateExponent ()) || (key1.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()));
-    ASSERT_TRUE ((key2.pub == keys1 [1]) || key2.pub == keys1 [0]);
+    ASSERT_NE (keys1.end (), std::find (keys1.begin (), keys1.end (), key2.pub));
     ASSERT_TRUE ((key2.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()) || (key2.prv.GetPrivateExponent () == keys2 [1].GetPrivateExponent ()));
 }

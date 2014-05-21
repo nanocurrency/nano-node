@@ -107,6 +107,18 @@ namespace mu_coin {
         bool deserialize (mu_coin::byte_read_stream &);
         point_encoding point;
     };
+    class block_id
+    {
+    public:
+        block_id () = default;
+        block_id (EC::PublicKey const &, uint16_t);
+        block_id (mu_coin::address const &, uint16_t);
+        void serialize (mu_coin::byte_write_stream &) const;
+        bool deserialize (mu_coin::byte_read_stream &);
+        bool operator == (mu_coin::block_id const &) const;
+        mu_coin::address address;
+        uint16_t sequence;
+    };
 }
 
 namespace std
@@ -117,6 +129,15 @@ namespace std
         size_t operator () (mu_coin::address const & address_a) const
         {
             size_t hash (*reinterpret_cast <size_t const *> (address_a.point.bytes.data ()));
+            return hash;
+        }
+    };
+    template <>
+    struct hash <mu_coin::block_id>
+    {
+        size_t operator () (mu_coin::block_id const & id_a) const
+        {
+            size_t hash (*reinterpret_cast <size_t const *> (id_a.address.point.bytes.data ()));
             return hash;
         }
     };
@@ -147,18 +168,6 @@ namespace mu_coin {
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
         virtual bool deserialize (mu_coin::byte_read_stream &) = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
-    };
-    class block_id
-    {
-    public:
-        block_id () = default;
-        block_id (EC::PublicKey const &, uint16_t);
-        block_id (mu_coin::address const &, uint16_t);
-        void serialize (mu_coin::byte_write_stream &) const;
-        bool deserialize (mu_coin::byte_read_stream &);
-        bool operator == (mu_coin::block_id const &) const;
-        mu_coin::address address;
-        uint16_t sequence;
     };
     class entry
     {
@@ -248,8 +257,10 @@ namespace mu_coin {
     {
     public:
         virtual std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) = 0;
-        virtual void insert (mu_coin::block_id const &, mu_coin::transaction_block const &) = 0;
+        virtual void insert_block (mu_coin::block_id const &, mu_coin::transaction_block const &) = 0;
         virtual std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) = 0;
+        virtual void insert_send (mu_coin::address const &, mu_coin::block_id const &) = 0;
+        virtual bool receive (mu_coin::address const &, mu_coin::block_id const &) = 0;
     };
     class ledger
     {
@@ -276,9 +287,12 @@ namespace mu_coin {
     {
     public:
         std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) override;
-        void insert (mu_coin::block_id const &, mu_coin::transaction_block const &) override;
+        void insert_block (mu_coin::block_id const &, mu_coin::transaction_block const &) override;
         std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) override;
+        void insert_send (mu_coin::address const &, mu_coin::block_id const &) override;
+        bool receive (mu_coin::address const &, mu_coin::block_id const &) override;
     private:
+        std::unordered_multimap <mu_coin::address, mu_coin::block_id> open;
         std::unordered_map <mu_coin::address, std::vector <mu_coin::transaction_block> *> blocks;
     };
     class keypair

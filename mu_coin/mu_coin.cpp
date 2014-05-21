@@ -268,7 +268,7 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin::block_store_memory::latest
     }
 }
 
-void mu_coin::block_store_memory::insert (mu_coin::block_id const & block_id_a, mu_coin::transaction_block const & block)
+void mu_coin::block_store_memory::insert_block (mu_coin::block_id const & block_id_a, mu_coin::transaction_block const & block)
 {
     auto existing (blocks.find (block_id_a.address));
     if (existing != blocks.end ())
@@ -779,8 +779,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
 {
     result = false;
     mu_coin::uint256_t message (block_a.hash ());
-    mu_coin::uint256_t previous;
-    mu_coin::uint256_t next;
+    mu_coin::uint256_t inputs;
     for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); !result && i != j; ++i)
     {
         auto & address (i->source.address);
@@ -792,10 +791,53 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
                 auto existing (ledger.store.latest (address));
                 if (existing != nullptr)
                 {
+                    mu_coin::uint256_t coins;
+                    uint16_t sequence;
+                    result = existing->balance (address, coins, sequence);
+                    if (!result)
+                    {
+                        if (coins > i->coins.number ())
+                        {
+                            if (sequence + 1 == i->source.sequence)
+                            {
+                                inputs += coins - i->coins.number ();
+                            }
+                            else
+                            {
+                                result = true;
+                            }
+                        }
+                        else
+                        {
+                            result = true;
+                        }
+                    }
                 }
                 else
                 {
                     result = true;
+                }
+            }
+            else
+            {
+                result = true;
+            }
+        }
+    }
+    if (!result)
+    {
+        mu_coin::uint256_t outputs;
+        for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j && !result; ++i)
+        {
+            outputs += i->coins.number ();
+        }
+        if (!result)
+        {
+            if (outputs + block_a.fee () == inputs)
+            {
+                for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
+                {
+                    ledger.store.insert_send (i->address, block_a.inputs.front ().source);
                 }
             }
             else
@@ -871,7 +913,7 @@ void mu_coin::ledger_processor::transaction_block (mu_coin::transaction_block co
             {
                 for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); i != j; ++i)
                 {
-                    ledger.store.insert (i->id, block_a);
+                    ledger.store.insert_block (i->id, block_a);
                 }
             }
             else
@@ -938,4 +980,25 @@ bool mu_coin::transaction_block::balance (mu_coin::address const & address_a, mu
         result = true;
     }
     return result;
+}
+
+bool mu_coin::block_store_memory::receive (mu_coin::address const & address_a, mu_coin::block_id const & block_a)
+{
+    auto existing (open.find (address_a));
+    bool result;
+    if (existing == open.end ())
+    {
+        result = true;
+    }
+    else
+    {
+        open.erase (existing);
+        result = false;
+    }
+    return result;
+}
+
+void mu_coin::block_store_memory::insert_send (mu_coin::address const &, mu_coin::block_id const &)
+{
+    assert (false);
 }

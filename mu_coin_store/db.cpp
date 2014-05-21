@@ -27,7 +27,7 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::late
     return result;
 }
 
-void mu_coin_store::block_store_db::insert (mu_coin::block_id const & id_a, mu_coin::transaction_block const & block_a)
+void mu_coin_store::block_store_db::insert_block (mu_coin::block_id const & id_a, mu_coin::transaction_block const & block_a)
 {
     dbt key (id_a);
     dbt data (block_a);
@@ -112,4 +112,18 @@ void mu_coin_store::dbt::adopt (mu_coin::byte_write_stream & stream_a)
     data.set_data (stream_a.data);
     data.set_size (stream_a.size);
     stream_a.data = nullptr;
+}
+
+bool mu_coin_store::block_store_db::receive (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
+{
+    mu_coin_store::dbt key (id_a);
+    mu_coin_store::dbt data;
+    int error (handle.get (nullptr, &key.data, &data.data, 0));
+    auto result (error != 0);
+    return result;
+}
+
+void mu_coin_store::block_store_db::insert_send (mu_coin::address const &, mu_coin::block_id const &)
+{
+    assert (false);
 }

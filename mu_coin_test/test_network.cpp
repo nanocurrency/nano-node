@@ -120,11 +120,11 @@ TEST (network, send_valid_publish)
     mu_coin::entry entry1 (key1.pub, 100, 0);
     block1.entries.push_back (entry1);
     mu_coin::block_store_memory store1;
-    store1.insert (entry1.id, block1);
+    store1.insert_block (entry1.id, block1);
     mu_coin::ledger ledger1 (store1);
     mu_coin_network::node node1 (service, 24001, ledger1);
     mu_coin::block_store_memory store2;
-    store2.insert (entry1.id, block1);
+    store2.insert_block (entry1.id, block1);
     mu_coin::ledger ledger2 (store2);
     mu_coin_network::node node2 (service, 24002, ledger2);
     node1.receive ();
