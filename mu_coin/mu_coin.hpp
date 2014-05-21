@@ -186,6 +186,8 @@ namespace mu_coin {
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
         virtual bool deserialize (mu_coin::byte_read_stream &) = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
+        virtual bool operator == (mu_coin::block const &) const = 0;
+        virtual std::unique_ptr <mu_coin::block> clone () const = 0;
     };
     class entry
     {
@@ -206,10 +208,12 @@ namespace mu_coin {
         mu_coin::uint256_t fee () const override;
         mu_coin::uint256_t hash () const override;
         bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
+        bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::transaction_block const &) const;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) const override;
+        std::unique_ptr <mu_coin::block> clone () const override;
         std::vector <entry> entries;
     };
     class send_input
@@ -245,6 +249,8 @@ namespace mu_coin {
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) const override;
+        std::unique_ptr <mu_coin::block> clone () const override;
+        bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::send_block const &) const;
         std::vector <mu_coin::send_input> inputs;
         std::vector <mu_coin::send_output> outputs;
@@ -258,8 +264,10 @@ namespace mu_coin {
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &) override;
         void visit (mu_coin::block_visitor &) const override;
+        std::unique_ptr <mu_coin::block> clone () const override;
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool validate (mu_coin::uint256_union const &) const;
+        bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::receive_block const &) const;
         uint512_union signature;
         mu_coin::block_id source;
@@ -276,9 +284,9 @@ namespace mu_coin {
     class block_store
     {
     public:
-        virtual std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) = 0;
-        virtual void insert_block (mu_coin::block_id const &, mu_coin::transaction_block const &) = 0;
-        virtual std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) = 0;
+        virtual std::unique_ptr <mu_coin::block> latest (mu_coin::address const &) = 0;
+        virtual void insert_block (mu_coin::block_id const &, mu_coin::block const &) = 0;
+        virtual std::unique_ptr <mu_coin::block> block (mu_coin::block_id const &) = 0;
         virtual void insert_send (mu_coin::address const &, mu_coin::send_block const &) = 0;
         virtual std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::block_id const &) = 0;
         virtual void clear (mu_coin::address const &, mu_coin::block_id const &) = 0;
@@ -287,7 +295,7 @@ namespace mu_coin {
     {
     public:
         ledger (mu_coin::block_store &);
-        std::unique_ptr <mu_coin::transaction_block> previous (mu_coin::address const &);
+        std::unique_ptr <mu_coin::block> previous (mu_coin::address const &);
         mu_coin::transaction_block * block (boost::multiprecision::uint256_t const &);
         mu_coin::uint256_union balance (mu_coin::address const &);
         bool has_balance (mu_coin::address const &);
@@ -307,15 +315,15 @@ namespace mu_coin {
     class block_store_memory : public block_store
     {
     public:
-        std::unique_ptr <mu_coin::transaction_block> latest (mu_coin::address const &) override;
-        void insert_block (mu_coin::block_id const &, mu_coin::transaction_block const &) override;
-        std::unique_ptr <mu_coin::transaction_block> block (mu_coin::block_id const &) override;
+        std::unique_ptr <mu_coin::block> latest (mu_coin::address const &) override;
+        void insert_block (mu_coin::block_id const &, mu_coin::block const &) override;
+        std::unique_ptr <mu_coin::block> block (mu_coin::block_id const &) override;
         void insert_send (mu_coin::address const &, mu_coin::send_block const &) override;
         std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::block_id const &) override;
         void clear (mu_coin::address const &, mu_coin::block_id const &) override;
     private:
         std::unordered_map <mu_coin::send_source, std::unique_ptr <mu_coin::send_block>> open;
-        std::unordered_map <mu_coin::address, std::vector <mu_coin::transaction_block> *> blocks;
+        std::unordered_map <mu_coin::address, std::vector <std::unique_ptr <mu_coin::block>> *> blocks;
     };
     class keypair
     {

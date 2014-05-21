@@ -180,7 +180,7 @@ mu_coin::point_encoding::point_encoding (mu_coin::EC::PublicKey const & pub)
     curve ().EncodePoint (bytes.data (), pub.GetPublicElement(), true);
 }
 
-std::unique_ptr <mu_coin::transaction_block> mu_coin::ledger::previous (mu_coin::address const & address_a)
+std::unique_ptr <mu_coin::block> mu_coin::ledger::previous (mu_coin::address const & address_a)
 {
     auto existing (store.latest (address_a));
     return existing;
@@ -191,14 +191,11 @@ mu_coin::uint256_union mu_coin::ledger::balance (mu_coin::address const & addres
     auto previous_l (previous (address_a));
     if (previous_l != nullptr)
     {
-        for (auto i (previous_l->entries.begin ()), j (previous_l->entries.end ()); i != j; ++i)
-        {
-            if (i->id.address == address_a)
-            {
-                return i->coins;
-            }
-        }
-        assert (false);
+        mu_coin::uint256_t coins;
+        uint16_t sequence;
+        auto error (previous_l->balance (address_a, coins, sequence));
+        assert (!error);
+        return coins;
     }
     else
     {
@@ -258,12 +255,12 @@ mu_coin::keypair::keypair ()
     prv.MakePublicKey (pub);
 }
 
-std::unique_ptr <mu_coin::transaction_block> mu_coin::block_store_memory::latest (mu_coin::address const & address_a)
+std::unique_ptr <mu_coin::block> mu_coin::block_store_memory::latest (mu_coin::address const & address_a)
 {
     auto existing (blocks.find (address_a));
     if (existing != blocks.end ())
     {
-        return std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block (existing->second->back ()));
+        return std::unique_ptr <mu_coin::block> (existing->second->back ()->clone ());
     }
     else
     {
@@ -271,20 +268,20 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin::block_store_memory::latest
     }
 }
 
-void mu_coin::block_store_memory::insert_block (mu_coin::block_id const & block_id_a, mu_coin::transaction_block const & block)
+void mu_coin::block_store_memory::insert_block (mu_coin::block_id const & block_id_a, mu_coin::block const & block)
 {
     auto existing (blocks.find (block_id_a.address));
     if (existing != blocks.end ())
     {
         assert (existing->second->size () == block_id_a.sequence);
-        existing->second->push_back (block);
+        existing->second->push_back (block.clone ());
     }
     else
     {
         assert (block_id_a.sequence == 0);
-        auto blocks_l (new std::vector <mu_coin::transaction_block>);
+        auto blocks_l (new std::vector <std::unique_ptr <mu_coin::block>>);
         blocks [block_id_a.address] = blocks_l;
-        blocks_l->push_back (block);
+        blocks_l->push_back (block.clone ());
     }
 }
 
@@ -461,16 +458,15 @@ bool mu_coin::address::deserialize (mu_coin::byte_read_stream & stream_a)
     return stream_a.read (point_l);
 }
 
-std::unique_ptr <mu_coin::transaction_block> mu_coin::block_store_memory::block (mu_coin::block_id const & id_a)
+std::unique_ptr <mu_coin::block> mu_coin::block_store_memory::block (mu_coin::block_id const & id_a)
 {
-    std::unique_ptr <mu_coin::transaction_block> result;
+    std::unique_ptr <mu_coin::block> result;
     auto existing (blocks.find (id_a.address));
     if (existing != blocks.end ())
     {
         if (existing->second->size () > id_a.sequence)
         {
-            std::unique_ptr <mu_coin::transaction_block> data (new mu_coin::transaction_block ((*existing->second) [id_a.sequence]));
-            result = std::move (data);
+            result = (*existing->second) [id_a.sequence]->clone ();
         }
     }
     return result;
@@ -1076,4 +1072,52 @@ bool mu_coin::send_source::operator == (mu_coin::send_source const & other_a) co
 bool mu_coin::receive_block::validate (mu_coin::uint256_union const & message) const
 {
     return validate_message (message, signature, output.address.point.key ());
+}
+
+bool mu_coin::transaction_block::operator == (mu_coin::block const & other_a) const
+{
+    auto other_l (dynamic_cast <mu_coin::transaction_block const *> (&other_a));
+    auto result (other_l != nullptr);
+    if (result)
+    {
+        result = *this == *other_l;
+    }
+    return result;
+}
+
+bool mu_coin::send_block::operator == (mu_coin::block const & other_a) const
+{
+    auto other_l (dynamic_cast <mu_coin::send_block const *> (&other_a));
+    auto result (other_l != nullptr);
+    if (result)
+    {
+        result = *this == *other_l;
+    }
+    return result;
+}
+
+bool mu_coin::receive_block::operator == (mu_coin::block const & other_a) const
+{
+    auto other_l (dynamic_cast <mu_coin::receive_block const *> (&other_a));
+    auto result (other_l != nullptr);
+    if (result)
+    {
+        result = *this == *other_l;
+    }
+    return result;
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::transaction_block::clone () const
+{
+    return std::unique_ptr <mu_coin::block> (new mu_coin::transaction_block (*this));
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::send_block::clone () const
+{
+    return std::unique_ptr <mu_coin::block> (new mu_coin::send_block (*this));
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::receive_block::clone () const
+{
+    return std::unique_ptr <mu_coin::block> (new mu_coin::receive_block (*this));
 }

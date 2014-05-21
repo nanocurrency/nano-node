@@ -10,9 +10,9 @@ handle (nullptr, 0)
     handle.open (nullptr, temp.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
-std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::latest (mu_coin::address const & address_a)
+std::unique_ptr <mu_coin::block> mu_coin_store::block_store_db::latest (mu_coin::address const & address_a)
 {
-    std::unique_ptr <mu_coin::transaction_block> result;
+    std::unique_ptr <mu_coin::block> result;
     bool exists;
     uint16_t sequence;
     latest_sequence (address_a, sequence, exists);
@@ -27,7 +27,7 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::late
     return result;
 }
 
-void mu_coin_store::block_store_db::insert_block (mu_coin::block_id const & id_a, mu_coin::transaction_block const & block_a)
+void mu_coin_store::block_store_db::insert_block (mu_coin::block_id const & id_a, mu_coin::block const & block_a)
 {
     dbt key (id_a);
     dbt data (block_a);
@@ -54,7 +54,7 @@ void mu_coin_store::block_store_db::latest_sequence (mu_coin::address const & ad
     }
 }
 
-std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::block (mu_coin::block_id const & id_a)
+std::unique_ptr <mu_coin::block> mu_coin_store::block_store_db::block (mu_coin::block_id const & id_a)
 {
     mu_coin_store::dbt key (id_a);
     mu_coin_store::dbt data;
@@ -63,13 +63,13 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin_store::block_store_db::bloc
     return result;
 }
 
-std::unique_ptr <mu_coin::transaction_block> mu_coin_store::dbt::block()
+std::unique_ptr <mu_coin::block> mu_coin_store::dbt::block()
 {
-    std::unique_ptr <mu_coin::transaction_block> result;
+    std::unique_ptr <mu_coin::block> result;
     if (data.get_size () > 0)
     {
-        auto item (std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block));
         mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t *> (data.get_data ()), reinterpret_cast <uint8_t *> (data.get_data ()) + data.get_size ());
+        auto item (std::unique_ptr <mu_coin::block> (new mu_coin::transaction_block));
         auto error (item->deserialize (stream));
         if (!error)
         {
@@ -79,7 +79,7 @@ std::unique_ptr <mu_coin::transaction_block> mu_coin_store::dbt::block()
     return result;
 }
 
-mu_coin_store::dbt::dbt (mu_coin::transaction_block const & block_a)
+mu_coin_store::dbt::dbt (mu_coin::block const & block_a)
 {
     mu_coin::byte_write_stream stream;
     block_a.serialize (stream);
