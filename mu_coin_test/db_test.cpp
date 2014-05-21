@@ -102,3 +102,26 @@ TEST (block_store_db, add_receive)
     ASSERT_NE (nullptr, latest2);
     ASSERT_EQ (block, *latest2);
 }
+
+TEST (block_store_db, add_send_half)
+{
+    mu_coin_store::block_store_db db (mu_coin_store::block_store_db_temp);
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    mu_coin::block_id block_id (key1.pub, 0);
+    mu_coin::address address1 (key2.pub);
+    auto send1 (db.send (address1, block_id));
+    ASSERT_EQ (nullptr, send1);
+    mu_coin::send_block block;
+    mu_coin::send_input entry1 (key1.pub, 100, 0);
+    block.inputs.push_back (entry1);
+    mu_coin::send_output entry2 (key2.pub, 50);
+    block.outputs.push_back (entry2);
+    db.insert_send (address1, block);
+    auto send2 (db.send (address1, block_id));
+    ASSERT_NE (nullptr, send2);
+    ASSERT_EQ (block, *send2);
+    db.clear (address1, block_id);
+    auto send3 (db.send (address1, block_id));
+    ASSERT_EQ (nullptr, send3);
+}

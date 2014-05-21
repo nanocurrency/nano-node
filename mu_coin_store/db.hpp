@@ -7,6 +7,7 @@ namespace mu_coin_store {
     {
     public:
         dbt () = default;
+        dbt (mu_coin::address const & address_a, mu_coin::block_id const & id_a);
         dbt (mu_coin::address const &);
         dbt (mu_coin::block const &);
         dbt (mu_coin::block_id const &);
