@@ -10,7 +10,7 @@
 #include <QtWidgets>
 
 namespace mu_coin_client {
-    class client : QObject
+    class client
     {
     public:
         client (int, char **);
@@ -26,6 +26,18 @@ namespace mu_coin_client {
         QMainWindow main_window;
         QStackedWidget main_stack;
         
+        QWidget settings_window;
+        QVBoxLayout settings_layout;
+        
+        QWidget balance_main_window;
+        QVBoxLayout balance_main_window_layout;
+        QLabel balance_label;
+        
+        QWidget entry_window;
+        QVBoxLayout entry_window_layout;
+        QPushButton send_coins;
+        QPushButton show_wallet;
+        
         QWidget send_coins_window;
         QVBoxLayout send_coins_layout;
         QLabel send_address_label;
@@ -39,21 +51,20 @@ namespace mu_coin_client {
         QVBoxLayout wallet_layout;
         QStringListModel wallet_model;
         QModelIndex wallet_model_selection;
-        QLabel wallet_balance_label;
         QListView wallet_view;
-        QPushButton send_coins;
-        QPushButton wallet_add_key;
+        QPushButton wallet_add_account;
+        QPushButton wallet_close;
         
-        QMenu wallet_key_menu;
-        QAction wallet_key_copy;
-        QAction wallet_key_cancel;
+        QMenu wallet_account_menu;
+        QAction wallet_account_copy;
+        QAction wallet_account_cancel;
         
-        QWidget new_key_window;
-        QVBoxLayout new_key_layout;
-        QLabel new_key_password_label;
-        QLineEdit new_key_password;
-        QPushButton new_key_add_key;
-        QPushButton new_key_cancel;
+        QWidget new_account_window;
+        QVBoxLayout new_account_layout;
+        QLabel new_account_password_label;
+        QLineEdit new_account_password;
+        QPushButton new_account_add_account;
+        QPushButton new_account_cancel;
     private:
         QStringList keys;
     private:
