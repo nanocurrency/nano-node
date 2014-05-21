@@ -68,3 +68,37 @@ TEST (block_store_db, add_two_items)
     ASSERT_EQ (block2, *latest3);
     ASSERT_FALSE (*latest2 == *latest3);
 }
+
+TEST (block_store_db, add_send)
+{
+    mu_coin_store::block_store_db db (mu_coin_store::block_store_db_temp);
+    mu_coin::keypair key1;
+    mu_coin::block_id block_id (key1.pub, 0);
+    auto latest1 (db.latest (block_id.address));
+    ASSERT_EQ (nullptr, latest1);
+    mu_coin::send_block block;
+    mu_coin::send_input entry1 (key1.pub, 100, 0);
+    block.inputs.push_back (entry1);
+    db.insert_block (block_id, block);
+    auto latest2 (db.latest (block_id.address));
+    ASSERT_NE (nullptr, latest2);
+    ASSERT_EQ (block, *latest2);
+}
+
+TEST (block_store_db, add_receive)
+{
+    mu_coin_store::block_store_db db (mu_coin_store::block_store_db_temp);
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    mu_coin::block_id block_id1 (key1.pub, 0);
+    mu_coin::block_id block_id2 (key2.pub, 0);
+    auto latest1 (db.latest (block_id1.address));
+    ASSERT_EQ (nullptr, latest1);
+    mu_coin::receive_block block;
+    block.output = block_id1;
+    block.source = block_id2;
+    db.insert_block (block_id1, block);
+    auto latest2 (db.latest (block_id1.address));
+    ASSERT_NE (nullptr, latest2);
+    ASSERT_EQ (block, *latest2);
+}

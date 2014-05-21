@@ -69,12 +69,7 @@ std::unique_ptr <mu_coin::block> mu_coin_store::dbt::block()
     if (data.get_size () > 0)
     {
         mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t *> (data.get_data ()), reinterpret_cast <uint8_t *> (data.get_data ()) + data.get_size ());
-        auto item (std::unique_ptr <mu_coin::block> (new mu_coin::transaction_block));
-        auto error (item->deserialize (stream));
-        if (!error)
-        {
-            result = std::move (item);
-        }
+        result = mu_coin::deserialize_block (stream);
     }
     return result;
 }
@@ -82,7 +77,7 @@ std::unique_ptr <mu_coin::block> mu_coin_store::dbt::block()
 mu_coin_store::dbt::dbt (mu_coin::block const & block_a)
 {
     mu_coin::byte_write_stream stream;
-    block_a.serialize (stream);
+    mu_coin::serialize_block (stream, block_a);
     adopt (stream);
 }
 

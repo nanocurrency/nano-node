@@ -184,11 +184,13 @@ namespace mu_coin {
         virtual mu_coin::uint256_t hash () const = 0;
         virtual bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) = 0;
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
-        virtual bool deserialize (mu_coin::byte_read_stream &) = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
         virtual bool operator == (mu_coin::block const &) const = 0;
         virtual std::unique_ptr <mu_coin::block> clone () const = 0;
+        virtual mu_coin::block_type type () const = 0;
     };
+    std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::byte_read_stream &);
+    void serialize_block (mu_coin::byte_write_stream &, mu_coin::block const &);
     class entry
     {
     public:
@@ -211,9 +213,10 @@ namespace mu_coin {
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::transaction_block const &) const;
         void serialize (mu_coin::byte_write_stream &) const override;
-        bool deserialize (mu_coin::byte_read_stream &) override;
+        bool deserialize (mu_coin::byte_read_stream &);
         void visit (mu_coin::block_visitor &) const override;
         std::unique_ptr <mu_coin::block> clone () const override;
+        mu_coin::block_type type () const override;
         std::vector <entry> entries;
     };
     class send_input
@@ -247,9 +250,10 @@ namespace mu_coin {
         mu_coin::uint256_t hash () const override;
         bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
         void serialize (mu_coin::byte_write_stream &) const override;
-        bool deserialize (mu_coin::byte_read_stream &) override;
+        bool deserialize (mu_coin::byte_read_stream &);
         void visit (mu_coin::block_visitor &) const override;
         std::unique_ptr <mu_coin::block> clone () const override;
+        mu_coin::block_type type () const override;
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::send_block const &) const;
         std::vector <mu_coin::send_input> inputs;
@@ -262,9 +266,10 @@ namespace mu_coin {
         mu_coin::uint256_t hash () const override;
         bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
         void serialize (mu_coin::byte_write_stream &) const override;
-        bool deserialize (mu_coin::byte_read_stream &) override;
+        bool deserialize (mu_coin::byte_read_stream &);
         void visit (mu_coin::block_visitor &) const override;
         std::unique_ptr <mu_coin::block> clone () const override;
+        mu_coin::block_type type () const override;
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool validate (mu_coin::uint256_union const &) const;
         bool operator == (mu_coin::block const &) const override;

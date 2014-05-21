@@ -1118,3 +1118,68 @@ std::unique_ptr <mu_coin::block> mu_coin::receive_block::clone () const
 {
     return std::unique_ptr <mu_coin::block> (new mu_coin::receive_block (*this));
 }
+
+std::unique_ptr <mu_coin::block> mu_coin::deserialize_block (mu_coin::byte_read_stream & stream_a)
+{
+    mu_coin::block_type type;
+    stream_a.read (type);
+    std::unique_ptr <mu_coin::block> result;
+    switch (type)
+    {
+        case mu_coin::block_type::receive:
+        {
+            std::unique_ptr <mu_coin::receive_block> obj (new mu_coin::receive_block);
+            auto error (obj->deserialize (stream_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+            break;
+        }
+        case mu_coin::block_type::send:
+        {
+            std::unique_ptr <mu_coin::send_block> obj (new mu_coin::send_block);
+            auto error (obj->deserialize (stream_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+            break;
+        }
+        case mu_coin::block_type::transaction:
+        {
+            std::unique_ptr <mu_coin::transaction_block> obj (new mu_coin::transaction_block);
+            auto error (obj->deserialize (stream_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+            break;
+        }
+        default:
+            assert (false);
+            break;
+    }
+    return result;
+}
+
+void mu_coin::serialize_block (mu_coin::byte_write_stream & stream_a, mu_coin::block const & block_a)
+{
+    stream_a.write (block_a.type ());
+    block_a.serialize (stream_a);
+}
+
+mu_coin::block_type mu_coin::transaction_block::type () const
+{
+    return mu_coin::block_type::transaction;
+}
+
+mu_coin::block_type mu_coin::send_block::type () const
+{
+    return mu_coin::block_type::send;
+}
+
+mu_coin::block_type mu_coin::receive_block::type () const
+{
+    return mu_coin::block_type::receive;
+}
