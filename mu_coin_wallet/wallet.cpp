@@ -137,3 +137,60 @@ bool mu_coin_wallet::key_iterator::operator != (mu_coin_wallet::key_iterator con
 {
     return !(*this == other_a);
 }
+
+bool mu_coin_wallet::wallet::send (mu_coin::ledger & ledger_a, mu_coin::address const & destination, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & key)
+{
+    bool result (false);
+    mu_coin::uint256_t amount;
+    mu_coin::send_block send;
+    send.outputs.push_back (mu_coin::send_output ());
+    for (auto i (begin ()), j (end ()); i != j && !result && amount < coins + send.fee (); ++i)
+    {
+        auto account (*i);
+        send.inputs.push_back (mu_coin::send_input ());
+        auto & input (send.inputs.back ());
+        auto previous (ledger_a.previous (account));
+        mu_coin::uint256_t balance;
+        uint16_t sequence;
+        result = previous->balance (account, balance, sequence);
+        if (!result)
+        {
+            if (amount + balance > coins + send.fee ())
+            {
+                auto partial (coins + send.fee () - amount);
+                assert (partial < balance);
+                input.coins = partial;
+                input.source.address = account;
+                input.source.sequence = sequence + 1;
+                amount += partial;
+            }
+            else
+            {
+                input.coins = balance;
+                input.source.address = account;
+                input.source.sequence = sequence + 1;
+                amount += balance;
+            }
+        }
+    }
+    assert (amount <= coins + send.fee ());
+    if (!result && amount == coins + send.fee ())
+    {
+        auto message (send.hash ());
+        for (auto i (send.inputs.begin ()), j (send.inputs.end ()); i != j && !result; ++i)
+        {
+            mu_coin::EC::PrivateKey prv;
+            fetch (i->source.address.point.key (), key, prv, result);
+            i->sign (prv, message);
+        }
+        if (!result)
+        {
+            ledger_a.process (send);
+        }
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
+}

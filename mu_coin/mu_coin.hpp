@@ -340,10 +340,10 @@ namespace mu_coin {
     class cached_password_store
     {
     public:
-        size_t size ();
-        void decrypt (mu_coin::uint256_union const &, mu_coin::uint256_union &, size_t);
+        ~cached_password_store ();
+        void decrypt (mu_coin::uint256_union const &, mu_coin::uint256_union &);
         void encrypt (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
         void clear ();
-        std::vector <mu_coin::uint256_union> passwords;
+        mu_coin::uint256_union password;
     };
 }

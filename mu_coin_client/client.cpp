@@ -8,8 +8,11 @@ ledger (store),
 wallet (mu_coin_wallet::wallet_temp),
 network (service, 24000, ledger),
 application (argc, argv),
+settings_password_label ("Password:"),
+settings_close ("Close"),
 send_coins ("Send"),
 show_wallet ("Show wallet"),
+settings ("Settings"),
 send_address_label ("Address:"),
 send_count_label ("Coins:"),
 send_coins_send ("Send"),
@@ -17,10 +20,7 @@ send_coins_cancel ("Cancel"),
 wallet_add_account ("Add account"),
 wallet_close ("Close"),
 wallet_account_copy ("Copy", &wallet_account_menu),
-wallet_account_cancel ("Cancel", &wallet_account_menu),
-new_account_password_label ("Password:"),
-new_account_add_account ("Add account"),
-new_account_cancel ("Cancel")
+wallet_account_cancel ("Cancel", &wallet_account_menu)
 {
     /////////
     mu_coin::keypair genesis;
@@ -56,17 +56,9 @@ new_account_cancel ("Cancel")
     wallet_account_menu.addAction (&wallet_account_copy);
     wallet_account_menu.addAction (&wallet_account_cancel);
     
-    new_account_layout.addWidget (&new_account_password_label);
-    new_account_password.setEchoMode (QLineEdit::EchoMode::Password);
-    new_account_layout.addWidget (&new_account_password);
-    new_account_layout.addWidget (&new_account_add_account);
-    new_account_layout.addWidget (&new_account_cancel);
-    new_account_layout.setContentsMargins (0, 0, 0, 0);
-    new_account_window.setLayout (&new_account_layout);
-    
     entry_window_layout.addWidget (&send_coins);
     entry_window_layout.addWidget (&show_wallet);
-    entry_window_layout.addWidget (&balance_label);
+    entry_window_layout.addWidget (&settings);
     entry_window_layout.setContentsMargins (0, 0, 0, 0);
     entry_window.setLayout (&entry_window_layout);
     
@@ -77,21 +69,52 @@ new_account_cancel ("Cancel")
     balance_main_window_layout.setSpacing (0);
     balance_main_window.setLayout (&balance_main_window_layout);
     
+    settings_layout.addWidget (&settings_password_label);
+    settings_password.setEchoMode (QLineEdit::EchoMode::Password);
+    settings_layout.addWidget (&settings_password);
+    settings_layout.addWidget (&settings_close);
     settings_window.setLayout (&settings_layout);
     
     main_window.setCentralWidget (&balance_main_window);
+    QObject::connect (&settings_close, &QPushButton::released, [this] ()
+    {
+        pop_main_stack ();
+    });
+    QObject::connect (&settings, &QPushButton::released, [this] ()
+    {
+        push_main_stack (&settings_window);
+    });
     QObject::connect (&show_wallet, &QPushButton::released, [this] ()
     {
-        main_stack.addWidget (&wallet_window);
-        main_stack.setCurrentIndex (main_stack.count () - 1);
+        push_main_stack (&wallet_window);
     });
     QObject::connect (&wallet_close, &QPushButton::released, [this] ()
     {
-        main_stack.removeWidget (main_stack.currentWidget ());
+        pop_main_stack ();
     });
     QObject::connect (&send_coins_send, &QPushButton::released, [this] ()
     {
-        
+        QString coins_text (send_count.text ());
+        std::string coins_text_narrow (coins_text.toLocal8Bit ());
+        mu_coin::uint256_t coins;
+        auto parse_error (false);
+        try
+        {
+            coins.assign (coins_text_narrow);
+        }
+        catch (std::runtime_error & err)
+        {
+            parse_error = true;
+        }
+        if (!parse_error)
+        {
+        }
+        else
+        {
+            QPalette palette;
+            palette.setColor (QPalette::Text, Qt::red);
+            send_count.setPalette (palette);
+        }
     });
     QObject::connect (&application, &QApplication::aboutToQuit, [this] ()
     {
@@ -117,42 +140,33 @@ new_account_cancel ("Cancel")
     });
     QObject::connect (&send_coins_cancel, &QPushButton::released, [this] ()
     {
-        main_stack.removeWidget (main_stack.currentWidget ());
+        pop_main_stack ();
     });
     QObject::connect (&send_coins, &QPushButton::released, [this] ()
     {
-        main_stack.addWidget (&send_coins_window);
-        main_stack.setCurrentIndex (main_stack.count () - 1);
+        push_main_stack (&send_coins_window);
+    });
+    QObject::connect (&settings_password, &QLineEdit::editingFinished, [this] ()
+    {
+        CryptoPP::SHA256 hash;
+        QString text_w (settings_password.text ());
+        std::string text (text_w.toLocal8Bit ());
+        settings_password.clear ();
+        hash.Update (reinterpret_cast <uint8_t const *> (text.c_str ()), text.size ());
+        hash.Final (password.bytes.data ());
     });
     QObject::connect (&wallet_add_account, &QPushButton::released, [this] ()
     {
-        main_stack.addWidget (&new_account_window);
-        main_stack.setCurrentIndex (main_stack.count () - 1);
-    });
-    QObject::connect (&new_account_add_account, &QPushButton::released, [this] ()
-    {
         mu_coin::keypair key;
-        CryptoPP::SHA256 hash;
-        QString text (new_account_password.text ());
-        new_account_password.clear ();
-        hash.Update (reinterpret_cast <uint8_t *> (text.data ()), text.size ());
-        text.fill (0);
-        mu_coin::uint256_union secret;
-        hash.Final (secret.bytes.data ());
-        wallet.insert (key.pub, key.prv, secret);
+        wallet.insert (key.pub, key.prv, password);
         refresh_wallet ();
-        main_stack.removeWidget (main_stack.currentWidget ());
-    });
-    QObject::connect (&new_account_cancel, &QPushButton::released, [this] ()
-    {
-        main_stack.removeWidget (main_stack.currentWidget ());
     });
     refresh_wallet ();
 }
 
 void mu_coin_client::client::refresh_wallet ()
 {
-    keys = QStringList ();
+    QStringList keys;
     mu_coin::uint256_t balance;
     for (auto i (wallet.begin()), j (wallet.end ()); i != j; ++i)
     {
@@ -175,4 +189,15 @@ void mu_coin_client::client::refresh_wallet ()
 
 mu_coin_client::client::~client ()
 {
+}
+
+void mu_coin_client::client::push_main_stack (QWidget * widget_a)
+{
+    main_stack.addWidget (widget_a);
+    main_stack.setCurrentIndex (main_stack.count () - 1);
+}
+
+void mu_coin_client::client::pop_main_stack ()
+{
+    main_stack.removeWidget (main_stack.currentWidget ());
 }
