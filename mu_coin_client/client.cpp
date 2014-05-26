@@ -97,17 +97,16 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
         QString coins_text (send_count.text ());
         std::string coins_text_narrow (coins_text.toLocal8Bit ());
         mu_coin::uint256_union coins;
-        auto parse_error (coins.parse (coins_text_narrow));
+        auto parse_error (coins.decode (coins_text_narrow));
         if (!parse_error)
         {
             QString address_text (send_address.text ());
-            std::string address_text_narrow (address_text.toLocal8Bit ())
+            std::string address_text_narrow (address_text.toLocal8Bit ());
             mu_coin::point_encoding address;
-            parse_error = address.parse (address_text_narrow);
+            parse_error = address.decode (address_text_narrow);
             if (!parse_error)
             {
-                mu_coin::point_encoding address (address_number);
-                auto send (wallet.send (ledger, address, coins, password));
+                auto send (wallet.send (ledger, address, coins.number (), password));
             }
         }
         else
@@ -174,15 +173,10 @@ void mu_coin_client::client::refresh_wallet ()
         mu_coin::EC::PublicKey key (*i);
         balance += ledger.balance (mu_coin::address (key)).number ();
         mu_coin::point_encoding encoding (key);
-        std::stringstream stream;
-        stream << std::hex;
-        for (auto k (encoding.bytes.begin ()), l (encoding.bytes.end ()); k != l; ++k)
-        {
-            int value (*k);
-            stream << value;
-        }
-        QString string (stream.str ().c_str ());
-        keys << string;
+        std::string string;
+        encoding.encode (string);
+        QString qstring (string.c_str ());
+        keys << qstring;
     }
     balance_label.setText (QString ((std::string ("Balance: ") + balance.str ()).c_str ()));
     wallet_model.setStringList (keys);

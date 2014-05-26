@@ -1218,42 +1218,68 @@ void mu_coin::uint256_union::encode (std::string & text)
 
 bool mu_coin::uint256_union::decode (std::string const & text)
 {
-    std::stringstream stream (text);
-    stream << std::hex << std::noshowbase;
-    mu_coin::uint256_t number_l;
-    auto result (false);
-    try
+    auto result (text.size () > 64);
+    if (!result)
     {
-        stream >> number_l;
-        *this = number_l;
-    }
-    catch (std::runtime_error &)
-    {
-        result = true;
+        std::stringstream stream (text);
+        stream << std::hex << std::noshowbase;
+        mu_coin::uint256_t number_l;
+        try
+        {
+            stream >> number_l;
+            *this = number_l;
+        }
+        catch (std::runtime_error &)
+        {
+            result = true;
+        }
     }
     return result;
 }
 
-bool mu_coin::uint512_union::parse (std::string const & text)
+void mu_coin::uint512_union::encode (std::string & text)
 {
-    auto result (false);
-    mu_coin::uint512_t number;
-    try
+    assert (text.empty ());
+    std::stringstream stream;
+    stream << std::hex << std::noshowbase << std::setw (128) << std::setfill ('0');
+    stream << number ();
+    text = stream.str ();
+}
+
+bool mu_coin::uint512_union::decode (std::string const & text)
+{
+    auto result (text.size () > 128);
+    if (!result)
     {
-        number.assign (text);
-        *this = number;
-    }
-    catch (std::runtime_error &)
-    {
-        result = true;
+        std::stringstream stream (text);
+        stream << std::hex << std::noshowbase;
+        mu_coin::uint512_t number_l;
+        try
+        {
+            stream >> number_l;
+            *this = number_l;
+        }
+        catch (std::runtime_error &)
+        {
+            result = true;
+        }
     }
     return result;
 }
 
-bool mu_coin::point_encoding::parse (std::string const & text)
+void mu_coin::point_encoding::encode (std::string & text)
 {
     mu_coin::uint512_union address;
-    bool result (address.parse (text));
+    std::copy (bytes.begin (), bytes.end (), address.bytes.end () - sizeof (bytes));
+    address.encode (text);
+    assert (text.size () == 128);
+    text = text.substr (63, 65);
+}
+
+bool mu_coin::point_encoding::decode (std::string const & text)
+{
+    mu_coin::uint512_union address;
+    bool result (address.decode (text));
     if (!result)
     {
         mu_coin::uint256_t number (address.number ());

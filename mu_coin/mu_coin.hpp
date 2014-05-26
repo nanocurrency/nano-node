@@ -83,7 +83,8 @@ namespace mu_coin {
         point_encoding (uint8_t, uint256_union const &);
         bool validate ();
         void assign (uint8_t, uint256_union const &);
-        bool parse (std::string const &);
+        void encode (std::string &);
+        bool decode (std::string const &);
         std::array <uint8_t, 33> bytes;
         uint128_union iv () const;
         EC::PublicKey key () const;
@@ -95,7 +96,8 @@ namespace mu_coin {
         uint512_union () = default;
         uint512_union (mu_coin::uint512_t const &);
         bool operator == (mu_coin::uint512_union const &) const;
-        bool parse (std::string const &);
+        void encode (std::string &);
+        bool decode (std::string const &);
         std::array <uint8_t, 64> bytes;
         std::array <uint64_t, 8> qwords;
         std::array <uint256_union, 2> uint256s;
