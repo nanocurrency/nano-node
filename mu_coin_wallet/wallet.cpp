@@ -161,14 +161,14 @@ std::unique_ptr <mu_coin::send_block> mu_coin_wallet::wallet::send (mu_coin::led
                 {
                     auto partial (coins + send->fee () - amount);
                     assert (partial < balance);
-                    input.coins = partial;
+                    input.coins = balance - partial;
                     input.source.address = account;
                     input.source.sequence = sequence + 1;
                     amount += partial;
                 }
                 else
                 {
-                    input.coins = balance;
+                    input.coins = mu_coin::uint256_t (0);
                     input.source.address = account;
                     input.source.sequence = sequence + 1;
                     amount += balance;
