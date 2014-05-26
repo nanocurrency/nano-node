@@ -89,3 +89,37 @@ TEST (wallet, two_item_iteration)
     ASSERT_NE (keys1.end (), std::find (keys1.begin (), keys1.end (), key2.pub));
     ASSERT_NE (keys2.end (), std::find (keys2.begin (), keys2.end (), key2.prv.GetPrivateExponent ()));
 }
+
+TEST (wallet, insufficient_spend)
+{
+    mu_coin_wallet::wallet wallet (mu_coin_wallet::wallet_temp);
+    mu_coin::block_store_memory store;
+    mu_coin::ledger ledger (store);
+    mu_coin::keypair key1;
+    mu_coin::uint256_union password;
+    auto send (wallet.send (ledger, mu_coin::address (key1.pub), 500, password));
+    ASSERT_EQ (nullptr, send);
+}
+
+TEST (wallet, one_spend)
+{
+    mu_coin::keypair key1;
+    mu_coin::uint256_union password;
+    mu_coin_wallet::wallet wallet (mu_coin_wallet::wallet_temp);
+    wallet.insert (key1.pub, key1.prv, password);
+    mu_coin::block_store_memory store;
+    mu_coin::ledger ledger (store);
+    mu_coin::transaction_block block1;
+    mu_coin::entry entry1 (key1.pub, 500, 0);
+    block1.entries.push_back (entry1);
+    store.insert_block (entry1.id, block1);
+    mu_coin::keypair key2;
+    mu_coin::address address1 (key2.pub);
+    auto send (wallet.send (ledger, address1, 499, password));
+    ASSERT_NE (nullptr, send);
+    ASSERT_EQ (1, send->inputs.size ());
+    ASSERT_EQ (1, send->outputs.size ());
+    ASSERT_EQ (entry1.id.address, send->inputs [0].source.address);
+    ASSERT_TRUE (send->inputs [0].validate (send->hash ()));
+    ASSERT_EQ (address1, send->outputs [0].address);
+}

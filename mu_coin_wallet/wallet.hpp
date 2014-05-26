@@ -39,7 +39,7 @@ namespace mu_coin_wallet {
         void insert (mu_coin::EC::PublicKey const &, mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
         void insert (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
         void fetch (mu_coin::EC::PublicKey const &, mu_coin::uint256_union const &, mu_coin::EC::PrivateKey &, bool &);
-        bool send (mu_coin::ledger &, mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
+        std::unique_ptr <mu_coin::send_block> send (mu_coin::ledger &, mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
     private:
