@@ -42,6 +42,7 @@ namespace mu_coin {
     };
     using uint128_t = boost::multiprecision::uint128_t;
     using uint256_t = boost::multiprecision::uint256_t;
+    using uint512_t = boost::multiprecision::uint512_t;
     using EC = CryptoPP::ECDSA <CryptoPP::ECP, CryptoPP::SHA256>;
     CryptoPP::OID & oid ();
     CryptoPP::RandomNumberGenerator & pool ();
@@ -61,13 +62,15 @@ namespace mu_coin {
     union uint256_union
     {
         uint256_union () = default;
-        uint256_union (boost::multiprecision::uint256_t const &);
+        uint256_union (mu_coin::uint256_t const &);
         uint256_union (std::string const &);
         uint256_union (EC::PrivateKey const &);
         uint256_union (EC::PrivateKey const &, uint256_union const &, uint128_union const &);
         EC::PrivateKey key (uint256_union const &, uint128_union const &);
         EC::PrivateKey key ();
         bool operator == (mu_coin::uint256_union const &) const;
+        void encode (std::string &);
+        bool decode (std::string const &);
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
         void clear ();
@@ -79,6 +82,8 @@ namespace mu_coin {
         point_encoding (EC::PublicKey const &);
         point_encoding (uint8_t, uint256_union const &);
         bool validate ();
+        void assign (uint8_t, uint256_union const &);
+        bool parse (std::string const &);
         std::array <uint8_t, 33> bytes;
         uint128_union iv () const;
         EC::PublicKey key () const;
@@ -88,8 +93,9 @@ namespace mu_coin {
     union uint512_union
     {
         uint512_union () = default;
-        uint512_union (boost::multiprecision::uint512_t const &);
+        uint512_union (mu_coin::uint512_t const &);
         bool operator == (mu_coin::uint512_union const &) const;
+        bool parse (std::string const &);
         std::array <uint8_t, 64> bytes;
         std::array <uint64_t, 8> qwords;
         std::array <uint256_union, 2> uint256s;

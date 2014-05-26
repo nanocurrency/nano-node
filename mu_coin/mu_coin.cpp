@@ -2,6 +2,7 @@
 #include <cryptopp/sha.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
+#include <cryptopp/base64.h>
 
 bool mu_coin::address::operator == (mu_coin::address const & other_a) const
 {
@@ -227,9 +228,7 @@ mu_coin::EC::PublicKey mu_coin::point_encoding::key () const
 
 mu_coin::point_encoding::point_encoding (uint8_t type_a, uint256_union const & point_a)
 {
-    assert (type_a == 2 || type_a == 3);
-    bytes [0] = type_a;
-    std::copy (point_a.bytes.begin (), point_a.bytes.end (), bytes.begin () + 1);
+    assign (type_a, point_a);
 }
 
 uint8_t mu_coin::point_encoding::type () const
@@ -1206,4 +1205,74 @@ mu_coin::cached_password_store::~cached_password_store ()
 void mu_coin::cached_password_store::clear ()
 {
     password.bytes.fill (0);
+}
+
+void mu_coin::uint256_union::encode (std::string & text)
+{
+    assert (text.empty ());
+    std::stringstream stream;
+    stream << std::hex << std::noshowbase << std::setw (64) << std::setfill ('0');
+    stream << number ();
+    text = stream.str ();
+}
+
+bool mu_coin::uint256_union::decode (std::string const & text)
+{
+    std::stringstream stream (text);
+    stream << std::hex << std::noshowbase;
+    mu_coin::uint256_t number_l;
+    auto result (false);
+    try
+    {
+        stream >> number_l;
+        *this = number_l;
+    }
+    catch (std::runtime_error &)
+    {
+        result = true;
+    }
+    return result;
+}
+
+bool mu_coin::uint512_union::parse (std::string const & text)
+{
+    auto result (false);
+    mu_coin::uint512_t number;
+    try
+    {
+        number.assign (text);
+        *this = number;
+    }
+    catch (std::runtime_error &)
+    {
+        result = true;
+    }
+    return result;
+}
+
+bool mu_coin::point_encoding::parse (std::string const & text)
+{
+    mu_coin::uint512_union address;
+    bool result (address.parse (text));
+    if (!result)
+    {
+        mu_coin::uint256_t number (address.number ());
+        mu_coin::uint512_t type (address.number () >> 256);
+        if (type == 2 || type == 3)
+        {
+            assign (type.convert_to <uint8_t> (), number);
+        }
+        else
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
+void mu_coin::point_encoding::assign (uint8_t type_a, uint256_union const & point_a)
+{
+    assert (type_a == 2 || type_a == 3);
+    bytes [0] = type_a;
+    std::copy (point_a.bytes.begin (), point_a.bytes.end (), bytes.begin () + 1);
 }

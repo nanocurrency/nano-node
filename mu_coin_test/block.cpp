@@ -193,3 +193,50 @@ TEST (receive_block, balance)
     auto error2 (block.balance (address2, coins, sequence));
     ASSERT_TRUE (error2);
 }
+
+TEST (uint256_union, parse_zero)
+{
+    mu_coin::uint256_union input (mu_coin::uint256_t (0));
+    std::string text;
+    input.encode (text);
+    mu_coin::uint256_union output;
+    auto error (output.decode (text));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (input, output);
+    ASSERT_TRUE (output.number ().is_zero ());
+}
+
+TEST (uint256_union, parse_one)
+{
+    mu_coin::uint256_union input (mu_coin::uint256_t (1));
+    std::string text;
+    input.encode (text);
+    mu_coin::uint256_union output;
+    auto error (output.decode (text));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (input, output);
+    ASSERT_EQ (1, output.number ());
+}
+
+TEST (uint256_union, parse_error_symbol)
+{
+    mu_coin::uint256_union input (mu_coin::uint256_t (1000));
+    std::string text;
+    input.encode (text);
+    text [5] = '!';
+    mu_coin::uint256_union output;
+    auto error (output.decode (text));
+    ASSERT_TRUE (error);
+}
+
+TEST (uint256_union, max)
+{
+    mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
+    std::string text;
+    input.encode (text);
+    mu_coin::uint256_union output;
+    auto error (output.decode (text));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (input, output);
+    ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+}

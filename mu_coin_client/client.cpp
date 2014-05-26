@@ -96,18 +96,19 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     {
         QString coins_text (send_count.text ());
         std::string coins_text_narrow (coins_text.toLocal8Bit ());
-        mu_coin::uint256_t coins;
-        auto parse_error (false);
-        try
-        {
-            coins.assign (coins_text_narrow);
-        }
-        catch (std::runtime_error & err)
-        {
-            parse_error = true;
-        }
+        mu_coin::uint256_union coins;
+        auto parse_error (coins.parse (coins_text_narrow));
         if (!parse_error)
         {
+            QString address_text (send_address.text ());
+            std::string address_text_narrow (address_text.toLocal8Bit ())
+            mu_coin::point_encoding address;
+            parse_error = address.parse (address_text_narrow);
+            if (!parse_error)
+            {
+                mu_coin::point_encoding address (address_number);
+                auto send (wallet.send (ledger, address, coins, password));
+            }
         }
         else
         {
