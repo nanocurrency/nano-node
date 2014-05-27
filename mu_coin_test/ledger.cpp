@@ -249,4 +249,10 @@ TEST (ledger, process_send)
     receive.sign (key2.prv, receive.hash ());
     auto error2 (ledger.process (receive));
     ASSERT_FALSE (error2);
+    auto latest1 (ledger.previous (entry2.source.address));
+    ASSERT_NE (nullptr, latest1);
+    auto latest2 (dynamic_cast <mu_coin::send_block *> (latest1.get ()));
+    ASSERT_NE (nullptr, latest2);
+    ASSERT_EQ (1, latest2->inputs.size ());
+    ASSERT_EQ (1, latest2->inputs [0].source.sequence);
 }

@@ -790,6 +790,10 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
         }
         if (outputs + block_a.fee () == inputs)
         {
+            for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); i != j; ++i)
+            {
+                ledger.store.insert_block (i->source, block_a);
+            }
             for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
             {
                 ledger.store.insert_send (i->address, block_a);
