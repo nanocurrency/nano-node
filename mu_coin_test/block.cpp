@@ -35,10 +35,10 @@ TEST (transaction_block, empty)
     boost::multiprecision::uint256_t hash (block.hash ());
     block.entries [0].sign (key1.prv, hash);
     bool valid1 (block.entries [0].validate (hash));
-    ASSERT_TRUE (valid1);
+    ASSERT_FALSE (valid1);
     block.entries [0].signature.bytes [32] ^= 0x1;
     bool valid2 (block.entries [0].validate (hash));
-    ASSERT_FALSE (valid2);
+    ASSERT_TRUE (valid2);
 }
 
 TEST (transaction_block, predecessor_check)

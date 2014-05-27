@@ -239,13 +239,14 @@ TEST (ledger, process_send)
     send.inputs.push_back (entry2);
     mu_coin::send_output entry3 (key2.pub, 50);
     send.outputs.push_back (entry3);
-    entry2.sign (key1.prv, send.hash ());
+    send.inputs [0].sign (key1.prv, send.hash ());
     auto error1 (ledger.process (send));
     ASSERT_FALSE (error1);
     mu_coin::receive_block receive;
     receive.source = entry2.source;
     receive.output = mu_coin::block_id (key2.pub, 0);
     receive.coins = mu_coin::uint256_t (50);
+    receive.sign (key2.prv, receive.hash ());
     auto error2 (ledger.process (receive));
     ASSERT_FALSE (error2);
 }

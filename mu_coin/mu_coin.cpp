@@ -157,8 +157,8 @@ void mu_coin::entry::sign (EC::PrivateKey const & private_key, mu_coin::uint256_
 static bool validate_message (mu_coin::uint256_union const & message, mu_coin::uint512_union const & signature, mu_coin::EC::PublicKey const & key)
 {
     mu_coin::EC::Verifier verifier (key);
-    auto result (verifier.VerifyMessage (message.bytes.data (), sizeof (message), signature.bytes.data (), sizeof (signature)));
-    return result;
+    auto success (verifier.VerifyMessage (message.bytes.data (), sizeof (message), signature.bytes.data (), sizeof (signature)));
+    return !success;
 }
 
 bool mu_coin::entry::validate (mu_coin::uint256_union const & message) const
@@ -912,8 +912,8 @@ void mu_coin::ledger_processor::transaction_block (mu_coin::transaction_block co
     for (auto i (block_a.entries.begin ()), j (block_a.entries.end ()); !result && i != j; ++i)
     {
         auto & address (i->id.address);
-        auto valid (i->validate (message));
-        if (valid)
+        auto result = i->validate (message);
+        if (!result)
         {
             auto existing (ledger.store.latest (address));
             if (i->id.sequence > 0)

@@ -121,7 +121,7 @@ TEST (wallet, one_spend)
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (entry1.id.address, send->inputs [0].source.address);
     ASSERT_EQ (0, send->inputs [0].coins.number ());
-    ASSERT_TRUE (send->inputs [0].validate (send->hash ()));
+    ASSERT_FALSE (send->inputs [0].validate (send->hash ()));
     ASSERT_EQ (address1, send->outputs [0].address);
     ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
@@ -152,7 +152,7 @@ TEST (wallet, two_spend)
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (entry1.id.address, send->inputs [0].source.address);
     ASSERT_EQ (0, send->inputs [0].coins.number ());
-    ASSERT_TRUE (send->inputs [0].validate (send->hash ()));
+    ASSERT_FALSE (send->inputs [0].validate (send->hash ()));
     ASSERT_EQ (entry2.id.address, send->inputs [1].source.address);
     ASSERT_EQ (0, send->inputs [1].coins.number ());
     ASSERT_TRUE (send->inputs [1].validate (send->hash ()));
@@ -180,7 +180,7 @@ TEST (wallet, partial_spend)
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (entry1.id.address, send->inputs [0].source.address);
     ASSERT_EQ (300, send->inputs [0].coins.number ());
-    ASSERT_TRUE (send->inputs [0].validate (send->hash ()));
+    ASSERT_FALSE (send->inputs [0].validate (send->hash ()));
     ASSERT_EQ (address1, send->outputs [0].address);
     ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
@@ -215,7 +215,7 @@ TEST (wallet, spend_no_previous)
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (entry1.id.address, send->inputs [0].source.address);
     ASSERT_EQ (0, send->inputs [0].coins.number ());
-    ASSERT_TRUE (send->inputs [0].validate (send->hash ()));
+    ASSERT_FALSE (send->inputs [0].validate (send->hash ()));
     ASSERT_EQ (address1, send->outputs [0].address);
     ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
