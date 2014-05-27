@@ -191,10 +191,13 @@ void mu_coin_client::client::refresh_wallet ()
     for (auto i (wallet.begin()), j (wallet.end ()); i != j; ++i)
     {
         mu_coin::EC::PublicKey key (*i);
-        balance += ledger.balance (mu_coin::address (key)).number ();
+        auto account_balance (ledger.balance (mu_coin::address (key)).number ());
+        balance += account_balance;
         mu_coin::point_encoding encoding (key);
         std::string string;
         encoding.encode (string);
+        string += ":";
+        string += account_balance.str ();
         QString qstring (string.c_str ());
         keys << qstring;
     }
