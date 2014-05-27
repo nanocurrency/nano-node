@@ -100,13 +100,33 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
         auto parse_error (coins.decode (coins_text_narrow));
         if (!parse_error)
         {
+            QPalette palette;
+            palette.setColor (QPalette::Text, Qt::black);
+            send_count.setPalette (palette);
             QString address_text (send_address.text ());
             std::string address_text_narrow (address_text.toLocal8Bit ());
             mu_coin::point_encoding address;
             parse_error = address.decode (address_text_narrow);
             if (!parse_error)
             {
+                QPalette palette;
+                palette.setColor (QPalette::Text, Qt::black);
+                send_address.setPalette (palette);
                 auto send (wallet.send (ledger, address, coins.number (), password));
+                if (send != nullptr)
+                {
+                    auto error (ledger.process (*send));
+                    assert (!error);
+                    send_count.clear ();
+                    send_address.clear ();
+                    refresh_wallet ();
+                }
+            }
+            else
+            {
+                QPalette palette;
+                palette.setColor (QPalette::Text, Qt::red);
+                send_address.setPalette (palette);
             }
         }
         else

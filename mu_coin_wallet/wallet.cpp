@@ -142,13 +142,13 @@ std::unique_ptr <mu_coin::send_block> mu_coin_wallet::wallet::send (mu_coin::led
 {
     bool result (false);
     mu_coin::uint256_t amount;
-    std::unique_ptr <mu_coin::send_block> send (new mu_coin::send_block);
-    send->outputs.push_back (mu_coin::send_output (destination.point.key (), coins));
-    for (auto i (begin ()), j (end ()); i != j && !result && amount < coins + send->fee (); ++i)
+    std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
+    block->outputs.push_back (mu_coin::send_output (destination.point.key (), coins));
+    for (auto i (begin ()), j (end ()); i != j && !result && amount < coins + block->fee (); ++i)
     {
         auto account (*i);
-        send->inputs.push_back (mu_coin::send_input ());
-        auto & input (send->inputs.back ());
+        block->inputs.push_back (mu_coin::send_input ());
+        auto & input (block->inputs.back ());
         auto previous (ledger_a.previous (account));
         if (previous != nullptr)
         {
@@ -157,9 +157,9 @@ std::unique_ptr <mu_coin::send_block> mu_coin_wallet::wallet::send (mu_coin::led
             result = previous->balance (account, balance, sequence);
             if (!result)
             {
-                if (amount + balance > coins + send->fee ())
+                if (amount + balance > coins + block->fee ())
                 {
-                    auto partial (coins + send->fee () - amount);
+                    auto partial (coins + block->fee () - amount);
                     assert (partial < balance);
                     input.coins = balance - partial;
                     input.source.address = account;
@@ -175,15 +175,20 @@ std::unique_ptr <mu_coin::send_block> mu_coin_wallet::wallet::send (mu_coin::led
                 }
             }
         }
+        else
+        {
+            block->inputs.pop_back ();
+        }
     }
-    assert (amount <= coins + send->fee ());
-    if (!result && amount == coins + send->fee ())
+    assert (amount <= coins + block->fee ());
+    if (!result && amount == coins + block->fee ())
     {
-        auto message (send->hash ());
-        for (auto i (send->inputs.begin ()), j (send->inputs.end ()); i != j && !result; ++i)
+        auto message (block->hash ());
+        for (auto i (block->inputs.begin ()), j (block->inputs.end ()); i != j && !result; ++i)
         {
             mu_coin::EC::PrivateKey prv;
             fetch (i->source.address.point.key (), key, prv, result);
+            assert (!result);
             i->sign (prv, message);
         }
     }
@@ -193,7 +198,7 @@ std::unique_ptr <mu_coin::send_block> mu_coin_wallet::wallet::send (mu_coin::led
     }
     if (result)
     {
-        send.release ();
+        block.release ();
     }
-    return send;
+    return block;
 }
