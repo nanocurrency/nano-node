@@ -6,6 +6,8 @@
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
 
+#include <db_cxx.h>
+
 #include <unordered_map>
 #include <memory>
 
@@ -197,6 +199,19 @@ namespace mu_coin {
         virtual std::unique_ptr <mu_coin::block> clone () const = 0;
         virtual mu_coin::block_type type () const = 0;
     };
+    class dbt
+    {
+    public:
+        dbt () = default;
+        dbt (mu_coin::address const & address_a, mu_coin::block_id const & id_a);
+        dbt (mu_coin::address const &);
+        dbt (mu_coin::block const &);
+        dbt (mu_coin::block_id const &);
+        dbt (uint16_t);
+        void adopt (mu_coin::byte_write_stream &);
+        std::unique_ptr <mu_coin::block> block ();
+        Dbt data;
+    };
     std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::byte_read_stream &);
     void serialize_block (mu_coin::byte_write_stream &, mu_coin::block const &);
     class entry
@@ -294,15 +309,23 @@ namespace mu_coin {
         virtual void receive_block (mu_coin::receive_block const &) = 0;
         virtual void transaction_block (mu_coin::transaction_block const &) = 0;
     };
+    struct block_store_temp_t
+    {
+    };
+    extern block_store_temp_t block_store_temp;
     class block_store
     {
     public:
-        virtual std::unique_ptr <mu_coin::block> latest (mu_coin::address const &) = 0;
-        virtual void insert_block (mu_coin::block_id const &, mu_coin::block const &) = 0;
-        virtual std::unique_ptr <mu_coin::block> block (mu_coin::block_id const &) = 0;
-        virtual void insert_send (mu_coin::address const &, mu_coin::send_block const &) = 0;
-        virtual std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::block_id const &) = 0;
-        virtual void clear (mu_coin::address const &, mu_coin::block_id const &) = 0;
+        block_store (block_store_temp_t const &);
+        std::unique_ptr <mu_coin::block> latest (mu_coin::address const &);
+        std::unique_ptr <mu_coin::block> block (mu_coin::block_id const &);
+        void insert_block (mu_coin::block_id const &, mu_coin::block const &);
+        void insert_send (mu_coin::address const &, mu_coin::send_block const &);
+        std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::block_id const &);
+        void clear (mu_coin::address const &, mu_coin::block_id const &);
+    private:
+        void latest_sequence (mu_coin::address const &, uint16_t & sequence, bool & exists);
+        Db handle;
     };
     class ledger
     {
@@ -324,19 +347,6 @@ namespace mu_coin {
         void transaction_block (mu_coin::transaction_block const &);
         mu_coin::ledger & ledger;
         bool result;
-    };
-    class block_store_memory : public block_store
-    {
-    public:
-        std::unique_ptr <mu_coin::block> latest (mu_coin::address const &) override;
-        void insert_block (mu_coin::block_id const &, mu_coin::block const &) override;
-        std::unique_ptr <mu_coin::block> block (mu_coin::block_id const &) override;
-        void insert_send (mu_coin::address const &, mu_coin::send_block const &) override;
-        std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::block_id const &) override;
-        void clear (mu_coin::address const &, mu_coin::block_id const &) override;
-    private:
-        std::unordered_map <mu_coin::send_source, std::unique_ptr <mu_coin::send_block>> open;
-        std::unordered_map <mu_coin::address, std::vector <std::unique_ptr <mu_coin::block>> *> blocks;
     };
     class keypair
     {

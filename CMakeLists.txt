@@ -25,10 +25,6 @@ add_library (mu_coin
 	mu_coin/mu_coin.hpp
 	mu_coin/mu_coin.cpp)
     
-add_library (mu_coin_store
-    mu_coin_store/db.hpp
-    mu_coin_store/db.cpp)
-    
 add_library (mu_coin_wallet
     mu_coin_wallet/wallet.hpp
     mu_coin_wallet/wallet.cpp)
@@ -50,6 +46,6 @@ add_executable (mu_coin_client
     mu_coin_client/client.cpp
     mu_coin_client/client.hpp)
 
-target_link_libraries (mu_coin_test mu_coin_store mu_coin_network mu_coin_wallet ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} mu_coin)
+target_link_libraries (mu_coin_test mu_coin_network mu_coin_wallet ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} mu_coin)
 
-target_link_libraries (mu_coin_client mu_coin_store mu_coin_network mu_coin_wallet ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} mu_coin)
+target_link_libraries (mu_coin_client mu_coin_network mu_coin_wallet ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} mu_coin)

@@ -1,8 +1,11 @@
 #include <mu_coin/mu_coin.hpp>
+
 #include <cryptopp/sha.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
 #include <cryptopp/base64.h>
+
+#include <boost/filesystem.hpp>
 
 bool mu_coin::address::operator == (mu_coin::address const & other_a) const
 {
@@ -254,36 +257,6 @@ mu_coin::keypair::keypair ()
     prv.MakePublicKey (pub);
 }
 
-std::unique_ptr <mu_coin::block> mu_coin::block_store_memory::latest (mu_coin::address const & address_a)
-{
-    auto existing (blocks.find (address_a));
-    if (existing != blocks.end ())
-    {
-        return std::unique_ptr <mu_coin::block> (existing->second->back ()->clone ());
-    }
-    else
-    {
-        return nullptr;
-    }
-}
-
-void mu_coin::block_store_memory::insert_block (mu_coin::block_id const & block_id_a, mu_coin::block const & block)
-{
-    auto existing (blocks.find (block_id_a.address));
-    if (existing != blocks.end ())
-    {
-        assert (existing->second->size () == block_id_a.sequence);
-        existing->second->push_back (block.clone ());
-    }
-    else
-    {
-        assert (block_id_a.sequence == 0);
-        auto blocks_l (new std::vector <std::unique_ptr <mu_coin::block>>);
-        blocks [block_id_a.address] = blocks_l;
-        blocks_l->push_back (block.clone ());
-    }
-}
-
 mu_coin::ledger::ledger (mu_coin::block_store & store_a) :
 store (store_a)
 {
@@ -455,20 +428,6 @@ bool mu_coin::address::deserialize (mu_coin::byte_read_stream & stream_a)
 {
     auto & point_l (point.bytes);
     return stream_a.read (point_l);
-}
-
-std::unique_ptr <mu_coin::block> mu_coin::block_store_memory::block (mu_coin::block_id const & id_a)
-{
-    std::unique_ptr <mu_coin::block> result;
-    auto existing (blocks.find (id_a.address));
-    if (existing != blocks.end ())
-    {
-        if (existing->second->size () > id_a.sequence)
-        {
-            result = (*existing->second) [id_a.sequence]->clone ();
-        }
-    }
-    return result;
 }
 
 mu_coin::block_id::block_id (mu_coin::address const & address_a, uint16_t sequence_a) :
@@ -1032,32 +991,10 @@ bool mu_coin::transaction_block::balance (mu_coin::address const & address_a, mu
     return result;
 }
 
-std::unique_ptr <mu_coin::send_block> mu_coin::block_store_memory::send (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
-{
-    std::unique_ptr <mu_coin::send_block> result;
-    auto existing (open.find (mu_coin::send_source ({address_a, id_a})));
-    if (existing != open.end ())
-    {
-        result.reset (new mu_coin::send_block (*existing->second));
-    }
-    return result;
-}
-
-void mu_coin::block_store_memory::insert_send (mu_coin::address const & address_a, mu_coin::send_block const & block_a)
-{
-    open.insert (decltype (open)::value_type (mu_coin::send_source ({address_a, block_a.inputs.front ().source}), std::unique_ptr <mu_coin::send_block> (new mu_coin::send_block (block_a))));
-}
-
 mu_coin::send_block::send_block (send_block const & other_a) :
 inputs (other_a.inputs),
 outputs (other_a.outputs)
 {
-}
-
-void mu_coin::block_store_memory::clear (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
-{
-    auto erased (open.erase (mu_coin::send_source ({address_a, id_a})));
-    assert (erased == 1);
 }
 
 bool mu_coin::send_source::operator == (mu_coin::send_source const & other_a) const
@@ -1301,4 +1238,145 @@ void mu_coin::point_encoding::assign (uint8_t type_a, uint256_union const & poin
     assert (type_a == 2 || type_a == 3);
     bytes [0] = type_a;
     std::copy (point_a.bytes.begin (), point_a.bytes.end (), bytes.begin () + 1);
+}
+
+mu_coin::block_store_temp_t mu_coin::block_store_temp;
+
+mu_coin::block_store::block_store (block_store_temp_t const &) :
+handle (nullptr, 0)
+{
+    boost::filesystem::path temp (boost::filesystem::unique_path ());
+    handle.open (nullptr, temp.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::block_store::latest (mu_coin::address const & address_a)
+{
+    std::unique_ptr <mu_coin::block> result;
+    bool exists;
+    uint16_t sequence;
+    latest_sequence (address_a, sequence, exists);
+    if (exists)
+    {
+        mu_coin::block_id block (address_a, sequence);
+        dbt key (block);
+        dbt value;
+        int error (handle.get (nullptr, &key.data, &value.data, 0));
+        result = value.block ();
+    }
+    return result;
+}
+
+void mu_coin::block_store::insert_block (mu_coin::block_id const & id_a, mu_coin::block const & block_a)
+{
+    dbt key (id_a);
+    dbt data (block_a);
+    int error (handle.put (nullptr, &key.data, &data.data, 0));
+    dbt key2 (id_a.address);
+    dbt data2 (id_a.sequence);
+    int error2 (handle.put (nullptr, &key2.data, &data2.data, 0));
+}
+
+void mu_coin::block_store::latest_sequence (mu_coin::address const & address_a, uint16_t & sequence, bool & exists)
+{
+    dbt key (address_a);
+    dbt value;
+    int error (handle.get (nullptr, &key.data, &value.data, 0));
+    if (value.data.get_size () == 2)
+    {
+        exists = true;
+        mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t *> (value.data.get_data ()), reinterpret_cast <uint8_t *> (value.data.get_data ()) + value.data.get_size ());
+        stream.read (sequence);
+    }
+    else
+    {
+        exists = false;
+    }
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::block_store::block (mu_coin::block_id const & id_a)
+{
+    mu_coin::dbt key (id_a);
+    mu_coin::dbt data;
+    int error (handle.get (nullptr, &key.data, &data.data, 0));
+    auto result (data.block ());
+    return result;
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::dbt::block()
+{
+    std::unique_ptr <mu_coin::block> result;
+    if (data.get_size () > 0)
+    {
+        mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t *> (data.get_data ()), reinterpret_cast <uint8_t *> (data.get_data ()) + data.get_size ());
+        result = mu_coin::deserialize_block (stream);
+    }
+    return result;
+}
+
+mu_coin::dbt::dbt (mu_coin::block const & block_a)
+{
+    mu_coin::byte_write_stream stream;
+    mu_coin::serialize_block (stream, block_a);
+    adopt (stream);
+}
+
+mu_coin::dbt::dbt (mu_coin::address const & address_a)
+{
+    mu_coin::byte_write_stream stream;
+    address_a.serialize (stream);
+    adopt (stream);
+}
+
+mu_coin::dbt::dbt (mu_coin::block_id const & id_a)
+{
+    mu_coin::byte_write_stream stream;
+    id_a.serialize (stream);
+    adopt (stream);
+}
+
+mu_coin::dbt::dbt (uint16_t sequence_a)
+{
+    mu_coin::byte_write_stream stream;
+    stream.write (sequence_a);
+    adopt (stream);
+}
+
+void mu_coin::dbt::adopt (mu_coin::byte_write_stream & stream_a)
+{
+    data.set_data (stream_a.data);
+    data.set_size (stream_a.size);
+    stream_a.data = nullptr;
+}
+
+std::unique_ptr <mu_coin::send_block> mu_coin::block_store::send (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
+{
+    mu_coin::dbt key (address_a, id_a);
+    mu_coin::dbt data;
+    int error (handle.get (nullptr, &key.data, &data.data, 0));
+    std::unique_ptr <mu_coin::block> block (data.block ());
+    assert (block == nullptr || dynamic_cast <mu_coin::send_block *> (block.get ()) != nullptr);
+    std::unique_ptr <mu_coin::send_block> result (static_cast <mu_coin::send_block *> (block.release ()));
+    return result;
+}
+
+void mu_coin::block_store::insert_send (mu_coin::address const & address_a, mu_coin::send_block const & block_a)
+{
+    mu_coin::dbt key (address_a, block_a.inputs.front ().source);
+    mu_coin::dbt data (block_a);
+    int error (handle.put (0, &key.data, &data.data, 0));
+}
+
+void mu_coin::block_store::clear (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
+{
+    mu_coin::dbt key (address_a, id_a);
+    int error (handle.del (0, &key.data, 0));
+}
+
+mu_coin::dbt::dbt (mu_coin::address const & address_a, mu_coin::block_id const & id_a)
+{
+    mu_coin::byte_write_stream stream;
+    stream.write (address_a.point.bytes);
+    stream.write (id_a.address.point.bytes);
+    stream.write (id_a.sequence);
+    adopt (stream);
 }
