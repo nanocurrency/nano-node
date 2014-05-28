@@ -11,11 +11,9 @@ namespace mu_coin_qt {
     class gui
     {
     public:
-        gui (int, char **);
+        gui (int, char **, boost::asio::io_service &);
         ~gui ();
-        boost::asio::io_service service;
         mu_coin::client client;
-        boost::thread network_thread;
         
         QApplication application;
         QMainWindow main_window;

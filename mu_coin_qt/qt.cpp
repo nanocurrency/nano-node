@@ -2,8 +2,8 @@
 
 #include <sstream>
 
-mu_coin_qt::gui::gui (int argc, char ** argv) :
-client (service, 24000, boost::filesystem::unique_path (), boost::filesystem::unique_path ()),
+mu_coin_qt::gui::gui (int argc, char ** argv, boost::asio::io_service & service_a) :
+client (service_a, 24000, boost::filesystem::unique_path (), boost::filesystem::unique_path ()),
 application (argc, argv),
 settings_password_label ("Password:"),
 settings_close ("Close"),
@@ -31,7 +31,6 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     /////////
     
     client.network.receive ();
-    network_thread = boost::thread ([this] () {service.run ();});
     
     send_coins_layout.addWidget (&send_address_label);
     send_coins_layout.addWidget (&send_address);
@@ -136,7 +135,6 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     QObject::connect (&application, &QApplication::aboutToQuit, [this] ()
     {
         client.network.stop ();
-        network_thread.join ();
     });
     QObject::connect (&wallet_view, &QListView::pressed, [this] (QModelIndex const & index)
     {
