@@ -1,9 +1,9 @@
-#include <mu_coin_client/client.hpp>
+#include <mu_coin_qt/qt.hpp>
 
 #include <sstream>
 
-mu_coin_client::client::client (int argc, char ** argv) :
-client_m (service, 24000, boost::filesystem::unique_path (), boost::filesystem::unique_path ()),
+mu_coin_qt::gui::gui (int argc, char ** argv) :
+client (service, 24000, boost::filesystem::unique_path (), boost::filesystem::unique_path ()),
 application (argc, argv),
 settings_password_label ("Password:"),
 settings_close ("Close"),
@@ -23,14 +23,14 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     mu_coin::keypair genesis;
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
-    client_m.wallet.insert (genesis.pub, genesis.prv, secret);
+    client.wallet.insert (genesis.pub, genesis.prv, secret);
     mu_coin::transaction_block block;
     mu_coin::entry entry (genesis.pub, 1000000, 0);
     block.entries.push_back (entry);
-    client_m.store.insert_block (entry.id, block);
+    client.store.insert_block (entry.id, block);
     /////////
     
-    client_m.network.receive ();
+    client.network.receive ();
     network_thread = boost::thread ([this] () {service.run ();});
     
     send_coins_layout.addWidget (&send_address_label);
@@ -109,10 +109,10 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
                 send_address.setPalette (palette);
-                auto send (client_m.wallet.send (client_m.ledger, address, coins.number (), password));
+                auto send (client.wallet.send (client.ledger, address, coins.number (), password));
                 if (send != nullptr)
                 {
-                    auto error (client_m.ledger.process (*send));
+                    auto error (client.ledger.process (*send));
                     assert (!error);
                     send_count.clear ();
                     send_address.clear ();
@@ -135,7 +135,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     });
     QObject::connect (&application, &QApplication::aboutToQuit, [this] ()
     {
-        client_m.network.stop ();
+        client.network.stop ();
         network_thread.join ();
     });
     QObject::connect (&wallet_view, &QListView::pressed, [this] (QModelIndex const & index)
@@ -175,20 +175,20 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     QObject::connect (&wallet_add_account, &QPushButton::released, [this] ()
     {
         mu_coin::keypair key;
-        client_m.wallet.insert (key.pub, key.prv, password);
+        client.wallet.insert (key.pub, key.prv, password);
         refresh_wallet ();
     });
     refresh_wallet ();
 }
 
-void mu_coin_client::client::refresh_wallet ()
+void mu_coin_qt::gui::refresh_wallet ()
 {
     QStringList keys;
     mu_coin::uint256_t balance;
-    for (auto i (client_m.wallet.begin ()), j (client_m.wallet.end ()); i != j; ++i)
+    for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
         mu_coin::EC::PublicKey key (*i);
-        auto account_balance (client_m.ledger.balance (mu_coin::address (key)).number ());
+        auto account_balance (client.ledger.balance (mu_coin::address (key)).number ());
         balance += account_balance;
         mu_coin::point_encoding encoding (key);
         std::string string;
@@ -202,17 +202,17 @@ void mu_coin_client::client::refresh_wallet ()
     wallet_model.setStringList (keys);
 }
 
-mu_coin_client::client::~client ()
+mu_coin_qt::gui::~gui ()
 {
 }
 
-void mu_coin_client::client::push_main_stack (QWidget * widget_a)
+void mu_coin_qt::gui::push_main_stack (QWidget * widget_a)
 {
     main_stack.addWidget (widget_a);
     main_stack.setCurrentIndex (main_stack.count () - 1);
 }
 
-void mu_coin_client::client::pop_main_stack ()
+void mu_coin_qt::gui::pop_main_stack ()
 {
     main_stack.removeWidget (main_stack.currentWidget ());
 }

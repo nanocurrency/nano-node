@@ -7,14 +7,14 @@
 #include <QtGui>
 #include <QtWidgets>
 
-namespace mu_coin_client {
-    class client
+namespace mu_coin_qt {
+    class gui
     {
     public:
-        client (int, char **);
-        ~client ();
+        gui (int, char **);
+        ~gui ();
         boost::asio::io_service service;
-        mu_coin::client client_m;
+        mu_coin::client client;
         boost::thread network_thread;
         
         QApplication application;
