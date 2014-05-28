@@ -325,6 +325,7 @@ namespace mu_coin {
     {
     public:
         block_store (block_store_temp_t const &);
+        block_store (boost::filesystem::path const &);
         std::unique_ptr <mu_coin::block> latest (mu_coin::address const &);
         std::unique_ptr <mu_coin::block> block (mu_coin::block_id const &);
         void insert_block (mu_coin::block_id const &, mu_coin::block const &);
@@ -469,6 +470,7 @@ namespace mu_coin {
     {
     public:
         wallet (wallet_temp_t const &);
+        wallet (boost::filesystem::path const &);
         void insert (mu_coin::EC::PublicKey const &, mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
         void insert (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
         void fetch (mu_coin::EC::PublicKey const &, mu_coin::uint256_union const &, mu_coin::EC::PrivateKey &, bool &);

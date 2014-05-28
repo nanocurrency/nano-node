@@ -1275,10 +1275,14 @@ void mu_coin::point_encoding::assign (uint8_t type_a, uint256_union const & poin
 mu_coin::block_store_temp_t mu_coin::block_store_temp;
 
 mu_coin::block_store::block_store (block_store_temp_t const &) :
+block_store (boost::filesystem::unique_path ())
+{
+}
+
+mu_coin::block_store::block_store (boost::filesystem::path const & path_a) :
 handle (nullptr, 0)
 {
-    boost::filesystem::path temp (boost::filesystem::unique_path ());
-    handle.open (nullptr, temp.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    handle.open (nullptr, path_a.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 std::unique_ptr <mu_coin::block> mu_coin::block_store::latest (mu_coin::address const & address_a)
@@ -1644,11 +1648,15 @@ mu_coin::dbt::dbt (mu_coin::EC::PrivateKey const & prv, mu_coin::uint256_union c
     adopt (stream);
 }
 
-mu_coin::wallet::wallet (mu_coin::wallet_temp_t const &) :
+mu_coin::wallet::wallet (boost::filesystem::path const & path_a) :
 handle (nullptr, 0)
 {
-    boost::filesystem::path temp (boost::filesystem::unique_path ());
-    handle.open (nullptr, temp.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    handle.open (nullptr, path_a.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+}
+
+mu_coin::wallet::wallet (mu_coin::wallet_temp_t const &) :
+wallet (boost::filesystem::unique_path ())
+{
 }
 
 void mu_coin::wallet::insert (mu_coin::EC::PublicKey const & pub, mu_coin::EC::PrivateKey const & prv, mu_coin::uint256_union const & key_a)
