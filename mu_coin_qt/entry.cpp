@@ -3,10 +3,15 @@
 int main (int argc, char ** argv)
 {
     boost::asio::io_service service;
-    mu_coin_qt::gui gui (argc, argv, service);
+    QApplication application (argc, argv);
+    mu_coin_qt::gui gui (argc, argv, service, application);
     boost::thread network_thread ([&service] () {service.run ();});
-    gui.main_window.show ();
-    auto result (gui.application.exec ());
+    gui.balance_main_window.show ();
+    QObject::connect (&application, &QApplication::aboutToQuit, [&gui] ()
+    {
+        gui.client.network.stop ();
+    });
+    auto result (application.exec ());
     network_thread.join ();
     return result;
 }

@@ -2,9 +2,9 @@
 
 #include <sstream>
 
-mu_coin_qt::gui::gui (int argc, char ** argv, boost::asio::io_service & service_a) :
+mu_coin_qt::gui::gui (int argc, char ** argv, boost::asio::io_service & service_a, QApplication & application_a) :
 client (service_a, 24000, boost::filesystem::unique_path (), boost::filesystem::unique_path ()),
-application (argc, argv),
+application (application_a),
 settings_password_label ("Password:"),
 settings_close ("Close"),
 send_coins ("Send"),
@@ -71,7 +71,6 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     settings_layout.addWidget (&settings_close);
     settings_window.setLayout (&settings_layout);
     
-    main_window.setCentralWidget (&balance_main_window);
     QObject::connect (&settings_close, &QPushButton::released, [this] ()
     {
         pop_main_stack ();
@@ -131,10 +130,6 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
             palette.setColor (QPalette::Text, Qt::red);
             send_count.setPalette (palette);
         }
-    });
-    QObject::connect (&application, &QApplication::aboutToQuit, [this] ()
-    {
-        client.network.stop ();
     });
     QObject::connect (&wallet_view, &QListView::pressed, [this] (QModelIndex const & index)
     {

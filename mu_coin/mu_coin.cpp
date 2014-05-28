@@ -1,4 +1,4 @@
-#include <mu_coin/mu_coin.hpp>
+   #include <mu_coin/mu_coin.hpp>
 
 #include <cryptopp/sha.h>
 #include <cryptopp/aes.h>
