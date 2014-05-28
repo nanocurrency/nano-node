@@ -18,7 +18,7 @@ namespace mu_coin_client {
         mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin_wallet::wallet wallet;
-        mu_coin_network::node network;
+        mu_coin::node network;
         boost::thread network_thread;
         
         QApplication application;

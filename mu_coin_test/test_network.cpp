@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <mu_coin_network/network.hpp>
 #include <boost/thread.hpp>
 #include <mu_coin/mu_coin.hpp>
 
@@ -8,7 +7,7 @@ TEST (network, construction)
     boost::asio::io_service service;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin_network::node node1 (service, 24001, ledger);
+    mu_coin::node node1 (service, 24001, ledger);
     node1.receive ();
 }
 
@@ -17,10 +16,10 @@ TEST (network, send_keepalive)
     boost::asio::io_service service;
     mu_coin::block_store store1 (mu_coin::block_store_temp);
     mu_coin::ledger ledger1 (store1);
-    mu_coin_network::node node1 (service, 24001, ledger1);
+    mu_coin::node node1 (service, 24001, ledger1);
     mu_coin::block_store store2 (mu_coin::block_store_temp);
     mu_coin::ledger ledger2 (store2);
-    mu_coin_network::node node2 (service, 24002, ledger2);
+    mu_coin::node node2 (service, 24002, ledger2);
     node1.receive ();
     node2.receive ();
     node1.send_keepalive (node2.socket.local_endpoint ());
@@ -37,11 +36,11 @@ TEST (network, publish_req_invalid_point)
     auto block (std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block));
     block->entries.push_back (mu_coin::entry ());
     block->entries.back ().id.address.point.bytes.fill (0xff);
-    mu_coin_network::publish_req req (std::move (block));
+    mu_coin::publish_req req (std::move (block));
     ASSERT_EQ (htons (1), req.entry_count);
     mu_coin::byte_write_stream stream;
     req.serialize (stream);
-    mu_coin_network::publish_req req2;
+    mu_coin::publish_req req2;
     mu_coin::byte_read_stream stream2 (stream.data, stream.size);
     auto error (req2.deserialize (stream2));
     ASSERT_TRUE (error);
@@ -54,11 +53,11 @@ TEST (network, publish_req)
     mu_coin::keypair key2;
     block->entries.push_back (mu_coin::entry (key1.pub, 100, 200));
     block->entries.push_back (mu_coin::entry (key2.pub, 300, 400));
-    mu_coin_network::publish_req req (std::move (block));
+    mu_coin::publish_req req (std::move (block));
     ASSERT_EQ (htons (2), req.entry_count);
     mu_coin::byte_write_stream stream;
     req.serialize (stream);
-    mu_coin_network::publish_req req2;
+    mu_coin::publish_req req2;
     mu_coin::byte_read_stream stream2 (stream.data, stream.size);
     auto error (req2.deserialize (stream2));
     ASSERT_FALSE (error);
@@ -70,10 +69,10 @@ TEST (network, send_discarded_publish)
     boost::asio::io_service service;
     mu_coin::block_store store1 (mu_coin::block_store_temp);
     mu_coin::ledger ledger1 (store1);
-    mu_coin_network::node node1 (service, 24001, ledger1);
+    mu_coin::node node1 (service, 24001, ledger1);
     mu_coin::block_store store2 (mu_coin::block_store_temp);
     mu_coin::ledger ledger2 (store2);
-    mu_coin_network::node node2 (service, 24002, ledger2);
+    mu_coin::node node2 (service, 24002, ledger2);
     node1.receive ();
     node2.receive ();
     std::unique_ptr <mu_coin::transaction_block> block (new mu_coin::transaction_block);
@@ -93,10 +92,10 @@ TEST (network, send_invalid_publish)
     boost::asio::io_service service;
     mu_coin::block_store store1 (mu_coin::block_store_temp);
     mu_coin::ledger ledger1 (store1);
-    mu_coin_network::node node1 (service, 24001, ledger1);
+    mu_coin::node node1 (service, 24001, ledger1);
     mu_coin::block_store store2 (mu_coin::block_store_temp);
     mu_coin::ledger ledger2 (store2);
-    mu_coin_network::node node2 (service, 24002, ledger2);
+    mu_coin::node node2 (service, 24002, ledger2);
     node1.receive ();
     node2.receive ();
     std::unique_ptr <mu_coin::transaction_block> block (new mu_coin::transaction_block);
@@ -122,11 +121,11 @@ TEST (network, send_valid_publish)
     mu_coin::block_store store1 (mu_coin::block_store_temp);
     store1.insert_block (entry1.id, block1);
     mu_coin::ledger ledger1 (store1);
-    mu_coin_network::node node1 (service, 24001, ledger1);
+    mu_coin::node node1 (service, 24001, ledger1);
     mu_coin::block_store store2 (mu_coin::block_store_temp);
     store2.insert_block (entry1.id, block1);
     mu_coin::ledger ledger2 (store2);
-    mu_coin_network::node node2 (service, 24002, ledger2);
+    mu_coin::node node2 (service, 24002, ledger2);
     node1.receive ();
     node2.receive ();
     mu_coin::keypair key2;
