@@ -14,10 +14,7 @@ namespace mu_coin_client {
         client (int, char **);
         ~client ();
         boost::asio::io_service service;
-        mu_coin::block_store store;
-        mu_coin::ledger ledger;
-        mu_coin::wallet wallet;
-        mu_coin::node network;
+        mu_coin::client client_m;
         boost::thread network_thread;
         
         QApplication application;

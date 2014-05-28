@@ -483,8 +483,7 @@ namespace mu_coin {
     class client
     {
     public:
-        client (boost::asio::io_service &, boost::filesystem::path &, boost::filesystem::path &);
-        boost::asio::io_service & service;
+        client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &);
         mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;

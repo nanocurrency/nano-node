@@ -1828,3 +1828,11 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
     }
     return block;
 }
+
+mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a) :
+store (block_store_path_a),
+ledger (store),
+wallet (wallet_path_a),
+network (service_a, port_a, ledger)
+{
+}

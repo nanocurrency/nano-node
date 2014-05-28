@@ -3,10 +3,7 @@
 #include <sstream>
 
 mu_coin_client::client::client (int argc, char ** argv) :
-store (mu_coin::block_store_temp),
-ledger (store),
-wallet (mu_coin::wallet_temp),
-network (service, 24000, ledger),
+client_m (service, 24000, boost::filesystem::unique_path (), boost::filesystem::unique_path ()),
 application (argc, argv),
 settings_password_label ("Password:"),
 settings_close ("Close"),
@@ -26,14 +23,14 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     mu_coin::keypair genesis;
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
-    wallet.insert (genesis.pub, genesis.prv, secret);
+    client_m.wallet.insert (genesis.pub, genesis.prv, secret);
     mu_coin::transaction_block block;
     mu_coin::entry entry (genesis.pub, 1000000, 0);
     block.entries.push_back (entry);
-    store.insert_block (entry.id, block);
+    client_m.store.insert_block (entry.id, block);
     /////////
     
-    network.receive ();
+    client_m.network.receive ();
     network_thread = boost::thread ([this] () {service.run ();});
     
     send_coins_layout.addWidget (&send_address_label);
@@ -112,10 +109,10 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
                 send_address.setPalette (palette);
-                auto send (wallet.send (ledger, address, coins.number (), password));
+                auto send (client_m.wallet.send (client_m.ledger, address, coins.number (), password));
                 if (send != nullptr)
                 {
-                    auto error (ledger.process (*send));
+                    auto error (client_m.ledger.process (*send));
                     assert (!error);
                     send_count.clear ();
                     send_address.clear ();
@@ -138,7 +135,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     });
     QObject::connect (&application, &QApplication::aboutToQuit, [this] ()
     {
-        network.stop ();
+        client_m.network.stop ();
         network_thread.join ();
     });
     QObject::connect (&wallet_view, &QListView::pressed, [this] (QModelIndex const & index)
@@ -178,7 +175,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     QObject::connect (&wallet_add_account, &QPushButton::released, [this] ()
     {
         mu_coin::keypair key;
-        wallet.insert (key.pub, key.prv, password);
+        client_m.wallet.insert (key.pub, key.prv, password);
         refresh_wallet ();
     });
     refresh_wallet ();
@@ -188,10 +185,10 @@ void mu_coin_client::client::refresh_wallet ()
 {
     QStringList keys;
     mu_coin::uint256_t balance;
-    for (auto i (wallet.begin()), j (wallet.end ()); i != j; ++i)
+    for (auto i (client_m.wallet.begin ()), j (client_m.wallet.end ()); i != j; ++i)
     {
         mu_coin::EC::PublicKey key (*i);
-        auto account_balance (ledger.balance (mu_coin::address (key)).number ());
+        auto account_balance (client_m.ledger.balance (mu_coin::address (key)).number ());
         balance += account_balance;
         mu_coin::point_encoding encoding (key);
         std::string string;
