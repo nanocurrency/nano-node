@@ -24,10 +24,6 @@ include_directories (${CMAKE_SOURCE_DIR}/libb64-1.2/include)
 add_library (mu_coin
 	mu_coin/mu_coin.hpp
 	mu_coin/mu_coin.cpp)
-    
-add_library (mu_coin_wallet
-    mu_coin_wallet/wallet.hpp
-    mu_coin_wallet/wallet.cpp)
 
 add_executable (mu_coin_test 
 	mu_coin_test/entry.cpp

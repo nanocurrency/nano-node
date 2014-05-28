@@ -5,7 +5,7 @@
 mu_coin_client::client::client (int argc, char ** argv) :
 store (mu_coin::block_store_temp),
 ledger (store),
-wallet (mu_coin_wallet::wallet_temp),
+wallet (mu_coin::wallet_temp),
 network (service, 24000, ledger),
 application (argc, argv),
 settings_password_label ("Password:"),

@@ -1,6 +1,7 @@
 #pragma once
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
 
 #include <cryptopp/eccrypto.h>
 #include <cryptopp/eccrypto.h>
@@ -211,6 +212,10 @@ namespace mu_coin {
         dbt (mu_coin::block const &);
         dbt (mu_coin::block_id const &);
         dbt (uint16_t);
+        dbt (mu_coin::EC::PublicKey const &);
+        dbt (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &, mu_coin::uint128_union const &);
+        void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::EC::PrivateKey &, bool &);
+        mu_coin::EC::PublicKey key ();
         void adopt (mu_coin::byte_write_stream &);
         std::unique_ptr <mu_coin::block> block ();
         Dbt data;
@@ -442,5 +447,45 @@ namespace mu_coin {
         uint64_t publish_nak_count;
         uint64_t unknown_count;
         bool on;
+    };
+    struct wallet_temp_t
+    {
+    };
+    extern wallet_temp_t wallet_temp;
+    class key_iterator
+    {
+    public:
+        key_iterator (Dbc *);
+        key_iterator (mu_coin::key_iterator const &) = default;
+        key_iterator & operator ++ ();
+        mu_coin::EC::PublicKey operator * ();
+        bool operator == (mu_coin::key_iterator const &) const;
+        bool operator != (mu_coin::key_iterator const &) const;
+        Dbc * cursor;
+        dbt key;
+        dbt data;
+    };
+    class wallet
+    {
+    public:
+        wallet (wallet_temp_t const &);
+        void insert (mu_coin::EC::PublicKey const &, mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
+        void insert (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
+        void fetch (mu_coin::EC::PublicKey const &, mu_coin::uint256_union const &, mu_coin::EC::PrivateKey &, bool &);
+        std::unique_ptr <mu_coin::send_block> send (mu_coin::ledger &, mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
+        key_iterator begin ();
+        key_iterator end ();
+    private:
+        Db handle;
+    };
+    class client
+    {
+    public:
+        client (boost::asio::io_service &, boost::filesystem::path &, boost::filesystem::path &);
+        boost::asio::io_service & service;
+        mu_coin::block_store store;
+        mu_coin::ledger ledger;
+        mu_coin::wallet wallet;
+        mu_coin::node network;
     };
 }
