@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mu_coin_store/db.hpp>
 #include <mu_coin_wallet/wallet.hpp>
 #include <mu_coin_network/network.hpp>
 
@@ -16,7 +15,7 @@ namespace mu_coin_client {
         client (int, char **);
         ~client ();
         boost::asio::io_service service;
-        mu_coin_store::block_store_db store;
+        mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin_wallet::wallet wallet;
         mu_coin_network::node network;

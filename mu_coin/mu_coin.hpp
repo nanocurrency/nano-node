@@ -71,8 +71,10 @@ namespace mu_coin {
         EC::PrivateKey key (uint256_union const &, uint128_union const &);
         EC::PrivateKey key ();
         bool operator == (mu_coin::uint256_union const &) const;
-        void encode (std::string &);
-        bool decode (std::string const &);
+        void encode_hex (std::string &);
+        bool decode_hex (std::string const &);
+        void encode_dec (std::string &);
+        bool decode_dec (std::string const &);
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
         void clear ();
@@ -85,8 +87,8 @@ namespace mu_coin {
         point_encoding (uint8_t, uint256_union const &);
         bool validate ();
         void assign (uint8_t, uint256_union const &);
-        void encode (std::string &);
-        bool decode (std::string const &);
+        void encode_hex (std::string &);
+        bool decode_hex (std::string const &);
         std::array <uint8_t, 33> bytes;
         uint128_union iv () const;
         EC::PublicKey key () const;
@@ -98,8 +100,8 @@ namespace mu_coin {
         uint512_union () = default;
         uint512_union (mu_coin::uint512_t const &);
         bool operator == (mu_coin::uint512_union const &) const;
-        void encode (std::string &);
-        bool decode (std::string const &);
+        void encode_hex (std::string &);
+        bool decode_hex (std::string const &);
         std::array <uint8_t, 64> bytes;
         std::array <uint64_t, 8> qwords;
         std::array <uint256_union, 2> uint256s;

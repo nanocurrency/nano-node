@@ -1148,7 +1148,7 @@ void mu_coin::cached_password_store::clear ()
     password.bytes.fill (0);
 }
 
-void mu_coin::uint256_union::encode (std::string & text)
+void mu_coin::uint256_union::encode_hex (std::string & text)
 {
     assert (text.empty ());
     std::stringstream stream;
@@ -1157,7 +1157,7 @@ void mu_coin::uint256_union::encode (std::string & text)
     text = stream.str ();
 }
 
-bool mu_coin::uint256_union::decode (std::string const & text)
+bool mu_coin::uint256_union::decode_hex (std::string const & text)
 {
     auto result (text.size () > 64);
     if (!result)
@@ -1178,7 +1178,37 @@ bool mu_coin::uint256_union::decode (std::string const & text)
     return result;
 }
 
-void mu_coin::uint512_union::encode (std::string & text)
+void mu_coin::uint256_union::encode_dec (std::string & text)
+{
+    assert (text.empty ());
+    std::stringstream stream;
+    stream << std::dec << std::noshowbase;
+    stream << number ();
+    text = stream.str ();
+}
+
+bool mu_coin::uint256_union::decode_dec (std::string const & text)
+{
+    auto result (text.size () > 64);
+    if (!result)
+    {
+        std::stringstream stream (text);
+        stream << std::dec << std::noshowbase;
+        mu_coin::uint256_t number_l;
+        try
+        {
+            stream >> number_l;
+            *this = number_l;
+        }
+        catch (std::runtime_error &)
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
+void mu_coin::uint512_union::encode_hex (std::string & text)
 {
     assert (text.empty ());
     std::stringstream stream;
@@ -1187,7 +1217,7 @@ void mu_coin::uint512_union::encode (std::string & text)
     text = stream.str ();
 }
 
-bool mu_coin::uint512_union::decode (std::string const & text)
+bool mu_coin::uint512_union::decode_hex (std::string const & text)
 {
     auto result (text.size () > 128);
     if (!result)
@@ -1208,19 +1238,19 @@ bool mu_coin::uint512_union::decode (std::string const & text)
     return result;
 }
 
-void mu_coin::point_encoding::encode (std::string & text)
+void mu_coin::point_encoding::encode_hex (std::string & text)
 {
     mu_coin::uint512_union address;
     std::copy (bytes.begin (), bytes.end (), address.bytes.end () - sizeof (bytes));
-    address.encode (text);
+    address.encode_hex (text);
     assert (text.size () == 128);
     text = text.substr (63, 65);
 }
 
-bool mu_coin::point_encoding::decode (std::string const & text)
+bool mu_coin::point_encoding::decode_hex (std::string const & text)
 {
     mu_coin::uint512_union address;
-    bool result (address.decode (text));
+    bool result (address.decode_hex (text));
     if (!result)
     {
         mu_coin::uint256_t number (address.number ());

@@ -198,9 +198,9 @@ TEST (uint256_union, parse_zero)
 {
     mu_coin::uint256_union input (mu_coin::uint256_t (0));
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     mu_coin::uint256_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_TRUE (output.number ().is_zero ());
@@ -210,7 +210,7 @@ TEST (uint256_union, parse_zero_short)
 {
     std::string text ("0");
     mu_coin::uint256_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_TRUE (output.number ().is_zero ());
 }
@@ -219,9 +219,9 @@ TEST (uint256_union, parse_one)
 {
     mu_coin::uint256_union input (mu_coin::uint256_t (1));
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     mu_coin::uint256_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (1, output.number ());
@@ -231,10 +231,10 @@ TEST (uint256_union, parse_error_symbol)
 {
     mu_coin::uint256_union input (mu_coin::uint256_t (1000));
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     text [5] = '!';
     mu_coin::uint256_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
@@ -242,9 +242,9 @@ TEST (uint256_union, max)
 {
     mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     mu_coin::uint256_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
@@ -254,10 +254,10 @@ TEST (uint256_union, parse_error_overflow)
 {
     mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     text.push_back (0);
     mu_coin::uint256_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
@@ -265,9 +265,9 @@ TEST (uint512_union, parse_zero)
 {
     mu_coin::uint512_union input (mu_coin::uint512_t (0));
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     mu_coin::uint512_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_TRUE (output.number ().is_zero ());
@@ -277,7 +277,7 @@ TEST (uint512_union, parse_zero_short)
 {
     std::string text ("0");
     mu_coin::uint512_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_TRUE (output.number ().is_zero ());
 }
@@ -286,9 +286,9 @@ TEST (uint512_union, parse_one)
 {
     mu_coin::uint512_union input (mu_coin::uint512_t (1));
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     mu_coin::uint512_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (1, output.number ());
@@ -298,10 +298,10 @@ TEST (uint512_union, parse_error_symbol)
 {
     mu_coin::uint512_union input (mu_coin::uint512_t (1000));
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     text [5] = '!';
     mu_coin::uint512_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
@@ -309,9 +309,9 @@ TEST (uint512_union, max)
 {
     mu_coin::uint512_union input (std::numeric_limits <mu_coin::uint512_t>::max ());
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     mu_coin::uint512_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (mu_coin::uint512_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
@@ -321,10 +321,10 @@ TEST (uint512_union, parse_error_overflow)
 {
     mu_coin::uint512_union input (std::numeric_limits <mu_coin::uint512_t>::max ());
     std::string text;
-    input.encode (text);
+    input.encode_hex (text);
     text.push_back (0);
     mu_coin::uint512_union output;
-    auto error (output.decode (text));
+    auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
@@ -333,9 +333,9 @@ TEST (point_encoding, parse)
     mu_coin::keypair key1;
     mu_coin::point_encoding point1 (key1.pub);
     std::string text;
-    point1.encode (text);
+    point1.encode_hex (text);
     mu_coin::point_encoding point2;
-    auto error1 (point2.decode (text));
+    auto error1 (point2.decode_hex (text));
     ASSERT_FALSE (error1);
     auto error2 (point2.validate ());
     ASSERT_FALSE (error2);

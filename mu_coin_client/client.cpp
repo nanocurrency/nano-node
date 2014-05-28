@@ -3,7 +3,7 @@
 #include <sstream>
 
 mu_coin_client::client::client (int argc, char ** argv) :
-store (mu_coin_store::block_store_db_temp),
+store (mu_coin::block_store_temp),
 ledger (store),
 wallet (mu_coin_wallet::wallet_temp),
 network (service, 24000, ledger),
@@ -97,7 +97,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
         QString coins_text (send_count.text ());
         std::string coins_text_narrow (coins_text.toLocal8Bit ());
         mu_coin::uint256_union coins;
-        auto parse_error (coins.decode (coins_text_narrow));
+        auto parse_error (coins.decode_dec (coins_text_narrow));
         if (!parse_error)
         {
             QPalette palette;
@@ -106,7 +106,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
             QString address_text (send_address.text ());
             std::string address_text_narrow (address_text.toLocal8Bit ());
             mu_coin::point_encoding address;
-            parse_error = address.decode (address_text_narrow);
+            parse_error = address.decode_hex (address_text_narrow);
             if (!parse_error)
             {
                 QPalette palette;
@@ -195,7 +195,7 @@ void mu_coin_client::client::refresh_wallet ()
         balance += account_balance;
         mu_coin::point_encoding encoding (key);
         std::string string;
-        encoding.encode (string);
+        encoding.encode_hex (string);
         string += ":";
         string += account_balance.str ();
         QString qstring (string.c_str ());
