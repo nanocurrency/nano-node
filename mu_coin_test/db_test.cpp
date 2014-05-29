@@ -39,6 +39,7 @@ TEST (block_store, add_nonempty_block)
     mu_coin::transaction_block block;
     mu_coin::entry entry1 (key1.pub, 100, 0);
     block.entries.push_back (entry1);
+    block.entries [0].sign (key1.prv, block.hash ());
     db.insert_block (block_id, block);
     auto latest2 (db.latest (block_id.address));
     ASSERT_NE (nullptr, latest2);
@@ -55,6 +56,7 @@ TEST (block_store, add_two_items)
     mu_coin::transaction_block block;
     mu_coin::entry entry1 (key1.pub, 100, 0);
     block.entries.push_back (entry1);
+    block.entries [0].sign (key1.prv, block.hash ());
     db.insert_block (block_id, block);
     auto latest2 (db.latest (block_id.address));
     ASSERT_NE (nullptr, latest2);
@@ -62,6 +64,8 @@ TEST (block_store, add_two_items)
     mu_coin::block_id block_id2 (key1.pub, 1);
     mu_coin::transaction_block block2;
     mu_coin::entry entry2 (key1.pub, 200, 1);
+    block2.entries.push_back (entry2);
+    block2.entries [0].sign (key1.prv, block2.hash ());
     db.insert_block (block_id2, block2);
     auto latest3 (db.latest (block_id.address));
     ASSERT_NE (nullptr, latest3);

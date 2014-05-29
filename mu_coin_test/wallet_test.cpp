@@ -113,6 +113,7 @@ TEST (wallet, one_spend)
     mu_coin::transaction_block block1;
     mu_coin::entry entry1 (key1.pub, 500, 0);
     block1.entries.push_back (entry1);
+    block1.entries [0].sign (key1.prv, block1.hash ());
     store.insert_block (entry1.id, block1);
     mu_coin::keypair key2;
     mu_coin::address address1 (key2.pub);
@@ -140,10 +141,12 @@ TEST (wallet, two_spend)
     mu_coin::transaction_block block1;
     mu_coin::entry entry1 (key1.pub, 100, 0);
     block1.entries.push_back (entry1);
+    block1.entries [0].sign (key1.prv, block1.hash ());
     store.insert_block (entry1.id, block1);
     mu_coin::transaction_block block2;
     mu_coin::entry entry2 (key2.pub, 400, 0);
     block2.entries.push_back (entry2);
+    block2.entries [0].sign (key2.prv, block2.hash ());
     store.insert_block (entry2.id, block2);
     mu_coin::keypair key3;
     mu_coin::address address1 (key3.pub);
@@ -156,7 +159,7 @@ TEST (wallet, two_spend)
     ASSERT_FALSE (send->inputs [0].validate (send->hash ()));
     ASSERT_EQ (entry2.id.address, send->inputs [1].source.address);
     ASSERT_EQ (0, send->inputs [1].coins.number ());
-    ASSERT_TRUE (send->inputs [1].validate (send->hash ()));
+    ASSERT_FALSE (send->inputs [1].validate (send->hash ()));
     ASSERT_EQ (address1, send->outputs [0].address);
     ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
@@ -172,6 +175,7 @@ TEST (wallet, partial_spend)
     mu_coin::transaction_block block1;
     mu_coin::entry entry1 (key1.pub, 800, 0);
     block1.entries.push_back (entry1);
+    block1.entries [0].sign (key1.prv, block1.hash ());
     store.insert_block (entry1.id, block1);
     mu_coin::keypair key2;
     mu_coin::address address1 (key2.pub);
@@ -202,6 +206,7 @@ TEST (wallet, spend_no_previous)
     mu_coin::transaction_block block1;
     mu_coin::entry entry1 (key1.pub, 500, 0);
     block1.entries.push_back (entry1);
+    block1.entries [0].sign (key1.prv, block1.hash ());
     store.insert_block (entry1.id, block1);
     for (auto i (0); i < 50; ++i)
     {

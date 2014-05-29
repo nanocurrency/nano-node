@@ -341,3 +341,14 @@ TEST (point_encoding, parse)
     ASSERT_FALSE (error2);
     ASSERT_EQ (point1.key (), point2.key ());
 }
+
+TEST (send_block, deserialize)
+{
+    mu_coin::send_block block1;
+    mu_coin::byte_write_stream stream1;
+    mu_coin::serialize_block (stream1, block1);
+    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    auto block2 (mu_coin::deserialize_block (stream2));
+    ASSERT_NE (nullptr, block2);
+    ASSERT_EQ (block1, *block2);
+}

@@ -37,7 +37,6 @@ TEST (network, publish_req_invalid_point)
     block->entries.push_back (mu_coin::entry ());
     block->entries.back ().id.address.point.bytes.fill (0xff);
     mu_coin::publish_req req (std::move (block));
-    ASSERT_EQ (htons (1), req.entry_count);
     mu_coin::byte_write_stream stream;
     req.serialize (stream);
     mu_coin::publish_req req2;
@@ -53,8 +52,10 @@ TEST (network, publish_req)
     mu_coin::keypair key2;
     block->entries.push_back (mu_coin::entry (key1.pub, 100, 200));
     block->entries.push_back (mu_coin::entry (key2.pub, 300, 400));
+    auto message (block->hash ());
+    block->entries [0].sign (key1.prv, message);
+    block->entries [1].sign (key2.prv, message);
     mu_coin::publish_req req (std::move (block));
-    ASSERT_EQ (htons (2), req.entry_count);
     mu_coin::byte_write_stream stream;
     req.serialize (stream);
     mu_coin::publish_req req2;
@@ -78,7 +79,7 @@ TEST (network, send_discarded_publish)
     std::unique_ptr <mu_coin::transaction_block> block (new mu_coin::transaction_block);
     mu_coin::entry entry;
     block->entries.push_back (entry);
-    node1.send_publish (node2.socket.local_endpoint (), std::move (block));
+    node1.publish_transaction_block (node2.socket.local_endpoint (), std::move (block));
     while (node2.publish_req_count == 0)
     {
         service.run_one ();
@@ -100,9 +101,10 @@ TEST (network, send_invalid_publish)
     node2.receive ();
     std::unique_ptr <mu_coin::transaction_block> block (new mu_coin::transaction_block);
     mu_coin::keypair key1;
-    mu_coin::entry entry (key1.pub, 10, 0);;
+    mu_coin::entry entry (key1.pub, 10, 0);
     block->entries.push_back (entry);
-    node1.send_publish (node2.socket.local_endpoint (), std::move (block));
+    block->entries [0].sign (key1.prv, block->hash ());
+    node1.publish_transaction_block (node2.socket.local_endpoint (), std::move (block));
     while (node1.publish_nak_count == 0)
     {
         service.run_one ();
@@ -118,6 +120,7 @@ TEST (network, send_valid_publish)
     mu_coin::transaction_block block1;
     mu_coin::entry entry1 (key1.pub, 100, 0);
     block1.entries.push_back (entry1);
+    block1.entries [0].sign (key1.prv, block1.hash ());
     mu_coin::block_store store1 (mu_coin::block_store_temp);
     store1.insert_block (entry1.id, block1);
     mu_coin::ledger ledger1 (store1);
@@ -136,7 +139,7 @@ TEST (network, send_valid_publish)
     block2.entries.push_back (entry3);
     block2.entries [0].sign (key2.prv, block2.hash ());
     block2.entries [1].sign (key1.prv, block2.hash ());
-    node1.send_publish (node2.socket.local_endpoint (), std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block (block2)));
+    node1.publish_transaction_block (node2.socket.local_endpoint (), std::unique_ptr <mu_coin::transaction_block> (new mu_coin::transaction_block (block2)));
     while (node1.publish_ack_count == 0)
     {
         service.run_one ();

@@ -24,6 +24,7 @@ namespace mu_coin {
         {
             return read (reinterpret_cast <uint8_t *> (&value), sizeof (value));
         }
+        void abandon ();
         bool read (uint8_t *, size_t);
         size_t size ();
         uint8_t * data;
@@ -404,14 +405,12 @@ namespace mu_coin {
     {
     public:
         publish_req ();
-        publish_req (std::unique_ptr <mu_coin::transaction_block>);
+        publish_req (std::unique_ptr <mu_coin::block>);
         void build_buffers ();
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
-        std::vector <boost::asio::const_buffer> buffers;
         uint16_t type;
-        uint16_t entry_count;
-        std::unique_ptr <mu_coin::transaction_block> block;
+        std::unique_ptr <mu_coin::block> block;
     };
     class publish_ack : public message
     {
@@ -435,7 +434,7 @@ namespace mu_coin {
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
         void send_keepalive (boost::asio::ip::udp::endpoint const &);
-        void send_publish (boost::asio::ip::udp::endpoint const &, std::unique_ptr <mu_coin::transaction_block>);
+        void publish_transaction_block (boost::asio::ip::udp::endpoint const &, std::unique_ptr <mu_coin::transaction_block>);
         boost::asio::ip::udp::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
