@@ -122,25 +122,6 @@ namespace mu_coin {
         bool deserialize (mu_coin::byte_read_stream &);
         point_encoding point;
     };
-    class block_id
-    {
-    public:
-        block_id () = default;
-        block_id (EC::PublicKey const &, uint16_t);
-        block_id (mu_coin::address const &, uint16_t);
-        void serialize (mu_coin::byte_write_stream &) const;
-        bool deserialize (mu_coin::byte_read_stream &);
-        bool operator == (mu_coin::block_id const &) const;
-        mu_coin::address address;
-        uint16_t sequence;
-    };
-    class send_source
-    {
-    public:
-        bool operator == (mu_coin::send_source const &) const;
-        mu_coin::address address;
-        mu_coin::block_id source;
-    };
 }
 
 namespace std
@@ -151,26 +132,6 @@ namespace std
         size_t operator () (mu_coin::address const & address_a) const
         {
             size_t hash (*reinterpret_cast <size_t const *> (address_a.point.bytes.data ()));
-            return hash;
-        }
-    };
-    template <>
-    struct hash <mu_coin::block_id>
-    {
-        size_t operator () (mu_coin::block_id const & id_a) const
-        {
-            size_t hash (*reinterpret_cast <size_t const *> (id_a.address.point.bytes.data ()));
-            return hash;
-        }
-    };
-    template <>
-    struct hash <mu_coin::send_source>
-    {
-        size_t operator () (mu_coin::send_source const & id_a) const
-        {
-            std::hash <mu_coin::address> address;
-            std::hash <mu_coin::block_id> block_id;
-            size_t hash (address (id_a.address) ^ block_id (id_a.source));
             return hash;
         }
     };
@@ -208,11 +169,8 @@ namespace mu_coin {
     {
     public:
         dbt () = default;
-        dbt (mu_coin::address const & address_a, mu_coin::block_id const & id_a);
         dbt (mu_coin::address const &);
         dbt (mu_coin::block const &);
-        dbt (mu_coin::block_id const &);
-        dbt (uint16_t);
         dbt (mu_coin::EC::PublicKey const &);
         dbt (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &, mu_coin::uint128_union const &);
         void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::EC::PrivateKey &, bool &);
@@ -223,55 +181,24 @@ namespace mu_coin {
     };
     std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::byte_read_stream &);
     void serialize_block (mu_coin::byte_write_stream &, mu_coin::block const &);
-    class entry
-    {
-    public:
-        entry () = default;
-        entry (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
-        void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
-        bool validate (mu_coin::uint256_union const &) const;
-        bool operator == (mu_coin::entry const &) const;
-        mu_coin::EC::PublicKey key () const;
-        uint512_union signature;
-        mu_coin::uint256_union coins;
-        mu_coin::block_id id;
-    };
-    class transaction_block : public mu_coin::block
-    {
-    public:
-        mu_coin::uint256_t fee () const override;
-        mu_coin::uint256_t hash () const override;
-        bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
-        bool operator == (mu_coin::block const &) const override;
-        bool operator == (mu_coin::transaction_block const &) const;
-        void serialize (mu_coin::byte_write_stream &) const override;
-        bool deserialize (mu_coin::byte_read_stream &);
-        void visit (mu_coin::block_visitor &) const override;
-        std::unique_ptr <mu_coin::block> clone () const override;
-        mu_coin::block_type type () const override;
-        std::vector <entry> entries;
-    };
     class send_input
     {
     public:
         send_input () = default;
-        send_input (EC::PublicKey const &, mu_coin::uint256_t const &, uint16_t);
-        void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
-        bool validate (mu_coin::uint256_union const &) const;
+        send_input (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
         bool operator == (mu_coin::send_input const &) const;
         mu_coin::EC::PublicKey key () const;
-        uint512_union signature;
-        mu_coin::block_id source;
-        mu_coin::uint256_union coins;
+        mu_coin::uint256_union previous;
+        mu_coin::uint256_union coin_balance;
     };
     class send_output
     {
     public:
         send_output () = default;
-        send_output (EC::PublicKey const &, mu_coin::uint256_t const &);
+        send_output (EC::PublicKey const &, mu_coin::uint256_union const &);
         bool operator == (mu_coin::send_output const &) const;
-        mu_coin::address address;
-        mu_coin::uint256_union coins;
+        mu_coin::address destination;
+        mu_coin::uint256_union coin_diff;
     };
     class send_block : public mu_coin::block
     {
@@ -288,8 +215,10 @@ namespace mu_coin {
         mu_coin::block_type type () const override;
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::send_block const &) const;
+        bool validate ();
         std::vector <mu_coin::send_input> inputs;
         std::vector <mu_coin::send_output> outputs;
+        std::vector <mu_coin::uint512_union> signatures;
     };
     class receive_block : public mu_coin::block
     {
@@ -307,16 +236,14 @@ namespace mu_coin {
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::receive_block const &) const;
         uint512_union signature;
-        mu_coin::block_id source;
-        mu_coin::block_id output;
-        mu_coin::uint256_union coins;
+        mu_coin::uint256_union source;
+        mu_coin::uint256_union previous;
     };
     class block_visitor
     {
     public:
         virtual void send_block (mu_coin::send_block const &) = 0;
         virtual void receive_block (mu_coin::receive_block const &) = 0;
-        virtual void transaction_block (mu_coin::transaction_block const &) = 0;
     };
     struct block_store_temp_t
     {
@@ -328,13 +255,12 @@ namespace mu_coin {
         block_store (block_store_temp_t const &);
         block_store (boost::filesystem::path const &);
         std::unique_ptr <mu_coin::block> latest (mu_coin::address const &);
-        std::unique_ptr <mu_coin::block> block (mu_coin::block_id const &);
-        void insert_block (mu_coin::block_id const &, mu_coin::block const &);
+        std::unique_ptr <mu_coin::block> block (mu_coin::uint256_union const &);
+        void insert_block (mu_coin::block const &);
         void insert_send (mu_coin::address const &, mu_coin::send_block const &);
-        std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::block_id const &);
-        void clear (mu_coin::address const &, mu_coin::block_id const &);
+        std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::uint256_union const &);
+        void clear (mu_coin::address const &, mu_coin::uint256_union const &);
     private:
-        void latest_sequence (mu_coin::address const &, uint16_t & sequence, bool & exists);
         Db handle;
     };
     class ledger
@@ -342,9 +268,8 @@ namespace mu_coin {
     public:
         ledger (mu_coin::block_store &);
         std::unique_ptr <mu_coin::block> previous (mu_coin::address const &);
-        mu_coin::transaction_block * block (boost::multiprecision::uint256_t const &);
         mu_coin::uint256_union balance (mu_coin::address const &);
-        bool has_balance (mu_coin::address const &);
+        mu_coin::address owner (mu_coin::uint256_union const &);
         bool process (mu_coin::block const &);
         mu_coin::block_store & store;
     };
@@ -354,7 +279,6 @@ namespace mu_coin {
         ledger_processor (mu_coin::ledger &);
         void send_block (mu_coin::send_block const &);
         void receive_block (mu_coin::receive_block const &);
-        void transaction_block (mu_coin::transaction_block const &);
         mu_coin::ledger & ledger;
         bool result;
     };
@@ -434,7 +358,7 @@ namespace mu_coin {
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
         void send_keepalive (boost::asio::ip::udp::endpoint const &);
-        void publish_transaction_block (boost::asio::ip::udp::endpoint const &, std::unique_ptr <mu_coin::transaction_block>);
+        void publish_block (boost::asio::ip::udp::endpoint const &, std::unique_ptr <mu_coin::block>);
         boost::asio::ip::udp::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
