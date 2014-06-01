@@ -17,8 +17,8 @@ namespace mu_coin {
     class byte_read_stream
     {
     public:
-        byte_read_stream (uint8_t *, uint8_t *);
-        byte_read_stream (uint8_t *, size_t);
+        byte_read_stream (uint8_t const *, uint8_t const *);
+        byte_read_stream (uint8_t const *, size_t const);
         template <typename T>
         bool read (T & value)
         {
@@ -27,8 +27,8 @@ namespace mu_coin {
         void abandon ();
         bool read (uint8_t *, size_t);
         size_t size ();
-        uint8_t * data;
-        uint8_t * end;
+        uint8_t const * data;
+        uint8_t const * end;
     };
     class byte_write_stream
     {
@@ -58,50 +58,48 @@ namespace mu_coin {
         uint128_union () = default;
         uint128_union (mu_coin::uint128_union const &) = default;
         uint128_union (mu_coin::uint128_t const &);
-        union
-        {
-            std::array <uint8_t, 16> bytes;
-            std::array <uint64_t, 2> qwords;
-        };
+        std::array <uint8_t, 16> bytes;
+        std::array <uint64_t, 2> qwords;
     };
     union uint256_union
     {
         uint256_union () = default;
+        uint256_union (uint64_t);
         uint256_union (mu_coin::uint256_t const &);
         uint256_union (std::string const &);
+        uint256_union (EC::PublicKey const &, bool &);
         uint256_union (EC::PrivateKey const &);
         uint256_union (EC::PrivateKey const &, uint256_union const &, uint128_union const &);
-        EC::PrivateKey key (uint256_union const &, uint128_union const &);
-        EC::PrivateKey key ();
+        EC::PrivateKey prv (uint256_union const &, uint128_union const &) const;
+        EC::PrivateKey prv () const;
+        EC::PublicKey pub (bool) const;
+        bool y_component () const;
+        void y_component_set (bool);
+        bool validate (bool) const;
+        mu_coin::uint256_union operator ^ (mu_coin::uint256_union const &) const;
         bool operator == (mu_coin::uint256_union const &) const;
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
         void encode_dec (std::string &);
         bool decode_dec (std::string const &);
+        void serialize (mu_coin::byte_write_stream &) const;
+        bool deserialize (mu_coin::byte_read_stream &);
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
+        std::array <uint128_union, 2> owords;
         void clear ();
         boost::multiprecision::uint256_t number () const;
     };
-    struct point_encoding
-    {
-        point_encoding () = default;
-        point_encoding (EC::PublicKey const &);
-        point_encoding (uint8_t, uint256_union const &);
-        bool validate ();
-        void assign (uint8_t, uint256_union const &);
-        void encode_hex (std::string &);
-        bool decode_hex (std::string const &);
-        std::array <uint8_t, 33> bytes;
-        uint128_union iv () const;
-        EC::PublicKey key () const;
-        uint8_t type () const;
-        uint256_union point () const;
-    };
+    using block_hash = uint256_union;
+    using identifier = uint256_union;
+    using address = uint256_union;
+    using balance = uint256_union;
+    using amount = uint256_union;
     union uint512_union
     {
         uint512_union () = default;
         uint512_union (mu_coin::uint512_t const &);
+        uint512_union (EC::PrivateKey const &, mu_coin::uint256_union const &);
         bool operator == (mu_coin::uint512_union const &) const;
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
@@ -111,28 +109,16 @@ namespace mu_coin {
         void clear ();
         boost::multiprecision::uint512_t number ();
     };
-    class address
-    {
-    public:
-        address () = default;
-        address (EC::PublicKey const &);
-        address (point_encoding const &);
-        bool operator == (mu_coin::address const &) const;
-        void serialize (mu_coin::byte_write_stream &) const;
-        bool deserialize (mu_coin::byte_read_stream &);
-        point_encoding point;
-    };
 }
 
 namespace std
 {
     template <>
-    struct hash <mu_coin::address>
+    struct hash <mu_coin::uint256_union>
     {
-        size_t operator () (mu_coin::address const & address_a) const
+        size_t operator () (mu_coin::uint256_union const & data_a) const
         {
-            size_t hash (*reinterpret_cast <size_t const *> (address_a.point.bytes.data ()));
-            return hash;
+            return *reinterpret_cast <size_t const *> (data_a.bytes.data ());
         }
     };
     template <>
@@ -157,8 +143,7 @@ namespace mu_coin {
     {
     public:
         virtual mu_coin::uint256_t fee () const = 0;
-        virtual mu_coin::uint256_t hash () const = 0;
-        virtual bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) = 0;
+        virtual mu_coin::uint256_union hash () const = 0;
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
         virtual bool operator == (mu_coin::block const &) const = 0;
@@ -169,11 +154,13 @@ namespace mu_coin {
     {
     public:
         dbt () = default;
-        dbt (mu_coin::address const &);
+        dbt (mu_coin::uint256_union const &);
         dbt (mu_coin::block const &);
         dbt (mu_coin::EC::PublicKey const &);
+        dbt (mu_coin::address const &, mu_coin::block_hash const &);
         dbt (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &, mu_coin::uint128_union const &);
         void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::EC::PrivateKey &, bool &);
+        mu_coin::uint256_union uint256 () const;
         mu_coin::EC::PublicKey key ();
         void adopt (mu_coin::byte_write_stream &);
         std::unique_ptr <mu_coin::block> block ();
@@ -181,15 +168,16 @@ namespace mu_coin {
     };
     std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::byte_read_stream &);
     void serialize_block (mu_coin::byte_write_stream &, mu_coin::block const &);
+    void sign_message (mu_coin::EC::PrivateKey const & private_key, mu_coin::uint256_union const & message, mu_coin::uint512_union & signature);
+    bool validate_message (mu_coin::uint256_union const & message, mu_coin::uint512_union const & signature, mu_coin::EC::PublicKey const & key);
     class send_input
     {
     public:
         send_input () = default;
-        send_input (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
+        send_input (mu_coin::identifier const &, mu_coin::balance const &);
         bool operator == (mu_coin::send_input const &) const;
-        mu_coin::EC::PublicKey key () const;
-        mu_coin::uint256_union previous;
-        mu_coin::uint256_union coin_balance;
+        mu_coin::identifier previous;
+        mu_coin::balance coins;
     };
     class send_output
     {
@@ -198,7 +186,7 @@ namespace mu_coin {
         send_output (EC::PublicKey const &, mu_coin::uint256_union const &);
         bool operator == (mu_coin::send_output const &) const;
         mu_coin::address destination;
-        mu_coin::uint256_union coin_diff;
+        mu_coin::amount coins;
     };
     class send_block : public mu_coin::block
     {
@@ -206,8 +194,7 @@ namespace mu_coin {
         send_block () = default;
         send_block (send_block const &);
         mu_coin::uint256_t fee () const override;
-        mu_coin::uint256_t hash () const override;
-        bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
+        mu_coin::uint256_union hash () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &);
         void visit (mu_coin::block_visitor &) const override;
@@ -215,7 +202,6 @@ namespace mu_coin {
         mu_coin::block_type type () const override;
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::send_block const &) const;
-        bool validate ();
         std::vector <mu_coin::send_input> inputs;
         std::vector <mu_coin::send_output> outputs;
         std::vector <mu_coin::uint512_union> signatures;
@@ -224,20 +210,19 @@ namespace mu_coin {
     {
     public:
         mu_coin::uint256_t fee () const override;
-        mu_coin::uint256_t hash () const override;
-        bool balance (mu_coin::address const &, mu_coin::uint256_t &, uint16_t &) override;
+        mu_coin::uint256_union hash () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &);
         void visit (mu_coin::block_visitor &) const override;
         std::unique_ptr <mu_coin::block> clone () const override;
         mu_coin::block_type type () const override;
         void sign (EC::PrivateKey const &, mu_coin::uint256_union const &);
-        bool validate (mu_coin::uint256_union const &) const;
+        bool validate (EC::PublicKey const &, mu_coin::uint256_t const &) const;
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::receive_block const &) const;
         uint512_union signature;
-        mu_coin::uint256_union source;
-        mu_coin::uint256_union previous;
+        mu_coin::block_hash source;
+        mu_coin::identifier previous;
     };
     class block_visitor
     {
@@ -254,22 +239,35 @@ namespace mu_coin {
     public:
         block_store (block_store_temp_t const &);
         block_store (boost::filesystem::path const &);
-        std::unique_ptr <mu_coin::block> latest (mu_coin::address const &);
-        std::unique_ptr <mu_coin::block> block (mu_coin::uint256_union const &);
-        void insert_block (mu_coin::block const &);
-        void insert_send (mu_coin::address const &, mu_coin::send_block const &);
-        std::unique_ptr <mu_coin::send_block> send (mu_coin::address const &, mu_coin::uint256_union const &);
-        void clear (mu_coin::address const &, mu_coin::uint256_union const &);
+        
+        void genesis_put (EC::PublicKey const &, uint256_union const & = uint256_union (std::numeric_limits <uint256_t>::max () >> 1));
+        
+        void identifier_put (mu_coin::identifier const &, mu_coin::block_hash const &);
+        bool identifier_get (mu_coin::identifier const &, mu_coin::block_hash &);
+        
+        void block_put (mu_coin::block_hash const &, mu_coin::block const &);
+        std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
+        
+        void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
+        bool latest_get (mu_coin::address const &, mu_coin::block_hash &);
+        
+        void pending_put (mu_coin::address const &, mu_coin::block_hash const &);
+        void pending_del (mu_coin::address const &, mu_coin::block_hash const &);
+        bool pending_get (mu_coin::address const &, mu_coin::block_hash const &);
+        
     private:
+        // identifier = block_hash ^ address
+        // identifier -> block_hash
+        // block_hash -> block
+        // address -> block_hash
+        // (address, block_hash) ->
         Db handle;
     };
     class ledger
     {
     public:
         ledger (mu_coin::block_store &);
-        std::unique_ptr <mu_coin::block> previous (mu_coin::address const &);
         mu_coin::uint256_union balance (mu_coin::address const &);
-        mu_coin::address owner (mu_coin::uint256_union const &);
         bool process (mu_coin::block const &);
         mu_coin::block_store & store;
     };
@@ -288,6 +286,8 @@ namespace mu_coin {
         keypair ();
         mu_coin::EC::PublicKey pub;
         mu_coin::EC::PrivateKey prv;
+        mu_coin::address address;
+        bool y;
     };
     class cached_password_store
     {
@@ -397,7 +397,7 @@ namespace mu_coin {
         void insert (mu_coin::EC::PublicKey const &, mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
         void insert (mu_coin::EC::PrivateKey const &, mu_coin::uint256_union const &);
         void fetch (mu_coin::EC::PublicKey const &, mu_coin::uint256_union const &, mu_coin::EC::PrivateKey &, bool &);
-        std::unique_ptr <mu_coin::send_block> send (mu_coin::ledger &, mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
+        std::unique_ptr <mu_coin::send_block> send (mu_coin::ledger &, EC::PublicKey const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
     private:
