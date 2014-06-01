@@ -555,17 +555,21 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
             if (!result)
             {
                 auto address (block_hash ^ i->previous);
-                auto pub (address.pub (i->coins.y_component ()));
-                result = validate_message (message, *k, pub);
+                result = address.validate (i->coins.y_component ());
                 if (!result)
                 {
-                    input_addresses.push_back (address);
-                    auto existing (ledger.store.block_get (block_hash));
-                    assert (existing != nullptr);
-                    mu_coin::uint256_union coins (ledger.balance (address));
-                    auto diff (coins.number () - i->coins.number ());
-                    inputs += diff;
-                    result = diff > coins.number ();
+                    auto pub (address.pub (i->coins.y_component ()));
+                    result = validate_message (message, *k, pub);
+                    if (!result)
+                    {
+                        input_addresses.push_back (address);
+                        auto existing (ledger.store.block_get (block_hash));
+                        assert (existing != nullptr);
+                        mu_coin::uint256_union coins (ledger.balance (address));
+                        auto diff (coins.number () - i->coins.number ());
+                        inputs += diff;
+                        result = diff > coins.number ();
+                    }
                 }
             }
         }
@@ -871,7 +875,7 @@ void mu_coin::block_store::genesis_put (EC::PublicKey const & key_a, uint256_uni
     block.outputs.push_back (mu_coin::send_output (key_a, coins_a));
     auto hash (block.hash ());
     block_put (hash, block);
-    identifier_put (address, hash);
+    identifier_put (address ^ hash, hash);
     latest_put (address, hash);
 }
 
@@ -889,6 +893,7 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
     else
     {
         mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t const *> (data.data.get_data ()), data.data.get_size ());
+        stream.read (hash_a.bytes);
         result = false;
     }
     return result;
@@ -896,8 +901,8 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
 
 void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
 {
-    mu_coin::dbt key (address_a, hash_a);
-    mu_coin::dbt data;
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data (hash_a);
     int error (handle.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
