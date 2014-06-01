@@ -42,7 +42,7 @@ TEST (block_store, add_two_items)
     mu_coin::block_store db (mu_coin::block_store_temp);
     mu_coin::keypair key1;
     mu_coin::send_block block;
-    mu_coin::send_input entry1 ((mu_coin::identifier ()), (mu_coin::amount ()));
+    mu_coin::send_input entry1 (1, 2);
     block.inputs.push_back (entry1);
     mu_coin::uint256_union hash1 (block.hash ());
     block.signatures.push_back (mu_coin::uint512_union ());
@@ -50,7 +50,7 @@ TEST (block_store, add_two_items)
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
     mu_coin::send_block block2;
-    mu_coin::send_input entry2 ((mu_coin::identifier ()), (mu_coin::amount ()));
+    mu_coin::send_input entry2 (3, 4);
     block2.inputs.push_back (entry2);
     mu_coin::uint256_union hash2 (block2.hash ());
     block2.signatures.push_back (mu_coin::uint512_union ());
@@ -96,4 +96,24 @@ TEST (block_store, add_pending)
     db.pending_del (address, hash1);
     auto pending3 (db.pending_get (address, hash1));
     ASSERT_TRUE (pending3);
+}
+
+TEST (block_store, add_genesis)
+{
+    mu_coin::block_store db (mu_coin::block_store_temp);
+    mu_coin::keypair key1;
+    db.genesis_put (key1.pub, 800);
+    mu_coin::block_hash hash1;
+    ASSERT_FALSE (db.latest_get (key1.address, hash1));
+    mu_coin::block_hash hash2;
+    ASSERT_FALSE (db.identifier_get (key1.address ^ hash1, hash2));
+    ASSERT_EQ (hash1, hash2);
+    auto block1 (db.block_get (hash1));
+    ASSERT_NE (nullptr, block1);
+    auto send1 (dynamic_cast <mu_coin::send_block *> (block1.get ()));
+    ASSERT_NE (nullptr, send1);
+    ASSERT_EQ (0, send1->inputs.size ());
+    ASSERT_EQ (0, send1->signatures.size ());
+    ASSERT_EQ (1, send1->outputs.size ());
+    ASSERT_EQ (key1.address, send1->outputs [0].destination);
 }

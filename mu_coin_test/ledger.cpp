@@ -26,15 +26,20 @@ TEST (address, two_addresses)
     mu_coin::keypair key2;
     ASSERT_FALSE (key1.pub == key2.pub);
     bool y1;
-    mu_coin::uint256_union point1 (key1.pub, y1);
+    mu_coin::address address1 (key1.pub, y1);
+    ASSERT_EQ (key1.address, address1);
+    ASSERT_EQ (key1.y, y1);
     bool y2;
-    mu_coin::uint256_union point2 (key2.pub, y2);
-    ASSERT_FALSE (point1 == point2);
+    mu_coin::address address2 (key2.pub, y2);
+    ASSERT_EQ (key2.address, address2);
+    ASSERT_EQ (key2.y, y2);
+    ASSERT_FALSE (address1 == address2);
 }
 
 TEST (point_encoding, validation_fail)
 {
     mu_coin::uint256_union encoding;
+    encoding.bytes.fill (0xff);
     bool y (false);
     ASSERT_TRUE (encoding.validate (y));
 }
@@ -76,11 +81,13 @@ TEST (ledger, process_send)
     send.inputs.push_back (entry2);
     mu_coin::send_output entry3 (key2.pub, 50);
     send.outputs.push_back (entry3);
+    mu_coin::block_hash hash1 (send.hash ());
+    send.signatures.push_back (mu_coin::uint512_union ());
+    mu_coin::sign_message (key1.prv, hash1, send.signatures.back ());
     auto error1 (ledger.process (send));
     ASSERT_FALSE (error1);
     bool y2;
     mu_coin::address address2 (key2.pub, y2);
-    mu_coin::block_hash hash1 (send.hash ());
     mu_coin::receive_block receive;
     receive.source = hash1;
     receive.previous = address2;

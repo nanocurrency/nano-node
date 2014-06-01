@@ -125,9 +125,9 @@ mu_coin::uint256_union::uint256_union (mu_coin::EC::PublicKey const & pub, bool 
 {
     std::array <uint8_t, 33> encoding;
     curve ().EncodePoint (encoding.data (), pub.GetPublicElement(), true);
-    std::copy (encoding.begin () + 1, encoding.end (), bytes.end ());
-    assert (encoding [0] == 0x3 || encoding [0] == 0x4);
-    y_component = encoding [0] == 0x4;
+    std::copy (encoding.begin () + 1, encoding.end (), bytes.begin ());
+    assert (encoding [0] == 0x2 || encoding [0] == 0x3);
+    y_component = encoding [0] == 0x3;
 }
 
 bool mu_coin::uint256_union::y_component () const
@@ -135,9 +135,69 @@ bool mu_coin::uint256_union::y_component () const
     return (bytes [0] & 0x1) != 0;
 }
 
+class balance_visitor : public mu_coin::block_visitor
+{
+public:
+    balance_visitor (mu_coin::ledger & ledger_a, mu_coin::address const & address_a, mu_coin::block_hash & hash_a, bool & done_a, mu_coin::uint256_union & result_a) :
+    ledger (ledger_a),
+    address (address_a),
+    hash (hash_a),
+    done (done_a),
+    result (result_a)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        auto entry (std::find_if (block_a.inputs.begin (), block_a.inputs.end (),
+            [this] (mu_coin::send_input const & input_a)
+            {
+                mu_coin::block_hash hash;
+                auto error (ledger.store.identifier_get (input_a.previous, hash));
+                assert (!error);
+                return (hash ^ input_a.previous) == address;
+            }
+        ));
+        assert (entry != block_a.inputs.end ());
+        done = true;
+    }
+    void receive_block (mu_coin::receive_block const & block_a) override
+    {
+        auto previous (ledger.store.block_get (block_a.source));
+        assert (previous != nullptr);
+        assert (dynamic_cast <mu_coin::send_block *> (previous.get ()) != nullptr);
+        auto send (static_cast <mu_coin::send_block *> (previous.get ()));
+        auto entry (std::find_if (send->outputs.begin (), send->outputs.end (), [this] (mu_coin::send_output const & output_a) {return output_a.destination == address;}));
+        assert (entry != send->outputs.end ());
+        result = result.number () + entry->coins.number ();
+    }
+    mu_coin::ledger & ledger;
+    mu_coin::address address;
+    mu_coin::block_hash hash;
+    bool & done;
+    mu_coin::uint256_union & result;
+};
+
 mu_coin::uint256_union mu_coin::ledger::balance (mu_coin::address const & address_a)
 {
-    assert (false);
+    mu_coin::uint256_union result (0);
+    mu_coin::block_hash hash;
+    auto done (store.latest_get (address_a, hash));
+    while (!done)
+    {
+        if (address_a == hash)
+        {
+            // Initial previous
+            done = true;
+        }
+        else
+        {
+            auto block (store.block_get (hash));
+            assert (block != nullptr);
+            balance_visitor visitor (*this, address_a, hash, done, result);
+            block->visit (visitor);
+        }
+    }
+    return result;
 }
 
 bool mu_coin::ledger::process (mu_coin::block const & block_a)
@@ -154,7 +214,6 @@ mu_coin::EC::PublicKey mu_coin::uint256_union::pub (bool y_component) const
     std::copy (bytes.begin (), bytes.end (), encoding.begin () + 1);
     mu_coin::EC::PublicKey::Element element;
     auto valid (curve ().DecodePoint (element, encoding.data (), encoding.size ()));
-    assert (valid);
     mu_coin::EC::PublicKey result;
     result.Initialize (oid (), element);
     return result;
@@ -164,6 +223,7 @@ mu_coin::keypair::keypair ()
 {
     prv.Initialize (pool (), oid ());
     prv.MakePublicKey (pub);
+    address = mu_coin::address (pub, y);
 }
 
 mu_coin::ledger::ledger (mu_coin::block_store & store_a) :
@@ -484,7 +544,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
     mu_coin::uint256_union message (block_a.hash ());
     mu_coin::uint256_t inputs;
     std::vector <mu_coin::address> input_addresses;
-    result = block_a.inputs.size () == block_a.signatures.size ();
+    result = block_a.inputs.size () != block_a.signatures.size ();
     if (!result)
     {
         auto k (block_a.signatures.begin ());
@@ -798,16 +858,21 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block
     mu_coin::dbt key (hash_a);
     mu_coin::dbt data;
     int error (handle.get (nullptr, &key.data, &data.data, 0));
-    assert (error == 0);
+    assert (error == 0 || error == DB_NOTFOUND);
     auto result (data.block ());
     return result;
 }
 
 void mu_coin::block_store::genesis_put (EC::PublicKey const & key_a, uint256_union const & coins_a)
 {
+    bool y;
+    mu_coin::address address (key_a, y);
     mu_coin::send_block block;
     block.outputs.push_back (mu_coin::send_output (key_a, coins_a));
-    block_put (block.hash (), block);
+    auto hash (block.hash ());
+    block_put (hash, block);
+    identifier_put (address, hash);
+    latest_put (address, hash);
 }
 
 bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_coin::block_hash & hash_a)
@@ -815,7 +880,7 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
     mu_coin::dbt key (address_a);
     mu_coin::dbt data;
     int error (handle.get (nullptr, &key.data, &data.data, 0));
-    assert (error == 0);
+    assert (error == 0 || error == DB_NOTFOUND);
     bool result;
     if (data.data.get_size () == 0)
     {
@@ -823,6 +888,7 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
     }
     else
     {
+        mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t const *> (data.data.get_data ()), data.data.get_size ());
         result = false;
     }
     return result;
@@ -857,9 +923,10 @@ bool mu_coin::block_store::pending_get (mu_coin::address const & address_a, mu_c
     mu_coin::dbt key (address_a, hash_a);
     mu_coin::dbt data;
     int error (handle.get (nullptr, &key.data, &data.data, 0));
-    assert (error == 0);
+    assert (error == 0 || error == DB_NOTFOUND);
+    assert (data.data.get_size () == 0);
     bool result;
-    if (data.data.get_size () == 0)
+    if (error == DB_NOTFOUND)
     {
         result = true;
     }
@@ -883,9 +950,9 @@ bool mu_coin::block_store::identifier_get (mu_coin::identifier const & identifie
     mu_coin::dbt key (identifier_a);
     mu_coin::dbt data;
     int error (handle.get (nullptr, &key.data, &data.data, 0));
-    assert (error == 0);
+    assert (error == 0 || error == DB_NOTFOUND);
     bool result;
-    if (data.data.get_size () == 0)
+    if (error == DB_NOTFOUND)
     {
         result = true;
     }
