@@ -24,10 +24,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
     client.wallet.insert (genesis.pub, genesis.prv, secret);
-    mu_coin::transaction_block block;
-    mu_coin::entry entry (genesis.pub, 1000000, 0);
-    block.entries.push_back (entry);
-    client.store.insert_block (entry.id, block);
+    client.store.genesis_put (genesis.pub, 1000000);
     /////////
     
     client.network.receive ();
@@ -100,7 +97,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
             send_count.setPalette (palette);
             QString address_text (send_address.text ());
             std::string address_text_narrow (address_text.toLocal8Bit ());
-            mu_coin::point_encoding address;
+            mu_coin::address address;
             parse_error = address.decode_hex (address_text_narrow);
             if (!parse_error)
             {
@@ -181,11 +178,12 @@ void mu_coin_qt::gui::refresh_wallet ()
     for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
         mu_coin::EC::PublicKey key (*i);
-        auto account_balance (client.ledger.balance (mu_coin::address (key)).number ());
+        bool y;
+        mu_coin::address address (key, y);
+        auto account_balance (client.ledger.balance (address));
         balance += account_balance;
-        mu_coin::point_encoding encoding (key);
         std::string string;
-        encoding.encode_hex (string);
+        address.encode_hex (string);
         string += ":";
         string += account_balance.str ();
         QString qstring (string.c_str ());
