@@ -129,13 +129,14 @@ TEST (network, send_valid_publish)
     mu_coin::keypair key2;
     mu_coin::send_block block2;
     mu_coin::block_hash hash1;
-    auto latest1 (store1.latest_get (address1, hash1));
-    ASSERT_FALSE (latest1);
+    ASSERT_FALSE (store1.latest_get (address1, hash1));
     block2.inputs.push_back (mu_coin::send_input (key1.pub, hash1, 49));
     block2.signatures.push_back (mu_coin::uint512_union ());
     block2.outputs.push_back (mu_coin::send_output (key2.pub, 50));
     auto hash2 (block2.hash ());
     mu_coin::sign_message (key1.prv, hash2, block2.signatures.back ());
+    mu_coin::block_hash hash3;
+    ASSERT_FALSE (store2.latest_get (address1, hash3));
     node1.publish_block (node2.socket.local_endpoint (), std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)));
     while (node1.publish_ack_count == 0)
     {
@@ -143,8 +144,8 @@ TEST (network, send_valid_publish)
     }
     ASSERT_EQ (1, node2.publish_req_count);
     ASSERT_EQ (1, node1.publish_ack_count);
-    mu_coin::block_hash hash3;
-    auto latest2 (store2.latest_get (address1, hash3));
-    ASSERT_FALSE (latest2);
-    ASSERT_EQ (hash1, hash3);
+    mu_coin::block_hash hash4;
+    ASSERT_FALSE (store2.latest_get (address1, hash4));
+    ASSERT_FALSE (hash3 == hash4);
+    ASSERT_EQ (hash2, hash4);
 }

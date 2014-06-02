@@ -1349,16 +1349,16 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
     for (auto i (begin ()), j (end ()); i != j && !result && amount < coins + block->fee (); ++i)
     {
         auto account (*i);
-        accounts.push_back (account);
         bool y_component;
         mu_coin::address address (account, y_component);
-        mu_coin::block_hash latest;
-        result = ledger_a.store.latest_get (address, latest);
-        if (!result)
+        auto balance (ledger_a.balance (address));
+        if (!balance.is_zero ())
         {
+            accounts.push_back (account);
             block->inputs.push_back (mu_coin::send_input ());
             auto & input (block->inputs.back ());
-            auto balance (ledger_a.balance (address));
+            mu_coin::block_hash latest;
+            assert (!ledger_a.store.latest_get (address, latest));
             if (amount + balance > coins + block->fee ())
             {
                 auto partial (coins + block->fee () - amount);
