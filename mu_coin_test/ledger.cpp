@@ -74,7 +74,7 @@ TEST (ledger, process_send)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub);
+    store.genesis_put (key1.pub, 100);
     mu_coin::block_hash block1;
     ASSERT_FALSE (store.latest_get (key1.address, block1));
     mu_coin::send_block send;
