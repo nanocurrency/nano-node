@@ -99,6 +99,8 @@ TEST (network, send_invalid_publish)
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
     mu_coin::keypair key1;
     block->inputs.push_back (mu_coin::send_input (key1.pub, 0, 20));
+    block->signatures.push_back (mu_coin::uint512_union ());
+    mu_coin::sign_message (key1.prv, block->hash (), block->signatures.back ());
     node1.publish_block (node2.socket.local_endpoint (), std::move (block));
     while (node1.publish_nak_count == 0)
     {
@@ -115,11 +117,11 @@ TEST (network, send_valid_publish)
     bool y1;
     mu_coin::address address1 (key1.pub, y1);
     mu_coin::block_store store1 (mu_coin::block_store_temp);
-    store1.genesis_put (key1.pub);
+    store1.genesis_put (key1.pub, 100);
     mu_coin::ledger ledger1 (store1);
     mu_coin::node node1 (service, 24001, ledger1);
     mu_coin::block_store store2 (mu_coin::block_store_temp);
-    store2.genesis_put (key1.pub);
+    store2.genesis_put (key1.pub, 100);
     mu_coin::ledger ledger2 (store2);
     mu_coin::node node2 (service, 24002, ledger2);
     node1.receive ();

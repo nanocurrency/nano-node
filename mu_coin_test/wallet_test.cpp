@@ -112,7 +112,7 @@ TEST (wallet, one_spend)
     wallet.insert (key1.pub, key1.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub);
+    store.genesis_put (key1.pub, 500);
     mu_coin::block_hash latest1;
     store.latest_get (key1.address, latest1);
     mu_coin::keypair key2;

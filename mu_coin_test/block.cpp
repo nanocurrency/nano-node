@@ -251,3 +251,13 @@ TEST (send_block, deserialize)
     ASSERT_NE (nullptr, block2);
     ASSERT_EQ (block1, *block2);
 }
+
+TEST (send_block, copy)
+{
+    mu_coin::send_block block1;
+    block1.inputs.push_back (mu_coin::send_input ());
+    block1.outputs.push_back (mu_coin::send_output ());
+    block1.signatures.push_back (mu_coin::uint512_union ());
+    mu_coin::send_block block2 (block1);
+    ASSERT_EQ (block1, block2);
+}

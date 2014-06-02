@@ -451,7 +451,7 @@ bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
 
 bool mu_coin::send_block::operator == (mu_coin::send_block const & other_a) const
 {
-    auto result (inputs == other_a.inputs && outputs == other_a.outputs);
+    auto result (inputs == other_a.inputs && outputs == other_a.outputs && signatures == other_a.signatures);
     return result;
 }
 
@@ -641,7 +641,8 @@ ledger (ledger_a)
 
 mu_coin::send_block::send_block (send_block const & other_a) :
 inputs (other_a.inputs),
-outputs (other_a.outputs)
+outputs (other_a.outputs),
+signatures (other_a.signatures)
 {
 }
 
@@ -1099,10 +1100,10 @@ void mu_coin::node::receive_action (boost::system::error_code const & error, siz
                 {
                     ++publish_req_count;
                     auto sender (remote);
-                    receive ();
                     auto incoming (new mu_coin::publish_req);
                     mu_coin::byte_read_stream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
+                    receive ();
                     if (!error)
                     {
                         auto process_error (ledger.process (*incoming->block));
@@ -1275,9 +1276,6 @@ void mu_coin::dbt::key (mu_coin::uint256_union const & key_a, mu_coin::uint128_u
 {
     mu_coin::uint256_union encrypted;
     mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t *> (data.get_data ()), data.get_size ());
-    uint8_t y_byte;
-    failure = stream.read (y_byte);
-    assert (!failure);
     failure = stream.read (encrypted.bytes);
     assert (!failure);
     prv = encrypted.prv (key_a, iv);
