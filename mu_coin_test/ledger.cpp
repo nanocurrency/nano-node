@@ -9,7 +9,7 @@ TEST (ledger, empty)
     mu_coin::ledger ledger (store);
     mu_coin::address address;
     auto balance (ledger.balance (address));
-    ASSERT_TRUE (balance.number ().is_zero ());
+    ASSERT_TRUE (balance.coins ().is_zero ());
 }
 
 TEST (ledger, genesis_balance)
@@ -17,7 +17,9 @@ TEST (ledger, genesis_balance)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub);
+    store.genesis_put (key1.pub, 500);
+    auto balance (ledger.balance (key1.address));
+    ASSERT_EQ (500, balance.coins ());
 }
 
 TEST (address, two_addresses)
@@ -73,10 +75,10 @@ TEST (ledger, process_send)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     store.genesis_put (key1.pub);
+    mu_coin::block_hash block1;
+    ASSERT_FALSE (store.latest_get (key1.address, block1));
     mu_coin::send_block send;
-    bool y1;
-    mu_coin::address address1 (key1.pub, y1);
-    mu_coin::send_input entry2 (address1, 49);
+    mu_coin::send_input entry2 (key1.pub, block1, 49);
     mu_coin::keypair key2;
     send.inputs.push_back (entry2);
     mu_coin::send_output entry3 (key2.pub, 50);
@@ -96,7 +98,7 @@ TEST (ledger, process_send)
     auto error2 (ledger.process (receive));
     ASSERT_FALSE (error2);
     mu_coin::block_hash hash3;
-    auto latest1 (store.latest_get (address1, hash3));
+    auto latest1 (store.latest_get (key1.address, hash3));
     ASSERT_FALSE (latest1);
     auto latest2 (store.block_get (hash3));
     auto latest3 (dynamic_cast <mu_coin::send_block *> (latest2.get ()));

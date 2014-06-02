@@ -121,10 +121,10 @@ TEST (wallet, one_spend)
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (key1.address ^ latest1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.number ());
+    ASSERT_EQ (0, send->inputs [0].coins.coins ());
     ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [0], key1.pub));
     ASSERT_EQ (key2.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (499, send->outputs [0].coins.coins ());
 }
 
 TEST (wallet, two_spend)
@@ -149,13 +149,13 @@ TEST (wallet, two_spend)
     ASSERT_EQ (2, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (key1.address ^ hash1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.number ());
+    ASSERT_EQ (0, send->inputs [0].coins.coins ());
     ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [0], key1.pub));
     ASSERT_EQ (key2.address ^ hash2, send->inputs [1].previous);
-    ASSERT_EQ (0, send->inputs [1].coins.number ());
+    ASSERT_EQ (0, send->inputs [1].coins.coins ());
     ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [1], key2.pub));
     ASSERT_EQ (key3.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (499, send->outputs [0].coins.coins ());
 }
 
 TEST (wallet, partial_spend)
@@ -175,10 +175,10 @@ TEST (wallet, partial_spend)
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (key1.address ^ latest1, send->inputs [0].previous);
-    ASSERT_EQ (300, send->inputs [0].coins.number ());
+    ASSERT_EQ (300, send->inputs [0].coins.coins ());
     ASSERT_FALSE (mu_coin::validate_message(send->hash (), send->signatures [0], key1.pub));
     ASSERT_EQ (key2.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (499, send->outputs [0].coins.coins ());
 }
 
 TEST (wallet, spend_no_previous)
@@ -208,8 +208,8 @@ TEST (wallet, spend_no_previous)
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
     ASSERT_EQ (key1.address ^ hash1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.number ());
+    ASSERT_EQ (0, send->inputs [0].coins.coins ());
     ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [0], key1.pub));
     ASSERT_EQ (key2.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (499, send->outputs [0].coins.coins ());
 }

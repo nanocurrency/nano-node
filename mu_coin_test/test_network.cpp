@@ -50,7 +50,7 @@ TEST (network, publish_req)
     auto block (std::unique_ptr <mu_coin::send_block> (new mu_coin::send_block));
     mu_coin::keypair key1;
     mu_coin::keypair key2;
-    block->inputs.push_back (mu_coin::send_input (100, 200));
+    block->inputs.push_back (mu_coin::send_input (key1.pub, 0, 200));
     block->signatures.push_back (mu_coin::uint512_union ());
     block->outputs.push_back (mu_coin::send_output (key2.pub, 400));
     mu_coin::publish_req req (std::move (block));
@@ -98,7 +98,7 @@ TEST (network, send_invalid_publish)
     node2.receive ();
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
     mu_coin::keypair key1;
-    block->inputs.push_back (mu_coin::send_input (10, 20));
+    block->inputs.push_back (mu_coin::send_input (key1.pub, 0, 20));
     node1.publish_block (node2.socket.local_endpoint (), std::move (block));
     while (node1.publish_nak_count == 0)
     {
@@ -129,7 +129,7 @@ TEST (network, send_valid_publish)
     mu_coin::block_hash hash1;
     auto latest1 (store1.latest_get (address1, hash1));
     ASSERT_FALSE (latest1);
-    block2.inputs.push_back (mu_coin::send_input (address1 ^ hash1, 49));
+    block2.inputs.push_back (mu_coin::send_input (key1.pub, hash1, 49));
     block2.signatures.push_back (mu_coin::uint512_union ());
     block2.outputs.push_back (mu_coin::send_output (key2.pub, 50));
     auto hash2 (block2.hash ());

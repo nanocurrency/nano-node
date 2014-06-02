@@ -88,7 +88,7 @@ namespace mu_coin {
         std::array <uint64_t, 4> qwords;
         std::array <uint128_union, 2> owords;
         void clear ();
-        boost::multiprecision::uint256_t number () const;
+        mu_coin::uint256_t coins () const;
     };
     using block_hash = uint256_union;
     using identifier = uint256_union;
@@ -174,10 +174,10 @@ namespace mu_coin {
     {
     public:
         send_input () = default;
-        send_input (mu_coin::identifier const &, mu_coin::balance const &);
+        send_input (EC::PublicKey const &, mu_coin::block_hash const &, mu_coin::balance const &);
         bool operator == (mu_coin::send_input const &) const;
         mu_coin::identifier previous;
-        mu_coin::balance coins;
+        mu_coin::uint256_union coins;
     };
     class send_output
     {
