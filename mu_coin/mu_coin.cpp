@@ -583,7 +583,8 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
         for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); i != j; ++i, ++k)
         {
             assert (k != input_addresses.end ());
-            ledger.store.identifier_put (message, *k);
+            ledger.store.identifier_put (message ^ *k, message);
+            ledger.store.latest_put (*k, message);
         }
         for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
         {
