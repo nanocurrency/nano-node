@@ -587,7 +587,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
         }
         for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
         {
-            ledger.store.pending_put (i->destination, message);
+            ledger.store.pending_put (i->destination, message, i->coins.y_component ());
         }
     }
     else
@@ -599,24 +599,36 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
 void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & block_a)
 {
     mu_coin::block_hash previous_hash;
-    result = ledger.store.identifier_get (block_a.previous, previous_hash);
-    if (!result)
+    auto new_address (ledger.store.identifier_get (block_a.previous, previous_hash));
+    mu_coin::address address;
+    if (new_address)
     {
-        mu_coin::address address (previous_hash ^ block_a.previous);
+        address = block_a.previous;
+        mu_coin::block_hash latest;
+        result = !ledger.store.latest_get (address, latest);
+    }
+    else
+    {
+        address = previous_hash ^ block_a.previous;
         mu_coin::block_hash latest;
         result = ledger.store.latest_get (address, latest);
-        if (latest == block_a.previous)
+        if (!result)
         {
-            result = ledger.store.pending_get (address, block_a.source);
-            if (!result)
-            {
-                auto new_hash (block_a.hash ());
-                ledger.store.pending_del (address, block_a.source);
-                ledger.store.block_put (new_hash, block_a);
-                auto new_identifier (address ^ new_hash);
-                ledger.store.identifier_put (new_identifier, new_hash);
-                ledger.store.latest_put (address, new_hash);
-            }
+            result = (latest == previous_hash);
+        }
+    }
+    if (!result)
+    {
+        auto hash (block_a.hash ());
+        bool y;
+        result = ledger.store.pending_get (address, block_a.source, y);
+        if (!result)
+        {
+            ledger.store.pending_del (address, block_a.source);
+            ledger.store.block_put (hash, block_a);
+            auto new_identifier (address ^ hash);
+            ledger.store.identifier_put (new_identifier, hash);
+            ledger.store.latest_put (address, hash);
         }
     }
 }
@@ -909,10 +921,10 @@ void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_co
     assert (error == 0);
 }
 
-void mu_coin::block_store::pending_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+void mu_coin::block_store::pending_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a, bool y_component)
 {
     mu_coin::dbt key (address_a, hash_a);
-    mu_coin::dbt data;
+    mu_coin::dbt data (y_component);
     int error (handle.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
@@ -925,13 +937,12 @@ void mu_coin::block_store::pending_del (mu_coin::address const & address_a, mu_c
     assert (error == 0);
 }
 
-bool mu_coin::block_store::pending_get (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+bool mu_coin::block_store::pending_get (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a, bool & y_component)
 {
     mu_coin::dbt key (address_a, hash_a);
     mu_coin::dbt data;
     int error (handle.get (nullptr, &key.data, &data.data, 0));
     assert (error == 0 || error == DB_NOTFOUND);
-    assert (data.data.get_size () == 0);
     bool result;
     if (error == DB_NOTFOUND)
     {
@@ -939,7 +950,13 @@ bool mu_coin::block_store::pending_get (mu_coin::address const & address_a, mu_c
     }
     else
     {
-        result = false;
+        uint8_t y_byte;
+        mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t const *> (data.data.get_data ()), data.data.get_size ());
+        result = stream.read (y_byte);
+        if (!result)
+        {
+            y_component = (y_byte != 0);
+        }
     }
     return result;
 }
@@ -1456,4 +1473,12 @@ void mu_coin::packed_block::coins_set (mu_coin::uint256_t const & coins_a)
 bool mu_coin::packed_block::operator == (mu_coin::packed_block const & other_a) const
 {
     return data == other_a.data;
+}
+
+mu_coin::dbt::dbt (bool y_component)
+{
+    uint8_t y_byte (y_component);
+    mu_coin::byte_write_stream stream;
+    stream.write (y_byte);
+    adopt (stream);
 }

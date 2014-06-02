@@ -152,6 +152,7 @@ namespace mu_coin {
     {
     public:
         dbt () = default;
+        dbt (bool);
         dbt (mu_coin::uint256_union const &);
         dbt (mu_coin::block const &);
         dbt (mu_coin::EC::PublicKey const &);
@@ -259,9 +260,9 @@ namespace mu_coin {
         void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
         bool latest_get (mu_coin::address const &, mu_coin::block_hash &);
         
-        void pending_put (mu_coin::address const &, mu_coin::block_hash const &);
+        void pending_put (mu_coin::address const &, mu_coin::block_hash const &, bool);
         void pending_del (mu_coin::address const &, mu_coin::block_hash const &);
-        bool pending_get (mu_coin::address const &, mu_coin::block_hash const &);
+        bool pending_get (mu_coin::address const &, mu_coin::block_hash const &, bool &);
         
     private:
         // identifier = block_hash ^ address

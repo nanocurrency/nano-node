@@ -86,15 +86,19 @@ TEST (block_store, add_receive)
 TEST (block_store, add_pending)
 {
     mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::address address;
+    mu_coin::keypair key1;
     mu_coin::block_hash hash1;
-    auto pending1 (db.pending_get (address, hash1));
+    bool y1;
+    auto pending1 (db.pending_get (key1.address, hash1, y1));
     ASSERT_TRUE (pending1);
-    db.pending_put (address, hash1);
-    auto pending2 (db.pending_get (address, hash1));
+    db.pending_put (key1.address, hash1, key1.y);
+    bool y2;
+    auto pending2 (db.pending_get (key1.address, hash1, y2));
     ASSERT_FALSE (pending2);
-    db.pending_del (address, hash1);
-    auto pending3 (db.pending_get (address, hash1));
+    ASSERT_EQ (y2, key1.y);
+    db.pending_del (key1.address, hash1);
+    bool y3;
+    auto pending3 (db.pending_get (key1.address, hash1, y3));
     ASSERT_TRUE (pending3);
 }
 
