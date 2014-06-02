@@ -16,7 +16,7 @@ TEST (transaction_block, big_endian_union_function)
     mu_coin::uint256_union bytes1;
     bytes1.clear ();
     bytes1.bytes [31] = 1;
-    ASSERT_EQ (mu_coin::uint256_t (1), bytes1.coins ());
+    ASSERT_EQ (mu_coin::uint256_t (1), bytes1.number ());
     mu_coin::uint512_union bytes2;
     bytes2.clear ();
     bytes2.bytes [63] = 1;
@@ -116,7 +116,7 @@ TEST (uint256_union, parse_zero)
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
-    ASSERT_TRUE (output.coins ().is_zero ());
+    ASSERT_TRUE (output.number ().is_zero ());
 }
 
 TEST (uint256_union, parse_zero_short)
@@ -125,7 +125,7 @@ TEST (uint256_union, parse_zero_short)
     mu_coin::uint256_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
-    ASSERT_TRUE (output.coins ().is_zero ());
+    ASSERT_TRUE (output.number ().is_zero ());
 }
 
 TEST (uint256_union, parse_one)
@@ -137,7 +137,7 @@ TEST (uint256_union, parse_one)
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
-    ASSERT_EQ (1, output.coins ());
+    ASSERT_EQ (1, output.number ());
 }
 
 TEST (uint256_union, parse_error_symbol)
@@ -160,7 +160,7 @@ TEST (uint256_union, max)
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
-    ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.coins ());
+    ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint256_union, parse_error_overflow)

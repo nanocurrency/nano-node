@@ -72,10 +72,9 @@ void hash_number (CryptoPP::SHA256 & hash_a, boost::multiprecision::uint256_t co
     hash_a.Update (bytes.bytes.data (), sizeof (bytes));
 }
 
-mu_coin::uint256_t mu_coin::uint256_union::coins () const
+mu_coin::uint256_t mu_coin::uint256_union::number () const
 {
     mu_coin::uint256_union temp (*this);
-    temp.bytes [0] &= 0x7f;
     std::reverse (&temp.bytes [0], &temp.bytes [32]);
     boost::multiprecision::uint256_t result (temp.qwords [3]);
     result <<= 64;
@@ -131,15 +130,10 @@ mu_coin::uint256_union::uint256_union (mu_coin::EC::PublicKey const & pub, bool 
     y_component = encoding [0] == 0x3;
 }
 
-bool mu_coin::uint256_union::y_component () const
-{
-    return (bytes [0] & 0x80) != 0;
-}
-
 class balance_visitor : public mu_coin::block_visitor
 {
 public:
-    balance_visitor (mu_coin::ledger & ledger_a, mu_coin::address const & address_a, mu_coin::block_hash & hash_a, bool & done_a, mu_coin::uint256_union & result_a) :
+    balance_visitor (mu_coin::ledger & ledger_a, mu_coin::address const & address_a, mu_coin::block_hash & hash_a, bool & done_a, mu_coin::uint256_t & result_a) :
     ledger (ledger_a),
     address (address_a),
     hash (hash_a),
@@ -169,19 +163,19 @@ public:
         auto send (static_cast <mu_coin::send_block *> (source.get ()));
         auto entry (std::find_if (send->outputs.begin (), send->outputs.end (), [this] (mu_coin::send_output const & output_a) {return output_a.destination == address;}));
         assert (entry != send->outputs.end ());
-        result = result.coins () + entry->coins.coins ();
+        result += entry->coins.coins ();
         hash = block_a.previous;
     }
     mu_coin::ledger & ledger;
     mu_coin::address address;
     mu_coin::block_hash & hash;
     bool & done;
-    mu_coin::uint256_union & result;
+    mu_coin::uint256_t & result;
 };
 
-mu_coin::uint256_union mu_coin::ledger::balance (mu_coin::address const & address_a)
+mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::address const & address_a)
 {
-    mu_coin::uint256_union result (0);
+    mu_coin::uint256_t result (0);
     mu_coin::block_hash hash;
     auto done (store.latest_get (address_a, hash));
     while (!done)
@@ -375,12 +369,12 @@ mu_coin::uint256_union mu_coin::send_block::hash () const
     for (auto & i: inputs)
     {
         hash.Update (i.previous.bytes.data (), sizeof (i.previous.bytes));
-        hash.Update (i.coins.bytes.data (), sizeof (i.coins.bytes));
+        hash.Update (i.coins.data.bytes.data (), sizeof (i.coins.data.bytes));
     }
     for (auto & i: outputs)
     {
         hash.Update (i.destination.bytes.data (), sizeof (i.destination.bytes));
-        hash.Update (i.coins.bytes.data (), sizeof (i.coins.bytes));
+        hash.Update (i.coins.data.bytes.data (), sizeof (i.coins.data.bytes));
     }
     hash.Final (result.bytes.data ());
     return result;
@@ -395,12 +389,12 @@ void mu_coin::send_block::serialize (mu_coin::byte_write_stream & stream) const
     for (auto & i: inputs)
     {
         stream.write (i.previous.bytes);
-        stream.write (i.coins.bytes);
+        stream.write (i.coins.data.bytes);
     }
     for (auto & i: outputs)
     {
         stream.write (i.destination.bytes);
-        stream.write (i.coins.bytes);
+        stream.write (i.coins.data.bytes);
     }
     for (auto & i: signatures)
     {
@@ -428,7 +422,7 @@ bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
                 result = stream.read (back.previous.bytes);
                 if (!result)
                 {
-                    result = stream.read (back.coins.bytes);
+                    result = stream.read (back.coins.data.bytes);
                 }
             }
             for (uint8_t i (0); !result && i < output_count; ++i)
@@ -472,23 +466,17 @@ mu_coin::send_input::send_input (EC::PublicKey const & pub_a, mu_coin::block_has
     bool y;
     mu_coin::address address (pub_a, y);
     previous = address ^ hash_a;
-    coins = coins_a;
+    coins.coins_set (coins_a.number ());
     coins.y_component_set (y);
     assert (!(previous ^ hash_a).validate (y));
 }
 
-mu_coin::send_output::send_output (EC::PublicKey const & pub, mu_coin::uint256_union const & coins_a) :
-coins (coins_a)
+mu_coin::send_output::send_output (EC::PublicKey const & pub, mu_coin::uint256_union const & coins_a)
 {
     bool y_component;
     destination = mu_coin::address (pub, y_component);
+    coins.coins_set (coins_a.number ());
     coins.y_component_set (y_component);
-}
-
-void mu_coin::uint256_union::y_component_set (bool y_component)
-{
-    uint8_t byte (y_component);
-    bytes [0] |= byte << 7;
 }
 
 bool mu_coin::send_output::operator == (mu_coin::send_output const & other_a) const
@@ -572,10 +560,10 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
                         auto existing (ledger.store.block_get (block_hash));
                         assert (existing != nullptr);
                         mu_coin::uint256_union coins (ledger.balance (address));
-                        auto coins_string (coins.coins ().convert_to <std::string> ());
-                        auto diff (coins.coins () - i->coins.coins ());
+                        auto coins_string (coins.number ().convert_to <std::string> ());
+                        auto diff (coins.number () - i->coins.coins ());
                         inputs += diff;
-                        result = diff > coins.coins ();
+                        result = diff > coins.number ();
                     }
                 }
             }
@@ -760,7 +748,7 @@ void mu_coin::uint256_union::encode_hex (std::string & text)
     assert (text.empty ());
     std::stringstream stream;
     stream << std::hex << std::noshowbase << std::setw (64) << std::setfill ('0');
-    stream << coins ();
+    stream << number ();
     text = stream.str ();
 }
 
@@ -790,7 +778,7 @@ void mu_coin::uint256_union::encode_dec (std::string & text)
     assert (text.empty ());
     std::stringstream stream;
     stream << std::dec << std::noshowbase;
-    stream << coins ();
+    stream << number ();
     text = stream.str ();
 }
 
@@ -1354,20 +1342,20 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
         {
             block->inputs.push_back (mu_coin::send_input ());
             auto & input (block->inputs.back ());
-            mu_coin::uint256_union balance (ledger_a.balance (address));
-            if (amount + balance.coins () > coins + block->fee ())
+            auto balance (ledger_a.balance (address));
+            if (amount + balance > coins + block->fee ())
             {
                 auto partial (coins + block->fee () - amount);
-                assert (partial < balance.coins ());
-                input.coins = balance.coins () - partial;
+                assert (partial < balance);
+                input.coins.coins_set (balance - partial);
                 input.previous = address ^ latest;
                 amount += partial;
             }
             else
             {
-                input.coins = mu_coin::uint256_t (0);
+                input.coins.coins_set (mu_coin::uint256_t (0));
                 input.previous = address ^ latest;
-                amount += balance.coins ();
+                amount += balance;
             }
         }
     }
@@ -1436,4 +1424,36 @@ mu_coin::uint256_union mu_coin::dbt::uint256 () const
     stream.read (result);
     stream.abandon ();
     return result;
+}
+
+bool mu_coin::packed_block::y_component () const
+{
+    return (data.bytes [0] & 0x80) != 0;
+}
+
+void mu_coin::packed_block::y_component_set (bool y_component_a)
+{
+    data.bytes [0] &= 0x7f;
+    uint8_t y_byte (y_component_a);
+    data.bytes [0] |= y_byte << 7;
+}
+
+mu_coin::uint256_t mu_coin::packed_block::coins () const
+{
+    mu_coin::uint256_union result (data);
+    result.bytes [0] &= 0x7f;
+    return result.number ();
+}
+
+void mu_coin::packed_block::coins_set (mu_coin::uint256_t const & coins_a)
+{
+    auto y (y_component ());
+    data = coins_a;
+    assert ((data.bytes [0] & 0x80) == 0);
+    y_component_set (y);
+}
+
+bool mu_coin::packed_block::operator == (mu_coin::packed_block const & other_a) const
+{
+    return data == other_a.data;
 }

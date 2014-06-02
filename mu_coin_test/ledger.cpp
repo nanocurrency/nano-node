@@ -9,7 +9,7 @@ TEST (ledger, empty)
     mu_coin::ledger ledger (store);
     mu_coin::address address;
     auto balance (ledger.balance (address));
-    ASSERT_TRUE (balance.coins ().is_zero ());
+    ASSERT_TRUE (balance.is_zero ());
 }
 
 TEST (ledger, genesis_balance)
@@ -19,7 +19,7 @@ TEST (ledger, genesis_balance)
     mu_coin::ledger ledger (store);
     store.genesis_put (key1.pub, 500);
     auto balance (ledger.balance (key1.address));
-    ASSERT_EQ (500, balance.coins ());
+    ASSERT_EQ (500, balance);
 }
 
 TEST (address, two_addresses)

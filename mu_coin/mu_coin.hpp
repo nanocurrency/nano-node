@@ -73,8 +73,6 @@ namespace mu_coin {
         EC::PrivateKey prv (uint256_union const &, uint128_union const &) const;
         EC::PrivateKey prv () const;
         EC::PublicKey pub (bool) const;
-        bool y_component () const;
-        void y_component_set (bool);
         bool validate (bool) const;
         mu_coin::uint256_union operator ^ (mu_coin::uint256_union const &) const;
         bool operator == (mu_coin::uint256_union const &) const;
@@ -88,7 +86,7 @@ namespace mu_coin {
         std::array <uint64_t, 4> qwords;
         std::array <uint128_union, 2> owords;
         void clear ();
-        mu_coin::uint256_t coins () const;
+        mu_coin::uint256_t number () const;
     };
     using block_hash = uint256_union;
     using identifier = uint256_union;
@@ -170,6 +168,16 @@ namespace mu_coin {
     void serialize_block (mu_coin::byte_write_stream &, mu_coin::block const &);
     void sign_message (mu_coin::EC::PrivateKey const & private_key, mu_coin::uint256_union const & message, mu_coin::uint512_union & signature);
     bool validate_message (mu_coin::uint256_union const & message, mu_coin::uint512_union const & signature, mu_coin::EC::PublicKey const & key);
+    class packed_block
+    {
+    public:
+        bool y_component () const;
+        void y_component_set (bool);
+        mu_coin::uint256_t coins () const;
+        void coins_set (mu_coin::uint256_t const &);
+        bool operator == (mu_coin::packed_block const &) const;
+        mu_coin::uint256_union data;
+    };
     class send_input
     {
     public:
@@ -177,7 +185,7 @@ namespace mu_coin {
         send_input (EC::PublicKey const &, mu_coin::block_hash const &, mu_coin::balance const &);
         bool operator == (mu_coin::send_input const &) const;
         mu_coin::identifier previous;
-        mu_coin::uint256_union coins;
+        mu_coin::packed_block coins;
     };
     class send_output
     {
@@ -186,7 +194,7 @@ namespace mu_coin {
         send_output (EC::PublicKey const &, mu_coin::uint256_union const &);
         bool operator == (mu_coin::send_output const &) const;
         mu_coin::address destination;
-        mu_coin::amount coins;
+        mu_coin::packed_block coins;
     };
     class send_block : public mu_coin::block
     {
@@ -267,7 +275,7 @@ namespace mu_coin {
     {
     public:
         ledger (mu_coin::block_store &);
-        mu_coin::uint256_union balance (mu_coin::address const &);
+        mu_coin::uint256_t balance (mu_coin::address const &);
         bool process (mu_coin::block const &);
         mu_coin::block_store & store;
     };
