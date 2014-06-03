@@ -1,3 +1,0 @@
-[submodule "ed25519-donna"]
-	path = ed25519-donna
-	url = https://github.com/floodyberry/ed25519-donna
