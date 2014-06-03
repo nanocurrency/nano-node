@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (mu_coin)
 
-add_definitions (-std=c++11)
+add_definitions (-std=c++11 -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG)
 
 include_directories (${CMAKE_SOURCE_DIR})
 
@@ -23,7 +23,11 @@ include_directories (${CMAKE_SOURCE_DIR}/libb64-1.2/include)
 
 add_library (mu_coin
 	mu_coin/mu_coin.hpp
-	mu_coin/mu_coin.cpp)
+	mu_coin/mu_coin.cpp
+    ed25519-donna/ed25519-hash-custom.h
+    ed25519-donna/ed25519-randombytes-custom.h
+    ed25519-donna/ed25519.h
+    ed25519-donna/ed25519.cpp)
 
 add_executable (mu_coin_test 
 	mu_coin_test/entry.cpp

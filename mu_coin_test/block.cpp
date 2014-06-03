@@ -1,6 +1,13 @@
 #include <gtest/gtest.h>
 #include <mu_coin/mu_coin.hpp>
 
+TEST (ed25519, signing)
+{
+    mu_coin::uint256_union prv;
+    mu_coin::uint256_union pub;
+    ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+}
+
 TEST (transaction_block, big_endian_union_constructor)
 {
     boost::multiprecision::uint256_t value1 (1);

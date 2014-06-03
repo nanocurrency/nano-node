@@ -8,6 +8,8 @@
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
 
+#include <ed25519-donna/ed25519.h>
+
 #include <db_cxx.h>
 
 #include <unordered_map>

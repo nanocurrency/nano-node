@@ -3,6 +3,7 @@
 #include <cryptopp/sha.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
+#include <ed25519-donna/ed25519.h>
 
 CryptoPP::OID & mu_coin::oid ()
 {
