@@ -53,6 +53,7 @@ TEST (ledger, process_send)
     send.signatures.push_back (mu_coin::uint512_union ());
     mu_coin::sign_message (key1.prv, key1.pub, hash1, send.signatures.back ());
     ASSERT_FALSE (ledger.process (send));
+    ASSERT_EQ (49, ledger.balance (key1.pub));
     mu_coin::block_hash hash6;
     ASSERT_FALSE (store.identifier_get (key1.pub ^ send.hash (), hash6));
     mu_coin::block_hash hash5;

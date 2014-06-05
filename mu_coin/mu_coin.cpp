@@ -125,6 +125,7 @@ public:
             }
         ));
         assert (entry != block_a.inputs.end ());
+        result = entry->coins.number ();
         done = true;
     }
     void receive_block (mu_coin::receive_block const & block_a) override
