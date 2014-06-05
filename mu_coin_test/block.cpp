@@ -6,6 +6,14 @@ TEST (ed25519, signing)
     mu_coin::uint256_union prv;
     mu_coin::uint256_union pub;
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+    mu_coin::uint256_union message;
+    mu_coin::uint512_union signature;
+    ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
+    auto valid1 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
+    ASSERT_EQ (0, valid1);
+    signature.bytes [32] ^= 0x1;
+    auto valid2 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
+    ASSERT_NE (0, valid2);
 }
 
 TEST (transaction_block, big_endian_union_constructor)
@@ -39,12 +47,10 @@ TEST (transaction_block, empty)
     ASSERT_EQ (1, block.inputs.size ());
     mu_coin::uint256_union hash (block.hash ());
     block.signatures.push_back (mu_coin::uint512_union ());
-    mu_coin::sign_message (key1.prv, hash, block.signatures.back ());
-    bool valid1 (mu_coin::validate_message (hash, block.signatures.back (), key1.pub));
-    ASSERT_FALSE (valid1);
+    mu_coin::sign_message (key1.prv, key1.pub, hash, block.signatures.back ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, hash, block.signatures.back ()));
     block.signatures [0].bytes [32] ^= 0x1;
-    bool valid2 (mu_coin::validate_message (hash, block.signatures.back (), key1.pub));
-    ASSERT_TRUE (valid2);
+    ASSERT_TRUE (mu_coin::validate_message (key1.pub, hash, block.signatures.back ()));
 }
 
 TEST (send_block, empty_send_serialize)
@@ -71,8 +77,8 @@ TEST (send_block, two_entry_send_serialize)
     block1.signatures.push_back (mu_coin::uint512_union ());
     block1.signatures.push_back (mu_coin::uint512_union ());
     auto hash (block1.hash ());
-    mu_coin::sign_message (key1.prv, hash, block1.signatures [0]);
-    mu_coin::sign_message (key2.prv, hash, block1.signatures [1]);
+    mu_coin::sign_message (key1.prv, key1.pub, hash, block1.signatures [0]);
+    mu_coin::sign_message (key2.prv, key2.pub, hash, block1.signatures [1]);
     mu_coin::send_output entry3 (key2.pub, 23);
     block1.outputs.push_back (entry3);
     block1.serialize (stream1);
@@ -80,25 +86,6 @@ TEST (send_block, two_entry_send_serialize)
     mu_coin::send_block block2;
     block2.deserialize (stream2);
     ASSERT_EQ (block1, block2);
-}
-
-TEST (send_block, send_with_y)
-{
-    mu_coin::keypair key1;
-    mu_coin::send_output output;
-    do
-    {
-        key1 = mu_coin::keypair ();
-        output = mu_coin::send_output (key1.pub, 0);
-    } while (!output.coins.y_component ());
-    mu_coin::send_block block;
-    block.outputs.push_back (output);
-    mu_coin::byte_write_stream stream1;
-    mu_coin::serialize_block (stream1, block);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
-    auto block2 (mu_coin::deserialize_block (stream2));
-    ASSERT_NE (nullptr, block2);
-    ASSERT_EQ (block, *block2);
 }
 
 TEST (send_block, receive_serialize)

@@ -8,10 +8,8 @@ TEST (wallet, no_key)
     mu_coin::keypair key1;
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
-    mu_coin::EC::PrivateKey prv1;
-    bool failure;
-    wallet.fetch (key1.pub, secret, prv1, failure);
-    ASSERT_TRUE (failure);
+    mu_coin::private_key prv1;
+    ASSERT_TRUE (wallet.fetch (key1.pub, secret, prv1));
 }
 
 TEST (wallet, retrieval)
@@ -21,16 +19,12 @@ TEST (wallet, retrieval)
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
     wallet.insert (key1.prv, secret);
-    mu_coin::EC::PrivateKey prv1;
-    bool failure1;
-    wallet.fetch (key1.pub, secret, prv1, failure1);
-    ASSERT_FALSE (failure1);
-    ASSERT_EQ (key1.prv.GetPrivateExponent (), prv1.GetPrivateExponent ());
+    mu_coin::private_key prv1;
+    ASSERT_FALSE (wallet.fetch (key1.pub, secret, prv1));
+    ASSERT_EQ (key1.prv, prv1);
     secret.bytes [16] ^= 1;
-    mu_coin::EC::PrivateKey prv2;
-    bool failure2;
-    wallet.fetch (key1.pub, secret, prv2, failure2);
-    ASSERT_TRUE (failure2);
+    mu_coin::private_key prv2;
+    ASSERT_TRUE (wallet.fetch (key1.pub, secret, prv2));
 }
 
 TEST (wallet, empty_iteration)
@@ -50,15 +44,11 @@ TEST (wallet, one_item_iteration)
     wallet.insert (key1.prv, secret);
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
-        mu_coin::EC::PublicKey key (*i);
+        mu_coin::public_key key (*i);
         ASSERT_EQ (key1.pub, key);
-        mu_coin::EC::PrivateKey prv;
-        bool y;
-        mu_coin::uint256_union encoding (key, y);
-        bool failed;
-        i.data.key (secret, encoding.owords [0], prv, failed);
-        ASSERT_FALSE (failed);
-        ASSERT_EQ (key1.prv.GetPrivateExponent (), prv.GetPrivateExponent ());
+        mu_coin::private_key prv;
+        i.data.key (secret, key1.pub.owords [0], prv);
+        ASSERT_EQ (key1.prv, prv);
     }
 }
 
@@ -71,26 +61,22 @@ TEST (wallet, two_item_iteration)
     secret.bytes.fill (0);
     wallet.insert (key1.prv, secret);
     wallet.insert (key2.prv, secret);
-    std::vector <mu_coin::EC::PublicKey> keys1;
-    std::vector <CryptoPP::Integer> keys2;
+    std::vector <mu_coin::public_key> keys1;
+    std::vector <mu_coin::private_key> keys2;
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
-        mu_coin::EC::PublicKey key (*i);
-        mu_coin::EC::PrivateKey prv;
-        bool y;
-        mu_coin::uint256_union encoding (key, y);
-        bool failed;
-        i.data.key (secret, encoding.owords [0], prv, failed);
-        ASSERT_FALSE (failed);
+        mu_coin::public_key key (*i);
+        mu_coin::private_key prv;
+        i.data.key (secret, key.owords [0], prv);
         keys1.push_back (key);
-        keys2.push_back (prv.GetPrivateExponent ());
+        keys2.push_back (prv);
     }
     ASSERT_EQ (2, keys1.size ());
     ASSERT_EQ (2, keys2.size ());
     ASSERT_NE (keys1.end (), std::find (keys1.begin (), keys1.end (), key1.pub));
-    ASSERT_NE (keys2.end (), std::find (keys2.begin (), keys2.end (), key1.prv.GetPrivateExponent ()));
+    ASSERT_NE (keys2.end (), std::find (keys2.begin (), keys2.end (), key1.prv));
     ASSERT_NE (keys1.end (), std::find (keys1.begin (), keys1.end (), key2.pub));
-    ASSERT_NE (keys2.end (), std::find (keys2.begin (), keys2.end (), key2.prv.GetPrivateExponent ()));
+    ASSERT_NE (keys2.end (), std::find (keys2.begin (), keys2.end (), key2.prv));
 }
 
 TEST (wallet, insufficient_spend)
@@ -114,17 +100,17 @@ TEST (wallet, one_spend)
     mu_coin::ledger ledger (store);
     store.genesis_put (key1.pub, 500);
     mu_coin::block_hash latest1;
-    store.latest_get (key1.address, latest1);
+    store.latest_get (key1.pub, latest1);
     mu_coin::keypair key2;
     auto send (wallet.send (ledger, key2.pub, 499, password));
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.address ^ latest1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.coins ());
-    ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [0], key1.pub));
-    ASSERT_EQ (key2.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.coins ());
+    ASSERT_EQ (key1.pub ^ latest1, send->inputs [0].previous);
+    ASSERT_EQ (0, send->inputs [0].coins.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
+    ASSERT_EQ (key2.pub, send->outputs [0].destination);
+    ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
 
 TEST (wallet, two_spend)
@@ -139,23 +125,23 @@ TEST (wallet, two_spend)
     mu_coin::ledger ledger (store);
     store.genesis_put (key1.pub, 100);
     mu_coin::block_hash hash1;
-    ASSERT_FALSE (store.latest_get (key1.address, hash1));
+    ASSERT_FALSE (store.latest_get (key1.pub, hash1));
     store.genesis_put (key2.pub, 400);
     mu_coin::block_hash hash2;
-    ASSERT_FALSE (store.latest_get (key2.address, hash2));
+    ASSERT_FALSE (store.latest_get (key2.pub, hash2));
     mu_coin::keypair key3;
     auto send (wallet.send (ledger, key3.pub, 499, password));
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (2, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.address ^ hash1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.coins ());
-    ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [0], key1.pub));
-    ASSERT_EQ (key2.address ^ hash2, send->inputs [1].previous);
-    ASSERT_EQ (0, send->inputs [1].coins.coins ());
-    ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [1], key2.pub));
-    ASSERT_EQ (key3.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.coins ());
+    ASSERT_EQ (key1.pub ^ hash1, send->inputs [0].previous);
+    ASSERT_EQ (0, send->inputs [0].coins.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
+    ASSERT_EQ (key2.pub ^ hash2, send->inputs [1].previous);
+    ASSERT_EQ (0, send->inputs [1].coins.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key2.pub, send->hash (), send->signatures [1]));
+    ASSERT_EQ (key3.pub, send->outputs [0].destination);
+    ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
 
 TEST (wallet, partial_spend)
@@ -168,17 +154,17 @@ TEST (wallet, partial_spend)
     mu_coin::ledger ledger (store);
     store.genesis_put (key1.pub, 800);
     mu_coin::block_hash latest1;
-    ASSERT_FALSE (store.latest_get (key1.address, latest1));
+    ASSERT_FALSE (store.latest_get (key1.pub, latest1));
     mu_coin::keypair key2;
     auto send (wallet.send (ledger, key2.pub, 499, password));
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.address ^ latest1, send->inputs [0].previous);
-    ASSERT_EQ (300, send->inputs [0].coins.coins ());
-    ASSERT_FALSE (mu_coin::validate_message(send->hash (), send->signatures [0], key1.pub));
-    ASSERT_EQ (key2.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.coins ());
+    ASSERT_EQ (key1.pub ^ latest1, send->inputs [0].previous);
+    ASSERT_EQ (300, send->inputs [0].coins.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
+    ASSERT_EQ (key2.pub, send->outputs [0].destination);
+    ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
 
 TEST (wallet, spend_no_previous)
@@ -196,7 +182,7 @@ TEST (wallet, spend_no_previous)
     mu_coin::ledger ledger (store);
     store.genesis_put (key1.pub, 500);
     mu_coin::block_hash hash1;
-    ASSERT_FALSE (store.latest_get (key1.address, hash1));
+    ASSERT_FALSE (store.latest_get (key1.pub, hash1));
     for (auto i (0); i < 50; ++i)
     {
         mu_coin::keypair key;
@@ -207,9 +193,9 @@ TEST (wallet, spend_no_previous)
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.address ^ hash1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.coins ());
-    ASSERT_FALSE (mu_coin::validate_message (send->hash (), send->signatures [0], key1.pub));
-    ASSERT_EQ (key2.address, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.coins ());
+    ASSERT_EQ (key1.pub ^ hash1, send->inputs [0].previous);
+    ASSERT_EQ (0, send->inputs [0].coins.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
+    ASSERT_EQ (key2.pub, send->outputs [0].destination);
+    ASSERT_EQ (499, send->outputs [0].coins.number ());
 }
