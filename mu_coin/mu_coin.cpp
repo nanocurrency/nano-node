@@ -1114,7 +1114,7 @@ type (htons (static_cast <uint16_t> (mu_coin::type::publish_nak)))
 mu_coin::wallet_temp_t mu_coin::wallet_temp;
 
 
-mu_coin::dbt::dbt (mu_coin::private_key const & prv, mu_coin::uint256_union const & key, mu_coin::uint128_union const & iv)
+mu_coin::dbt::dbt (mu_coin::private_key const & prv, mu_coin::secret_key const & key, mu_coin::uint128_union const & iv)
 {
     mu_coin::uint256_union encrypted (prv, key, iv);
     mu_coin::byte_write_stream stream;
@@ -1269,8 +1269,8 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
         auto k (accounts.begin ());
         for (auto i (block->inputs.begin ()), j (block->inputs.end ()); i != j && !result; ++i, ++k)
         {
-            auto & account (*k);
             assert (k != accounts.end ());
+            auto & account (*k);
             mu_coin::private_key prv;
             result = fetch (account, key, prv);
             assert (!result);

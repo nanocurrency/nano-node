@@ -146,7 +146,7 @@ namespace mu_coin {
         dbt (mu_coin::uint256_union const &);
         dbt (mu_coin::block const &);
         dbt (mu_coin::address const &, mu_coin::block_hash const &);
-        dbt (mu_coin::private_key const &, mu_coin::uint256_union const &, mu_coin::uint128_union const &);
+        dbt (mu_coin::private_key const &, mu_coin::secret_key const &, mu_coin::uint128_union const &);
         void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::private_key &);
         mu_coin::uint256_union uint256 () const;
         void adopt (mu_coin::byte_write_stream &);

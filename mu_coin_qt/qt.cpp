@@ -1,5 +1,7 @@
 #include <mu_coin_qt/qt.hpp>
 
+#include <cryptopp/sha.h>
+
 #include <sstream>
 
 mu_coin_qt::gui::gui (int argc, char ** argv, boost::asio::io_service & service_a, QApplication & application_a) :
@@ -21,9 +23,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
 {
     /////////
     mu_coin::keypair genesis;
-    mu_coin::uint256_union secret;
-    secret.bytes.fill (0);
-    client.wallet.insert (genesis.pub, genesis.prv, secret);
+    client.wallet.insert (genesis.pub, genesis.prv, password);
     client.store.genesis_put (genesis.pub, 1000000);
     /////////
     
@@ -177,13 +177,11 @@ void mu_coin_qt::gui::refresh_wallet ()
     mu_coin::uint256_t balance;
     for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
-        mu_coin::EC::PublicKey key (*i);
-        bool y;
-        mu_coin::address address (key, y);
-        auto account_balance (client.ledger.balance (address));
+        mu_coin::public_key key (*i);
+        auto account_balance (client.ledger.balance (key));
         balance += account_balance;
         std::string string;
-        address.encode_hex (string);
+        key.encode_hex (string);
         string += ":";
         string += account_balance.str ();
         QString qstring (string.c_str ());
