@@ -9,6 +9,8 @@
 
 #include <unordered_map>
 #include <memory>
+#include <queue>
+#include <mutex>
 
 namespace mu_coin {
     class byte_read_stream
@@ -387,6 +389,22 @@ namespace mu_coin {
         key_iterator end ();
     private:
         Db handle;
+    };
+    class processor_service
+    {
+    public:
+        void run ();
+        void add (std::function <void ()> const &);
+    private:
+        std::mutex mutex;
+        std::queue <std::function <void ()>> operations;
+    };
+    class processor
+    {
+    public:
+        processor (mu_coin::processor_service &);
+        void process_receivable ();
+        mu_coin::processor_service service;
     };
     class client
     {

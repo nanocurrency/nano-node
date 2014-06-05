@@ -3,6 +3,9 @@
 #include <cryptopp/filters.h>
 #include <cryptopp/randpool.h>
 
+#include <thread>
+#include <condition_variable>
+
 TEST (ledger, empty)
 {
     mu_coin::block_store store (mu_coin::block_store_temp);
@@ -70,6 +73,7 @@ TEST (ledger, process_send)
     mu_coin::block_hash hash2 (receive.hash ());
     receive.sign (key2.prv, key2.pub, hash2);
     ASSERT_FALSE (ledger.process (receive));
+    ASSERT_EQ (50, ledger.balance (key2.pub));
     mu_coin::block_hash hash3;
     ASSERT_FALSE (store.latest_get (key1.pub, hash3));
     auto latest2 (store.block_get (hash3));
@@ -87,4 +91,29 @@ TEST (ledger, process_send)
     auto latest5 (dynamic_cast <mu_coin::receive_block *> (latest4.get ()));
     ASSERT_NE (nullptr, latest5);
     ASSERT_EQ (receive, *latest5);
+}
+
+TEST (processor_service, empty)
+{
+    mu_coin::processor_service service;
+    std::thread thread ([&service] () {service.run ();});
+    thread.join ();
+}
+
+TEST (processor_service, one)
+{
+    mu_coin::processor_service service;
+    std::atomic <bool> done (false);
+    std::mutex mutex;
+    std::condition_variable condition;
+    service.add ([&] ()
+    {
+        std::lock_guard <std::mutex> lock (mutex);
+        done = true;
+        condition.notify_all ();
+    });
+    std::thread thread ([&service] () {service.run ();});
+    std::unique_lock <std::mutex> unique (mutex);
+    condition.wait (unique, [&] () {return !!done;});
+    thread.join ();
 }

@@ -1338,3 +1338,34 @@ mu_coin::dbt::dbt (bool y_component)
     stream.write (y_byte);
     adopt (stream);
 }
+
+void mu_coin::processor_service::run ()
+{
+    auto done (false);
+    while (!done)
+    {
+        std::function <void ()> operation;
+        {
+            std::lock_guard <std::mutex> lock (mutex);
+            if (!operations.empty ())
+            {
+                operation = operations.front ();
+                operations.pop ();
+            }
+        }
+        if (operation)
+        {
+            operation ();
+        }
+        else
+        {
+            done = true;
+        }
+    }
+}
+
+void mu_coin::processor_service::add (std::function <void ()> const & operation)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    operations.push (operation);
+}

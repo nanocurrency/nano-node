@@ -132,4 +132,5 @@ TEST (network, send_valid_publish)
     ASSERT_FALSE (store2.latest_get (key1.pub, hash4));
     ASSERT_FALSE (hash3 == hash4);
     ASSERT_EQ (hash2, hash4);
+    ASSERT_EQ (49, ledger2.balance (key1.pub));
 }
