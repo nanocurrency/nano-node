@@ -393,10 +393,15 @@ namespace mu_coin {
     class processor_service
     {
     public:
+        processor_service ();
         void run ();
         void add (std::function <void ()> const &);
+        void stop ();
+        bool stopped ();
     private:
+        bool done;
         std::mutex mutex;
+        std::condition_variable condition;
         std::queue <std::function <void ()>> operations;
     };
     class processor
@@ -404,12 +409,13 @@ namespace mu_coin {
     public:
         processor (mu_coin::processor_service &);
         void process_receivable ();
-        mu_coin::processor_service service;
+        mu_coin::processor_service & service;
     };
     class client
     {
     public:
-        client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &);
+        client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
+        mu_coin::processor processor;
         mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;

@@ -1290,7 +1290,8 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
     return block;
 }
 
-mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a) :
+mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
+processor (processor_a),
 store (block_store_path_a),
 ledger (store),
 wallet (wallet_path_a),
@@ -1341,25 +1342,24 @@ mu_coin::dbt::dbt (bool y_component)
 
 void mu_coin::processor_service::run ()
 {
-    auto done (false);
+    std::unique_lock <std::mutex> lock (mutex);
     while (!done)
     {
         std::function <void ()> operation;
+        if (!operations.empty ())
         {
-            std::lock_guard <std::mutex> lock (mutex);
-            if (!operations.empty ())
-            {
-                operation = operations.front ();
-                operations.pop ();
-            }
+            operation = operations.front ();
+            operations.pop ();
         }
         if (operation)
         {
+            lock.unlock ();
             operation ();
+            lock.lock ();
         }
         else
         {
-            done = true;
+            condition.wait (lock);
         }
     }
 }
@@ -1368,4 +1368,22 @@ void mu_coin::processor_service::add (std::function <void ()> const & operation)
 {
     std::lock_guard <std::mutex> lock (mutex);
     operations.push (operation);
+    condition.notify_all ();
+}
+
+mu_coin::processor_service::processor_service () :
+done (false)
+{
+}
+
+void mu_coin::processor_service::stop ()
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    done = true;
+    condition.notify_all ();
+}
+
+mu_coin::processor::processor (mu_coin::processor_service & service_a) :
+service (service_a)
+{
 }

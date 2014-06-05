@@ -97,6 +97,7 @@ TEST (processor_service, empty)
 {
     mu_coin::processor_service service;
     std::thread thread ([&service] () {service.run ();});
+    service.stop ();
     thread.join ();
 }
 
@@ -115,5 +116,6 @@ TEST (processor_service, one)
     std::thread thread ([&service] () {service.run ();});
     std::unique_lock <std::mutex> unique (mutex);
     condition.wait (unique, [&] () {return !!done;});
+    service.stop ();
     thread.join ();
 }
