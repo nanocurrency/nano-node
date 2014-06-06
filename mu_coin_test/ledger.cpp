@@ -107,15 +107,44 @@ TEST (processor_service, one)
     std::atomic <bool> done (false);
     std::mutex mutex;
     std::condition_variable condition;
-    service.add ([&] ()
+    service.add (std::chrono::system_clock::now (), [&] ()
     {
         std::lock_guard <std::mutex> lock (mutex);
         done = true;
-        condition.notify_all ();
+        condition.notify_one ();
     });
     std::thread thread ([&service] () {service.run ();});
     std::unique_lock <std::mutex> unique (mutex);
     condition.wait (unique, [&] () {return !!done;});
     service.stop ();
     thread.join ();
+}
+
+TEST (processor_service, many)
+{
+    mu_coin::processor_service service;
+    std::atomic <int> count (0);
+    std::mutex mutex;
+    std::condition_variable condition;
+    for (auto i (0); i < 50; ++i)
+    {
+        service.add (std::chrono::system_clock::now (), [&] ()
+                 {
+                     std::lock_guard <std::mutex> lock (mutex);
+                     count += 1;
+                     condition.notify_one ();
+                 });
+    }
+    std::vector <std::thread> threads;
+    for (auto i (0); i < 50; ++i)
+    {
+        threads.push_back (std::thread ([&service] () {service.run ();}));
+    }
+    std::unique_lock <std::mutex> unique (mutex);
+    condition.wait (unique, [&] () {return count == 50;});
+    service.stop ();
+    for (auto i (threads.begin ()), j (threads.end ()); i != j; ++i)
+    {
+        i->join ();
+    }
 }

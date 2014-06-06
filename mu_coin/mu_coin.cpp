@@ -1345,17 +1345,20 @@ void mu_coin::processor_service::run ()
     std::unique_lock <std::mutex> lock (mutex);
     while (!done)
     {
-        std::function <void ()> operation;
         if (!operations.empty ())
         {
-            operation = operations.front ();
-            operations.pop ();
-        }
-        if (operation)
-        {
-            lock.unlock ();
-            operation ();
-            lock.lock ();
+            auto & operation (operations.top ());
+            if (operation.wakeup < std::chrono::system_clock::now ())
+            {
+                operations.pop ();
+                lock.unlock ();
+                operation.function ();
+                lock.lock ();
+            }
+            else
+            {
+                condition.wait_until (lock, operation.wakeup);
+            }
         }
         else
         {
@@ -1364,10 +1367,10 @@ void mu_coin::processor_service::run ()
     }
 }
 
-void mu_coin::processor_service::add (std::function <void ()> const & operation)
+void mu_coin::processor_service::add (std::chrono::system_clock::time_point const & wakeup_a, std::function <void ()> const & operation)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    operations.push (operation);
+    operations.push (mu_coin::operation ({wakeup_a, operation}));
     condition.notify_all ();
 }
 
@@ -1386,4 +1389,9 @@ void mu_coin::processor_service::stop ()
 mu_coin::processor::processor (mu_coin::processor_service & service_a) :
 service (service_a)
 {
+}
+
+bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
+{
+    return wakeup < other_a.wakeup;
 }

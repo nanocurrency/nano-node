@@ -390,19 +390,26 @@ namespace mu_coin {
     private:
         Db handle;
     };
+    class operation
+    {
+    public:
+        bool operator < (mu_coin::operation const &) const;
+        std::chrono::system_clock::time_point wakeup;
+        std::function <void ()> function;
+    };
     class processor_service
     {
     public:
         processor_service ();
         void run ();
-        void add (std::function <void ()> const &);
+        void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
         void stop ();
         bool stopped ();
     private:
         bool done;
         std::mutex mutex;
         std::condition_variable condition;
-        std::queue <std::function <void ()>> operations;
+        std::priority_queue <operation> operations;
     };
     class processor
     {
