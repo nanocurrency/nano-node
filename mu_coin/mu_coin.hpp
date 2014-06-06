@@ -389,27 +389,19 @@ namespace mu_coin {
         std::condition_variable condition;
         std::priority_queue <operation> operations;
     };
+    class client;
     class processor
     {
     public:
-        processor (mu_coin::processor_service &);
+        processor (mu_coin::processor_service &, mu_coin::client &);
         void process_receivable ();
         mu_coin::processor_service & service;
-    };
-    class node
-    {
-    public:
-        node (boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
-        node (mu_coin::processor_service &);
-        mu_coin::processor processor;
-        mu_coin::block_store store;
-        mu_coin::ledger ledger;
-        mu_coin::wallet wallet;
+        mu_coin::client & client;
     };
     class network
     {
     public:
-        network (boost::asio::io_service &, uint16_t, mu_coin::node &);
+        network (boost::asio::io_service &, uint16_t, mu_coin::client &);
         void receive ();
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
@@ -419,7 +411,7 @@ namespace mu_coin {
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
-        mu_coin::node & node;
+        mu_coin::client & client;
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;
@@ -432,7 +424,11 @@ namespace mu_coin {
     {
     public:
         client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
-        mu_coin::node node;
+        client (boost::asio::io_service &, uint16_t, mu_coin::processor_service &);
+        mu_coin::block_store store;
+        mu_coin::ledger ledger;
+        mu_coin::wallet wallet;
         mu_coin::network network;
+        mu_coin::processor processor;
     };
 }

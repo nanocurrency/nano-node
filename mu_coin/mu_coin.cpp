@@ -946,10 +946,10 @@ mu_coin::dbt::dbt (mu_coin::address const & address_a, mu_coin::block_hash const
     adopt (stream);
 }
 
-mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::node & node_a) :
+mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::client & client_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::udp::v4 (), port)),
 service (service_a),
-node (node_a),
+client (client_a),
 keepalive_req_count (0),
 keepalive_ack_count (0),
 publish_req_count (0),
@@ -1022,7 +1022,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     receive ();
                     if (!error)
                     {
-                        auto process_error (node.ledger.process (*incoming->block));
+                        auto process_error (client.ledger.process (*incoming->block));
                         if (!process_error)
                         {
                             auto outgoing (new (mu_coin::publish_ack));
@@ -1290,19 +1290,6 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
     return block;
 }
 
-mu_coin::node::node (boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
-processor (processor_a),
-store (block_store_path_a),
-ledger (store),
-wallet (wallet_path_a)
-{
-}
-
-mu_coin::node::node (mu_coin::processor_service & service_a) :
-node (boost::filesystem::unique_path (), boost::filesystem::unique_path (), service_a)
-{
-}
-
 void mu_coin::byte_read_stream::abandon ()
 {
     data = nullptr;
@@ -1390,8 +1377,9 @@ void mu_coin::processor_service::stop ()
     condition.notify_all ();
 }
 
-mu_coin::processor::processor (mu_coin::processor_service & service_a) :
-service (service_a)
+mu_coin::processor::processor (mu_coin::processor_service & service_a, mu_coin::client & client_a) :
+service (service_a),
+client (client_a)
 {
 }
 
@@ -1401,8 +1389,15 @@ bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
 }
 
 mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
-node (wallet_path_a, block_store_path_a, processor_a),
-network (service_a, port_a, node)
+store (block_store_path_a),
+ledger (store),
+wallet (wallet_path_a),
+network (service_a, port_a, *this),
+processor (processor_a, *this)
 {
-    
+}
+
+mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::processor_service & processor_a) :
+client (service_a, port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a)
+{
 }

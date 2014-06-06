@@ -23,8 +23,8 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
 {
     /////////
     mu_coin::keypair genesis;
-    client.node.wallet.insert (genesis.pub, genesis.prv, password);
-    client.node.store.genesis_put (genesis.pub, 1000000);
+    client.wallet.insert (genesis.pub, genesis.prv, password);
+    client.store.genesis_put (genesis.pub, 1000000);
     /////////
     
     client.network.receive ();
@@ -104,10 +104,10 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
                 send_address.setPalette (palette);
-                auto send (client.node.wallet.send (client.node.ledger, address, coins.number (), password));
+                auto send (client.wallet.send (client.ledger, address, coins.number (), password));
                 if (send != nullptr)
                 {
-                    auto error (client.node.ledger.process (*send));
+                    auto error (client.ledger.process (*send));
                     assert (!error);
                     send_count.clear ();
                     send_address.clear ();
@@ -165,7 +165,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     QObject::connect (&wallet_add_account, &QPushButton::released, [this] ()
     {
         mu_coin::keypair key;
-        client.node.wallet.insert (key.pub, key.prv, password);
+        client.wallet.insert (key.pub, key.prv, password);
         refresh_wallet ();
     });
     refresh_wallet ();
@@ -175,10 +175,10 @@ void mu_coin_qt::gui::refresh_wallet ()
 {
     QStringList keys;
     mu_coin::uint256_t balance;
-    for (auto i (client.node.wallet.begin ()), j (client.node.wallet.end ()); i != j; ++i)
+    for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
         mu_coin::public_key key (*i);
-        auto account_balance (client.node.ledger.balance (key));
+        auto account_balance (client.ledger.balance (key));
         balance += account_balance;
         std::string string;
         key.encode_hex (string);
