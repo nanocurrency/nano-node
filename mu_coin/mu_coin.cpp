@@ -946,10 +946,10 @@ mu_coin::dbt::dbt (mu_coin::address const & address_a, mu_coin::block_hash const
     adopt (stream);
 }
 
-mu_coin::node::node (boost::asio::io_service & service_a, uint16_t port, mu_coin::ledger & ledger_a) :
+mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::node & node_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::udp::v4 (), port)),
 service (service_a),
-ledger (ledger_a),
+node (node_a),
 keepalive_req_count (0),
 keepalive_ack_count (0),
 publish_req_count (0),
@@ -960,24 +960,24 @@ on (true)
 {
 }
 
-void mu_coin::node::receive ()
+void mu_coin::network::receive ()
 {
     socket.async_receive_from (boost::asio::buffer (buffer), remote, [this] (boost::system::error_code const & error, size_t size_a) {receive_action (error, size_a); });
 }
 
-void mu_coin::node::stop ()
+void mu_coin::network::stop ()
 {
     on = false;
     socket.close ();
 }
 
-void mu_coin::node::send_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
+void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
 {
     auto message (new mu_coin::keepalive_req);
     socket.async_send_to (message->buffers, endpoint_a, [message] (boost::system::error_code const &, size_t) {delete message;});
 }
 
-void mu_coin::node::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
+void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
 {
     auto message (new mu_coin::publish_req (std::move (block)));
     mu_coin::byte_write_stream stream;
@@ -985,7 +985,7 @@ void mu_coin::node::publish_block (boost::asio::ip::udp::endpoint const & endpoi
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [message] (boost::system::error_code const &, size_t) {delete message;});
 }
 
-void mu_coin::node::receive_action (boost::system::error_code const & error, size_t size_a)
+void mu_coin::network::receive_action (boost::system::error_code const & error, size_t size_a)
 {
     if (!error && on)
     {
@@ -1022,7 +1022,7 @@ void mu_coin::node::receive_action (boost::system::error_code const & error, siz
                     receive ();
                     if (!error)
                     {
-                        auto process_error (ledger.process (*incoming->block));
+                        auto process_error (node.ledger.process (*incoming->block));
                         if (!process_error)
                         {
                             auto outgoing (new (mu_coin::publish_ack));
@@ -1290,12 +1290,16 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
     return block;
 }
 
-mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
+mu_coin::node::node (boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
 processor (processor_a),
 store (block_store_path_a),
 ledger (store),
-wallet (wallet_path_a),
-network (service_a, port_a, ledger)
+wallet (wallet_path_a)
+{
+}
+
+mu_coin::node::node (mu_coin::processor_service & service_a) :
+node (boost::filesystem::unique_path (), boost::filesystem::unique_path (), service_a)
 {
 }
 
@@ -1394,4 +1398,11 @@ service (service_a)
 bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
 {
     return wakeup < other_a.wakeup;
+}
+
+mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
+node (wallet_path_a, block_store_path_a, processor_a),
+network (service_a, port_a, node)
+{
+    
 }

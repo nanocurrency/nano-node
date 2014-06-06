@@ -337,28 +337,6 @@ namespace mu_coin {
         std::array <boost::asio::const_buffer, 1> buffers;
         uint16_t type;
     };
-    class node
-    {
-    public:
-        node (boost::asio::io_service &, uint16_t, mu_coin::ledger &);
-        void receive ();
-        void stop ();
-        void receive_action (boost::system::error_code const &, size_t);
-        void send_keepalive (boost::asio::ip::udp::endpoint const &);
-        void publish_block (boost::asio::ip::udp::endpoint const &, std::unique_ptr <mu_coin::block>);
-        boost::asio::ip::udp::endpoint remote;
-        std::array <uint8_t, 4000> buffer;
-        boost::asio::ip::udp::socket socket;
-        boost::asio::io_service & service;
-        mu_coin::ledger & ledger;
-        uint64_t keepalive_req_count;
-        uint64_t keepalive_ack_count;
-        uint64_t publish_req_count;
-        uint64_t publish_ack_count;
-        uint64_t publish_nak_count;
-        uint64_t unknown_count;
-        bool on;
-    };
     struct wallet_temp_t
     {
     };
@@ -418,14 +396,43 @@ namespace mu_coin {
         void process_receivable ();
         mu_coin::processor_service & service;
     };
-    class client
+    class node
     {
     public:
-        client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
+        node (boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
+        node (mu_coin::processor_service &);
         mu_coin::processor processor;
         mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;
-        mu_coin::node network;
+    };
+    class network
+    {
+    public:
+        network (boost::asio::io_service &, uint16_t, mu_coin::node &);
+        void receive ();
+        void stop ();
+        void receive_action (boost::system::error_code const &, size_t);
+        void send_keepalive (boost::asio::ip::udp::endpoint const &);
+        void publish_block (boost::asio::ip::udp::endpoint const &, std::unique_ptr <mu_coin::block>);
+        boost::asio::ip::udp::endpoint remote;
+        std::array <uint8_t, 4000> buffer;
+        boost::asio::ip::udp::socket socket;
+        boost::asio::io_service & service;
+        mu_coin::node & node;
+        uint64_t keepalive_req_count;
+        uint64_t keepalive_ack_count;
+        uint64_t publish_req_count;
+        uint64_t publish_ack_count;
+        uint64_t publish_nak_count;
+        uint64_t unknown_count;
+        bool on;
+    };
+    class client
+    {
+    public:
+        client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
+        mu_coin::node node;
+        mu_coin::network network;
     };
 }

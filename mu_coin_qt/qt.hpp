@@ -11,7 +11,7 @@ namespace mu_coin_qt {
     class gui
     {
     public:
-        gui (int, char **, boost::asio::io_service &, QApplication &);
+        gui (int, char **, boost::asio::io_service &, QApplication &, mu_coin::processor_service &);
         ~gui ();
         mu_coin::client client;
         
