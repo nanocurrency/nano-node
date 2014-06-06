@@ -5,6 +5,9 @@
 #include <cryptopp/modes.h>
 #include <ed25519-donna/ed25519.h>
 
+#include <unordered_set>
+#include <memory>
+
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
 {
     boost::multiprecision::uint256_t number_l (number_a);
@@ -1405,27 +1408,75 @@ client (service_a, port_a, boost::filesystem::unique_path (), boost::filesystem:
 class publish_visitor : public mu_coin::block_visitor
 {
 public:
-    publish_visitor (mu_coin::client & client_a) :
+    publish_visitor (mu_coin::client & client_a, std::unique_ptr <mu_coin::publish_req> incoming_a) :
     client (client_a),
+    incoming (std::move (incoming_a)),
     result (false)
     {
     }
     void send_block (mu_coin::send_block const & block_a)
     {
         result = client.ledger.process (block_a);
-        
+        if (!result)
+        {
+            std::unordered_set <mu_coin::uint256_union> wallet;
+            for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
+            {
+                wallet.insert (*i);
+            }
+            auto entry (std::find_if (block_a.outputs.begin (), block_a.outputs.end (), [&, wallet] (mu_coin::send_output const & entry) { return wallet.find (entry.destination) != wallet.end (); }));
+            if (entry != block_a.outputs.end ())
+            {
+                client.processor.process_receivable (std::move (incoming));
+            }
+        }
     }
     void receive_block (mu_coin::receive_block const & block_a)
     {
         result = client.ledger.process (block_a);
     }
     mu_coin::client & client;
+    std::unique_ptr <mu_coin::publish_req> incoming;
     bool result;
 };
 
-bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> && incoming)
+class receivable_processor
 {
-    publish_visitor visitor (client);
-    incoming->block->visit (visitor);
+public:
+    receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a) :
+    incoming (std::move (incoming_a)),
+    client (client_a)
+    {
+    }
+    void run (std::shared_ptr <receivable_processor> & this_a)
+    {
+        client.processor.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_a] () {});
+    }
+    void timeout_action (std::shared_ptr <receivable_processor> & this_a)
+    {
+        if (timeout < std::chrono::system_clock::now ())
+        {
+            
+        }
+        else
+        {
+            // Timeout signals may be invalid if we've received action since they were queued
+        }
+    }
+    std::chrono::system_clock::time_point timeout;
+    std::unique_ptr <mu_coin::publish_req> incoming;
+    mu_coin::client & client;
+};
+
+void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::publish_req> incoming)
+{
+    auto processor (std::make_shared <receivable_processor> (std::move (incoming), client));
+    processor->run (processor);
+}
+
+bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> incoming)
+{
+    publish_visitor visitor (client, std::move (incoming));
+    visitor.incoming->block->visit (visitor);
     return visitor.result;
 }
