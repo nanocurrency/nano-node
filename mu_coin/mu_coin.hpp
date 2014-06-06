@@ -394,6 +394,7 @@ namespace mu_coin {
     {
     public:
         processor (mu_coin::processor_service &, mu_coin::client &);
+        bool process_publish (std::unique_ptr <mu_coin::publish_req> &&);
         void process_receivable ();
         mu_coin::processor_service & service;
         mu_coin::client & client;

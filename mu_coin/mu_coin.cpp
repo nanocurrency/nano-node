@@ -1022,11 +1022,11 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     receive ();
                     if (!error)
                     {
-                        auto process_error (client.ledger.process (*incoming->block));
-                        if (!process_error)
+                        auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming)));
+                        if (!error)
                         {
                             auto outgoing (new (mu_coin::publish_ack));
-                            socket.async_send_to (outgoing->buffers, sender, [outgoing] (boost::system::error_code const & error, size_t size_a) {delete outgoing;});
+                            client.network.socket.async_send_to (outgoing->buffers, sender, [outgoing] (boost::system::error_code const & error, size_t size_a) {delete outgoing;});
                         }
                         else
                         {
@@ -1400,4 +1400,32 @@ processor (processor_a, *this)
 mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::processor_service & processor_a) :
 client (service_a, port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a)
 {
+}
+
+class publish_visitor : public mu_coin::block_visitor
+{
+public:
+    publish_visitor (mu_coin::client & client_a) :
+    client (client_a),
+    result (false)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a)
+    {
+        result = client.ledger.process (block_a);
+        
+    }
+    void receive_block (mu_coin::receive_block const & block_a)
+    {
+        result = client.ledger.process (block_a);
+    }
+    mu_coin::client & client;
+    bool result;
+};
+
+bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> && incoming)
+{
+    publish_visitor visitor (client);
+    incoming->block->visit (visitor);
+    return visitor.result;
 }
