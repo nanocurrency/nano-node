@@ -18,13 +18,17 @@ TEST (network, send_keepalive)
     mu_coin::client client2 (service, 24002, processor);
     client1.network.receive ();
     client2.network.receive ();
-    client1.network.send_keepalive (client2.network.socket.local_endpoint ());
+    client1.network.send_keepalive (mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), 24002));
     while (client1.network.keepalive_ack_count == 0)
     {
         service.run_one ();
     }
-    ASSERT_EQ (1, client2.network.keepalive_req_count);
+    auto peers1 (client1.peers.list ());
+    auto peers2 (client2.peers.list ());
     ASSERT_EQ (1, client1.network.keepalive_ack_count);
+    ASSERT_NE (peers1.end (), std::find (peers1.begin (), peers1.end (), mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), 24002)));
+    ASSERT_EQ (1, client2.network.keepalive_req_count);
+    ASSERT_NE (peers2.end (), std::find (peers2.begin (), peers2.end (), mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), 24001)));
 }
 
 TEST (network, publish_req)

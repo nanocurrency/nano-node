@@ -978,6 +978,7 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
 {
     auto message (new mu_coin::keepalive_req);
     socket.async_send_to (message->buffers, endpoint_a, [message] (boost::system::error_code const &, size_t) {delete message;});
+    client.peers.add_peer (endpoint_a);
 }
 
 void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
@@ -986,6 +987,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     mu_coin::byte_write_stream stream;
     message->serialize (stream);
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [message] (boost::system::error_code const &, size_t) {delete message;});
+    client.peers.add_peer (endpoint_a);
 }
 
 void mu_coin::network::receive_action (boost::system::error_code const & error, size_t size_a)
@@ -995,7 +997,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
         if (size_a >= sizeof (uint16_t))
         {
             auto sender (remote);
-            client.peers.insert (sender);
+            client.peers.add_peer (sender);
             mu_coin::byte_read_stream type_stream (buffer.data (), size_a);
             uint16_t network_type;
             type_stream.read (network_type);
@@ -1481,4 +1483,22 @@ bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req>
     publish_visitor visitor (client, std::move (incoming));
     visitor.incoming->block->visit (visitor);
     return visitor.result;
+}
+
+void mu_coin::peer_container::add_peer (boost::asio::ip::udp::endpoint const & endpoint_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    peers.insert (endpoint_a);
+}
+
+std::vector <boost::asio::ip::udp::endpoint> mu_coin::peer_container::list ()
+{
+    std::vector <boost::asio::ip::udp::endpoint> result;
+    std::lock_guard <std::mutex> lock (mutex);
+    result.reserve (peers.size ());
+    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+    {
+        result.push_back (*i);
+    }
+    return result;
 }

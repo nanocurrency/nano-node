@@ -100,6 +100,7 @@ namespace mu_coin {
         void clear ();
         boost::multiprecision::uint512_t number ();
     };
+    using endpoint = boost::asio::ip::udp::endpoint;
 }
 
 namespace std
@@ -127,7 +128,7 @@ namespace std
     template <>
     struct endpoint_hash <4>
     {
-        size_t operator () (boost::asio::ip::udp::endpoint const & endpoint_a) const
+        size_t operator () (mu_coin::endpoint const & endpoint_a) const
         {
             auto result (endpoint_a.address ().to_v4 ().to_ulong () ^ endpoint_a.port ());
             return result;
@@ -136,16 +137,16 @@ namespace std
     template <>
     struct endpoint_hash <8>
     {
-        size_t operator () (boost::asio::ip::udp::endpoint const & endpoint_a) const
+        size_t operator () (mu_coin::endpoint const & endpoint_a) const
         {
             auto result ((endpoint_a.address ().to_v4 ().to_ulong () << 2) | endpoint_a.port ());
             return result;
         }
     };
     template <>
-    struct hash <boost::asio::ip::udp::endpoint>
+    struct hash <mu_coin::endpoint>
     {
-        size_t operator () (boost::asio::ip::udp::endpoint const & endpoint_a) const
+        size_t operator () (mu_coin::endpoint const & endpoint_a) const
         {
             endpoint_hash <sizeof (size_t)> ehash;
             return ehash (endpoint_a);
@@ -438,9 +439,9 @@ namespace mu_coin {
         void receive ();
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
-        void send_keepalive (boost::asio::ip::udp::endpoint const &);
-        void publish_block (boost::asio::ip::udp::endpoint const &, std::unique_ptr <mu_coin::block>);
-        boost::asio::ip::udp::endpoint remote;
+        void send_keepalive (mu_coin::endpoint const &);
+        void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
+        mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
@@ -453,6 +454,15 @@ namespace mu_coin {
         uint64_t unknown_count;
         bool on;
     };
+    class peer_container
+    {
+    public:
+        void add_peer (boost::asio::ip::udp::endpoint const &);
+        std::vector <boost::asio::ip::udp::endpoint> list ();
+    private:
+        std::mutex mutex;
+        std::unordered_set <boost::asio::ip::udp::endpoint> peers;
+    };
     class client
     {
     public:
@@ -463,6 +473,6 @@ namespace mu_coin {
         mu_coin::wallet wallet;
         mu_coin::network network;
         mu_coin::processor processor;
-        std::unordered_set <boost::asio::ip::udp::endpoint> peers;
+        mu_coin::peer_container peers;
     };
 }
