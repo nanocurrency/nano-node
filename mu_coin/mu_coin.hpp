@@ -8,6 +8,7 @@
 #include <db_cxx.h>
 
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 #include <queue>
 #include <mutex>
@@ -117,6 +118,37 @@ namespace std
         size_t operator () (mu_coin::uint256_t const & number_a) const
         {
             return number_a.convert_to <size_t> ();
+        }
+    };
+    template <size_t size>
+    struct endpoint_hash
+    {
+    };
+    template <>
+    struct endpoint_hash <4>
+    {
+        size_t operator () (boost::asio::ip::udp::endpoint const & endpoint_a) const
+        {
+            auto result (endpoint_a.address ().to_v4 ().to_ulong () ^ endpoint_a.port ());
+            return result;
+        }
+    };
+    template <>
+    struct endpoint_hash <8>
+    {
+        size_t operator () (boost::asio::ip::udp::endpoint const & endpoint_a) const
+        {
+            auto result ((endpoint_a.address ().to_v4 ().to_ulong () << 2) | endpoint_a.port ());
+            return result;
+        }
+    };
+    template <>
+    struct hash <boost::asio::ip::udp::endpoint>
+    {
+        size_t operator () (boost::asio::ip::udp::endpoint const & endpoint_a) const
+        {
+            endpoint_hash <sizeof (size_t)> ehash;
+            return ehash (endpoint_a);
         }
     };
 }
@@ -431,5 +463,6 @@ namespace mu_coin {
         mu_coin::wallet wallet;
         mu_coin::network network;
         mu_coin::processor processor;
+        std::unordered_set <boost::asio::ip::udp::endpoint> peers;
     };
 }

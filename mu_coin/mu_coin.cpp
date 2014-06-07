@@ -994,6 +994,8 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
     {
         if (size_a >= sizeof (uint16_t))
         {
+            auto sender (remote);
+            client.peers.insert (sender);
             mu_coin::byte_read_stream type_stream (buffer.data (), size_a);
             uint16_t network_type;
             type_stream.read (network_type);
@@ -1003,7 +1005,6 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 case mu_coin::type::keepalive_req:
                 {
                     ++keepalive_req_count;
-                    auto sender (remote);
                     receive ();
                     auto message (new mu_coin::keepalive_ack);
                     socket.async_send_to (message->buffers, sender, [message] (boost::system::error_code const & error, size_t size_a) {delete message;});
@@ -1018,7 +1019,6 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 case mu_coin::type::publish_req:
                 {
                     ++publish_req_count;
-                    auto sender (remote);
                     auto incoming (new mu_coin::publish_req);
                     mu_coin::byte_read_stream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
@@ -1440,7 +1440,7 @@ public:
     bool result;
 };
 
-class receivable_processor
+class receivable_processor : public std::enable_shared_from_this <receivable_processor>
 {
 public:
     receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a) :
@@ -1448,11 +1448,13 @@ public:
     client (client_a)
     {
     }
-    void run (std::shared_ptr <receivable_processor> & this_a)
+    void run ()
     {
-        client.processor.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_a] () {});
+        auto this_l (shared_from_this ());
+        timeout = std::chrono::system_clock::now () + std::chrono::seconds (5);
+        client.processor.service.add (timeout, [this_l] () {this_l->timeout_action ();});
     }
-    void timeout_action (std::shared_ptr <receivable_processor> & this_a)
+    void timeout_action ()
     {
         if (timeout < std::chrono::system_clock::now ())
         {
@@ -1471,7 +1473,7 @@ public:
 void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::publish_req> incoming)
 {
     auto processor (std::make_shared <receivable_processor> (std::move (incoming), client));
-    processor->run (processor);
+    processor->run ();
 }
 
 bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> incoming)
