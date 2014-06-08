@@ -100,6 +100,7 @@ namespace mu_coin {
         void clear ();
         boost::multiprecision::uint512_t number ();
     };
+    using signature = uint512_union;
     using endpoint = boost::asio::ip::udp::endpoint;
 }
 
@@ -300,6 +301,7 @@ namespace mu_coin {
     public:
         ledger (mu_coin::block_store &);
         mu_coin::uint256_t balance (mu_coin::address const &);
+        mu_coin::uint256_t supply ();
         mu_coin::process_result process (mu_coin::block const &);
         mu_coin::block_store & store;
     };
@@ -338,6 +340,12 @@ namespace mu_coin {
         publish_unk,
         publish_nak
     };
+    class authorization
+    {
+    public:
+        mu_coin::address address;
+        mu_coin::signature signature;
+    };
     class message_visitor;
     class message
     {
@@ -375,6 +383,8 @@ namespace mu_coin {
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
+        mu_coin::block_hash block;
+        std::vector <mu_coin::authorization> authorizations;
     };
     class publish_dup : public message
     {
@@ -382,6 +392,8 @@ namespace mu_coin {
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
+        mu_coin::block_hash block;
+        std::vector <mu_coin::authorization> authorizations;
     };
     class publish_unk : public message
     {
@@ -397,6 +409,7 @@ namespace mu_coin {
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
         std::unique_ptr <mu_coin::block> block; // Observed fork block
+        std::vector <mu_coin::authorization> authorizations;
     };
     class message_visitor
     {
@@ -481,8 +494,8 @@ namespace mu_coin {
         void receive_action (boost::system::error_code const &, size_t);
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void add_publish_ack_listener (mu_coin::block_hash const &, session const &);
-        void remove_publish_ack_listener (mu_coin::block_hash const &);
+        void add_publish_listener (mu_coin::block_hash const &, session const &);
+        void remove_publish_listener (mu_coin::block_hash const &);
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
@@ -499,7 +512,7 @@ namespace mu_coin {
         bool on;
     private:
         std::mutex mutex;
-        std::unordered_map <mu_coin::block_hash, session> publish_ack_listeners;
+        std::unordered_map <mu_coin::block_hash, session> publish_listeners;
     };
     class peer_container
     {
@@ -515,6 +528,7 @@ namespace mu_coin {
     public:
         client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
         client (boost::asio::io_service &, uint16_t, mu_coin::processor_service &);
+        void publish (std::unique_ptr <mu_coin::block>);
         mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;
