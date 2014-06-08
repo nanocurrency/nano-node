@@ -172,7 +172,7 @@ mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::address const & address_a)
     return result;
 }
 
-bool mu_coin::ledger::process (mu_coin::block const & block_a)
+mu_coin::process_result mu_coin::ledger::process (mu_coin::block const & block_a)
 {
     mu_coin::ledger_processor processor (*this);
     block_a.visit (processor);
@@ -471,40 +471,37 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
     mu_coin::uint256_union message (block_a.hash ());
     mu_coin::uint256_t inputs (0);
     std::vector <mu_coin::address> input_addresses;
-    result = block_a.inputs.size () != block_a.signatures.size ();
-    if (!result)
+    assert (block_a.signatures.size () == block_a.inputs.size ());
+    auto k (block_a.signatures.begin ());
+    for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); result == mu_coin::process_result::progress && i != j; ++i, ++k)
     {
-        auto k (block_a.signatures.begin ());
-        for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); !result && i != j; ++i, ++k)
+        mu_coin::uint256_union block_hash;
+        result = ledger.store.identifier_get (i->previous, block_hash) ? mu_coin::process_result::out_of_chain : mu_coin::process_result::progress;
+        if (result == mu_coin::process_result::progress)
         {
-            mu_coin::uint256_union block_hash;
-            result = ledger.store.identifier_get (i->previous, block_hash);
-            if (!result)
+            auto address (block_hash ^ i->previous);
+            result = validate_message (address, message, *k) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress;
+            if (result == mu_coin::process_result::progress)
             {
-                auto address (block_hash ^ i->previous);
-                result = validate_message (address, message, *k);
-                if (!result)
-                {
-                    input_addresses.push_back (address);
-                    auto existing (ledger.store.block_get (block_hash));
-                    assert (existing != nullptr);
-                    mu_coin::uint256_union coins (ledger.balance (address));
-                    auto coins_string (coins.number ().convert_to <std::string> ());
-                    auto diff (coins.number () - i->coins.number ());
-                    inputs += diff;
-                    result = diff > coins.number ();
-                }
+                input_addresses.push_back (address);
+                auto existing (ledger.store.block_get (block_hash));
+                assert (existing != nullptr);
+                mu_coin::uint256_union coins (ledger.balance (address));
+                auto coins_string (coins.number ().convert_to <std::string> ());
+                auto diff (coins.number () - i->coins.number ());
+                inputs += diff;
+                result = diff > coins.number () ? mu_coin::process_result::overspend : mu_coin::process_result::progress;
             }
         }
     }
     mu_coin::uint256_t outputs (0);
-    for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j && !result; ++i)
+    for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j && result == mu_coin::process_result::progress; ++i)
     {
         outputs += i->coins.number ();
     }
     auto inputs_string (inputs.convert_to<std::string>());
     auto outputs_string (outputs.convert_to<std::string>());
-    if (!result && outputs + block_a.fee () == inputs)
+    if (result == mu_coin::process_result::progress && outputs + block_a.fee () == inputs)
     {
         ledger.store.block_put (message, block_a);
         auto k (input_addresses.begin ());
@@ -521,7 +518,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
     }
     else
     {
-        result = true;
+        result = mu_coin::process_result::overspend;
     }
 }
 
@@ -534,23 +531,27 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
     {
         address = block_a.previous;
         mu_coin::block_hash latest;
-        result = !ledger.store.latest_get (address, latest);
+        result = ledger.store.latest_get (address, latest) ? mu_coin::process_result::progress :mu_coin::process_result::fork;
     }
     else
     {
         address = previous_hash ^ block_a.previous;
         mu_coin::block_hash latest;
-        result = ledger.store.latest_get (address, latest);
-        if (!result)
+        auto not_latest (ledger.store.latest_get (address, latest));
+        if (not_latest)
         {
-            result = (latest == previous_hash);
+            result = ledger.store.block_get (previous_hash) ? mu_coin::process_result::fork : mu_coin::process_result::progress;
+        }
+        else
+        {
+            result = mu_coin::process_result::progress;
         }
     }
-    if (!result)
+    if (result == mu_coin::process_result::progress)
     {
         auto hash (block_a.hash ());
-        result = ledger.store.pending_get (address, block_a.source);
-        if (!result)
+        result = ledger.store.pending_get (address, block_a.source) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress;
+        if (result == mu_coin::process_result::progress)
         {
             ledger.store.pending_del (address, block_a.source);
             ledger.store.block_put (hash, block_a);
@@ -562,7 +563,8 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
 }
 
 mu_coin::ledger_processor::ledger_processor (mu_coin::ledger & ledger_a) :
-ledger (ledger_a)
+ledger (ledger_a),
+result (mu_coin::process_result::progress)
 {
 }
 
@@ -1418,7 +1420,8 @@ public:
     }
     void send_block (mu_coin::send_block const & block_a)
     {
-        result = client.ledger.process (block_a);
+        auto process_result (client.ledger.process (block_a));
+        result = process_result != mu_coin::process_result::progress;
         if (!result)
         {
             std::unordered_set <mu_coin::uint256_union> wallet;
@@ -1435,7 +1438,8 @@ public:
     }
     void receive_block (mu_coin::receive_block const & block_a)
     {
-        result = client.ledger.process (block_a);
+        auto process_result (client.ledger.process (block_a));
+        result = process_result != mu_coin::process_result::progress;
     }
     mu_coin::client & client;
     std::unique_ptr <mu_coin::publish_req> incoming;

@@ -55,7 +55,7 @@ TEST (ledger, process_send)
     mu_coin::block_hash hash1 (send.hash ());
     send.signatures.push_back (mu_coin::uint512_union ());
     mu_coin::sign_message (key1.prv, key1.pub, hash1, send.signatures.back ());
-    ASSERT_FALSE (ledger.process (send));
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (send));
     ASSERT_EQ (49, ledger.balance (key1.pub));
     mu_coin::block_hash hash6;
     ASSERT_FALSE (store.identifier_get (key1.pub ^ send.hash (), hash6));
@@ -72,7 +72,7 @@ TEST (ledger, process_send)
     receive.previous = key2.pub;
     mu_coin::block_hash hash2 (receive.hash ());
     receive.sign (key2.prv, key2.pub, hash2);
-    ASSERT_FALSE (ledger.process (receive));
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (receive));
     ASSERT_EQ (50, ledger.balance (key2.pub));
     mu_coin::block_hash hash3;
     ASSERT_FALSE (store.latest_get (key1.pub, hash3));

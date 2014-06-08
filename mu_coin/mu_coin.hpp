@@ -285,12 +285,22 @@ namespace mu_coin {
         // (address, block_hash) ->
         Db handle;
     };
+    enum class process_result
+    {
+        progress, // Hasn't been seen before, signed correctly
+        out_of_chain, // Packet does not follow previous, forged or out of order
+        bad_signature, // One or more signatures was bad, forged or transmission error
+        old, // Already seen and was valid
+        overspend, // Malicious attempt to overspend
+        overreceive, // Malicious attempt to receive twice
+        fork // Malicious fork of existing block
+    };
     class ledger
     {
     public:
         ledger (mu_coin::block_store &);
         mu_coin::uint256_t balance (mu_coin::address const &);
-        bool process (mu_coin::block const &);
+        mu_coin::process_result process (mu_coin::block const &);
         mu_coin::block_store & store;
     };
     class ledger_processor : public block_visitor
@@ -300,7 +310,7 @@ namespace mu_coin {
         void send_block (mu_coin::send_block const &);
         void receive_block (mu_coin::receive_block const &);
         mu_coin::ledger & ledger;
-        bool result;
+        mu_coin::process_result result;
     };
     class keypair
     {
