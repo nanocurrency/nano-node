@@ -24,7 +24,6 @@ namespace mu_coin {
         {
             return read (reinterpret_cast <uint8_t *> (&value), sizeof (value));
         }
-        void abandon ();
         bool read (uint8_t *, size_t);
         size_t size ();
         uint8_t const * data;
@@ -42,6 +41,7 @@ namespace mu_coin {
             write (reinterpret_cast <uint8_t const *> (&value), sizeof (value));
         }
         void write (uint8_t const *, size_t);
+        void abandon ();
         uint8_t * data;
         size_t size;
     };
@@ -328,57 +328,86 @@ namespace mu_coin {
         void clear ();
         mu_coin::uint256_union password;
     };
-    enum class type : uint16_t
+    enum class message_type : uint8_t
     {
         keepalive_req,
         keepalive_ack,
         publish_req,
-        publish_ack,
+        publish_con,
+        publish_dup,
+        publish_unk,
         publish_nak
     };
+    class message_visitor;
     class message
     {
     public:
-        virtual ~message ();
+        virtual ~message () = default;
+        virtual void visit (mu_coin::message_visitor &) = 0;
     };
     class keepalive_req : public message
     {
     public:
-        keepalive_req ();
-        std::array <boost::asio::const_buffer, 1> buffers;
-        uint16_t type;
+        void visit (mu_coin::message_visitor &) override;
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
     };
     class keepalive_ack : public message
     {
     public:
-        keepalive_ack ();
-        std::array <boost::asio::const_buffer, 1> buffers;
-        uint16_t type;
+        void visit (mu_coin::message_visitor &) override;
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
     };
     class publish_req : public message
     {
     public:
-        publish_req ();
+        publish_req () = default;
         publish_req (std::unique_ptr <mu_coin::block>);
-        void build_buffers ();
+        void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
-        uint16_t type;
         std::unique_ptr <mu_coin::block> block;
     };
-    class publish_ack : public message
+    class publish_con : public message
     {
     public:
-        publish_ack ();
-        std::array <boost::asio::const_buffer, 1> buffers;
-        uint16_t type;
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
+    };
+    class publish_dup : public message
+    {
+    public:
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
+    };
+    class publish_unk : public message
+    {
+    public:
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
     };
     class publish_nak : public message
     {
     public:
-        publish_nak ();
-        std::array <boost::asio::const_buffer, 1> buffers;
-        uint16_t type;
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
+        std::unique_ptr <mu_coin::block> block; // Observed fork block
+    };
+    class message_visitor
+    {
+    public:
+        virtual void keepalive_req (mu_coin::keepalive_req const &) = 0;
+        virtual void keepalive_ack (mu_coin::keepalive_ack const &) = 0;
+        virtual void publish_req (mu_coin::publish_req const &) = 0;
+        virtual void publish_con (mu_coin::publish_con const &) = 0;
+        virtual void publish_dup (mu_coin::publish_dup const &) = 0;
+        virtual void publish_unk (mu_coin::publish_unk const &) = 0;
+        virtual void publish_nak (mu_coin::publish_nak const &) = 0;
     };
     struct wallet_temp_t
     {
@@ -442,6 +471,7 @@ namespace mu_coin {
         mu_coin::processor_service & service;
         mu_coin::client & client;
     };
+    using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
     class network
     {
     public:
@@ -451,6 +481,8 @@ namespace mu_coin {
         void receive_action (boost::system::error_code const &, size_t);
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
+        void add_publish_ack_listener (mu_coin::block_hash const &, session const &);
+        void remove_publish_ack_listener (mu_coin::block_hash const &);
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
@@ -459,10 +491,15 @@ namespace mu_coin {
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;
-        uint64_t publish_ack_count;
+        uint64_t publish_con_count;
+        uint64_t publish_dup_count;
+        uint64_t publish_unk_count;
         uint64_t publish_nak_count;
         uint64_t unknown_count;
         bool on;
+    private:
+        std::mutex mutex;
+        std::unordered_map <mu_coin::block_hash, session> publish_ack_listeners;
     };
     class peer_container
     {

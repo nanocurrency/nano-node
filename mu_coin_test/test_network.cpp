@@ -82,12 +82,12 @@ TEST (network, send_invalid_publish)
     block->signatures.push_back (mu_coin::uint512_union ());
     mu_coin::sign_message (key1.prv, key1.pub, block->hash (), block->signatures.back ());
     client1.network.publish_block (client2.network.socket.local_endpoint (), std::move (block));
-    while (client1.network.publish_nak_count == 0)
+    while (client1.network.publish_unk_count == 0)
     {
         service.run_one ();
     }
     ASSERT_EQ (1, client2.network.publish_req_count);
-    ASSERT_EQ (1, client1.network.publish_nak_count);
+    ASSERT_EQ (1, client1.network.publish_unk_count);
 }
 
 TEST (network, send_valid_publish)
@@ -113,12 +113,12 @@ TEST (network, send_valid_publish)
     mu_coin::block_hash hash3;
     ASSERT_FALSE (client2.store.latest_get (key1.pub, hash3));
     client1.network.publish_block (client2.network.socket.local_endpoint (), std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)));
-    while (client1.network.publish_ack_count == 0)
+    while (client1.network.publish_con_count == 0)
     {
         service.run_one ();
     }
     ASSERT_EQ (1, client2.network.publish_req_count);
-    ASSERT_EQ (1, client1.network.publish_ack_count);
+    ASSERT_EQ (1, client1.network.publish_con_count);
     mu_coin::block_hash hash4;
     ASSERT_FALSE (client2.store.latest_get (key1.pub, hash4));
     ASSERT_FALSE (hash3 == hash4);

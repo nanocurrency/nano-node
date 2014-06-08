@@ -9,7 +9,7 @@
 
 #include <cryptopp/osrng.h>
 
-CryptoPP::AutoSeededRandomPool pool;
+extern CryptoPP::AutoSeededRandomPool pool;
 
 void ed25519_randombytes_unsafe (void * out, size_t outlen)
 {

@@ -4,9 +4,12 @@
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
 #include <ed25519-donna/ed25519.h>
+#include <cryptopp/osrng.h>
 
 #include <unordered_set>
 #include <memory>
+
+CryptoPP::AutoSeededRandomPool pool;
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
 {
@@ -958,7 +961,9 @@ client (client_a),
 keepalive_req_count (0),
 keepalive_ack_count (0),
 publish_req_count (0),
-publish_ack_count (0),
+publish_con_count (0),
+publish_dup_count (0),
+publish_unk_count (0),
 publish_nak_count (0),
 unknown_count (0),
 on (true)
@@ -978,17 +983,23 @@ void mu_coin::network::stop ()
 
 void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
 {
-    auto message (new mu_coin::keepalive_req);
-    socket.async_send_to (message->buffers, endpoint_a, [message] (boost::system::error_code const &, size_t) {delete message;});
+    mu_coin::keepalive_req message;
+    mu_coin::byte_write_stream stream;
+    message.serialize (stream);
+    auto data (stream.data);
+    socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const &, size_t) {free (data);});
+    stream.abandon ();
     client.peers.add_peer (endpoint_a);
 }
 
 void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
 {
-    auto message (new mu_coin::publish_req (std::move (block)));
+    mu_coin::publish_req message (std::move (block));
     mu_coin::byte_write_stream stream;
-    message->serialize (stream);
-    socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [message] (boost::system::error_code const &, size_t) {delete message;});
+    message.serialize (stream);
+    auto data (stream.data);
+    socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const &, size_t) {free (data);});
+    stream.abandon ();
     client.peers.add_peer (endpoint_a);
 }
 
@@ -996,31 +1007,34 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
 {
     if (!error && on)
     {
-        if (size_a >= sizeof (uint16_t))
+        if (size_a >= sizeof (mu_coin::message_type))
         {
             auto sender (remote);
             client.peers.add_peer (sender);
             mu_coin::byte_read_stream type_stream (buffer.data (), size_a);
-            uint16_t network_type;
-            type_stream.read (network_type);
-            mu_coin::type type (static_cast <mu_coin::type> (ntohs (network_type)));
+            mu_coin::message_type type;
+            type_stream.read (type);
             switch (type)
             {
-                case mu_coin::type::keepalive_req:
+                case mu_coin::message_type::keepalive_req:
                 {
                     ++keepalive_req_count;
                     receive ();
-                    auto message (new mu_coin::keepalive_ack);
-                    socket.async_send_to (message->buffers, sender, [message] (boost::system::error_code const & error, size_t size_a) {delete message;});
+                    mu_coin::keepalive_ack message;
+                    mu_coin::byte_write_stream stream;
+                    message.serialize (stream);
+                    auto data (stream.data);
+                    socket.async_send_to (boost::asio::buffer (data, stream.size), sender, [data] (boost::system::error_code const & error, size_t size_a) {free (data);});
+                    stream.abandon ();
                     break;
                 }
-                case mu_coin::type::keepalive_ack:
+                case mu_coin::message_type::keepalive_ack:
                 {
                     ++keepalive_ack_count;
                     receive ();
                     break;
                 }
-                case mu_coin::type::publish_req:
+                case mu_coin::message_type::publish_req:
                 {
                     ++publish_req_count;
                     auto incoming (new mu_coin::publish_req);
@@ -1032,23 +1046,41 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming)));
                         if (!error)
                         {
-                            auto outgoing (new (mu_coin::publish_ack));
-                            client.network.socket.async_send_to (outgoing->buffers, sender, [outgoing] (boost::system::error_code const & error, size_t size_a) {delete outgoing;});
+                            mu_coin::publish_con outgoing;
+                            mu_coin::byte_write_stream stream;
+                            outgoing.serialize (stream);
+                            auto data (stream.data);
+                            client.network.socket.async_send_to (boost::asio::buffer (stream.data, stream.size), sender, [data] (boost::system::error_code const & error, size_t size_a) {free (data);});
+                            stream.abandon ();
                         }
                         else
                         {
-                            auto outgoing (new (mu_coin::publish_nak));
-                            socket.async_send_to (outgoing->buffers, sender, [outgoing] (boost::system::error_code const & error, size_t size_a) {delete outgoing;});
+                            mu_coin::publish_unk outgoing;
+                            mu_coin::byte_write_stream stream;
+                            outgoing.serialize (stream);
+                            auto data (stream.data);
+                            socket.async_send_to (boost::asio::buffer (stream.data, stream.size), sender, [data] (boost::system::error_code const & error, size_t size_a) {free (data);});
+                            stream.abandon ();
                         }
                     }
                     break;
                 }
-                case mu_coin::type::publish_ack:
+                case mu_coin::message_type::publish_con:
                 {
-                    ++publish_ack_count;
+                    ++publish_con_count;
                     break;
                 }
-                case mu_coin::type::publish_nak:
+                case mu_coin::message_type::publish_dup:
+                {
+                    ++publish_dup_count;
+                    break;
+                }
+                case mu_coin::message_type::publish_unk:
+                {
+                    ++publish_unk_count;
+                    break;
+                }
+                case mu_coin::message_type::publish_nak:
                 {
                     ++publish_nak_count;
                     break;
@@ -1064,32 +1096,15 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
     }
 }
 
-mu_coin::keepalive_req::keepalive_req () :
-type (htons (static_cast <uint16_t> (mu_coin::type::keepalive_req)))
-{
-    buffers [0] = boost::asio::const_buffer (&type, sizeof (type));
-}
-
-mu_coin::keepalive_ack::keepalive_ack () :
-type (htons (static_cast <uint16_t> (mu_coin::type::keepalive_ack)))
-{
-    buffers [0] = boost::asio::const_buffer (&type, sizeof (type));
-}
-
 mu_coin::publish_req::publish_req (std::unique_ptr <mu_coin::block> block_a) :
-type (htons (static_cast <uint16_t> (mu_coin::type::publish_req))),
 block (std::move (block_a))
-{
-}
-
-mu_coin::publish_req::publish_req () :
-type (htons (static_cast <uint16_t> (mu_coin::type::publish_req)))
 {
 }
 
 bool mu_coin::publish_req::deserialize (mu_coin::byte_read_stream & stream)
 {
     auto result (false);
+    mu_coin::message_type type;
     result = stream.read (type);
     assert (!result);
     block = mu_coin::deserialize_block (stream);
@@ -1099,24 +1114,8 @@ bool mu_coin::publish_req::deserialize (mu_coin::byte_read_stream & stream)
 
 void mu_coin::publish_req::serialize (mu_coin::byte_write_stream & stream)
 {
-    stream.write (type);
+    stream.write (mu_coin::message_type::publish_req);
     mu_coin::serialize_block (stream, *block);
-}
-
-mu_coin::message::~message ()
-{
-}
-
-mu_coin::publish_ack::publish_ack () :
-type (htons (static_cast <uint16_t> (mu_coin::type::publish_ack)))
-{
-    buffers [0] = boost::asio::mutable_buffer (&type, sizeof (type));
-}
-
-mu_coin::publish_nak::publish_nak () :
-type (htons (static_cast <uint16_t> (mu_coin::type::publish_nak)))
-{
-    buffers [0] = boost::asio::mutable_buffer (&type, sizeof (type));
 }
 
 mu_coin::wallet_temp_t mu_coin::wallet_temp;
@@ -1297,10 +1296,9 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
     return block;
 }
 
-void mu_coin::byte_read_stream::abandon ()
+void mu_coin::byte_write_stream::abandon ()
 {
     data = nullptr;
-    end = nullptr;
 }
 
 mu_coin::uint256_union mu_coin::uint256_union::operator ^ (mu_coin::uint256_union const & other_a) const
@@ -1326,7 +1324,6 @@ mu_coin::uint256_union mu_coin::dbt::uint256 () const
     mu_coin::uint256_union result;
     mu_coin::byte_read_stream stream (reinterpret_cast <uint8_t const *> (data.get_data ()), data.get_size ());
     stream.read (result);
-    stream.abandon ();
     return result;
 }
 
@@ -1446,6 +1443,11 @@ public:
     bool result;
 };
 
+class receivable_message_processor : public mu_coin::message_visitor
+{
+public:
+};
+
 class receivable_processor : public std::enable_shared_from_this <receivable_processor>
 {
 public:
@@ -1459,6 +1461,15 @@ public:
         auto this_l (shared_from_this ());
         timeout = std::chrono::system_clock::now () + std::chrono::seconds (5);
         client.processor.service.add (timeout, [this_l] () {this_l->timeout_action ();});
+        client.network.add_publish_ack_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_ack (std::move (message_a), endpoint_a);});
+        auto peers (client.peers.list ());
+        for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+        {
+            client.network.publish_block (*i, incoming->block->clone ());
+        }
+    }
+    void publish_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const &)
+    {
     }
     void timeout_action ()
     {
@@ -1504,5 +1515,104 @@ std::vector <boost::asio::ip::udp::endpoint> mu_coin::peer_container::list ()
     {
         result.push_back (*i);
     }
+    return result;
+}
+
+void mu_coin::network::add_publish_ack_listener (mu_coin::block_hash const & block_a, session const & function_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    publish_ack_listeners [block_a] = function_a;
+}
+
+void mu_coin::network::remove_publish_ack_listener (mu_coin::block_hash const & block_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    publish_ack_listeners.erase (block_a);
+}
+
+void mu_coin::keepalive_req::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.keepalive_req (*this);
+}
+
+void mu_coin::keepalive_ack::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.keepalive_ack (*this);
+}
+
+void mu_coin::publish_req::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.publish_req (*this);
+}
+
+void mu_coin::publish_con::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.publish_con (*this);
+}
+
+void mu_coin::publish_dup::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.publish_dup (*this);
+}
+
+void mu_coin::publish_unk::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.publish_unk (*this);
+}
+
+void mu_coin::publish_nak::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.publish_nak (*this);
+}
+
+void mu_coin::publish_con::serialize (mu_coin::byte_write_stream & stream)
+{
+    stream.write (mu_coin::message_type::publish_con);
+}
+
+bool mu_coin::publish_con::deserialize (mu_coin::byte_read_stream & stream)
+{
+    mu_coin::message_type type;
+    auto result (stream.read (type));
+    assert (type == mu_coin::message_type::publish_con);
+    return result;
+}
+
+void mu_coin::publish_unk::serialize (mu_coin::byte_write_stream & stream)
+{
+    stream.write (mu_coin::message_type::publish_unk);
+}
+
+bool mu_coin::publish_unk::deserialize (mu_coin::byte_read_stream & stream)
+{
+    mu_coin::message_type type;
+    auto result (stream.read (type));
+    assert (type == mu_coin::message_type::publish_unk);
+    return result;
+}
+
+void mu_coin::keepalive_ack::serialize (mu_coin::byte_write_stream & stream)
+{
+    stream.write (mu_coin::message_type::keepalive_ack);
+}
+
+bool mu_coin::keepalive_ack::deserialize (mu_coin::byte_read_stream & stream)
+{
+    mu_coin::message_type type;
+    auto result (stream.read (type));
+    assert (type == mu_coin::message_type::keepalive_ack);
+    return result;
+}
+
+void mu_coin::keepalive_req::serialize (mu_coin::byte_write_stream & stream)
+{
+    stream.write (mu_coin::message_type::keepalive_req);
+}
+
+bool mu_coin::keepalive_req::deserialize (mu_coin::byte_read_stream & stream)
+{
+    mu_coin::message_type type;
+    auto result (stream.read (type));
+    assert (type == mu_coin::message_type::keepalive_req);
     return result;
 }
