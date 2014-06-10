@@ -1043,10 +1043,11 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     receive ();
                     if (!error)
                     {
+                        auto hash (incoming->block->hash ());
                         auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming)));
                         if (!error)
                         {
-                            mu_coin::publish_con outgoing;
+                            mu_coin::publish_con outgoing {hash};
                             mu_coin::byte_write_stream stream;
                             outgoing.serialize (stream);
                             auto data (stream.data);
@@ -1443,15 +1444,14 @@ public:
     bool result;
 };
 
-class receivable_processor;
 class receivable_message_processor : public mu_coin::message_visitor
 {
 public:
-    receivable_message_processor (receivable_processor & processor_a) :
+    receivable_message_processor (mu_coin::receivable_processor & processor_a) :
     processor (processor_a)
     {
     }
-    receivable_processor & processor;
+    mu_coin::receivable_processor & processor;
     void keepalive_req (mu_coin::keepalive_req const &)
     {
         assert (false);
@@ -1471,58 +1471,51 @@ public:
     void process_authorizations (mu_coin::block_hash const &, std::vector <mu_coin::authorization> const &);
 };
 
-class receivable_processor : public std::enable_shared_from_this <receivable_processor>
+mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a) :
+threshold (client_a.ledger.supply () / 2),
+incoming (std::move (incoming_a)),
+client (client_a),
+complete (false)
 {
-public:
-    receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a) :
-    threshold (client_a.ledger.supply () / 2),
-    incoming (std::move (incoming_a)),
-    client (client_a),
-    complete (false)
+}
+
+void mu_coin::receivable_processor::run ()
+{
+    auto this_l (shared_from_this ());
+    advance_timeout ();
+    client.network.add_publish_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
+    auto peers (client.peers.list ());
+    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
+        client.network.publish_block (*i, incoming->block->clone ());
     }
-    void run ()
+}
+
+void mu_coin::receivable_processor::publish_con (std::unique_ptr <mu_coin::message> message, const mu_coin::endpoint &source)
+{
+    receivable_message_processor processor_l (*this);
+    message->visit (processor_l);
+}
+
+void mu_coin::receivable_processor::advance_timeout ()
+{
+    auto this_l (shared_from_this ());
+    timeout = std::chrono::system_clock::now () + std::chrono::seconds (5);
+    client.processor.service.add (timeout, [this_l] () {this_l->timeout_action ();});
+}
+
+void mu_coin::receivable_processor::timeout_action ()
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    if (timeout < std::chrono::system_clock::now ())
     {
-        auto this_l (shared_from_this ());
-        advance_timeout ();
-        client.processor.service.add (timeout, [this_l] () {this_l->timeout_action ();});
-        client.network.add_publish_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_ack (std::move (message_a), endpoint_a);});
-        auto peers (client.peers.list ());
-        for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-        {
-            client.network.publish_block (*i, incoming->block->clone ());
-        }
+        
     }
-    void publish_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source)
+    else
     {
-        receivable_message_processor processor_l (*this);
-        message->visit (processor_l);
+        // Timeout signals may be invalid if we've received action since they were queued
     }
-    void timeout_action ()
-    {
-        std::lock_guard <std::mutex> lock (mutex);
-        if (timeout < std::chrono::system_clock::now ())
-        {
-            
-        }
-        else
-        {
-            // Timeout signals may be invalid if we've received action since they were queued
-        }
-    }
-    void advance_timeout ()
-    {
-        timeout = std::chrono::system_clock::now () + std::chrono::seconds (5);
-    }
-    mu_coin::uint256_t acknowledged;
-    mu_coin::uint256_t nacked;
-    mu_coin::uint256_t threshold;
-    std::chrono::system_clock::time_point timeout;
-    std::unique_ptr <mu_coin::publish_req> incoming;
-    mu_coin::client & client;
-    std::mutex mutex;
-    bool complete;
-};
+}
 
 void receivable_message_processor::process_authorizations (mu_coin::block_hash const & block, std::vector <mu_coin::authorization> const & authorizations)
 {
@@ -1761,4 +1754,21 @@ void mu_coin::client::publish (std::unique_ptr <mu_coin::block> block)
 mu_coin::uint256_t mu_coin::ledger::supply ()
 {
     return std::numeric_limits <mu_coin::uint256_t>::max ();
+}
+
+size_t mu_coin::processor_service::size ()
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    return operations.size ();
+}
+
+size_t mu_coin::network::publish_listener_size ()
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    return publish_listeners.size ();
+}
+
+mu_coin::publish_con::publish_con (mu_coin::block_hash const & block_a) :
+block (block_a)
+{
 }

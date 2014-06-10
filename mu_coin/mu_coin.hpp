@@ -380,6 +380,7 @@ namespace mu_coin {
     class publish_con : public message
     {
     public:
+        publish_con (mu_coin::block_hash const &);
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
@@ -468,6 +469,7 @@ namespace mu_coin {
         void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
         void stop ();
         bool stopped ();
+        size_t size ();
     private:
         bool done;
         std::mutex mutex;
@@ -496,6 +498,7 @@ namespace mu_coin {
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
         void add_publish_listener (mu_coin::block_hash const &, session const &);
         void remove_publish_listener (mu_coin::block_hash const &);
+        size_t publish_listener_size ();
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
@@ -522,6 +525,23 @@ namespace mu_coin {
     private:
         std::mutex mutex;
         std::unordered_set <boost::asio::ip::udp::endpoint> peers;
+    };    
+    class receivable_processor : public std::enable_shared_from_this <receivable_processor>
+    {
+    public:
+        receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a);
+        void run ();
+        void publish_con (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
+        void timeout_action ();
+        void advance_timeout ();
+        mu_coin::uint256_t acknowledged;
+        mu_coin::uint256_t nacked;
+        mu_coin::uint256_t threshold;
+        std::chrono::system_clock::time_point timeout;
+        std::unique_ptr <mu_coin::publish_req> incoming;
+        mu_coin::client & client;
+        std::mutex mutex;
+        bool complete;
     };
     class client
     {
