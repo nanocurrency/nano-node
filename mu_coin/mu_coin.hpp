@@ -345,6 +345,7 @@ namespace mu_coin {
     public:
         mu_coin::address address;
         mu_coin::signature signature;
+        bool operator == (mu_coin::authorization const &) const;
     };
     class message_visitor;
     class message
@@ -380,10 +381,12 @@ namespace mu_coin {
     class publish_con : public message
     {
     public:
+        publish_con () = default;
         publish_con (mu_coin::block_hash const &);
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
+        bool operator == (mu_coin::publish_con const &) const;
         mu_coin::block_hash block;
         std::vector <mu_coin::authorization> authorizations;
     };

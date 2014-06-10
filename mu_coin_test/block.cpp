@@ -255,3 +255,20 @@ TEST (send_block, copy)
     mu_coin::send_block block2 (block1);
     ASSERT_EQ (block1, block2);
 }
+
+TEST (publish_con, serialization)
+{
+    mu_coin::block_hash hash;
+    mu_coin::publish_con con1 {hash};
+    mu_coin::keypair key1;
+    mu_coin::signature signature;
+    mu_coin::sign_message (key1.prv, key1.pub, hash, signature);
+    mu_coin::authorization authorization {key1.pub, signature};
+    con1.authorizations.push_back (authorization);
+    mu_coin::byte_write_stream stream1;
+    con1.serialize (stream1);
+    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    mu_coin::publish_con con2;
+    con2.deserialize (stream2);
+    ASSERT_EQ (con1, con2);
+}

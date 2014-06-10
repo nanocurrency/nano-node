@@ -1069,11 +1069,36 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 case mu_coin::message_type::publish_con:
                 {
                     ++publish_con_count;
+                    auto incoming (new mu_coin::publish_con);
+                    mu_coin::byte_read_stream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    receive ();
+                    if (!error)
+                    {
+                        std::unique_lock <std::mutex> lock (mutex);
+                        auto session (publish_listeners.find (incoming->block));
+                        if (session != publish_listeners.end ())
+                        {
+                            lock.release ();
+                            session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
+                        }
+                    }
                     break;
                 }
                 case mu_coin::message_type::publish_dup:
                 {
                     ++publish_dup_count;
+                    auto incoming (new mu_coin::publish_dup);
+                    mu_coin::byte_read_stream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    receive ();
+                    if (!error)
+                    {
+                        std::unique_lock <std::mutex> lock (mutex);
+                        auto session (publish_listeners.find (incoming->block));
+                        lock.release ();
+                        session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
+                    }
                     break;
                 }
                 case mu_coin::message_type::publish_unk:
@@ -1697,6 +1722,14 @@ void mu_coin::publish_nak::visit (mu_coin::message_visitor & visitor_a)
 void mu_coin::publish_con::serialize (mu_coin::byte_write_stream & stream)
 {
     stream.write (mu_coin::message_type::publish_con);
+    stream.write (block);
+    assert (authorizations.size () < 256);
+    auto authorization_count (static_cast <uint8_t> (authorizations.size ()));
+    stream.write (authorization_count);
+    for (auto i (authorizations.begin ()), j (authorizations.end ()); i != j; ++i)
+    {
+        stream.write (*i);
+    }
 }
 
 bool mu_coin::publish_con::deserialize (mu_coin::byte_read_stream & stream)
@@ -1704,6 +1737,20 @@ bool mu_coin::publish_con::deserialize (mu_coin::byte_read_stream & stream)
     mu_coin::message_type type;
     auto result (stream.read (type));
     assert (type == mu_coin::message_type::publish_con);
+    result = stream.read (block);
+    if (!result)
+    {
+        uint8_t authorizations_count;
+        result = stream.read (authorizations_count);
+        if (!result)
+        {
+            for (auto i (0); i < authorizations_count; ++i)
+            {
+                authorizations.push_back (mu_coin::authorization {});
+                stream.read (authorizations.back ());
+            }
+        }
+    }
     return result;
 }
 
@@ -1771,4 +1818,22 @@ size_t mu_coin::network::publish_listener_size ()
 mu_coin::publish_con::publish_con (mu_coin::block_hash const & block_a) :
 block (block_a)
 {
+}
+
+bool mu_coin::publish_dup::deserialize (mu_coin::byte_read_stream & stream)
+{
+    mu_coin::message_type type;
+    auto result (stream.read (type));
+    assert (type == mu_coin::message_type::publish_dup);
+    return result;
+}
+
+bool mu_coin::publish_con::operator == (mu_coin::publish_con const & other_a) const
+{
+    return block == other_a.block && authorizations == other_a.authorizations;
+}
+
+bool mu_coin::authorization::operator == (mu_coin::authorization const & other_a) const
+{
+    return address == other_a.address && signature == other_a.signature;
 }
