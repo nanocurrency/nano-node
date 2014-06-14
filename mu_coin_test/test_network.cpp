@@ -191,4 +191,85 @@ TEST (receivable_processor, confirm_insufficient_pos)
     std::copy (stream.data, stream.data + stream.size, client1.network.buffer.begin ());
     client1.network.receive_action (boost::system::error_code {}, stream.size);
     ASSERT_EQ (1, receivable->acknowledged);
+    ASSERT_FALSE (receivable->complete);
+    // Shared_from_this, local, timeout, callback
+    ASSERT_EQ (4, receivable.use_count ());
+}
+
+TEST (receivable_processor, confirm_sufficient_pos)
+{
+    boost::asio::io_service io_service;
+    mu_coin::processor_service processor;
+    mu_coin::client client1 (io_service, 24001, processor);
+    mu_coin::keypair key1;
+    client1.ledger.store.genesis_put (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max ());
+    auto block1 (new mu_coin::send_block ());
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, client1));
+    receivable->run ();
+    ASSERT_EQ (1, client1.network.publish_listener_size ());
+    mu_coin::publish_con con1 {block1->hash ()};
+    mu_coin::authorization auth1;
+    auth1.address = key1.pub;
+    mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
+    con1.authorizations.push_back (auth1);
+    mu_coin::byte_write_stream stream;
+    con1.serialize (stream);
+    ASSERT_LE (stream.size, client1.network.buffer.size ());
+    std::copy (stream.data, stream.data + stream.size, client1.network.buffer.begin ());
+    client1.network.receive_action (boost::system::error_code {}, stream.size);
+    ASSERT_EQ (std::numeric_limits<mu_coin::uint256_t>::max (), receivable->acknowledged);
+    ASSERT_TRUE (receivable->complete);
+    ASSERT_EQ (3, receivable.use_count ());
+}
+
+TEST (receivable_processor, send_with_receive)
+{
+    boost::asio::io_service io_service;
+    mu_coin::processor_service processor;
+    mu_coin::client client1 (io_service, 24001, processor);
+    mu_coin::client client2 (io_service, 24002, processor);
+    mu_coin::keypair key1;
+    client1.wallet.insert (key1.pub, key1.prv, 0);
+    mu_coin::keypair key2;
+    client2.wallet.insert (key2.pub, key2.prv, 0);
+    auto amount (std::numeric_limits <mu_coin::uint256_t>::max ());
+    client1.ledger.store.genesis_put (key1.pub, amount);
+    client2.ledger.store.genesis_put (key1.pub, amount);
+    auto block1 (new mu_coin::send_block ());
+    mu_coin::block_hash previous;
+    ASSERT_FALSE (client1.ledger.store.latest_get (key1.pub, previous));
+    block1->inputs.push_back (mu_coin::send_input (key1.pub, previous, amount - 100));
+    block1->outputs.push_back (mu_coin::send_output (key2.pub, 99));
+    block1->signatures.push_back (mu_coin::uint512_union {});
+    mu_coin::sign_message (key1.prv, key1.pub, block1->hash (), block1->signatures.back ());
+    ASSERT_EQ (amount, client1.ledger.balance (key1.pub));
+    ASSERT_EQ (0, client1.ledger.balance (key2.pub));
+    ASSERT_EQ (amount, client2.ledger.balance (key1.pub));
+    ASSERT_EQ (0, client2.ledger.balance (key2.pub));
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (*block1));
+    ASSERT_EQ (mu_coin::process_result::progress, client2.ledger.process (*block1));
+    ASSERT_EQ (amount - 100, client1.ledger.balance (key1.pub));
+    ASSERT_EQ (0, client1.ledger.balance (key2.pub));
+    ASSERT_EQ (amount - 100, client2.ledger.balance (key1.pub));
+    ASSERT_EQ (0, client2.ledger.balance (key2.pub));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, client2));
+    receivable->run ();
+    ASSERT_EQ (1, client2.network.publish_listener_size ());
+    mu_coin::publish_con con1 {block1->hash ()};
+    mu_coin::authorization auth1;
+    auth1.address = key1.pub;
+    mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
+    con1.authorizations.push_back (auth1);
+    mu_coin::byte_write_stream stream;
+    con1.serialize (stream);
+    ASSERT_LE (stream.size, client2.network.buffer.size ());
+    std::copy (stream.data, stream.data + stream.size, client2.network.buffer.begin ());
+    client2.network.receive_action (boost::system::error_code {}, stream.size);
+    ASSERT_EQ (amount - 100, client1.ledger.balance (key1.pub));
+    ASSERT_EQ (0, client1.ledger.balance (key2.pub));
+    ASSERT_EQ (amount - 100, client2.ledger.balance (key1.pub));
+    ASSERT_EQ (99, client2.ledger.balance (key2.pub));
+    ASSERT_EQ (amount - 100, receivable->acknowledged);
+    ASSERT_TRUE (receivable->complete);
+    ASSERT_EQ (3, receivable.use_count ());
 }

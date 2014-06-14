@@ -1571,13 +1571,17 @@ void receivable_message_processor::process_authorizations (mu_coin::block_hash c
             for (auto i (send.outputs.begin ()), j (send.outputs.end ()); i != j; ++i)
             {
                 mu_coin::private_key prv;
-                mu_coin::secret_key key;
+                mu_coin::secret_key key (0);
                 if (!processor.client.wallet.fetch (i->destination, key, prv))
                 {
                     if (!processor.client.ledger.store.pending_get (i->destination, hash))
                     {
                         mu_coin::block_hash previous;
-                        processor.client.ledger.store.latest_get (i->destination, previous);
+                        auto new_address (processor.client.ledger.store.latest_get (i->destination, previous));
+                        if (new_address)
+                        {
+                            previous = i->destination;
+                        }
                         auto receive (new mu_coin::receive_block);
                         receive->previous = previous;
                         receive->source = hash;

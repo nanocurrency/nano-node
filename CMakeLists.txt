@@ -19,8 +19,6 @@ include_directories (${CRYPTOPP_INCLUDE_DIR})
 
 find_package (Qt5 REQUIRED COMPONENTS Core Gui Widgets)
 
-include_directories (${CMAKE_SOURCE_DIR}/libb64-1.2/include)
-
 add_library (mu_coin
 	mu_coin/mu_coin.hpp
 	mu_coin/mu_coin.cpp
