@@ -166,7 +166,6 @@ namespace mu_coin {
     class block
     {
     public:
-        virtual mu_coin::uint256_t fee () const = 0;
         virtual mu_coin::uint256_union hash () const = 0;
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
@@ -216,7 +215,6 @@ namespace mu_coin {
     public:
         send_block () = default;
         send_block (send_block const &);
-        mu_coin::uint256_t fee () const override;
         mu_coin::uint256_union hash () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &);
@@ -232,7 +230,6 @@ namespace mu_coin {
     class receive_block : public mu_coin::block
     {
     public:
-        mu_coin::uint256_t fee () const override;
         mu_coin::uint256_union hash () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &);

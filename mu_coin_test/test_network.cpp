@@ -108,7 +108,7 @@ TEST (network, send_valid_publish)
     mu_coin::send_block block2;
     mu_coin::block_hash hash1;
     ASSERT_FALSE (client1.store.latest_get (key1.pub, hash1));
-    block2.inputs.push_back (mu_coin::send_input (key1.pub, hash1, 49));
+    block2.inputs.push_back (mu_coin::send_input (key1.pub, hash1, 50));
     block2.signatures.push_back (mu_coin::uint512_union ());
     block2.outputs.push_back (mu_coin::send_output (key2.pub, 50));
     auto hash2 (block2.hash ());
@@ -128,7 +128,7 @@ TEST (network, send_valid_publish)
     ASSERT_FALSE (client2.store.latest_get (key1.pub, hash4));
     ASSERT_FALSE (hash3 == hash4);
     ASSERT_EQ (hash2, hash4);
-    ASSERT_EQ (49, client2.ledger.balance (key1.pub));
+    ASSERT_EQ (50, client2.ledger.balance (key1.pub));
 }
 
 TEST (receivable_processor, timeout)
@@ -239,7 +239,7 @@ TEST (receivable_processor, send_with_receive)
     mu_coin::block_hash previous;
     ASSERT_FALSE (client1.ledger.store.latest_get (key1.pub, previous));
     block1->inputs.push_back (mu_coin::send_input (key1.pub, previous, amount - 100));
-    block1->outputs.push_back (mu_coin::send_output (key2.pub, 99));
+    block1->outputs.push_back (mu_coin::send_output (key2.pub, 100));
     block1->signatures.push_back (mu_coin::uint512_union {});
     mu_coin::sign_message (key1.prv, key1.pub, block1->hash (), block1->signatures.back ());
     ASSERT_EQ (amount, client1.ledger.balance (key1.pub));
@@ -268,7 +268,7 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (amount - 100, client1.ledger.balance (key1.pub));
     ASSERT_EQ (0, client1.ledger.balance (key2.pub));
     ASSERT_EQ (amount - 100, client2.ledger.balance (key1.pub));
-    ASSERT_EQ (99, client2.ledger.balance (key2.pub));
+    ASSERT_EQ (100, client2.ledger.balance (key2.pub));
     ASSERT_EQ (amount - 100, receivable->acknowledged);
     ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (3, receivable.use_count ());

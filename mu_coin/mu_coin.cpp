@@ -303,11 +303,6 @@ void mu_coin::receive_block::visit (mu_coin::block_visitor & visitor_a) const
     visitor_a.receive_block (*this);
 }
 
-mu_coin::uint256_t mu_coin::send_block::fee () const
-{
-    return 1;
-}
-
 mu_coin::uint256_union mu_coin::send_block::hash () const
 {
     mu_coin::uint256_union result;
@@ -454,11 +449,6 @@ void mu_coin::receive_block::serialize (mu_coin::byte_write_stream & stream_a) c
     stream_a.write (previous.bytes);
 }
 
-mu_coin::uint256_t mu_coin::receive_block::fee () const
-{
-    return 1;
-}
-
 mu_coin::uint256_union mu_coin::receive_block::hash () const
 {
     CryptoPP::SHA256 hash;
@@ -504,7 +494,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
     }
     auto inputs_string (inputs.convert_to<std::string>());
     auto outputs_string (outputs.convert_to<std::string>());
-    if (result == mu_coin::process_result::progress && outputs + block_a.fee () == inputs)
+    if ((result == mu_coin::process_result::progress) && (outputs == inputs))
     {
         ledger.store.block_put (message, block_a);
         auto k (input_addresses.begin ());
@@ -1268,7 +1258,7 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
     block->outputs.push_back (mu_coin::send_output (destination, coins));
     std::vector <mu_coin::public_key> accounts;
-    for (auto i (begin ()), j (end ()); i != j && !result && amount < coins + block->fee (); ++i)
+    for (auto i (begin ()), j (end ()); i != j && !result && amount < coins; ++i)
     {
         auto account (*i);
         auto balance (ledger_a.balance (account));
@@ -1279,9 +1269,9 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
             auto & input (block->inputs.back ());
             mu_coin::block_hash latest;
             assert (!ledger_a.store.latest_get (account, latest));
-            if (amount + balance > coins + block->fee ())
+            if (amount + balance > coins)
             {
-                auto partial (coins + block->fee () - amount);
+                auto partial (coins - amount);
                 assert (partial < balance);
                 input.coins = balance - partial;
                 input.previous = account ^ latest;
@@ -1295,8 +1285,8 @@ std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & l
             }
         }
     }
-    assert (amount <= coins + block->fee ());
-    if (!result && amount == coins + block->fee ())
+    assert (amount <= coins);
+    if (!result && amount == coins)
     {
         auto message (block->hash ());
         auto k (accounts.begin ());

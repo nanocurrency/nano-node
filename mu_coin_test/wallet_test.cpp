@@ -102,7 +102,7 @@ TEST (wallet, one_spend)
     mu_coin::block_hash latest1;
     store.latest_get (key1.pub, latest1);
     mu_coin::keypair key2;
-    auto send (wallet.send (ledger, key2.pub, 499, password));
+    auto send (wallet.send (ledger, key2.pub, 500, password));
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
@@ -110,7 +110,7 @@ TEST (wallet, one_spend)
     ASSERT_EQ (0, send->inputs [0].coins.number ());
     ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
     ASSERT_EQ (key2.pub, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (500, send->outputs [0].coins.number ());
 }
 
 TEST (wallet, two_spend)
@@ -130,7 +130,7 @@ TEST (wallet, two_spend)
     mu_coin::block_hash hash2;
     ASSERT_FALSE (store.latest_get (key2.pub, hash2));
     mu_coin::keypair key3;
-    auto send (wallet.send (ledger, key3.pub, 499, password));
+    auto send (wallet.send (ledger, key3.pub, 500, password));
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (2, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
@@ -141,7 +141,7 @@ TEST (wallet, two_spend)
     ASSERT_EQ (0, send->inputs [1].coins.number ());
     ASSERT_FALSE (mu_coin::validate_message (key2.pub, send->hash (), send->signatures [1]));
     ASSERT_EQ (key3.pub, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (500, send->outputs [0].coins.number ());
 }
 
 TEST (wallet, partial_spend)
@@ -156,7 +156,7 @@ TEST (wallet, partial_spend)
     mu_coin::block_hash latest1;
     ASSERT_FALSE (store.latest_get (key1.pub, latest1));
     mu_coin::keypair key2;
-    auto send (wallet.send (ledger, key2.pub, 499, password));
+    auto send (wallet.send (ledger, key2.pub, 500, password));
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
@@ -164,7 +164,7 @@ TEST (wallet, partial_spend)
     ASSERT_EQ (300, send->inputs [0].coins.number ());
     ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
     ASSERT_EQ (key2.pub, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (500, send->outputs [0].coins.number ());
 }
 
 TEST (wallet, spend_no_previous)
@@ -189,7 +189,7 @@ TEST (wallet, spend_no_previous)
         wallet.insert (key.pub, key.prv, password);
     }
     mu_coin::keypair key2;
-    auto send (wallet.send (ledger, key2.pub, 499, password));
+    auto send (wallet.send (ledger, key2.pub, 500, password));
     ASSERT_NE (nullptr, send);
     ASSERT_EQ (1, send->inputs.size ());
     ASSERT_EQ (1, send->outputs.size ());
@@ -197,5 +197,5 @@ TEST (wallet, spend_no_previous)
     ASSERT_EQ (0, send->inputs [0].coins.number ());
     ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
     ASSERT_EQ (key2.pub, send->outputs [0].destination);
-    ASSERT_EQ (499, send->outputs [0].coins.number ());
+    ASSERT_EQ (500, send->outputs [0].coins.number ());
 }
