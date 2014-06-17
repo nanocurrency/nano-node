@@ -988,7 +988,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
-    socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const &, size_t) {free (data);});
+    socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const & ec, size_t size) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
 }
@@ -1790,6 +1790,10 @@ bool mu_coin::keepalive_req::deserialize (mu_coin::byte_read_stream & stream)
 void mu_coin::client::publish (std::unique_ptr <mu_coin::block> block)
 {
     auto list (peers.list ());
+    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+    {
+        network.publish_block (*i, std::unique_ptr <mu_coin::block> (block->clone ()));
+    }
 }
 
 mu_coin::uint256_t mu_coin::ledger::supply ()

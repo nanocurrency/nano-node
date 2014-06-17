@@ -8,6 +8,7 @@ TEST (network, construction)
     mu_coin::processor_service processor;
     mu_coin::client client (service, 24001, processor);
     client.network.receive ();
+    ASSERT_EQ (24001, client.network.socket.local_endpoint ().port ());
 }
 
 TEST (network, send_keepalive)
@@ -264,6 +265,8 @@ TEST (receivable_processor, send_with_receive)
     con1.serialize (stream);
     ASSERT_LE (stream.size, client2.network.buffer.size ());
     std::copy (stream.data, stream.data + stream.size, client2.network.buffer.begin ());
+    client2.network.remote = mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), client1.network.socket.local_endpoint ().port ());
+    client1.network.receive ();
     client2.network.receive_action (boost::system::error_code {}, stream.size);
     ASSERT_EQ (amount - 100, client1.ledger.balance (key1.pub));
     ASSERT_EQ (0, client1.ledger.balance (key2.pub));
@@ -272,4 +275,13 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (amount - 100, receivable->acknowledged);
     ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (3, receivable.use_count ());
+    while (client1.network.publish_req_count < 1)
+    {
+        io_service.run_one ();
+    }
+    ASSERT_EQ (amount - 100, client1.ledger.balance (key1.pub));
+    ASSERT_EQ (100, client1.ledger.balance (key2.pub));
+    ASSERT_EQ (amount - 100, client2.ledger.balance (key1.pub));
+    ASSERT_EQ (100, client2.ledger.balance (key2.pub));
+    ASSERT_EQ (amount - 100, receivable->acknowledged);
 }
