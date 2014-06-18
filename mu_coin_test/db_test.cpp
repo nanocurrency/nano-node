@@ -88,13 +88,13 @@ TEST (block_store, add_pending)
     mu_coin::block_store db (mu_coin::block_store_temp);
     mu_coin::keypair key1;
     mu_coin::block_hash hash1;
-    auto pending1 (db.pending_get (key1.pub, hash1));
+    auto pending1 (db.pending_get (key1.pub ^ hash1));
     ASSERT_TRUE (pending1);
-    db.pending_put (key1.pub, hash1);
-    auto pending2 (db.pending_get (key1.pub, hash1));
+    db.pending_put (key1.pub ^ hash1);
+    auto pending2 (db.pending_get (key1.pub ^ hash1));
     ASSERT_FALSE (pending2);
-    db.pending_del (key1.pub, hash1);
-    auto pending3 (db.pending_get (key1.pub, hash1));
+    db.pending_del (key1.pub ^ hash1);
+    auto pending3 (db.pending_get (key1.pub ^ hash1));
     ASSERT_TRUE (pending3);
 }
 

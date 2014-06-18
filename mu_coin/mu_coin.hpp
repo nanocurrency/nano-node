@@ -271,17 +271,20 @@ namespace mu_coin {
         void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
         bool latest_get (mu_coin::address const &, mu_coin::block_hash &);
         
-        void pending_put (mu_coin::address const &, mu_coin::block_hash const &);
-        void pending_del (mu_coin::address const &, mu_coin::block_hash const &);
-        bool pending_get (mu_coin::address const &, mu_coin::block_hash const &);
+        void pending_put (mu_coin::identifier const &);
+        void pending_del (mu_coin::identifier const &);
+        bool pending_get (mu_coin::identifier const &);
         
     private:
-        // identifier = block_hash ^ address    // Used to uniquely identify a block and address when refering to a send block which has multiple addresses
+        // identifier = block_hash ^ address    // Used to uniquely identify a (block, address) when refering to a send block which has multiple addresses
         // identifier -> block_hash             // Each identifier maps to exactly one block
         // address -> block_hash                // Each address has one head block
         // block_hash -> block                  // Mapping block hash to contents
-        // (address, block_hash) ->
-        Db handle;
+        // identifier ->                        // Pending identifers
+        Db identifiers;
+        Db addresses;
+        Db blocks;
+        Db pending;
     };
     enum class process_result
     {

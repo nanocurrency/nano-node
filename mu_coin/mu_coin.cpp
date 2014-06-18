@@ -506,7 +506,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
         }
         for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
         {
-            ledger.store.pending_put (i->destination, message);
+            ledger.store.pending_put (i->destination ^ message);
         }
     }
     else
@@ -543,10 +543,10 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
     if (result == mu_coin::process_result::progress)
     {
         auto hash (block_a.hash ());
-        result = ledger.store.pending_get (address, block_a.source) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress;
+        result = ledger.store.pending_get (address ^ block_a.source) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress;
         if (result == mu_coin::process_result::progress)
         {
-            ledger.store.pending_del (address, block_a.source);
+            ledger.store.pending_del (address ^ block_a.source);
             ledger.store.block_put (hash, block_a);
             auto new_identifier (address ^ hash);
             ledger.store.identifier_put (new_identifier, hash);
@@ -777,16 +777,23 @@ block_store (boost::filesystem::unique_path ())
 }
 
 mu_coin::block_store::block_store (boost::filesystem::path const & path_a) :
-handle (nullptr, 0)
+identifiers (nullptr, 0),
+addresses (nullptr, 0),
+blocks (nullptr, 0),
+pending (nullptr, 0)
 {
-    handle.open (nullptr, path_a.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    boost::filesystem::create_directories (path_a);
+    identifiers.open (nullptr, (path_a / "identifiers.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    addresses.open (nullptr, (path_a / "addresses.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    blocks.open (nullptr, (path_a / "blocks.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    pending.open (nullptr, (path_a / "pending.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
 {
     dbt key (hash_a);
     dbt data (block_a);
-    int error (handle.put (nullptr, &key.data, &data.data, 0));
+    int error (blocks.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
 
@@ -794,7 +801,7 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block
 {
     mu_coin::dbt key (hash_a);
     mu_coin::dbt data;
-    int error (handle.get (nullptr, &key.data, &data.data, 0));
+    int error (blocks.get (nullptr, &key.data, &data.data, 0));
     assert (error == 0 || error == DB_NOTFOUND);
     auto result (data.block ());
     return result;
@@ -819,7 +826,7 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
 {
     mu_coin::dbt key (address_a);
     mu_coin::dbt data;
-    int error (handle.get (nullptr, &key.data, &data.data, 0));
+    int error (addresses.get (nullptr, &key.data, &data.data, 0));
     assert (error == 0 || error == DB_NOTFOUND);
     bool result;
     if (data.data.get_size () == 0)
@@ -839,31 +846,31 @@ void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_co
 {
     mu_coin::dbt key (address_a);
     mu_coin::dbt data (hash_a);
-    int error (handle.put (nullptr, &key.data, &data.data, 0));
+    int error (addresses.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
 
-void mu_coin::block_store::pending_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+void mu_coin::block_store::pending_put (mu_coin::identifier const & identifier_a)
 {
-    mu_coin::dbt key (address_a, hash_a);
+    mu_coin::dbt key (identifier_a);
     mu_coin::dbt data;
-    int error (handle.put (nullptr, &key.data, &data.data, 0));
+    int error (pending.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
 
-void mu_coin::block_store::pending_del (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+void mu_coin::block_store::pending_del (mu_coin::identifier const & identifier_a)
 {
-    mu_coin::dbt key (address_a, hash_a);
+    mu_coin::dbt key (identifier_a);
     mu_coin::dbt data;
-    int error (handle.del (nullptr, &key.data, 0));
+    int error (pending.del (nullptr, &key.data, 0));
     assert (error == 0);
 }
 
-bool mu_coin::block_store::pending_get (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a)
 {
-    mu_coin::dbt key (address_a, hash_a);
+    mu_coin::dbt key (identifier_a);
     mu_coin::dbt data;
-    int error (handle.get (nullptr, &key.data, &data.data, 0));
+    int error (pending.get (nullptr, &key.data, &data.data, 0));
     assert (error == 0 || error == DB_NOTFOUND);
     bool result;
     if (error == DB_NOTFOUND)
@@ -881,7 +888,7 @@ void mu_coin::block_store::identifier_put (mu_coin::identifier const & identifie
 {
     mu_coin::dbt key (identifier_a);
     mu_coin::dbt data (hash_a);
-    int error (handle.put (nullptr, &key.data, &data.data, 0));
+    int error (identifiers.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
 
@@ -889,7 +896,7 @@ bool mu_coin::block_store::identifier_get (mu_coin::identifier const & identifie
 {
     mu_coin::dbt key (identifier_a);
     mu_coin::dbt data;
-    int error (handle.get (nullptr, &key.data, &data.data, 0));
+    int error (identifiers.get (nullptr, &key.data, &data.data, 0));
     assert (error == 0 || error == DB_NOTFOUND);
     bool result;
     if (error == DB_NOTFOUND)
@@ -1564,7 +1571,7 @@ void receivable_message_processor::process_authorizations (mu_coin::block_hash c
                 mu_coin::secret_key key (0);
                 if (!processor.client.wallet.fetch (i->destination, key, prv))
                 {
-                    if (!processor.client.ledger.store.pending_get (i->destination, hash))
+                    if (!processor.client.ledger.store.pending_get (i->destination ^ hash))
                     {
                         mu_coin::block_hash previous;
                         auto new_address (processor.client.ledger.store.latest_get (i->destination, previous));
