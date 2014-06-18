@@ -494,24 +494,27 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
     }
     auto inputs_string (inputs.convert_to<std::string>());
     auto outputs_string (outputs.convert_to<std::string>());
-    if ((result == mu_coin::process_result::progress) && (outputs == inputs))
+    if (result == mu_coin::process_result::progress)
     {
-        ledger.store.block_put (message, block_a);
-        auto k (input_addresses.begin ());
-        for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); i != j; ++i, ++k)
+        if (outputs == inputs)
         {
-            assert (k != input_addresses.end ());
-            ledger.store.identifier_put (message ^ *k, message);
-            ledger.store.latest_put (*k, message);
+            ledger.store.block_put (message, block_a);
+            auto k (input_addresses.begin ());
+            for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); i != j; ++i, ++k)
+            {
+                assert (k != input_addresses.end ());
+                ledger.store.identifier_put (message ^ *k, message);
+                ledger.store.latest_put (*k, message);
+            }
+            for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
+            {
+                ledger.store.pending_put (i->destination ^ message);
+            }
         }
-        for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
+        else
         {
-            ledger.store.pending_put (i->destination ^ message);
+            result = mu_coin::process_result::overspend;
         }
-    }
-    else
-    {
-        result = mu_coin::process_result::overspend;
     }
 }
 
@@ -543,14 +546,18 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
     if (result == mu_coin::process_result::progress)
     {
         auto hash (block_a.hash ());
-        result = ledger.store.pending_get (address ^ block_a.source) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress;
+        result = mu_coin::validate_message (address, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress;
         if (result == mu_coin::process_result::progress)
         {
-            ledger.store.pending_del (address ^ block_a.source);
-            ledger.store.block_put (hash, block_a);
-            auto new_identifier (address ^ hash);
-            ledger.store.identifier_put (new_identifier, hash);
-            ledger.store.latest_put (address, hash);
+            result = ledger.store.pending_get (address ^ block_a.source) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress;
+            if (result == mu_coin::process_result::progress)
+            {
+                ledger.store.pending_del (address ^ block_a.source);
+                ledger.store.block_put (hash, block_a);
+                auto new_identifier (address ^ hash);
+                ledger.store.identifier_put (new_identifier, hash);
+                ledger.store.latest_put (address, hash);
+            }
         }
     }
 }
