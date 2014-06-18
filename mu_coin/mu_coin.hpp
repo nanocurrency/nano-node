@@ -276,10 +276,10 @@ namespace mu_coin {
         bool pending_get (mu_coin::address const &, mu_coin::block_hash const &);
         
     private:
-        // identifier = block_hash ^ address
-        // identifier -> block_hash
-        // block_hash -> block
-        // address -> block_hash
+        // identifier = block_hash ^ address    // Used to uniquely identify a block and address when refering to a send block which has multiple addresses
+        // identifier -> block_hash             // Each identifier maps to exactly one block
+        // address -> block_hash                // Each address has one head block
+        // block_hash -> block                  // Mapping block hash to contents
         // (address, block_hash) ->
         Db handle;
     };
