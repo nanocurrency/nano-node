@@ -1849,3 +1849,119 @@ bool mu_coin::authorization::operator == (mu_coin::authorization const & other_a
 {
     return address == other_a.address && signature == other_a.signature;
 }
+
+mu_coin::account_iterator::account_iterator (Dbc * cursor_a) :
+cursor (cursor_a)
+{
+}
+
+mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
+{
+    auto result (cursor->get (&key.data, &data.data, DB_NEXT));
+    if (result == DB_NOTFOUND)
+    {
+        cursor->close ();
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.clear ();
+    }
+    else
+    {
+        current.first = key.uint256 ();
+        current.second = data.uint256 ();
+    }
+    return *this;
+}
+
+mu_coin::account_entry & mu_coin::account_iterator::operator -> ()
+{
+    return current;
+}
+
+bool mu_coin::account_iterator::operator == (mu_coin::account_iterator const & other_a) const
+{
+    return cursor == other_a.cursor;
+}
+
+bool mu_coin::account_iterator::operator != (mu_coin::account_iterator const & other_a) const
+{
+    return !(*this == other_a);
+}
+
+mu_coin::block_iterator::block_iterator (Dbc * cursor_a) :
+cursor (cursor_a)
+{
+}
+
+mu_coin::block_iterator & mu_coin::block_iterator::operator ++ ()
+{
+    auto result (cursor->get (&key.data, &data.data, DB_NEXT));
+    if (result == DB_NOTFOUND)
+    {
+        cursor->close ();
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.release ();
+    }
+    else
+    {
+        current.first = key.uint256 ();
+        current.second = data.block ();
+    }
+    return *this;
+}
+
+mu_coin::block_entry & mu_coin::block_iterator::operator -> ()
+{
+    return current;
+}
+
+bool mu_coin::block_iterator::operator == (mu_coin::block_iterator const & other_a) const
+{
+    return cursor == other_a.cursor;
+}
+
+bool mu_coin::block_iterator::operator != (mu_coin::block_iterator const & other_a) const
+{
+    return !(*this == other_a);
+}
+
+mu_coin::block_iterator mu_coin::block_store::blocks_begin ()
+{
+    Dbc * cursor;
+    blocks.cursor (0, &cursor, 0);
+    mu_coin::block_iterator result (cursor);
+    ++result;
+    return result;
+}
+
+mu_coin::block_iterator mu_coin::block_store::blocks_end ()
+{
+    mu_coin::block_iterator result (nullptr);
+    return result;
+}
+
+mu_coin::account_iterator mu_coin::block_store::latest_begin ()
+{
+    Dbc * cursor;
+    addresses.cursor (0, &cursor, 0);
+    mu_coin::account_iterator result (cursor);
+    ++result;
+    return result;
+}
+
+mu_coin::account_iterator mu_coin::block_store::latest_end ()
+{
+    mu_coin::account_iterator result (nullptr);
+    return result;
+}
+
+mu_coin::block_entry * mu_coin::block_entry::operator -> ()
+{
+    return this;
+}
+
+mu_coin::account_entry * mu_coin::account_entry::operator -> ()
+{
+    return this;
+}

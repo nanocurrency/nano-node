@@ -253,6 +253,50 @@ namespace mu_coin {
     struct block_store_temp_t
     {
     };
+    class account_entry
+    {
+    public:
+        account_entry * operator -> ();
+        mu_coin::address first;
+        mu_coin::block_hash second;
+    };
+    class account_iterator
+    {
+    public:
+        account_iterator (Dbc *);
+        account_iterator (mu_coin::account_iterator &&) = default;
+        account_iterator (mu_coin::account_iterator const &) = default;
+        account_iterator & operator ++ ();
+        account_entry & operator -> ();
+        bool operator == (mu_coin::account_iterator const &) const;
+        bool operator != (mu_coin::account_iterator const &) const;
+        Dbc * cursor;
+        dbt key;
+        dbt data;
+        mu_coin::account_entry current;
+    };
+    class block_entry
+    {
+    public:
+        block_entry * operator -> ();
+        mu_coin::block_hash first;
+        std::unique_ptr <mu_coin::block> second;
+    };
+    class block_iterator
+    {
+    public:
+        block_iterator (Dbc *);
+        block_iterator (mu_coin::block_iterator &&) = default;
+        block_iterator (mu_coin::block_iterator const &) = default;
+        block_iterator & operator ++ ();
+        block_entry & operator -> ();
+        bool operator == (mu_coin::block_iterator const &) const;
+        bool operator != (mu_coin::block_iterator const &) const;
+        Dbc * cursor;
+        dbt key;
+        dbt data;
+        mu_coin::block_entry current;
+    };
     extern block_store_temp_t block_store_temp;
     class block_store
     {
@@ -267,9 +311,13 @@ namespace mu_coin {
         
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
+        block_iterator blocks_begin ();
+        block_iterator blocks_end ();
         
         void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
         bool latest_get (mu_coin::address const &, mu_coin::block_hash &);
+        account_iterator latest_begin ();
+        account_iterator latest_end ();
         
         void pending_put (mu_coin::identifier const &);
         void pending_del (mu_coin::identifier const &);
