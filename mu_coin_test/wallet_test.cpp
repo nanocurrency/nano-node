@@ -86,8 +86,9 @@ TEST (wallet, insufficient_spend)
     mu_coin::ledger ledger (store);
     mu_coin::keypair key1;
     mu_coin::uint256_union password;
-    auto send (wallet.send (ledger, key1.pub, 500, password));
-    ASSERT_EQ (nullptr, send);
+    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
+    auto error (wallet.send (ledger, key1.pub, 500, password, blocks));
+    ASSERT_FALSE (error);
 }
 
 TEST (wallet, one_spend)
@@ -102,15 +103,15 @@ TEST (wallet, one_spend)
     mu_coin::block_hash latest1;
     store.latest_get (key1.pub, latest1);
     mu_coin::keypair key2;
-    auto send (wallet.send (ledger, key2.pub, 500, password));
-    ASSERT_NE (nullptr, send);
-    ASSERT_EQ (1, send->inputs.size ());
-    ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.pub ^ latest1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
-    ASSERT_EQ (key2.pub, send->outputs [0].destination);
-    ASSERT_EQ (500, send->outputs [0].coins.number ());
+    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
+    auto error (wallet.send (ledger, key2.pub, 500, password, blocks));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (1, blocks.size ());
+    auto & send (*blocks [0]);
+    ASSERT_EQ (latest1, send.hashables.previous);
+    ASSERT_EQ (0, send.hashables.balance.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send.hash (), send.signature));
+    ASSERT_EQ (key2.pub, send.hashables.destination);
 }
 
 TEST (wallet, two_spend)
@@ -130,18 +131,18 @@ TEST (wallet, two_spend)
     mu_coin::block_hash hash2;
     ASSERT_FALSE (store.latest_get (key2.pub, hash2));
     mu_coin::keypair key3;
-    auto send (wallet.send (ledger, key3.pub, 500, password));
-    ASSERT_NE (nullptr, send);
-    ASSERT_EQ (2, send->inputs.size ());
-    ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.pub ^ hash1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
-    ASSERT_EQ (key2.pub ^ hash2, send->inputs [1].previous);
-    ASSERT_EQ (0, send->inputs [1].coins.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key2.pub, send->hash (), send->signatures [1]));
-    ASSERT_EQ (key3.pub, send->outputs [0].destination);
-    ASSERT_EQ (500, send->outputs [0].coins.number ());
+    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
+    auto error (wallet.send (ledger, key3.pub, 500, password, blocks));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (2, blocks.size ());
+    ASSERT_EQ (hash1, blocks [0]->hashables.previous);
+    ASSERT_EQ (0, blocks [0]->hashables.balance.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, blocks [0]->hash (), blocks [0]->signature));
+    ASSERT_EQ (key3.pub, blocks [0]->hashables.destination);
+    ASSERT_EQ (hash2, blocks [1]->hashables.previous);
+    ASSERT_EQ (0, blocks [1]->hashables.balance.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key2.pub, blocks [0]->hash (), blocks [0]->signature));
+    ASSERT_EQ (key3.pub, blocks [1]->hashables.destination);
 }
 
 TEST (wallet, partial_spend)
@@ -156,15 +157,14 @@ TEST (wallet, partial_spend)
     mu_coin::block_hash latest1;
     ASSERT_FALSE (store.latest_get (key1.pub, latest1));
     mu_coin::keypair key2;
-    auto send (wallet.send (ledger, key2.pub, 500, password));
-    ASSERT_NE (nullptr, send);
-    ASSERT_EQ (1, send->inputs.size ());
-    ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.pub ^ latest1, send->inputs [0].previous);
-    ASSERT_EQ (300, send->inputs [0].coins.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
-    ASSERT_EQ (key2.pub, send->outputs [0].destination);
-    ASSERT_EQ (500, send->outputs [0].coins.number ());
+    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
+    auto error (wallet.send (ledger, key2.pub, 500, password, blocks));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (1, blocks.size ());
+    ASSERT_EQ (latest1, blocks [0]->hashables.previous);
+    ASSERT_EQ (300, blocks [0]->hashables.balance.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, blocks [0]->hash (), blocks [0]->signature));
+    ASSERT_EQ (key2.pub, blocks [0]->hashables.destination);
 }
 
 TEST (wallet, spend_no_previous)
@@ -189,13 +189,12 @@ TEST (wallet, spend_no_previous)
         wallet.insert (key.pub, key.prv, password);
     }
     mu_coin::keypair key2;
-    auto send (wallet.send (ledger, key2.pub, 500, password));
-    ASSERT_NE (nullptr, send);
-    ASSERT_EQ (1, send->inputs.size ());
-    ASSERT_EQ (1, send->outputs.size ());
-    ASSERT_EQ (key1.pub ^ hash1, send->inputs [0].previous);
-    ASSERT_EQ (0, send->inputs [0].coins.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send->hash (), send->signatures [0]));
-    ASSERT_EQ (key2.pub, send->outputs [0].destination);
-    ASSERT_EQ (500, send->outputs [0].coins.number ());
+    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
+    auto error (wallet.send (ledger, key2.pub, 500, password, blocks));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (1, blocks.size ());
+    ASSERT_EQ (hash1, blocks [0]->hashables.previous);
+    ASSERT_EQ (0, blocks [0]->hashables.balance.number ());
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, blocks [0]->hash (), blocks [0]->signature));
+    ASSERT_EQ (key2.pub, blocks [0]->hashables.destination);
 }

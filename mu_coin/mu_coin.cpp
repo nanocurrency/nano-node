@@ -108,69 +108,118 @@ bool mu_coin::validate_message (mu_coin::public_key const & public_key, mu_coin:
     return result;
 }
 
+class amount_visitor : public mu_coin::block_visitor
+{
+public:
+    amount_visitor (mu_coin::block_store &);
+    void compute (mu_coin::block_hash const &);
+    void send_block (mu_coin::send_block const & block_a) override;
+    void receive_block (mu_coin::receive_block const & block_a) override;
+    mu_coin::block_store & store;
+    mu_coin::uint256_t result;
+};
+
 class balance_visitor : public mu_coin::block_visitor
 {
 public:
-    balance_visitor (mu_coin::ledger & ledger_a, mu_coin::address const & address_a, mu_coin::block_hash & hash_a, bool & done_a, mu_coin::uint256_t & result_a) :
-    ledger (ledger_a),
-    address (address_a),
-    hash (hash_a),
-    done (done_a),
-    result (result_a)
+    balance_visitor (mu_coin::block_store &);
+    void compute (mu_coin::block_hash const &);
+    void send_block (mu_coin::send_block const & block_a) override;
+    void receive_block (mu_coin::receive_block const & block_a) override;
+    mu_coin::block_store & store;
+    mu_coin::uint256_t result;
+};
+
+balance_visitor::balance_visitor (mu_coin::block_store & store_a):
+store (store_a),
+result (0)
+{
+}
+
+void balance_visitor::send_block (mu_coin::send_block const & block_a)
+{
+    result = block_a.hashables.balance.number ();
+}
+
+class account_visitor : public mu_coin::block_visitor
+{
+public:
+    account_visitor (mu_coin::block_store & store_a) :
+    store (store_a)
     {
+    }
+    void compute (mu_coin::block_hash const & hash_block)
+    {
+        auto block (store.block_get (hash_block));
+        assert (block != nullptr);
+        block->visit (*this);
     }
     void send_block (mu_coin::send_block const & block_a) override
     {
-        auto entry (std::find_if (block_a.inputs.begin (), block_a.inputs.end (),
-            [this] (mu_coin::send_input const & input_a)
-            {
-                mu_coin::block_hash hash;
-                auto error (ledger.store.identifier_get (input_a.previous, hash));
-                assert (!error);
-                return (hash ^ input_a.previous) == address;
-            }
-        ));
-        assert (entry != block_a.inputs.end ());
-        result = entry->coins.number ();
-        done = true;
+        account_visitor prev (store);
+        prev.compute (block_a.hashables.previous);
+        result = prev.result;
     }
     void receive_block (mu_coin::receive_block const & block_a) override
     {
-        auto source (ledger.store.block_get (block_a.source));
-        assert (source != nullptr);
-        assert (dynamic_cast <mu_coin::send_block *> (source.get ()) != nullptr);
-        auto send (static_cast <mu_coin::send_block *> (source.get ()));
-        auto entry (std::find_if (send->outputs.begin (), send->outputs.end (), [this] (mu_coin::send_output const & output_a) {return output_a.destination == address;}));
-        assert (entry != send->outputs.end ());
-        result += entry->coins.number ();
-        hash = block_a.previous;
+        auto block (store.block_get (block_a.hashables.source));
+        assert (block != nullptr);
+        assert (dynamic_cast <mu_coin::send_block *> (block.get ()) != nullptr);
+        auto send (static_cast <mu_coin::send_block *> (block.get ()));
+        result = send->hashables.destination;
     }
-    mu_coin::ledger & ledger;
-    mu_coin::address address;
-    mu_coin::block_hash & hash;
-    bool & done;
-    mu_coin::uint256_t & result;
+    mu_coin::block_store & store;
+    mu_coin::address result;
 };
+
+void balance_visitor::receive_block (mu_coin::receive_block const & block_a)
+{
+    account_visitor account (store);
+    account.compute (block_a.hash ());
+    mu_coin::uint256_t base (0);
+    if (!(block_a.hashables.previous == account.result))
+    {
+        balance_visitor prev (store);
+        prev.compute (block_a.hashables.previous);
+        base = prev.result;
+    }
+    amount_visitor source (store);
+    source.compute (block_a.hashables.source);
+    result = base + source.result;
+}
+
+amount_visitor::amount_visitor (mu_coin::block_store & store_a) :
+store (store_a)
+{
+}
+
+void amount_visitor::send_block (mu_coin::send_block const & block_a)
+{
+    balance_visitor prev (store);
+    prev.compute (block_a.hashables.previous);
+    result = prev.result - block_a.hashables.balance.number ();
+}
+
+void amount_visitor::receive_block (mu_coin::receive_block const & block_a)
+{
+    balance_visitor source (store);
+    source.compute (block_a.hashables.source);
+    auto source_block (store.block_get (block_a.hashables.source));
+    assert (source_block != nullptr);
+    balance_visitor source_prev (store);
+    source_prev.compute (source_block->previous ());
+}
 
 mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::address const & address_a)
 {
     mu_coin::uint256_t result (0);
     mu_coin::block_hash hash;
-    auto done (store.latest_get (address_a, hash));
-    while (!done)
+    auto none (store.latest_get (address_a, hash));
+    if (!none)
     {
-        if (address_a == hash)
-        {
-            // Initial previous
-            done = true;
-        }
-        else
-        {
-            auto block (store.block_get (hash));
-            assert (block != nullptr);
-            balance_visitor visitor (*this, address_a, hash, done, result);
-            block->visit (visitor);
-        }
+        balance_visitor visitor (store);
+        visitor.compute (hash);
+        result = visitor.result;
     }
     return result;
 }
@@ -305,125 +354,55 @@ void mu_coin::receive_block::visit (mu_coin::block_visitor & visitor_a) const
 
 mu_coin::uint256_union mu_coin::send_block::hash () const
 {
+    return hashables.hash ();
+}
+
+mu_coin::uint256_union mu_coin::send_hashables::hash () const
+{
     mu_coin::uint256_union result;
     CryptoPP::SHA256 hash;
-    for (auto & i: inputs)
-    {
-        hash.Update (i.previous.bytes.data (), sizeof (i.previous.bytes));
-        hash.Update (i.coins.bytes.data (), sizeof (i.coins.bytes));
-    }
-    for (auto & i: outputs)
-    {
-        hash.Update (i.destination.bytes.data (), sizeof (i.destination.bytes));
-        hash.Update (i.coins.bytes.data (), sizeof (i.coins.bytes));
-    }
+    hash.Update (previous.bytes.data (), sizeof (previous.bytes));
+    hash.Update (balance.bytes.data (), sizeof (balance.bytes));
+    hash.Update (destination.bytes.data (), sizeof (destination.bytes));
     hash.Final (result.bytes.data ());
     return result;
 }
 
 void mu_coin::send_block::serialize (mu_coin::byte_write_stream & stream) const
 {
-    uint8_t input_count (inputs.size ());
-    stream.write (input_count);
-    uint8_t output_count (outputs.size ());
-    stream.write (output_count);
-    for (auto & i: inputs)
-    {
-        stream.write (i.previous.bytes);
-        stream.write (i.coins.bytes);
-    }
-    for (auto & i: outputs)
-    {
-        stream.write (i.destination.bytes);
-        stream.write (i.coins.bytes);
-    }
-    for (auto & i: signatures)
-    {
-        stream.write (i.bytes);
-    }
+    stream.write (signature.bytes);
+    stream.write (hashables.previous.bytes);
+    stream.write (hashables.balance.bytes);
+    stream.write (hashables.destination.bytes);
 }
 
 bool mu_coin::send_block::deserialize (mu_coin::byte_read_stream & stream)
 {
     auto result (false);
-    uint8_t input_count;
-    result = stream.read (input_count);
+    result = stream.read (signature.bytes);
     if (!result)
     {
-        uint8_t output_count;
-        result = stream.read (output_count);
+        result = stream.read (hashables.previous.bytes);
         if (!result)
         {
-            inputs.reserve (input_count);
-            outputs.reserve (output_count);
-            for (uint8_t i (0); !result && i < input_count; ++i)
+            result = stream.read (hashables.balance.bytes);
+            if (!result)
             {
-                inputs.push_back (mu_coin::send_input ());
-                auto & back (inputs.back ());
-                result = stream.read (back.previous.bytes);
-                if (!result)
-                {
-                    result = stream.read (back.coins.bytes);
-                }
-            }
-            for (uint8_t i (0); !result && i < output_count; ++i)
-            {
-                outputs.push_back (mu_coin::send_output ());
-                auto & back (outputs.back ());
-                result = stream.read (back.destination.bytes);
-                if (!result)
-                {
-                    result = stream.read (back.coins);
-                }
-            }
-            for (uint8_t i (0); !result && i < input_count; ++i)
-            {
-                signatures.push_back (mu_coin::uint512_union ());
-                result = stream.read (signatures.back ().bytes);
+                result = stream.read (hashables.destination.bytes);
             }
         }
     }
     return result;
 }
 
-bool mu_coin::send_block::operator == (mu_coin::send_block const & other_a) const
+void mu_coin::receive_block::sign (mu_coin::private_key const & prv, mu_coin::public_key const & pub, mu_coin::uint256_union const & hash_a)
 {
-    auto result (inputs == other_a.inputs && outputs == other_a.outputs && signatures == other_a.signatures);
-    return result;
-}
-
-bool mu_coin::send_input::send_input::operator == (mu_coin::send_input const & other_a) const
-{
-    auto result (previous == other_a.previous && coins == other_a.coins);
-    return result;
-}
-
-mu_coin::send_input::send_input (mu_coin::public_key const & pub_a, mu_coin::block_hash const & hash_a, mu_coin::balance const & coins_a) :
-previous (pub_a ^ hash_a),
-coins (coins_a)
-{
-}
-
-mu_coin::send_output::send_output (mu_coin::public_key const & pub, mu_coin::uint256_union const & coins_a) :
-destination (pub),
-coins (coins_a)
-{
-}
-
-bool mu_coin::send_output::operator == (mu_coin::send_output const & other_a) const
-{
-    auto result (destination == other_a.destination && coins == other_a.coins);
-    return result;
-}
-
-void mu_coin::receive_block::sign (mu_coin::private_key const & prv, mu_coin::public_key const & pub, mu_coin::uint256_union const & message)
-{
-    sign_message (prv, pub, message, signature);
+    sign_message (prv, pub, hash_a, signature);
 }
 
 bool mu_coin::receive_block::operator == (mu_coin::receive_block const & other_a) const
 {
-    auto result (signature == other_a.signature && source == other_a.source && previous == other_a.previous);
+    auto result (signature == other_a.signature && hashables.previous == other_a.hashables.previous && hashables.source == other_a.hashables.source);
     return result;
 }
 
@@ -433,10 +412,10 @@ bool mu_coin::receive_block::deserialize (mu_coin::byte_read_stream & stream_a)
     result = stream_a.read (signature.bytes);
     if (!result)
     {
-        result = stream_a.read (source.bytes);
+        result = stream_a.read (hashables.previous.bytes);
         if (!result)
         {
-            result = stream_a.read (previous.bytes);
+            result = stream_a.read (hashables.source.bytes);
         }
     }
     return result;
@@ -445,11 +424,16 @@ bool mu_coin::receive_block::deserialize (mu_coin::byte_read_stream & stream_a)
 void mu_coin::receive_block::serialize (mu_coin::byte_write_stream & stream_a) const
 {
     stream_a.write (signature.bytes);
-    stream_a.write (source.bytes);
-    stream_a.write (previous.bytes);
+    stream_a.write (hashables.previous.bytes);
+    stream_a.write (hashables.source.bytes);
 }
 
 mu_coin::uint256_union mu_coin::receive_block::hash () const
+{
+    return hashables.hash ();
+}
+
+mu_coin::uint256_union mu_coin::receive_hashables::hash () const
 {
     CryptoPP::SHA256 hash;
     hash.Update (source.bytes.data (), sizeof (source.bytes));
@@ -462,101 +446,77 @@ mu_coin::uint256_union mu_coin::receive_block::hash () const
 void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
 {
     mu_coin::uint256_union message (block_a.hash ());
-    mu_coin::uint256_t inputs (0);
-    std::vector <mu_coin::address> input_addresses;
-    assert (block_a.signatures.size () == block_a.inputs.size ());
-    auto k (block_a.signatures.begin ());
-    for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); result == mu_coin::process_result::progress && i != j; ++i, ++k)
-    {
-        mu_coin::uint256_union block_hash;
-        result = ledger.store.identifier_get (i->previous, block_hash) ? mu_coin::process_result::out_of_chain : mu_coin::process_result::progress;
-        if (result == mu_coin::process_result::progress)
-        {
-            auto address (block_hash ^ i->previous);
-            result = validate_message (address, message, *k) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress;
-            if (result == mu_coin::process_result::progress)
-            {
-                input_addresses.push_back (address);
-                auto existing (ledger.store.block_get (block_hash));
-                assert (existing != nullptr);
-                mu_coin::uint256_union coins (ledger.balance (address));
-                auto coins_string (coins.number ().convert_to <std::string> ());
-                auto diff (coins.number () - i->coins.number ());
-                inputs += diff;
-                result = diff > coins.number () ? mu_coin::process_result::overspend : mu_coin::process_result::progress;
-            }
-        }
-    }
-    mu_coin::uint256_t outputs (0);
-    for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j && result == mu_coin::process_result::progress; ++i)
-    {
-        outputs += i->coins.number ();
-    }
-    auto inputs_string (inputs.convert_to<std::string>());
-    auto outputs_string (outputs.convert_to<std::string>());
+    mu_coin::uint256_t input (0);
+    auto previous (ledger.store.block_get (block_a.hashables.previous));
+    result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap; // Have we seen the previous block before? (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        if (outputs == inputs)
+        account_visitor account (ledger.store);
+        account.compute (block_a.hashables.previous);
+        result = validate_message (account.result, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress;
+        if (result == mu_coin::process_result::progress)
         {
-            ledger.store.block_put (message, block_a);
-            auto k (input_addresses.begin ());
-            for (auto i (block_a.inputs.begin ()), j (block_a.inputs.end ()); i != j; ++i, ++k)
+            auto existing (ledger.store.block_get (block_a.hashables.previous));
+            result = existing != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap;
+            if (result == mu_coin::process_result::progress)
             {
-                assert (k != input_addresses.end ());
-                ledger.store.identifier_put (message ^ *k, message);
-                ledger.store.latest_put (*k, message);
+                mu_coin::uint256_t coins (ledger.balance (account.result));
+                result = coins > block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend;
+                if (result == mu_coin::process_result::progress)
+                {
+                    ledger.store.block_put (message, block_a);
+                    ledger.store.latest_put (account.result, message);
+                    ledger.store.pending_put (message);
+                }
             }
-            for (auto i (block_a.outputs.begin ()), j (block_a.outputs.end ()); i != j; ++i)
-            {
-                ledger.store.pending_put (i->destination ^ message);
-            }
-        }
-        else
-        {
-            result = mu_coin::process_result::overspend;
         }
     }
 }
 
 void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & block_a)
 {
-    mu_coin::block_hash previous_hash;
-    auto new_address (ledger.store.identifier_get (block_a.previous, previous_hash));
-    mu_coin::address address;
-    if (new_address)
-    {
-        address = block_a.previous;
-        mu_coin::block_hash latest;
-        result = ledger.store.latest_get (address, latest) ? mu_coin::process_result::progress :mu_coin::process_result::fork;
-    }
-    else
-    {
-        address = previous_hash ^ block_a.previous;
-        mu_coin::block_hash latest;
-        auto not_latest (ledger.store.latest_get (address, latest));
-        if (not_latest)
-        {
-            result = ledger.store.block_get (previous_hash) ? mu_coin::process_result::fork : mu_coin::process_result::progress;
-        }
-        else
-        {
-            result = mu_coin::process_result::progress;
-        }
-    }
+    auto source_block (ledger.store.block_get (block_a.hashables.source));
+    result = source_block == nullptr ? mu_coin::process_result::gap : mu_coin::process_result::progress; // Have we seen the source block? (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        auto hash (block_a.hash ());
-        result = mu_coin::validate_message (address, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress;
+        auto source_send (dynamic_cast <mu_coin::send_block *> (source_block.get ()));
+        result = source_send == nullptr ? mu_coin::process_result::not_receive_from_send : mu_coin::process_result::progress; // Are we receiving from a send (Malformed)
         if (result == mu_coin::process_result::progress)
         {
-            result = ledger.store.pending_get (address ^ block_a.source) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress;
+            auto hash (block_a.hash ());
+            result = mu_coin::validate_message (source_send->hashables.destination, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
             if (result == mu_coin::process_result::progress)
             {
-                ledger.store.pending_del (address ^ block_a.source);
-                ledger.store.block_put (hash, block_a);
-                auto new_identifier (address ^ hash);
-                ledger.store.identifier_put (new_identifier, hash);
-                ledger.store.latest_put (address, hash);
+                if (source_send->hashables.destination == block_a.hashables.previous)
+                {
+                    // New address
+                    mu_coin::block_hash latest;
+                    result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Address is claiming this is their first block (Malicious)
+                }
+                else
+                {
+                    // Old address
+                    mu_coin::block_hash latest;
+                    result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::gap : mu_coin::process_result::progress;
+                    if (result == mu_coin::process_result::progress)
+                    {
+                        result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::gap; // Block doesn't immediately follow latest block (Harmless)
+                        if (result == mu_coin::process_result::progress)
+                        {
+                            
+                        }
+                        else
+                        {
+                            result = ledger.store.block_get (latest) ? mu_coin::process_result::fork : mu_coin::process_result::gap; // If we have the block but it's not the latest we have a signed fork (Malicious)
+                        }
+                    }
+                }
+                if (result == mu_coin::process_result::progress)
+                {
+                    ledger.store.pending_del (source_send->hash ());
+                    ledger.store.block_put (hash, block_a);
+                    ledger.store.latest_put (source_send->hashables.destination, hash);
+                }
             }
         }
     }
@@ -569,9 +529,8 @@ result (mu_coin::process_result::progress)
 }
 
 mu_coin::send_block::send_block (send_block const & other_a) :
-inputs (other_a.inputs),
-outputs (other_a.outputs),
-signatures (other_a.signatures)
+hashables (other_a.hashables),
+signature (other_a.signature)
 {
 }
 
@@ -784,13 +743,11 @@ block_store (boost::filesystem::unique_path ())
 }
 
 mu_coin::block_store::block_store (boost::filesystem::path const & path_a) :
-identifiers (nullptr, 0),
 addresses (nullptr, 0),
 blocks (nullptr, 0),
 pending (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
-    identifiers.open (nullptr, (path_a / "identifiers.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     addresses.open (nullptr, (path_a / "addresses.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     blocks.open (nullptr, (path_a / "blocks.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     pending.open (nullptr, (path_a / "pending.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
@@ -816,17 +773,24 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block
 
 void mu_coin::block_store::genesis_put (mu_coin::public_key const & key_a, uint256_union const & coins_a)
 {
-    mu_coin::send_block send;
-    send.outputs.push_back (mu_coin::send_output (key_a, coins_a));
-    auto hash1 (send.hash ());
-    block_put (hash1, send);
+    mu_coin::send_block send1;
+    send1.hashables.destination.clear ();
+    send1.hashables.balance = coins_a;
+    send1.hashables.previous.clear ();
+    send1.signature.clear ();
+    block_put (send1.hash (), send1);
+    mu_coin::send_block send2;
+    send2.hashables.destination = key_a;
+    send2.hashables.balance.clear ();
+    send2.hashables.previous = send1.hash ();
+    send2.signature.clear ();
+    block_put (send2.hash (), send2);
     mu_coin::receive_block receive;
-    receive.previous = key_a;
-    receive.source = hash1;
-    auto hash2 (receive.hash ());
-    block_put (hash2, receive);
-    identifier_put (key_a ^ hash2, hash2);
-    latest_put (key_a, hash2);
+    receive.hashables.previous = key_a;
+    receive.hashables.source = send2.hash ();
+    receive.signature.clear ();
+    block_put (receive.hash (), receive);
+    latest_put (key_a, receive.hash ());
 }
 
 bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_coin::block_hash & hash_a)
@@ -886,33 +850,6 @@ bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a
     }
     else
     {
-        result = false;
-    }
-    return result;
-}
-
-void mu_coin::block_store::identifier_put (mu_coin::identifier const & identifier_a, mu_coin::block_hash const & hash_a)
-{
-    mu_coin::dbt key (identifier_a);
-    mu_coin::dbt data (hash_a);
-    int error (identifiers.put (nullptr, &key.data, &data.data, 0));
-    assert (error == 0);
-}
-
-bool mu_coin::block_store::identifier_get (mu_coin::identifier const & identifier_a, mu_coin::block_hash & hash_a)
-{
-    mu_coin::dbt key (identifier_a);
-    mu_coin::dbt data;
-    int error (identifiers.get (nullptr, &key.data, &data.data, 0));
-    assert (error == 0 || error == DB_NOTFOUND);
-    bool result;
-    if (error == DB_NOTFOUND)
-    {
-        result = true;
-    }
-    else
-    {
-        hash_a = data.uint256 ();
         result = false;
     }
     return result;
@@ -1265,65 +1202,32 @@ bool mu_coin::key_iterator::operator != (mu_coin::key_iterator const & other_a) 
     return !(*this == other_a);
 }
 
-std::unique_ptr <mu_coin::send_block> mu_coin::wallet::send (mu_coin::ledger & ledger_a, mu_coin::public_key const & destination, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & key)
+bool mu_coin::wallet::send (mu_coin::ledger & ledger_a, mu_coin::public_key const & destination, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & key, std::vector <std::unique_ptr <mu_coin::send_block>> & blocks)
 {
     bool result (false);
-    mu_coin::uint256_t amount;
-    std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
-    block->outputs.push_back (mu_coin::send_output (destination, coins));
-    std::vector <mu_coin::public_key> accounts;
-    for (auto i (begin ()), j (end ()); i != j && !result && amount < coins; ++i)
+    mu_coin::uint256_t remaining (coins);
+    for (auto i (begin ()), j (end ()); i != j && !result && !remaining.is_zero (); ++i)
     {
         auto account (*i);
         auto balance (ledger_a.balance (account));
         if (!balance.is_zero ())
         {
-            block->inputs.push_back (mu_coin::send_input ());
-            accounts.push_back (account);
-            auto & input (block->inputs.back ());
             mu_coin::block_hash latest;
             assert (!ledger_a.store.latest_get (account, latest));
-            if (amount + balance > coins)
-            {
-                auto partial (coins - amount);
-                assert (partial < balance);
-                input.coins = balance - partial;
-                input.previous = account ^ latest;
-                amount += partial;
-            }
-            else
-            {
-                input.coins = mu_coin::uint256_t (0);
-                input.previous = account ^ latest;
-                amount += balance;
-            }
-        }
-    }
-    assert (amount <= coins);
-    if (!result && amount == coins)
-    {
-        auto message (block->hash ());
-        auto k (accounts.begin ());
-        for (auto i (block->inputs.begin ()), j (block->inputs.end ()); i != j && !result; ++i, ++k)
-        {
-            assert (k != accounts.end ());
-            auto & account (*k);
+            auto amount (std::min (remaining, balance));
+            remaining -= amount;
+            std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
+            block->hashables.destination = destination;
+            block->hashables.previous = latest;
+            block->hashables.balance = balance - amount;
             mu_coin::private_key prv;
             result = fetch (account, key, prv);
             assert (!result);
-            block->signatures.push_back (mu_coin::uint512_union ());
-            sign_message (prv, account, message, block->signatures.back ());
+            sign_message (prv, account, block->hash (), block->signature);
+            blocks.push_back (std::move (block));
         }
     }
-    else
-    {
-        result = true;
-    }
-    if (result)
-    {
-        block.release ();
-    }
-    return block;
+    return result;
 }
 
 void mu_coin::byte_write_stream::abandon ()
@@ -1456,8 +1360,7 @@ public:
             {
                 wallet.insert (*i);
             }
-            auto entry (std::find_if (block_a.outputs.begin (), block_a.outputs.end (), [&, wallet] (mu_coin::send_output const & entry) { return wallet.find (entry.destination) != wallet.end (); }));
-            if (entry != block_a.outputs.end ())
+            if (wallet.find (block_a.hashables.destination) != wallet.end ())
             {
                 client.processor.process_receivable (std::move (incoming));
             }
@@ -1572,43 +1475,42 @@ void receivable_message_processor::process_authorizations (mu_coin::block_hash c
             assert (dynamic_cast <mu_coin::send_block *> (processor.incoming->block.get ()) != nullptr);
             auto & send (static_cast <mu_coin::send_block &> (*processor.incoming->block.get ()));
             auto hash (send.hash ());
-            for (auto i (send.outputs.begin ()), j (send.outputs.end ()); i != j; ++i)
+            mu_coin::private_key prv;
+            mu_coin::secret_key key (0);
+            if (!processor.client.wallet.fetch (send.hashables.destination, key, prv))
             {
-                mu_coin::private_key prv;
-                mu_coin::secret_key key (0);
-                if (!processor.client.wallet.fetch (i->destination, key, prv))
+                if (!processor.client.ledger.store.pending_get (send.hash ()))
                 {
-                    if (!processor.client.ledger.store.pending_get (i->destination ^ hash))
+                    mu_coin::block_hash previous;
+                    auto new_address (processor.client.ledger.store.latest_get (send.hashables.destination, previous));
+                    if (new_address)
                     {
-                        mu_coin::block_hash previous;
-                        auto new_address (processor.client.ledger.store.latest_get (i->destination, previous));
-                        if (new_address)
-                        {
-                            previous = i->destination;
-                        }
-                        auto receive (new mu_coin::receive_block);
-                        receive->previous = previous;
-                        receive->source = hash;
-                        mu_coin::sign_message (prv, i->destination, receive->hash (), receive->signature);
-                        prv.bytes.fill (0);
-                        if (!processor.client.ledger.process (*receive))
-                        {
-                            processor.client.publish (std::unique_ptr <mu_coin::block> (receive));
-                        }
-                        else
-                        {
-                            assert (false); // Internal error, our own ledger doesn't accept the block, let's forget this ever happened...
-                        }
+                        previous = send.hashables.destination;
+                    }
+                    balance_visitor visitor (processor.client.ledger.store);
+                    visitor.compute (send.hashables.previous);
+                    auto receive (new mu_coin::receive_block);
+                    receive->hashables.previous = previous;
+                    receive->hashables.source = hash;
+                    mu_coin::sign_message (prv, send.hashables.destination, receive->hash (), receive->signature);
+                    prv.bytes.fill (0);
+                    if (!processor.client.ledger.process (*receive))
+                    {
+                        processor.client.publish (std::unique_ptr <mu_coin::block> (receive));
                     }
                     else
                     {
-                        // Ledger doesn't have this marked as available to receive anymore
+                        assert (false); // Internal error, our own ledger doesn't accept the block, let's forget this ever happened...
                     }
                 }
                 else
                 {
-                    // Wallet doesn't contain key for this destination or couldn't decrypt
+                    // Ledger doesn't have this marked as available to receive anymore
                 }
+            }
+            else
+            {
+                // Wallet doesn't contain key for this destination or couldn't decrypt
             }
         }
         else
@@ -1964,4 +1866,34 @@ mu_coin::block_entry * mu_coin::block_entry::operator -> ()
 mu_coin::account_entry * mu_coin::account_entry::operator -> ()
 {
     return this;
+}
+
+bool mu_coin::send_block::operator == (mu_coin::send_block const & other_a) const
+{
+    auto result (signature == other_a.signature && hashables.destination == other_a.hashables.destination && hashables.previous == other_a.hashables.previous && hashables.balance == other_a.hashables.balance);
+    return result;
+}
+
+mu_coin::block_hash mu_coin::send_block::previous () const
+{
+    return hashables.previous;
+}
+
+mu_coin::block_hash mu_coin::receive_block::previous () const
+{
+    return hashables.previous;
+}
+
+void amount_visitor::compute (mu_coin::block_hash const & block_hash)
+{
+    auto block (store.block_get (block_hash));
+    assert (block != nullptr);
+    block->visit (*this);
+}
+
+void balance_visitor::compute (mu_coin::block_hash const & block_hash)
+{
+    auto block (store.block_get (block_hash));
+    assert (block != nullptr);
+    block->visit (*this);
 }

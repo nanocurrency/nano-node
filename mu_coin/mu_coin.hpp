@@ -167,6 +167,7 @@ namespace mu_coin {
     {
     public:
         virtual mu_coin::uint256_union hash () const = 0;
+        virtual mu_coin::block_hash previous () const = 0;
         virtual void serialize (mu_coin::byte_write_stream &) const = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
         virtual bool operator == (mu_coin::block const &) const = 0;
@@ -192,23 +193,13 @@ namespace mu_coin {
     void serialize_block (mu_coin::byte_write_stream &, mu_coin::block const &);
     void sign_message (mu_coin::private_key const &, mu_coin::public_key const &, mu_coin::uint256_union const &, mu_coin::uint512_union &);
     bool validate_message (mu_coin::public_key const &, mu_coin::uint256_union const &, mu_coin::uint512_union const &);
-    class send_input
+    class send_hashables
     {
     public:
-        send_input () = default;
-        send_input (mu_coin::public_key const &, mu_coin::block_hash const &, mu_coin::balance const &);
-        bool operator == (mu_coin::send_input const &) const;
-        mu_coin::identifier previous;
-        mu_coin::uint256_union coins;
-    };
-    class send_output
-    {
-    public:
-        send_output () = default;
-        send_output (mu_coin::public_key const &, mu_coin::uint256_union const &);
-        bool operator == (mu_coin::send_output const &) const;
+        mu_coin::uint256_union hash () const;
         mu_coin::address destination;
-        mu_coin::uint256_union coins;
+        mu_coin::block_hash previous;
+        mu_coin::uint256_union balance;
     };
     class send_block : public mu_coin::block
     {
@@ -216,6 +207,7 @@ namespace mu_coin {
         send_block () = default;
         send_block (send_block const &);
         mu_coin::uint256_union hash () const override;
+        mu_coin::block_hash previous () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &);
         void visit (mu_coin::block_visitor &) const override;
@@ -223,14 +215,21 @@ namespace mu_coin {
         mu_coin::block_type type () const override;
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::send_block const &) const;
-        std::vector <mu_coin::send_input> inputs;
-        std::vector <mu_coin::send_output> outputs;
-        std::vector <mu_coin::uint512_union> signatures;
+        send_hashables hashables;
+        mu_coin::signature signature;
+    };
+    class receive_hashables
+    {
+    public:
+        mu_coin::uint256_union hash () const;
+        mu_coin::block_hash previous;
+        mu_coin::block_hash source;
     };
     class receive_block : public mu_coin::block
     {
     public:
         mu_coin::uint256_union hash () const override;
+        mu_coin::block_hash previous () const override;
         void serialize (mu_coin::byte_write_stream &) const override;
         bool deserialize (mu_coin::byte_read_stream &);
         void visit (mu_coin::block_visitor &) const override;
@@ -240,9 +239,8 @@ namespace mu_coin {
         bool validate (mu_coin::public_key const &, mu_coin::uint256_t const &) const;
         bool operator == (mu_coin::block const &) const override;
         bool operator == (mu_coin::receive_block const &) const;
+        receive_hashables hashables;
         uint512_union signature;
-        mu_coin::block_hash source;
-        mu_coin::identifier previous;
     };
     class block_visitor
     {
@@ -306,9 +304,6 @@ namespace mu_coin {
         
         void genesis_put (mu_coin::public_key const &, uint256_union const & = uint256_union (std::numeric_limits <uint256_t>::max () >> 1));
         
-        void identifier_put (mu_coin::identifier const &, mu_coin::block_hash const &);
-        bool identifier_get (mu_coin::identifier const &, mu_coin::block_hash &);
-        
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
         block_iterator blocks_begin ();
@@ -324,12 +319,9 @@ namespace mu_coin {
         bool pending_get (mu_coin::identifier const &);
         
     private:
-        // identifier = block_hash ^ address    // Used to uniquely identify a (block, address) when refering to a send block which has multiple addresses
-        // identifier -> block_hash             // Each identifier maps to exactly one block
         // address -> block_hash                // Each address has one head block
         // block_hash -> block                  // Mapping block hash to contents
-        // identifier ->                        // Pending identifers
-        Db identifiers;
+        // block_hash ->                        // Pending blocks
         Db addresses;
         Db blocks;
         Db pending;
@@ -342,7 +334,9 @@ namespace mu_coin {
         old, // Already seen and was valid
         overspend, // Malicious attempt to overspend
         overreceive, // Malicious attempt to receive twice
-        fork // Malicious fork of existing block
+        fork, // Malicious fork of existing block
+        gap, // Block marked as previous isn't in store
+        not_receive_from_send // Receive does not have a send source
     };
     class ledger
     {
@@ -499,7 +493,7 @@ namespace mu_coin {
         void insert (mu_coin::public_key const &, mu_coin::private_key const &, mu_coin::secret_key const &);
         void insert (mu_coin::private_key const &, mu_coin::secret_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::secret_key const &, mu_coin::private_key &);
-        std::unique_ptr <mu_coin::send_block> send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
+        bool send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
         key_iterator begin ();
         key_iterator end ();
     private:

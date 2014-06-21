@@ -42,45 +42,19 @@ TEST (transaction_block, empty)
 {
     mu_coin::keypair key1;
     mu_coin::send_block block;
-    mu_coin::send_input entry (key1.pub, 0, 13);
-    block.inputs.push_back (entry);
-    ASSERT_EQ (1, block.inputs.size ());
+    block.hashables.previous = 0;
+    block.hashables.balance = 13;
     mu_coin::uint256_union hash (block.hash ());
-    block.signatures.push_back (mu_coin::uint512_union ());
-    mu_coin::sign_message (key1.prv, key1.pub, hash, block.signatures.back ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, hash, block.signatures.back ()));
-    block.signatures [0].bytes [32] ^= 0x1;
-    ASSERT_TRUE (mu_coin::validate_message (key1.pub, hash, block.signatures.back ()));
+    mu_coin::sign_message (key1.prv, key1.pub, hash, block.signature);
+    ASSERT_FALSE (mu_coin::validate_message (key1.pub, hash, block.signature));
+    block.signature.bytes [32] ^= 0x1;
+    ASSERT_TRUE (mu_coin::validate_message (key1.pub, hash, block.signature));
 }
 
 TEST (send_block, empty_send_serialize)
 {
     mu_coin::send_block block1;
     mu_coin::byte_write_stream stream1;
-    block1.serialize (stream1);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
-    mu_coin::send_block block2;
-    block2.deserialize (stream2);
-    ASSERT_EQ (block1, block2);
-}
-
-TEST (send_block, two_entry_send_serialize)
-{
-    mu_coin::send_block block1;
-    mu_coin::byte_write_stream stream1;
-    mu_coin::keypair key1;
-    mu_coin::keypair key2;
-    mu_coin::send_input entry1 (key1.pub, 0, 43);
-    block1.inputs.push_back (entry1);
-    mu_coin::send_input entry2 (key2.pub, 0, 17);
-    block1.inputs.push_back (entry2);
-    block1.signatures.push_back (mu_coin::uint512_union ());
-    block1.signatures.push_back (mu_coin::uint512_union ());
-    auto hash (block1.hash ());
-    mu_coin::sign_message (key1.prv, key1.pub, hash, block1.signatures [0]);
-    mu_coin::sign_message (key2.prv, key2.pub, hash, block1.signatures [1]);
-    mu_coin::send_output entry3 (key2.pub, 23);
-    block1.outputs.push_back (entry3);
     block1.serialize (stream1);
     mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
     mu_coin::send_block block2;
@@ -246,12 +220,22 @@ TEST (send_block, deserialize)
     ASSERT_EQ (block1, *block2);
 }
 
+TEST (receive_block, deserialize)
+{
+    mu_coin::receive_block block1;
+    block1.hashables.previous = 2;
+    block1.hashables.source = 4;
+    mu_coin::byte_write_stream stream1;
+    mu_coin::serialize_block (stream1, block1);
+    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    auto block2 (mu_coin::deserialize_block (stream2));
+    ASSERT_NE (nullptr, block2);
+    ASSERT_EQ (block1, *block2);
+}
+
 TEST (send_block, copy)
 {
     mu_coin::send_block block1;
-    block1.inputs.push_back (mu_coin::send_input ());
-    block1.outputs.push_back (mu_coin::send_output ());
-    block1.signatures.push_back (mu_coin::uint512_union ());
     mu_coin::send_block block2 (block1);
     ASSERT_EQ (block1, block2);
 }
@@ -324,10 +308,12 @@ TEST (block_store, two_block)
 {
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::send_block block1;
-    block1.outputs.push_back (mu_coin::send_output (1, 2));
+    block1.hashables.destination = 1;
+    block1.hashables.balance = 2;
     store.block_put (block1.hash (), block1);
     mu_coin::send_block block2;
-    block2.outputs.push_back (mu_coin::send_output (3, 4));
+    block2.hashables.destination = 3;
+    block2.hashables.balance = 4;
     store.block_put (block2.hash (), block2);
     auto begin (store.blocks_begin ());
     auto end (store.blocks_end ());
