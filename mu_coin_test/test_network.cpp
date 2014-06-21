@@ -103,6 +103,8 @@ TEST (network, send_valid_publish)
     mu_coin::client client2 (service, 24002, processor);
     client2.wallet.insert (key2.pub, key2.prv, secret);
     client2.store.genesis_put (key1.pub, 100);
+    client1.peers.add_peer (boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::loopback (), client2.network.socket.local_endpoint ().port ()));
+    client2.peers.add_peer (boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::loopback (), client1.network.socket.local_endpoint ().port ()));
     client1.network.receive ();
     client2.network.receive ();
     mu_coin::send_block block2;
@@ -115,7 +117,7 @@ TEST (network, send_valid_publish)
     mu_coin::sign_message (key1.prv, key1.pub, hash2, block2.signature);
     mu_coin::block_hash hash3;
     ASSERT_FALSE (client2.store.latest_get (key1.pub, hash3));
-    client1.network.publish_block (client2.network.socket.local_endpoint (), std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)));
+    client1.processor.publish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)));
     while (client2.network.publish_con_count == 0)
     {
         service.run_one ();
@@ -228,6 +230,8 @@ TEST (receivable_processor, send_with_receive)
     mu_coin::processor_service processor;
     mu_coin::client client1 (io_service, 24001, processor);
     mu_coin::client client2 (io_service, 24002, processor);
+    client1.peers.add_peer (boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::loopback (), client2.network.socket.local_endpoint ().port ()));
+    client2.peers.add_peer (boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::loopback (), client1.network.socket.local_endpoint ().port ()));
     mu_coin::keypair key1;
     client1.wallet.insert (key1.pub, key1.prv, 0);
     mu_coin::keypair key2;
@@ -274,7 +278,7 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (amount - 100, receivable->acknowledged);
     ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (3, receivable.use_count ());
-    while (client1.network.publish_req_count < 1)
+    while (client1.network.publish_req_count < 2)
     {
         io_service.run_one ();
     }
@@ -297,5 +301,5 @@ TEST (client, send_single)
     client1.wallet.insert (key2.pub, key2.prv, password1);
     client1.store.genesis_put (key1.pub, 100000);
     ASSERT_FALSE (client1.send (key2.pub, 1000, password1));
-    ASSERT_EQ (1000, client1.ledger.balance (key2.pub));
+    ASSERT_EQ (100000 - 1000, client1.ledger.balance (key1.pub));
 }

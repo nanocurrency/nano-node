@@ -446,22 +446,21 @@ mu_coin::uint256_union mu_coin::receive_hashables::hash () const
 void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
 {
     mu_coin::uint256_union message (block_a.hash ());
-    mu_coin::uint256_t input (0);
-    auto previous (ledger.store.block_get (block_a.hashables.previous));
-    result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap; // Have we seen the previous block before? (Harmless)
+    auto existing (ledger.store.block_get (message));
+    result = existing != nullptr ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block before? (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        account_visitor account (ledger.store);
-        account.compute (block_a.hashables.previous);
-        result = validate_message (account.result, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress;
+        auto previous (ledger.store.block_get (block_a.hashables.previous));
+        result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap; // Have we seen the previous block before? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
-            auto existing (ledger.store.block_get (block_a.hashables.previous));
-            result = existing != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap;
+            account_visitor account (ledger.store);
+            account.compute (block_a.hashables.previous);
+            result = validate_message (account.result, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == mu_coin::process_result::progress)
             {
                 mu_coin::uint256_t coins (ledger.balance (account.result));
-                result = coins > block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend;
+                result = coins > block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend; // Is this trying to spend more than they have (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
                     ledger.store.block_put (message, block_a);
@@ -475,47 +474,52 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
 
 void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & block_a)
 {
-    auto source_block (ledger.store.block_get (block_a.hashables.source));
-    result = source_block == nullptr ? mu_coin::process_result::gap : mu_coin::process_result::progress; // Have we seen the source block? (Harmless)
+    auto hash (block_a.hash ());
+    auto existing (ledger.store.block_get (hash));
+    result = existing != nullptr ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block already?  (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        auto source_send (dynamic_cast <mu_coin::send_block *> (source_block.get ()));
-        result = source_send == nullptr ? mu_coin::process_result::not_receive_from_send : mu_coin::process_result::progress; // Are we receiving from a send (Malformed)
+        auto source_block (ledger.store.block_get (block_a.hashables.source));
+        result = source_block == nullptr ? mu_coin::process_result::gap : mu_coin::process_result::progress; // Have we seen the source block? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
-            auto hash (block_a.hash ());
-            result = mu_coin::validate_message (source_send->hashables.destination, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
+            auto source_send (dynamic_cast <mu_coin::send_block *> (source_block.get ()));
+            result = source_send == nullptr ? mu_coin::process_result::not_receive_from_send : mu_coin::process_result::progress; // Are we receiving from a send (Malformed)
             if (result == mu_coin::process_result::progress)
             {
-                if (source_send->hashables.destination == block_a.hashables.previous)
-                {
-                    // New address
-                    mu_coin::block_hash latest;
-                    result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Address is claiming this is their first block (Malicious)
-                }
-                else
-                {
-                    // Old address
-                    mu_coin::block_hash latest;
-                    result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::gap : mu_coin::process_result::progress;
-                    if (result == mu_coin::process_result::progress)
-                    {
-                        result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::gap; // Block doesn't immediately follow latest block (Harmless)
-                        if (result == mu_coin::process_result::progress)
-                        {
-                            
-                        }
-                        else
-                        {
-                            result = ledger.store.block_get (latest) ? mu_coin::process_result::fork : mu_coin::process_result::gap; // If we have the block but it's not the latest we have a signed fork (Malicious)
-                        }
-                    }
-                }
+                result = mu_coin::validate_message (source_send->hashables.destination, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
                 if (result == mu_coin::process_result::progress)
                 {
-                    ledger.store.pending_del (source_send->hash ());
-                    ledger.store.block_put (hash, block_a);
-                    ledger.store.latest_put (source_send->hashables.destination, hash);
+                    if (source_send->hashables.destination == block_a.hashables.previous)
+                    {
+                        // New address
+                        mu_coin::block_hash latest;
+                        result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Address is claiming this is their first block (Malicious)
+                    }
+                    else
+                    {
+                        // Old address
+                        mu_coin::block_hash latest;
+                        result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::gap : mu_coin::process_result::progress;
+                        if (result == mu_coin::process_result::progress)
+                        {
+                            result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::gap; // Block doesn't immediately follow latest block (Harmless)
+                            if (result == mu_coin::process_result::progress)
+                            {
+                                
+                            }
+                            else
+                            {
+                                result = ledger.store.block_get (latest) ? mu_coin::process_result::fork : mu_coin::process_result::gap; // If we have the block but it's not the latest we have a signed fork (Malicious)
+                            }
+                        }
+                    }
+                    if (result == mu_coin::process_result::progress)
+                    {
+                        ledger.store.pending_del (source_send->hash ());
+                        ledger.store.block_put (hash, block_a);
+                        ledger.store.latest_put (source_send->hashables.destination, hash);
+                    }
                 }
             }
         }
@@ -1347,14 +1351,13 @@ public:
     publish_visitor (mu_coin::client & client_a, std::unique_ptr <mu_coin::publish_req> incoming_a) :
     client (client_a),
     incoming (std::move (incoming_a)),
-    result (false)
+    result (mu_coin::process_result::progress)
     {
     }
     void send_block (mu_coin::send_block const & block_a)
     {
-        auto process_result (client.ledger.process (block_a));
-        result = process_result != mu_coin::process_result::progress;
-        if (!result)
+        result = client.ledger.process (block_a);
+        if (result == mu_coin::process_result::progress)
         {
             std::unordered_set <mu_coin::uint256_union> wallet;
             for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
@@ -1363,18 +1366,18 @@ public:
             }
             if (wallet.find (block_a.hashables.destination) != wallet.end ())
             {
+                result = mu_coin::process_result::owned;
                 client.processor.process_receivable (std::move (incoming));
             }
         }
     }
     void receive_block (mu_coin::receive_block const & block_a)
     {
-        auto process_result (client.ledger.process (block_a));
-        result = process_result != mu_coin::process_result::progress;
+        result = client.ledger.process (block_a);
     }
     mu_coin::client & client;
     std::unique_ptr <mu_coin::publish_req> incoming;
-    bool result;
+    mu_coin::process_result result;
 };
 
 class receivable_message_processor : public mu_coin::message_visitor
@@ -1495,14 +1498,7 @@ void receivable_message_processor::process_authorizations (mu_coin::block_hash c
                     receive->hashables.source = hash;
                     mu_coin::sign_message (prv, send.hashables.destination, receive->hash (), receive->signature);
                     prv.bytes.fill (0);
-                    if (!processor.client.ledger.process (*receive))
-                    {
-                        processor.client.publish (std::unique_ptr <mu_coin::block> (receive));
-                    }
-                    else
-                    {
-                        assert (false); // Internal error, our own ledger doesn't accept the block, let's forget this ever happened...
-                    }
+                    processor.client.processor.publish (std::unique_ptr <mu_coin::block> (receive));
                 }
                 else
                 {
@@ -1558,11 +1554,26 @@ void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::publish_r
     processor->run ();
 }
 
+void mu_coin::processor::publish (std::unique_ptr <mu_coin::block> block_a)
+{
+    auto result (process_publish (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::move (block_a)}}));
+    assert (!result);
+}
+
 bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> incoming)
 {
+    auto block (incoming->block->clone ());
     publish_visitor visitor (client, std::move (incoming));
     visitor.incoming->block->visit (visitor);
-    return visitor.result;
+    if (visitor.result == mu_coin::process_result::progress)
+    {
+        auto list (client.peers.list ());
+        for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+        {
+            client.network.publish_block (*i, block->clone ());
+        }
+    }
+    return visitor.result != mu_coin::process_result::progress && visitor.result != mu_coin::process_result::owned && visitor.result != mu_coin::process_result::old;
 }
 
 void mu_coin::peer_container::add_peer (boost::asio::ip::udp::endpoint const & endpoint_a)
@@ -1702,15 +1713,6 @@ bool mu_coin::keepalive_req::deserialize (mu_coin::byte_read_stream & stream)
     auto result (stream.read (type));
     assert (type == mu_coin::message_type::keepalive_req);
     return result;
-}
-
-void mu_coin::client::publish (std::unique_ptr <mu_coin::block> block)
-{
-    auto list (peers.list ());
-    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
-    {
-        network.publish_block (*i, std::unique_ptr <mu_coin::block> (block->clone ()));
-    }
 }
 
 mu_coin::uint256_t mu_coin::ledger::supply ()
@@ -1907,19 +1909,7 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     {
         for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
         {
-            auto process_result (ledger.process (**i));
-            result |= process_result != mu_coin::process_result::progress;
-        }
-        if (!result)
-        {
-            for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
-            {
-                publish (std::move (*i));
-            }
-        }
-        else
-        {
-            assert (false);
+            processor.publish (std::move (*i));
         }
     }
     return result;

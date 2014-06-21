@@ -85,6 +85,32 @@ TEST (ledger, process_send)
     ASSERT_EQ (receive, *latest5);
 }
 
+TEST (ledger, process_duplicate)
+{
+    mu_coin::keypair key1;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::ledger ledger (store);
+    store.genesis_put (key1.pub, 100);
+    mu_coin::block_hash block1;
+    ASSERT_FALSE (store.latest_get (key1.pub, block1));
+    mu_coin::send_block send;
+    mu_coin::keypair key2;
+    send.hashables.balance = 50;
+    send.hashables.previous = block1;
+    send.hashables.destination = key2.pub;
+    mu_coin::block_hash hash1 (send.hash ());
+    mu_coin::sign_message (key1.prv, key1.pub, hash1, send.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (send));
+    ASSERT_EQ (mu_coin::process_result::old, ledger.process (send));
+    mu_coin::receive_block receive;
+    receive.hashables.source = hash1;
+    receive.hashables.previous = key2.pub;
+    mu_coin::block_hash hash2 (receive.hash ());
+    receive.sign (key2.prv, key2.pub, hash2);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (receive));
+    ASSERT_EQ (mu_coin::process_result::old, ledger.process (receive));
+}
+
 TEST (processor_service, bad_send_signature)
 {
     mu_coin::keypair key1;

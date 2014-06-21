@@ -329,6 +329,7 @@ namespace mu_coin {
     enum class process_result
     {
         progress, // Hasn't been seen before, signed correctly
+        owned, // Progress and we own the address
         out_of_chain, // Packet does not follow previous, forged or out of order
         bad_signature, // One or more signatures was bad, forged or transmission error
         old, // Already seen and was valid
@@ -526,6 +527,7 @@ namespace mu_coin {
     {
     public:
         processor (mu_coin::processor_service &, mu_coin::client &);
+        void publish (std::unique_ptr <mu_coin::block>);
         bool process_publish (std::unique_ptr <mu_coin::publish_req>);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>);
         mu_coin::processor_service & service;
@@ -594,7 +596,6 @@ namespace mu_coin {
         client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
         client (boost::asio::io_service &, uint16_t, mu_coin::processor_service &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
-        void publish (std::unique_ptr <mu_coin::block>);
         mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;

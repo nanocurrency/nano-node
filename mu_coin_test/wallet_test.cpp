@@ -141,7 +141,7 @@ TEST (wallet, two_spend)
     ASSERT_EQ (key3.pub, blocks [0]->hashables.destination);
     ASSERT_EQ (hash2, blocks [1]->hashables.previous);
     ASSERT_EQ (0, blocks [1]->hashables.balance.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key2.pub, blocks [0]->hash (), blocks [0]->signature));
+    ASSERT_FALSE (mu_coin::validate_message (key2.pub, blocks [1]->hash (), blocks [1]->signature));
     ASSERT_EQ (key3.pub, blocks [1]->hashables.destination);
 }
 
