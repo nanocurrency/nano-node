@@ -284,3 +284,18 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (100, client2.ledger.balance (key2.pub));
     ASSERT_EQ (amount - 100, receivable->acknowledged);
 }
+
+TEST (client, send_single)
+{
+    boost::asio::io_service io_service;
+    mu_coin::processor_service processor;
+    mu_coin::client client1 (io_service, 24001, processor);
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    mu_coin::uint256_union password1;
+    client1.wallet.insert (key1.pub, key1.prv, password1);
+    client1.wallet.insert (key2.pub, key2.prv, password1);
+    client1.store.genesis_put (key1.pub, 100000);
+    ASSERT_FALSE (client1.send (key2.pub, 1000, password1));
+    ASSERT_EQ (1000, client1.ledger.balance (key2.pub));
+}

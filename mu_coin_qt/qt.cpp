@@ -104,14 +104,18 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
                 send_address.setPalette (palette);
-                auto send (client.wallet.send (client.ledger, address, coins.number (), password));
-                if (send != nullptr)
+                auto send_error (client.send (address, coins.number (), password));
+                if (!send_error)
                 {
-                    auto error (client.ledger.process (*send));
-                    assert (!error);
                     send_count.clear ();
                     send_address.clear ();
                     refresh_wallet ();
+                }
+                else
+                {
+                    QPalette palette;
+                    palette.setColor (QPalette::Text, Qt::red);
+                    send_count.setPalette (palette);
                 }
             }
             else

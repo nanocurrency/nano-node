@@ -493,7 +493,7 @@ namespace mu_coin {
         void insert (mu_coin::public_key const &, mu_coin::private_key const &, mu_coin::secret_key const &);
         void insert (mu_coin::private_key const &, mu_coin::secret_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::secret_key const &, mu_coin::private_key &);
-        bool send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
+        bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
         key_iterator begin ();
         key_iterator end ();
     private:
@@ -593,6 +593,7 @@ namespace mu_coin {
     public:
         client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
         client (boost::asio::io_service &, uint16_t, mu_coin::processor_service &);
+        bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
         void publish (std::unique_ptr <mu_coin::block>);
         mu_coin::block_store store;
         mu_coin::ledger ledger;

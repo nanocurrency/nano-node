@@ -87,7 +87,7 @@ TEST (wallet, insufficient_spend)
     mu_coin::keypair key1;
     mu_coin::uint256_union password;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    auto error (wallet.send (ledger, key1.pub, 500, password, blocks));
+    auto error (wallet.generate_send (ledger, key1.pub, 500, password, blocks));
     ASSERT_FALSE (error);
 }
 
@@ -104,7 +104,7 @@ TEST (wallet, one_spend)
     store.latest_get (key1.pub, latest1);
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    auto error (wallet.send (ledger, key2.pub, 500, password, blocks));
+    auto error (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
     ASSERT_FALSE (error);
     ASSERT_EQ (1, blocks.size ());
     auto & send (*blocks [0]);
@@ -132,7 +132,7 @@ TEST (wallet, two_spend)
     ASSERT_FALSE (store.latest_get (key2.pub, hash2));
     mu_coin::keypair key3;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    auto error (wallet.send (ledger, key3.pub, 500, password, blocks));
+    auto error (wallet.generate_send (ledger, key3.pub, 500, password, blocks));
     ASSERT_FALSE (error);
     ASSERT_EQ (2, blocks.size ());
     ASSERT_EQ (hash1, blocks [0]->hashables.previous);
@@ -158,7 +158,7 @@ TEST (wallet, partial_spend)
     ASSERT_FALSE (store.latest_get (key1.pub, latest1));
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    auto error (wallet.send (ledger, key2.pub, 500, password, blocks));
+    auto error (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
     ASSERT_FALSE (error);
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (latest1, blocks [0]->hashables.previous);
@@ -190,7 +190,7 @@ TEST (wallet, spend_no_previous)
     }
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    auto error (wallet.send (ledger, key2.pub, 500, password, blocks));
+    auto error (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
     ASSERT_FALSE (error);
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (hash1, blocks [0]->hashables.previous);

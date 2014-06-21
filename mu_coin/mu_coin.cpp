@@ -1202,7 +1202,7 @@ bool mu_coin::key_iterator::operator != (mu_coin::key_iterator const & other_a) 
     return !(*this == other_a);
 }
 
-bool mu_coin::wallet::send (mu_coin::ledger & ledger_a, mu_coin::public_key const & destination, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & key, std::vector <std::unique_ptr <mu_coin::send_block>> & blocks)
+bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public_key const & destination, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & key, std::vector <std::unique_ptr <mu_coin::send_block>> & blocks)
 {
     bool result (false);
     mu_coin::uint256_t remaining (coins);
@@ -1224,6 +1224,7 @@ bool mu_coin::wallet::send (mu_coin::ledger & ledger_a, mu_coin::public_key cons
             result = fetch (account, key, prv);
             assert (!result);
             sign_message (prv, account, block->hash (), block->signature);
+            prv.clear ();
             blocks.push_back (std::move (block));
         }
     }
@@ -1896,4 +1897,30 @@ void balance_visitor::compute (mu_coin::block_hash const & block_hash)
     auto block (store.block_get (block_hash));
     assert (block != nullptr);
     block->visit (*this);
+}
+
+bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & password)
+{
+    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
+    auto result (wallet.generate_send (ledger, address, coins, password, blocks));
+    if (!result)
+    {
+        for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+        {
+            auto process_result (ledger.process (**i));
+            result |= process_result != mu_coin::process_result::progress;
+        }
+        if (!result)
+        {
+            for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+            {
+                publish (std::move (*i));
+            }
+        }
+        else
+        {
+            assert (false);
+        }
+    }
+    return result;
 }
