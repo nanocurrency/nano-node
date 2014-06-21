@@ -603,4 +603,13 @@ namespace mu_coin {
         mu_coin::processor processor;
         mu_coin::peer_container peers;
     };
+    class system
+    {
+    public:
+        system (uint16_t, size_t);
+        mu_coin::endpoint endpoint (size_t);
+        boost::asio::io_service service;
+        mu_coin::processor_service processor;
+        std::vector <std::unique_ptr <mu_coin::client>> clients;
+    };
 }

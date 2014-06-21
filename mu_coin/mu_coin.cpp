@@ -1914,3 +1914,27 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     }
     return result;
 }
+
+mu_coin::system::system (uint16_t port_a, size_t count_a)
+{
+    clients.reserve (count_a);
+    for (size_t i (0); i < count_a; ++i)
+    {
+        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, port_a + i, processor)));
+    }
+    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
+    {
+        for (auto k (clients.begin ()), l (clients.end ()); k != l; ++k)
+        {
+            if (*i != *k)
+            {
+                (*i)->peers.add_peer (mu_coin::endpoint {boost::asio::ip::address_v4::loopback (), (*k)->network.socket.local_endpoint ().port ()});
+            }
+        }
+    }
+}
+
+mu_coin::endpoint mu_coin::system::endpoint (size_t index_a)
+{
+    return mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), clients [index_a]->network.socket.local_endpoint ().port ());
+}
