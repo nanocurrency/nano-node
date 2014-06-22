@@ -932,6 +932,7 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
+    std::cerr << "Keepalive " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ());
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const &, size_t) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -943,6 +944,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
+    std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ());
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const & ec, size_t size) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -988,6 +990,8 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     receive ();
                     if (!error)
                     {
+                        
+                        std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ());
                         auto hash (incoming->block->hash ());
                         auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
                         if (!error)
