@@ -527,8 +527,8 @@ namespace mu_coin {
     {
     public:
         processor (mu_coin::processor_service &, mu_coin::client &);
-        void publish (std::unique_ptr <mu_coin::block>);
-        bool process_publish (std::unique_ptr <mu_coin::publish_req>);
+        void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
+        bool process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>);
         mu_coin::processor_service & service;
         mu_coin::client & client;

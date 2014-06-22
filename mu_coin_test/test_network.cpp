@@ -102,14 +102,14 @@ TEST (network, send_valid_publish)
     mu_coin::sign_message (key1.prv, key1.pub, hash2, block2.signature);
     mu_coin::block_hash hash3;
     ASSERT_FALSE (system.clients [1]->store.latest_get (key1.pub, hash3));
-    system.clients [0]->processor.publish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)));
-    while (system.clients [1]->network.publish_con_count == 0)
+    system.clients [0]->processor.publish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.endpoint (0));
+    while (system.clients [0]->network.publish_con_count == 0)
     {
         system.service.run_one ();
     }
     ASSERT_EQ (1, system.clients [0]->network.publish_con_count);
-    ASSERT_EQ (1, system.clients [1]->network.publish_con_count);
-    ASSERT_EQ (1, system.clients [0]->network.publish_req_count);
+    ASSERT_EQ (0, system.clients [1]->network.publish_con_count);
+    ASSERT_EQ (0, system.clients [0]->network.publish_req_count);
     ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
     mu_coin::block_hash hash4;
     ASSERT_FALSE (system.clients [1]->store.latest_get (key1.pub, hash4));
@@ -250,7 +250,7 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (amount - 100, receivable->acknowledged);
     ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (3, receivable.use_count ());
-    while (system.clients [0]->network.publish_req_count < 2)
+    while (system.clients [0]->network.publish_req_count < 1)
     {
         system.service.run_one ();
     }

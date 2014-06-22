@@ -989,7 +989,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     if (!error)
                     {
                         auto hash (incoming->block->hash ());
-                        auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming)));
+                        auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
                         if (!error)
                         {
                             mu_coin::publish_con outgoing {hash};
@@ -1383,11 +1383,11 @@ public:
 class receivable_message_processor : public mu_coin::message_visitor
 {
 public:
-    receivable_message_processor (mu_coin::receivable_processor & processor_a) :
-    processor (processor_a)
+    receivable_message_processor (mu_coin::receivable_processor & processor_a, mu_coin::endpoint const & sender_a) :
+    processor (processor_a),
+    sender (sender_a)
     {
     }
-    mu_coin::receivable_processor & processor;
     void keepalive_req (mu_coin::keepalive_req const &)
     {
         assert (false);
@@ -1405,6 +1405,8 @@ public:
     void publish_unk (mu_coin::publish_unk const &);
     void publish_nak (mu_coin::publish_nak const &);
     void process_authorizations (mu_coin::block_hash const &, std::vector <mu_coin::authorization> const &);
+    mu_coin::receivable_processor & processor;
+    mu_coin::endpoint sender;
 };
 
 mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a) :
@@ -1420,16 +1422,11 @@ void mu_coin::receivable_processor::run ()
     auto this_l (shared_from_this ());
     advance_timeout ();
     client.network.add_publish_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
-    auto peers (client.peers.list ());
-    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-    {
-        client.network.publish_block (*i, incoming->block->clone ());
-    }
 }
 
-void mu_coin::receivable_processor::publish_con (std::unique_ptr <mu_coin::message> message, const mu_coin::endpoint &source)
+void mu_coin::receivable_processor::publish_con (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & sender)
 {
-    receivable_message_processor processor_l (*this);
+    receivable_message_processor processor_l (*this, sender);
     message->visit (processor_l);
 }
 
@@ -1498,7 +1495,7 @@ void receivable_message_processor::process_authorizations (mu_coin::block_hash c
                     receive->hashables.source = hash;
                     mu_coin::sign_message (prv, send.hashables.destination, receive->hash (), receive->signature);
                     prv.bytes.fill (0);
-                    processor.client.processor.publish (std::unique_ptr <mu_coin::block> (receive));
+                    processor.client.processor.publish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
                 }
                 else
                 {
@@ -1554,13 +1551,13 @@ void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::publish_r
     processor->run ();
 }
 
-void mu_coin::processor::publish (std::unique_ptr <mu_coin::block> block_a)
+void mu_coin::processor::publish (std::unique_ptr <mu_coin::block> block_a, mu_coin::endpoint const & sender_a)
 {
-    auto result (process_publish (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::move (block_a)}}));
+    auto result (process_publish (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::move (block_a)}}, sender_a));
     assert (!result);
 }
 
-bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> incoming)
+bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> incoming, mu_coin::endpoint const & sender_a)
 {
     auto block (incoming->block->clone ());
     publish_visitor visitor (client, std::move (incoming));
@@ -1570,7 +1567,10 @@ bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req>
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            client.network.publish_block (*i, block->clone ());
+            if (*i != sender_a)
+            {
+                client.network.publish_block (*i, block->clone ());
+            }
         }
     }
     return visitor.result != mu_coin::process_result::progress && visitor.result != mu_coin::process_result::owned && visitor.result != mu_coin::process_result::old;
@@ -1909,7 +1909,7 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     {
         for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
         {
-            processor.publish (std::move (*i));
+            processor.publish (std::move (*i), mu_coin::endpoint {});
         }
     }
     return result;
