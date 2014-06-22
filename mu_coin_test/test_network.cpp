@@ -224,17 +224,10 @@ TEST (receivable_processor, send_with_receive)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, *system.clients [1]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [1]->network.publish_listener_size ());
-    mu_coin::publish_con con1 {block1->hash ()};
-    mu_coin::authorization auth1;
-    auth1.address = key1.pub;
-    mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
-    con1.authorizations.push_back (auth1);
-    mu_coin::byte_write_stream stream;
-    con1.serialize (stream);
-    ASSERT_LE (stream.size, system.clients [1]->network.buffer.size ());
-    std::copy (stream.data, stream.data + stream.size, system.clients [1]->network.buffer.begin ());
-    system.clients [1]->network.remote = mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), system.clients [0]->network.socket.local_endpoint ().port ());
-    system.clients [1]->network.receive_action (boost::system::error_code {}, stream.size);
+    while (!receivable->complete)
+    {
+        system.service.run_one ();
+    }
     ASSERT_EQ (amount - 100, system.clients [0]->ledger.balance (key1.pub));
     ASSERT_EQ (0, system.clients [0]->ledger.balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.balance (key1.pub));

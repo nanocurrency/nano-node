@@ -1426,6 +1426,11 @@ void mu_coin::receivable_processor::run ()
     auto this_l (shared_from_this ());
     advance_timeout ();
     client.network.add_publish_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
+    auto list (client.peers.list ());
+    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+    {
+        client.network.publish_block (*i, incoming->block->clone ());
+    }
 }
 
 void mu_coin::receivable_processor::publish_con (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & sender)
