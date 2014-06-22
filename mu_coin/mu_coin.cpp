@@ -1925,6 +1925,7 @@ mu_coin::system::system (uint16_t port_a, size_t count_a)
     for (size_t i (0); i < count_a; ++i)
     {
         clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, port_a + i, processor)));
+        clients.back ()->network.receive ();
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {

@@ -6,7 +6,6 @@ TEST (network, construction)
 {
     mu_coin::system system (24001, 1);
     ASSERT_EQ (1, system.clients.size ());
-    system.clients [0]->network.receive ();
     ASSERT_EQ (24001, system.clients [0]->network.socket.local_endpoint ().port ());
 }
 
@@ -49,8 +48,6 @@ TEST (network, publish_req)
 TEST (network, send_discarded_publish)
 {
     mu_coin::system system (24001, 2);
-    system.clients [0]->network.receive ();
-    system.clients [1]->network.receive ();
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
     system.clients [0]->network.publish_block (system.endpoint (1), std::move (block));
     while (system.clients [1]->network.publish_req_count == 0)
@@ -64,8 +61,6 @@ TEST (network, send_discarded_publish)
 TEST (network, send_invalid_publish)
 {
     mu_coin::system system (24001, 2);
-    system.clients [0]->network.receive ();
-    system.clients [1]->network.receive ();
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
     mu_coin::keypair key1;
     block->hashables.previous = 0;
@@ -90,8 +85,6 @@ TEST (network, send_valid_publish)
     mu_coin::keypair key2;
     system.clients [1]->wallet.insert (key2.pub, key2.prv, secret);
     system.clients [1]->store.genesis_put (key1.pub, 100);
-    system.clients [0]->network.receive ();
-    system.clients [1]->network.receive ();
     mu_coin::send_block block2;
     mu_coin::block_hash hash1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (key1.pub, hash1));
@@ -241,7 +234,6 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_LE (stream.size, system.clients [1]->network.buffer.size ());
     std::copy (stream.data, stream.data + stream.size, system.clients [1]->network.buffer.begin ());
     system.clients [1]->network.remote = mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), system.clients [0]->network.socket.local_endpoint ().port ());
-    system.clients [0]->network.receive ();
     system.clients [1]->network.receive_action (boost::system::error_code {}, stream.size);
     ASSERT_EQ (amount - 100, system.clients [0]->ledger.balance (key1.pub));
     ASSERT_EQ (0, system.clients [0]->ledger.balance (key2.pub));
