@@ -529,7 +529,8 @@ namespace mu_coin {
         processor (mu_coin::processor_service &, mu_coin::client &);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         bool process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
-        void process_receivable (std::unique_ptr <mu_coin::publish_req>);
+        void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
+        void process_confirmation (mu_coin::block_hash const &, mu_coin::endpoint const &);
         mu_coin::processor_service & service;
         mu_coin::client & client;
     };
@@ -576,7 +577,7 @@ namespace mu_coin {
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
     public:
-        receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a);
+        receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::endpoint const &, mu_coin::client & client_a);
         void run ();
         void publish_con (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
         void timeout_action ();
@@ -586,6 +587,7 @@ namespace mu_coin {
         mu_coin::uint256_t threshold;
         std::chrono::system_clock::time_point timeout;
         std::unique_ptr <mu_coin::publish_req> incoming;
+        mu_coin::endpoint sender;
         mu_coin::client & client;
         std::mutex mutex;
         bool complete;
@@ -602,6 +604,7 @@ namespace mu_coin {
         mu_coin::network network;
         mu_coin::processor processor;
         mu_coin::peer_container peers;
+        mu_coin::uint256_union password;
     };
     class system
     {

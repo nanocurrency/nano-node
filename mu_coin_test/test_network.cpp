@@ -114,7 +114,7 @@ TEST (network, send_valid_publish)
 TEST (receivable_processor, timeout)
 {
     mu_coin::system system (24001, 1);
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (nullptr, *system.clients [0]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (nullptr, mu_coin::endpoint {}, *system.clients [0]));
     ASSERT_EQ (0, system.clients [0]->network.publish_listener_size ());
     ASSERT_FALSE (receivable->complete);
     ASSERT_EQ (0, system.processor.size ());
@@ -128,7 +128,7 @@ TEST (receivable_processor, confirm_no_pos)
 {
     mu_coin::system system (24001, 1);
     auto block1 (new mu_coin::send_block ());
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, *system.clients [0]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->network.publish_listener_size ());
     mu_coin::keypair key1;
@@ -151,7 +151,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     mu_coin::keypair key1;
     system.clients [0]->ledger.store.genesis_put (key1.pub, 1);
     auto block1 (new mu_coin::send_block ());
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, *system.clients [0]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->network.publish_listener_size ());
     mu_coin::publish_con con1 {block1->hash ()};
@@ -176,7 +176,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     mu_coin::keypair key1;
     system.clients [0]->ledger.store.genesis_put (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max ());
     auto block1 (new mu_coin::send_block ());
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, *system.clients [0]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->network.publish_listener_size ());
     mu_coin::publish_con con1 {block1->hash ()};
@@ -221,7 +221,7 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (0, system.clients [0]->ledger.balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.balance (key1.pub));
     ASSERT_EQ (0, system.clients [1]->ledger.balance (key2.pub));
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, *system.clients [1]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, system.endpoint (0), *system.clients [1]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [1]->network.publish_listener_size ());
     while (!receivable->complete)

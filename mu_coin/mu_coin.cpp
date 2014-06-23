@@ -932,7 +932,7 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
-    std::cerr << "Keepalive " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ());
+    std::cerr << "Keepalive " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const &, size_t) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -944,7 +944,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
-    std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ());
+    std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const & ec, size_t size) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -989,19 +989,13 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     auto error (incoming->deserialize (stream));
                     receive ();
                     if (!error)
-                    {
-                        
-                        std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ());
+                    {                        
+                        std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         auto hash (incoming->block->hash ());
                         auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
                         if (!error)
                         {
-                            mu_coin::publish_con outgoing {hash};
-                            mu_coin::byte_write_stream stream;
-                            outgoing.serialize (stream);
-                            auto data (stream.data);
-                            client.network.socket.async_send_to (boost::asio::buffer (stream.data, stream.size), sender, [data] (boost::system::error_code const & error, size_t size_a) {free (data);});
-                            stream.abandon ();
+                            client.processor.process_confirmation (hash, sender);
                         }
                         else
                         {
@@ -1352,9 +1346,10 @@ client (service_a, port_a, boost::filesystem::unique_path (), boost::filesystem:
 class publish_visitor : public mu_coin::block_visitor
 {
 public:
-    publish_visitor (mu_coin::client & client_a, std::unique_ptr <mu_coin::publish_req> incoming_a) :
+    publish_visitor (mu_coin::client & client_a, std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::endpoint const & sender_a) :
     client (client_a),
     incoming (std::move (incoming_a)),
+    sender (sender_a),
     result (mu_coin::process_result::progress)
     {
     }
@@ -1371,7 +1366,7 @@ public:
             if (wallet.find (block_a.hashables.destination) != wallet.end ())
             {
                 result = mu_coin::process_result::owned;
-                client.processor.process_receivable (std::move (incoming));
+                client.processor.process_receivable (std::move (incoming), sender);
             }
         }
     }
@@ -1381,6 +1376,7 @@ public:
     }
     mu_coin::client & client;
     std::unique_ptr <mu_coin::publish_req> incoming;
+    mu_coin::endpoint sender;
     mu_coin::process_result result;
 };
 
@@ -1413,9 +1409,10 @@ public:
     mu_coin::endpoint sender;
 };
 
-mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::client & client_a) :
+mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::endpoint const & sender_a, mu_coin::client & client_a) :
 threshold (client_a.ledger.supply () / 2),
 incoming (std::move (incoming_a)),
+sender (sender_a),
 client (client_a),
 complete (false)
 {
@@ -1429,7 +1426,10 @@ void mu_coin::receivable_processor::run ()
     auto list (client.peers.list ());
     for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
     {
-        client.network.publish_block (*i, incoming->block->clone ());
+        if (*i != sender)
+        {
+            client.network.publish_block (*i, incoming->block->clone ());
+        }
     }
 }
 
@@ -1554,9 +1554,9 @@ void receivable_message_processor::publish_nak (mu_coin::publish_nak const & mes
     }
 }
 
-void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::publish_req> incoming)
+void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::publish_req> incoming, mu_coin::endpoint const & sender_a)
 {
-    auto processor (std::make_shared <receivable_processor> (std::move (incoming), client));
+    auto processor (std::make_shared <receivable_processor> (std::move (incoming), sender_a, client));
     processor->run ();
 }
 
@@ -1569,7 +1569,7 @@ void mu_coin::processor::publish (std::unique_ptr <mu_coin::block> block_a, mu_c
 bool mu_coin::processor::process_publish (std::unique_ptr <mu_coin::publish_req> incoming, mu_coin::endpoint const & sender_a)
 {
     auto block (incoming->block->clone ());
-    publish_visitor visitor (client, std::move (incoming));
+    publish_visitor visitor (client, std::move (incoming), sender_a);
     visitor.incoming->block->visit (visitor);
     if (visitor.result == mu_coin::process_result::progress)
     {
@@ -1947,4 +1947,14 @@ mu_coin::system::system (uint16_t port_a, size_t count_a)
 mu_coin::endpoint mu_coin::system::endpoint (size_t index_a)
 {
     return mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), clients [index_a]->network.socket.local_endpoint ().port ());
+}
+
+void mu_coin::processor::process_confirmation (mu_coin::block_hash const & hash, mu_coin::endpoint const & sender)
+{
+    mu_coin::publish_con outgoing {hash};
+    mu_coin::byte_write_stream stream;
+    outgoing.serialize (stream);
+    auto data (stream.data);
+    client.network.socket.async_send_to (boost::asio::buffer (stream.data, stream.size), sender, [data] (boost::system::error_code const & error, size_t size_a) {free (data);});
+    stream.abandon ();
 }
