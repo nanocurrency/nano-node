@@ -181,7 +181,7 @@ void mu_coin_qt::gui::refresh_wallet ()
     mu_coin::uint256_t balance;
     for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
-        mu_coin::public_key key (*i);
+        mu_coin::public_key key (i->first);
         auto account_balance (client.ledger.balance (key));
         balance += account_balance;
         std::string string;

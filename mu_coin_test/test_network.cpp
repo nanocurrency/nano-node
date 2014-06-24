@@ -79,10 +79,10 @@ TEST (network, send_valid_publish)
 {
     mu_coin::system system (24001, 2);
     mu_coin::keypair key1;
-    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->password);
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
     system.clients [0]->store.genesis_put (key1.pub, 100);
     mu_coin::keypair key2;
-    system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->password);
+    system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
     system.clients [1]->store.genesis_put (key1.pub, 100);
     mu_coin::send_block block2;
     mu_coin::block_hash hash1;
@@ -197,9 +197,9 @@ TEST (receivable_processor, send_with_receive)
 {
     mu_coin::system system (24001, 2);
     mu_coin::keypair key1;
-    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->password);
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
     mu_coin::keypair key2;
-    system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->password);
+    system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
     auto amount (std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->ledger.store.genesis_put (key1.pub, amount);
     system.clients [1]->ledger.store.genesis_put (key1.pub, amount);

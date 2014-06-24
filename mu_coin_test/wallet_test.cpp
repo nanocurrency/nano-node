@@ -4,7 +4,7 @@
 
 TEST (wallet, no_key)
 {
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
@@ -14,7 +14,7 @@ TEST (wallet, no_key)
 
 TEST (wallet, retrieval)
 {
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
@@ -29,7 +29,7 @@ TEST (wallet, retrieval)
 
 TEST (wallet, empty_iteration)
 {
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     auto i (wallet.begin ());
     auto j (wallet.end ());
     ASSERT_EQ (i, j);
@@ -37,7 +37,7 @@ TEST (wallet, empty_iteration)
 
 TEST (wallet, one_item_iteration)
 {
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
     mu_coin::uint256_union secret;
     secret.bytes.fill (0);
@@ -54,7 +54,7 @@ TEST (wallet, one_item_iteration)
 
 TEST (wallet, two_item_iteration)
 {
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
     mu_coin::keypair key2;
     mu_coin::uint256_union secret;
@@ -81,7 +81,7 @@ TEST (wallet, two_item_iteration)
 
 TEST (wallet, insufficient_spend)
 {
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::keypair key1;
@@ -95,7 +95,7 @@ TEST (wallet, one_spend)
 {
     mu_coin::keypair key1;
     mu_coin::uint256_union password;
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     wallet.insert (key1.pub, key1.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
@@ -119,7 +119,7 @@ TEST (wallet, two_spend)
     mu_coin::keypair key1;
     mu_coin::keypair key2;
     mu_coin::uint256_union password;
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     wallet.insert (key1.pub, key1.prv, password);
     wallet.insert (key2.pub, key2.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
@@ -149,7 +149,7 @@ TEST (wallet, partial_spend)
 {
     mu_coin::keypair key1;
     mu_coin::uint256_union password;
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     wallet.insert (key1.pub, key1.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
@@ -171,7 +171,7 @@ TEST (wallet, spend_no_previous)
 {
     mu_coin::keypair key1;
     mu_coin::uint256_union password;
-    mu_coin::wallet wallet (mu_coin::wallet_temp);
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     for (auto i (0); i < 50; ++i)
     {
         mu_coin::keypair key;

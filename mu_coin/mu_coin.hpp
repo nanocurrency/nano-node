@@ -497,14 +497,15 @@ namespace mu_coin {
     class wallet
     {
     public:
-        wallet (wallet_temp_t const &);
-        wallet (boost::filesystem::path const &);
+        wallet (mu_coin::uint256_union const &, wallet_temp_t const &);
+        wallet (mu_coin::uint256_union const &, boost::filesystem::path const &);
         void insert (mu_coin::public_key const &, mu_coin::private_key const &, mu_coin::secret_key const &);
         void insert (mu_coin::private_key const &, mu_coin::secret_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::secret_key const &, mu_coin::private_key &);
         bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
         key_iterator begin ();
         key_iterator end ();
+        mu_coin::uint256_union password;
     private:
         Db handle;
     };
@@ -612,7 +613,6 @@ namespace mu_coin {
         mu_coin::network network;
         mu_coin::processor processor;
         mu_coin::peer_container peers;
-        mu_coin::uint256_union password;
     };
     class system
     {

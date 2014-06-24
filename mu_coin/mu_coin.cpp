@@ -1098,14 +1098,15 @@ mu_coin::dbt::dbt (mu_coin::private_key const & prv, mu_coin::secret_key const &
     adopt (stream);
 }
 
-mu_coin::wallet::wallet (boost::filesystem::path const & path_a) :
+mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, boost::filesystem::path const & path_a) :
+password (password_a),
 handle (nullptr, 0)
 {
     handle.open (nullptr, path_a.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
-mu_coin::wallet::wallet (mu_coin::wallet_temp_t const &) :
-wallet (boost::filesystem::unique_path ())
+mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, mu_coin::wallet_temp_t const &) :
+wallet (password_a, boost::filesystem::unique_path ())
 {
 }
 
@@ -1339,7 +1340,7 @@ bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
 mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
 store (block_store_path_a),
 ledger (store),
-wallet (wallet_path_a),
+wallet (0, wallet_path_a),
 network (service_a, port_a, *this),
 processor (processor_a, *this)
 {
@@ -1961,7 +1962,7 @@ void mu_coin::processor::process_confirmation (mu_coin::block_hash const & hash,
     mu_coin::publish_con outgoing {hash};
     for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
-        auto prv (i->second.prv (client.password, i->first.owords [0]));
+        auto prv (i->second.prv (client.wallet.password, i->first.owords [0]));
         outgoing.authorizations.push_back (mu_coin::authorization {});
         outgoing.authorizations.back ().address = i->first;
         mu_coin::sign_message (prv, i->first, hash, outgoing.authorizations.back ().signature);
