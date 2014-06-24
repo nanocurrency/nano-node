@@ -25,6 +25,17 @@ TEST (ledger, genesis_balance)
     ASSERT_EQ (500, balance);
 }
 
+TEST (system, system_genesis)
+{
+    mu_coin::system system (24000, 2);
+    mu_coin::keypair key1;
+    system.genesis (key1.pub, 500);
+    for (auto & i: system.clients)
+    {
+        ASSERT_EQ (500, i->ledger.balance (key1.pub));
+    }
+}
+
 TEST (uint256_union, key_encryption)
 {
     mu_coin::keypair key1;

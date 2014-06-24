@@ -620,6 +620,7 @@ namespace mu_coin {
     public:
         system (uint16_t, size_t);
         mu_coin::endpoint endpoint (size_t);
+        void genesis (mu_coin::public_key const &, mu_coin::uint256_t const &);
         boost::asio::io_service service;
         mu_coin::processor_service processor;
         std::vector <std::unique_ptr <mu_coin::client>> clients;

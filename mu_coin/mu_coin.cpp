@@ -1995,3 +1995,11 @@ mu_coin::key_entry * mu_coin::key_entry::operator -> ()
 {
     return this;
 }
+
+void mu_coin::system::genesis (mu_coin::public_key const & address, mu_coin::uint256_t const & amount)
+{
+    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
+    {
+        (*i)->store.genesis_put (address, amount);
+    }
+}
