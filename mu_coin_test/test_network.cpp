@@ -67,12 +67,12 @@ TEST (network, send_invalid_publish)
     block->hashables.balance = 20;
     mu_coin::sign_message (key1.prv, key1.pub, block->hash (), block->signature);
     system.clients [0]->network.publish_block (system.endpoint (1), std::move (block));
-    while (system.clients [0]->network.publish_unk_count == 0)
+    while (system.clients [0]->network.publish_ack_count == 0)
     {
         system.service.run_one ();
     }
     ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
-    ASSERT_EQ (1, system.clients [0]->network.publish_unk_count);
+    ASSERT_EQ (1, system.clients [0]->network.publish_ack_count);
 }
 
 TEST (network, send_valid_publish)
@@ -95,12 +95,12 @@ TEST (network, send_valid_publish)
     mu_coin::block_hash hash3;
     ASSERT_FALSE (system.clients [1]->store.latest_get (key1.pub, hash3));
     system.clients [0]->processor.publish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.endpoint (0));
-    while (system.clients [0]->network.publish_con_count == 0)
+    while (system.clients [0]->network.publish_ack_count == 0)
     {
         system.service.run_one ();
     }
-    ASSERT_EQ (1, system.clients [0]->network.publish_con_count);
-    ASSERT_EQ (0, system.clients [1]->network.publish_con_count);
+    ASSERT_EQ (1, system.clients [0]->network.publish_ack_count);
+    ASSERT_EQ (0, system.clients [1]->network.publish_ack_count);
     ASSERT_EQ (0, system.clients [0]->network.publish_req_count);
     ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
     mu_coin::block_hash hash4;
@@ -131,7 +131,7 @@ TEST (receivable_processor, confirm_no_pos)
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->network.publish_listener_size ());
     mu_coin::keypair key1;
-    mu_coin::publish_con con1 {block1->hash ()};
+    mu_coin::confirm_ack con1 {block1->hash ()};
     mu_coin::authorization auth1;
     auth1.address = key1.pub;
     mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
@@ -153,7 +153,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->network.publish_listener_size ());
-    mu_coin::publish_con con1 {block1->hash ()};
+    mu_coin::confirm_ack con1 {block1->hash ()};
     mu_coin::authorization auth1;
     auth1.address = key1.pub;
     mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
@@ -178,7 +178,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->network.publish_listener_size ());
-    mu_coin::publish_con con1 {block1->hash ()};
+    mu_coin::confirm_ack con1 {block1->hash ()};
     mu_coin::authorization auth1;
     auth1.address = key1.pub;
     mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
@@ -223,7 +223,8 @@ TEST (receivable_processor, send_with_receive)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [1]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [1]->network.publish_listener_size ());
-    while (system.clients [0]->network.publish_req_count < 2)
+    // Confirm_req, confirm_ack, publish_req, publish_ack
+    while (system.clients [1]->network.publish_ack_count < 1)
     {
         system.service.run_one ();
     }

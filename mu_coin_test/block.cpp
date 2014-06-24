@@ -240,10 +240,10 @@ TEST (send_block, copy)
     ASSERT_EQ (block1, block2);
 }
 
-TEST (publish_con, serialization)
+TEST (confirm_ack, serialization)
 {
     mu_coin::block_hash hash;
-    mu_coin::publish_con con1 {hash};
+    mu_coin::confirm_ack con1 {hash};
     mu_coin::keypair key1;
     mu_coin::signature signature;
     mu_coin::sign_message (key1.prv, key1.pub, hash, signature);
@@ -252,7 +252,7 @@ TEST (publish_con, serialization)
     mu_coin::byte_write_stream stream1;
     con1.serialize (stream1);
     mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
-    mu_coin::publish_con con2;
+    mu_coin::confirm_ack con2;
     con2.deserialize (stream2);
     ASSERT_EQ (con1, con2);
 }

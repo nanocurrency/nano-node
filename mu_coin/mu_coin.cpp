@@ -578,33 +578,35 @@ std::unique_ptr <mu_coin::block> mu_coin::receive_block::clone () const
 std::unique_ptr <mu_coin::block> mu_coin::deserialize_block (mu_coin::byte_read_stream & stream_a)
 {
     mu_coin::block_type type;
-    stream_a.read (type);
+    auto error (stream_a.read (type));
     std::unique_ptr <mu_coin::block> result;
-    switch (type)
+    if (!error)
     {
-        case mu_coin::block_type::receive:
+        switch (type)
         {
-            std::unique_ptr <mu_coin::receive_block> obj (new mu_coin::receive_block);
-            auto error (obj->deserialize (stream_a));
-            if (!error)
+            case mu_coin::block_type::receive:
             {
-                result = std::move (obj);
+                std::unique_ptr <mu_coin::receive_block> obj (new mu_coin::receive_block);
+                auto error (obj->deserialize (stream_a));
+                if (!error)
+                {
+                    result = std::move (obj);
+                }
             }
-        }
-            break;
-        case mu_coin::block_type::send:
-        {
-            std::unique_ptr <mu_coin::send_block> obj (new mu_coin::send_block);
-            auto error (obj->deserialize (stream_a));
-            if (!error)
+                break;
+            case mu_coin::block_type::send:
             {
-                result = std::move (obj);
+                std::unique_ptr <mu_coin::send_block> obj (new mu_coin::send_block);
+                auto error (obj->deserialize (stream_a));
+                if (!error)
+                {
+                    result = std::move (obj);
+                }
             }
+                break;
+            default:
+                break;
         }
-            break;
-        default:
-            assert (false);
-            break;
     }
     return result;
 }
@@ -906,10 +908,12 @@ client (client_a),
 keepalive_req_count (0),
 keepalive_ack_count (0),
 publish_req_count (0),
-publish_con_count (0),
-publish_dup_count (0),
-publish_unk_count (0),
+publish_ack_count (0),
 publish_nak_count (0),
+confirm_req_count (0),
+confirm_ack_count (0),
+confirm_nak_count (0),
+confirm_unk_count (0),
 unknown_count (0),
 on (true)
 {
@@ -945,6 +949,18 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     message.serialize (stream);
     auto data (stream.data);
     std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+    socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const & ec, size_t size) {free (data);});
+    stream.abandon ();
+    client.peers.add_peer (endpoint_a);
+}
+
+void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
+{
+    mu_coin::confirm_req message (std::move (block));
+    mu_coin::byte_write_stream stream;
+    message.serialize (stream);
+    auto data (stream.data);
+    std::cerr << "Confirm " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const & ec, size_t size) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -989,17 +1005,21 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     auto error (incoming->deserialize (stream));
                     receive ();
                     if (!error)
-                    {                        
-                        std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
-                        auto hash (incoming->block->hash ());
+                    {
+                        std::cerr << "Publish req" << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         auto error (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
-                        if (!error)
+                        if (true)
                         {
-                            client.processor.process_confirmation (hash, sender);
+                            mu_coin::publish_ack outgoing;
+                            mu_coin::byte_write_stream stream;
+                            outgoing.serialize (stream);
+                            auto data (stream.data);
+                            socket.async_send_to (boost::asio::buffer (stream.data, stream.size), sender, [data] (boost::system::error_code const & error, size_t size_a) {free (data);});
+                            stream.abandon ();
                         }
                         else
                         {
-                            mu_coin::publish_unk outgoing;
+                            mu_coin::publish_nak outgoing;
                             mu_coin::byte_write_stream stream;
                             outgoing.serialize (stream);
                             auto data (stream.data);
@@ -1009,18 +1029,64 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     }
                     break;
                 }
-                case mu_coin::message_type::publish_con:
+                case mu_coin::message_type::publish_ack:
                 {
-                    ++publish_con_count;
-                    auto incoming (new mu_coin::publish_con);
+                    ++publish_ack_count;
+                    auto incoming (new mu_coin::publish_ack);
+                    mu_coin::byte_read_stream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    receive ();
+                    break;
+                }
+                case mu_coin::message_type::publish_nak:
+                {
+                    ++publish_nak_count;
+                    auto incoming (new mu_coin::publish_nak);
+                    mu_coin::byte_read_stream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    receive ();
+                    break;
+                }
+                case mu_coin::message_type::confirm_req:
+                {
+                    ++confirm_req_count;
+                    std::cerr << "Confirm req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    auto incoming (new mu_coin::confirm_req);
+                    mu_coin::byte_read_stream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    receive ();
+                    if (!error)
+                    {
+                        auto result (client.ledger.process (*incoming->block));
+                        switch (result)
+                        {
+                            case mu_coin::process_result::old:
+                            case mu_coin::process_result::progress:
+                            {
+                                client.processor.process_confirmation (incoming->block->hash (), sender);
+                                break;
+                            }
+                            default:
+                            {
+                                assert (false);
+                            }
+                        }
+                    }
+                    break;
+                }
+                case mu_coin::message_type::confirm_ack:
+                {
+                    ++confirm_ack_count;
+                    std::cerr << "Confirm ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    auto incoming (new mu_coin::confirm_ack);
                     mu_coin::byte_read_stream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
                     receive ();
                     if (!error)
                     {
                         std::unique_lock <std::mutex> lock (mutex);
-                        auto session (publish_listeners.find (incoming->block));
-                        if (session != publish_listeners.end ())
+                        auto session (confirm_listeners.find (incoming->block));
+                        if (session != confirm_listeners.end ())
                         {
                             lock.release ();
                             session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
@@ -1028,30 +1094,33 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     }
                     break;
                 }
-                case mu_coin::message_type::publish_dup:
+                case mu_coin::message_type::confirm_nak:
                 {
-                    ++publish_dup_count;
-                    auto incoming (new mu_coin::publish_dup);
+                    ++confirm_nak_count;
+                    std::cerr << "Confirm nak " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    auto incoming (new mu_coin::confirm_nak);
                     mu_coin::byte_read_stream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
                     receive ();
                     if (!error)
                     {
                         std::unique_lock <std::mutex> lock (mutex);
-                        auto session (publish_listeners.find (incoming->block));
-                        lock.release ();
-                        session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
+                        auto session (confirm_listeners.find (incoming->block));
+                        if (session != confirm_listeners.end ())
+                        {
+                            lock.release ();
+                            session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
+                        }
                     }
                     break;
                 }
-                case mu_coin::message_type::publish_unk:
+                case mu_coin::message_type::confirm_unk:
                 {
-                    ++publish_unk_count;
-                    break;
-                }
-                case mu_coin::message_type::publish_nak:
-                {
-                    ++publish_nak_count;
+                    ++confirm_unk_count;
+                    auto incoming (new mu_coin::confirm_unk);
+                    mu_coin::byte_read_stream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    receive ();
                     break;
                 }
                 default:
@@ -1408,10 +1477,21 @@ public:
     {
         assert (false);
     }
-    void publish_con (mu_coin::publish_con const &);
-    void publish_dup (mu_coin::publish_dup const &);
-    void publish_unk (mu_coin::publish_unk const &);
-    void publish_nak (mu_coin::publish_nak const &);
+    void publish_ack (mu_coin::publish_ack const &)
+    {
+        assert (false);
+    }
+    void publish_nak (mu_coin::publish_nak const &)
+    {
+        assert (false);
+    }
+    void confirm_req (mu_coin::confirm_req const &)
+    {
+        assert (false);
+    }
+    void confirm_ack (mu_coin::confirm_ack const &);
+    void confirm_unk (mu_coin::confirm_unk const &);
+    void confirm_nak (mu_coin::confirm_nak const &);
     void process_authorizations (mu_coin::block_hash const &, std::vector <mu_coin::authorization> const &);
     mu_coin::receivable_processor & processor;
     mu_coin::endpoint sender;
@@ -1437,13 +1517,13 @@ void mu_coin::receivable_processor::run ()
     if (!complete)
     {
         auto this_l (shared_from_this ());
-        client.network.add_publish_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
+        client.network.add_confirm_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
             if (*i != sender)
             {
-                client.network.publish_block (*i, incoming->block->clone ());
+                client.network.confirm_block (*i, incoming->block->clone ());
             }
         }
     }
@@ -1544,26 +1624,22 @@ void receivable_message_processor::process_authorizations (mu_coin::block_hash c
             // Signature didn't match.
         }
     }
+    std::string ack_string (acknowledged.convert_to <std::string> ());
     processor.process_acknowledged (acknowledged);
 }
 
-void receivable_message_processor::publish_con (mu_coin::publish_con const & message)
+void receivable_message_processor::confirm_ack (mu_coin::confirm_ack const & message)
 {
     process_authorizations (message.block, message.authorizations);
 }
 
-void receivable_message_processor::publish_dup (mu_coin::publish_dup const & message)
-{
-    process_authorizations (message.block, message.authorizations);
-}
-
-void receivable_message_processor::publish_unk (mu_coin::publish_unk const & message)
+void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & message)
 {
 }
 
-void receivable_message_processor::publish_nak (mu_coin::publish_nak const & message)
+void receivable_message_processor::confirm_nak (mu_coin::confirm_nak const & message)
 {
-    auto block (message.block->hash ());
+    auto block (message.winner->hash ());
     for (auto i (message.authorizations.begin ()), j (message.authorizations.end ()); i != j; ++i)
     {
         if (!mu_coin::validate_message (i->address, block, i->signature))
@@ -1627,16 +1703,16 @@ std::vector <boost::asio::ip::udp::endpoint> mu_coin::peer_container::list ()
     return result;
 }
 
-void mu_coin::network::add_publish_listener (mu_coin::block_hash const & block_a, session const & function_a)
+void mu_coin::network::add_confirm_listener (mu_coin::block_hash const & block_a, session const & function_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    publish_listeners [block_a] = function_a;
+    confirm_listeners [block_a] = function_a;
 }
 
-void mu_coin::network::remove_publish_listener (mu_coin::block_hash const & block_a)
+void mu_coin::network::remove_confirm_listener (mu_coin::block_hash const & block_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    publish_listeners.erase (block_a);
+    confirm_listeners.erase (block_a);
 }
 
 void mu_coin::keepalive_req::visit (mu_coin::message_visitor & visitor_a)
@@ -1654,19 +1730,9 @@ void mu_coin::publish_req::visit (mu_coin::message_visitor & visitor_a)
     visitor_a.publish_req (*this);
 }
 
-void mu_coin::publish_con::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::publish_ack::visit (mu_coin::message_visitor & visitor_a)
 {
-    visitor_a.publish_con (*this);
-}
-
-void mu_coin::publish_dup::visit (mu_coin::message_visitor & visitor_a)
-{
-    visitor_a.publish_dup (*this);
-}
-
-void mu_coin::publish_unk::visit (mu_coin::message_visitor & visitor_a)
-{
-    visitor_a.publish_unk (*this);
+    visitor_a.publish_ack (*this);
 }
 
 void mu_coin::publish_nak::visit (mu_coin::message_visitor & visitor_a)
@@ -1674,51 +1740,18 @@ void mu_coin::publish_nak::visit (mu_coin::message_visitor & visitor_a)
     visitor_a.publish_nak (*this);
 }
 
-void mu_coin::publish_con::serialize (mu_coin::byte_write_stream & stream)
+void mu_coin::publish_ack::serialize (mu_coin::byte_write_stream & stream)
 {
-    stream.write (mu_coin::message_type::publish_con);
+    stream.write (mu_coin::message_type::publish_ack);
     stream.write (block);
-    assert (authorizations.size () < 256);
-    auto authorization_count (static_cast <uint8_t> (authorizations.size ()));
-    stream.write (authorization_count);
-    for (auto i (authorizations.begin ()), j (authorizations.end ()); i != j; ++i)
-    {
-        stream.write (*i);
-    }
 }
 
-bool mu_coin::publish_con::deserialize (mu_coin::byte_read_stream & stream)
+bool mu_coin::publish_ack::deserialize (mu_coin::byte_read_stream & stream)
 {
     mu_coin::message_type type;
     auto result (stream.read (type));
-    assert (type == mu_coin::message_type::publish_con);
+    assert (type == mu_coin::message_type::publish_ack);
     result = stream.read (block);
-    if (!result)
-    {
-        uint8_t authorizations_count;
-        result = stream.read (authorizations_count);
-        if (!result)
-        {
-            for (auto i (0); i < authorizations_count; ++i)
-            {
-                authorizations.push_back (mu_coin::authorization {});
-                stream.read (authorizations.back ());
-            }
-        }
-    }
-    return result;
-}
-
-void mu_coin::publish_unk::serialize (mu_coin::byte_write_stream & stream)
-{
-    stream.write (mu_coin::message_type::publish_unk);
-}
-
-bool mu_coin::publish_unk::deserialize (mu_coin::byte_read_stream & stream)
-{
-    mu_coin::message_type type;
-    auto result (stream.read (type));
-    assert (type == mu_coin::message_type::publish_unk);
     return result;
 }
 
@@ -1762,25 +1795,17 @@ size_t mu_coin::processor_service::size ()
 size_t mu_coin::network::publish_listener_size ()
 {
     std::lock_guard <std::mutex> lock (mutex);
-    return publish_listeners.size ();
+    return confirm_listeners.size ();
 }
 
-mu_coin::publish_con::publish_con (mu_coin::block_hash const & block_a) :
+mu_coin::publish_ack::publish_ack (mu_coin::block_hash const & block_a) :
 block (block_a)
 {
 }
 
-bool mu_coin::publish_dup::deserialize (mu_coin::byte_read_stream & stream)
+bool mu_coin::publish_ack::operator == (mu_coin::publish_ack const & other_a) const
 {
-    mu_coin::message_type type;
-    auto result (stream.read (type));
-    assert (type == mu_coin::message_type::publish_dup);
-    return result;
-}
-
-bool mu_coin::publish_con::operator == (mu_coin::publish_con const & other_a) const
-{
-    return block == other_a.block && authorizations == other_a.authorizations;
+    return block == other_a.block;
 }
 
 bool mu_coin::authorization::operator == (mu_coin::authorization const & other_a) const
@@ -1975,7 +2000,7 @@ mu_coin::endpoint mu_coin::system::endpoint (size_t index_a)
 
 void mu_coin::processor::process_confirmation (mu_coin::block_hash const & hash, mu_coin::endpoint const & sender)
 {
-    mu_coin::publish_con outgoing {hash};
+    mu_coin::confirm_ack outgoing {hash};
     for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
         auto prv (i->second.prv (client.wallet.password, i->first.owords [0]));
@@ -2002,4 +2027,146 @@ void mu_coin::system::genesis (mu_coin::public_key const & address, mu_coin::uin
     {
         (*i)->store.genesis_put (address, amount);
     }
+}
+
+bool mu_coin::confirm_ack::deserialize (mu_coin::byte_read_stream & stream_a)
+{
+    mu_coin::message_type type;
+    auto result (stream_a.read (type));
+    assert (type == mu_coin::message_type::confirm_ack);
+    if (!result)
+    {
+        result = stream_a.read (block);
+        if (!result)
+        {
+            uint8_t authorization_count;
+            result = stream_a.read (authorization_count);
+            if (!result)
+            {
+                authorizations.reserve (authorization_count);
+                for (auto i (0); !result && i < authorization_count; ++i)
+                {
+                    authorizations.push_back (mu_coin::authorization {});
+                    result = stream_a.read (authorizations.back ());
+                }
+            }
+        }
+    }
+    return result;
+}
+
+void mu_coin::confirm_ack::serialize (mu_coin::byte_write_stream & stream_a)
+{
+    stream_a.write (mu_coin::message_type::confirm_ack);
+    stream_a.write (block);
+    assert (authorizations.size () <= std::numeric_limits <uint8_t>::max ());
+    uint8_t authorization_count (authorizations.size ());
+    stream_a.write (authorization_count);
+    for (auto & i: authorizations)
+    {
+        stream_a.write (i);
+    }
+}
+
+mu_coin::confirm_ack::confirm_ack (mu_coin::uint256_union const & block_a) :
+block (block_a)
+{
+}
+
+void mu_coin::publish_nak::serialize (mu_coin::byte_write_stream & stream_a)
+{
+    assert (conflict != nullptr);
+    stream_a.write (mu_coin::message_type::publish_nak);
+    stream_a.write (block);
+    mu_coin::serialize_block (stream_a, *conflict);
+}
+
+bool mu_coin::confirm_ack::operator == (mu_coin::confirm_ack const & other_a) const
+{
+    auto result (block == other_a.block && authorizations == other_a.authorizations);
+    return result;
+}
+
+void mu_coin::confirm_ack::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.confirm_ack (*this);
+}
+
+bool mu_coin::confirm_nak::deserialize (mu_coin::byte_read_stream & stream_a)
+{
+    mu_coin::message_type type;
+    stream_a.read (type);
+    assert (type == mu_coin::message_type::confirm_nak);
+    auto result (stream_a.read (block));
+    if (!result)
+    {
+        winner = mu_coin::deserialize_block (stream_a);
+        result = winner == nullptr;
+        if (!result)
+        {
+            loser = mu_coin::deserialize_block (stream_a);
+            result = loser == nullptr;
+        }
+    }
+    return result;
+}
+
+bool mu_coin::confirm_req::deserialize (mu_coin::byte_read_stream & stream_a)
+{
+    mu_coin::message_type type;
+    stream_a.read (type);
+    assert (type == mu_coin::message_type::confirm_req);
+    block = mu_coin::deserialize_block (stream_a);
+    auto result (block == nullptr);
+    return result;
+}
+
+bool mu_coin::confirm_unk::deserialize (mu_coin::byte_read_stream & stream_a)
+{
+    mu_coin::message_type type;
+    stream_a.read (type);
+    assert (type == mu_coin::message_type::confirm_unk);
+    auto result (stream_a.read (block));
+    return result;
+}
+
+bool mu_coin::publish_nak::deserialize (mu_coin::byte_read_stream & stream_a)
+{
+    mu_coin::message_type type;
+    stream_a.read (type);
+    assert (type == mu_coin::message_type::publish_nak);
+    auto result (stream_a.read (block));
+    if (!result)
+    {
+        conflict = mu_coin::deserialize_block (stream_a);
+        result = conflict == nullptr;
+    }
+    return result;
+}
+
+void mu_coin::confirm_nak::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.confirm_nak (*this);
+}
+
+void mu_coin::confirm_req::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.confirm_req (*this);
+}
+
+void mu_coin::confirm_unk::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.confirm_unk (*this);
+}
+
+void mu_coin::confirm_req::serialize (mu_coin::byte_write_stream & stream_a)
+{
+    assert (block != nullptr);
+    stream_a.write (mu_coin::message_type::confirm_req);
+    mu_coin::serialize_block (stream_a, *block);
+}
+
+mu_coin::confirm_req::confirm_req (std::unique_ptr <mu_coin::block> block_a) :
+block (std::move (block_a))
+{
 }

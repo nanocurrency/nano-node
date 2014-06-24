@@ -378,10 +378,12 @@ namespace mu_coin {
         keepalive_req,
         keepalive_ack,
         publish_req,
-        publish_con,
-        publish_dup,
-        publish_unk,
-        publish_nak
+        publish_ack,
+        publish_nak,
+        confirm_req,
+        confirm_ack,
+        confirm_nak,
+        confirm_unk
     };
     class authorization
     {
@@ -421,42 +423,71 @@ namespace mu_coin {
         void serialize (mu_coin::byte_write_stream &);
         std::unique_ptr <mu_coin::block> block;
     };
-    class publish_con : public message
+    class publish_ack : public message
     {
     public:
-        publish_con () = default;
-        publish_con (mu_coin::block_hash const &);
+        publish_ack () = default;
+        publish_ack (mu_coin::block_hash const &);
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
-        bool operator == (mu_coin::publish_con const &) const;
+        bool operator == (mu_coin::publish_ack const &) const;
         mu_coin::block_hash block;
-        std::vector <mu_coin::authorization> authorizations;
-    };
-    class publish_dup : public message
-    {
-    public:
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
-        void visit (mu_coin::message_visitor &) override;
-        mu_coin::block_hash block;
-        std::vector <mu_coin::authorization> authorizations;
-    };
-    class publish_unk : public message
-    {
-    public:
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
-        void visit (mu_coin::message_visitor &) override;
     };
     class publish_nak : public message
     {
     public:
+        publish_nak () = default;
+        publish_nak (mu_coin::block_hash const &);
         bool deserialize (mu_coin::byte_read_stream &);
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
-        std::unique_ptr <mu_coin::block> block; // Observed fork block
+        mu_coin::block_hash block;
+        std::unique_ptr <mu_coin::block> conflict;
+    };
+    class confirm_req : public message
+    {
+    public:
+        confirm_req () = default;
+        confirm_req (std::unique_ptr <mu_coin::block>);
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
+        bool operator == (mu_coin::publish_ack const &) const;
+        std::unique_ptr <mu_coin::block> block;
+    };
+    class confirm_ack : public message
+    {
+    public:
+        confirm_ack () = default;
+        confirm_ack (mu_coin::block_hash const &);
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
+        bool operator == (mu_coin::confirm_ack const &) const;
+        mu_coin::block_hash block;
         std::vector <mu_coin::authorization> authorizations;
+    };
+    class confirm_nak : public message
+    {
+    public:
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
+        mu_coin::block_hash block;
+        std::unique_ptr <mu_coin::block> winner;
+        std::unique_ptr <mu_coin::block> loser;
+        std::vector <mu_coin::authorization> authorizations;
+    };
+    class confirm_unk : public message
+    {
+    public:
+        confirm_unk () = default;
+        confirm_unk (mu_coin::block_hash const &);
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
+        mu_coin::block_hash block;
     };
     class message_visitor
     {
@@ -464,10 +495,12 @@ namespace mu_coin {
         virtual void keepalive_req (mu_coin::keepalive_req const &) = 0;
         virtual void keepalive_ack (mu_coin::keepalive_ack const &) = 0;
         virtual void publish_req (mu_coin::publish_req const &) = 0;
-        virtual void publish_con (mu_coin::publish_con const &) = 0;
-        virtual void publish_dup (mu_coin::publish_dup const &) = 0;
-        virtual void publish_unk (mu_coin::publish_unk const &) = 0;
+        virtual void publish_ack (mu_coin::publish_ack const &) = 0;
         virtual void publish_nak (mu_coin::publish_nak const &) = 0;
+        virtual void confirm_req (mu_coin::confirm_req const &) = 0;
+        virtual void confirm_ack (mu_coin::confirm_ack const &) = 0;
+        virtual void confirm_nak (mu_coin::confirm_nak const &) = 0;
+        virtual void confirm_unk (mu_coin::confirm_unk const &) = 0;
     };
     struct wallet_temp_t
     {
@@ -553,8 +586,9 @@ namespace mu_coin {
         void receive_action (boost::system::error_code const &, size_t);
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void add_publish_listener (mu_coin::block_hash const &, session const &);
-        void remove_publish_listener (mu_coin::block_hash const &);
+        void confirm_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
+        void add_confirm_listener (mu_coin::block_hash const &, session const &);
+        void remove_confirm_listener (mu_coin::block_hash const &);
         size_t publish_listener_size ();
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
@@ -564,15 +598,17 @@ namespace mu_coin {
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;
-        uint64_t publish_con_count;
-        uint64_t publish_dup_count;
-        uint64_t publish_unk_count;
+        uint64_t publish_ack_count;
         uint64_t publish_nak_count;
+        uint64_t confirm_req_count;
+        uint64_t confirm_ack_count;
+        uint64_t confirm_nak_count;
+        uint64_t confirm_unk_count;
         uint64_t unknown_count;
         bool on;
     private:
         std::mutex mutex;
-        std::unordered_map <mu_coin::block_hash, session> publish_listeners;
+        std::unordered_map <mu_coin::block_hash, session> confirm_listeners;
     };
     class peer_container
     {
