@@ -44,7 +44,7 @@ TEST (wallet, one_item_iteration)
     wallet.insert (key1.prv, secret);
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
-        mu_coin::public_key key (*i);
+        mu_coin::public_key key (i->first);
         ASSERT_EQ (key1.pub, key);
         mu_coin::private_key prv;
         i.data.key (secret, key1.pub.owords [0], prv);
@@ -65,7 +65,7 @@ TEST (wallet, two_item_iteration)
     std::vector <mu_coin::private_key> keys2;
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
-        mu_coin::public_key key (*i);
+        mu_coin::public_key key (i->first);
         mu_coin::private_key prv;
         i.data.key (secret, key.owords [0], prv);
         keys1.push_back (key);

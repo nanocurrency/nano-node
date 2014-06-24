@@ -1169,15 +1169,22 @@ mu_coin::key_iterator & mu_coin::key_iterator::operator ++ ()
     auto result (cursor->get (&key.data, &data.data, DB_NEXT));
     if (result == DB_NOTFOUND)
     {
+        current.first.clear ();
+        current.second.clear ();
         cursor->close ();
         cursor = nullptr;
+    }
+    else
+    {
+        current.first = key.uint256 ();
+        current.second = data.uint256 ();
     }
     return *this;
 }
 
-mu_coin::public_key mu_coin::key_iterator::operator * ()
+mu_coin::key_entry & mu_coin::key_iterator::operator -> ()
 {
-    return key.uint256 ();
+    return current;
 }
 
 mu_coin::key_iterator mu_coin::wallet::begin ()
@@ -1210,7 +1217,7 @@ bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public
     mu_coin::uint256_t remaining (coins);
     for (auto i (begin ()), j (end ()); i != j && !result && !remaining.is_zero (); ++i)
     {
-        auto account (*i);
+        auto account (i->first);
         auto balance (ledger_a.balance (account));
         if (!balance.is_zero ())
         {
@@ -1361,7 +1368,7 @@ public:
             std::unordered_set <mu_coin::uint256_union> wallet;
             for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
             {
-                wallet.insert (*i);
+                wallet.insert (i->first);
             }
             if (wallet.find (block_a.hashables.destination) != wallet.end ())
             {
@@ -1952,9 +1959,22 @@ mu_coin::endpoint mu_coin::system::endpoint (size_t index_a)
 void mu_coin::processor::process_confirmation (mu_coin::block_hash const & hash, mu_coin::endpoint const & sender)
 {
     mu_coin::publish_con outgoing {hash};
+    for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
+    {
+        auto prv (i->second.prv (client.password, i->first.owords [0]));
+        outgoing.authorizations.push_back (mu_coin::authorization {});
+        outgoing.authorizations.back ().address = i->first;
+        mu_coin::sign_message (prv, i->first, hash, outgoing.authorizations.back ().signature);
+        assert (!mu_coin::validate_message(i->first, hash, outgoing.authorizations.back ().signature));
+    }
     mu_coin::byte_write_stream stream;
     outgoing.serialize (stream);
     auto data (stream.data);
     client.network.socket.async_send_to (boost::asio::buffer (stream.data, stream.size), sender, [data] (boost::system::error_code const & error, size_t size_a) {free (data);});
     stream.abandon ();
+}
+
+mu_coin::key_entry * mu_coin::key_entry::operator -> ()
+{
+    return this;
 }

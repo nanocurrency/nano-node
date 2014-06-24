@@ -473,15 +473,23 @@ namespace mu_coin {
     {
     };
     extern wallet_temp_t wallet_temp;
+    class key_entry
+    {
+    public:
+        mu_coin::key_entry * operator -> ();
+        mu_coin::public_key first;
+        mu_coin::private_key second;
+    };
     class key_iterator
     {
     public:
         key_iterator (Dbc *);
         key_iterator (mu_coin::key_iterator const &) = default;
         key_iterator & operator ++ ();
-        mu_coin::public_key operator * ();
+        mu_coin::key_entry & operator -> ();
         bool operator == (mu_coin::key_iterator const &) const;
         bool operator != (mu_coin::key_iterator const &) const;
+        mu_coin::key_entry current;
         Dbc * cursor;
         dbt key;
         dbt data;
