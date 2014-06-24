@@ -238,15 +238,13 @@ TEST (receivable_processor, send_with_receive)
 
 TEST (client, send_single)
 {
-    boost::asio::io_service io_service;
-    mu_coin::processor_service processor;
-    mu_coin::client client1 (io_service, 24001, processor);
+    mu_coin::system system (24000, 1);
     mu_coin::keypair key1;
     mu_coin::keypair key2;
-    mu_coin::uint256_union password1;
-    client1.wallet.insert (key1.pub, key1.prv, password1);
-    client1.wallet.insert (key2.pub, key2.prv, password1);
-    client1.store.genesis_put (key1.pub, 100000);
-    ASSERT_FALSE (client1.send (key2.pub, 1000, password1));
-    ASSERT_EQ (100000 - 1000, client1.ledger.balance (key1.pub));
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    system.clients [0]->wallet.insert (key2.pub, key2.prv, system.clients [0]->wallet.password);
+    system.clients [0]->store.genesis_put (key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
+    ASSERT_FALSE (system.clients [0]->send (key2.pub, 1000, system.clients [0]->wallet.password));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.balance (key1.pub));
+    ASSERT_FALSE (system.clients [0]->ledger.balance (key2.pub).is_zero ());
 }

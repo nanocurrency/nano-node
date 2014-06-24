@@ -588,6 +588,7 @@ namespace mu_coin {
     public:
         receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::endpoint const &, mu_coin::client & client_a);
         void run ();
+        void process_acknowledged (mu_coin::uint256_t const &);
         void publish_con (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
         void timeout_action ();
         void advance_timeout ();

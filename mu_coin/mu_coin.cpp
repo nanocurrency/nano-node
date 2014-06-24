@@ -1428,16 +1428,28 @@ complete (false)
 
 void mu_coin::receivable_processor::run ()
 {
-    auto this_l (shared_from_this ());
-    advance_timeout ();
-    client.network.add_publish_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
-    auto list (client.peers.list ());
-    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+    mu_coin::uint256_t acknowledged_l;
+    for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
     {
-        if (*i != sender)
+        acknowledged_l += client.ledger.balance (i->first);
+    }
+    process_acknowledged (acknowledged_l);
+    if (!complete)
+    {
+        auto this_l (shared_from_this ());
+        client.network.add_publish_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
+        auto list (client.peers.list ());
+        for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            client.network.publish_block (*i, incoming->block->clone ());
+            if (*i != sender)
+            {
+                client.network.publish_block (*i, incoming->block->clone ());
+            }
         }
+    }
+    else
+    {
+        // Didn't need anyone else to authorize?  Wow, you're rich.
     }
 }
 
@@ -1467,6 +1479,56 @@ void mu_coin::receivable_processor::timeout_action ()
     }
 }
 
+void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t const & acknowledged_a)
+{
+    std::unique_lock <std::mutex> lock (mutex);
+    if (!complete)
+    {
+        acknowledged += acknowledged_a;
+        if (acknowledged > threshold && nacked.is_zero ())
+        {
+            complete = true;
+            lock.release ();
+            assert (dynamic_cast <mu_coin::send_block *> (incoming->block.get ()) != nullptr);
+            auto & send (static_cast <mu_coin::send_block &> (*incoming->block.get ()));
+            auto hash (send.hash ());
+            mu_coin::private_key prv;
+            if (!client.wallet.fetch (send.hashables.destination, client.wallet.password, prv))
+            {
+                if (!client.ledger.store.pending_get (send.hash ()))
+                {
+                    mu_coin::block_hash previous;
+                    auto new_address (client.ledger.store.latest_get (send.hashables.destination, previous));
+                    if (new_address)
+                    {
+                        previous = send.hashables.destination;
+                    }
+                    balance_visitor visitor (client.ledger.store);
+                    visitor.compute (send.hashables.previous);
+                    auto receive (new mu_coin::receive_block);
+                    receive->hashables.previous = previous;
+                    receive->hashables.source = hash;
+                    mu_coin::sign_message (prv, send.hashables.destination, receive->hash (), receive->signature);
+                    prv.bytes.fill (0);
+                    client.processor.publish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
+                }
+                else
+                {
+                    // Ledger doesn't have this marked as available to receive anymore
+                }
+            }
+            else
+            {
+                // Wallet doesn't contain key for this destination or couldn't decrypt
+            }
+        }
+        else
+        {
+            advance_timeout ();
+        }
+    }
+}
+
 void receivable_message_processor::process_authorizations (mu_coin::block_hash const & block, std::vector <mu_coin::authorization> const & authorizations)
 {
     mu_coin::uint256_t acknowledged;
@@ -1482,53 +1544,7 @@ void receivable_message_processor::process_authorizations (mu_coin::block_hash c
             // Signature didn't match.
         }
     }
-    std::unique_lock <std::mutex> lock (processor.mutex);
-    if (!processor.complete)
-    {
-        processor.acknowledged += acknowledged;
-        if (processor.acknowledged > processor.threshold && processor.nacked.is_zero ())
-        {
-            processor.complete = true;
-            lock.release ();
-            assert (dynamic_cast <mu_coin::send_block *> (processor.incoming->block.get ()) != nullptr);
-            auto & send (static_cast <mu_coin::send_block &> (*processor.incoming->block.get ()));
-            auto hash (send.hash ());
-            mu_coin::private_key prv;
-            mu_coin::secret_key key (0);
-            if (!processor.client.wallet.fetch (send.hashables.destination, key, prv))
-            {
-                if (!processor.client.ledger.store.pending_get (send.hash ()))
-                {
-                    mu_coin::block_hash previous;
-                    auto new_address (processor.client.ledger.store.latest_get (send.hashables.destination, previous));
-                    if (new_address)
-                    {
-                        previous = send.hashables.destination;
-                    }
-                    balance_visitor visitor (processor.client.ledger.store);
-                    visitor.compute (send.hashables.previous);
-                    auto receive (new mu_coin::receive_block);
-                    receive->hashables.previous = previous;
-                    receive->hashables.source = hash;
-                    mu_coin::sign_message (prv, send.hashables.destination, receive->hash (), receive->signature);
-                    prv.bytes.fill (0);
-                    processor.client.processor.publish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
-                }
-                else
-                {
-                    // Ledger doesn't have this marked as available to receive anymore
-                }
-            }
-            else
-            {
-                // Wallet doesn't contain key for this destination or couldn't decrypt
-            }
-        }
-        else
-        {
-            processor.advance_timeout ();
-        }
-    }
+    processor.process_acknowledged (acknowledged);
 }
 
 void receivable_message_processor::publish_con (mu_coin::publish_con const & message)
