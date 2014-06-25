@@ -587,11 +587,38 @@ namespace mu_coin {
         mu_coin::processor_service & service;
         mu_coin::client & client;
     };
+    enum class command_types : uint16_t
+    {
+        balance,
+        create,
+        transfer
+    };
+    class command_visitor;
+    class command
+    {
+    public:
+        virtual void visit (mu_coin::command_visitor &) = 0;
+    };
+    class balance_command : public mu_coin::command
+    {
+    public:
+        void visit (mu_coin::command_visitor &) override;
+    };
+    class create_command : public mu_coin::command
+    {
+    public:
+        void visit (mu_coin::command_visitor &) override;
+    };
+    class transfer_command : public mu_coin::command
+    {
+    public:
+        void visit (mu_coin::command_visitor &) override;
+    };
     using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
     class network
     {
     public:
-        network (boost::asio::io_service &, uint16_t, mu_coin::client &);
+        network (boost::asio::io_service &, uint16_t, uint16_t, mu_coin::client &);
         void receive ();
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
@@ -604,6 +631,7 @@ namespace mu_coin {
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
+        boost::asio::ip::tcp::socket rpc;
         boost::asio::io_service & service;
         mu_coin::client & client;
         uint64_t keepalive_req_count;
@@ -653,8 +681,8 @@ namespace mu_coin {
     class client
     {
     public:
-        client (boost::asio::io_service &, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
-        client (boost::asio::io_service &, uint16_t, mu_coin::processor_service &);
+        client (boost::asio::io_service &, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
+        client (boost::asio::io_service &, uint16_t, uint16_t, mu_coin::processor_service &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
         mu_coin::block_store store;
         mu_coin::ledger ledger;
@@ -666,7 +694,7 @@ namespace mu_coin {
     class system
     {
     public:
-        system (uint16_t, size_t);
+        system (uint16_t, uint16_t, size_t);
         mu_coin::endpoint endpoint (size_t);
         void genesis (mu_coin::public_key const &, mu_coin::uint256_t const &);
         boost::asio::io_service service;

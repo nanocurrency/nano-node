@@ -901,8 +901,9 @@ mu_coin::dbt::dbt (mu_coin::address const & address_a, mu_coin::block_hash const
     adopt (stream);
 }
 
-mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::client & client_a) :
-socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::udp::v4 (), port)),
+mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, uint16_t rpc_port, mu_coin::client & client_a) :
+socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::any (), port)),
+rpc (service_a, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), rpc_port)),
 service (service_a),
 client (client_a),
 keepalive_req_count (0),
@@ -1015,6 +1016,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             case mu_coin::process_result::old:
                             case mu_coin::process_result::gap:
                             {
+                                // Either successfully updated the ledger or we see some gap in the information likely due to network loss
                                 mu_coin::publish_ack outgoing;
                                 mu_coin::byte_write_stream stream;
                                 outgoing.serialize (stream);
@@ -1028,6 +1030,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             case mu_coin::process_result::overreceive:
                             case mu_coin::process_result::not_receive_from_send:
                             {
+                                // None of these affect the integrity of the ledger since they're all ignored
                                 mu_coin::publish_err outgoing;
                                 mu_coin::byte_write_stream stream;
                                 outgoing.serialize (stream);
@@ -1038,6 +1041,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             }
                             case mu_coin::process_result::fork:
                             {
+                                // Forked spend that needs arbitration
                                 assert (false);
                                 break;
                             }
@@ -1436,17 +1440,17 @@ bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
     return wakeup < other_a.wakeup;
 }
 
-mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
+mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
 store (block_store_path_a),
 ledger (store),
 wallet (0, wallet_path_a),
-network (service_a, port_a, *this),
+network (service_a, port_a, command_port_a, *this),
 processor (processor_a, *this)
 {
 }
 
-mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::processor_service & processor_a) :
-client (service_a, port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a)
+mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a) :
+client (service_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a)
 {
 }
 
@@ -2026,12 +2030,12 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     return result;
 }
 
-mu_coin::system::system (uint16_t port_a, size_t count_a)
+mu_coin::system::system (uint16_t port_a, uint16_t command_port_a, size_t count_a)
 {
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, port_a + i, processor)));
+        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, port_a + i, command_port_a + i, processor)));
         clients.back ()->network.receive ();
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
