@@ -330,7 +330,6 @@ namespace mu_coin {
     {
         progress, // Hasn't been seen before, signed correctly
         owned, // Progress and we own the address
-        out_of_chain, // Packet does not follow previous, forged or out of order
         bad_signature, // One or more signatures was bad, forged or transmission error
         old, // Already seen and was valid
         overspend, // Malicious attempt to overspend
@@ -379,6 +378,7 @@ namespace mu_coin {
         keepalive_ack,
         publish_req,
         publish_ack,
+        publish_err,
         publish_nak,
         confirm_req,
         confirm_ack,
@@ -432,6 +432,16 @@ namespace mu_coin {
         void serialize (mu_coin::byte_write_stream &);
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::publish_ack const &) const;
+        mu_coin::block_hash block;
+    };
+    class publish_err : public message
+    {
+    public:
+        publish_err () = default;
+        publish_err (mu_coin::block_hash const &);
+        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::byte_write_stream &);
+        void visit (mu_coin::message_visitor &) override;
         mu_coin::block_hash block;
     };
     class publish_nak : public message
@@ -496,6 +506,7 @@ namespace mu_coin {
         virtual void keepalive_ack (mu_coin::keepalive_ack const &) = 0;
         virtual void publish_req (mu_coin::publish_req const &) = 0;
         virtual void publish_ack (mu_coin::publish_ack const &) = 0;
+        virtual void publish_err (mu_coin::publish_err const &) = 0;
         virtual void publish_nak (mu_coin::publish_nak const &) = 0;
         virtual void confirm_req (mu_coin::confirm_req const &) = 0;
         virtual void confirm_ack (mu_coin::confirm_ack const &) = 0;
@@ -570,7 +581,7 @@ namespace mu_coin {
     public:
         processor (mu_coin::processor_service &, mu_coin::client &);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-        bool process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
+        mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_confirmation (mu_coin::block_hash const &, mu_coin::endpoint const &);
         mu_coin::processor_service & service;
@@ -599,6 +610,7 @@ namespace mu_coin {
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;
         uint64_t publish_ack_count;
+        uint64_t publish_err_count;
         uint64_t publish_nak_count;
         uint64_t confirm_req_count;
         uint64_t confirm_ack_count;
