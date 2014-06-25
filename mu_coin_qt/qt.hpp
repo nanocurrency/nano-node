@@ -11,9 +11,9 @@ namespace mu_coin_qt {
     class gui
     {
     public:
-        gui (int, char **, boost::asio::io_service &, QApplication &, mu_coin::processor_service &);
+        gui (QApplication &, mu_coin::client &);
         ~gui ();
-        mu_coin::client client;
+        mu_coin::client & client;
         
         QApplication & application;
         QStackedWidget main_stack;
@@ -33,6 +33,7 @@ namespace mu_coin_qt {
         QPushButton send_coins;
         QPushButton show_wallet;
         QPushButton settings;
+        QPushButton show_ledger;
         
         QWidget send_coins_window;
         QVBoxLayout send_coins_layout;
@@ -48,8 +49,16 @@ namespace mu_coin_qt {
         QStringListModel wallet_model;
         QModelIndex wallet_model_selection;
         QListView wallet_view;
+        QPushButton wallet_refresh;
         QPushButton wallet_add_account;
         QPushButton wallet_close;
+        
+        QWidget ledger_window;
+        QVBoxLayout ledger_layout;
+        QStringListModel ledger_model;
+        QListView ledger_view;
+        QPushButton ledger_refresh;
+        QPushButton ledger_back;
         
         QMenu wallet_account_menu;
         QAction wallet_account_copy;
@@ -58,6 +67,7 @@ namespace mu_coin_qt {
         void push_main_stack (QWidget *);
         void pop_main_stack ();
         void refresh_wallet ();
+        void refresh_ledger ();
         mu_coin::uint256_union password;
     };
 }

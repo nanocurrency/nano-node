@@ -1088,7 +1088,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         auto session (confirm_listeners.find (incoming->block));
                         if (session != confirm_listeners.end ())
                         {
-                            lock.release ();
+                            lock.unlock ();
                             session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
                         }
                     }
@@ -1443,7 +1443,7 @@ public:
             if (wallet.find (block_a.hashables.destination) != wallet.end ())
             {
                 result = mu_coin::process_result::owned;
-                client.processor.process_receivable (std::move (incoming), sender);
+                client.processor.process_receivable (std::move (incoming), mu_coin::endpoint {});
             }
         }
     }
@@ -1517,7 +1517,7 @@ void mu_coin::receivable_processor::run ()
     if (!complete)
     {
         auto this_l (shared_from_this ());
-        client.network.add_confirm_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->publish_con (std::move (message_a), endpoint_a);});
+        client.network.add_confirm_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->confirm_ack (std::move (message_a), endpoint_a);});
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
@@ -1533,7 +1533,7 @@ void mu_coin::receivable_processor::run ()
     }
 }
 
-void mu_coin::receivable_processor::publish_con (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & sender)
+void mu_coin::receivable_processor::confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & sender)
 {
     receivable_message_processor processor_l (*this, sender);
     message->visit (processor_l);

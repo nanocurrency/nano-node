@@ -4,31 +4,27 @@
 
 #include <sstream>
 
-mu_coin_qt::gui::gui (int argc, char ** argv, boost::asio::io_service & service_a, QApplication & application_a, mu_coin::processor_service & processor_a) :
-client (service_a, 24000, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a),
+mu_coin_qt::gui::gui (QApplication & application_a, mu_coin::client & client_a) :
+client (client_a),
 application (application_a),
 settings_password_label ("Password:"),
 settings_close ("Close"),
 send_coins ("Send"),
 show_wallet ("Show wallet"),
 settings ("Settings"),
+show_ledger ("Ledger"),
 send_address_label ("Address:"),
 send_count_label ("Coins:"),
 send_coins_send ("Send"),
 send_coins_cancel ("Cancel"),
+wallet_refresh ("Refresh"),
 wallet_add_account ("Add account"),
 wallet_close ("Close"),
+ledger_refresh ("Refresh"),
+ledger_back ("Back"),
 wallet_account_copy ("Copy", &wallet_account_menu),
 wallet_account_cancel ("Cancel", &wallet_account_menu)
-{
-    /////////
-    mu_coin::keypair genesis;
-    client.wallet.insert (genesis.pub, genesis.prv, password);
-    client.store.genesis_put (genesis.pub, 1000000);
-    /////////
-    
-    client.network.receive ();
-    
+{    
     send_coins_layout.addWidget (&send_address_label);
     send_coins_layout.addWidget (&send_address);
     send_coins_layout.addWidget (&send_count_label);
@@ -41,6 +37,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     wallet_view.setModel (&wallet_model);
     wallet_view.setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
     wallet_layout.addWidget (&wallet_view);
+    wallet_layout.addWidget (&wallet_refresh);
     wallet_layout.addWidget (&wallet_add_account);
     wallet_layout.addWidget (&wallet_close);
     wallet_layout.setContentsMargins (0, 0, 0, 0);
@@ -49,9 +46,16 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     wallet_account_menu.addAction (&wallet_account_copy);
     wallet_account_menu.addAction (&wallet_account_cancel);
     
+    ledger_view.setModel (&ledger_model);
+    ledger_layout.addWidget (&ledger_view);
+    ledger_layout.addWidget (&ledger_refresh);
+    ledger_layout.addWidget (&ledger_back);
+    ledger_window.setLayout (&ledger_layout);
+    
     entry_window_layout.addWidget (&send_coins);
     entry_window_layout.addWidget (&show_wallet);
     entry_window_layout.addWidget (&settings);
+    entry_window_layout.addWidget (&show_ledger);
     entry_window_layout.setContentsMargins (0, 0, 0, 0);
     entry_window.setLayout (&entry_window_layout);
     
@@ -68,6 +72,22 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     settings_layout.addWidget (&settings_close);
     settings_window.setLayout (&settings_layout);
     
+    QObject::connect (&show_ledger, &QPushButton::released, [this] ()
+    {
+        push_main_stack (&ledger_window);
+    });
+    QObject::connect (&ledger_refresh, &QPushButton::released, [this] ()
+    {
+        refresh_ledger ();
+    });
+    QObject::connect (&ledger_back, &QPushButton::released, [this] ()
+    {
+        pop_main_stack ();
+    });
+    QObject::connect (&wallet_refresh, &QPushButton::released, [this] ()
+    {
+        refresh_wallet ();
+    });
     QObject::connect (&settings_close, &QPushButton::released, [this] ()
     {
         pop_main_stack ();
@@ -173,6 +193,21 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
         refresh_wallet ();
     });
     refresh_wallet ();
+}
+
+void mu_coin_qt::gui::refresh_ledger ()
+{
+    QStringList accounts;
+    for (auto i (client.ledger.store.latest_begin()), j (client.ledger.store.latest_end ()); i != j; ++i)
+    {
+        std::string line;
+        line += i->first.number ().convert_to <std::string> ();
+        line += ": ";
+        line += i->second.number ().convert_to <std::string> ();
+        QString qline (line.c_str ());
+        accounts << qline;
+    }
+    ledger_model.setStringList (accounts);
 }
 
 void mu_coin_qt::gui::refresh_wallet ()
