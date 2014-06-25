@@ -15,7 +15,7 @@ int main (int argc, char ** argv)
     for (auto i (0); i < count; ++i)
     {
         guis.push_back (std::unique_ptr <mu_coin_qt::gui> {new mu_coin_qt::gui {application, *system.clients [i]}});
-        guis.back ()->balance_main_window.show ();
+        guis.back ()->balance_main_window->show ();
     }
     std::thread network_thread ([&system] () {system.service.run ();});
     std::thread processor_thread ([&system] () {system.processor.run ();});
