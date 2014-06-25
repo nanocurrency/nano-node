@@ -119,13 +119,25 @@ TEST (uint256_union, parse_error_symbol)
     ASSERT_TRUE (error);
 }
 
-TEST (uint256_union, max)
+TEST (uint256_union, max_hex)
 {
     mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
     std::string text;
     input.encode_hex (text);
     mu_coin::uint256_union output;
     auto error (output.decode_hex (text));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (input, output);
+    ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+}
+
+TEST (uint256_union, max_dec)
+{
+    mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
+    std::string text;
+    input.encode_dec (text);
+    mu_coin::uint256_union output;
+    auto error (output.decode_dec (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());

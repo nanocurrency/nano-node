@@ -216,6 +216,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
         refresh_wallet ();
     });
     refresh_wallet ();
+    refresh_ledger ();
 }
 
 void mu_coin_qt::gui::refresh_ledger ()

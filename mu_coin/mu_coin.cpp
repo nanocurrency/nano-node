@@ -692,7 +692,7 @@ void mu_coin::uint256_union::encode_dec (std::string & text)
 
 bool mu_coin::uint256_union::decode_dec (std::string const & text)
 {
-    auto result (text.size () > 64);
+    auto result (text.size () > 78);
     if (!result)
     {
         std::stringstream stream (text);
