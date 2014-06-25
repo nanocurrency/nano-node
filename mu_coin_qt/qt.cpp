@@ -8,7 +8,7 @@ mu_coin_qt::gui::gui (QApplication & application_a, mu_coin::client & client_a) 
 client (client_a),
 application (application_a),
 settings_password_label ("Password:"),
-settings_close ("Close"),
+settings_back ("Back"),
 send_coins ("Send"),
 show_wallet ("Show wallet"),
 settings ("Settings"),
@@ -16,10 +16,10 @@ show_ledger ("Ledger"),
 send_address_label ("Address:"),
 send_count_label ("Coins:"),
 send_coins_send ("Send"),
-send_coins_cancel ("Cancel"),
+send_coins_back ("Back"),
 wallet_refresh ("Refresh"),
 wallet_add_account ("Add account"),
-wallet_close ("Close"),
+wallet_back ("Back"),
 ledger_refresh ("Refresh"),
 ledger_back ("Back"),
 wallet_account_copy ("Copy", &wallet_account_menu),
@@ -30,7 +30,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     send_coins_layout.addWidget (&send_count_label);
     send_coins_layout.addWidget (&send_count);
     send_coins_layout.addWidget (&send_coins_send);
-    send_coins_layout.addWidget (&send_coins_cancel);
+    send_coins_layout.addWidget (&send_coins_back);
     send_coins_layout.setContentsMargins (0, 0, 0, 0);
     send_coins_window.setLayout (&send_coins_layout);
     
@@ -39,7 +39,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     wallet_layout.addWidget (&wallet_view);
     wallet_layout.addWidget (&wallet_refresh);
     wallet_layout.addWidget (&wallet_add_account);
-    wallet_layout.addWidget (&wallet_close);
+    wallet_layout.addWidget (&wallet_back);
     wallet_layout.setContentsMargins (0, 0, 0, 0);
     wallet_window.setLayout (&wallet_layout);
     
@@ -69,7 +69,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     settings_layout.addWidget (&settings_password_label);
     settings_password.setEchoMode (QLineEdit::EchoMode::Password);
     settings_layout.addWidget (&settings_password);
-    settings_layout.addWidget (&settings_close);
+    settings_layout.addWidget (&settings_back);
     settings_window.setLayout (&settings_layout);
     
     QObject::connect (&show_ledger, &QPushButton::released, [this] ()
@@ -88,7 +88,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     {
         refresh_wallet ();
     });
-    QObject::connect (&settings_close, &QPushButton::released, [this] ()
+    QObject::connect (&settings_back, &QPushButton::released, [this] ()
     {
         pop_main_stack ();
     });
@@ -100,7 +100,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     {
         push_main_stack (&wallet_window);
     });
-    QObject::connect (&wallet_close, &QPushButton::released, [this] ()
+    QObject::connect (&wallet_back, &QPushButton::released, [this] ()
     {
         pop_main_stack ();
     });
@@ -124,7 +124,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
                 send_address.setPalette (palette);
-                auto send_error (client.send (address, coins.number (), password));
+                auto send_error (client.send (address, coins.number (), client.wallet.password));
                 if (!send_error)
                 {
                     send_count.clear ();
@@ -169,7 +169,7 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     {
         wallet_account_menu.popup (wallet_view.viewport ()->mapToGlobal (pos));
     });
-    QObject::connect (&send_coins_cancel, &QPushButton::released, [this] ()
+    QObject::connect (&send_coins_back, &QPushButton::released, [this] ()
     {
         pop_main_stack ();
     });
@@ -179,17 +179,18 @@ wallet_account_cancel ("Cancel", &wallet_account_menu)
     });
     QObject::connect (&settings_password, &QLineEdit::editingFinished, [this] ()
     {
-        CryptoPP::SHA256 hash;
+        assert (false);
+/*        CryptoPP::SHA256 hash;
         QString text_w (settings_password.text ());
         std::string text (text_w.toLocal8Bit ());
         settings_password.clear ();
         hash.Update (reinterpret_cast <uint8_t const *> (text.c_str ()), text.size ());
-        hash.Final (password.bytes.data ());
+        hash.Final (password.bytes.data ());*/
     });
     QObject::connect (&wallet_add_account, &QPushButton::released, [this] ()
     {
         mu_coin::keypair key;
-        client.wallet.insert (key.pub, key.prv, password);
+        client.wallet.insert (key.pub, key.prv, client.wallet.password);
         refresh_wallet ();
     });
     refresh_wallet ();
@@ -200,10 +201,14 @@ void mu_coin_qt::gui::refresh_ledger ()
     QStringList accounts;
     for (auto i (client.ledger.store.latest_begin()), j (client.ledger.store.latest_end ()); i != j; ++i)
     {
+        std::string account;
+        i->first.encode_hex (account);
+        std::string block_hash;
+        i->second.encode_hex (block_hash);
         std::string line;
-        line += i->first.number ().convert_to <std::string> ();
-        line += ": ";
-        line += i->second.number ().convert_to <std::string> ();
+        line += account;
+        line += ":";
+        line += block_hash;
         QString qline (line.c_str ());
         accounts << qline;
     }

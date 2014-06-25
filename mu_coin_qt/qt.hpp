@@ -22,7 +22,7 @@ namespace mu_coin_qt {
         QVBoxLayout settings_layout;
         QLabel settings_password_label;
         QLineEdit settings_password;
-        QPushButton settings_close;
+        QPushButton settings_back;
         
         QWidget balance_main_window;
         QVBoxLayout balance_main_window_layout;
@@ -42,7 +42,7 @@ namespace mu_coin_qt {
         QLabel send_count_label;
         QLineEdit send_count;
         QPushButton send_coins_send;
-        QPushButton send_coins_cancel;
+        QPushButton send_coins_back;
         
         QWidget wallet_window;
         QVBoxLayout wallet_layout;
@@ -51,7 +51,7 @@ namespace mu_coin_qt {
         QListView wallet_view;
         QPushButton wallet_refresh;
         QPushButton wallet_add_account;
-        QPushButton wallet_close;
+        QPushButton wallet_back;
         
         QWidget ledger_window;
         QVBoxLayout ledger_layout;
@@ -68,6 +68,5 @@ namespace mu_coin_qt {
         void pop_main_stack ();
         void refresh_wallet ();
         void refresh_ledger ();
-        mu_coin::uint256_union password;
     };
 }
