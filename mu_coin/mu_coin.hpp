@@ -587,41 +587,15 @@ namespace mu_coin {
         mu_coin::processor_service & service;
         mu_coin::client & client;
     };
-    enum class command_types : uint16_t
-    {
-        balance,
-        create,
-        transfer
-    };
-    class command_visitor;
-    class command
-    {
-    public:
-        virtual void visit (mu_coin::command_visitor &) = 0;
-    };
-    class balance_command : public mu_coin::command
-    {
-    public:
-        void visit (mu_coin::command_visitor &) override;
-    };
-    class create_command : public mu_coin::command
-    {
-    public:
-        void visit (mu_coin::command_visitor &) override;
-    };
-    class transfer_command : public mu_coin::command
-    {
-    public:
-        void visit (mu_coin::command_visitor &) override;
-    };
     using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
     class network
     {
     public:
-        network (boost::asio::io_service &, uint16_t, uint16_t, mu_coin::client &);
+        network (boost::asio::io_service &, uint16_t, mu_coin::client &);
         void receive ();
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
+        void rpc_action (boost::system::error_code const &, size_t);
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
         void confirm_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
@@ -631,7 +605,6 @@ namespace mu_coin {
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
-        boost::asio::ip::tcp::socket rpc;
         boost::asio::io_service & service;
         mu_coin::client & client;
         uint64_t keepalive_req_count;
@@ -649,6 +622,20 @@ namespace mu_coin {
     private:
         std::mutex mutex;
         std::unordered_map <mu_coin::block_hash, session> confirm_listeners;
+    };
+    class rpc
+    {
+    public:
+        rpc (boost::asio::io_service &, uint16_t, mu_coin::client &);
+        void accept ();
+        void stop ();
+        void accept_action (std::shared_ptr <boost::asio::ip::tcp::socket>);
+        void receive (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <std::array <char, 4000>>);
+        void receive_action (boost::system::error_code const &, size_t, std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <std::array <char, 4000>>);
+        boost::asio::ip::tcp::acceptor acceptor;
+        boost::asio::io_service & service;
+        mu_coin::client & client;
+        bool on;
     };
     class peer_container
     {
@@ -688,6 +675,7 @@ namespace mu_coin {
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;
         mu_coin::network network;
+        mu_coin::rpc rpc;
         mu_coin::processor processor;
         mu_coin::peer_container peers;
     };

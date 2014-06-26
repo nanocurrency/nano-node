@@ -9,6 +9,9 @@
 #include <unordered_set>
 #include <memory>
 
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/interprocess/streams/bufferstream.hpp>
+
 CryptoPP::AutoSeededRandomPool pool;
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
@@ -901,9 +904,8 @@ mu_coin::dbt::dbt (mu_coin::address const & address_a, mu_coin::block_hash const
     adopt (stream);
 }
 
-mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, uint16_t rpc_port, mu_coin::client & client_a) :
+mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::client & client_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::any (), port)),
-rpc (service_a, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), rpc_port)),
 service (service_a),
 client (client_a),
 keepalive_req_count (0),
@@ -1444,7 +1446,8 @@ mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, u
 store (block_store_path_a),
 ledger (store),
 wallet (0, wallet_path_a),
-network (service_a, port_a, command_port_a, *this),
+network (service_a, port_a, *this),
+rpc (service_a, command_port_a, *this),
 processor (processor_a, *this)
 {
 }
@@ -2246,4 +2249,64 @@ bool mu_coin::publish_err::deserialize (mu_coin::byte_read_stream & stream_a)
     assert (type == mu_coin::message_type::publish_err);
     auto result (stream_a.read (block));
     return result;
+}
+
+mu_coin::rpc::rpc (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client & client_a) :
+acceptor (service_a),
+service (service_a),
+client (client_a)
+{
+    acceptor.open (boost::asio::ip::tcp::v4());
+    acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+    acceptor.bind (boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v4 (), port_a));
+    acceptor.listen ();
+}
+
+void mu_coin::rpc::accept ()
+{
+    std::shared_ptr <boost::asio::ip::tcp::socket> socket (new boost::asio::ip::tcp::socket (service));
+    acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & error_a) { if (!error_a) {accept (); accept_action (socket);}});
+}
+
+void mu_coin::rpc::accept_action (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
+{
+    std::shared_ptr <std::array <char, 4000>> buffer (new std::array <char, 4000>);
+    receive (socket_a, buffer);
+}
+
+void mu_coin::rpc::receive (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <std::array <char, 4000>> buffer_a)
+{
+    socket_a->async_receive (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this, socket_a, buffer_a] (boost::system::error_code const & error_a, size_t size_a) {receive_action (error_a, size_a, socket_a, buffer_a);});
+}
+
+void mu_coin::rpc::receive_action (boost::system::error_code const & error_a, size_t size_a, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <std::array <char, 4000>> buffer_a)
+{
+    if (!error_a)
+    {
+        boost::property_tree::ptree properties;
+        std::string text (buffer_a->data (), size_a);
+        try
+        {
+            boost::property_tree::read_json (text, properties);
+            receive (socket_a, buffer_a);
+            std::string action (properties.get <std::string> ("action"));
+            if (action == "balance")
+            {
+                std::string account (properties.get <std::string> ("account"));
+            }
+            else if (action == "create")
+            {
+                std::string account (properties.get <std::string> ("account"));
+            }
+            else if (action == "transfer")
+            {
+                std::string source (properties.get <std::string> ("source"));
+                std::string destination (properties.get <std::string> ("destination"));
+            }
+        }
+        catch (std::runtime_error const &)
+        {
+            receive (socket_a, buffer_a);
+        }
+    }
 }
