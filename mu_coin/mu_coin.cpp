@@ -15,6 +15,8 @@
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <boost/interprocess/streams/vectorstream.hpp>
 
+static bool const network_debug = 0;
+
 CryptoPP::AutoSeededRandomPool pool;
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
@@ -942,7 +944,10 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
-    std::cerr << "Keepalive " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+    if (network_debug)
+    {
+        std::cerr << "Keepalive " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+    }
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const &, size_t) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -954,7 +959,10 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
-    std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+    if (network_debug)
+    {
+        std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+    }
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const & ec, size_t size) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -966,7 +974,10 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
     mu_coin::byte_write_stream stream;
     message.serialize (stream);
     auto data (stream.data);
-    std::cerr << "Confirm " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+    if (network_debug)
+    {
+        std::cerr << "Confirm " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+    }
     socket.async_send_to (boost::asio::buffer (stream.data, stream.size), endpoint_a, [data] (boost::system::error_code const & ec, size_t size) {free (data);});
     stream.abandon ();
     client.peers.add_peer (endpoint_a);
@@ -1012,7 +1023,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     receive ();
                     if (!error)
                     {
-                        std::cerr << "Publish req" << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        if (network_debug)
+                        {
+                            std::cerr << "Publish req" << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        }
                         auto result (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
                         switch (result)
                         {
@@ -1089,7 +1103,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 case mu_coin::message_type::confirm_req:
                 {
                     ++confirm_req_count;
-                    std::cerr << "Confirm req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    if (network_debug)
+                    {
+                        std::cerr << "Confirm req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    }
                     auto incoming (new mu_coin::confirm_req);
                     mu_coin::byte_read_stream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
@@ -1116,7 +1133,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 case mu_coin::message_type::confirm_ack:
                 {
                     ++confirm_ack_count;
-                    std::cerr << "Confirm ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    if (network_debug)
+                    {
+                        std::cerr << "Confirm ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    }
                     auto incoming (new mu_coin::confirm_ack);
                     mu_coin::byte_read_stream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
@@ -1136,7 +1156,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 case mu_coin::message_type::confirm_nak:
                 {
                     ++confirm_nak_count;
-                    std::cerr << "Confirm nak " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    if (network_debug)
+                    {
+                        std::cerr << "Confirm nak " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    }
                     auto incoming (new mu_coin::confirm_nak);
                     mu_coin::byte_read_stream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
@@ -2300,7 +2323,7 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
             std::stringstream istream (request.body);
             boost::property_tree::read_json (istream, request_l);
             std::string action (request_l.get <std::string> ("action"));
-            if (action == "balance")
+            if (action == "account_balance")
             {
                 std::string account_text (request_l.get <std::string> ("account"));
                 mu_coin::uint256_union account;
@@ -2322,7 +2345,7 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
                     response.content = "Bad account number";
                 }
             }
-            else if (action == "create")
+            else if (action == "wallet_create")
             {
                 mu_coin::keypair new_key;
                 client.wallet.insert (new_key.pub, new_key.prv, client.wallet.password);
@@ -2335,6 +2358,28 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
                 response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
                 response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
                 response.content = ostream.str ();
+            }
+            else if (action == "wallet_contains")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+                mu_coin::uint256_union account;
+                auto error (account.decode_hex (account_text));
+                if (!error)
+                {
+                    auto exists (client.wallet.find (account) != client.wallet.end ());
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("exists", exists ? "1" : "0");
+                    std::stringstream ostream;
+                    boost::property_tree::write_json (ostream, response_l);
+                    response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
+                    response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
+                    response.content = ostream.str ();
+                }
+                else
+                {
+                    response = boost::network::http::server<mu_coin::rpc>::response::stock_reply (boost::network::http::server<mu_coin::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
             }
             else
             {

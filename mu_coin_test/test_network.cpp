@@ -313,7 +313,7 @@ TEST (rpc, account_create)
     boost::network::http::server <mu_coin::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "create");
+    request_tree.put ("action", "wallet_create");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
@@ -339,7 +339,7 @@ TEST (rpc, account_balance)
     boost::network::http::server <mu_coin::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "balance");
+    request_tree.put ("action", "account_balance");
     request_tree.put ("account", account);
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
@@ -351,4 +351,29 @@ TEST (rpc, account_balance)
     boost::property_tree::read_json (istream, response_tree);
     std::string balance_text (response_tree.get <std::string> ("balance"));
     ASSERT_EQ ("10000", balance_text);
+}
+
+TEST (rpc, wallet_contents)
+{
+    mu_coin::system system (1, 24000, 25000, 1);
+    mu_coin::keypair key1;
+    std::string account;
+    key1.pub.encode_hex (account);
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    boost::network::http::server <mu_coin::rpc>::request request;
+    boost::network::http::server <mu_coin::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "wallet_contains");
+    request_tree.put ("account", account);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    system.clients [0]->rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <mu_coin::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string exists_text (response_tree.get <std::string> ("exists"));
+    ASSERT_EQ ("1", exists_text);
 }
