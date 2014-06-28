@@ -1273,15 +1273,20 @@ cursor (cursor_a)
 {
 }
 
+void mu_coin::key_iterator::clear ()
+{
+    current.first.clear ();
+    current.second.clear ();
+    cursor->close ();
+    cursor = nullptr;
+}
+
 mu_coin::key_iterator & mu_coin::key_iterator::operator ++ ()
 {
     auto result (cursor->get (&key.data, &data.data, DB_NEXT));
     if (result == DB_NOTFOUND)
     {
-        current.first.clear ();
-        current.second.clear ();
-        cursor->close ();
-        cursor = nullptr;
+        clear ();
     }
     else
     {
@@ -1302,6 +1307,25 @@ mu_coin::key_iterator mu_coin::wallet::begin ()
     handle.cursor (0, &cursor, 0);
     mu_coin::key_iterator result (cursor);
     ++result;
+    return result;
+}
+
+mu_coin::key_iterator mu_coin::wallet::find (mu_coin::uint256_union const & key)
+{
+    Dbc * cursor;
+    handle.cursor (0, &cursor, 0);
+    mu_coin::key_iterator result (cursor);
+    result.key = key;
+    auto exists (cursor->get (&result.key.data, &result.data.data, DB_SET));
+    if (exists == DB_NOTFOUND)
+    {
+        result.clear ();
+    }
+    else
+    {
+        result.current.first = result.key.uint256 ();
+        result.current.second = result.data.uint256 ();
+    }
     return result;
 }
 
@@ -2058,7 +2082,7 @@ pool (new boost::network::utils::thread_pool (threads_a))
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {
-        
+        (*i)->rpc.listen ();
     }
 }
 
@@ -2264,6 +2288,10 @@ mu_coin::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost:
 server (decltype (server)::options (*this).address ("0.0.0.0").port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
 client (client_a)
 {
+}
+
+void mu_coin::rpc::listen ()
+{
     server.listen ();
 }
 
@@ -2304,7 +2332,9 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
                 mu_coin::keypair new_key;
                 client.wallet.insert (new_key.pub, new_key.prv, client.wallet.password);
                 boost::property_tree::ptree response_l;
-                response_l.put ("account", new_key.pub.number ().convert_to<std::string> ());
+                std::string account;
+                new_key.pub.encode_hex (account);
+                response_l.put ("account", account);
                 std::stringstream ostream;
                 boost::property_tree::write_json (ostream, response_l);
                 response.status = boost::network::http::server <mu_coin::rpc>::response::ok;

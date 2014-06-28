@@ -198,3 +198,21 @@ TEST (wallet, spend_no_previous)
     ASSERT_FALSE (mu_coin::validate_message (key1.pub, blocks [0]->hash (), blocks [0]->signature));
     ASSERT_EQ (key2.pub, blocks [0]->hashables.destination);
 }
+
+TEST (wallet, find_none)
+{
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
+    mu_coin::uint256_union account;
+    ASSERT_EQ (wallet.end (), wallet.find (account));
+}
+
+TEST (wallet, find_existing)
+{
+    mu_coin::wallet wallet (0, mu_coin::wallet_temp);
+    mu_coin::keypair key1;
+    wallet.insert (key1.pub, key1.prv, wallet.password);
+    auto existing (wallet.find (key1.pub));
+    ASSERT_NE (wallet.end (), existing);
+    ++existing;
+    ASSERT_EQ (wallet.end (), existing);
+}

@@ -531,6 +531,7 @@ namespace mu_coin {
     public:
         key_iterator (Dbc *);
         key_iterator (mu_coin::key_iterator const &) = default;
+        void clear ();
         key_iterator & operator ++ ();
         mu_coin::key_entry & operator -> ();
         bool operator == (mu_coin::key_iterator const &) const;
@@ -549,6 +550,7 @@ namespace mu_coin {
         void insert (mu_coin::private_key const &, mu_coin::secret_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::secret_key const &, mu_coin::private_key &);
         bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
+        key_iterator find (mu_coin::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
         mu_coin::uint256_union password;
@@ -629,6 +631,7 @@ namespace mu_coin {
     {
     public:
         rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, mu_coin::client &);
+        void listen ();
         boost::network::http::server <mu_coin::rpc> server;
         void operator () (boost::network::http::server <mu_coin::rpc>::request const &, boost::network::http::server <mu_coin::rpc>::response &);
         void log (const char *) {}

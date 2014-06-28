@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <boost/thread.hpp>
 #include <mu_coin/mu_coin.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 TEST (network, construction)
 {
@@ -302,4 +304,51 @@ TEST (client, send_single_many_peers)
     {
         system.service->run_one ();
     }
+}
+
+TEST (rpc, account_create)
+{
+    mu_coin::system system (1, 24000, 25000, 1);
+    boost::network::http::server <mu_coin::rpc>::request request;
+    boost::network::http::server <mu_coin::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "create");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    system.clients [0]->rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <mu_coin::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    auto account_text (response_tree.get <std::string> ("account"));
+    mu_coin::uint256_union account;
+    ASSERT_FALSE (account.decode_hex (account_text));
+    ASSERT_NE (system.clients [0]->wallet.end (), system.clients [0]->wallet.find (account));
+}
+
+TEST (rpc, account_balance)
+{
+    mu_coin::system system (1, 24000, 25000, 1);
+    mu_coin::keypair key1;
+    std::string account;
+    key1.pub.encode_hex (account);
+    system.genesis (key1.pub, 10000);
+    boost::network::http::server <mu_coin::rpc>::request request;
+    boost::network::http::server <mu_coin::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "balance");
+    request_tree.put ("account", account);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    system.clients [0]->rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <mu_coin::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string balance_text (response_tree.get <std::string> ("balance"));
+    ASSERT_EQ ("10000", balance_text);
 }
