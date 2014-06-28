@@ -1499,12 +1499,7 @@ public:
         result = client.ledger.process (block_a);
         if (result == mu_coin::process_result::progress)
         {
-            std::unordered_set <mu_coin::uint256_union> wallet;
-            for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
-            {
-                wallet.insert (i->first);
-            }
-            if (wallet.find (block_a.hashables.destination) != wallet.end ())
+            if (client.wallet.find (block_a.hashables.destination) != client.wallet.end ())
             {
                 result = mu_coin::process_result::owned;
                 client.processor.process_receivable (std::move (incoming), mu_coin::endpoint {});
