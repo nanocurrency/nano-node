@@ -8,9 +8,12 @@
 
 #include <unordered_set>
 #include <memory>
+#include <sstream>
 
+#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/interprocess/streams/vectorstream.hpp>
 
 CryptoPP::AutoSeededRandomPool pool;
 
@@ -1442,18 +1445,18 @@ bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
     return wakeup < other_a.wakeup;
 }
 
-mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
 store (block_store_path_a),
 ledger (store),
 wallet (0, wallet_path_a),
-network (service_a, port_a, *this),
-rpc (service_a, command_port_a, *this),
+network (*service_a, port_a, *this),
+rpc (service_a, pool_a, command_port_a, *this),
 processor (processor_a, *this)
 {
 }
 
-mu_coin::client::client (boost::asio::io_service & service_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a) :
-client (service_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a)
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a) :
+client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a)
 {
 }
 
@@ -2033,12 +2036,14 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     return result;
 }
 
-mu_coin::system::system (uint16_t port_a, uint16_t command_port_a, size_t count_a)
+mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a) :
+service (new boost::asio::io_service),
+pool (new boost::network::utils::thread_pool (threads_a))
 {
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, port_a + i, command_port_a + i, processor)));
+        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor)));
         clients.back ()->network.receive ();
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
@@ -2050,6 +2055,10 @@ mu_coin::system::system (uint16_t port_a, uint16_t command_port_a, size_t count_
                 (*i)->peers.add_peer (mu_coin::endpoint {boost::asio::ip::address_v4::loopback (), (*k)->network.socket.local_endpoint ().port ()});
             }
         }
+    }
+    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
+    {
+        
     }
 }
 
@@ -2251,62 +2260,72 @@ bool mu_coin::publish_err::deserialize (mu_coin::byte_read_stream & stream_a)
     return result;
 }
 
-mu_coin::rpc::rpc (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client & client_a) :
-acceptor (service_a),
-service (service_a),
+mu_coin::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, mu_coin::client & client_a) :
+server (decltype (server)::options (*this).address ("0.0.0.0").port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
 client (client_a)
 {
-    acceptor.open (boost::asio::ip::tcp::v4());
-    acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-    acceptor.bind (boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v4 (), port_a));
-    acceptor.listen ();
+    server.listen ();
 }
 
-void mu_coin::rpc::accept ()
+void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::request const & request, boost::network::http::server <mu_coin::rpc>::response & response)
 {
-    std::shared_ptr <boost::asio::ip::tcp::socket> socket (new boost::asio::ip::tcp::socket (service));
-    acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & error_a) { if (!error_a) {accept (); accept_action (socket);}});
-}
-
-void mu_coin::rpc::accept_action (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
-{
-    std::shared_ptr <std::array <char, 4000>> buffer (new std::array <char, 4000>);
-    receive (socket_a, buffer);
-}
-
-void mu_coin::rpc::receive (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <std::array <char, 4000>> buffer_a)
-{
-    socket_a->async_receive (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this, socket_a, buffer_a] (boost::system::error_code const & error_a, size_t size_a) {receive_action (error_a, size_a, socket_a, buffer_a);});
-}
-
-void mu_coin::rpc::receive_action (boost::system::error_code const & error_a, size_t size_a, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <std::array <char, 4000>> buffer_a)
-{
-    if (!error_a)
+    if (request.method == "POST")
     {
-        boost::property_tree::ptree properties;
-        std::string text (buffer_a->data (), size_a);
         try
         {
-            boost::property_tree::read_json (text, properties);
-            receive (socket_a, buffer_a);
-            std::string action (properties.get <std::string> ("action"));
+            boost::property_tree::ptree request_l;
+            std::stringstream istream (request.body);
+            boost::property_tree::read_json (istream, request_l);
+            std::string action (request_l.get <std::string> ("action"));
             if (action == "balance")
             {
-                std::string account (properties.get <std::string> ("account"));
+                std::string account_text (request_l.get <std::string> ("account"));
+                mu_coin::uint256_union account;
+                auto error (account.decode_hex (account_text));
+                if (!error)
+                {
+                    auto balance (client.ledger.balance (account));
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("balance", balance.convert_to <std::string> ());
+                    std::stringstream ostream;
+                    boost::property_tree::write_json (ostream, response_l);
+                    response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
+                    response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
+                    response.content = ostream.str ();
+                }
+                else
+                {
+                    response = boost::network::http::server<mu_coin::rpc>::response::stock_reply (boost::network::http::server<mu_coin::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
             }
             else if (action == "create")
             {
-                std::string account (properties.get <std::string> ("account"));
+                mu_coin::keypair new_key;
+                client.wallet.insert (new_key.pub, new_key.prv, client.wallet.password);
+                boost::property_tree::ptree response_l;
+                response_l.put ("account", new_key.pub.number ().convert_to<std::string> ());
+                std::stringstream ostream;
+                boost::property_tree::write_json (ostream, response_l);
+                response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
+                response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
+                response.content = ostream.str ();
             }
-            else if (action == "transfer")
+            else
             {
-                std::string source (properties.get <std::string> ("source"));
-                std::string destination (properties.get <std::string> ("destination"));
+                response = boost::network::http::server<mu_coin::rpc>::response::stock_reply (boost::network::http::server<mu_coin::rpc>::response::bad_request);
+                response.content = "Unknown command";
             }
         }
         catch (std::runtime_error const &)
         {
-            receive (socket_a, buffer_a);
+            response = boost::network::http::server<mu_coin::rpc>::response::stock_reply (boost::network::http::server<mu_coin::rpc>::response::bad_request);
+            response.content = "Unable to parse JSON";
         }
+    }
+    else
+    {
+        response = boost::network::http::server<mu_coin::rpc>::response::stock_reply (boost::network::http::server<mu_coin::rpc>::response::method_not_allowed);
+        response.content = "Can only POST requests";
     }
 }

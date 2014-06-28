@@ -27,7 +27,7 @@ TEST (ledger, genesis_balance)
 
 TEST (system, system_genesis)
 {
-    mu_coin::system system (24000, 25000, 2);
+    mu_coin::system system (1, 24000, 25000, 2);
     mu_coin::keypair key1;
     system.genesis (key1.pub, 500);
     for (auto & i: system.clients)

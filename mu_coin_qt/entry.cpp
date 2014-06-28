@@ -6,7 +6,7 @@ int main (int argc, char ** argv)
 {
     QApplication application (argc, argv);
     static int count (2);
-    mu_coin::system system (24000, count);
+    mu_coin::system system (1, 24000, 25000, count);
     mu_coin::keypair genesis_key;
     system.clients [0]->wallet.insert (genesis_key.pub, genesis_key.prv, system.clients [0]->wallet.password);
     system.genesis (genesis_key.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
@@ -17,7 +17,7 @@ int main (int argc, char ** argv)
         guis.push_back (std::unique_ptr <mu_coin_qt::gui> {new mu_coin_qt::gui {application, *system.clients [i]}});
         guis.back ()->balance_main_window->show ();
     }
-    std::thread network_thread ([&system] () {system.service.run ();});
+    std::thread network_thread ([&system] () {system.service->run ();});
     std::thread processor_thread ([&system] () {system.processor.run ();});
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {

@@ -2,6 +2,8 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/network/include/http/server.hpp>
+#include <boost/network/utils/thread_pool.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -626,14 +628,10 @@ namespace mu_coin {
     class rpc
     {
     public:
-        rpc (boost::asio::io_service &, uint16_t, mu_coin::client &);
-        void accept ();
-        void stop ();
-        void accept_action (std::shared_ptr <boost::asio::ip::tcp::socket>);
-        void receive (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <std::array <char, 4000>>);
-        void receive_action (boost::system::error_code const &, size_t, std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <std::array <char, 4000>>);
-        boost::asio::ip::tcp::acceptor acceptor;
-        boost::asio::io_service & service;
+        rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, mu_coin::client &);
+        boost::network::http::server <mu_coin::rpc> server;
+        void operator () (boost::network::http::server <mu_coin::rpc>::request const &, boost::network::http::server <mu_coin::rpc>::response &);
+        void log (const char *) {}
         mu_coin::client & client;
         bool on;
     };
@@ -668,8 +666,8 @@ namespace mu_coin {
     class client
     {
     public:
-        client (boost::asio::io_service &, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
-        client (boost::asio::io_service &, uint16_t, uint16_t, mu_coin::processor_service &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
         mu_coin::block_store store;
         mu_coin::ledger ledger;
@@ -682,10 +680,11 @@ namespace mu_coin {
     class system
     {
     public:
-        system (uint16_t, uint16_t, size_t);
+        system (size_t, uint16_t, uint16_t, size_t);
         mu_coin::endpoint endpoint (size_t);
         void genesis (mu_coin::public_key const &, mu_coin::uint256_t const &);
-        boost::asio::io_service service;
+        boost::shared_ptr <boost::asio::io_service> service;
+        boost::shared_ptr <boost::network::utils::thread_pool> pool;
         mu_coin::processor_service processor;
         std::vector <std::unique_ptr <mu_coin::client>> clients;
     };
