@@ -38,10 +38,13 @@ TEST (network, publish_req)
     block->hashables.balance = 200;
     block->hashables.destination = key2.pub;
     mu_coin::publish_req req (std::move (block));
-    mu_coin::byte_write_stream stream;
-    req.serialize (stream);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream (bytes);
+        req.serialize (stream);
+    }
     mu_coin::publish_req req2;
-    mu_coin::byte_read_stream stream2 (stream.data, stream.size);
+    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
     auto error (req2.deserialize (stream2));
     ASSERT_FALSE (error);
     ASSERT_EQ (*req.block, *req2.block);
@@ -138,11 +141,12 @@ TEST (receivable_processor, confirm_no_pos)
     auth1.address = key1.pub;
     mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
     con1.authorizations.push_back (auth1);
-    mu_coin::byte_write_stream stream;
+    std::vector <uint8_t> bytes;
+    mu_coin::vectorstream stream (bytes);
     con1.serialize (stream);
-    ASSERT_LE (stream.size, system.clients [0]->network.buffer.size ());
-    std::copy (stream.data, stream.data + stream.size, system.clients [0]->network.buffer.begin ());
-    system.clients [0]->network.receive_action (boost::system::error_code {}, stream.size);
+    ASSERT_LE (bytes.size (), system.clients [0]->network.buffer.size ());
+    std::copy (bytes.data (), bytes.data () + bytes.size (), system.clients [0]->network.buffer.begin ());
+    system.clients [0]->network.receive_action (boost::system::error_code {}, bytes.size ());
     ASSERT_TRUE (receivable->acknowledged.is_zero ());
 }
 
@@ -160,11 +164,14 @@ TEST (receivable_processor, confirm_insufficient_pos)
     auth1.address = key1.pub;
     mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
     con1.authorizations.push_back (auth1);
-    mu_coin::byte_write_stream stream;
-    con1.serialize (stream);
-    ASSERT_LE (stream.size, system.clients [0]->network.buffer.size ());
-    std::copy (stream.data, stream.data + stream.size, system.clients [0]->network.buffer.begin ());
-    system.clients [0]->network.receive_action (boost::system::error_code {}, stream.size);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream (bytes);
+        con1.serialize (stream);
+    }
+    ASSERT_LE (bytes.size (), system.clients [0]->network.buffer.size ());
+    std::copy (bytes.data (), bytes.data () + bytes.size (), system.clients [0]->network.buffer.begin ());
+    system.clients [0]->network.receive_action (boost::system::error_code {}, bytes.size ());
     ASSERT_EQ (1, receivable->acknowledged);
     ASSERT_FALSE (receivable->complete);
     // Shared_from_this, local, timeout, callback
@@ -185,11 +192,14 @@ TEST (receivable_processor, confirm_sufficient_pos)
     auth1.address = key1.pub;
     mu_coin::sign_message (key1.prv, key1.pub, con1.block, auth1.signature);
     con1.authorizations.push_back (auth1);
-    mu_coin::byte_write_stream stream;
-    con1.serialize (stream);
-    ASSERT_LE (stream.size, system.clients [0]->network.buffer.size ());
-    std::copy (stream.data, stream.data + stream.size, system.clients [0]->network.buffer.begin ());
-    system.clients [0]->network.receive_action (boost::system::error_code {}, stream.size);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream (bytes);
+        con1.serialize (stream);
+    }
+    ASSERT_LE (bytes.size (), system.clients [0]->network.buffer.size ());
+    std::copy (bytes.data (), bytes.data () + bytes.size (), system.clients [0]->network.buffer.begin ());
+    system.clients [0]->network.receive_action (boost::system::error_code {}, bytes.size ());
     ASSERT_EQ (std::numeric_limits<mu_coin::uint256_t>::max (), receivable->acknowledged);
     ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (3, receivable.use_count ());

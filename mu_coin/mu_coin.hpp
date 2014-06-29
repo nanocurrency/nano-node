@@ -4,6 +4,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/network/include/http/server.hpp>
 #include <boost/network/utils/thread_pool.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/stream.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -16,37 +19,21 @@
 #include <mutex>
 
 namespace mu_coin {
-    class byte_read_stream
+    using stream = std::basic_streambuf <uint8_t>;
+    using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
+    using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_insert_device <std::vector <uint8_t>>>;
+    template <typename T>
+    bool read (mu_coin::stream & stream_a, T & value)
     {
-    public:
-        byte_read_stream (uint8_t const *, uint8_t const *);
-        byte_read_stream (uint8_t const *, size_t const);
-        template <typename T>
-        bool read (T & value)
-        {
-            return read (reinterpret_cast <uint8_t *> (&value), sizeof (value));
-        }
-        bool read (uint8_t *, size_t);
-        size_t size ();
-        uint8_t const * data;
-        uint8_t const * end;
-    };
-    class byte_write_stream
+        auto amount_read (stream_a.sgetn (reinterpret_cast <uint8_t *> (&value), sizeof (value)));
+        return amount_read != sizeof (value);
+    }
+    template <typename T>
+    void write (mu_coin::stream & stream_a, T const & value)
     {
-    public:
-        byte_write_stream ();
-        ~byte_write_stream ();
-        void extend (size_t);
-        template <typename T>
-        void write (T const & value)
-        {
-            write (reinterpret_cast <uint8_t const *> (&value), sizeof (value));
-        }
-        void write (uint8_t const *, size_t);
-        void abandon ();
-        uint8_t * data;
-        size_t size;
-    };
+        auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
+        assert (amount_written == sizeof (value));
+    }
     using uint128_t = boost::multiprecision::uint128_t;
     using uint256_t = boost::multiprecision::uint256_t;
     using uint512_t = boost::multiprecision::uint512_t;
@@ -67,14 +54,13 @@ namespace mu_coin {
         uint256_union (std::string const &);
         uint256_union (mu_coin::uint256_union const &, mu_coin::uint256_union const &, uint128_union const &);
         uint256_union prv (uint256_union const &, uint128_union const &) const;
-        mu_coin::uint256_union operator ^ (mu_coin::uint256_union const &) const;
         bool operator == (mu_coin::uint256_union const &) const;
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
         void encode_dec (std::string &);
         bool decode_dec (std::string const &);
-        void serialize (mu_coin::byte_write_stream &) const;
-        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::stream &) const;
+        bool deserialize (mu_coin::stream &);
         std::array <uint8_t, 32> bytes;
         std::array <uint64_t, 4> qwords;
         std::array <uint128_union, 2> owords;
@@ -170,7 +156,7 @@ namespace mu_coin {
     public:
         virtual mu_coin::uint256_union hash () const = 0;
         virtual mu_coin::block_hash previous () const = 0;
-        virtual void serialize (mu_coin::byte_write_stream &) const = 0;
+        virtual void serialize (mu_coin::stream &) const = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
         virtual bool operator == (mu_coin::block const &) const = 0;
         virtual std::unique_ptr <mu_coin::block> clone () const = 0;
@@ -180,19 +166,19 @@ namespace mu_coin {
     {
     public:
         dbt () = default;
-        dbt (bool);
         dbt (mu_coin::uint256_union const &);
         dbt (mu_coin::block const &);
         dbt (mu_coin::address const &, mu_coin::block_hash const &);
         dbt (mu_coin::private_key const &, mu_coin::secret_key const &, mu_coin::uint128_union const &);
+        void adopt ();
         void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::private_key &);
         mu_coin::uint256_union uint256 () const;
-        void adopt (mu_coin::byte_write_stream &);
         std::unique_ptr <mu_coin::block> block ();
+        std::vector <uint8_t> bytes;
         Dbt data;
     };
-    std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::byte_read_stream &);
-    void serialize_block (mu_coin::byte_write_stream &, mu_coin::block const &);
+    std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::stream &);
+    void serialize_block (mu_coin::stream &, mu_coin::block const &);
     void sign_message (mu_coin::private_key const &, mu_coin::public_key const &, mu_coin::uint256_union const &, mu_coin::uint512_union &);
     bool validate_message (mu_coin::public_key const &, mu_coin::uint256_union const &, mu_coin::uint512_union const &);
     class send_hashables
@@ -210,8 +196,8 @@ namespace mu_coin {
         send_block (send_block const &);
         mu_coin::uint256_union hash () const override;
         mu_coin::block_hash previous () const override;
-        void serialize (mu_coin::byte_write_stream &) const override;
-        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::stream &) const override;
+        bool deserialize (mu_coin::stream &);
         void visit (mu_coin::block_visitor &) const override;
         std::unique_ptr <mu_coin::block> clone () const override;
         mu_coin::block_type type () const override;
@@ -232,8 +218,8 @@ namespace mu_coin {
     public:
         mu_coin::uint256_union hash () const override;
         mu_coin::block_hash previous () const override;
-        void serialize (mu_coin::byte_write_stream &) const override;
-        bool deserialize (mu_coin::byte_read_stream &);
+        void serialize (mu_coin::stream &) const override;
+        bool deserialize (mu_coin::stream &);
         void visit (mu_coin::block_visitor &) const override;
         std::unique_ptr <mu_coin::block> clone () const override;
         mu_coin::block_type type () const override;
@@ -405,15 +391,15 @@ namespace mu_coin {
     {
     public:
         void visit (mu_coin::message_visitor &) override;
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
     };
     class keepalive_ack : public message
     {
     public:
         void visit (mu_coin::message_visitor &) override;
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
     };
     class publish_req : public message
     {
@@ -421,8 +407,8 @@ namespace mu_coin {
         publish_req () = default;
         publish_req (std::unique_ptr <mu_coin::block>);
         void visit (mu_coin::message_visitor &) override;
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         std::unique_ptr <mu_coin::block> block;
     };
     class publish_ack : public message
@@ -430,8 +416,8 @@ namespace mu_coin {
     public:
         publish_ack () = default;
         publish_ack (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::publish_ack const &) const;
         mu_coin::block_hash block;
@@ -441,8 +427,8 @@ namespace mu_coin {
     public:
         publish_err () = default;
         publish_err (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         mu_coin::block_hash block;
     };
@@ -451,8 +437,8 @@ namespace mu_coin {
     public:
         publish_nak () = default;
         publish_nak (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         mu_coin::block_hash block;
         std::unique_ptr <mu_coin::block> conflict;
@@ -462,8 +448,8 @@ namespace mu_coin {
     public:
         confirm_req () = default;
         confirm_req (std::unique_ptr <mu_coin::block>);
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::publish_ack const &) const;
         std::unique_ptr <mu_coin::block> block;
@@ -473,8 +459,8 @@ namespace mu_coin {
     public:
         confirm_ack () = default;
         confirm_ack (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::confirm_ack const &) const;
         mu_coin::block_hash block;
@@ -483,8 +469,8 @@ namespace mu_coin {
     class confirm_nak : public message
     {
     public:
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         mu_coin::block_hash block;
         std::unique_ptr <mu_coin::block> winner;
@@ -496,8 +482,8 @@ namespace mu_coin {
     public:
         confirm_unk () = default;
         confirm_unk (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::byte_read_stream &);
-        void serialize (mu_coin::byte_write_stream &);
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         mu_coin::block_hash block;
     };

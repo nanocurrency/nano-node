@@ -54,9 +54,16 @@ TEST (transaction_block, empty)
 TEST (send_block, empty_send_serialize)
 {
     mu_coin::send_block block1;
-    mu_coin::byte_write_stream stream1;
-    block1.serialize (stream1);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream1 (bytes);
+        block1.serialize (stream1);
+    }
+    auto data (bytes.data ());
+    auto size (bytes.size ());
+    ASSERT_NE (nullptr, data);
+    ASSERT_NE (0, size);
+    mu_coin::bufferstream stream2 (data, size);
     mu_coin::send_block block2;
     block2.deserialize (stream2);
     ASSERT_EQ (block1, block2);
@@ -66,9 +73,12 @@ TEST (send_block, receive_serialize)
 {
     mu_coin::receive_block block1;
     mu_coin::keypair key1;
-    mu_coin::byte_write_stream stream1;
-    block1.serialize (stream1);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream1 (bytes);
+        block1.serialize (stream1);
+    }
+    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
     mu_coin::receive_block block2;
     auto error (block2.deserialize (stream2));
     ASSERT_FALSE (error);
@@ -224,9 +234,12 @@ TEST (uint512_union, parse_error_overflow)
 TEST (send_block, deserialize)
 {
     mu_coin::send_block block1;
-    mu_coin::byte_write_stream stream1;
-    mu_coin::serialize_block (stream1, block1);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream1 (bytes);
+        mu_coin::serialize_block (stream1, block1);
+    }
+    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
     auto block2 (mu_coin::deserialize_block (stream2));
     ASSERT_NE (nullptr, block2);
     ASSERT_EQ (block1, *block2);
@@ -237,9 +250,12 @@ TEST (receive_block, deserialize)
     mu_coin::receive_block block1;
     block1.hashables.previous = 2;
     block1.hashables.source = 4;
-    mu_coin::byte_write_stream stream1;
-    mu_coin::serialize_block (stream1, block1);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream1 (bytes);
+        mu_coin::serialize_block (stream1, block1);
+    }
+    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
     auto block2 (mu_coin::deserialize_block (stream2));
     ASSERT_NE (nullptr, block2);
     ASSERT_EQ (block1, *block2);
@@ -261,9 +277,12 @@ TEST (confirm_ack, serialization)
     mu_coin::sign_message (key1.prv, key1.pub, hash, signature);
     mu_coin::authorization authorization {key1.pub, signature};
     con1.authorizations.push_back (authorization);
-    mu_coin::byte_write_stream stream1;
-    con1.serialize (stream1);
-    mu_coin::byte_read_stream stream2 (stream1.data, stream1.size);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream1 (bytes);
+        con1.serialize (stream1);
+    }
+    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
     mu_coin::confirm_ack con2;
     con2.deserialize (stream2);
     ASSERT_EQ (con1, con2);
