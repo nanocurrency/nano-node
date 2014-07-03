@@ -795,6 +795,7 @@ void mu_coin::block_store::genesis_put (mu_coin::public_key const & key_a, uint2
     block_put (send2.hash (), send2);
     mu_coin::open_block open;
     open.hashables.source = send2.hash ();
+    open.hashables.representative = key_a;
     open.signature.clear ();
     block_put (open.hash (), open);
     latest_put (key_a, open.hash ());
@@ -2493,4 +2494,53 @@ void mu_coin::block_store::representation_put (mu_coin::address const & address_
     mu_coin::dbt data (mu_coin::uint256_union {representation_a});
     int error (representatives.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
+}
+
+namespace
+{
+class representative_visitor : public mu_coin::block_visitor
+{
+public:
+    representative_visitor (mu_coin::block_store & store_a) :
+    store (store_a)
+    {
+    }
+    void calculate (mu_coin::block_hash const & hash_a)
+    {
+        auto block (store.block_get (hash_a));
+        assert (block != nullptr);
+        block->visit (*this);
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        representative_visitor visitor (store);
+        visitor.calculate (block_a.previous ());
+        result = visitor.result;
+    }
+    void receive_block (mu_coin::receive_block const & block_a) override
+    {
+        representative_visitor visitor (store);
+        visitor.calculate (block_a.previous ());
+        result = visitor.result;
+    }
+    void open_block (mu_coin::open_block const & block_a) override
+    {
+        result = block_a.hashables.representative;
+    }
+    mu_coin::block_store & store;
+    mu_coin::address result;
+};
+}
+
+bool mu_coin::ledger::representative (mu_coin::address const & address_a, mu_coin::address & representative_a)
+{
+    mu_coin::block_hash hash;
+    auto result (store.latest_get (address_a, hash));
+    if (!result)
+    {
+        representative_visitor visitor (store);
+        visitor.calculate (hash);
+        representative_a = visitor.result;
+    }
+    return result;
 }
