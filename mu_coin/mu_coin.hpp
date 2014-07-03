@@ -677,9 +677,10 @@ namespace mu_coin {
     class client
     {
     public:
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &);
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
+        mu_coin::address representative;
         mu_coin::block_store store;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;
@@ -691,9 +692,8 @@ namespace mu_coin {
     class system
     {
     public:
-        system (size_t, uint16_t, uint16_t, size_t);
+        system (size_t, uint16_t, uint16_t, size_t, mu_coin::public_key const &, mu_coin::uint256_t const &);
         mu_coin::endpoint endpoint (size_t);
-        void genesis (mu_coin::public_key const &, mu_coin::uint256_t const &);
         boost::shared_ptr <boost::asio::io_service> service;
         boost::shared_ptr <boost::network::utils::thread_pool> pool;
         mu_coin::processor_service processor;

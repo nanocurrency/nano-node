@@ -1451,7 +1451,8 @@ bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
     return wakeup < other_a.wakeup;
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a) :
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
+representative (representative_a),
 store (block_store_path_a),
 ledger (store),
 wallet (0, wallet_path_a),
@@ -1461,8 +1462,8 @@ processor (processor_a, *this)
 {
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a) :
-client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a)
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
+client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a, representative_a)
 {
 }
 
@@ -2050,14 +2051,15 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     return result;
 }
 
-mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a) :
+mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a, mu_coin::public_key const & address, mu_coin::uint256_t const & amount) :
 service (new boost::asio::io_service),
 pool (new boost::network::utils::thread_pool (threads_a))
 {
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor)));
+        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor, address)));
+        clients.back ()->store.genesis_put (address, amount);
         clients.back ()->network.receive ();
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
@@ -2103,14 +2105,6 @@ void mu_coin::processor::process_confirmation (mu_coin::block_hash const & hash,
 mu_coin::key_entry * mu_coin::key_entry::operator -> ()
 {
     return this;
-}
-
-void mu_coin::system::genesis (mu_coin::public_key const & address, mu_coin::uint256_t const & amount)
-{
-    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
-    {
-        (*i)->store.genesis_put (address, amount);
-    }
 }
 
 bool mu_coin::confirm_ack::deserialize (mu_coin::stream & stream_a)
