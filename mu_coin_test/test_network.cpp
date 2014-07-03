@@ -270,7 +270,6 @@ TEST (client, send_single)
     system.genesis (key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
     system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
-    system.clients [0]->store.genesis_put (key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 1000, system.clients [0]->wallet.password));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.balance (key1.pub));
     ASSERT_TRUE (system.clients [0]->ledger.balance (key2.pub).is_zero ());
@@ -288,7 +287,6 @@ TEST (client, send_single_observing_peer)
     system.genesis (key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
     system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
-    system.clients [0]->store.genesis_put (key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 1000, system.clients [0]->wallet.password));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.balance (key1.pub));
     ASSERT_TRUE (system.clients [0]->ledger.balance (key2.pub).is_zero ());
@@ -306,7 +304,6 @@ TEST (client, send_single_many_peers)
     system.genesis (key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
     system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
-    system.clients [0]->store.genesis_put (key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 1000, system.clients [0]->wallet.password));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.balance (key1.pub));
     ASSERT_TRUE (system.clients [0]->ledger.balance (key2.pub).is_zero ());
