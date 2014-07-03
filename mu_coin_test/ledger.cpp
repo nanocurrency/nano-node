@@ -241,3 +241,12 @@ TEST (ledger, representative_genesis)
     ASSERT_FALSE (ledger.representative (address, representative));
     ASSERT_EQ (address, representative);
 }
+
+TEST (ledger, weight)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::ledger ledger (store);
+    mu_coin::address address;
+    store.genesis_put (address);
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (address));
+}

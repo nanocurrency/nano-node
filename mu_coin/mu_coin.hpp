@@ -313,7 +313,7 @@ namespace mu_coin {
         block_store (block_store_temp_t const &);
         block_store (boost::filesystem::path const &);
         
-        void genesis_put (mu_coin::public_key const &, uint256_union const & = uint256_union (std::numeric_limits <uint256_t>::max () >> 1));
+        void genesis_put (mu_coin::public_key const &, uint256_union const & = uint256_union (std::numeric_limits <uint256_t>::max ()));
         
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
@@ -325,8 +325,8 @@ namespace mu_coin {
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
-        mu_coin::uint256_t representation_get (mu_coin::address const &);
-        void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
+        mu_coin::uint256_union representation_get (mu_coin::address const &);
+        void representation_put (mu_coin::address const &, mu_coin::uint256_union const &);
         
         void pending_put (mu_coin::identifier const &);
         void pending_del (mu_coin::identifier const &);
@@ -359,6 +359,7 @@ namespace mu_coin {
     public:
         ledger (mu_coin::block_store &);
         mu_coin::uint256_t balance (mu_coin::address const &);
+        mu_coin::uint256_t weight (mu_coin::address const &);
         bool representative (mu_coin::address const &, mu_coin::address &);
         mu_coin::uint256_t supply ();
         mu_coin::process_result process (mu_coin::block const &);
