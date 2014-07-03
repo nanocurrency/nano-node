@@ -382,15 +382,6 @@ namespace mu_coin {
         mu_coin::public_key pub;
         mu_coin::private_key prv;
     };
-    class cached_password_store
-    {
-    public:
-        ~cached_password_store ();
-        void decrypt (mu_coin::uint256_union const &, mu_coin::uint256_union &);
-        void encrypt (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
-        void clear ();
-        mu_coin::uint256_union password;
-    };
     enum class message_type : uint8_t
     {
         keepalive_req,

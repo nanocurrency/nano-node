@@ -627,30 +627,6 @@ mu_coin::block_type mu_coin::receive_block::type () const
     return mu_coin::block_type::receive;
 }
 
-void mu_coin::cached_password_store::decrypt (mu_coin::uint256_union const & pin_hash, mu_coin::uint256_union & password_a)
-{
-    CryptoPP::AES::Decryption alg (pin_hash.bytes.data (), sizeof (pin_hash.bytes));
-    CryptoPP::ECB_Mode_ExternalCipher::Decryption dec (alg);
-    dec.ProcessData (password_a.bytes.data (), password.bytes.data (), sizeof (password.bytes));
-}
-
-void mu_coin::cached_password_store::encrypt (mu_coin::uint256_union const & pin_hash, mu_coin::uint256_union const & password_a)
-{
-    CryptoPP::AES::Encryption alg (pin_hash.bytes.data (), sizeof (pin_hash.bytes));
-    CryptoPP::ECB_Mode_ExternalCipher::Encryption enc (alg);
-    enc.ProcessData (password.bytes.data (), password_a.bytes.data (), sizeof (password_a.bytes));
-}
-
-mu_coin::cached_password_store::~cached_password_store ()
-{
-    clear ();
-}
-
-void mu_coin::cached_password_store::clear ()
-{
-    password.bytes.fill (0);
-}
-
 void mu_coin::uint256_union::encode_hex (std::string & text)
 {
     assert (text.empty ());
