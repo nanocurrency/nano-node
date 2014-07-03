@@ -119,8 +119,10 @@ class amount_visitor : public mu_coin::block_visitor
 public:
     amount_visitor (mu_coin::block_store &);
     void compute (mu_coin::block_hash const &);
-    void send_block (mu_coin::send_block const & block_a) override;
-    void receive_block (mu_coin::receive_block const & block_a) override;
+    void send_block (mu_coin::send_block const &) override;
+    void receive_block (mu_coin::receive_block const &) override;
+    void open_block (mu_coin::open_block const &) override;
+    void from_send (mu_coin::block_hash const &);
     mu_coin::block_store & store;
     mu_coin::uint256_t result;
 };
@@ -130,22 +132,12 @@ class balance_visitor : public mu_coin::block_visitor
 public:
     balance_visitor (mu_coin::block_store &);
     void compute (mu_coin::block_hash const &);
-    void send_block (mu_coin::send_block const & block_a) override;
-    void receive_block (mu_coin::receive_block const & block_a) override;
+    void send_block (mu_coin::send_block const &) override;
+    void receive_block (mu_coin::receive_block const &) override;
+    void open_block (mu_coin::open_block const &) override;
     mu_coin::block_store & store;
     mu_coin::uint256_t result;
 };
-
-balance_visitor::balance_visitor (mu_coin::block_store & store_a):
-store (store_a),
-result (0)
-{
-}
-
-void balance_visitor::send_block (mu_coin::send_block const & block_a)
-{
-    result = block_a.hashables.balance.number ();
-}
 
 class account_visitor : public mu_coin::block_visitor
 {
@@ -168,7 +160,15 @@ public:
     }
     void receive_block (mu_coin::receive_block const & block_a) override
     {
-        auto block (store.block_get (block_a.hashables.source));
+        from_previous (block_a.hashables.source);
+    }
+    void open_block (mu_coin::open_block const & block_a) override
+    {
+        from_previous (block_a.hashables.source);
+    }
+    void from_previous (mu_coin::block_hash const & hash_a)
+    {
+        auto block (store.block_get (hash_a));
         assert (block != nullptr);
         assert (dynamic_cast <mu_coin::send_block *> (block.get ()) != nullptr);
         auto send (static_cast <mu_coin::send_block *> (block.get ()));
@@ -177,6 +177,49 @@ public:
     mu_coin::block_store & store;
     mu_coin::address result;
 };
+
+amount_visitor::amount_visitor (mu_coin::block_store & store_a) :
+store (store_a)
+{
+}
+
+void amount_visitor::send_block (mu_coin::send_block const & block_a)
+{
+    balance_visitor prev (store);
+    prev.compute (block_a.hashables.previous);
+    result = prev.result - block_a.hashables.balance.number ();
+}
+
+void amount_visitor::receive_block (mu_coin::receive_block const & block_a)
+{
+    from_send (block_a.hashables.source);
+}
+
+void amount_visitor::open_block (mu_coin::open_block const & block_a)
+{
+    from_send (block_a.hashables.source);
+}
+
+void amount_visitor::from_send (mu_coin::block_hash const & hash_a)
+{
+    balance_visitor source (store);
+    source.compute (hash_a);
+    auto source_block (store.block_get (hash_a));
+    assert (source_block != nullptr);
+    balance_visitor source_prev (store);
+    source_prev.compute (source_block->previous ());
+}
+
+balance_visitor::balance_visitor (mu_coin::block_store & store_a):
+store (store_a),
+result (0)
+{
+}
+
+void balance_visitor::send_block (mu_coin::send_block const & block_a)
+{
+    result = block_a.hashables.balance.number ();
+}
 
 void balance_visitor::receive_block (mu_coin::receive_block const & block_a)
 {
@@ -194,26 +237,9 @@ void balance_visitor::receive_block (mu_coin::receive_block const & block_a)
     result = base + source.result;
 }
 
-amount_visitor::amount_visitor (mu_coin::block_store & store_a) :
-store (store_a)
+void balance_visitor::open_block (mu_coin::open_block const & block_a)
 {
-}
-
-void amount_visitor::send_block (mu_coin::send_block const & block_a)
-{
-    balance_visitor prev (store);
-    prev.compute (block_a.hashables.previous);
-    result = prev.result - block_a.hashables.balance.number ();
-}
-
-void amount_visitor::receive_block (mu_coin::receive_block const & block_a)
-{
-    balance_visitor source (store);
-    source.compute (block_a.hashables.source);
-    auto source_block (store.block_get (block_a.hashables.source));
-    assert (source_block != nullptr);
-    balance_visitor source_prev (store);
-    source_prev.compute (source_block->previous ());
+    assert (false);
 }
 
 mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::address const & address_a)
@@ -474,6 +500,11 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
             }
         }
     }
+}
+
+void mu_coin::ledger_processor::open_block (mu_coin::open_block const & block_a)
+{
+    assert (false);
 }
 
 mu_coin::ledger_processor::ledger_processor (mu_coin::ledger & ledger_a) :
@@ -1463,6 +1494,10 @@ public:
     {
         result = client.ledger.process (block_a);
     }
+    void open_block (mu_coin::open_block const & block_a)
+    {
+        result = client.ledger.process (block_a);
+    }
     mu_coin::client & client;
     std::unique_ptr <mu_coin::publish_req> incoming;
     mu_coin::endpoint sender;
@@ -2329,4 +2364,77 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
         response = boost::network::http::server<mu_coin::rpc>::response::stock_reply (boost::network::http::server<mu_coin::rpc>::response::method_not_allowed);
         response.content = "Can only POST requests";
     }
+}
+
+
+mu_coin::uint256_union mu_coin::open_block::hash () const
+{
+    return hashables.hash ();
+}
+
+mu_coin::block_hash mu_coin::open_block::previous () const
+{
+    assert (false);
+}
+
+void mu_coin::open_block::serialize (mu_coin::stream & stream_a) const
+{
+    write (stream_a, hashables.representative);
+    write (stream_a, hashables.source);
+    write (stream_a, signature);
+}
+
+bool mu_coin::open_block::deserialize (mu_coin::stream & stream_a)
+{
+    auto result (read (stream_a, hashables.representative));
+    if (!result)
+    {
+        result = read (stream_a, hashables.source);
+        if (!result)
+        {
+            result = read (stream_a, signature);
+        }
+    }
+    return result;
+}
+
+void mu_coin::open_block::visit (mu_coin::block_visitor & visitor_a) const
+{
+    visitor_a.open_block (*this);
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::open_block::clone () const
+{
+    return std::unique_ptr <mu_coin::block> (new mu_coin::open_block (*this));
+}
+
+mu_coin::block_type mu_coin::open_block::type () const
+{
+    return mu_coin::block_type::open;
+}
+
+bool mu_coin::open_block::operator == (mu_coin::block const & other_a) const
+{
+    auto other_l (dynamic_cast <mu_coin::open_block const *> (&other_a));
+    auto result (other_l != nullptr);
+    if (result)
+    {
+        result = *this == *other_l;
+    }
+    return result;
+}
+
+bool mu_coin::open_block::operator == (mu_coin::open_block const & other_a) const
+{
+    return hashables.representative == other_a.hashables.representative && hashables.source == other_a.hashables.source && signature == other_a.signature;
+}
+
+mu_coin::uint256_union mu_coin::open_hashables::hash () const
+{
+    mu_coin::uint256_union result;
+    CryptoPP::SHA256 hash;
+    hash.Update (representative.bytes.data (), sizeof (representative.bytes));
+    hash.Update (source.bytes.data (), sizeof (source.bytes));
+    hash.Final (result.bytes.data ());
+    return result;
 }

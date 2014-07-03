@@ -147,9 +147,9 @@ namespace mu_coin {
     class block_visitor;
     enum class block_type : uint8_t
     {
-        transaction,
         send,
-        receive
+        receive,
+        open
     };
     class block
     {
@@ -230,11 +230,34 @@ namespace mu_coin {
         receive_hashables hashables;
         uint512_union signature;
     };
+    class open_hashables
+    {
+    public:
+        mu_coin::uint256_union hash () const;
+        mu_coin::address representative;
+        mu_coin::block_hash source;
+    };
+    class open_block : public mu_coin::block
+    {
+    public:
+        mu_coin::uint256_union hash () const;
+        mu_coin::block_hash previous () const override;
+        void serialize (mu_coin::stream &) const override;
+        bool deserialize (mu_coin::stream &);
+        void visit (mu_coin::block_visitor &) const override;
+        std::unique_ptr <mu_coin::block> clone () const override;
+        mu_coin::block_type type () const override;
+        bool operator == (mu_coin::block const &) const override;
+        bool operator == (mu_coin::open_block const &) const;
+        mu_coin::open_hashables hashables;
+        mu_coin::uint512_union signature;
+    };
     class block_visitor
     {
     public:
         virtual void send_block (mu_coin::send_block const &) = 0;
         virtual void receive_block (mu_coin::receive_block const &) = 0;
+        virtual void open_block (mu_coin::open_block const &) = 0;
     };
     struct block_store_temp_t
     {
@@ -339,8 +362,9 @@ namespace mu_coin {
     {
     public:
         ledger_processor (mu_coin::ledger &);
-        void send_block (mu_coin::send_block const &);
-        void receive_block (mu_coin::receive_block const &);
+        void send_block (mu_coin::send_block const &) override;
+        void receive_block (mu_coin::receive_block const &) override;
+        void open_block (mu_coin::open_block const &) override;
         mu_coin::ledger & ledger;
         mu_coin::process_result result;
     };
