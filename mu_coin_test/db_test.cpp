@@ -100,7 +100,6 @@ TEST (block_store, add_genesis)
     ASSERT_FALSE (db.latest_get (key1.pub, hash1));
     auto block1 (db.block_get (hash1));
     ASSERT_NE (nullptr, block1);
-    auto receive1 (dynamic_cast <mu_coin::receive_block *> (block1.get ()));
+    auto receive1 (dynamic_cast <mu_coin::open_block *> (block1.get ()));
     ASSERT_NE (nullptr, receive1);
-    ASSERT_EQ (key1.pub, receive1->hashables.previous);
 }

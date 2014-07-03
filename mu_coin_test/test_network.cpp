@@ -273,7 +273,7 @@ TEST (client, send_single)
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 1000, system.clients [0]->wallet.password));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.balance (key1.pub));
     ASSERT_TRUE (system.clients [0]->ledger.balance (key2.pub).is_zero ());
-    while (system.clients [0]->ledger.balance(key2.pub).is_zero ())
+    while (system.clients [0]->ledger.balance (key2.pub).is_zero ())
     {
         system.service->run_one ();
     }

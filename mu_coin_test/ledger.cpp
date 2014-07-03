@@ -73,12 +73,11 @@ TEST (ledger, process_send)
     auto latest7 (dynamic_cast <mu_coin::send_block *> (latest6.get ()));
     ASSERT_NE (nullptr, latest7);
     ASSERT_EQ (send, *latest7);
-    mu_coin::receive_block receive;
-    receive.hashables.source = hash1;
-    receive.hashables.previous = key2.pub;
-    mu_coin::block_hash hash2 (receive.hash ());
-    receive.sign (key2.prv, key2.pub, hash2);
-    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (receive));
+    mu_coin::open_block open;
+    open.hashables.source = hash1;
+    mu_coin::block_hash hash2 (open.hash ());
+    mu_coin::sign_message(key2.prv, key2.pub, hash2, open.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
     ASSERT_EQ (50, ledger.balance (key2.pub));
     mu_coin::block_hash hash3;
     ASSERT_FALSE (store.latest_get (key1.pub, hash3));
@@ -91,9 +90,9 @@ TEST (ledger, process_send)
     ASSERT_FALSE (store.latest_get (key2.pub, hash4));
     auto latest4 (store.block_get (hash4));
     ASSERT_NE (nullptr, latest4);
-    auto latest5 (dynamic_cast <mu_coin::receive_block *> (latest4.get ()));
+    auto latest5 (dynamic_cast <mu_coin::open_block *> (latest4.get ()));
     ASSERT_NE (nullptr, latest5);
-    ASSERT_EQ (receive, *latest5);
+    ASSERT_EQ (open, *latest5);
 }
 
 TEST (ledger, process_duplicate)
@@ -113,13 +112,12 @@ TEST (ledger, process_duplicate)
     mu_coin::sign_message (key1.prv, key1.pub, hash1, send.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (send));
     ASSERT_EQ (mu_coin::process_result::old, ledger.process (send));
-    mu_coin::receive_block receive;
-    receive.hashables.source = hash1;
-    receive.hashables.previous = key2.pub;
-    mu_coin::block_hash hash2 (receive.hash ());
-    receive.sign (key2.prv, key2.pub, hash2);
-    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (receive));
-    ASSERT_EQ (mu_coin::process_result::old, ledger.process (receive));
+    mu_coin::open_block open;
+    open.hashables.source = hash1;
+    mu_coin::block_hash hash2 (open.hash ());
+    mu_coin::sign_message(key2.prv, key2.pub, hash2, open.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
+    ASSERT_EQ (mu_coin::process_result::old, ledger.process (open));
 }
 
 TEST (processor_service, bad_send_signature)
