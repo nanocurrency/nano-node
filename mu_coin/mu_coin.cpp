@@ -751,12 +751,14 @@ block_store (boost::filesystem::unique_path ())
 mu_coin::block_store::block_store (boost::filesystem::path const & path_a) :
 addresses (nullptr, 0),
 blocks (nullptr, 0),
-pending (nullptr, 0)
+pending (nullptr, 0),
+representatives (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
     addresses.open (nullptr, (path_a / "addresses.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     blocks.open (nullptr, (path_a / "blocks.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     pending.open (nullptr, (path_a / "pending.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    representatives.open (nullptr, (path_a / "representatives.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
@@ -805,7 +807,7 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
     int error (addresses.get (nullptr, &key.data, &data.data, 0));
     assert (error == 0 || error == DB_NOTFOUND);
     bool result;
-    if (data.data.get_size () == 0)
+    if (error == DB_NOTFOUND)
     {
         result = true;
     }
@@ -2464,4 +2466,31 @@ mu_coin::uint256_union mu_coin::open_hashables::hash () const
     hash.Update (source.bytes.data (), sizeof (source.bytes));
     hash.Final (result.bytes.data ());
     return result;
+}
+
+mu_coin::uint256_t mu_coin::block_store::representation_get (mu_coin::address const & address_a)
+{
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data;
+    int error (representatives.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
+    mu_coin::uint256_t result;
+    if (error == 0)
+    {
+        assert (data.data.get_size () == 32);
+        result = data.uint256 ().number ();
+    }
+    else
+    {
+        result = 0;
+    }
+    return result;
+}
+
+void mu_coin::block_store::representation_put (mu_coin::address const & address_a, mu_coin::uint256_t const & representation_a)
+{
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data (mu_coin::uint256_union {representation_a});
+    int error (representatives.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
 }

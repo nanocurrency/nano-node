@@ -325,6 +325,9 @@ namespace mu_coin {
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
+        mu_coin::uint256_t representation_get (mu_coin::address const &);
+        void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
+        
         void pending_put (mu_coin::identifier const &);
         void pending_del (mu_coin::identifier const &);
         bool pending_get (mu_coin::identifier const &);
@@ -333,9 +336,11 @@ namespace mu_coin {
         // address -> block_hash                // Each address has one head block
         // block_hash -> block                  // Mapping block hash to contents
         // block_hash ->                        // Pending blocks
+        // address -> address                   // Representatives
         Db addresses;
         Db blocks;
         Db pending;
+        Db representatives;
     };
     enum class process_result
     {
