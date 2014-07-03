@@ -1542,7 +1542,6 @@ public:
     void confirm_ack (mu_coin::confirm_ack const &);
     void confirm_unk (mu_coin::confirm_unk const &);
     void confirm_nak (mu_coin::confirm_nak const &);
-    void process_authorizations (mu_coin::block_hash const &, std::vector <mu_coin::authorization> const &);
     mu_coin::receivable_processor & processor;
     mu_coin::endpoint sender;
 };
@@ -1558,12 +1557,12 @@ complete (false)
 
 void mu_coin::receivable_processor::run ()
 {
-    mu_coin::uint256_t acknowledged_l;
-    for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
+    mu_coin::uint256_t weight (0);
+    if (client.wallet.find (client.representative) != client.wallet.end ())
     {
-        acknowledged_l += client.ledger.balance (i->first);
+        weight = client.ledger.weight (client.representative);
     }
-    process_acknowledged (acknowledged_l);
+    process_acknowledged (weight);
     if (!complete)
     {
         auto this_l (shared_from_this ());
@@ -1668,28 +1667,18 @@ void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t con
     }
 }
 
-void receivable_message_processor::process_authorizations (mu_coin::block_hash const & block, std::vector <mu_coin::authorization> const & authorizations)
-{
-    mu_coin::uint256_t acknowledged;
-    for (auto i (authorizations.begin ()), j (authorizations.end ()); i != j; ++i)
-    {
-        if (!mu_coin::validate_message (i->address, block, i->signature))
-        {
-            auto balance (processor.client.ledger.balance (i->address));
-            acknowledged += balance;
-        }
-        else
-        {
-            // Signature didn't match.
-        }
-    }
-    std::string ack_string (acknowledged.convert_to <std::string> ());
-    processor.process_acknowledged (acknowledged);
-}
-
 void receivable_message_processor::confirm_ack (mu_coin::confirm_ack const & message)
 {
-    process_authorizations (message.block, message.authorizations);
+    if (!mu_coin::validate_message (message.address, message.block, message.signature))
+    {
+        auto weight (processor.client.ledger.weight (message.address));
+        std::string ack_string (weight.convert_to <std::string> ());
+        processor.process_acknowledged (weight);
+    }
+    else
+    {
+        // Signature didn't match
+    }
 }
 
 void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & message)
@@ -1699,17 +1688,14 @@ void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & mes
 void receivable_message_processor::confirm_nak (mu_coin::confirm_nak const & message)
 {
     auto block (message.winner->hash ());
-    for (auto i (message.authorizations.begin ()), j (message.authorizations.end ()); i != j; ++i)
+    if (!mu_coin::validate_message (message.address, block, message.signature))
     {
-        if (!mu_coin::validate_message (i->address, block, i->signature))
-        {
-            auto balance (processor.client.ledger.balance (i->address));
-            processor.nacked += balance;
-        }
-        else
-        {
-            // Signature didn't match.
-        }
+        auto weight (processor.client.ledger.weight (message.address));
+        processor.nacked += weight;
+    }
+    else
+    {
+        // Signature didn't match.
     }
 }
 
@@ -1884,11 +1870,6 @@ block (block_a)
 bool mu_coin::publish_ack::operator == (mu_coin::publish_ack const & other_a) const
 {
     return block == other_a.block;
-}
-
-bool mu_coin::authorization::operator == (mu_coin::authorization const & other_a) const
-{
-    return address == other_a.address && signature == other_a.signature;
 }
 
 mu_coin::account_iterator::account_iterator (Dbc * cursor_a) :
@@ -2085,19 +2066,29 @@ mu_coin::endpoint mu_coin::system::endpoint (size_t index_a)
 
 void mu_coin::processor::process_confirmation (mu_coin::block_hash const & hash, mu_coin::endpoint const & sender)
 {
-    mu_coin::confirm_ack outgoing {hash};
-    for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
-    {
-        auto prv (i->second.prv (client.wallet.password, i->first.owords [0]));
-        outgoing.authorizations.push_back (mu_coin::authorization {});
-        outgoing.authorizations.back ().address = i->first;
-        mu_coin::sign_message (prv, i->first, hash, outgoing.authorizations.back ().signature);
-        assert (!mu_coin::validate_message(i->first, hash, outgoing.authorizations.back ().signature));
-    }
+    mu_coin::private_key prv;
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+    if (client.wallet.fetch (client.representative, client.wallet.password, prv))
     {
-        mu_coin::vectorstream stream (*bytes);
-        outgoing.serialize (stream);
+        mu_coin::confirm_unk outgoing;
+        outgoing.rep_hint = client.representative;
+        outgoing.block = hash;
+        {
+            mu_coin::vectorstream stream (*bytes);
+            outgoing.serialize (stream);
+        }
+    }
+    else
+    {
+        mu_coin::confirm_ack outgoing {hash};
+        outgoing.address = client.representative;
+        outgoing.block = hash;
+        mu_coin::sign_message (prv, client.representative, hash, outgoing.signature);
+        assert (!mu_coin::validate_message (client.representative, hash, outgoing.signature));
+        {
+            mu_coin::vectorstream stream (*bytes);
+            outgoing.serialize (stream);
+        }
     }
     client.network.socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
 }
@@ -2117,16 +2108,10 @@ bool mu_coin::confirm_ack::deserialize (mu_coin::stream & stream_a)
         result = read (stream_a, block);
         if (!result)
         {
-            uint8_t authorization_count;
-            result = read (stream_a, authorization_count);
+            result = read (stream_a, address);
             if (!result)
             {
-                authorizations.reserve (authorization_count);
-                for (auto i (0); !result && i < authorization_count; ++i)
-                {
-                    authorizations.push_back (mu_coin::authorization {});
-                    result = read (stream_a, authorizations.back ());
-                }
+                result = read (stream_a, signature);
             }
         }
     }
@@ -2137,13 +2122,8 @@ void mu_coin::confirm_ack::serialize (mu_coin::stream & stream_a)
 {
     write (stream_a, mu_coin::message_type::confirm_ack);
     write (stream_a, block);
-    assert (authorizations.size () <= std::numeric_limits <uint8_t>::max ());
-    uint8_t authorization_count (authorizations.size ());
-    write (stream_a, authorization_count);
-    for (auto & i: authorizations)
-    {
-        write (stream_a, i);
-    }
+    write (stream_a, address);
+    write (stream_a, signature);
 }
 
 mu_coin::confirm_ack::confirm_ack (mu_coin::uint256_union const & block_a) :
@@ -2161,7 +2141,7 @@ void mu_coin::publish_nak::serialize (mu_coin::stream & stream_a)
 
 bool mu_coin::confirm_ack::operator == (mu_coin::confirm_ack const & other_a) const
 {
-    auto result (block == other_a.block && authorizations == other_a.authorizations);
+    auto result (block == other_a.block && address == other_a.address && signature == other_a.signature);
     return result;
 }
 
@@ -2182,8 +2162,15 @@ bool mu_coin::confirm_nak::deserialize (mu_coin::stream & stream_a)
         result = winner == nullptr;
         if (!result)
         {
-            loser = mu_coin::deserialize_block (stream_a);
-            result = loser == nullptr;
+            result = read (stream_a, loser);
+            if (!result)
+            {
+                result = read (stream_a, address);
+                if (!result)
+                {
+                    result = read (stream_a, signature);
+                }
+            }
         }
     }
     return result;
@@ -2519,4 +2506,10 @@ bool mu_coin::ledger::representative (mu_coin::address const & address_a, mu_coi
 mu_coin::uint256_t mu_coin::ledger::weight (mu_coin::address const & address_a)
 {
     return store.representation_get (address_a).number ();
+}
+
+void mu_coin::confirm_unk::serialize (mu_coin::stream & stream_a)
+{
+    write (stream_a, rep_hint);
+    write (stream_a, block);
 }

@@ -273,10 +273,8 @@ TEST (confirm_ack, serialization)
     mu_coin::block_hash hash;
     mu_coin::confirm_ack con1 {hash};
     mu_coin::keypair key1;
-    mu_coin::signature signature;
-    mu_coin::sign_message (key1.prv, key1.pub, hash, signature);
-    mu_coin::authorization authorization {key1.pub, signature};
-    con1.authorizations.push_back (authorization);
+    con1.address = key1.pub;
+    mu_coin::sign_message (key1.prv, key1.pub, hash, con1.signature);
     std::vector <uint8_t> bytes;
     {
         mu_coin::vectorstream stream1 (bytes);

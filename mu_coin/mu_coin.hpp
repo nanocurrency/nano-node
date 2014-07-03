@@ -395,13 +395,6 @@ namespace mu_coin {
         confirm_nak,
         confirm_unk
     };
-    class authorization
-    {
-    public:
-        mu_coin::address address;
-        mu_coin::signature signature;
-        bool operator == (mu_coin::authorization const &) const;
-    };
     class message_visitor;
     class message
     {
@@ -486,7 +479,8 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::confirm_ack const &) const;
         mu_coin::block_hash block;
-        std::vector <mu_coin::authorization> authorizations;
+        mu_coin::address address;
+        mu_coin::signature signature;
     };
     class confirm_nak : public message
     {
@@ -496,8 +490,9 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) override;
         mu_coin::block_hash block;
         std::unique_ptr <mu_coin::block> winner;
-        std::unique_ptr <mu_coin::block> loser;
-        std::vector <mu_coin::authorization> authorizations;
+        mu_coin::block_hash loser;
+        mu_coin::address address;
+        mu_coin::signature signature;
     };
     class confirm_unk : public message
     {
@@ -507,6 +502,7 @@ namespace mu_coin {
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
+        mu_coin::address rep_hint;
         mu_coin::block_hash block;
     };
     class message_visitor
