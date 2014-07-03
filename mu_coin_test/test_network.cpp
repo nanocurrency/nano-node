@@ -236,7 +236,7 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (100, system.clients [0]->ledger.balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.balance (key1.pub));
     ASSERT_EQ (100, system.clients [1]->ledger.balance (key2.pub));
-    ASSERT_EQ (amount - 100, receivable->acknowledged);
+    ASSERT_EQ (amount, receivable->acknowledged);
     ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (3, receivable.use_count ());
 }
