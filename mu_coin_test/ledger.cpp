@@ -249,3 +249,18 @@ TEST (ledger, weight)
     store.genesis_put (address);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (address));
 }
+
+TEST (ledger, receive_weight_change)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 2, key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    mu_coin::keypair key2;
+    system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
+    system.clients [1]->representative = key2.pub;
+    system.clients [0]->send (key2.pub, 2, system.clients [0]->wallet.password);
+    while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::unique_ptr <mu_coin::client> const & client_a) {return client_a->ledger.weight (key2.pub) != 2;}))
+    {
+        system.service->run_one ();
+    }
+}

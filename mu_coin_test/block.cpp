@@ -388,12 +388,3 @@ TEST (block_store, two_account)
     ++begin;
     ASSERT_EQ (end, begin);
 }
-
-TEST (block_store, representatives)
-{
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::address address;
-    ASSERT_EQ (0, store.representation_get (address).number ());
-    store.representation_put (address, 1);
-    ASSERT_EQ (1, store.representation_get (address).number ());
-}

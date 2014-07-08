@@ -313,7 +313,7 @@ namespace mu_coin {
         block_store (block_store_temp_t const &);
         block_store (boost::filesystem::path const &);
         
-        void genesis_put (mu_coin::public_key const &, uint256_union const & = uint256_union (std::numeric_limits <uint256_t>::max ()));
+        void genesis_put (mu_coin::public_key const &, uint256_t const & = std::numeric_limits <uint256_t>::max ());
         
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
@@ -325,8 +325,8 @@ namespace mu_coin {
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
-        mu_coin::uint256_union representation_get (mu_coin::address const &);
-        void representation_put (mu_coin::address const &, mu_coin::uint256_union const &);
+        mu_coin::uint256_t representation_get (mu_coin::address const &);
+        void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
         
         void pending_put (mu_coin::identifier const &);
         void pending_del (mu_coin::identifier const &);
@@ -340,7 +340,7 @@ namespace mu_coin {
         Db addresses;
         Db blocks;
         Db pending;
-        Db representatives;
+        Db representation;
     };
     enum class process_result
     {
@@ -372,6 +372,7 @@ namespace mu_coin {
         void send_block (mu_coin::send_block const &) override;
         void receive_block (mu_coin::receive_block const &) override;
         void open_block (mu_coin::open_block const &) override;
+        void move_representation (mu_coin::block_hash const &, mu_coin::block_hash const &);
         mu_coin::ledger & ledger;
         mu_coin::process_result result;
     };

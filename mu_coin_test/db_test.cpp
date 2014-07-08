@@ -103,3 +103,14 @@ TEST (block_store, add_genesis)
     auto receive1 (dynamic_cast <mu_coin::open_block *> (block1.get ()));
     ASSERT_NE (nullptr, receive1);
 }
+
+TEST (representation, changes)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::keypair key1;
+    ASSERT_EQ (0, store.representation_get (key1.pub));
+    store.representation_put (key1.pub, 1);
+    ASSERT_EQ (1, store.representation_get (key1.pub));
+    store.representation_put (key1.pub, 2);
+    ASSERT_EQ (2, store.representation_get (key1.pub));
+}

@@ -471,6 +471,7 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
                             ledger.store.latest_put (source_send->hashables.destination, hash);
+                            move_representation (block_a.hashables.previous, source_send->hashables.destination);
                         }
                         else
                         {
@@ -508,11 +509,30 @@ void mu_coin::ledger_processor::open_block (mu_coin::open_block const & block_a)
                         ledger.store.pending_del (source_send->hash ());
                         ledger.store.block_put (hash, block_a);
                         ledger.store.latest_put (source_send->hashables.destination, hash);
+                        move_representation (block_a.hashables.source, source_send->hashables.destination);
                     }
                 }
             }
         }
     }
+}
+
+void mu_coin::ledger_processor::move_representation (mu_coin::block_hash const & source, mu_coin::address const & destination)
+{
+    account_visitor sender_account (ledger.store);
+    sender_account.compute (source);
+    mu_coin::address sender_representative;
+    amount_visitor amount (ledger.store);
+    amount.compute (source);
+    auto sender_rep_error (ledger.representative (sender_account.result, sender_representative));
+    assert (!sender_rep_error);
+    auto sender_rep_weight (ledger.store.representation_get (sender_representative));
+    ledger.store.representation_put (sender_representative, sender_rep_weight - amount.result);
+    mu_coin::address receiver_representative;
+    auto receiver_rep_error (ledger.representative (destination, receiver_representative));
+    assert (!receiver_rep_error);
+    auto receiver_rep_weight (ledger.store.representation_get (receiver_representative));
+    ledger.store.representation_put (receiver_representative, receiver_rep_weight + amount.result);
 }
 
 mu_coin::ledger_processor::ledger_processor (mu_coin::ledger & ledger_a) :
@@ -728,13 +748,13 @@ mu_coin::block_store::block_store (boost::filesystem::path const & path_a) :
 addresses (nullptr, 0),
 blocks (nullptr, 0),
 pending (nullptr, 0),
-representatives (nullptr, 0)
+representation (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
     addresses.open (nullptr, (path_a / "addresses.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     blocks.open (nullptr, (path_a / "blocks.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     pending.open (nullptr, (path_a / "pending.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
-    representatives.open (nullptr, (path_a / "representatives.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    representation.open (nullptr, (path_a / "representation").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
@@ -755,7 +775,7 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block
     return result;
 }
 
-void mu_coin::block_store::genesis_put (mu_coin::public_key const & key_a, uint256_union const & coins_a)
+void mu_coin::block_store::genesis_put (mu_coin::public_key const & key_a, uint256_t const & coins_a)
 {
     mu_coin::send_block send1;
     send1.hashables.destination.clear ();
@@ -1634,6 +1654,7 @@ void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t con
                         visitor.compute (send.hashables.previous);
                         auto open (new mu_coin::open_block);
                         open->hashables.source = hash;
+                        open->hashables.representative = client.representative;
                         mu_coin::sign_message (prv, send.hashables.destination, open->hash (), open->signature);
                         prv.bytes.fill (0);
                         client.processor.publish (std::unique_ptr <mu_coin::block> (open), mu_coin::endpoint {});
@@ -2427,30 +2448,30 @@ mu_coin::uint256_union mu_coin::open_hashables::hash () const
     return result;
 }
 
-mu_coin::uint256_union mu_coin::block_store::representation_get (mu_coin::address const & address_a)
+mu_coin::uint256_t mu_coin::block_store::representation_get (mu_coin::address const & address_a)
 {
     mu_coin::dbt key (address_a);
     mu_coin::dbt data;
-    int error (representatives.get (nullptr, &key.data, &data.data, 0));
+    int error (representation.get (nullptr, &key.data, &data.data, 0));
     assert (error == 0 || error == DB_NOTFOUND);
-    mu_coin::uint256_union result;
+    mu_coin::uint256_t result;
     if (error == 0)
     {
         assert (data.data.get_size () == 32);
-        result = data.uint256 ();
+        result = data.uint256 ().number ();
     }
     else
     {
-        result.clear ();
+        result = 0;
     }
     return result;
 }
 
-void mu_coin::block_store::representation_put (mu_coin::address const & address_a, mu_coin::uint256_union const & representation_a)
+void mu_coin::block_store::representation_put (mu_coin::address const & address_a, mu_coin::uint256_t const & representation_a)
 {
     mu_coin::dbt key (address_a);
-    mu_coin::dbt data (representation_a);
-    int error (representatives.put (nullptr, &key.data, &data.data, 0));
+    mu_coin::dbt data (mu_coin::uint256_union {representation_a});
+    int error (representation.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
 
@@ -2505,7 +2526,7 @@ bool mu_coin::ledger::representative (mu_coin::address const & address_a, mu_coi
 
 mu_coin::uint256_t mu_coin::ledger::weight (mu_coin::address const & address_a)
 {
-    return store.representation_get (address_a).number ();
+    return store.representation_get (address_a);
 }
 
 void mu_coin::confirm_unk::serialize (mu_coin::stream & stream_a)
