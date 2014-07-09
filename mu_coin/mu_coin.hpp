@@ -271,7 +271,7 @@ namespace mu_coin {
         std::unique_ptr <mu_coin::block> clone () const override;
         mu_coin::block_type type () const override;
         bool operator == (mu_coin::block const &) const override;
-        bool operator == (mu_coin::open_block const &) const;
+        bool operator == (mu_coin::change_block const &) const;
         mu_coin::change_hashables hashables;
         mu_coin::uint512_union signature;
     };

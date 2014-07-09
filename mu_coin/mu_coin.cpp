@@ -447,9 +447,83 @@ mu_coin::uint256_union mu_coin::receive_hashables::hash () const
     return result;
 }
 
+namespace
+{
+    class representative_visitor : public mu_coin::block_visitor
+    {
+    public:
+        representative_visitor (mu_coin::block_store & store_a) :
+        store (store_a)
+        {
+        }
+        void compute (mu_coin::block_hash const & hash_a)
+        {
+            auto block (store.block_get (hash_a));
+            assert (block != nullptr);
+            block->visit (*this);
+        }
+        void send_block (mu_coin::send_block const & block_a) override
+        {
+            representative_visitor visitor (store);
+            visitor.compute (block_a.previous ());
+            result = visitor.result;
+        }
+        void receive_block (mu_coin::receive_block const & block_a) override
+        {
+            representative_visitor visitor (store);
+            visitor.compute (block_a.previous ());
+            result = visitor.result;
+        }
+        void open_block (mu_coin::open_block const & block_a) override
+        {
+            result = block_a.hashables.representative;
+        }
+        void change_block (mu_coin::change_block const & block_a) override
+        {
+            result = block_a.hashables.representative;
+        }
+        mu_coin::block_store & store;
+        mu_coin::address result;
+    };
+}
+
 void ledger_processor::change_block (mu_coin::change_block const & block_a)
 {
-    assert (false);
+    mu_coin::uint256_union message (block_a.hash ());
+    auto existing (ledger.store.block_get (message));
+    result = existing != nullptr ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block before? (Harmless)
+    if (result == mu_coin::process_result::progress)
+    {
+        auto previous (ledger.store.block_get (block_a.hashables.previous));
+        result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap;  // Have we seen the previous block before? (Harmless)
+        if (result == mu_coin::process_result::progress)
+        {
+            account_visitor account (ledger.store);
+            account.compute (block_a.hashables.previous);
+            mu_coin::block_hash latest;
+            auto latest_error (ledger.store.latest_get (account.result, latest));
+            assert (!latest_error);
+            result = validate_message (account.result, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
+            if (result == mu_coin::process_result::progress)
+            {
+                result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Is the previous block the latest (Malicious)
+                if (result == mu_coin::process_result::progress)
+                {
+                    representative_visitor old (ledger.store);
+                    old.compute (block_a.hashables.previous);
+                    mu_coin::uint256_t old_weight (ledger.weight (old.result));
+                    balance_visitor balance (ledger.store);
+                    balance.compute (latest);
+                    assert (old_weight >= balance.result);
+                    mu_coin::uint256_t new_weight (ledger.weight (block_a.hashables.representative));
+                    ledger.store.representation_put (old.result, old_weight - balance.result);
+                    ledger.store.representation_put (block_a.hashables.representative, new_weight + balance.result);
+                    ledger.store.block_put (message, block_a);
+                    ledger.store.latest_put (account.result, message);
+                }
+            }
+        }
+    }
 }
 
 void ledger_processor::send_block (mu_coin::send_block const & block_a)
@@ -2517,46 +2591,6 @@ void mu_coin::block_store::representation_put (mu_coin::address const & address_
     assert (error == 0);
 }
 
-namespace
-{
-class representative_visitor : public mu_coin::block_visitor
-{
-public:
-    representative_visitor (mu_coin::block_store & store_a) :
-    store (store_a)
-    {
-    }
-    void calculate (mu_coin::block_hash const & hash_a)
-    {
-        auto block (store.block_get (hash_a));
-        assert (block != nullptr);
-        block->visit (*this);
-    }
-    void send_block (mu_coin::send_block const & block_a) override
-    {
-        representative_visitor visitor (store);
-        visitor.calculate (block_a.previous ());
-        result = visitor.result;
-    }
-    void receive_block (mu_coin::receive_block const & block_a) override
-    {
-        representative_visitor visitor (store);
-        visitor.calculate (block_a.previous ());
-        result = visitor.result;
-    }
-    void open_block (mu_coin::open_block const & block_a) override
-    {
-        result = block_a.hashables.representative;
-    }
-    void change_block (mu_coin::change_block const & block_a) override
-    {
-        result = block_a.hashables.representative;
-    }
-    mu_coin::block_store & store;
-    mu_coin::address result;
-};
-}
-
 bool mu_coin::ledger::representative (mu_coin::address const & address_a, mu_coin::address & representative_a)
 {
     mu_coin::block_hash hash;
@@ -2564,7 +2598,7 @@ bool mu_coin::ledger::representative (mu_coin::address const & address_a, mu_coi
     if (!result)
     {
         representative_visitor visitor (store);
-        visitor.calculate (hash);
+        visitor.compute (hash);
         representative_a = visitor.result;
     }
     return result;
@@ -2591,14 +2625,25 @@ mu_coin::block_hash mu_coin::change_block::previous () const
     return hashables.previous;
 }
 
-void mu_coin::change_block::serialize (mu_coin::stream &) const
+void mu_coin::change_block::serialize (mu_coin::stream & stream_a) const
 {
-    assert (false);
+    write (stream_a, hashables.representative);
+    write (stream_a, hashables.previous);
+    write (stream_a, signature);
 }
 
-bool mu_coin::change_block::deserialize (mu_coin::stream &)
+bool mu_coin::change_block::deserialize (mu_coin::stream & stream_a)
 {
-    assert (false);
+    auto result (read (stream_a, hashables.representative));
+    if (!result)
+    {
+        result = read (stream_a, hashables.previous);
+        if (!result)
+        {
+            result = read (stream_a, signature);
+        }
+    }
+    return result;
 }
 
 void mu_coin::change_block::visit (mu_coin::block_visitor & visitor_a) const
@@ -2618,12 +2663,18 @@ mu_coin::block_type mu_coin::change_block::type () const
 
 bool mu_coin::change_block::operator == (mu_coin::block const & other_a) const
 {
-    assert (false);
+    auto other_l (dynamic_cast <mu_coin::change_block const *> (&other_a));
+    auto result (other_l != nullptr);
+    if (result)
+    {
+        result = *this == *other_l;
+    }
+    return result;
 }
 
-bool mu_coin::change_block::operator == (mu_coin::open_block const &) const
+bool mu_coin::change_block::operator == (mu_coin::change_block const & other_a) const
 {
-    assert (false);
+    return signature == other_a.signature && hashables.representative == other_a.hashables.representative && hashables.previous == other_a.hashables.previous;
 }
 
 mu_coin::uint256_union mu_coin::change_hashables::hash () const
