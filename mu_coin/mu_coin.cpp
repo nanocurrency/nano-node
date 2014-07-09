@@ -114,6 +114,19 @@ bool mu_coin::validate_message (mu_coin::public_key const & public_key, mu_coin:
     return result;
 }
 
+class ledger_processor : public mu_coin::block_visitor
+{
+public:
+    ledger_processor (mu_coin::ledger &);
+    void send_block (mu_coin::send_block const &) override;
+    void receive_block (mu_coin::receive_block const &) override;
+    void open_block (mu_coin::open_block const &) override;
+    void move_representation (mu_coin::block_hash const &, mu_coin::block_hash const &);
+    void change_block (mu_coin::change_block const &) override;
+    mu_coin::ledger & ledger;
+    mu_coin::process_result result;
+};
+
 class amount_visitor : public mu_coin::block_visitor
 {
 public:
@@ -122,6 +135,7 @@ public:
     void send_block (mu_coin::send_block const &) override;
     void receive_block (mu_coin::receive_block const &) override;
     void open_block (mu_coin::open_block const &) override;
+    void change_block (mu_coin::change_block const &) override;
     void from_send (mu_coin::block_hash const &);
     mu_coin::block_store & store;
     mu_coin::uint256_t result;
@@ -135,6 +149,7 @@ public:
     void send_block (mu_coin::send_block const &) override;
     void receive_block (mu_coin::receive_block const &) override;
     void open_block (mu_coin::open_block const &) override;
+    void change_block (mu_coin::change_block const &) override;
     mu_coin::block_store & store;
     mu_coin::uint256_t result;
 };
@@ -165,6 +180,12 @@ public:
     void open_block (mu_coin::open_block const & block_a) override
     {
         from_previous (block_a.hashables.source);
+    }
+    void change_block (mu_coin::change_block const & block_a) override
+    {
+        account_visitor prev (store);
+        prev.compute (block_a.hashables.previous);
+        result = prev.result;
     }
     void from_previous (mu_coin::block_hash const & hash_a)
     {
@@ -198,6 +219,11 @@ void amount_visitor::receive_block (mu_coin::receive_block const & block_a)
 void amount_visitor::open_block (mu_coin::open_block const & block_a)
 {
     from_send (block_a.hashables.source);
+}
+
+void amount_visitor::change_block (mu_coin::change_block const & block_a)
+{
+    
 }
 
 void amount_visitor::from_send (mu_coin::block_hash const & hash_a)
@@ -237,6 +263,13 @@ void balance_visitor::open_block (mu_coin::open_block const & block_a)
     result = source.result;
 }
 
+void balance_visitor::change_block (mu_coin::change_block const & block_a)
+{
+    balance_visitor prev (store);
+    prev.compute (block_a.hashables.previous);
+    result = prev.result;
+}
+
 mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::address const & address_a)
 {
     mu_coin::uint256_t result (0);
@@ -253,7 +286,7 @@ mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::address const & address_a)
 
 mu_coin::process_result mu_coin::ledger::process (mu_coin::block const & block_a)
 {
-    mu_coin::ledger_processor processor (*this);
+    ledger_processor processor (*this);
     block_a.visit (processor);
     return processor.result;
 }
@@ -414,7 +447,12 @@ mu_coin::uint256_union mu_coin::receive_hashables::hash () const
     return result;
 }
 
-void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
+void ledger_processor::change_block (mu_coin::change_block const & block_a)
+{
+    assert (false);
+}
+
+void ledger_processor::send_block (mu_coin::send_block const & block_a)
 {
     mu_coin::uint256_union message (block_a.hash ());
     auto existing (ledger.store.block_get (message));
@@ -443,7 +481,7 @@ void mu_coin::ledger_processor::send_block (mu_coin::send_block const & block_a)
     }
 }
 
-void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & block_a)
+void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
 {
     auto hash (block_a.hash ());
     auto existing (ledger.store.block_get (hash));
@@ -484,7 +522,7 @@ void mu_coin::ledger_processor::receive_block (mu_coin::receive_block const & bl
     }
 }
 
-void mu_coin::ledger_processor::open_block (mu_coin::open_block const & block_a)
+void ledger_processor::open_block (mu_coin::open_block const & block_a)
 {
     auto hash (block_a.hash ());
     auto existing (ledger.store.block_get (hash));
@@ -517,7 +555,7 @@ void mu_coin::ledger_processor::open_block (mu_coin::open_block const & block_a)
     }
 }
 
-void mu_coin::ledger_processor::move_representation (mu_coin::block_hash const & source, mu_coin::address const & destination)
+void ledger_processor::move_representation (mu_coin::block_hash const & source, mu_coin::address const & destination)
 {
     account_visitor sender_account (ledger.store);
     sender_account.compute (source);
@@ -535,7 +573,7 @@ void mu_coin::ledger_processor::move_representation (mu_coin::block_hash const &
     ledger.store.representation_put (receiver_representative, receiver_rep_weight + amount.result);
 }
 
-mu_coin::ledger_processor::ledger_processor (mu_coin::ledger & ledger_a) :
+ledger_processor::ledger_processor (mu_coin::ledger & ledger_a) :
 ledger (ledger_a),
 result (mu_coin::process_result::progress)
 {
@@ -1514,6 +1552,10 @@ public:
         result = client.ledger.process (block_a);
     }
     void open_block (mu_coin::open_block const & block_a)
+    {
+        result = client.ledger.process (block_a);
+    }
+    void change_block (mu_coin::change_block const & block_a)
     {
         result = client.ledger.process (block_a);
     }
@@ -2506,6 +2548,10 @@ public:
     {
         result = block_a.hashables.representative;
     }
+    void change_block (mu_coin::change_block const & block_a) override
+    {
+        result = block_a.hashables.representative;
+    }
     mu_coin::block_store & store;
     mu_coin::address result;
 };
@@ -2533,4 +2579,59 @@ void mu_coin::confirm_unk::serialize (mu_coin::stream & stream_a)
 {
     write (stream_a, rep_hint);
     write (stream_a, block);
+}
+
+mu_coin::uint256_union mu_coin::change_block::hash () const
+{
+    return hashables.hash ();
+}
+
+mu_coin::block_hash mu_coin::change_block::previous () const
+{
+    return hashables.previous;
+}
+
+void mu_coin::change_block::serialize (mu_coin::stream &) const
+{
+    assert (false);
+}
+
+bool mu_coin::change_block::deserialize (mu_coin::stream &)
+{
+    assert (false);
+}
+
+void mu_coin::change_block::visit (mu_coin::block_visitor & visitor_a) const
+{
+    visitor_a.change_block (*this);
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::change_block::clone () const
+{
+    return std::unique_ptr <mu_coin::block> (new mu_coin::change_block (*this));
+}
+
+mu_coin::block_type mu_coin::change_block::type () const
+{
+    return mu_coin::block_type::change;
+}
+
+bool mu_coin::change_block::operator == (mu_coin::block const & other_a) const
+{
+    assert (false);
+}
+
+bool mu_coin::change_block::operator == (mu_coin::open_block const &) const
+{
+    assert (false);
+}
+
+mu_coin::uint256_union mu_coin::change_hashables::hash () const
+{
+    mu_coin::uint256_union result;
+    CryptoPP::SHA256 hash;
+    hash.Update (representative.bytes.data (), sizeof (representative.bytes));
+    hash.Update (previous.bytes.data (), sizeof (previous.bytes));
+    hash.Final (result.bytes.data ());
+    return result;
 }
