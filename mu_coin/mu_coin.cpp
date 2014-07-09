@@ -546,9 +546,16 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
                 result = coins > block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend; // Is this trying to spend more than they have (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
-                    ledger.store.block_put (message, block_a);
-                    ledger.store.latest_put (account.result, message);
-                    ledger.store.pending_put (message);
+                    mu_coin::block_hash latest;
+                    auto latest_error (ledger.store.latest_get (account.result, latest));
+                    assert (!latest_error);
+                    result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork;
+                    if (result == mu_coin::process_result::progress)
+                    {
+                        ledger.store.block_put (message, block_a);
+                        ledger.store.latest_put (account.result, message);
+                        ledger.store.pending_put (message);
+                    }
                 }
             }
         }
@@ -735,9 +742,16 @@ std::unique_ptr <mu_coin::block> mu_coin::deserialize_block (mu_coin::stream & s
                 }
                 break;
             }
-            default:
-                assert (false);
+            case mu_coin::block_type::change:
+            {
+                std::unique_ptr <mu_coin::change_block> obj (new mu_coin::change_block);
+                auto error (obj->deserialize (stream_a));
+                if (!error)
+                {
+                    result = std::move (obj);
+                }
                 break;
+            }
         }
     }
     return result;
