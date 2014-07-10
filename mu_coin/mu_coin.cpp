@@ -874,13 +874,15 @@ mu_coin::block_store::block_store (boost::filesystem::path const & path_a) :
 addresses (nullptr, 0),
 blocks (nullptr, 0),
 pending (nullptr, 0),
-representation (nullptr, 0)
+representation (nullptr, 0),
+forks (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
-    addresses.open (nullptr, (path_a / "addresses.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
-    blocks.open (nullptr, (path_a / "blocks.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
-    pending.open (nullptr, (path_a / "pending.bin").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
-    representation.open (nullptr, (path_a / "representation").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    addresses.open (nullptr, (path_a / "addresses.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    blocks.open (nullptr, (path_a / "blocks.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    pending.open (nullptr, (path_a / "pending.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    representation.open (nullptr, (path_a / "representation.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    forks.open (nullptr, (path_a / "forks.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
@@ -2699,4 +2701,73 @@ mu_coin::uint256_union mu_coin::change_hashables::hash () const
     hash.Update (previous.bytes.data (), sizeof (previous.bytes));
     hash.Final (result.bytes.data ());
     return result;
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::block_store::fork_get (mu_coin::block_hash const & hash_a)
+{
+    mu_coin::dbt key (hash_a);
+    mu_coin::dbt data;
+    int error (forks.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
+    auto result (data.block ());
+    return result;
+}
+
+void mu_coin::block_store::fork_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
+{
+    dbt key (hash_a);
+    dbt data (block_a);
+    int error (forks.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
+}
+
+bool mu_coin::uint256_union::operator != (mu_coin::uint256_union const & other_a) const
+{
+    return ! (*this == other_a);
+}
+
+namespace
+{
+class rollback_visitor : public mu_coin::block_visitor
+{
+public:
+    rollback_visitor (mu_coin::ledger & ledger_a) :
+    ledger (ledger_a)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        assert (false);
+    }
+    void receive_block (mu_coin::receive_block const & block_a) override
+    {
+        assert (false);
+    }
+    void open_block (mu_coin::open_block const & block_a) override
+    {
+        assert (false);
+    }
+    void change_block (mu_coin::change_block const & block_a) override
+    {
+        assert (false);
+    }
+    mu_coin::ledger & ledger;
+};
+}
+
+void mu_coin::ledger::rollback (mu_coin::block_hash const & frontier_a)
+{
+    account_visitor account (store);
+    account.compute (frontier_a);
+    mu_coin::block_hash latest;
+    auto latest_error (store.latest_get (account.result, latest));
+    assert (!latest_error);
+    rollback_visitor rollback (*this);
+    while (latest != frontier_a)
+    {
+        auto block (store.block_get (latest));
+        block->visit (rollback);
+        auto latest_error (store.latest_get (account.result, latest));
+        assert (!latest_error);
+    }
 }

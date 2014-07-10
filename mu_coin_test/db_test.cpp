@@ -114,3 +114,17 @@ TEST (representation, changes)
     store.representation_put (key1.pub, 2);
     ASSERT_EQ (2, store.representation_get (key1.pub));
 }
+
+TEST (fork, adding_checking)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::keypair key1;
+    mu_coin::change_block block1;
+    block1.hashables.representative = key1.pub;
+    ASSERT_EQ (nullptr, store.fork_get (block1.hash ()));
+    mu_coin::keypair key2;
+    mu_coin::change_block block2;
+    store.fork_put (block1.hash (), block2);
+    auto block3 (store.fork_get (block1.hash ()));
+    ASSERT_EQ (block2, *block3);
+}

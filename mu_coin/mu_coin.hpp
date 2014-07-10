@@ -55,6 +55,7 @@ namespace mu_coin {
         uint256_union (mu_coin::uint256_union const &, mu_coin::uint256_union const &, uint128_union const &);
         uint256_union prv (uint256_union const &, uint128_union const &) const;
         bool operator == (mu_coin::uint256_union const &) const;
+        bool operator != (mu_coin::uint256_union const &) const;
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
         void encode_dec (std::string &);
@@ -349,22 +350,27 @@ namespace mu_coin {
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
-        mu_coin::uint256_t representation_get (mu_coin::address const &);
-        void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
-        
-        void pending_put (mu_coin::identifier const &);
+        void pending_put (mu_coin::block_hash const &);
         void pending_del (mu_coin::identifier const &);
         bool pending_get (mu_coin::identifier const &);
         
+        mu_coin::uint256_t representation_get (mu_coin::address const &);
+        void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
+        
+        void fork_put (mu_coin::block_hash const &, mu_coin::block const &);
+        std::unique_ptr <mu_coin::block> fork_get (mu_coin::block_hash const &);
+        
     private:
         // address -> block_hash                // Each address has one head block
-        // block_hash -> block                  // Mapping block hash to contents
-        // block_hash ->                        // Pending blocks
-        // address -> address                   // Representatives
         Db addresses;
+        // block_hash -> block                  // Mapping block hash to contents
         Db blocks;
+        // block_hash ->                        // Pending blocks
         Db pending;
+        // address -> weight                    // Representation
         Db representation;
+        // block_hash -> block                  // Fork proof
+        Db forks;
     };
     enum class process_result
     {
@@ -387,6 +393,7 @@ namespace mu_coin {
         bool representative (mu_coin::address const &, mu_coin::address &);
         mu_coin::uint256_t supply ();
         mu_coin::process_result process (mu_coin::block const &);
+        void rollback (mu_coin::block_hash const &);
         mu_coin::block_store & store;
     };
     class keypair
