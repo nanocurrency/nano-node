@@ -498,12 +498,11 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
         result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap;  // Have we seen the previous block before? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
-            account_visitor account (ledger.store);
-            account.compute (block_a.hashables.previous);
+			auto account (ledger.account (block_a.hashables.previous));
             mu_coin::block_hash latest;
-            auto latest_error (ledger.store.latest_get (account.result, latest));
+            auto latest_error (ledger.store.latest_get (account, latest));
             assert (!latest_error);
-            result = validate_message (account.result, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
+            result = validate_message (account, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == mu_coin::process_result::progress)
             {
                 result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Is the previous block the latest (Malicious)
@@ -519,7 +518,7 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
                     ledger.store.representation_put (old.result, old_weight - balance.result);
                     ledger.store.representation_put (block_a.hashables.representative, new_weight + balance.result);
                     ledger.store.block_put (message, block_a);
-                    ledger.store.latest_put (account.result, message);
+                    ledger.store.latest_put (account, message);
                 }
             }
         }
@@ -537,23 +536,22 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
         result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap; // Have we seen the previous block before? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
-            account_visitor account (ledger.store);
-            account.compute (block_a.hashables.previous);
-            result = validate_message (account.result, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
+			auto account (ledger.account (block_a.hashables.previous));
+            result = validate_message (account, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == mu_coin::process_result::progress)
             {
-                mu_coin::uint256_t coins (ledger.balance (account.result));
+                mu_coin::uint256_t coins (ledger.balance (account));
                 result = coins > block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend; // Is this trying to spend more than they have (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
                     mu_coin::block_hash latest;
-                    auto latest_error (ledger.store.latest_get (account.result, latest));
+                    auto latest_error (ledger.store.latest_get (account, latest));
                     assert (!latest_error);
                     result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork;
                     if (result == mu_coin::process_result::progress)
                     {
                         ledger.store.block_put (message, block_a);
-                        ledger.store.latest_put (account.result, message);
+                        ledger.store.latest_put (account, message);
                         ledger.store.pending_put (message);
                     }
                 }
@@ -638,12 +636,11 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
 
 void ledger_processor::move_representation (mu_coin::block_hash const & source, mu_coin::address const & destination)
 {
-    account_visitor sender_account (ledger.store);
-    sender_account.compute (source);
+	auto sender_account (ledger.account (source));
     mu_coin::address sender_representative;
     amount_visitor amount (ledger.store);
     amount.compute (source);
-    auto sender_rep_error (ledger.representative (sender_account.result, sender_representative));
+    auto sender_rep_error (ledger.representative (sender_account, sender_representative));
     assert (!sender_rep_error);
     auto sender_rep_weight (ledger.store.representation_get (sender_representative));
     ledger.store.representation_put (sender_representative, sender_rep_weight - amount.result);
@@ -2758,10 +2755,9 @@ public:
 		assert (current_weight >= balance.result);
 		ledger.store.representation_put (old.result, old_weight + balance.result);
 		ledger.store.representation_put (block_a.hashables.representative, current_weight - balance.result);
-		account_visitor account (ledger.store);
-		account.compute (block_a.hashables.previous);
+		auto account (ledger.account (block_a.hashables.previous));
 		ledger.store.block_del (block_a.hash ());
-		ledger.store.latest_put (account.result, block_a.hashables.previous);
+		ledger.store.latest_put (account, block_a.hashables.previous);
     }
     mu_coin::ledger & ledger;
 };
@@ -2777,17 +2773,23 @@ void mu_coin::block_store::block_del (mu_coin::block_hash const & hash_a)
 
 void mu_coin::ledger::rollback (mu_coin::block_hash const & frontier_a)
 {
-    account_visitor account (store);
-    account.compute (frontier_a);
+	auto account_l (account (frontier_a));
     mu_coin::block_hash latest;
-    auto latest_error (store.latest_get (account.result, latest));
+    auto latest_error (store.latest_get (account_l, latest));
     assert (!latest_error);
     rollback_visitor rollback (*this);
     while (latest != frontier_a)
     {
         auto block (store.block_get (latest));
         block->visit (rollback);
-        auto latest_error (store.latest_get (account.result, latest));
+        auto latest_error (store.latest_get (account_l, latest));
         assert (!latest_error);
     }
+}
+
+mu_coin::address mu_coin::ledger::account (mu_coin::block_hash const & hash_a)
+{
+	account_visitor account (store);
+	account.compute (hash_a);
+	return account.result;
 }
