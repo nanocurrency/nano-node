@@ -2749,10 +2749,30 @@ public:
     }
     void change_block (mu_coin::change_block const & block_a) override
     {
-        assert (false);
+		representative_visitor old (ledger.store);
+		old.compute (block_a.hashables.previous);
+		mu_coin::uint256_t old_weight (ledger.weight (old.result));
+		balance_visitor balance (ledger.store);
+		balance.compute (block_a.hashables.previous);
+		mu_coin::uint256_t current_weight (ledger.weight (block_a.hashables.representative));
+		assert (current_weight >= balance.result);
+		ledger.store.representation_put (old.result, old_weight + balance.result);
+		ledger.store.representation_put (block_a.hashables.representative, current_weight - balance.result);
+		account_visitor account (ledger.store);
+		account.compute (block_a.hashables.previous);
+		ledger.store.block_del (block_a.hash ());
+		ledger.store.latest_put (account.result, block_a.hashables.previous);
     }
     mu_coin::ledger & ledger;
 };
+}
+
+void mu_coin::block_store::block_del (mu_coin::block_hash const & hash_a)
+{
+    mu_coin::dbt key (hash_a);
+    mu_coin::dbt data;
+    int error (blocks.del (nullptr, &key.data, 0));
+    assert (error == 0);
 }
 
 void mu_coin::ledger::rollback (mu_coin::block_hash const & frontier_a)

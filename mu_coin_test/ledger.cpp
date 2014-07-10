@@ -283,6 +283,15 @@ TEST (ledger, representative_change)
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block));
     ASSERT_EQ (0, ledger.weight (key1.pub));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key2.pub));
+	mu_coin::block_hash latest2;
+	ASSERT_FALSE (store.latest_get (key1.pub, latest2));
+	ASSERT_EQ (block.hash (), latest2);
+	ledger.rollback (latest);
+	mu_coin::block_hash latest3;
+	ASSERT_FALSE (store.latest_get (key1.pub, latest3));
+	ASSERT_EQ (latest, latest3);
+	ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key1.pub));
+	ASSERT_EQ (0, ledger.weight (key2.pub));
 }
 
 TEST (ledger, send_fork)

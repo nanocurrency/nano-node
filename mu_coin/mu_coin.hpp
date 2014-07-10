@@ -342,6 +342,7 @@ namespace mu_coin {
         
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
+		void block_del (mu_coin::block_hash const &);
         block_iterator blocks_begin ();
         block_iterator blocks_end ();
         

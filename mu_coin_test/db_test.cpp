@@ -17,6 +17,9 @@ TEST (block_store, add_item)
     auto latest2 (db.block_get (hash1));
     ASSERT_NE (nullptr, latest2);
     ASSERT_EQ (block, *latest2);
+	db.block_del (hash1);
+	auto latest3 (db.block_get (hash1));
+	ASSERT_EQ (nullptr, latest3);
 }
 
 TEST (block_store, add_nonempty_block)
