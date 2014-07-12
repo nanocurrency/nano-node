@@ -348,6 +348,7 @@ namespace mu_coin {
         
         void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
         bool latest_get (mu_coin::address const &, mu_coin::block_hash &);
+		void latest_del (mu_coin::address const &);
         account_iterator latest_begin ();
         account_iterator latest_end ();
         

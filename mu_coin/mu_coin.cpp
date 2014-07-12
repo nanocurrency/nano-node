@@ -2717,7 +2717,12 @@ public:
     }
     void open_block (mu_coin::open_block const & block_a) override
     {
-        assert (false);
+		auto hash (block_a.hash ());
+		auto account (ledger.account (hash));
+		ledger.move_representation (account, ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
+		ledger.store.latest_del (account);
+		ledger.store.block_del (hash);
+		ledger.store.pending_put (block_a.hashables.source);
     }
     void change_block (mu_coin::change_block const & block_a) override
     {
@@ -2781,4 +2786,12 @@ mu_coin::block_hash mu_coin::ledger::latest (mu_coin::address const & address_a)
 	auto latest_error (store.latest_get (address_a, latest));
 	assert (!latest_error);
 	return latest;
+}
+
+void mu_coin::block_store::latest_del (mu_coin::address const & address_a)
+{
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data;
+    int error (addresses.del (nullptr, &key.data, 0));
+    assert (error == 0);
 }
