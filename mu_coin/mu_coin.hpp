@@ -391,7 +391,8 @@ namespace mu_coin {
         ledger (mu_coin::block_store &);
 		mu_coin::address account (mu_coin::block_hash const &);
 		mu_coin::uint256_t amount (mu_coin::block_hash const &);
-        mu_coin::uint256_t balance (mu_coin::address const &);
+        mu_coin::uint256_t balance (mu_coin::block_hash const &);
+		mu_coin::uint256_t account_balance (mu_coin::address const &);
         mu_coin::uint256_t weight (mu_coin::address const &);
 		mu_coin::block_hash latest (mu_coin::address const &);
         mu_coin::address representative (mu_coin::block_hash const &);

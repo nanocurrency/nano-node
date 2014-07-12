@@ -269,7 +269,14 @@ void balance_visitor::change_block (mu_coin::change_block const & block_a)
     result = prev.result;
 }
 
-mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::address const & address_a)
+mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::block_hash const & hash_a)
+{
+	balance_visitor visitor (store);
+	visitor.compute (hash_a);
+	return visitor.result;
+}
+
+mu_coin::uint256_t mu_coin::ledger::account_balance (mu_coin::address const & address_a)
 {
     mu_coin::uint256_t result (0);
     mu_coin::block_hash hash;
@@ -507,7 +514,7 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
                 result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Is the previous block the latest (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
-					ledger.move_representation (ledger.representative (block_a.hashables.previous), block_a.hashables.representative, ledger.balance (account));
+					ledger.move_representation (ledger.representative (block_a.hashables.previous), block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
                     ledger.store.block_put (message, block_a);
                     ledger.store.latest_put (account, message);
                 }
@@ -531,7 +538,7 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
             result = validate_message (account, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == mu_coin::process_result::progress)
             {
-                mu_coin::uint256_t coins (ledger.balance (account));
+                mu_coin::uint256_t coins (ledger.balance (block_a.hashables.previous));
                 result = coins > block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend; // Is this trying to spend more than they have (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
@@ -1477,7 +1484,7 @@ bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public
     for (auto i (begin ()), j (end ()); i != j && !result && !remaining.is_zero (); ++i)
     {
         auto account (i->first);
-        auto balance (ledger_a.balance (account));
+        auto balance (ledger_a.account_balance (account));
         if (!balance.is_zero ())
         {
             mu_coin::block_hash latest;
@@ -2408,7 +2415,7 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
                 auto error (account.decode_hex (account_text));
                 if (!error)
                 {
-                    auto balance (client.ledger.balance (account));
+                    auto balance (client.ledger.account_balance (account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("balance", balance.convert_to <std::string> ());
                     std::stringstream ostream;
@@ -2714,10 +2721,9 @@ public:
     }
     void change_block (mu_coin::change_block const & block_a) override
     {
-		auto account (ledger.account (block_a.hashables.previous));
-		ledger.move_representation (block_a.hashables.representative, ledger.representative (block_a.hashables.previous), ledger.balance (account));
+		ledger.move_representation (block_a.hashables.representative, ledger.representative (block_a.hashables.previous), ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (block_a.hash ());
-		ledger.store.latest_put (account, block_a.hashables.previous);
+		ledger.store.latest_put (ledger.account (block_a.hashables.previous), block_a.hashables.previous);
     }
     mu_coin::ledger & ledger;
 };
