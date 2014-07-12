@@ -390,12 +390,14 @@ namespace mu_coin {
     public:
         ledger (mu_coin::block_store &);
 		mu_coin::address account (mu_coin::block_hash const &);
+		mu_coin::uint256_t amount (mu_coin::block_hash const &);
         mu_coin::uint256_t balance (mu_coin::address const &);
         mu_coin::uint256_t weight (mu_coin::address const &);
         bool representative (mu_coin::address const &, mu_coin::address &);
         mu_coin::uint256_t supply ();
         mu_coin::process_result process (mu_coin::block const &);
         void rollback (mu_coin::block_hash const &);
+		void move_representation (mu_coin::address const &, mu_coin::address const &, mu_coin::uint256_t const &);
         mu_coin::block_store & store;
     };
     class keypair

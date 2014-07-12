@@ -121,7 +121,6 @@ public:
     void send_block (mu_coin::send_block const &) override;
     void receive_block (mu_coin::receive_block const &) override;
     void open_block (mu_coin::open_block const &) override;
-    void move_representation (mu_coin::block_hash const &, mu_coin::block_hash const &);
     void change_block (mu_coin::change_block const &) override;
     mu_coin::ledger & ledger;
     mu_coin::process_result result;
@@ -588,7 +587,7 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
                             ledger.store.latest_put (source_send->hashables.destination, hash);
-                            move_representation (block_a.hashables.previous, source_send->hashables.destination);
+                            ledger.move_representation (ledger.account (block_a.hashables.previous), ledger.account (hash), ledger.amount (block_a.hashables.previous));
                         }
                         else
                         {
@@ -626,29 +625,12 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                         ledger.store.pending_del (source_send->hash ());
                         ledger.store.block_put (hash, block_a);
                         ledger.store.latest_put (source_send->hashables.destination, hash);
-                        move_representation (block_a.hashables.source, source_send->hashables.destination);
+						ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
                     }
                 }
             }
         }
     }
-}
-
-void ledger_processor::move_representation (mu_coin::block_hash const & source, mu_coin::address const & destination)
-{
-	auto sender_account (ledger.account (source));
-    mu_coin::address sender_representative;
-    amount_visitor amount (ledger.store);
-    amount.compute (source);
-    auto sender_rep_error (ledger.representative (sender_account, sender_representative));
-    assert (!sender_rep_error);
-    auto sender_rep_weight (ledger.store.representation_get (sender_representative));
-    ledger.store.representation_put (sender_representative, sender_rep_weight - amount.result);
-    mu_coin::address receiver_representative;
-    auto receiver_rep_error (ledger.representative (destination, receiver_representative));
-    assert (!receiver_rep_error);
-    auto receiver_rep_weight (ledger.store.representation_get (receiver_representative));
-    ledger.store.representation_put (receiver_representative, receiver_rep_weight + amount.result);
 }
 
 ledger_processor::ledger_processor (mu_coin::ledger & ledger_a) :
@@ -2792,4 +2774,25 @@ mu_coin::address mu_coin::ledger::account (mu_coin::block_hash const & hash_a)
 	account_visitor account (store);
 	account.compute (hash_a);
 	return account.result;
+}
+
+mu_coin::uint256_t mu_coin::ledger::amount (mu_coin::block_hash const & hash_a)
+{
+	amount_visitor amount (store);
+	amount.compute (hash_a);
+	return amount.result;
+}
+
+void mu_coin::ledger::move_representation (mu_coin::address const & source_a, mu_coin::address const & destination_a, mu_coin::uint256_t const & amount_a)
+{
+    mu_coin::address sender_representative;
+    auto sender_rep_error (representative (source_a, sender_representative));
+    assert (!sender_rep_error);
+    auto sender_rep_weight (store.representation_get (sender_representative));
+    store.representation_put (sender_representative, sender_rep_weight - amount_a);
+    mu_coin::address receiver_representative;
+    auto receiver_rep_error (representative (destination_a, receiver_representative));
+    assert (!receiver_rep_error);
+    auto receiver_rep_weight (store.representation_get (receiver_representative));
+    store.representation_put (receiver_representative, receiver_rep_weight + amount_a);
 }
