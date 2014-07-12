@@ -507,15 +507,7 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
                 result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Is the previous block the latest (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
-                    representative_visitor old (ledger.store);
-                    old.compute (block_a.hashables.previous);
-                    mu_coin::uint256_t old_weight (ledger.weight (old.result));
-                    balance_visitor balance (ledger.store);
-                    balance.compute (latest);
-                    assert (old_weight >= balance.result);
-                    mu_coin::uint256_t new_weight (ledger.weight (block_a.hashables.representative));
-                    ledger.store.representation_put (old.result, old_weight - balance.result);
-                    ledger.store.representation_put (block_a.hashables.representative, new_weight + balance.result);
+					ledger.move_representation (ledger.representative (block_a.hashables.previous), block_a.hashables.representative, ledger.balance (account));
                     ledger.store.block_put (message, block_a);
                     ledger.store.latest_put (account, message);
                 }
@@ -587,7 +579,7 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
                             ledger.store.latest_put (source_send->hashables.destination, hash);
-                            ledger.move_representation (ledger.account (block_a.hashables.previous), ledger.account (hash), ledger.amount (block_a.hashables.previous));
+                            ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
                         }
                         else
                         {
@@ -2722,16 +2714,8 @@ public:
     }
     void change_block (mu_coin::change_block const & block_a) override
     {
-		representative_visitor old (ledger.store);
-		old.compute (block_a.hashables.previous);
-		mu_coin::uint256_t old_weight (ledger.weight (old.result));
-		balance_visitor balance (ledger.store);
-		balance.compute (block_a.hashables.previous);
-		mu_coin::uint256_t current_weight (ledger.weight (block_a.hashables.representative));
-		assert (current_weight >= balance.result);
-		ledger.store.representation_put (old.result, old_weight + balance.result);
-		ledger.store.representation_put (block_a.hashables.representative, current_weight - balance.result);
 		auto account (ledger.account (block_a.hashables.previous));
+		ledger.move_representation (block_a.hashables.representative, ledger.representative (block_a.hashables.previous), ledger.balance (account));
 		ledger.store.block_del (block_a.hash ());
 		ledger.store.latest_put (account, block_a.hashables.previous);
     }
@@ -2779,12 +2763,10 @@ mu_coin::uint256_t mu_coin::ledger::amount (mu_coin::block_hash const & hash_a)
 
 void mu_coin::ledger::move_representation (mu_coin::address const & source_a, mu_coin::address const & destination_a, mu_coin::uint256_t const & amount_a)
 {
-	auto sender_representative (representative (latest (source_a)));
-    auto sender_rep_weight (store.representation_get (sender_representative));
-    store.representation_put (sender_representative, sender_rep_weight - amount_a);
-	auto receiver_representative (representative (latest (destination_a)));
-    auto receiver_rep_weight (store.representation_get (receiver_representative));
-    store.representation_put (receiver_representative, receiver_rep_weight + amount_a);
+	auto source_previous (store.representation_get (source_a));
+	assert (source_previous >= amount_a);
+    store.representation_put (source_a, source_previous - amount_a);
+    store.representation_put (destination_a, store.representation_get (destination_a) + amount_a);
 }
 
 mu_coin::block_hash mu_coin::ledger::latest (mu_coin::address const & address_a)
