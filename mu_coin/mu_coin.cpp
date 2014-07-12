@@ -2586,17 +2586,11 @@ void mu_coin::block_store::representation_put (mu_coin::address const & address_
     assert (error == 0);
 }
 
-bool mu_coin::ledger::representative (mu_coin::address const & address_a, mu_coin::address & representative_a)
+mu_coin::address mu_coin::ledger::representative (mu_coin::block_hash const & hash_a)
 {
-    mu_coin::block_hash hash;
-    auto result (store.latest_get (address_a, hash));
-    if (!result)
-    {
-        representative_visitor visitor (store);
-        visitor.compute (hash);
-        representative_a = visitor.result;
-    }
-    return result;
+	representative_visitor visitor (store);
+	visitor.compute (hash_a);
+	return visitor.result;
 }
 
 mu_coin::uint256_t mu_coin::ledger::weight (mu_coin::address const & address_a)
@@ -2785,14 +2779,18 @@ mu_coin::uint256_t mu_coin::ledger::amount (mu_coin::block_hash const & hash_a)
 
 void mu_coin::ledger::move_representation (mu_coin::address const & source_a, mu_coin::address const & destination_a, mu_coin::uint256_t const & amount_a)
 {
-    mu_coin::address sender_representative;
-    auto sender_rep_error (representative (source_a, sender_representative));
-    assert (!sender_rep_error);
+	auto sender_representative (representative (latest (source_a)));
     auto sender_rep_weight (store.representation_get (sender_representative));
     store.representation_put (sender_representative, sender_rep_weight - amount_a);
-    mu_coin::address receiver_representative;
-    auto receiver_rep_error (representative (destination_a, receiver_representative));
-    assert (!receiver_rep_error);
+	auto receiver_representative (representative (latest (destination_a)));
     auto receiver_rep_weight (store.representation_get (receiver_representative));
     store.representation_put (receiver_representative, receiver_rep_weight + amount_a);
+}
+
+mu_coin::block_hash mu_coin::ledger::latest (mu_coin::address const & address_a)
+{
+	mu_coin::block_hash latest;
+	auto latest_error (store.latest_get (address_a, latest));
+	assert (!latest_error);
+	return latest;
 }

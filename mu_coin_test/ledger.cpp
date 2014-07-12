@@ -221,24 +221,13 @@ TEST (processor_service, many)
     }
 }
 
-TEST (ledger, representative_none)
-{
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::ledger ledger (store);
-    mu_coin::address address;
-    mu_coin::address representative;
-    ASSERT_TRUE (ledger.representative (address, representative));
-}
-
 TEST (ledger, representative_genesis)
 {
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::address address;
-    mu_coin::address representative;
     store.genesis_put (address);
-    ASSERT_FALSE (ledger.representative (address, representative));
-    ASSERT_EQ (address, representative);
+    ASSERT_EQ (address, ledger.representative (ledger.latest (address)));
 }
 
 TEST (ledger, weight)
