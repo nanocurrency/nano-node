@@ -114,6 +114,7 @@ bool mu_coin::validate_message (mu_coin::public_key const & public_key, mu_coin:
     return result;
 }
 
+namespace {
 class ledger_processor : public mu_coin::block_visitor
 {
 public:
@@ -267,6 +268,7 @@ void balance_visitor::change_block (mu_coin::change_block const & block_a)
     balance_visitor prev (store);
     prev.compute (block_a.hashables.previous);
     result = prev.result;
+}
 }
 
 mu_coin::uint256_t mu_coin::ledger::balance (mu_coin::block_hash const & hash_a)
@@ -1593,6 +1595,7 @@ client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_pat
 {
 }
 
+namespace {
 class publish_visitor : public mu_coin::block_visitor
 {
 public:
@@ -1675,6 +1678,7 @@ public:
     mu_coin::receivable_processor & processor;
     mu_coin::endpoint sender;
 };
+}
 
 mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::endpoint const & sender_a, mu_coin::client & client_a) :
 threshold (client_a.ledger.supply () / 2),
