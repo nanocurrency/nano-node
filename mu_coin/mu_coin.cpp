@@ -1253,13 +1253,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     receive ();
                     if (!error)
                     {
-                        std::unique_lock <std::mutex> lock (mutex);
-                        auto session (confirm_listeners.find (incoming->block));
-                        if (session != confirm_listeners.end ())
-                        {
-                            lock.unlock ();
-                            session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
-                        }
+						client.processor.confirm_ack (std::unique_ptr <mu_coin::confirm_ack> {incoming}, sender);
                     }
                     break;
                 }
@@ -1276,13 +1270,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     receive ();
                     if (!error)
                     {
-                        std::unique_lock <std::mutex> lock (mutex);
-                        auto session (confirm_listeners.find (incoming->block));
-                        if (session != confirm_listeners.end ())
-                        {
-                            lock.release ();
-                            session->second (std::unique_ptr <mu_coin::message> {incoming}, sender);
-                        }
+						client.processor.confirm_nak (std::unique_ptr <mu_coin::confirm_nak> {incoming}, sender);
                     }
                     break;
                 }
@@ -1700,7 +1688,7 @@ void mu_coin::receivable_processor::run ()
     if (!complete)
     {
         auto this_l (shared_from_this ());
-        client.network.add_confirm_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->confirm_ack (std::move (message_a), endpoint_a);});
+        client.processor.add_confirm_listener (incoming->block->hash (), [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->confirm_ack (std::move (message_a), endpoint_a);});
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
@@ -1902,13 +1890,13 @@ std::vector <boost::asio::ip::udp::endpoint> mu_coin::peer_container::list ()
     return result;
 }
 
-void mu_coin::network::add_confirm_listener (mu_coin::block_hash const & block_a, session const & function_a)
+void mu_coin::processor::add_confirm_listener (mu_coin::block_hash const & block_a, session const & function_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     confirm_listeners [block_a] = function_a;
 }
 
-void mu_coin::network::remove_confirm_listener (mu_coin::block_hash const & block_a)
+void mu_coin::processor::remove_confirm_listener (mu_coin::block_hash const & block_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     confirm_listeners.erase (block_a);
@@ -1991,7 +1979,7 @@ size_t mu_coin::processor_service::size ()
     return operations.size ();
 }
 
-size_t mu_coin::network::publish_listener_size ()
+size_t mu_coin::processor::publish_listener_size ()
 {
     std::lock_guard <std::mutex> lock (mutex);
     return confirm_listeners.size ();
@@ -2810,4 +2798,26 @@ void mu_coin::block_store::latest_del (mu_coin::address const & address_a)
     mu_coin::dbt data;
     int error (addresses.del (nullptr, &key.data, 0));
     assert (error == 0);
+}
+
+void mu_coin::processor::confirm_ack (std::unique_ptr <mu_coin::confirm_ack> message_a, mu_coin::endpoint const & sender_a)
+{
+	std::unique_lock <std::mutex> lock (mutex);
+	auto session (confirm_listeners.find (message_a->block));
+	if (session != confirm_listeners.end ())
+	{
+		lock.unlock ();
+		session->second (std::unique_ptr <mu_coin::message> {message_a.release ()}, sender_a);
+	}
+}
+
+void mu_coin::processor::confirm_nak (std::unique_ptr <mu_coin::confirm_nak> message_a, mu_coin::endpoint const & sender_a)
+{
+	std::unique_lock <std::mutex> lock (mutex);
+	auto session (confirm_listeners.find (message_a->block));
+	if (session != confirm_listeners.end ())
+	{
+		lock.release ();
+		session->second (std::unique_ptr <mu_coin::message> {message_a.release ()}, sender_a);
+	}
 }

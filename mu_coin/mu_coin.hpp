@@ -612,6 +612,7 @@ namespace mu_coin {
         std::priority_queue <operation> operations;
     };
     class client;
+    using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
     class processor
     {
     public:
@@ -620,10 +621,17 @@ namespace mu_coin {
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_confirmation (mu_coin::block_hash const &, mu_coin::endpoint const &);
+        void add_confirm_listener (mu_coin::block_hash const &, session const &);
+        void remove_confirm_listener (mu_coin::block_hash const &);
+        size_t publish_listener_size ();
+		void confirm_ack (std::unique_ptr <mu_coin::confirm_ack>, mu_coin::endpoint const &);
+		void confirm_nak (std::unique_ptr <mu_coin::confirm_nak>, mu_coin::endpoint const &);
         mu_coin::processor_service & service;
         mu_coin::client & client;
+    private:
+        std::mutex mutex;
+        std::unordered_map <mu_coin::block_hash, session> confirm_listeners;
     };
-    using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
     class network
     {
     public:
@@ -635,9 +643,6 @@ namespace mu_coin {
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
         void confirm_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void add_confirm_listener (mu_coin::block_hash const &, session const &);
-        void remove_confirm_listener (mu_coin::block_hash const &);
-        size_t publish_listener_size ();
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
@@ -655,9 +660,6 @@ namespace mu_coin {
         uint64_t confirm_unk_count;
         uint64_t unknown_count;
         bool on;
-    private:
-        std::mutex mutex;
-        std::unordered_map <mu_coin::block_hash, session> confirm_listeners;
     };
     class rpc
     {
