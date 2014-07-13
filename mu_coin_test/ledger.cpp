@@ -134,8 +134,14 @@ TEST (ledger, process_receive)
 	auto hash4 (receive.hash ());
 	mu_coin::sign_message (key2.prv, key2.pub, hash4, receive.signature);
 	ASSERT_EQ (mu_coin::process_result::progress, ledger.process (receive));
+	ASSERT_EQ (hash4, ledger.latest (key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (key1.pub));
 	ASSERT_EQ (75, ledger.account_balance (key2.pub));
+	ledger.rollback (hash4);
+	ASSERT_EQ (25, ledger.account_balance (key1.pub));
+	ASSERT_EQ (50, ledger.account_balance (key2.pub));
+	ASSERT_EQ (hash2, ledger.latest (key2.pub));
+	ASSERT_FALSE (ledger.store.pending_get (hash3));
 }
 
 TEST (ledger, process_duplicate)

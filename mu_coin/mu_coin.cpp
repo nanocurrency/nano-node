@@ -2713,7 +2713,12 @@ public:
     }
     void receive_block (mu_coin::receive_block const & block_a) override
     {
-        assert (false);
+		auto hash (block_a.hash ());
+		auto account (ledger.account (hash));
+		ledger.move_representation (account, ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
+		ledger.store.latest_put (account, block_a.hashables.previous);
+		ledger.store.block_del (hash);
+		ledger.store.pending_put (block_a.hashables.source);
     }
     void open_block (mu_coin::open_block const & block_a) override
     {
