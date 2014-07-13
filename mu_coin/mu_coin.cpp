@@ -2711,6 +2711,10 @@ public:
     {
 		auto hash (block_a.hash ());
 		auto account (ledger.account (hash));
+		while (ledger.store.pending_get (hash))
+		{
+			ledger.rollback (ledger.latest (block_a.hashables.destination));
+		}
 		ledger.store.pending_del (hash);
 		ledger.store.latest_put (account, block_a.hashables.previous);
 		ledger.store.block_del (hash);
