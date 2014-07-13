@@ -2709,7 +2709,11 @@ public:
     }
     void send_block (mu_coin::send_block const & block_a) override
     {
-        assert (false);
+		auto hash (block_a.hash ());
+		auto account (ledger.account (hash));
+		ledger.store.pending_del (hash);
+		ledger.store.latest_put (account, block_a.hashables.previous);
+		ledger.store.block_del (hash);
     }
     void receive_block (mu_coin::receive_block const & block_a) override
     {

@@ -98,6 +98,13 @@ TEST (ledger, process_send)
 	ASSERT_FALSE (ledger.store.pending_get (hash1));
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (key1.pub));
+	ASSERT_FALSE (ledger.store.latest_get (key1.pub, hash6));
+	ASSERT_EQ (hash1, hash6);
+	ledger.rollback (hash6);
+	ASSERT_FALSE (ledger.store.latest_get (key1.pub, hash6));
+	ASSERT_EQ (block1, hash6);
+	ASSERT_TRUE (ledger.store.pending_get (hash1));
+	ASSERT_EQ (100, ledger.account_balance (key1.pub));
 }
 
 TEST (ledger, process_receive)
