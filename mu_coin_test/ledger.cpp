@@ -75,7 +75,7 @@ TEST (ledger, process_send)
     mu_coin::open_block open;
     open.hashables.source = hash1;
     mu_coin::block_hash hash2 (open.hash ());
-    mu_coin::sign_message(key2.prv, key2.pub, hash2, open.signature);
+    mu_coin::sign_message (key2.prv, key2.pub, hash2, open.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
     ASSERT_EQ (50, ledger.account_balance (key2.pub));
     mu_coin::block_hash hash3;
@@ -92,6 +92,12 @@ TEST (ledger, process_send)
     auto latest5 (dynamic_cast <mu_coin::open_block *> (latest4.get ()));
     ASSERT_NE (nullptr, latest5);
     ASSERT_EQ (open, *latest5);
+	ledger.rollback (hash2);
+	mu_coin::block_hash hash6;
+	ASSERT_TRUE (ledger.store.latest_get (key2.pub, hash6));
+	ASSERT_FALSE (ledger.store.pending_get (hash1));
+	ASSERT_EQ (0, ledger.account_balance (key2.pub));
+	ASSERT_EQ (50, ledger.account_balance (key1.pub));
 }
 
 TEST (ledger, process_duplicate)
@@ -275,7 +281,7 @@ TEST (ledger, representative_change)
 	mu_coin::block_hash latest2;
 	ASSERT_FALSE (store.latest_get (key1.pub, latest2));
 	ASSERT_EQ (block.hash (), latest2);
-	ledger.rollback (latest);
+	ledger.rollback (latest2);
 	mu_coin::block_hash latest3;
 	ASSERT_FALSE (store.latest_get (key1.pub, latest3));
 	ASSERT_EQ (latest, latest3);

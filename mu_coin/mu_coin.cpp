@@ -2745,17 +2745,16 @@ void mu_coin::block_store::block_del (mu_coin::block_hash const & hash_a)
 void mu_coin::ledger::rollback (mu_coin::block_hash const & frontier_a)
 {
 	auto account_l (account (frontier_a));
-    mu_coin::block_hash latest;
-    auto latest_error (store.latest_get (account_l, latest));
-    assert (!latest_error);
     rollback_visitor rollback (*this);
-    while (latest != frontier_a)
-    {
+    mu_coin::block_hash latest;
+	do
+	{
+		auto latest_error (store.latest_get (account_l, latest));
+		assert (!latest_error);
         auto block (store.block_get (latest));
         block->visit (rollback);
-        auto latest_error (store.latest_get (account_l, latest));
-        assert (!latest_error);
-    }
+		
+	} while (latest != frontier_a);
 }
 
 mu_coin::address mu_coin::ledger::account (mu_coin::block_hash const & hash_a)
