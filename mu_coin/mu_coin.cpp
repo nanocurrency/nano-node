@@ -2394,6 +2394,18 @@ void mu_coin::rpc::listen ()
     server.listen ();
 }
 
+namespace
+{
+void set_response (boost::network::http::server <mu_coin::rpc>::response & response, boost::property_tree::ptree & tree)
+{
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, tree);
+    response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
+    response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
+    response.content = ostream.str ();
+}
+}
+
 void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::request const & request, boost::network::http::server <mu_coin::rpc>::response & response)
 {
     if (request.method == "POST")
@@ -2414,11 +2426,7 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
                     auto balance (client.ledger.account_balance (account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("balance", balance.convert_to <std::string> ());
-                    std::stringstream ostream;
-                    boost::property_tree::write_json (ostream, response_l);
-                    response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
-                    response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
-                    response.content = ostream.str ();
+                    set_response (response, response_l);
                 }
                 else
                 {
@@ -2434,11 +2442,7 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
                 std::string account;
                 new_key.pub.encode_hex (account);
                 response_l.put ("account", account);
-                std::stringstream ostream;
-                boost::property_tree::write_json (ostream, response_l);
-                response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
-                response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
-                response.content = ostream.str ();
+                set_response (response, response_l);
             }
             else if (action == "wallet_contains")
             {
@@ -2450,17 +2454,28 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
                     auto exists (client.wallet.find (account) != client.wallet.end ());
                     boost::property_tree::ptree response_l;
                     response_l.put ("exists", exists ? "1" : "0");
-                    std::stringstream ostream;
-                    boost::property_tree::write_json (ostream, response_l);
-                    response.status = boost::network::http::server <mu_coin::rpc>::response::ok;
-                    response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
-                    response.content = ostream.str ();
+                    set_response (response, response_l);
                 }
                 else
                 {
                     response = boost::network::http::server<mu_coin::rpc>::response::stock_reply (boost::network::http::server<mu_coin::rpc>::response::bad_request);
                     response.content = "Bad account number";
                 }
+            }
+            else if (action == "wallet_list")
+            {
+                boost::property_tree::ptree response_l;
+                boost::property_tree::ptree accounts;
+                for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
+                {
+                    std::string account;
+                    i->first.encode_hex (account);
+                    boost::property_tree::ptree entry;
+                    entry.put ("", account);
+                    accounts.push_back (std::make_pair ("", entry));
+                }
+                response_l.add_child ("accounts", accounts);
+                set_response (response, response_l);
             }
             else
             {

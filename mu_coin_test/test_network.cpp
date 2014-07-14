@@ -390,3 +390,41 @@ TEST (network, receive_weight_change)
         system.service->run_one ();
     }
 }
+
+TEST (rpc, wallet_list)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    std::string account;
+    key1.pub.encode_hex (account);
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    mu_coin::keypair key2;
+    system.clients [0]->wallet.insert (key2.pub, key2.prv, system.clients [0]->wallet.password);
+    boost::network::http::server <mu_coin::rpc>::request request;
+    boost::network::http::server <mu_coin::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "wallet_list");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    system.clients [0]->rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <mu_coin::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    auto & accounts_node (response_tree.get_child ("accounts"));
+    std::vector <mu_coin::uint256_union> accounts;
+    for (auto i (accounts_node.begin ()), j (accounts_node.end ()); i != j; ++i)
+    {
+        auto account (i->second.get <std::string> (""));
+        mu_coin::uint256_union number;
+        ASSERT_FALSE (number.decode_hex (account));
+        accounts.push_back (number);
+    }
+    ASSERT_EQ (2, accounts.size ());
+    for (auto i (accounts.begin ()), j (accounts.end ()); i != j; ++i)
+    {
+        ASSERT_NE (system.clients [0]->wallet.end (), system.clients [0]->wallet.find (*i));
+    }
+}
