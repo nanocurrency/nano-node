@@ -138,9 +138,10 @@ TEST (receivable_processor, confirm_no_pos)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->processor.publish_listener_size ());
-    mu_coin::confirm_ack con1 {block1->hash ()};
+    mu_coin::confirm_ack con1;
+	con1.session = receivable->session;
     con1.address = key1.pub;
-    mu_coin::sign_message (key1.prv, key1.pub, con1.block, con1.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
     mu_coin::vectorstream stream (bytes);
     con1.serialize (stream);
@@ -158,9 +159,10 @@ TEST (receivable_processor, confirm_insufficient_pos)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->processor.publish_listener_size ());
-    mu_coin::confirm_ack con1 {block1->hash ()};
+    mu_coin::confirm_ack con1;
+	con1.session = receivable->session;
     con1.address = key1.pub;
-    mu_coin::sign_message (key1.prv, key1.pub, con1.block, con1.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
     {
         mu_coin::vectorstream stream (bytes);
@@ -183,9 +185,10 @@ TEST (receivable_processor, confirm_sufficient_pos)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->processor.publish_listener_size ());
-    mu_coin::confirm_ack con1 {block1->hash ()};
+    mu_coin::confirm_ack con1;
+	con1.session = receivable->session;
     con1.address = key1.pub;
-    mu_coin::sign_message (key1.prv, key1.pub, con1.block, con1.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
     {
         mu_coin::vectorstream stream (bytes);
@@ -371,4 +374,19 @@ TEST (rpc, wallet_contents)
     boost::property_tree::read_json (istream, response_tree);
     std::string exists_text (response_tree.get <std::string> ("exists"));
     ASSERT_EQ ("1", exists_text);
+}
+
+TEST (network, receive_weight_change)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 2, key1.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    mu_coin::keypair key2;
+    system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
+    system.clients [1]->representative = key2.pub;
+    system.clients [0]->send (key2.pub, 2, system.clients [0]->wallet.password);
+    while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::unique_ptr <mu_coin::client> const & client_a) {return client_a->ledger.weight (key2.pub) != 2;}))
+    {
+        system.service->run_one ();
+    }
 }

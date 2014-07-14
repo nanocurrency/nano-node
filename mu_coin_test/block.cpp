@@ -270,11 +270,12 @@ TEST (send_block, copy)
 
 TEST (confirm_ack, serialization)
 {
-    mu_coin::block_hash hash;
-    mu_coin::confirm_ack con1 {hash};
+    mu_coin::uint256_union session;
+    mu_coin::confirm_ack con1;
+	con1.session = session;
     mu_coin::keypair key1;
     con1.address = key1.pub;
-    mu_coin::sign_message (key1.prv, key1.pub, hash, con1.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
     {
         mu_coin::vectorstream stream1 (bytes);

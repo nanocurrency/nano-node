@@ -489,24 +489,22 @@ namespace mu_coin {
     class confirm_req : public message
     {
     public:
-        confirm_req () = default;
-        confirm_req (std::unique_ptr <mu_coin::block>);
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::publish_ack const &) const;
+		mu_coin::uint256_union session;
         std::unique_ptr <mu_coin::block> block;
     };
     class confirm_ack : public message
     {
     public:
-        confirm_ack () = default;
-        confirm_ack (mu_coin::block_hash const &);
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::confirm_ack const &) const;
-        mu_coin::block_hash block;
+		mu_coin::uint256_union hash () const;
+        mu_coin::uint256_union session;
         mu_coin::address address;
         mu_coin::signature signature;
     };
@@ -516,22 +514,21 @@ namespace mu_coin {
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
-        mu_coin::block_hash block;
-        std::unique_ptr <mu_coin::block> winner;
-        mu_coin::block_hash loser;
+		mu_coin::uint256_union hash () const;
+        mu_coin::uint256_union session;
         mu_coin::address address;
         mu_coin::signature signature;
+        std::unique_ptr <mu_coin::block> block;
     };
     class confirm_unk : public message
     {
     public:
-        confirm_unk () = default;
-        confirm_unk (mu_coin::block_hash const &);
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
+		mu_coin::uint256_union hash () const;
         mu_coin::address rep_hint;
-        mu_coin::block_hash block;
+        mu_coin::uint256_union session;
     };
     class message_visitor
     {
@@ -620,7 +617,8 @@ namespace mu_coin {
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
-        void process_confirmation (mu_coin::block_hash const &, mu_coin::endpoint const &);
+		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
+        void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
         void remove_confirm_listener (mu_coin::block_hash const &);
         size_t publish_listener_size ();
@@ -630,7 +628,7 @@ namespace mu_coin {
         mu_coin::client & client;
     private:
         std::mutex mutex;
-        std::unordered_map <mu_coin::block_hash, session> confirm_listeners;
+        std::unordered_map <mu_coin::uint256_union, session> confirm_listeners;
     };
     class network
     {
@@ -642,7 +640,7 @@ namespace mu_coin {
         void rpc_action (boost::system::error_code const &, size_t);
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void confirm_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
+        void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block>);
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
@@ -693,6 +691,7 @@ namespace mu_coin {
         mu_coin::uint256_t acknowledged;
         mu_coin::uint256_t nacked;
         mu_coin::uint256_t threshold;
+		mu_coin::uint256_union session;
         std::chrono::system_clock::time_point timeout;
         std::unique_ptr <mu_coin::publish_req> incoming;
         mu_coin::endpoint sender;
