@@ -18,6 +18,11 @@
 #include <queue>
 #include <mutex>
 
+namespace CryptoPP
+{
+    class SHA3;
+}
+
 namespace mu_coin {
     using stream = std::basic_streambuf <uint8_t>;
     using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
@@ -156,7 +161,8 @@ namespace mu_coin {
     class block
     {
     public:
-        virtual mu_coin::uint256_union hash () const = 0;
+        mu_coin::uint256_union hash () const;
+        virtual void hash (CryptoPP::SHA3 &) const = 0;
         virtual mu_coin::block_hash previous () const = 0;
         virtual void serialize (mu_coin::stream &) const = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
@@ -186,7 +192,7 @@ namespace mu_coin {
     class send_hashables
     {
     public:
-        mu_coin::uint256_union hash () const;
+        void hash (CryptoPP::SHA3 &) const;
         mu_coin::address destination;
         mu_coin::block_hash previous;
         mu_coin::uint256_union balance;
@@ -196,7 +202,8 @@ namespace mu_coin {
     public:
         send_block () = default;
         send_block (send_block const &);
-        mu_coin::uint256_union hash () const override;
+        using mu_coin::block::hash;
+        void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);
@@ -211,14 +218,15 @@ namespace mu_coin {
     class receive_hashables
     {
     public:
-        mu_coin::uint256_union hash () const;
+        void hash (CryptoPP::SHA3 &) const;
         mu_coin::block_hash previous;
         mu_coin::block_hash source;
     };
     class receive_block : public mu_coin::block
     {
     public:
-        mu_coin::uint256_union hash () const override;
+        using mu_coin::block::hash;
+        void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);
@@ -235,14 +243,15 @@ namespace mu_coin {
     class open_hashables
     {
     public:
-        mu_coin::uint256_union hash () const;
+        void hash (CryptoPP::SHA3 &) const;
         mu_coin::address representative;
         mu_coin::block_hash source;
     };
     class open_block : public mu_coin::block
     {
     public:
-        mu_coin::uint256_union hash () const;
+        using mu_coin::block::hash;
+        void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);
@@ -257,14 +266,15 @@ namespace mu_coin {
     class change_hashables
     {
     public:
-        mu_coin::uint256_union hash () const;
+        void hash (CryptoPP::SHA3 &) const;
         mu_coin::address representative;
         mu_coin::block_hash previous;
     };
     class change_block : public mu_coin::block
     {
     public:
-        mu_coin::uint256_union hash () const;
+        using mu_coin::block::hash;
+        void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);

@@ -364,20 +364,16 @@ void mu_coin::receive_block::visit (mu_coin::block_visitor & visitor_a) const
     visitor_a.receive_block (*this);
 }
 
-mu_coin::uint256_union mu_coin::send_block::hash () const
+void mu_coin::send_block::hash (CryptoPP::SHA3 & hash_a) const
 {
-    return hashables.hash ();
+    hashables.hash (hash_a);
 }
 
-mu_coin::uint256_union mu_coin::send_hashables::hash () const
+void mu_coin::send_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
-    mu_coin::uint256_union result;
-    CryptoPP::SHA3 hash (32);
-    hash.Update (previous.bytes.data (), sizeof (previous.bytes));
-    hash.Update (balance.bytes.data (), sizeof (balance.bytes));
-    hash.Update (destination.bytes.data (), sizeof (destination.bytes));
-    hash.Final (result.bytes.data ());
-    return result;
+    hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
+    hash_a.Update (balance.bytes.data (), sizeof (balance.bytes));
+    hash_a.Update (destination.bytes.data (), sizeof (destination.bytes));
 }
 
 void mu_coin::send_block::serialize (mu_coin::stream & stream_a) const
@@ -440,19 +436,15 @@ void mu_coin::receive_block::serialize (mu_coin::stream & stream_a) const
     write (stream_a, hashables.source.bytes);
 }
 
-mu_coin::uint256_union mu_coin::receive_block::hash () const
+void mu_coin::receive_block::hash (CryptoPP::SHA3 & hash_a) const
 {
-    return hashables.hash ();
+    hashables.hash (hash_a);
 }
 
-mu_coin::uint256_union mu_coin::receive_hashables::hash () const
+void mu_coin::receive_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
-    CryptoPP::SHA3 hash (32);
-    hash.Update (source.bytes.data (), sizeof (source.bytes));
-    hash.Update (previous.bytes.data (), sizeof (previous.bytes));
-    mu_coin::uint256_union result;
-    hash.Final (result.bytes.data ());
-    return result;
+    hash_a.Update (source.bytes.data (), sizeof (source.bytes));
+    hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
 }
 
 namespace
@@ -1795,6 +1787,7 @@ void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t con
 
 void receivable_message_processor::confirm_ack (mu_coin::confirm_ack const & message)
 {
+    assert (message.session == processor.session);
     if (!mu_coin::validate_message (message.address, message.hash (), message.signature))
     {
         auto weight (processor.client.ledger.weight (message.address));
@@ -1813,8 +1806,8 @@ void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & mes
 
 void receivable_message_processor::confirm_nak (mu_coin::confirm_nak const & message)
 {
-    auto block (message.block->hash ());
-    if (!mu_coin::validate_message (message.address, block, message.signature))
+    assert (message.session == processor.session);
+    if (!mu_coin::validate_message (message.address, message.hash (), message.signature))
     {
         auto weight (processor.client.ledger.weight (message.address));
         processor.nacked += weight;
@@ -2489,9 +2482,9 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
 }
 
 
-mu_coin::uint256_union mu_coin::open_block::hash () const
+void mu_coin::open_block::hash (CryptoPP::SHA3 & hash_a) const
 {
-    return hashables.hash ();
+    hashables.hash (hash_a);
 }
 
 mu_coin::block_hash mu_coin::open_block::previous () const
@@ -2551,14 +2544,10 @@ bool mu_coin::open_block::operator == (mu_coin::open_block const & other_a) cons
     return hashables.representative == other_a.hashables.representative && hashables.source == other_a.hashables.source && signature == other_a.signature;
 }
 
-mu_coin::uint256_union mu_coin::open_hashables::hash () const
+void mu_coin::open_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
-    mu_coin::uint256_union result;
-    CryptoPP::SHA3 hash (32);
-    hash.Update (representative.bytes.data (), sizeof (representative.bytes));
-    hash.Update (source.bytes.data (), sizeof (source.bytes));
-    hash.Final (result.bytes.data ());
-    return result;
+    hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
+    hash_a.Update (source.bytes.data (), sizeof (source.bytes));
 }
 
 mu_coin::uint256_t mu_coin::block_store::representation_get (mu_coin::address const & address_a)
@@ -2606,9 +2595,9 @@ void mu_coin::confirm_unk::serialize (mu_coin::stream & stream_a)
     write (stream_a, session);
 }
 
-mu_coin::uint256_union mu_coin::change_block::hash () const
+void mu_coin::change_block::hash (CryptoPP::SHA3 & hash_a) const
 {
-    return hashables.hash ();
+    hashables.hash (hash_a);
 }
 
 mu_coin::block_hash mu_coin::change_block::previous () const
@@ -2668,14 +2657,10 @@ bool mu_coin::change_block::operator == (mu_coin::change_block const & other_a) 
     return signature == other_a.signature && hashables.representative == other_a.hashables.representative && hashables.previous == other_a.hashables.previous;
 }
 
-mu_coin::uint256_union mu_coin::change_hashables::hash () const
+void mu_coin::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
-    mu_coin::uint256_union result;
-    CryptoPP::SHA3 hash (32);
-    hash.Update (representative.bytes.data (), sizeof (representative.bytes));
-    hash.Update (previous.bytes.data (), sizeof (previous.bytes));
-    hash.Final (result.bytes.data ());
-    return result;
+    hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
+    hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
 }
 
 std::unique_ptr <mu_coin::block> mu_coin::block_store::fork_get (mu_coin::block_hash const & hash_a)
@@ -2841,4 +2826,24 @@ mu_coin::uint256_union mu_coin::confirm_ack::hash () const
     hash.Update (address.bytes.data (), sizeof (address.bytes));
     hash.Final (result.bytes.data ());
 	return result;
+}
+
+mu_coin::uint256_union mu_coin::confirm_nak::hash () const
+{
+	mu_coin::uint256_union result;
+    CryptoPP::SHA3 hash (32);
+    hash.Update (session.bytes.data (), sizeof (session.bytes));
+    hash.Update (address.bytes.data (), sizeof (address.bytes));
+    block->hash (hash);
+    hash.Final (result.bytes.data ());
+	return result;
+}
+
+mu_coin::uint256_union mu_coin::block::hash () const
+{
+    CryptoPP::SHA3 hash_l (32);
+    hash (hash_l);
+    mu_coin::uint256_union result;
+    hash_l.Final (result.bytes.data ());
+    return result;
 }
