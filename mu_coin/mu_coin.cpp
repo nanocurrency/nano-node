@@ -1,6 +1,6 @@
 #include <mu_coin/mu_coin.hpp>
 
-#include <cryptopp/sha.h>
+#include <cryptopp/sha3.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
 #include <ed25519-donna/ed25519.h>
@@ -61,7 +61,7 @@ void mu_coin::uint512_union::clear ()
     bytes.fill (0);
 }
 
-void hash_number (CryptoPP::SHA256 & hash_a, boost::multiprecision::uint256_t const & number_a)
+void hash_number (CryptoPP::SHA3 & hash_a, boost::multiprecision::uint256_t const & number_a)
 {
     mu_coin::uint256_union bytes (number_a);
     hash_a.Update (bytes.bytes.data (), sizeof (bytes));
@@ -349,7 +349,7 @@ mu_coin::private_key mu_coin::uint256_union::prv (mu_coin::secret_key const & ke
 
 mu_coin::uint256_union::uint256_union (std::string const & password_a)
 {
-    CryptoPP::SHA256 hash;
+    CryptoPP::SHA3 hash (32);
     hash.Update (reinterpret_cast <uint8_t const *> (password_a.c_str ()), password_a.size ());
     hash.Final (bytes.data ());
 }
@@ -372,7 +372,7 @@ mu_coin::uint256_union mu_coin::send_block::hash () const
 mu_coin::uint256_union mu_coin::send_hashables::hash () const
 {
     mu_coin::uint256_union result;
-    CryptoPP::SHA256 hash;
+    CryptoPP::SHA3 hash (32);
     hash.Update (previous.bytes.data (), sizeof (previous.bytes));
     hash.Update (balance.bytes.data (), sizeof (balance.bytes));
     hash.Update (destination.bytes.data (), sizeof (destination.bytes));
@@ -447,7 +447,7 @@ mu_coin::uint256_union mu_coin::receive_block::hash () const
 
 mu_coin::uint256_union mu_coin::receive_hashables::hash () const
 {
-    CryptoPP::SHA256 hash;
+    CryptoPP::SHA3 hash (32);
     hash.Update (source.bytes.data (), sizeof (source.bytes));
     hash.Update (previous.bytes.data (), sizeof (previous.bytes));
     mu_coin::uint256_union result;
@@ -2554,7 +2554,7 @@ bool mu_coin::open_block::operator == (mu_coin::open_block const & other_a) cons
 mu_coin::uint256_union mu_coin::open_hashables::hash () const
 {
     mu_coin::uint256_union result;
-    CryptoPP::SHA256 hash;
+    CryptoPP::SHA3 hash (32);
     hash.Update (representative.bytes.data (), sizeof (representative.bytes));
     hash.Update (source.bytes.data (), sizeof (source.bytes));
     hash.Final (result.bytes.data ());
@@ -2671,7 +2671,7 @@ bool mu_coin::change_block::operator == (mu_coin::change_block const & other_a) 
 mu_coin::uint256_union mu_coin::change_hashables::hash () const
 {
     mu_coin::uint256_union result;
-    CryptoPP::SHA256 hash;
+    CryptoPP::SHA3 hash (32);
     hash.Update (representative.bytes.data (), sizeof (representative.bytes));
     hash.Update (previous.bytes.data (), sizeof (previous.bytes));
     hash.Final (result.bytes.data ());
@@ -2836,7 +2836,7 @@ void mu_coin::processor::confirm_nak (std::unique_ptr <mu_coin::confirm_nak> mes
 mu_coin::uint256_union mu_coin::confirm_ack::hash () const
 {
 	mu_coin::uint256_union result;
-    CryptoPP::SHA256 hash;
+    CryptoPP::SHA3 hash (32);
     hash.Update (session.bytes.data (), sizeof (session.bytes));
     hash.Update (address.bytes.data (), sizeof (address.bytes));
     hash.Final (result.bytes.data ());
