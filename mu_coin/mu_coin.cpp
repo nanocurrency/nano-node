@@ -2862,3 +2862,74 @@ mu_coin::uint256_union mu_coin::block::hash () const
     hash_l.Final (result.bytes.data ());
     return result;
 }
+
+namespace
+{
+    char const * base58_lookup ("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
+    char const * base58_reverse ("~\x00\x01\x02\x03\x04\x05\x06\x07\x08~~~~~~~\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10~\x11\x12\x13\x14\x15~\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x20~~~~~~\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b~\x2c\x2d\x2e\x2f\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39");
+    char base58_encode (uint8_t value)
+    {
+        assert (value < 58);
+        auto result (base58_lookup [value]);
+        return result;
+    }
+    uint8_t base58_decode (char value)
+    {
+        auto result (base58_reverse [value - 0x30]);
+        return result;
+    }
+}
+
+void mu_coin::uint256_union::encode_base58check (std::string & destination_a)
+{
+    assert (destination_a.empty ());
+    destination_a.reserve (50);
+    uint32_t check;
+    CryptoPP::SHA3 hash (4);
+    hash.Update (bytes.data (), sizeof (bytes));
+    hash.Final (reinterpret_cast <uint8_t *> (&check));
+    mu_coin::uint512_t number_l (number ());
+    number_l |= mu_coin::uint512_t (check) << 256;
+    number_l |= mu_coin::uint512_t (13) << (256 + 32);
+    while (!number_l.is_zero ())
+    {
+        auto r ((number_l % 58).convert_to <uint8_t> ());
+        number_l /= 58;
+        destination_a.push_back (base58_encode (r));
+    }
+    std::reverse (destination_a.begin (), destination_a.end ());
+}
+
+bool mu_coin::uint256_union::decode_base58check (std::string const & source_a)
+{
+    auto result (source_a.size () != 50);
+    if (!result)
+    {
+        mu_coin::uint512_t number_l;
+        for (auto i (source_a.begin ()), j (source_a.end ()); !result && i != j; ++i)
+        {
+            uint8_t byte (base58_decode (*i));
+            result = byte == '~';
+            if (!result)
+            {
+                number_l *= 58;
+                number_l += byte;
+            }
+        }
+        if (!result)
+        {
+            *this = number_l.convert_to <mu_coin::uint256_t> ();
+            uint32_t check ((number_l >> 256).convert_to <uint32_t> ());
+            result = (number_l >> (256 + 32)) != 13;
+            if (!result)
+            {
+                uint32_t validation;
+                CryptoPP::SHA3 hash (4);
+                hash.Update (bytes.data (), sizeof (bytes));
+                hash.Final (reinterpret_cast <uint8_t *> (&validation));
+                result = check != validation;
+            }
+        }
+    }
+    return result;
+}

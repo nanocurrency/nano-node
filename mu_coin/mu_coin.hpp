@@ -65,6 +65,8 @@ namespace mu_coin {
         bool decode_hex (std::string const &);
         void encode_dec (std::string &);
         bool decode_dec (std::string const &);
+        void encode_base58check (std::string &);
+        bool decode_base58check (std::string const &);
         void serialize (mu_coin::stream &) const;
         bool deserialize (mu_coin::stream &);
         std::array <uint8_t, 32> bytes;

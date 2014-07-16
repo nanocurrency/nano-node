@@ -212,3 +212,36 @@ TEST (wallet, find_existing)
     ++existing;
     ASSERT_EQ (wallet.end (), existing);
 }
+
+TEST (base58, encode_zero)
+{
+    mu_coin::uint256_union number0 (0);
+    std::string str0;
+    number0.encode_base58check (str0);
+    ASSERT_EQ (50, str0.size ());
+    mu_coin::uint256_union number1;
+    ASSERT_FALSE (number1.decode_base58check (str0));
+    ASSERT_EQ (number0, number1);
+}
+
+TEST (base58, encode_all)
+{
+    mu_coin::uint256_union number0;
+    number0.decode_hex ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    std::string str0;
+    number0.encode_base58check (str0);
+    ASSERT_EQ (50, str0.size ());
+    mu_coin::uint256_union number1;
+    ASSERT_FALSE (number1.decode_base58check (str0));
+    ASSERT_EQ (number0, number1);
+}
+
+TEST (base58, encode_fail)
+{
+    mu_coin::uint256_union number0 (0);
+    std::string str0;
+    number0.encode_base58check (str0);
+    str0 [16] ^= 1;
+    mu_coin::uint256_union number1;
+    ASSERT_TRUE (number1.decode_base58check (str0));
+}
