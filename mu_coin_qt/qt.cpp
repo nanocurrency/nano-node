@@ -140,7 +140,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             QString address_text (send_address->text ());
             std::string address_text_narrow (address_text.toLocal8Bit ());
             mu_coin::address address;
-            parse_error = address.decode_hex (address_text_narrow);
+            parse_error = address.decode_base58check (address_text_narrow);
             if (!parse_error)
             {
                 QPalette palette;
@@ -248,8 +248,8 @@ void mu_coin_qt::gui::refresh_wallet ()
         auto account_balance (client.ledger.account_balance (key));
         balance += account_balance;
         std::string string;
-        key.encode_hex (string);
-        string += ":";
+        key.encode_base58check (string);
+        string += " : ";
         string += account_balance.str ();
         QString qstring (string.c_str ());
         keys << qstring;
