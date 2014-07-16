@@ -2866,7 +2866,7 @@ mu_coin::uint256_union mu_coin::block::hash () const
 namespace
 {
     char const * base58_lookup ("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
-    char const * base58_reverse ("~\x00\x01\x02\x03\x04\x05\x06\x07\x08~~~~~~~\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10~\x11\x12\x13\x14\x15~\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x20~~~~~~\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b~\x2c\x2d\x2e\x2f\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39");
+    char const * base58_reverse ("~012345678~~~~~~~9:;<=>?@~ABCDE~FGHIJKLMNOP~~~~~~QRSTUVWXYZ[~\\]^_`abcdefghi");
     char base58_encode (uint8_t value)
     {
         assert (value < 58);
@@ -2875,7 +2875,7 @@ namespace
     }
     uint8_t base58_decode (char value)
     {
-        auto result (base58_reverse [value - 0x30]);
+        auto result (base58_reverse [value - 0x30] - 0x30);
         return result;
     }
 }
