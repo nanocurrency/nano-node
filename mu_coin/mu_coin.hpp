@@ -701,25 +701,25 @@ namespace mu_coin {
     class peer_information
     {
     public:
-        boost::asio::ip::udp::endpoint endpoint;
+        mu_coin::endpoint endpoint;
         std::chrono::system_clock::time_point last_contact;
     };
     class peer_container
     {
     public:
         peer_container (mu_coin::client &);
-        void keepalive ();
-        void add_peer (boost::asio::ip::udp::endpoint const &);
-        std::vector <boost::asio::ip::udp::endpoint> list ();
+        void refresh ();
+        void add_peer (mu_coin::endpoint const &);
+        std::vector <peer_information> list ();
     private:
-        void keepalive_action ();
+        void refresh_action ();
         mu_coin::client & client;
         std::mutex mutex;
         boost::multi_index_container
         <peer_information,
             boost::multi_index::indexed_by
             <
-                boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, boost::asio::ip::udp::endpoint, &peer_information::endpoint>>,
+                boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, mu_coin::endpoint, &peer_information::endpoint>>,
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>
             >
         > peers;

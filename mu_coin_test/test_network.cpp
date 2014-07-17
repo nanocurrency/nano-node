@@ -16,6 +16,8 @@ TEST (network, send_keepalive)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 2, key1.pub, 100);
+    auto list1 (system.clients [0]->peers.list ());
+    ASSERT_EQ (1, list1.size ());
     system.clients [0]->network.receive ();
     system.clients [1]->network.receive ();
     system.clients [0]->network.send_keepalive (system.endpoint (1));
@@ -26,9 +28,10 @@ TEST (network, send_keepalive)
     auto peers1 (system.clients [0]->peers.list ());
     auto peers2 (system.clients [1]->peers.list ());
     ASSERT_EQ (1, system.clients [0]->network.keepalive_ack_count);
-    ASSERT_NE (peers1.end (), std::find (peers1.begin (), peers1.end (), system.endpoint (1)));
+    ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.endpoint (1);}));
+    ASSERT_GT (peers1 [0].last_contact, list1 [0].last_contact);
     ASSERT_EQ (1, system.clients [1]->network.keepalive_req_count);
-    ASSERT_NE (peers2.end (), std::find (peers2.begin (), peers2.end (), system.endpoint (0)));
+    ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.endpoint (0);}));
 }
 
 TEST (network, publish_req)

@@ -1688,9 +1688,9 @@ void mu_coin::receivable_processor::run ()
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            if (*i != sender)
+            if (i->endpoint != sender)
             {
-                client.network.confirm_block (*i, session, incoming->block->clone ());
+                client.network.confirm_block (i->endpoint, session, incoming->block->clone ());
             }
         }
     }
@@ -1860,29 +1860,37 @@ mu_coin::process_result mu_coin::processor::process_publish (std::unique_ptr <mu
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            if (*i != sender_a)
+            if (i->endpoint != sender_a)
             {
-                client.network.publish_block (*i, block->clone ());
+                client.network.publish_block (i->endpoint, block->clone ());
             }
         }
     }
     return visitor.result;
 }
 
-void mu_coin::peer_container::add_peer (boost::asio::ip::udp::endpoint const & endpoint_a)
+void mu_coin::peer_container::add_peer (mu_coin::endpoint const & endpoint_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    peers.insert ({endpoint_a, std::chrono::system_clock::time_point {}});
+    auto existing (peers.find (endpoint_a));
+    if (existing == peers.end ())
+    {
+        peers.insert ({endpoint_a, std::chrono::system_clock::now ()});
+    }
+    else
+    {
+        peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now ();});
+    }
 }
 
-std::vector <boost::asio::ip::udp::endpoint> mu_coin::peer_container::list ()
+std::vector <mu_coin::peer_information> mu_coin::peer_container::list ()
 {
-    std::vector <boost::asio::ip::udp::endpoint> result;
+    std::vector <mu_coin::peer_information> result;
     std::lock_guard <std::mutex> lock (mutex);
     result.reserve (peers.size ());
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
-        result.push_back (i->endpoint);
+        result.push_back (*i);
     }
     return result;
 }
@@ -2176,7 +2184,7 @@ pool (new boost::network::utils::thread_pool (threads_a))
     {
         (*i)->rpc.listen ();
         (*i)->network.receive ();
-        (*i)->peers.keepalive ();
+        (*i)->peers.refresh ();
     }
 }
 
@@ -2941,11 +2949,11 @@ client (client_a)
 {
 }
 
-void mu_coin::peer_container::keepalive ()
+void mu_coin::peer_container::refresh ()
 {
-    keepalive_action ();
+    refresh_action ();
 }
 
-void mu_coin::peer_container::keepalive_action ()
+void mu_coin::peer_container::refresh_action ()
 {
 }
