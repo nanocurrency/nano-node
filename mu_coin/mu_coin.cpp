@@ -1047,7 +1047,6 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
         std::cerr << "Keepalive " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const &, size_t) {});
-    client.peers.add_peer (endpoint_a);
 }
 
 void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
@@ -1063,7 +1062,6 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
-    client.peers.add_peer (endpoint_a);
 }
 
 void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block> block)
@@ -1081,7 +1079,6 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
         std::cerr << "Confirm " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
-    client.peers.add_peer (endpoint_a);
 }
 
 void mu_coin::network::receive_action (boost::system::error_code const & error, size_t size_a)
@@ -1091,7 +1088,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
         if (size_a >= sizeof (mu_coin::message_type))
         {
             auto sender (remote);
-            client.peers.add_peer (sender);
+            client.peers.incoming_from_peer (sender);
             mu_coin::bufferstream type_stream (buffer.data (), size_a);
             mu_coin::message_type type;
             read (type_stream, type);
@@ -1869,17 +1866,17 @@ mu_coin::process_result mu_coin::processor::process_publish (std::unique_ptr <mu
     return visitor.result;
 }
 
-void mu_coin::peer_container::add_peer (mu_coin::endpoint const & endpoint_a)
+void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto existing (peers.find (endpoint_a));
     if (existing == peers.end ())
     {
-        peers.insert ({endpoint_a, std::chrono::system_clock::now ()});
+        peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
     }
     else
     {
-        peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now ();});
+        peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
     }
 }
 
@@ -2176,7 +2173,7 @@ pool (new boost::network::utils::thread_pool (threads_a))
         {
             if (*i != *k)
             {
-                (*i)->peers.add_peer (mu_coin::endpoint {boost::asio::ip::address_v4::loopback (), (*k)->network.socket.local_endpoint ().port ()});
+                (*i)->peers.incoming_from_peer (mu_coin::endpoint {boost::asio::ip::address_v4::loopback (), (*k)->network.socket.local_endpoint ().port ()});
             }
         }
     }
@@ -2956,4 +2953,5 @@ void mu_coin::peer_container::refresh ()
 
 void mu_coin::peer_container::refresh_action ()
 {
+    
 }

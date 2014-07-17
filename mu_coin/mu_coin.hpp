@@ -703,13 +703,14 @@ namespace mu_coin {
     public:
         mu_coin::endpoint endpoint;
         std::chrono::system_clock::time_point last_contact;
+        std::chrono::system_clock::time_point last_attempt;
     };
     class peer_container
     {
     public:
         peer_container (mu_coin::client &);
         void refresh ();
-        void add_peer (mu_coin::endpoint const &);
+        void incoming_from_peer (mu_coin::endpoint const &);
         std::vector <peer_information> list ();
     private:
         void refresh_action ();
@@ -720,7 +721,8 @@ namespace mu_coin {
             boost::multi_index::indexed_by
             <
                 boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, mu_coin::endpoint, &peer_information::endpoint>>,
-                boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>
+                boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
+                boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
             >
         > peers;
     };    
