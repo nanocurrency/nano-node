@@ -1568,7 +1568,8 @@ ledger (store),
 wallet (0, wallet_path_a),
 network (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
-processor (processor_a, *this)
+processor (processor_a, *this),
+peers (*this)
 {
 }
 
@@ -1871,7 +1872,7 @@ mu_coin::process_result mu_coin::processor::process_publish (std::unique_ptr <mu
 void mu_coin::peer_container::add_peer (boost::asio::ip::udp::endpoint const & endpoint_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    peers.insert (endpoint_a);
+    peers.insert ({endpoint_a, std::chrono::system_clock::time_point {}});
 }
 
 std::vector <boost::asio::ip::udp::endpoint> mu_coin::peer_container::list ()
@@ -1881,7 +1882,7 @@ std::vector <boost::asio::ip::udp::endpoint> mu_coin::peer_container::list ()
     result.reserve (peers.size ());
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
-        result.push_back (*i);
+        result.push_back (i->endpoint);
     }
     return result;
 }
@@ -2160,7 +2161,6 @@ pool (new boost::network::utils::thread_pool (threads_a))
     {
         clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor, address)));
         clients.back ()->store.genesis_put (address, amount);
-        clients.back ()->network.receive ();
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {
@@ -2175,6 +2175,8 @@ pool (new boost::network::utils::thread_pool (threads_a))
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {
         (*i)->rpc.listen ();
+        (*i)->network.receive ();
+        (*i)->peers.keepalive ();
     }
 }
 
@@ -2932,4 +2934,18 @@ bool mu_coin::uint256_union::decode_base58check (std::string const & source_a)
         }
     }
     return result;
+}
+
+mu_coin::peer_container::peer_container (mu_coin::client & client_a) :
+client (client_a)
+{
+}
+
+void mu_coin::peer_container::keepalive ()
+{
+    keepalive_action ();
+}
+
+void mu_coin::peer_container::keepalive_action ()
+{
 }

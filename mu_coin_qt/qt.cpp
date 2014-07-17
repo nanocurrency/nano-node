@@ -10,6 +10,7 @@ application (application_a),
 main_stack (new QStackedWidget),
 settings_window (new QWidget),
 settings_layout (new QVBoxLayout),
+settings_port_label (new QLabel ((std::string ("Port: ") + std::to_string (client_a.network.socket.local_endpoint ().port ())).c_str ())),
 settings_password_label (new QLabel ("Password:")),
 settings_password (new QLineEdit),
 settings_back (new QPushButton ("Back")),
@@ -88,6 +89,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     balance_main_window_layout->setSpacing (0);
     balance_main_window->setLayout (balance_main_window_layout);
     
+    settings_layout->addWidget (settings_port_label);
     settings_layout->addWidget (settings_password_label);
     settings_password->setEchoMode (QLineEdit::EchoMode::Password);
     settings_layout->addWidget (settings_password);
@@ -225,12 +227,12 @@ void mu_coin_qt::gui::refresh_ledger ()
     for (auto i (client.ledger.store.latest_begin()), j (client.ledger.store.latest_end ()); i != j; ++i)
     {
         std::string account;
-        i->first.encode_hex (account);
+        i->first.encode_base58check (account);
         std::string block_hash;
         i->second.encode_hex (block_hash);
         std::string line;
         line += account;
-        line += ":";
+        line += " : ";
         line += block_hash;
         QString qline (line.c_str ());
         accounts << qline;

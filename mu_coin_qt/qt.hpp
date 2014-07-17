@@ -20,6 +20,7 @@ namespace mu_coin_qt {
         
         QWidget * settings_window;
         QVBoxLayout * settings_layout;
+        QLabel * settings_port_label;
         QLabel * settings_password_label;
         QLineEdit * settings_password;
         QPushButton * settings_back;

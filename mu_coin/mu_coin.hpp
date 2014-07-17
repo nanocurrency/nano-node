@@ -7,6 +7,10 @@
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/stream.hpp>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -147,6 +151,18 @@ namespace std
         {
             endpoint_hash <sizeof (size_t)> ehash;
             return ehash (endpoint_a);
+        }
+    };
+}
+namespace boost
+{
+    template <>
+    struct hash <mu_coin::endpoint>
+    {
+        size_t operator () (mu_coin::endpoint const & endpoint_a) const
+        {
+            std::hash <mu_coin::endpoint> hash;
+            return hash (endpoint_a);
         }
     };
 }
@@ -682,14 +698,31 @@ namespace mu_coin {
         mu_coin::client & client;
         bool on;
     };
+    class peer_information
+    {
+    public:
+        boost::asio::ip::udp::endpoint endpoint;
+        std::chrono::system_clock::time_point last_contact;
+    };
     class peer_container
     {
     public:
+        peer_container (mu_coin::client &);
+        void keepalive ();
         void add_peer (boost::asio::ip::udp::endpoint const &);
         std::vector <boost::asio::ip::udp::endpoint> list ();
     private:
+        void keepalive_action ();
+        mu_coin::client & client;
         std::mutex mutex;
-        std::unordered_set <boost::asio::ip::udp::endpoint> peers;
+        boost::multi_index_container
+        <peer_information,
+            boost::multi_index::indexed_by
+            <
+                boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, boost::asio::ip::udp::endpoint, &peer_information::endpoint>>,
+                boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>
+            >
+        > peers;
     };    
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
