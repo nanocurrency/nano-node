@@ -641,7 +641,7 @@ namespace mu_coin {
     class processor
     {
     public:
-        processor (mu_coin::processor_service &, mu_coin::client &);
+        processor (mu_coin::client &);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
@@ -652,7 +652,6 @@ namespace mu_coin {
         size_t publish_listener_size ();
 		void confirm_ack (std::unique_ptr <mu_coin::confirm_ack>, mu_coin::endpoint const &);
 		void confirm_nak (std::unique_ptr <mu_coin::confirm_nak>, mu_coin::endpoint const &);
-        mu_coin::processor_service & service;
         mu_coin::client & client;
     private:
         std::mutex mutex;
@@ -709,10 +708,9 @@ namespace mu_coin {
     {
     public:
         peer_container (mu_coin::client &);
-        void refresh ();
+        void start ();
         void incoming_from_peer (mu_coin::endpoint const &);
         std::vector <peer_information> list ();
-    private:
         void refresh_action ();
         mu_coin::client & client;
         std::mutex mutex;
@@ -725,7 +723,20 @@ namespace mu_coin {
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
             >
         > peers;
-    };    
+    };
+    class peer_refresh
+    {
+    public:
+        peer_refresh (mu_coin::peer_container & container_a);
+        void refresh_action ();
+        void prune_disconnected ();
+        void queue_next_refresh ();
+        void send_keepalives ();
+        mu_coin::peer_container & container;
+        std::chrono::system_clock::time_point const now;
+        std::chrono::system_clock::duration const period;
+        std::chrono::system_clock::duration const cutoff;
+    };   
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
     public:
@@ -760,6 +771,7 @@ namespace mu_coin {
         mu_coin::rpc rpc;
         mu_coin::processor processor;
         mu_coin::peer_container peers;
+        mu_coin::processor_service & service;
     };
     class system
     {

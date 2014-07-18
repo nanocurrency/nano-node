@@ -126,11 +126,11 @@ TEST (receivable_processor, timeout)
     auto receivable (std::make_shared <mu_coin::receivable_processor> (nullptr, mu_coin::endpoint {}, *system.clients [0]));
     ASSERT_EQ (0, system.clients [0]->processor.publish_listener_size ());
     ASSERT_FALSE (receivable->complete);
-    ASSERT_EQ (0, system.processor.size ());
-    receivable->advance_timeout ();
     ASSERT_EQ (1, system.processor.size ());
     receivable->advance_timeout ();
     ASSERT_EQ (2, system.processor.size ());
+    receivable->advance_timeout ();
+    ASSERT_EQ (3, system.processor.size ());
 }
 
 TEST (receivable_processor, confirm_no_pos)
@@ -430,4 +430,39 @@ TEST (rpc, wallet_list)
     {
         ASSERT_NE (system.clients [0]->wallet.end (), system.clients [0]->wallet.find (*i));
     }
+}
+
+TEST (peer_refresh, empty_peers)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::peer_refresh refresh (system.clients [0]->peers);
+    ASSERT_EQ (0, refresh.container.peers.size ());
+    refresh.refresh_action ();
+}
+
+TEST (peer_refresh, queue_next_refresh)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::peer_refresh refresh (system.clients [0]->peers);
+    auto callbacks (system.processor.size ());
+    refresh.queue_next_refresh ();
+    ASSERT_EQ (callbacks + 1, system.processor.size ());
+}
+
+TEST (peer_refresh, prune_disconnected)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::peer_refresh refresh (system.clients [0]->peers);
+    ASSERT_EQ (0, refresh.container.peers.size ());
+    mu_coin::endpoint endpoint1 (boost::asio::ip::address_v4::loopback (), 24001);
+    mu_coin::endpoint endpoint2 (boost::asio::ip::address_v4::loopback (), 24002);
+    refresh.container.peers.insert ({endpoint1, std::chrono::system_clock::now () - std::chrono::seconds (100000), std::chrono::system_clock::now () - std::chrono::seconds (100000)});
+    refresh.container.peers.insert ({endpoint2, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
+    ASSERT_EQ (2, refresh.container.peers.size ());
+    refresh.prune_disconnected ();
+    ASSERT_EQ (1, refresh.container.peers.size ());
+    ASSERT_NE (refresh.container.peers.end (), refresh.container.peers.find (endpoint2));
 }

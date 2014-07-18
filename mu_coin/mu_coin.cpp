@@ -1547,8 +1547,7 @@ void mu_coin::processor_service::stop ()
     condition.notify_all ();
 }
 
-mu_coin::processor::processor (mu_coin::processor_service & service_a, mu_coin::client & client_a) :
-service (service_a),
+mu_coin::processor::processor (mu_coin::client & client_a) :
 client (client_a)
 {
 }
@@ -1565,8 +1564,9 @@ ledger (store),
 wallet (0, wallet_path_a),
 network (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
-processor (processor_a, *this),
-peers (*this)
+processor (*this),
+peers (*this),
+service (processor_a)
 {
 }
 
@@ -1707,7 +1707,7 @@ void mu_coin::receivable_processor::advance_timeout ()
 {
     auto this_l (shared_from_this ());
     timeout = std::chrono::system_clock::now () + std::chrono::seconds (5);
-    client.processor.service.add (timeout, [this_l] () {this_l->timeout_action ();});
+    client.service.add (timeout, [this_l] () {this_l->timeout_action ();});
 }
 
 void mu_coin::receivable_processor::timeout_action ()
@@ -2181,7 +2181,7 @@ pool (new boost::network::utils::thread_pool (threads_a))
     {
         (*i)->rpc.listen ();
         (*i)->network.receive ();
-        (*i)->peers.refresh ();
+        (*i)->peers.start ();
     }
 }
 
@@ -2946,12 +2946,63 @@ client (client_a)
 {
 }
 
-void mu_coin::peer_container::refresh ()
+void mu_coin::peer_container::start ()
 {
     refresh_action ();
 }
 
+mu_coin::peer_refresh::peer_refresh (mu_coin::peer_container & container_a) :
+container (container_a),
+now (std::chrono::system_clock::now ()),
+period (std::chrono::seconds (10)),
+cutoff (period * 5)
+{
+}
+
+void mu_coin::peer_refresh::refresh_action ()
+{
+    prune_disconnected ();
+    send_keepalives ();
+    queue_next_refresh ();
+}
+
+void mu_coin::peer_refresh::prune_disconnected ()
+{
+    std::vector <mu_coin::endpoint> deletion;
+    for (auto i (container.peers.get <1> ().begin ()), j (container.peers.get <1> ().end ()); i != j && now - i->last_contact > cutoff; ++i)
+    {
+        deletion.push_back (i->endpoint);
+    }
+    for (auto i (deletion.begin ()), j (deletion.end ()); i != j; ++i)
+    {
+        container.peers.erase (*i);
+    }
+}
+
+void mu_coin::peer_refresh::queue_next_refresh ()
+{
+    auto next (container.peers.get <2> ().begin ());
+    if (next != container.peers.get <2> ().end ())
+    {
+        container.client.service.add (next->last_attempt + period, [this] () { refresh_action ();});
+    }
+    else
+    {
+        container.client.service.add (now + period, [this] () { refresh_action ();});
+    }
+}
+
+void mu_coin::peer_refresh::send_keepalives ()
+{
+    for (auto i (container.peers.get <2> ().begin ()), j (container.peers.get <2> ().end ()); i != j && now - i->last_attempt > period; ++i)
+    {
+        container.client.network.send_keepalive (i->endpoint);
+    }
+}
+
 void mu_coin::peer_container::refresh_action ()
 {
-    
+    std::lock_guard <std::mutex> lock (mutex);
+    peer_refresh refresh (*this);
+    refresh.refresh_action ();
 }
