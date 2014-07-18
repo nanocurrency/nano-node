@@ -11,6 +11,9 @@ main_stack (new QStackedWidget),
 settings_window (new QWidget),
 settings_layout (new QVBoxLayout),
 settings_port_label (new QLabel ((std::string ("Port: ") + std::to_string (client_a.network.socket.local_endpoint ().port ())).c_str ())),
+settings_connect_label (new QLabel ("Connect to IP:Port")),
+settings_connect_line (new QLineEdit),
+settings_connect_button (new QPushButton ("Connect")),
 settings_password_label (new QLabel ("Password:")),
 settings_password (new QLineEdit),
 settings_back (new QPushButton ("Back")),
@@ -90,12 +93,31 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     balance_main_window->setLayout (balance_main_window_layout);
     
     settings_layout->addWidget (settings_port_label);
+    settings_layout->addWidget (settings_connect_label);
+    settings_layout->addWidget (settings_connect_line);
+    settings_layout->addWidget (settings_connect_button);
     settings_layout->addWidget (settings_password_label);
     settings_password->setEchoMode (QLineEdit::EchoMode::Password);
     settings_layout->addWidget (settings_password);
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
     
+    QObject::connect (settings_connect_button, &QPushButton::released, [this] ()
+    {
+        QString address_text_wide (settings_connect_line->text ());
+        std::string address_text (address_text_wide.toLocal8Bit ());
+        mu_coin::endpoint endpoint;
+        if (!mu_coin::parse_endpoint (address_text, endpoint))
+        {
+            
+        }
+        else
+        {
+            QPalette palette;
+            palette.setColor (QPalette::Text, Qt::red);
+            settings_connect_line->setPalette (palette);
+        }
+    });
     QObject::connect (show_ledger, &QPushButton::released, [this] ()
     {
         push_main_stack (ledger_window);
@@ -203,7 +225,6 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     });
     QObject::connect (settings_password, &QLineEdit::editingFinished, [this] ()
     {
-        assert (false);
 /*        CryptoPP::SHA256 hash;
         QString text_w (settings_password.text ());
         std::string text (text_w.toLocal8Bit ());

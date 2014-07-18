@@ -102,6 +102,7 @@ namespace mu_coin {
     };
     using signature = uint512_union;
     using endpoint = boost::asio::ip::udp::endpoint;
+    bool parse_endpoint (std::string const &, mu_coin::endpoint &);
 }
 
 namespace std
@@ -712,6 +713,7 @@ namespace mu_coin {
         void incoming_from_peer (mu_coin::endpoint const &);
         std::vector <peer_information> list ();
         void refresh_action ();
+        void queue_next_refresh ();
         mu_coin::client & client;
         std::mutex mutex;
         boost::multi_index_container
@@ -723,6 +725,8 @@ namespace mu_coin {
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
             >
         > peers;
+        std::chrono::system_clock::duration const period;
+        std::chrono::system_clock::duration const cutoff;
     };
     class peer_refresh
     {
@@ -730,12 +734,9 @@ namespace mu_coin {
         peer_refresh (mu_coin::peer_container & container_a);
         void refresh_action ();
         void prune_disconnected ();
-        void queue_next_refresh ();
         void send_keepalives ();
         mu_coin::peer_container & container;
         std::chrono::system_clock::time_point const now;
-        std::chrono::system_clock::duration const period;
-        std::chrono::system_clock::duration const cutoff;
     };   
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {

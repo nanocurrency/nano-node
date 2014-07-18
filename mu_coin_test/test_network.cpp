@@ -447,7 +447,7 @@ TEST (peer_refresh, queue_next_refresh)
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
     mu_coin::peer_refresh refresh (system.clients [0]->peers);
     auto callbacks (system.processor.size ());
-    refresh.queue_next_refresh ();
+    refresh.container.queue_next_refresh ();
     ASSERT_EQ (callbacks + 1, system.processor.size ());
 }
 
@@ -465,4 +465,55 @@ TEST (peer_refresh, prune_disconnected)
     refresh.prune_disconnected ();
     ASSERT_EQ (1, refresh.container.peers.size ());
     ASSERT_NE (refresh.container.peers.end (), refresh.container.peers.find (endpoint2));
+}
+
+TEST (parse_endpoint, valid)
+{
+    std::string string ("127.0.0.1:24000");
+    mu_coin::endpoint endpoint;
+    ASSERT_FALSE (mu_coin::parse_endpoint (string, endpoint));
+    ASSERT_EQ (boost::asio::ip::address_v4::loopback (), endpoint.address ());
+    ASSERT_EQ (24000, endpoint.port ());
+}
+
+TEST (parse_endpoint, invalid_port)
+{
+    std::string string ("127.0.0.1:24a00");
+    mu_coin::endpoint endpoint;
+    ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, invalid_address)
+{
+    std::string string ("127.0q.0.1:24000");
+    mu_coin::endpoint endpoint;
+    ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, nothing)
+{
+    std::string string ("127.0q.0.1:24000");
+    mu_coin::endpoint endpoint;
+    ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, no_address)
+{
+    std::string string (":24000");
+    mu_coin::endpoint endpoint;
+    ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, no_port)
+{
+    std::string string ("127.0.0.1:");
+    mu_coin::endpoint endpoint;
+    ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, no_colon)
+{
+    std::string string ("127.0.0.1");
+    mu_coin::endpoint endpoint;
+    ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
 }
