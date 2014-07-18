@@ -109,7 +109,8 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
         mu_coin::endpoint endpoint;
         if (!mu_coin::parse_endpoint (address_text, endpoint))
         {
-            
+            client.network.send_keepalive (endpoint);
+            settings_connect_line->clear ();
         }
         else
         {
