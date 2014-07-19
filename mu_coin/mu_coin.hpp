@@ -327,6 +327,7 @@ namespace mu_coin {
     {
     public:
         account_iterator (Dbc *);
+        account_iterator (Dbc *, mu_coin::address const &);
         account_iterator (mu_coin::account_iterator &&) = default;
         account_iterator (mu_coin::account_iterator const &) = default;
         account_iterator & operator ++ ();
@@ -378,6 +379,7 @@ namespace mu_coin {
         void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
         bool latest_get (mu_coin::address const &, mu_coin::block_hash &);
 		void latest_del (mu_coin::address const &);
+        account_iterator latest_begin (mu_coin::address const &);
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
@@ -450,7 +452,8 @@ namespace mu_coin {
         confirm_req,
         confirm_ack,
         confirm_nak,
-        confirm_unk
+        confirm_unk,
+        bulk_req
     };
     class message_visitor;
     class message
@@ -559,6 +562,16 @@ namespace mu_coin {
         mu_coin::address rep_hint;
         mu_coin::uint256_union session;
     };
+    class bulk_req : public message
+    {
+    public:
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
+        void visit (mu_coin::message_visitor &) override;
+        mu_coin::uint256_union begin;
+        mu_coin::uint256_union end;
+        
+    };
     class message_visitor
     {
     public:
@@ -572,6 +585,7 @@ namespace mu_coin {
         virtual void confirm_ack (mu_coin::confirm_ack const &) = 0;
         virtual void confirm_nak (mu_coin::confirm_nak const &) = 0;
         virtual void confirm_unk (mu_coin::confirm_unk const &) = 0;
+        virtual void bulk_req (mu_coin::bulk_req const &) = 0;
     };
     struct wallet_temp_t
     {
@@ -643,6 +657,8 @@ namespace mu_coin {
     {
     public:
         processor (mu_coin::client &);
+        void bootstrap ();
+        void bulk_response (std::unique_ptr <mu_coin::bulk_req>);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
@@ -686,6 +702,29 @@ namespace mu_coin {
         uint64_t confirm_unk_count;
         uint64_t unknown_count;
         bool on;
+    };
+    class bootstrap
+    {
+    public:
+        bootstrap (boost::asio::io_service &, uint16_t, mu_coin::client &);
+        void accept ();
+        void stop ();
+        void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
+        boost::asio::ip::tcp::acceptor acceptor;
+        boost::asio::ip::tcp::endpoint local;
+        boost::asio::io_service & service;
+        mu_coin::client & client;
+        bool on;
+    };
+    class bootstrap_connection
+    {
+    public:
+        bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, mu_coin::client &);
+        void receive ();
+        void receive_action (boost::system::error_code const &, size_t);
+        std::array <uint8_t, 64> buffer;
+        std::shared_ptr <boost::asio::ip::tcp::socket> socket;
+        mu_coin::client & client;
     };
     class rpc
     {
@@ -758,12 +797,21 @@ namespace mu_coin {
         std::mutex mutex;
         bool complete;
     };
+    class bulk_response_processor : public std::enable_shared_from_this <bulk_response_processor>
+    {
+    public:
+        bulk_response_processor (mu_coin::client &, std::unique_ptr <mu_coin::bulk_req>);
+        void run ();
+        std::unique_ptr <mu_coin::bulk_req> request;
+        mu_coin::client & client;
+    };
     class client
     {
     public:
         client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &);
         client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
+        void start ();
         mu_coin::address representative;
         mu_coin::block_store store;
         mu_coin::ledger ledger;

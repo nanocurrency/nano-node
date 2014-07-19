@@ -850,7 +850,7 @@ representation (nullptr, 0),
 forks (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
-    addresses.open (nullptr, (path_a / "addresses.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    addresses.open (nullptr, (path_a / "addresses.bdb").native ().c_str (), nullptr, DB_BTREE, DB_CREATE | DB_EXCL, 0);
     blocks.open (nullptr, (path_a / "blocks.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     pending.open (nullptr, (path_a / "pending.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     representation.open (nullptr, (path_a / "representation.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
@@ -1624,37 +1624,41 @@ public:
     sender (sender_a)
     {
     }
-    void keepalive_req (mu_coin::keepalive_req const &)
+    void keepalive_req (mu_coin::keepalive_req const &) override
     {
         assert (false);
     }
-    void keepalive_ack (mu_coin::keepalive_ack const &)
+    void keepalive_ack (mu_coin::keepalive_ack const &) override
     {
         assert (false);
     }
-    void publish_req (mu_coin::publish_req const &)
+    void publish_req (mu_coin::publish_req const &) override
     {
         assert (false);
     }
-    void publish_ack (mu_coin::publish_ack const &)
+    void publish_ack (mu_coin::publish_ack const &) override
     {
         assert (false);
     }
-    void publish_err (mu_coin::publish_err const &)
+    void publish_err (mu_coin::publish_err const &) override
     {
         assert (false);
     }
-    void publish_nak (mu_coin::publish_nak const &)
+    void publish_nak (mu_coin::publish_nak const &) override
     {
         assert (false);
     }
-    void confirm_req (mu_coin::confirm_req const &)
+    void confirm_req (mu_coin::confirm_req const &) override
     {
         assert (false);
     }
-    void confirm_ack (mu_coin::confirm_ack const &);
-    void confirm_unk (mu_coin::confirm_unk const &);
-    void confirm_nak (mu_coin::confirm_nak const &);
+    void confirm_ack (mu_coin::confirm_ack const &) override;
+    void confirm_unk (mu_coin::confirm_unk const &) override;
+    void confirm_nak (mu_coin::confirm_nak const &) override;
+    void bulk_req (mu_coin::bulk_req const &) override
+    {
+        assert (false);
+    }
     mu_coin::receivable_processor & processor;
     mu_coin::endpoint sender;
 };
@@ -2027,7 +2031,7 @@ mu_coin::account_entry & mu_coin::account_iterator::operator -> ()
 
 bool mu_coin::account_iterator::operator == (mu_coin::account_iterator const & other_a) const
 {
-    return cursor == other_a.cursor;
+    return (cursor == nullptr && other_a.cursor == nullptr) || (cursor != nullptr && other_a.cursor != nullptr && current.first == other_a.current.first);
 }
 
 bool mu_coin::account_iterator::operator != (mu_coin::account_iterator const & other_a) const
@@ -2179,9 +2183,7 @@ pool (new boost::network::utils::thread_pool (threads_a))
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {
-        (*i)->rpc.listen ();
-        (*i)->network.receive ();
-        (*i)->peers.start ();
+        (*i)->start ();
     }
 }
 
@@ -3046,4 +3048,173 @@ bool mu_coin::parse_endpoint (std::string const & string, mu_coin::endpoint & en
         result = true;
     }
     return result;
+}
+
+void mu_coin::bulk_req::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.bulk_req (*this);
+}
+
+bool mu_coin::bulk_req::deserialize (mu_coin::stream & stream_a)
+{
+    mu_coin::message_type type;
+    auto result (read (stream_a, type));
+    if (!result)
+    {
+        assert (type == mu_coin::message_type::bulk_req);
+        result = read (stream_a, begin);
+        if (!result)
+        {
+            result = read (stream_a, end);
+        }
+    }
+    return result;
+}
+
+void mu_coin::bulk_req::serialize (mu_coin::stream & stream_a)
+{
+    write (stream_a, begin);
+    write (stream_a, end);
+}
+
+void mu_coin::client::start ()
+{
+    rpc.listen ();
+    network.receive ();
+    peers.start ();
+}
+
+void mu_coin::processor::bootstrap ()
+{
+    
+}
+
+mu_coin::bootstrap::bootstrap (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client & client_a) :
+acceptor (service_a),
+local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), port_a)),
+service (service_a),
+client (client_a)
+{
+}
+
+void mu_coin::bootstrap::accept ()
+{
+    acceptor.open (local.protocol ());
+    acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+    acceptor.bind (local);
+    acceptor.listen ();
+    auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
+    acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & error) {accept_action (error, socket); });
+}
+
+void mu_coin::bootstrap::stop ()
+{
+    on = false;
+}
+
+void mu_coin::bootstrap::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
+{
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (socket_a, client));
+    connection->receive ();
+}
+
+mu_coin::bootstrap_connection::bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, mu_coin::client & client_a) :
+socket (socket_a),
+client (client_a)
+{
+}
+
+void mu_coin::bootstrap_connection::receive ()
+{
+    socket->async_receive (boost::asio::buffer (buffer), [this] (boost::system::error_code const & ec, size_t size_a) {receive_action (ec, size_a);});
+}
+
+void mu_coin::bootstrap_connection::receive_action (boost::system::error_code const & ec, size_t size_a)
+{
+    if (!ec)
+    {
+        if (size_a >= sizeof (mu_coin::message_type))
+        {
+            mu_coin::bufferstream type_stream (buffer.data (), size_a);
+            mu_coin::message_type type;
+            read (type_stream, type);
+            switch (type)
+            {
+                case mu_coin::message_type::bulk_req:
+                {
+                    auto incoming (new mu_coin::bulk_req);
+                    mu_coin::bufferstream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    receive ();
+                    if (!error)
+                    {
+                        client.processor.bulk_response (std::unique_ptr <mu_coin::bulk_req> (incoming));
+                    }
+                    break;
+                }
+                default:
+                {
+                    break;
+                }
+            }
+        }
+        else
+        {
+            receive ();
+        }
+    }
+}
+
+void mu_coin::processor::bulk_response (std::unique_ptr <mu_coin::bulk_req> incoming)
+{
+    auto processor_l (std::make_shared <mu_coin::bulk_response_processor> (client, std::move (incoming)));
+    processor_l->run ();
+}
+
+mu_coin::bulk_response_processor::bulk_response_processor (mu_coin::client & client_a, std::unique_ptr <mu_coin::bulk_req> request_a) :
+request (std::move (request_a)),
+client (client_a)
+{
+}
+
+void mu_coin::bulk_response_processor::run ()
+{
+    auto this_l (shared_from_this ());
+    auto block (client.store.block_get (request->begin));
+    if (block == nullptr)
+    {
+        mu_coin::block_hash frontier;
+        auto error (client.store.latest_get (request->begin, frontier));
+        
+    }
+    for (auto i (0); i < 10; ++i)
+    {
+    }
+}
+
+mu_coin::account_iterator mu_coin::block_store::latest_begin (mu_coin::address const & address_a)
+{
+    Dbc * cursor;
+    addresses.cursor (0, &cursor, 0);
+    mu_coin::account_iterator result (cursor, address_a);
+    return result;
+}
+
+mu_coin::account_iterator::account_iterator (Dbc * cursor_a, mu_coin::address const & address_a) :
+cursor (cursor_a)
+{
+    key = address_a;
+    auto result (cursor->get (&key.data, &data.data, DB_SET_RANGE));
+    if (result == DB_NOTFOUND)
+    {
+        cursor->close ();
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.clear ();
+    }
+    else
+    {
+        current.first = key.uint256 ();
+        current.second = data.uint256 ();
+    }
 }

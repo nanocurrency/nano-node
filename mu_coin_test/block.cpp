@@ -389,3 +389,23 @@ TEST (block_store, two_account)
     ++begin;
     ASSERT_EQ (end, begin);
 }
+
+TEST (block_store, latest_find)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::address address1 (1);
+    mu_coin::block_hash hash1 (2);
+    mu_coin::address address2 (3);
+    mu_coin::block_hash hash2 (4);
+    store.latest_put (address1, hash1);
+    store.latest_put (address2, hash2);
+    auto first (store.latest_begin ());
+    auto second (store.latest_begin ());
+    ++second;
+    auto find1 (store.latest_begin (1));
+    ASSERT_EQ (first, find1);
+    auto find2 (store.latest_begin (3));
+    ASSERT_EQ (second, find2);
+    auto find3 (store.latest_begin (2));
+    ASSERT_EQ (second, find3);
+}
