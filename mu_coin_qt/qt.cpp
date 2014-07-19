@@ -109,6 +109,9 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
         mu_coin::endpoint endpoint;
         if (!mu_coin::parse_endpoint (address_text, endpoint))
         {
+            QPalette palette;
+            palette.setColor (QPalette::Text, Qt::black);
+            send_address->setPalette (palette);
             client.network.send_keepalive (endpoint);
             settings_connect_line->clear ();
         }
@@ -168,12 +171,12 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             parse_error = address.decode_base58check (address_text_narrow);
             if (!parse_error)
             {
-                QPalette palette;
-                palette.setColor (QPalette::Text, Qt::black);
-                send_address->setPalette (palette);
                 auto send_error (client.send (address, coins.number (), client.wallet.password));
                 if (!send_error)
                 {
+                    QPalette palette;
+                    palette.setColor (QPalette::Text, Qt::black);
+                    send_address->setPalette (palette);
                     send_count->clear ();
                     send_address->clear ();
                     refresh_wallet ();
