@@ -392,6 +392,14 @@ namespace mu_coin {
         void fork_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> fork_get (mu_coin::block_hash const &);
         
+        void bootstrap_put (mu_coin::block_hash const &, mu_coin::block const &);
+        std::unique_ptr <mu_coin::block> bootstrap_get (mu_coin::block_hash const &);
+        void bootstrap_del (mu_coin::block_hash const &);
+        
+        void successor_put (mu_coin::block_hash const &, mu_coin::block_hash const &);
+        bool successor_get (mu_coin::block_hash const &, mu_coin::block_hash &);
+        void successor_del (mu_coin::block_hash const &);
+        
     private:
         // address -> block_hash                // Each address has one head block
         Db addresses;
@@ -404,9 +412,9 @@ namespace mu_coin {
         // block_hash -> block                  // Fork proof
         Db forks;
         // block_hash -> block                  // Unchecked bootstrap blocks
-        Db bootstrap_blocks;
+        Db bootstrap;
         // block_hash -> block_hash             // Tracking successors for bootstrapping
-        Db bootstrap_successors;
+        Db successors;
     };
     enum class process_result
     {
@@ -723,6 +731,7 @@ namespace mu_coin {
         uint64_t confirm_nak_count;
         uint64_t confirm_unk_count;
         uint64_t unknown_count;
+        uint64_t error_count;
         bool on;
     };
     class bootstrap

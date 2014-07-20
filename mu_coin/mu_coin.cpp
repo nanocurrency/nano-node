@@ -848,8 +848,8 @@ blocks (nullptr, 0),
 pending (nullptr, 0),
 representation (nullptr, 0),
 forks (nullptr, 0),
-bootstrap_blocks (nullptr, 0),
-bootstrap_successors (nullptr, 0)
+bootstrap (nullptr, 0),
+successors (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
     addresses.open (nullptr, (path_a / "addresses.bdb").native ().c_str (), nullptr, DB_BTREE, DB_CREATE | DB_EXCL, 0);
@@ -857,8 +857,8 @@ bootstrap_successors (nullptr, 0)
     pending.open (nullptr, (path_a / "pending.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     representation.open (nullptr, (path_a / "representation.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     forks.open (nullptr, (path_a / "forks.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
-    bootstrap_blocks.open (nullptr, (path_a / "bootstrap.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
-    bootstrap_successors.open (nullptr, (path_a / "successors.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    bootstrap.open (nullptr, (path_a / "bootstrap.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    successors.open (nullptr, (path_a / "successors.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
@@ -1024,6 +1024,7 @@ confirm_ack_count (0),
 confirm_nak_count (0),
 confirm_unk_count (0),
 unknown_count (0),
+error_count (0),
 on (true)
 {
 }
@@ -1177,6 +1178,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             }
                         }
                     }
+                    else
+                    {
+                        ++error_count;
+                    }
                     break;
                 }
                 case mu_coin::message_type::publish_ack:
@@ -1185,6 +1190,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     auto incoming (new mu_coin::publish_ack);
                     mu_coin::bufferstream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
+                    if (error)
+                    {
+                        ++error_count;
+                    }
                     receive ();
                     break;
                 }
@@ -1194,6 +1203,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     auto incoming (new mu_coin::publish_err);
                     mu_coin::bufferstream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
+                    if (error)
+                    {
+                        ++error_count;
+                    }
                     receive ();
                     break;
                 }
@@ -1203,6 +1216,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     auto incoming (new mu_coin::publish_nak);
                     mu_coin::bufferstream stream (buffer.data (), size_a);
                     auto error (incoming->deserialize (stream));
+                    if (error)
+                    {
+                        ++error_count;
+                    }
                     receive ();
                     break;
                 }
@@ -3419,4 +3436,63 @@ bool mu_coin::block_store::block_exists (mu_coin::block_hash const & hash_a)
 void mu_coin::bootstrap_processor::stop_blocks ()
 {
     
+}
+
+void mu_coin::block_store::bootstrap_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
+{
+    dbt key (hash_a);
+    dbt data (block_a);
+    int error (bootstrap.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::block_store::bootstrap_get (mu_coin::block_hash const & hash_a)
+{
+    dbt key (hash_a);
+    dbt data;
+    int error (bootstrap.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
+    auto result (data.block ());
+    return result;
+}
+
+void mu_coin::block_store::successor_put (mu_coin::block_hash const & hash_a, mu_coin::block_hash const & successor_a)
+{
+    dbt key (hash_a);
+    dbt data (successor_a);
+    int error (successors.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
+}
+
+bool mu_coin::block_store::successor_get (mu_coin::block_hash const & hash_a, mu_coin::block_hash & successor_a)
+{
+    dbt key (hash_a);
+    dbt data;
+    int error (successors.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
+    bool result;
+    if (error == DB_NOTFOUND)
+    {
+        result = true;
+    }
+    else
+    {
+        result = false;
+        successor_a = data.uint256 ();
+    }
+    return result;
+}
+
+void mu_coin::block_store::bootstrap_del (mu_coin::block_hash const & hash_a)
+{
+    dbt key (hash_a);
+    int error (bootstrap.del (nullptr, &key.data, 0));
+    assert (error == 0);
+}
+
+void mu_coin::block_store::successor_del (mu_coin::block_hash const & hash_a)
+{
+    dbt key (hash_a);
+    int error (successors.del (nullptr, &key.data, 0));
+    assert (error == 0);
 }

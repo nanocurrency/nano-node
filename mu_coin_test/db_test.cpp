@@ -134,3 +134,34 @@ TEST (fork, adding_checking)
     auto block3 (store.fork_get (block1.hash ()));
     ASSERT_EQ (block2, *block3);
 }
+
+TEST (bootstrap, simple)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::send_block block1;
+    auto block2 (store.bootstrap_get (block1.hash ()));
+    ASSERT_EQ (nullptr, block2);
+    store.bootstrap_put (block1.hash (), block1);
+    auto block3 (store.bootstrap_get (block1.hash ()));
+    ASSERT_NE (nullptr, block3);
+    ASSERT_EQ (block1, *block3);
+    store.bootstrap_del (block1.hash ());
+    auto block4 (store.bootstrap_get (block1.hash ()));
+    ASSERT_EQ (nullptr, block4);
+}
+
+TEST (successor, simple)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::block_hash hash1;
+    mu_coin::block_hash hash2;
+    mu_coin::block_hash hash3;
+    ASSERT_TRUE (store.successor_get (hash1, hash3));
+    store.successor_put (hash1, hash2);
+    mu_coin::block_hash hash4;
+    ASSERT_FALSE (store.successor_get (hash1, hash4));
+    ASSERT_EQ (hash2, hash4);
+    store.successor_del (hash1);
+    mu_coin::block_hash hash5;
+    ASSERT_TRUE (store.successor_get (hash1, hash5));
+}
