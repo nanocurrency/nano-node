@@ -172,6 +172,8 @@ namespace mu_coin {
     class block_visitor;
     enum class block_type : uint8_t
     {
+        invalid,
+        not_a_block,
         send,
         receive,
         open,
@@ -828,12 +830,20 @@ namespace mu_coin {
         std::mutex mutex;
         bool complete;
     };
+    enum class bulk_message_types : uint8_t
+    {
+        invalid,
+        not_a_type,
+        finished
+    };
     class bulk_response_processor : public std::enable_shared_from_this <bulk_response_processor>
     {
     public:
         bulk_response_processor (mu_coin::client &, std::unique_ptr <mu_coin::bulk_req>, std::shared_ptr <boost::asio::ip::tcp::socket>);
         void run ();
         void send_next ();
+        void send_finished ();
+        void receive_command ();
         std::unique_ptr <mu_coin::bulk_req> request;
         mu_coin::client & client;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;

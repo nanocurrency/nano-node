@@ -3213,9 +3213,7 @@ void mu_coin::bulk_response_processor::run ()
         mu_coin::block_hash hash;
         if (latest == client.store.latest_end ())
         {
-            auto latest (client.store.latest_begin ());
-            assert (latest != client.store.latest_end ());
-            hash = latest->second;
+            send_finished ();
         }
         else
         {
@@ -3495,4 +3493,13 @@ void mu_coin::block_store::successor_del (mu_coin::block_hash const & hash_a)
     dbt key (hash_a);
     int error (successors.del (nullptr, &key.data, 0));
     assert (error == 0);
+}
+
+void mu_coin::bulk_response_processor::send_finished ()
+{
+    auto buffer (std::shared_ptr <std::array <uint8_t, 2>> (new std::array <uint8_t, 2> ()));
+    buffer->data () [0] = static_cast <uint8_t> (mu_coin::block_type::not_a_block);
+    buffer->data () [1] = static_cast <uint8_t> (mu_coin::bulk_message_types::finished);
+    auto this_l (shared_from_this ());
+    boost::asio::async_write (*socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a) {});
 }
