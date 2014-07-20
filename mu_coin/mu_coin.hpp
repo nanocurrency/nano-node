@@ -371,6 +371,7 @@ namespace mu_coin {
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
 		void block_del (mu_coin::block_hash const &);
+        bool block_exists (mu_coin::block_hash const &);
         block_iterator blocks_begin ();
         block_iterator blocks_end ();
         
@@ -682,6 +683,16 @@ namespace mu_coin {
         bootstrap_processor (mu_coin::client &);
         void run (boost::asio::ip::tcp::endpoint const &);
         void connect_action (boost::system::error_code const &);
+        void send_action (boost::system::error_code const &, size_t);
+        void receive_block ();
+        void received_type (boost::system::error_code const &, size_t);
+        void received_send (boost::system::error_code const &, size_t);
+        void received_receive (boost::system::error_code const &, size_t);
+        void received_open (boost::system::error_code const &, size_t);
+        void received_change (boost::system::error_code const &, size_t);
+        void received_block (std::unique_ptr <mu_coin::block>);
+        void stop_blocks ();
+        std::array <uint8_t, 4000> buffer;
         mu_coin::client & client;
         boost::asio::ip::tcp::socket socket;
     };

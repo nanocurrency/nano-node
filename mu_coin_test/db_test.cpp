@@ -13,10 +13,12 @@ TEST (block_store, add_item)
     mu_coin::uint256_union hash1 (block.hash ());
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
+    ASSERT_FALSE (db.block_exists (hash1));
     db.block_put (hash1, block);
     auto latest2 (db.block_get (hash1));
     ASSERT_NE (nullptr, latest2);
     ASSERT_EQ (block, *latest2);
+    ASSERT_TRUE (db.block_exists (hash1));
 	db.block_del (hash1);
 	auto latest3 (db.block_get (hash1));
 	ASSERT_EQ (nullptr, latest3);

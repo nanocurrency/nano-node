@@ -3281,10 +3281,142 @@ void mu_coin::bootstrap_processor::connect_action (boost::system::error_code con
         mu_coin::bulk_req request;
         request.begin = 0;
         request.end = client.genesis;
+        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+        {
+            mu_coin::vectorstream stream (*bytes);
+            request.serialize (stream);
+        }
+        auto this_l (shared_from_this ());
+        boost::asio::async_write (socket, boost::asio::buffer (bytes->data (), bytes->size ()), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_action (ec, size_a);});
+    }
+}
+
+void mu_coin::bootstrap_processor::send_action (boost::system::error_code const & ec, size_t size_a)
+{
+    receive_block ();
+}
+
+void mu_coin::bootstrap_processor::receive_block ()
+{
+    auto this_l (shared_from_this ());
+    boost::asio::async_read (socket, boost::asio::buffer (buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_type (ec, size_a);});
+}
+
+void mu_coin::bootstrap_processor::received_type (boost::system::error_code const & ec, size_t size_a)
+{
+    if (!ec)
+    {
+        auto this_l (shared_from_this ());
+        mu_coin::block_type type (static_cast <mu_coin::block_type> (buffer [0]));
+        switch (type)
+        {
+            case mu_coin::block_type::send:
+            {
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 64 + 32 + 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_send (ec, size_a);});
+                break;
+            }
+            case mu_coin::block_type::receive:
+            {
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 64 + 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_receive (ec, size_a);});
+                break;
+            }
+            case mu_coin::block_type::open:
+            {
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 32 + 32 + 64), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_open (ec, size_a);});
+                break;
+            }
+            case mu_coin::block_type::change:
+            {
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 32 + 32 + 64), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_change (ec, size_a);});
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
     }
 }
 
 mu_coin::block_hash mu_coin::genesis::hash () const
 {
     return open.hash ();
+}
+
+void mu_coin::bootstrap_processor::received_send (boost::system::error_code const & ec, size_t size_a)
+{
+    std::unique_ptr <mu_coin::send_block> incoming (new mu_coin::send_block);
+    mu_coin::bufferstream stream (buffer.data (), 1 + 64 + 32 + 32 + 32);
+    auto error (incoming->deserialize (stream));
+    if (!error)
+    {
+        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
+    }
+}
+
+void mu_coin::bootstrap_processor::received_receive (boost::system::error_code const & ec, size_t size_a)
+{
+    std::unique_ptr <mu_coin::receive_block> incoming (new mu_coin::receive_block);
+    mu_coin::bufferstream stream (buffer.data (), 1 + 64 + 32 + 32);
+    auto error (incoming->deserialize (stream));
+    if (!error)
+    {
+        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
+    }
+}
+
+void mu_coin::bootstrap_processor::received_open (boost::system::error_code const & ec, size_t size_a)
+{
+    std::unique_ptr <mu_coin::open_block> incoming (new mu_coin::open_block);
+    mu_coin::bufferstream stream (buffer.data (), 1 + 32 + 32 + 64);
+    auto error (incoming->deserialize (stream));
+    if (!error)
+    {
+        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
+    }
+}
+
+void mu_coin::bootstrap_processor::received_change (boost::system::error_code const & ec, size_t size_a)
+{
+    std::unique_ptr <mu_coin::change_block> incoming (new mu_coin::change_block);
+    mu_coin::bufferstream stream (buffer.data (), 1 + 32 + 32 + 64);
+    auto error (incoming->deserialize (stream));
+    if (!error)
+    {
+        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
+    }
+}
+
+void mu_coin::bootstrap_processor::received_block (std::unique_ptr <mu_coin::block> block_a)
+{
+    if (!client.store.block_exists (block_a->previous ()))
+    {
+        receive_block ();
+    }
+    else
+    {
+        stop_blocks ();
+    }
+}
+
+bool mu_coin::block_store::block_exists (mu_coin::block_hash const & hash_a)
+{
+    dbt key (hash_a);
+    dbt data;
+    bool result;
+    int error (blocks.get (nullptr, &key.data, &data.data, 0));
+    if (error == DB_NOTFOUND)
+    {
+        result = false;
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
+}
+
+void mu_coin::bootstrap_processor::stop_blocks ()
+{
+    
 }
