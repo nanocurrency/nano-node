@@ -3213,21 +3213,24 @@ void mu_coin::bulk_response_processor::run ()
 
 void mu_coin::bulk_response_processor::send_next ()
 {
-    auto this_l (shared_from_this ());
-    std::unique_ptr <mu_coin::block> block;
+    if (next != request->end)
     {
-        block = client.store.block_get (next);
-        assert (block != nullptr);
-        next = block->previous ();
-    }
-    if (block != nullptr)
-    {
-        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+        auto this_l (shared_from_this ());
+        std::unique_ptr <mu_coin::block> block;
         {
-            mu_coin::vectorstream stream (*bytes);
-            block->serialize (stream);
+            block = client.store.block_get (next);
+            assert (block != nullptr);
+            next = block->previous ();
         }
-        async_write (*socket, boost::asio::buffer (*bytes), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_next ();});
+        if (block != nullptr)
+        {
+            std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+            {
+                mu_coin::vectorstream stream (*bytes);
+                block->serialize (stream);
+            }
+            async_write (*socket, boost::asio::buffer (*bytes), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_next ();});
+        }
     }
 }
 
