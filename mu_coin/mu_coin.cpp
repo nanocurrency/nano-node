@@ -879,27 +879,28 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block
     return result;
 }
 
-void mu_coin::block_store::genesis_put (mu_coin::public_key const & key_a, uint256_t const & coins_a)
+mu_coin::genesis::genesis (mu_coin::address const & key_a, mu_coin::uint256_t const & coins_a)
 {
-    mu_coin::send_block send1;
     send1.hashables.destination.clear ();
     send1.hashables.balance = coins_a;
     send1.hashables.previous.clear ();
     send1.signature.clear ();
-    block_put (send1.hash (), send1);
-    mu_coin::send_block send2;
     send2.hashables.destination = key_a;
     send2.hashables.balance.clear ();
     send2.hashables.previous = send1.hash ();
     send2.signature.clear ();
-    block_put (send2.hash (), send2);
-    mu_coin::open_block open;
     open.hashables.source = send2.hash ();
     open.hashables.representative = key_a;
     open.signature.clear ();
-    block_put (open.hash (), open);
-    latest_put (key_a, open.hash ());
-    representation_put (key_a, coins_a);
+}
+
+void mu_coin::genesis::insert (mu_coin::block_store & store_a)
+{
+    store_a.block_put (send1.hash (), send1);
+    store_a.block_put (send2.hash (), send2);
+    store_a.block_put (open.hash (), open);
+    store_a.latest_put (send2.hashables.destination, open.hash ());
+    store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
 }
 
 bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_coin::block_hash & hash_a)
@@ -1561,7 +1562,8 @@ bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
     return wakeup < other_a.wakeup;
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::block_hash const & genesis_a) :
+genesis (genesis_a),
 representative (representative_a),
 store (block_store_path_a),
 ledger (store),
@@ -1574,8 +1576,8 @@ service (processor_a)
 {
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
-client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a, representative_a)
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::block_hash const & genesis_a) :
+client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a, representative_a, genesis_a)
 {
 }
 
@@ -2166,14 +2168,15 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
 }
 
 mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a, mu_coin::public_key const & address, mu_coin::uint256_t const & amount) :
+genesis (address, amount),
 service (new boost::asio::io_service),
 pool (new boost::network::utils::thread_pool (threads_a))
 {
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor, address)));
-        clients.back ()->store.genesis_put (address, amount);
+        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor, address, genesis.hash ())));
+        genesis.insert (clients.back ()->store);
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {
@@ -3088,9 +3091,10 @@ void mu_coin::client::start ()
     peers.start ();
 }
 
-void mu_coin::processor::bootstrap ()
+void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a)
 {
-    
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client));
+    processor->run (endpoint_a);
 }
 
 mu_coin::bootstrap::bootstrap (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client & client_a) :
@@ -3222,15 +3226,12 @@ void mu_coin::bulk_response_processor::send_next ()
             assert (block != nullptr);
             next = block->previous ();
         }
-        if (block != nullptr)
+        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
         {
-            std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
-            {
-                mu_coin::vectorstream stream (*bytes);
-                block->serialize (stream);
-            }
-            async_write (*socket, boost::asio::buffer (*bytes), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_next ();});
+            mu_coin::vectorstream stream (*bytes);
+            block->serialize (stream);
         }
+        async_write (*socket, boost::asio::buffer (*bytes), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_next ();});
     }
 }
 
@@ -3259,4 +3260,31 @@ cursor (cursor_a)
         current.first = key.uint256 ();
         current.second = data.uint256 ();
     }
+}
+
+void mu_coin::bootstrap_processor::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
+{
+    auto this_l (shared_from_this ());
+    socket.async_connect (endpoint_a, [this_l] (boost::system::error_code const & ec) {this_l->connect_action (ec);});
+}
+
+mu_coin::bootstrap_processor::bootstrap_processor (mu_coin::client & client_a) :
+client (client_a),
+socket (client_a.network.service)
+{
+}
+
+void mu_coin::bootstrap_processor::connect_action (boost::system::error_code const & ec)
+{
+    if (!ec)
+    {
+        mu_coin::bulk_req request;
+        request.begin = 0;
+        request.end = client.genesis;
+    }
+}
+
+mu_coin::block_hash mu_coin::genesis::hash () const
+{
+    return open.hash ();
 }

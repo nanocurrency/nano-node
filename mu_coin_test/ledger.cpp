@@ -20,7 +20,8 @@ TEST (ledger, genesis_balance)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 500);
+    mu_coin::genesis genesis (key1.pub, 500);
+    genesis.insert (store);
     auto balance (ledger.account_balance (key1.pub));
     ASSERT_EQ (500, balance);
 }
@@ -53,7 +54,8 @@ TEST (ledger, process_send)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub, 100);
+    genesis.insert (store);
     mu_coin::block_hash block1;
     ASSERT_FALSE (store.latest_get (key1.pub, block1));
     mu_coin::send_block send;
@@ -112,7 +114,8 @@ TEST (ledger, process_receive)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub, 100);
+    genesis.insert (store);
     mu_coin::block_hash block1;
     ASSERT_FALSE (store.latest_get (key1.pub, block1));
     mu_coin::send_block send;
@@ -156,7 +159,8 @@ TEST (ledger, rollback_receiver)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub, 100);
+    genesis.insert (store);
     mu_coin::block_hash block1;
     ASSERT_FALSE (store.latest_get (key1.pub, block1));
     mu_coin::send_block send;
@@ -188,7 +192,8 @@ TEST (ledger, process_duplicate)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub, 100);
+    genesis.insert (store);
     mu_coin::block_hash block1;
     ASSERT_FALSE (store.latest_get (key1.pub, block1));
     mu_coin::send_block send;
@@ -213,7 +218,8 @@ TEST (processor_service, bad_send_signature)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub, 100);
+    genesis.insert (store);
     mu_coin::block_hash block1;
     ASSERT_FALSE (store.latest_get (key1.pub, block1));
     mu_coin::send_block send;
@@ -232,7 +238,8 @@ TEST (processor_service, bad_receive_signature)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub, 100);
+    genesis.insert (store);
     mu_coin::block_hash block1;
     ASSERT_FALSE (store.latest_get (key1.pub, block1));
     mu_coin::send_block send;
@@ -315,7 +322,8 @@ TEST (ledger, representative_genesis)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::address address;
-    store.genesis_put (address);
+    mu_coin::genesis genesis (address);
+    genesis.insert (store);
     ASSERT_EQ (address, ledger.representative (ledger.latest (address)));
 }
 
@@ -324,7 +332,8 @@ TEST (ledger, weight)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::address address;
-    store.genesis_put (address);
+    mu_coin::genesis genesis (address);
+    genesis.insert (store);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (address));
 }
 
@@ -334,7 +343,8 @@ TEST (ledger, representative_change)
     mu_coin::ledger ledger (store);
     mu_coin::keypair key1;
     mu_coin::keypair key2;
-    store.genesis_put (key1.pub);
+    mu_coin::genesis genesis (key1.pub);
+    genesis.insert (store);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key1.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     mu_coin::block_hash latest;
@@ -364,7 +374,8 @@ TEST (ledger, send_fork)
     mu_coin::keypair key1;
     mu_coin::keypair key2;
     mu_coin::keypair key3;
-    store.genesis_put (key1.pub);
+    mu_coin::genesis genesis (key1.pub);
+    genesis.insert (store);
     mu_coin::block_hash latest;
     ASSERT_FALSE (store.latest_get (key1.pub, latest));
     mu_coin::send_block block;
@@ -388,7 +399,8 @@ TEST (ledger, receive_fork)
     mu_coin::keypair key1;
     mu_coin::keypair key2;
     mu_coin::keypair key3;
-    store.genesis_put (key1.pub);
+    mu_coin::genesis genesis (key1.pub);
+    genesis.insert (store);
     mu_coin::block_hash latest;
     ASSERT_FALSE (store.latest_get (key1.pub, latest));
     mu_coin::send_block block;

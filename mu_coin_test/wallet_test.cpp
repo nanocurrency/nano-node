@@ -99,7 +99,8 @@ TEST (wallet, one_spend)
     wallet.insert (key1.pub, key1.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 500);
+    mu_coin::genesis genesis (key1.pub, 500);
+    genesis.insert (store);
     mu_coin::block_hash latest1;
     store.latest_get (key1.pub, latest1);
     mu_coin::keypair key2;
@@ -124,10 +125,12 @@ TEST (wallet, two_spend)
     wallet.insert (key2.pub, key2.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 100);
+    mu_coin::genesis genesis1 (key1.pub, 100);
+    genesis1.insert (store);
     mu_coin::block_hash hash1;
     ASSERT_FALSE (store.latest_get (key1.pub, hash1));
-    store.genesis_put (key2.pub, 400);
+    mu_coin::genesis genesis2 (key2.pub, 400);
+    genesis2.insert (store);
     mu_coin::block_hash hash2;
     ASSERT_FALSE (store.latest_get (key2.pub, hash2));
     mu_coin::keypair key3;
@@ -149,7 +152,8 @@ TEST (wallet, partial_spend)
     wallet.insert (key1.pub, key1.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 800);
+    mu_coin::genesis genesis (key1.pub, 800);
+    genesis.insert (store);
     mu_coin::block_hash latest1;
     ASSERT_FALSE (store.latest_get (key1.pub, latest1));
     mu_coin::keypair key2;
@@ -176,7 +180,8 @@ TEST (wallet, spend_no_previous)
     wallet.insert (key1.pub, key1.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    store.genesis_put (key1.pub, 500);
+    mu_coin::genesis genesis (key1.pub, 500);
+    genesis.insert (store);
     mu_coin::block_hash hash1;
     ASSERT_FALSE (store.latest_get (key1.pub, hash1));
     for (auto i (0); i < 50; ++i)

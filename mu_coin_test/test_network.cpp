@@ -522,7 +522,7 @@ TEST (bulk, genesis)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
-    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub);
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis.hash ());
     mu_coin::block_hash latest1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (key1.pub, latest1));
     ASSERT_TRUE (client1.store.latest_get (key1.pub, latest1));
