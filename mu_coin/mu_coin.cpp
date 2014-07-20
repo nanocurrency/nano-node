@@ -847,7 +847,9 @@ addresses (nullptr, 0),
 blocks (nullptr, 0),
 pending (nullptr, 0),
 representation (nullptr, 0),
-forks (nullptr, 0)
+forks (nullptr, 0),
+bootstrap_blocks (nullptr, 0),
+bootstrap_successors (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
     addresses.open (nullptr, (path_a / "addresses.bdb").native ().c_str (), nullptr, DB_BTREE, DB_CREATE | DB_EXCL, 0);
@@ -855,6 +857,8 @@ forks (nullptr, 0)
     pending.open (nullptr, (path_a / "pending.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     representation.open (nullptr, (path_a / "representation.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
     forks.open (nullptr, (path_a / "forks.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    bootstrap_blocks.open (nullptr, (path_a / "bootstrap.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    bootstrap_successors.open (nullptr, (path_a / "successors.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
@@ -3148,7 +3152,7 @@ void mu_coin::bootstrap_connection::receive_action (boost::system::error_code co
                     receive ();
                     if (!error)
                     {
-                        client.processor.bulk_response (std::unique_ptr <mu_coin::bulk_req> (incoming));
+                        client.processor.bulk_response (std::unique_ptr <mu_coin::bulk_req> (incoming), socket);
                     }
                     break;
                 }
@@ -3165,15 +3169,16 @@ void mu_coin::bootstrap_connection::receive_action (boost::system::error_code co
     }
 }
 
-void mu_coin::processor::bulk_response (std::unique_ptr <mu_coin::bulk_req> incoming)
+void mu_coin::processor::bulk_response (std::unique_ptr <mu_coin::bulk_req> incoming, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
 {
-    auto processor_l (std::make_shared <mu_coin::bulk_response_processor> (client, std::move (incoming)));
+    auto processor_l (std::make_shared <mu_coin::bulk_response_processor> (client, std::move (incoming), socket_a));
     processor_l->run ();
 }
 
-mu_coin::bulk_response_processor::bulk_response_processor (mu_coin::client & client_a, std::unique_ptr <mu_coin::bulk_req> request_a) :
+mu_coin::bulk_response_processor::bulk_response_processor (mu_coin::client & client_a, std::unique_ptr <mu_coin::bulk_req> request_a, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a) :
 request (std::move (request_a)),
-client (client_a)
+client (client_a),
+socket (socket_a)
 {
 }
 
@@ -3183,12 +3188,46 @@ void mu_coin::bulk_response_processor::run ()
     auto block (client.store.block_get (request->begin));
     if (block == nullptr)
     {
-        mu_coin::block_hash frontier;
-        auto error (client.store.latest_get (request->begin, frontier));
-        
+        auto latest (client.store.latest_begin (request->begin));
+        mu_coin::block_hash hash;
+        if (latest == client.store.latest_end ())
+        {
+            auto latest (client.store.latest_begin ());
+            assert (latest != client.store.latest_end ());
+            hash = latest->second;
+        }
+        else
+        {
+            hash = latest->second;
+        }
+        block = client.store.block_get (hash);
+        assert (block != nullptr);
     }
-    for (auto i (0); i < 10; ++i)
+    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
+        mu_coin::vectorstream stream (*bytes);
+        block->serialize (stream);
+    }
+    async_write (*socket, boost::asio::buffer (*bytes), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_next ();});
+}
+
+void mu_coin::bulk_response_processor::send_next ()
+{
+    auto this_l (shared_from_this ());
+    std::unique_ptr <mu_coin::block> block;
+    {
+        block = client.store.block_get (next);
+        assert (block != nullptr);
+        next = block->previous ();
+    }
+    if (block != nullptr)
+    {
+        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+        {
+            mu_coin::vectorstream stream (*bytes);
+            block->serialize (stream);
+        }
+        async_write (*socket, boost::asio::buffer (*bytes), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_next ();});
     }
 }
 

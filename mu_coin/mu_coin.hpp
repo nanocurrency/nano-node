@@ -404,6 +404,10 @@ namespace mu_coin {
         Db representation;
         // block_hash -> block                  // Fork proof
         Db forks;
+        // block_hash -> block                  // Unchecked bootstrap blocks
+        Db bootstrap_blocks;
+        // block_hash -> block_hash             // Tracking successors for bootstrapping
+        Db bootstrap_successors;
     };
     enum class process_result
     {
@@ -658,7 +662,7 @@ namespace mu_coin {
     public:
         processor (mu_coin::client &);
         void bootstrap ();
-        void bulk_response (std::unique_ptr <mu_coin::bulk_req>);
+        void bulk_response (std::unique_ptr <mu_coin::bulk_req>, std::shared_ptr <boost::asio::ip::tcp::socket>);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
@@ -800,10 +804,13 @@ namespace mu_coin {
     class bulk_response_processor : public std::enable_shared_from_this <bulk_response_processor>
     {
     public:
-        bulk_response_processor (mu_coin::client &, std::unique_ptr <mu_coin::bulk_req>);
+        bulk_response_processor (mu_coin::client &, std::unique_ptr <mu_coin::bulk_req>, std::shared_ptr <boost::asio::ip::tcp::socket>);
         void run ();
+        void send_next ();
         std::unique_ptr <mu_coin::bulk_req> request;
         mu_coin::client & client;
+        std::shared_ptr <boost::asio::ip::tcp::socket> socket;
+        mu_coin::block_hash next;
     };
     class client
     {
