@@ -456,6 +456,8 @@ namespace mu_coin {
     };
     enum class message_type : uint8_t
     {
+        invalid,
+        not_a_type,
         keepalive_req,
         keepalive_ack,
         publish_req,
@@ -466,7 +468,8 @@ namespace mu_coin {
         confirm_ack,
         confirm_nak,
         confirm_unk,
-        bulk_req
+        bulk_req,
+        bulk_fin
     };
     class message_visitor;
     class message
@@ -584,6 +587,10 @@ namespace mu_coin {
         mu_coin::uint256_union begin;
         mu_coin::uint256_union end;
         
+    };
+    class bulk_fin : public message
+    {
+    public:
     };
     class message_visitor
     {
@@ -749,15 +756,25 @@ namespace mu_coin {
         mu_coin::client & client;
         bool on;
     };
-    class bootstrap_connection
+    class bootstrap_connection : public std::enable_shared_from_this <bootstrap_connection>
     {
     public:
         bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, mu_coin::client &);
         void receive ();
-        void receive_action (boost::system::error_code const &, size_t);
-        std::array <uint8_t, 64> buffer;
+        void receive_type_action (boost::system::error_code const &, size_t);
+        void receive_req_action (boost::system::error_code const &, size_t);
+        void send_next ();
+        void sent_action (boost::system::error_code const &, size_t);
+        void send_finished ();
+        void no_block_sent (boost::system::error_code const &, size_t);
+        std::array <uint8_t, 128> receive_buffer;
+        std::vector <uint8_t> send_buffer;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;
+        mu_coin::block_hash next;
+        mu_coin::block_hash end;
+        bool sending;
+        std::mutex mutex;
     };
     class rpc
     {
@@ -829,25 +846,6 @@ namespace mu_coin {
         mu_coin::client & client;
         std::mutex mutex;
         bool complete;
-    };
-    enum class bulk_message_types : uint8_t
-    {
-        invalid,
-        not_a_type,
-        finished
-    };
-    class bulk_response_processor : public std::enable_shared_from_this <bulk_response_processor>
-    {
-    public:
-        bulk_response_processor (mu_coin::client &, std::unique_ptr <mu_coin::bulk_req>, std::shared_ptr <boost::asio::ip::tcp::socket>);
-        void run ();
-        void send_next ();
-        void send_finished ();
-        void receive_command ();
-        std::unique_ptr <mu_coin::bulk_req> request;
-        mu_coin::client & client;
-        std::shared_ptr <boost::asio::ip::tcp::socket> socket;
-        mu_coin::block_hash next;
     };
     class client
     {
