@@ -584,8 +584,8 @@ namespace mu_coin {
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
-        mu_coin::uint256_union begin;
-        mu_coin::uint256_union end;
+        mu_coin::address start;
+        mu_coin::block_hash end;
         
     };
     class bulk_fin : public message
@@ -678,7 +678,6 @@ namespace mu_coin {
     public:
         processor (mu_coin::client &);
         void bootstrap (boost::asio::ip::tcp::endpoint const &);
-        void bulk_response (std::unique_ptr <mu_coin::bulk_req>, std::shared_ptr <boost::asio::ip::tcp::socket>);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
@@ -724,6 +723,7 @@ namespace mu_coin {
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
         void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block>);
+        mu_coin::endpoint endpoint ();
         mu_coin::endpoint remote;
         std::array <uint8_t, 4000> buffer;
         boost::asio::ip::udp::socket socket;
@@ -750,6 +750,7 @@ namespace mu_coin {
         void accept ();
         void stop ();
         void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
+        boost::asio::ip::tcp::endpoint endpoint ();
         boost::asio::ip::tcp::acceptor acceptor;
         boost::asio::ip::tcp::endpoint local;
         boost::asio::io_service & service;
@@ -847,39 +848,39 @@ namespace mu_coin {
         std::mutex mutex;
         bool complete;
     };
-    class client
-    {
-    public:
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::block_hash const &);
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::block_hash const &);
-        bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &);
-        void start ();
-        mu_coin::block_hash genesis;
-        mu_coin::address representative;
-        mu_coin::block_store store;
-        mu_coin::ledger ledger;
-        mu_coin::wallet wallet;
-        mu_coin::network network;
-        mu_coin::rpc rpc;
-        mu_coin::processor processor;
-        mu_coin::peer_container peers;
-        mu_coin::processor_service & service;
-    };
     class genesis
     {
     public:
-        genesis (mu_coin::address const &, mu_coin::uint256_t const & = std::numeric_limits <uint256_t>::max ());
-        void insert (mu_coin::block_store &);
+        explicit genesis (mu_coin::address const &, mu_coin::uint256_t const & = std::numeric_limits <uint256_t>::max ());
+        void initialize (mu_coin::block_store &);
         mu_coin::block_hash hash () const;
         mu_coin::send_block send1;
         mu_coin::send_block send2;
         mu_coin::open_block open;
     };
+    class client
+    {
+    public:
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
+        void start ();
+        mu_coin::genesis const & genesis;
+        mu_coin::address representative;
+        mu_coin::block_store store;
+        mu_coin::ledger ledger;
+        mu_coin::wallet wallet;
+        mu_coin::network network;
+        mu_coin::bootstrap bootstrap;
+        mu_coin::rpc rpc;
+        mu_coin::processor processor;
+        mu_coin::peer_container peers;
+        mu_coin::processor_service & service;
+    };
     class system
     {
     public:
         system (size_t, uint16_t, uint16_t, size_t, mu_coin::public_key const &, mu_coin::uint256_t const &);
-        mu_coin::endpoint endpoint (size_t);
         mu_coin::genesis genesis;
         boost::shared_ptr <boost::asio::io_service> service;
         boost::shared_ptr <boost::network::utils::thread_pool> pool;

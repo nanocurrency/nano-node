@@ -101,7 +101,7 @@ TEST (block_store, add_genesis)
     mu_coin::block_store db (mu_coin::block_store_temp);
     mu_coin::keypair key1;
     mu_coin::genesis genesis (key1.pub, 800);
-    genesis.insert (db);
+    genesis.initialize (db);
     mu_coin::block_hash hash1;
     ASSERT_FALSE (db.latest_get (key1.pub, hash1));
     auto block1 (db.block_get (hash1));

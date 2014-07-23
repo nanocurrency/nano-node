@@ -20,7 +20,7 @@ TEST (network, send_keepalive)
     ASSERT_EQ (1, list1.size ());
     system.clients [0]->network.receive ();
     system.clients [1]->network.receive ();
-    system.clients [0]->network.send_keepalive (system.endpoint (1));
+    system.clients [0]->network.send_keepalive (system.clients [1]->network.endpoint ());
     while (system.clients [0]->network.keepalive_ack_count == 0)
     {
         system.service->run_one ();
@@ -28,10 +28,10 @@ TEST (network, send_keepalive)
     auto peers1 (system.clients [0]->peers.list ());
     auto peers2 (system.clients [1]->peers.list ());
     ASSERT_EQ (1, system.clients [0]->network.keepalive_ack_count);
-    ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.endpoint (1);}));
+    ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.clients [1]->network.endpoint ();}));
     ASSERT_GT (peers1 [0].last_contact, list1 [0].last_contact);
     ASSERT_EQ (1, system.clients [1]->network.keepalive_req_count);
-    ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.endpoint (0);}));
+    ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
 }
 
 TEST (network, publish_req)
@@ -60,7 +60,7 @@ TEST (network, send_discarded_publish)
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 2, key1.pub, 100);
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
-    system.clients [0]->network.publish_block (system.endpoint (1), std::move (block));
+    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
     while (system.clients [1]->network.publish_req_count == 0)
     {
         system.service->run_one ();
@@ -77,7 +77,7 @@ TEST (network, send_invalid_publish)
     block->hashables.previous = 0;
     block->hashables.balance = 20;
     mu_coin::sign_message (key1.prv, key1.pub, block->hash (), block->signature);
-    system.clients [0]->network.publish_block (system.endpoint (1), std::move (block));
+    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
     while (system.clients [0]->network.publish_ack_count == 0)
     {
         system.service->run_one ();
@@ -103,7 +103,7 @@ TEST (network, send_valid_publish)
     mu_coin::sign_message (key1.prv, key1.pub, hash2, block2.signature);
     mu_coin::block_hash hash3;
     ASSERT_FALSE (system.clients [1]->store.latest_get (key1.pub, hash3));
-    system.clients [0]->processor.publish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.endpoint (0));
+    system.clients [0]->processor.publish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
     while (system.clients [0]->network.publish_ack_count == 0)
     {
         system.service->run_one ();
@@ -522,9 +522,14 @@ TEST (bulk, genesis)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
-    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis.hash ());
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
     mu_coin::block_hash latest1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (key1.pub, latest1));
     ASSERT_TRUE (client1.store.latest_get (key1.pub, latest1));
-    
+    mu_coin::keypair key2;
+    system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password);
+    mu_coin::block_hash latest2;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (key1.pub, latest2));
+    ASSERT_NE (latest1, latest2);
 }
