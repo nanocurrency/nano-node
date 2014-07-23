@@ -518,7 +518,7 @@ TEST (parse_endpoint, no_colon)
     ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
 }
 
-TEST (bulk, genesis)
+TEST (bulk, DISABLED_genesis)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
@@ -526,10 +526,19 @@ TEST (bulk, genesis)
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
     mu_coin::block_hash latest1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (key1.pub, latest1));
-    ASSERT_TRUE (client1.store.latest_get (key1.pub, latest1));
+    mu_coin::block_hash latest3;
+    ASSERT_FALSE (client1.store.latest_get (key1.pub, latest3));
+    ASSERT_EQ (latest1, latest3);
     mu_coin::keypair key2;
     system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password);
     mu_coin::block_hash latest2;
     ASSERT_FALSE (system.clients [0]->store.latest_get (key1.pub, latest2));
     ASSERT_NE (latest1, latest2);
+    client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint ());
+    mu_coin::block_hash latest4;
+    do
+    {
+        system.service->run_one ();
+        client1.store.latest_get (key1.pub, latest4);
+    } while (latest4 != latest2);
 }

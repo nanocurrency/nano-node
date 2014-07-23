@@ -894,7 +894,7 @@ mu_coin::genesis::genesis (mu_coin::address const & key_a, mu_coin::uint256_t co
     open.signature.clear ();
 }
 
-void mu_coin::genesis::initialize (mu_coin::block_store & store_a)
+void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
 {
     //assert (store_a.latest_begin () == store_a.latest_end ());
     store_a.block_put (send1.hash (), send1);
@@ -1593,6 +1593,7 @@ processor (*this),
 peers (*this),
 service (processor_a)
 {
+    genesis_a.initialize (store);
 }
 
 mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
@@ -2210,6 +2211,7 @@ pool (new boost::network::utils::thread_pool (threads_a))
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {
         (*i)->start ();
+        (*i)->bootstrap.accept ();
     }
 }
 
@@ -3094,6 +3096,7 @@ bool mu_coin::bulk_req::deserialize (mu_coin::stream & stream_a)
 
 void mu_coin::bulk_req::serialize (mu_coin::stream & stream_a)
 {
+    write (stream_a, mu_coin::message_type::bulk_req);
     write (stream_a, start);
     write (stream_a, end);
 }
@@ -3142,8 +3145,7 @@ void mu_coin::bootstrap::accept_action (boost::system::error_code const & ec, st
 
 mu_coin::bootstrap_connection::bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, mu_coin::client & client_a) :
 socket (socket_a),
-client (client_a),
-sending (false)
+client (client_a)
 {
 }
 
@@ -3166,14 +3168,11 @@ void mu_coin::bootstrap_connection::receive_type_action (boost::system::error_co
             case mu_coin::message_type::bulk_req:
             {
                 auto this_l (shared_from_this ());
-                boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_type_action (ec, size_a);});
+                boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_req_action (ec, size_a);});
                 break;
             }
             case mu_coin::message_type::bulk_fin:
             {
-                std::lock_guard <std::mutex> lock (mutex);
-                next = end;
-                receive ();
                 break;
             }
             default:
@@ -3193,7 +3192,7 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
     if (!ec)
     {
         mu_coin::bulk_req request;
-        mu_coin::bufferstream stream (receive_buffer.data (), size_a);
+        mu_coin::bufferstream stream (receive_buffer.data (), 32 + 32 + 1);
         auto error (request.deserialize (stream));
         if (!error)
         {
@@ -3208,15 +3207,12 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
                 }
                 else
                 {
-                    account_visitor account (client.store);
-                    account.compute (request.end);
-                    if (account.result == request.start)
+                    receive ();
                     {
                         std::lock_guard <std::mutex> lock (mutex);
-                        next = hash;
-                        end = request.end;
-                        receive ();
-                        if (!sending)
+                        auto startup (requests.empty ());
+                        requests.push (std::make_pair (hash, request.end));
+                        if (startup)
                         {
                             send_next ();
                         }
@@ -3229,20 +3225,19 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
 
 void mu_coin::bootstrap_connection::send_next ()
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    assert (sending);
-    if (next != end)
+    auto & front (requests.front ());
+    if (front.first != front.second)
     {
         std::unique_ptr <mu_coin::block> block;
         {
-            block = client.store.block_get (next);
+            block = client.store.block_get (front.first);
             assert (block != nullptr);
-            next = block->previous ();
+            front.first = block->previous ();
         }
         {
             send_buffer.clear ();
             mu_coin::vectorstream stream (send_buffer);
-            block->serialize (stream);
+            mu_coin::serialize_block (stream, *block);
         }
         auto this_l (shared_from_this ());
         async_write (*socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_action (ec, size_a);});
@@ -3255,6 +3250,7 @@ void mu_coin::bootstrap_connection::send_next ()
 
 void mu_coin::bootstrap_connection::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
+    std::lock_guard <std::mutex> lock (mutex);
     send_next ();
 }
 
@@ -3272,11 +3268,7 @@ void mu_coin::bootstrap_connection::no_block_sent (boost::system::error_code con
     {
         assert (size_a == 1);
         std::unique_lock <std::mutex> lock (mutex);
-        if (next == end)
-        {
-            sending = false;
-        }
-        else
+        if (!requests.empty ())
         {
             send_next ();
         }
@@ -3352,6 +3344,7 @@ void mu_coin::bootstrap_processor::receive_block ()
 
 void mu_coin::bootstrap_processor::received_type (boost::system::error_code const & ec, size_t size_a)
 {
+    assert (!requests.empty ());
     if (!ec)
     {
         auto this_l (shared_from_this ());
@@ -3376,6 +3369,26 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
             case mu_coin::block_type::change:
             {
                 boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 32 + 32 + 64), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_change (ec, size_a);});
+                break;
+            }
+            case mu_coin::block_type::not_a_block:
+            {
+                if (expecting == requests.front ()->end)
+                {
+                    bool had_block;
+                    mu_coin::process_result result;
+                    do
+                    {
+                        mu_coin::block_hash hash;
+                        had_block = !client.store.successor_get (expecting, hash);
+                        if (had_block)
+                        {
+                            auto block (client.store.bootstrap_get (hash));
+                            assert (block != nullptr);
+                            result = client.ledger.process (*block);
+                        }
+                    } while (had_block && result == mu_coin::process_result::progress);
+                }
                 break;
             }
             default:
@@ -3437,13 +3450,14 @@ void mu_coin::bootstrap_processor::received_change (boost::system::error_code co
 
 void mu_coin::bootstrap_processor::received_block (std::unique_ptr <mu_coin::block> block_a)
 {
-    if (!client.store.block_exists (block_a->previous ()))
+    assert (!requests.empty ());
+    auto hash (block_a->hash ());
+    if (expecting != requests.front ()->end && (expecting == requests.front ()->start || hash == expecting))
     {
-        receive_block ();
-    }
-    else
-    {
-        stop_blocks ();
+        auto previous (block_a->previous ());
+        client.store.successor_put (previous, hash);
+        client.store.bootstrap_put (hash, *block_a);
+        expecting = previous;
     }
 }
 

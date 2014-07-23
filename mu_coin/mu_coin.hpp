@@ -708,6 +708,8 @@ namespace mu_coin {
         void received_change (boost::system::error_code const &, size_t);
         void received_block (std::unique_ptr <mu_coin::block>);
         void stop_blocks ();
+        std::queue <std::unique_ptr <mu_coin::bulk_req>> requests;
+        mu_coin::block_hash expecting;
         std::array <uint8_t, 4000> buffer;
         mu_coin::client & client;
         boost::asio::ip::tcp::socket socket;
@@ -772,9 +774,7 @@ namespace mu_coin {
         std::vector <uint8_t> send_buffer;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;
-        mu_coin::block_hash next;
-        mu_coin::block_hash end;
-        bool sending;
+        std::queue <std::pair <mu_coin::block_hash, mu_coin::block_hash>> requests;
         std::mutex mutex;
     };
     class rpc
@@ -852,7 +852,7 @@ namespace mu_coin {
     {
     public:
         explicit genesis (mu_coin::address const &, mu_coin::uint256_t const & = std::numeric_limits <uint256_t>::max ());
-        void initialize (mu_coin::block_store &);
+        void initialize (mu_coin::block_store &) const;
         mu_coin::block_hash hash () const;
         mu_coin::send_block send1;
         mu_coin::send_block send2;
