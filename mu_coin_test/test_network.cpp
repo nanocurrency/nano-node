@@ -518,7 +518,7 @@ TEST (parse_endpoint, no_colon)
     ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
 }
 
-TEST (bulk, DISABLED_genesis)
+TEST (bulk, genesis)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);

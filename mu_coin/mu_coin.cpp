@@ -13,7 +13,10 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-static bool const network_debug = false;
+namespace
+{
+    bool const network_debug = true;
+}
 
 CryptoPP::AutoSeededRandomPool pool;
 
@@ -745,7 +748,7 @@ mu_coin::block_type mu_coin::receive_block::type () const
     return mu_coin::block_type::receive;
 }
 
-void mu_coin::uint256_union::encode_hex (std::string & text)
+void mu_coin::uint256_union::encode_hex (std::string & text) const
 {
     assert (text.empty ());
     std::stringstream stream;
@@ -775,7 +778,7 @@ bool mu_coin::uint256_union::decode_hex (std::string const & text)
     return result;
 }
 
-void mu_coin::uint256_union::encode_dec (std::string & text)
+void mu_coin::uint256_union::encode_dec (std::string & text) const
 {
     assert (text.empty ());
     std::stringstream stream;
@@ -2536,7 +2539,8 @@ void mu_coin::open_block::hash (CryptoPP::SHA3 & hash_a) const
 
 mu_coin::block_hash mu_coin::open_block::previous () const
 {
-    assert (false);
+    mu_coin::block_hash result (0);
+    return result;
 }
 
 void mu_coin::open_block::serialize (mu_coin::stream & stream_a) const
@@ -2912,7 +2916,7 @@ namespace
     }
 }
 
-void mu_coin::uint256_union::encode_base58check (std::string & destination_a)
+void mu_coin::uint256_union::encode_base58check (std::string & destination_a) const
 {
     assert (destination_a.empty ());
     destination_a.reserve (50);
@@ -3209,6 +3213,10 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
                 {
                     receive ();
                     {
+                        if (network_debug)
+                        {
+                            std::cerr << "Sending: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
+                        }
                         std::lock_guard <std::mutex> lock (mutex);
                         auto startup (requests.empty ());
                         requests.push (std::make_pair (hash, request.end));
@@ -3240,6 +3248,10 @@ void mu_coin::bootstrap_connection::send_next ()
             mu_coin::serialize_block (stream, *block);
         }
         auto this_l (shared_from_this ());
+        if (network_debug)
+        {
+            std::cerr << "Sending block: " << block->hash ().to_string () << std::endl;
+        }
         async_write (*socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_action (ec, size_a);});
     }
     else
@@ -3259,6 +3271,10 @@ void mu_coin::bootstrap_connection::send_finished ()
     send_buffer.clear ();
     send_buffer.push_back (static_cast <uint8_t> (mu_coin::block_type::not_a_block));
     auto this_l (shared_from_this ());
+    if (network_debug)
+    {
+        std::cerr << "Sending finished" << std::endl;
+    }
     async_write (*socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
 }
 
@@ -3321,12 +3337,18 @@ void mu_coin::bootstrap_processor::connect_action (boost::system::error_code con
         mu_coin::bulk_req request;
         request.start = client.genesis.send2.hashables.destination;
         request.end = client.genesis.open.hash ();
+        expecting = request.start;
+        requests.push (std::make_pair (request.start, request.end));
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
         {
             mu_coin::vectorstream stream (*bytes);
             request.serialize (stream);
         }
         auto this_l (shared_from_this ());
+        if (network_debug)
+        {
+            std::cerr << "Requesting: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
+        }
         boost::asio::async_write (socket, boost::asio::buffer (bytes->data (), bytes->size ()), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_action (ec, size_a);});
     }
 }
@@ -3353,27 +3375,27 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
         {
             case mu_coin::block_type::send:
             {
-                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 64 + 32 + 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_send (ec, size_a);});
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 64 + 32 + 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_block (ec, size_a);});
                 break;
             }
             case mu_coin::block_type::receive:
             {
-                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 64 + 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_receive (ec, size_a);});
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 64 + 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_block (ec, size_a);});
                 break;
             }
             case mu_coin::block_type::open:
             {
-                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 32 + 32 + 64), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_open (ec, size_a);});
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 32 + 32 + 64), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_block (ec, size_a);});
                 break;
             }
             case mu_coin::block_type::change:
             {
-                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 32 + 32 + 64), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_change (ec, size_a);});
+                boost::asio::async_read (socket, boost::asio::buffer (buffer.data () + 1, 32 + 32 + 64), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_block (ec, size_a);});
                 break;
             }
             case mu_coin::block_type::not_a_block:
             {
-                if (expecting == requests.front ()->end)
+                if (expecting == requests.front ().second)
                 {
                     bool had_block;
                     mu_coin::process_result result;
@@ -3404,60 +3426,31 @@ mu_coin::block_hash mu_coin::genesis::hash () const
     return open.hash ();
 }
 
-void mu_coin::bootstrap_processor::received_send (boost::system::error_code const & ec, size_t size_a)
-{
-    std::unique_ptr <mu_coin::send_block> incoming (new mu_coin::send_block);
-    mu_coin::bufferstream stream (buffer.data (), 1 + 64 + 32 + 32 + 32);
-    auto error (incoming->deserialize (stream));
-    if (!error)
-    {
-        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
-    }
-}
-
-void mu_coin::bootstrap_processor::received_receive (boost::system::error_code const & ec, size_t size_a)
-{
-    std::unique_ptr <mu_coin::receive_block> incoming (new mu_coin::receive_block);
-    mu_coin::bufferstream stream (buffer.data (), 1 + 64 + 32 + 32);
-    auto error (incoming->deserialize (stream));
-    if (!error)
-    {
-        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
-    }
-}
-
-void mu_coin::bootstrap_processor::received_open (boost::system::error_code const & ec, size_t size_a)
-{
-    std::unique_ptr <mu_coin::open_block> incoming (new mu_coin::open_block);
-    mu_coin::bufferstream stream (buffer.data (), 1 + 32 + 32 + 64);
-    auto error (incoming->deserialize (stream));
-    if (!error)
-    {
-        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
-    }
-}
-
-void mu_coin::bootstrap_processor::received_change (boost::system::error_code const & ec, size_t size_a)
+void mu_coin::bootstrap_processor::received_block (boost::system::error_code const & ec, size_t size_a)
 {
     std::unique_ptr <mu_coin::change_block> incoming (new mu_coin::change_block);
-    mu_coin::bufferstream stream (buffer.data (), 1 + 32 + 32 + 64);
-    auto error (incoming->deserialize (stream));
-    if (!error)
+    mu_coin::bufferstream stream (buffer.data (), 1 + size_a);
+    auto block (mu_coin::deserialize_block (stream));
+    if (block != nullptr)
     {
-        received_block (std::unique_ptr <mu_coin::block> (incoming.release ()));
-    }
-}
-
-void mu_coin::bootstrap_processor::received_block (std::unique_ptr <mu_coin::block> block_a)
-{
-    assert (!requests.empty ());
-    auto hash (block_a->hash ());
-    if (expecting != requests.front ()->end && (expecting == requests.front ()->start || hash == expecting))
-    {
-        auto previous (block_a->previous ());
-        client.store.successor_put (previous, hash);
-        client.store.bootstrap_put (hash, *block_a);
-        expecting = previous;
+        assert (!requests.empty ());
+        auto hash (block->hash ());
+        if (network_debug)
+        {
+            std::cerr << "Received block: " << hash.to_string () << std::endl;
+        }
+        if (expecting != requests.front ().second && (expecting == requests.front ().first || hash == expecting))
+        {
+            auto previous (block->previous ());
+            client.store.successor_put (previous, hash);
+            client.store.bootstrap_put (hash, *block);
+            expecting = previous;
+            if (network_debug)
+            {
+                std::cerr << "Expecting: " << expecting.to_string () << std::endl;
+            }
+            receive_block ();
+        }
     }
 }
 
@@ -3550,4 +3543,16 @@ mu_coin::endpoint mu_coin::network::endpoint ()
 boost::asio::ip::tcp::endpoint mu_coin::bootstrap::endpoint ()
 {
     return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), local.port ());
+}
+
+bool mu_coin::uint256_union::is_zero () const
+{
+    return qwords [0] == 0 && qwords [1] == 0 && qwords [2] == 0 && qwords [3] == 0;
+}
+
+std::string mu_coin::uint256_union::to_string () const
+{
+    std::string result;
+    encode_hex (result);
+    return result;
 }
