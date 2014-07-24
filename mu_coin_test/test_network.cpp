@@ -561,6 +561,32 @@ TEST (bulk, process_one)
     ASSERT_EQ (hash1, hash3);
 }
 
+TEST (bulk, process_two)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    auto hash1 (system.clients [0]->ledger.latest (key1.pub));
+    system.clients [0]->send (key1.pub, 50, system.clients [0]->wallet.password);
+    auto hash2 (system.clients [0]->ledger.latest (key1.pub));
+    system.clients [0]->send (key1.pub, 50, system.clients [0]->wallet.password);
+    auto hash3 (system.clients [0]->ledger.latest (key1.pub));
+    ASSERT_NE (hash1, hash2);
+    ASSERT_NE (hash1, hash3);
+    ASSERT_NE (hash2, hash3);
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
+    mu_coin::bootstrap_processor processor (client1);
+    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor.expecting = key1.pub;
+    auto block2 (system.clients [0]->ledger.store.block_get (hash3));
+    ASSERT_FALSE (processor.process_block (*block2));
+    auto block1 (system.clients [0]->ledger.store.block_get (hash2));
+    ASSERT_FALSE (processor.process_block (*block1));
+    ASSERT_FALSE (processor.process_end ());
+    auto hash4 (client1.ledger.latest (key1.pub));
+    ASSERT_EQ (hash3, hash4);
+}
+
 TEST (bulk, genesis)
 {
     mu_coin::keypair key1;
