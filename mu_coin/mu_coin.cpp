@@ -3435,6 +3435,7 @@ bool mu_coin::bootstrap_processor::process_end ()
     {
         result = true;
     }
+    requests.pop ();
     return result;
 }
 

@@ -518,7 +518,7 @@ TEST (parse_endpoint, no_colon)
     ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
 }
 
-TEST (bulk, process_none)
+TEST (bulk_processor, process_none)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
@@ -526,9 +526,10 @@ TEST (bulk, process_none)
     processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
     processor.expecting = key1.pub;
     ASSERT_FALSE (processor.process_end ());
+    ASSERT_TRUE (processor.requests.empty ());
 }
 
-TEST (bulk, process_incomplete)
+TEST (bulk_processor, process_incomplete)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
@@ -540,7 +541,7 @@ TEST (bulk, process_incomplete)
     ASSERT_TRUE (processor.process_end ());
 }
 
-TEST (bulk, process_one)
+TEST (bulk_processor, process_one)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
@@ -559,9 +560,10 @@ TEST (bulk, process_one)
     ASSERT_FALSE (processor.process_end ());
     auto hash3 (client1.ledger.latest (key1.pub));
     ASSERT_EQ (hash1, hash3);
+    ASSERT_TRUE (processor.requests.empty ());
 }
 
-TEST (bulk, process_two)
+TEST (bulk_processor, process_two)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
@@ -585,6 +587,17 @@ TEST (bulk, process_two)
     ASSERT_FALSE (processor.process_end ());
     auto hash4 (client1.ledger.latest (key1.pub));
     ASSERT_EQ (hash3, hash4);
+    ASSERT_TRUE (processor.requests.empty ());
+}
+
+TEST (bulk_connection, none)
+{
+    
+}
+
+TEST (bulk_connection, unknown)
+{
+    
 }
 
 TEST (bulk, genesis)
