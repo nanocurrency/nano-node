@@ -540,15 +540,25 @@ TEST (bulk, process_incomplete)
     ASSERT_TRUE (processor.process_end ());
 }
 
-TEST (bulk, DISABLED_process_one)
+TEST (bulk, process_one)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
     system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    system.clients [0]->send (key1.pub, 100, system.clients [0]->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
     mu_coin::bootstrap_processor processor (client1);
     processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
     processor.expecting = key1.pub;
+    auto hash1 (system.clients [0]->ledger.latest (key1.pub));
+    auto hash2 (client1.ledger.latest (key1.pub));
+    ASSERT_NE (hash1, hash2);
+    auto block (system.clients [0]->ledger.store.block_get (hash1));
+    ASSERT_NE (nullptr, block);
+    ASSERT_FALSE (processor.process_block (*block));
+    ASSERT_FALSE (processor.process_end ());
+    auto hash3 (client1.ledger.latest (key1.pub));
+    ASSERT_EQ (hash1, hash3);
 }
 
 TEST (bulk, genesis)

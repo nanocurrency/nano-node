@@ -3422,6 +3422,7 @@ bool mu_coin::bootstrap_processor::process_end ()
                 auto block (client.store.bootstrap_get (hash));
                 assert (block != nullptr);
                 processing = client.ledger.process (*block);
+                expecting = hash;
             }
         } while (had_block && processing == mu_coin::process_result::progress);
         result = processing != mu_coin::process_result::progress;
