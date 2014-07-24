@@ -705,6 +705,8 @@ namespace mu_coin {
         void receive_block ();
         void received_type (boost::system::error_code const &, size_t);
         void received_block (boost::system::error_code const &, size_t);
+        bool process_block (mu_coin::block const &);
+        bool process_end ();
         void stop_blocks ();
         std::queue <std::pair <mu_coin::address, mu_coin::block_hash>> requests;
         mu_coin::block_hash expecting;

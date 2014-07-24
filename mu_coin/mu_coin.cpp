@@ -15,7 +15,7 @@
 
 namespace
 {
-    bool const network_debug = true;
+    bool const network_debug = false;
 }
 
 CryptoPP::AutoSeededRandomPool pool;
@@ -3395,22 +3395,7 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
             }
             case mu_coin::block_type::not_a_block:
             {
-                if (expecting == requests.front ().second)
-                {
-                    bool had_block;
-                    mu_coin::process_result result;
-                    do
-                    {
-                        mu_coin::block_hash hash;
-                        had_block = !client.store.successor_get (expecting, hash);
-                        if (had_block)
-                        {
-                            auto block (client.store.bootstrap_get (hash));
-                            assert (block != nullptr);
-                            result = client.ledger.process (*block);
-                        }
-                    } while (had_block && result == mu_coin::process_result::progress);
-                }
+                process_end ();
                 break;
             }
             default:
@@ -3421,6 +3406,37 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
     }
 }
 
+bool mu_coin::bootstrap_processor::process_end ()
+{
+    bool result;
+    if (expecting == requests.front ().second)
+    {
+        bool had_block;
+        mu_coin::process_result processing;
+        do
+        {
+            mu_coin::block_hash hash;
+            had_block = !client.store.successor_get (expecting, hash);
+            if (had_block)
+            {
+                auto block (client.store.bootstrap_get (hash));
+                assert (block != nullptr);
+                processing = client.ledger.process (*block);
+            }
+        } while (had_block && processing == mu_coin::process_result::progress);
+        result = processing != mu_coin::process_result::progress;
+    }
+    else if (expecting == requests.front ().first)
+    {
+        result = false;
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
+}
+
 mu_coin::block_hash mu_coin::genesis::hash () const
 {
     return open.hash ();
@@ -3428,30 +3444,44 @@ mu_coin::block_hash mu_coin::genesis::hash () const
 
 void mu_coin::bootstrap_processor::received_block (boost::system::error_code const & ec, size_t size_a)
 {
-    std::unique_ptr <mu_coin::change_block> incoming (new mu_coin::change_block);
     mu_coin::bufferstream stream (buffer.data (), 1 + size_a);
     auto block (mu_coin::deserialize_block (stream));
     if (block != nullptr)
     {
-        assert (!requests.empty ());
-        auto hash (block->hash ());
-        if (network_debug)
+        auto error (process_block (*block));
+        if (!error)
         {
-            std::cerr << "Received block: " << hash.to_string () << std::endl;
-        }
-        if (expecting != requests.front ().second && (expecting == requests.front ().first || hash == expecting))
-        {
-            auto previous (block->previous ());
-            client.store.successor_put (previous, hash);
-            client.store.bootstrap_put (hash, *block);
-            expecting = previous;
-            if (network_debug)
-            {
-                std::cerr << "Expecting: " << expecting.to_string () << std::endl;
-            }
             receive_block ();
         }
     }
+}
+
+bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
+{
+    assert (!requests.empty ());
+    bool result;
+    auto hash (block.hash ());
+    if (network_debug)
+    {
+        std::cerr << "Received block: " << hash.to_string () << std::endl;
+    }
+    if (expecting != requests.front ().second && (expecting == requests.front ().first || hash == expecting))
+    {
+        auto previous (block.previous ());
+        client.store.successor_put (previous, hash);
+        client.store.bootstrap_put (hash, block);
+        expecting = previous;
+        if (network_debug)
+        {
+            std::cerr << "Expecting: " << expecting.to_string () << std::endl;
+        }
+        result = false;
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
 }
 
 bool mu_coin::block_store::block_exists (mu_coin::block_hash const & hash_a)

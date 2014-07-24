@@ -518,6 +518,39 @@ TEST (parse_endpoint, no_colon)
     ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
 }
 
+TEST (bulk, process_none)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::bootstrap_processor processor (*system.clients [0]);
+    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor.expecting = key1.pub;
+    ASSERT_FALSE (processor.process_end ());
+}
+
+TEST (bulk, process_incomplete)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::bootstrap_processor processor (*system.clients [0]);
+    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor.expecting = key1.pub;
+    mu_coin::send_block block1;
+    ASSERT_FALSE (processor.process_block (block1));
+    ASSERT_TRUE (processor.process_end ());
+}
+
+TEST (bulk, DISABLED_process_one)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
+    mu_coin::bootstrap_processor processor (client1);
+    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor.expecting = key1.pub;
+}
+
 TEST (bulk, genesis)
 {
     mu_coin::keypair key1;
