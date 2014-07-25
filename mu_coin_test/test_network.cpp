@@ -600,11 +600,6 @@ TEST (bulk_connection, none)
     ASSERT_EQ (nullptr, block);
 }
 
-TEST (bulk_connection, unknown)
-{
-    
-}
-
 TEST (bulk, genesis)
 {
     mu_coin::keypair key1;

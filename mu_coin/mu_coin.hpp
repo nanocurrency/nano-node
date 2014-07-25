@@ -766,6 +766,7 @@ namespace mu_coin {
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
         void receive_req_action (boost::system::error_code const &, size_t);
+        std::pair <mu_coin::block_hash, mu_coin::block_hash> process_bulk_req (mu_coin::bulk_req const &);
         std::unique_ptr <mu_coin::block> get_next ();
         void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
@@ -776,7 +777,6 @@ namespace mu_coin {
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;
         std::queue <std::pair <mu_coin::block_hash, mu_coin::block_hash>> requests;
-        std::mutex mutex;
     };
     class rpc
     {

@@ -3200,35 +3200,44 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
         auto error (request.deserialize (stream));
         if (!error)
         {
-            auto end_exists (client.store.block_exists (request.end));
-            if (end_exists)
+            auto next (process_bulk_req (request));
+            if (!next.first.is_zero ())
             {
-                mu_coin::block_hash hash;
-                auto no_address (client.store.latest_get (request.start, hash));
-                if (no_address)
+                if (network_debug)
                 {
-                    send_finished ();
+                    std::cerr << "Sending: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
                 }
-                else
+                auto startup (requests.empty ());
+                requests.push (next);
+                receive ();
+                if (startup)
                 {
-                    receive ();
-                    {
-                        if (network_debug)
-                        {
-                            std::cerr << "Sending: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
-                        }
-                        std::lock_guard <std::mutex> lock (mutex);
-                        auto startup (requests.empty ());
-                        requests.push (std::make_pair (hash, request.end));
-                        if (startup)
-                        {
-                            send_next ();
-                        }
-                    }
+                    send_next ();
                 }
             }
         }
     }
+}
+
+std::pair <mu_coin::block_hash, mu_coin::block_hash> mu_coin::bootstrap_connection::process_bulk_req (mu_coin::bulk_req const & request)
+{
+    std::pair <mu_coin::block_hash, mu_coin::block_hash> result (std::make_pair (0, 0));
+    auto end_exists (client.store.block_exists (request.end));
+    if (end_exists)
+    {
+        mu_coin::block_hash hash;
+        auto no_address (client.store.latest_get (request.start, hash));
+        if (no_address)
+        {
+            send_finished ();
+        }
+        else
+        {
+            result.first = hash;
+            result.second = request.end;
+        }
+    }
+    return result;
 }
 
 void mu_coin::bootstrap_connection::send_next ()
@@ -3270,7 +3279,6 @@ std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
 
 void mu_coin::bootstrap_connection::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
-    std::lock_guard <std::mutex> lock (mutex);
     send_next ();
 }
 
@@ -3291,7 +3299,6 @@ void mu_coin::bootstrap_connection::no_block_sent (boost::system::error_code con
     if (!ec)
     {
         assert (size_a == 1);
-        std::unique_lock <std::mutex> lock (mutex);
         if (!requests.empty ())
         {
             send_next ();
