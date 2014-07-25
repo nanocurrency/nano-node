@@ -590,6 +590,28 @@ TEST (bulk_processor, process_two)
     ASSERT_TRUE (processor.requests.empty ());
 }
 
+TEST (bulk_req, no_address)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
+    mu_coin::bulk_req req;
+    auto pair (connection.process_bulk_req (req));
+    ASSERT_EQ (0, pair.first.number ());
+}
+
+TEST (bulk_req, genesis_to_end)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
+    mu_coin::bulk_req req;
+    req.start = key1.pub;
+    req.end = 0;
+    auto pair (connection.process_bulk_req (req));
+    ASSERT_EQ (system.clients [0]->ledger.latest (key1.pub), pair.first);
+}
+
 TEST (bulk_connection, none)
 {
     mu_coin::keypair key1;
