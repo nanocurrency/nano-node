@@ -3233,15 +3233,9 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
 
 void mu_coin::bootstrap_connection::send_next ()
 {
-    auto & front (requests.front ());
-    if (front.first != front.second)
+    std::unique_ptr <mu_coin::block> block (get_next ());
+    if (block != nullptr)
     {
-        std::unique_ptr <mu_coin::block> block;
-        {
-            block = client.store.block_get (front.first);
-            assert (block != nullptr);
-            front.first = block->previous ();
-        }
         {
             send_buffer.clear ();
             mu_coin::vectorstream stream (send_buffer);
@@ -3258,6 +3252,20 @@ void mu_coin::bootstrap_connection::send_next ()
     {
         send_finished ();
     }
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
+{
+    std::unique_ptr <mu_coin::block> result;
+    auto & front (requests.front ());
+    if (front.first != front.second)
+    {
+        assert (!requests.empty ());
+        result = client.store.block_get (front.first);
+        assert (result != nullptr);
+        front.first = result->previous ();
+    }
+    return result;
 }
 
 void mu_coin::bootstrap_connection::sent_action (boost::system::error_code const & ec, size_t size_a)

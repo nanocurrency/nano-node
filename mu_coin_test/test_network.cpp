@@ -592,7 +592,12 @@ TEST (bulk_processor, process_two)
 
 TEST (bulk_connection, none)
 {
-    
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
+    connection.requests.push (std::make_pair (system.genesis.hash (), system.genesis.hash ()));
+    auto block (connection.get_next ());
+    ASSERT_EQ (nullptr, block);
 }
 
 TEST (bulk_connection, unknown)

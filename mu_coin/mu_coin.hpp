@@ -766,6 +766,7 @@ namespace mu_coin {
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
         void receive_req_action (boost::system::error_code const &, size_t);
+        std::unique_ptr <mu_coin::block> get_next ();
         void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
         void send_finished ();
