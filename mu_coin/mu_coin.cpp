@@ -3222,7 +3222,7 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
 std::pair <mu_coin::block_hash, mu_coin::block_hash> mu_coin::bootstrap_connection::process_bulk_req (mu_coin::bulk_req const & request)
 {
     std::pair <mu_coin::block_hash, mu_coin::block_hash> result (std::make_pair (0, 0));
-    auto end_exists (client.store.block_exists (request.end));
+    auto end_exists (request.end.is_zero () || client.store.block_exists (request.end));
     if (end_exists)
     {
         mu_coin::block_hash hash;
@@ -3267,6 +3267,7 @@ std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
 {
     std::unique_ptr <mu_coin::block> result;
     auto & front (requests.front ());
+    assert (!front.first.is_zero ());
     if (front.first != front.second)
     {
         assert (!requests.empty ());
