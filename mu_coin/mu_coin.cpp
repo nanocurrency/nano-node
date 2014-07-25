@@ -3422,6 +3422,32 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
     }
 }
 
+namespace
+{
+class observed_visitor : public mu_coin::block_visitor
+{
+public:
+    observed_visitor () :
+    address (0)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a)
+    {
+        address = block_a.hashables.destination;
+    }
+    void receive_block (mu_coin::receive_block const &)
+    {
+    }
+    void open_block (mu_coin::open_block const &)
+    {
+    }
+    void change_block (mu_coin::change_block const &)
+    {
+    }
+    mu_coin::address address;
+};
+}
+
 bool mu_coin::bootstrap_processor::process_end ()
 {
     bool result;
@@ -3438,6 +3464,18 @@ bool mu_coin::bootstrap_processor::process_end ()
                 auto block (client.store.bootstrap_get (hash));
                 assert (block != nullptr);
                 processing = client.ledger.process (*block);
+                observed_visitor visitor;
+                block->visit (visitor);
+                if (!visitor.address.is_zero ())
+                {
+                    if (observed.find (visitor.address) == observed.end ())
+                    {
+                        if (client.store.latest_begin (visitor.address) == client.store.latest_end ())
+                        {
+                            observed.insert (visitor.address);
+                        }
+                    }
+                }
                 expecting = hash;
             }
         } while (had_block && processing == mu_coin::process_result::progress);
@@ -3603,4 +3641,9 @@ std::string mu_coin::uint256_union::to_string () const
     std::string result;
     encode_hex (result);
     return result;
+}
+
+bool mu_coin::uint256_union::operator < (mu_coin::uint256_union const & other_a) const
+{
+    return number () < other_a.number ();
 }

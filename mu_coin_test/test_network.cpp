@@ -590,6 +590,26 @@ TEST (bulk_processor, process_two)
     ASSERT_TRUE (processor.requests.empty ());
 }
 
+TEST (bulk_processor, process_new)
+{
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
+    mu_coin::keypair key2;
+    system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password);
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
+    mu_coin::bootstrap_processor processor (client1);
+    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor.expecting = key1.pub;
+    auto hash1 (system.clients [0]->ledger.latest (key1.pub));
+    auto block (system.clients [0]->ledger.store.block_get (hash1));
+    ASSERT_NE (nullptr, block);
+    ASSERT_FALSE (processor.process_block (*block));
+    ASSERT_FALSE (processor.process_end ());
+    ASSERT_FALSE (processor.observed.empty ());
+    ASSERT_EQ (key2.pub, *processor.observed.begin ());
+}
+
 TEST (bulk_req, no_address)
 {
     mu_coin::keypair key1;

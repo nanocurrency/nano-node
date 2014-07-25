@@ -65,6 +65,7 @@ namespace mu_coin {
         uint256_union prv (uint256_union const &, uint128_union const &) const;
         bool operator == (mu_coin::uint256_union const &) const;
         bool operator != (mu_coin::uint256_union const &) const;
+        bool operator < (mu_coin::uint256_union const &) const;
         void encode_hex (std::string &) const;
         bool decode_hex (std::string const &);
         void encode_dec (std::string &) const;
@@ -709,6 +710,7 @@ namespace mu_coin {
         bool process_end ();
         void stop_blocks ();
         std::queue <std::pair <mu_coin::address, mu_coin::block_hash>> requests;
+        std::set <mu_coin::address> observed;
         mu_coin::block_hash expecting;
         std::array <uint8_t, 4000> buffer;
         mu_coin::client & client;
