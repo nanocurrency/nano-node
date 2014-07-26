@@ -518,27 +518,103 @@ TEST (parse_endpoint, no_colon)
     ASSERT_TRUE (mu_coin::parse_endpoint (string, endpoint));
 }
 
+TEST (bootstrap_iterator, empty)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::bootstrap_iterator iterator (store);
+    ++iterator;
+    ASSERT_TRUE (iterator.current.first.is_zero ());
+}
+
+TEST (bootstrap_iterator, only_store)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::address address;
+    mu_coin::block_hash hash;
+    store.latest_put (address, hash);
+    mu_coin::bootstrap_iterator iterator (store);
+    ++iterator;
+    ASSERT_EQ (address, iterator.current.first);
+    ASSERT_EQ (hash, iterator.current.second);
+    ++iterator;
+    ASSERT_TRUE (iterator.current.first.is_zero ());
+}
+
+TEST (bootstrap_iterator, only_observed)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::bootstrap_iterator iterator (store);
+    mu_coin::address address;
+    iterator.observed.insert (address);
+    ++iterator;
+    ASSERT_EQ (address, iterator.current.first);
+    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ++iterator;
+    ASSERT_TRUE (iterator.current.first.is_zero ());
+}
+
+TEST (bootstrap_iterator, observed_before_store)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::bootstrap_iterator iterator (store);
+    mu_coin::address address1 (10);
+    mu_coin::address address2 (100);
+    iterator.observed.insert (address1);
+    mu_coin::block_hash hash;
+    store.latest_put (address2, hash);
+    ++iterator;
+    ASSERT_EQ (address1, iterator.current.first);
+    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ++iterator;
+    ASSERT_EQ (address2, iterator.current.first);
+    ASSERT_EQ (hash, iterator.current.second);
+    ++iterator;
+    ASSERT_TRUE (iterator.current.first.is_zero ());
+}
+
+TEST (bootstrap_iterator, store_before_observed)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::bootstrap_iterator iterator (store);
+    mu_coin::address address1 (10);
+    mu_coin::address address2 (100);
+    mu_coin::block_hash hash;
+    store.latest_put (address1, hash);
+    iterator.observed.insert (address2);
+    ++iterator;
+    ASSERT_EQ (address1, iterator.current.first);
+    ASSERT_EQ (hash, iterator.current.second);
+    ++iterator;
+    ASSERT_EQ (address2, iterator.current.first);
+    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ++iterator;
+    ASSERT_TRUE (iterator.current.first.is_zero ());
+}
+
 TEST (bulk_processor, process_none)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
-    mu_coin::bootstrap_processor processor (*system.clients [0]);
-    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
-    processor.expecting = key1.pub;
-    ASSERT_FALSE (processor.process_end ());
-    ASSERT_TRUE (processor.requests.empty ());
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (*system.clients [0]));
+    ++processor->iterator;
+    ASSERT_EQ (key1.pub, processor->iterator.current.first);
+    ASSERT_EQ (system.genesis.hash (), processor->iterator.current.second);
+    processor->requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor->expecting = key1.pub;
+    ASSERT_FALSE (processor->process_end ());
+    ASSERT_TRUE (processor->requests.empty ());
 }
 
 TEST (bulk_processor, process_incomplete)
 {
     mu_coin::keypair key1;
     mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
-    mu_coin::bootstrap_processor processor (*system.clients [0]);
-    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
-    processor.expecting = key1.pub;
+    auto  processor (std::make_shared <mu_coin::bootstrap_processor> (*system.clients [0]));
+    processor->requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor->expecting = key1.pub;
     mu_coin::send_block block1;
-    ASSERT_FALSE (processor.process_block (block1));
-    ASSERT_TRUE (processor.process_end ());
+    ASSERT_FALSE (processor->process_block (block1));
+    ASSERT_TRUE (processor->process_end ());
 }
 
 TEST (bulk_processor, process_one)
@@ -548,19 +624,20 @@ TEST (bulk_processor, process_one)
     system.clients [0]->wallet.insert (key1.pub, key1.prv, system.clients [0]->wallet.password);
     system.clients [0]->send (key1.pub, 100, system.clients [0]->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
-    mu_coin::bootstrap_processor processor (client1);
-    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
-    processor.expecting = key1.pub;
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1));
+    ++processor->iterator;
+    processor->requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor->expecting = key1.pub;
     auto hash1 (system.clients [0]->ledger.latest (key1.pub));
     auto hash2 (client1.ledger.latest (key1.pub));
     ASSERT_NE (hash1, hash2);
     auto block (system.clients [0]->ledger.store.block_get (hash1));
     ASSERT_NE (nullptr, block);
-    ASSERT_FALSE (processor.process_block (*block));
-    ASSERT_FALSE (processor.process_end ());
+    ASSERT_FALSE (processor->process_block (*block));
+    ASSERT_FALSE (processor->process_end ());
     auto hash3 (client1.ledger.latest (key1.pub));
     ASSERT_EQ (hash1, hash3);
-    ASSERT_TRUE (processor.requests.empty ());
+    ASSERT_TRUE (processor->requests.empty ());
 }
 
 TEST (bulk_processor, process_two)
@@ -577,17 +654,18 @@ TEST (bulk_processor, process_two)
     ASSERT_NE (hash1, hash3);
     ASSERT_NE (hash2, hash3);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
-    mu_coin::bootstrap_processor processor (client1);
-    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
-    processor.expecting = key1.pub;
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1));
+    ++processor->iterator;
+    processor->requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor->expecting = key1.pub;
     auto block2 (system.clients [0]->ledger.store.block_get (hash3));
-    ASSERT_FALSE (processor.process_block (*block2));
+    ASSERT_FALSE (processor->process_block (*block2));
     auto block1 (system.clients [0]->ledger.store.block_get (hash2));
-    ASSERT_FALSE (processor.process_block (*block1));
-    ASSERT_FALSE (processor.process_end ());
+    ASSERT_FALSE (processor->process_block (*block1));
+    ASSERT_FALSE (processor->process_end ());
     auto hash4 (client1.ledger.latest (key1.pub));
     ASSERT_EQ (hash3, hash4);
-    ASSERT_TRUE (processor.requests.empty ());
+    ASSERT_TRUE (processor->requests.empty ());
 }
 
 TEST (bulk_processor, process_new)
@@ -598,16 +676,18 @@ TEST (bulk_processor, process_new)
     mu_coin::keypair key2;
     system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, key1.pub, system.genesis);
-    mu_coin::bootstrap_processor processor (client1);
-    processor.requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
-    processor.expecting = key1.pub;
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1));
+    ++processor->iterator;
+    processor->requests.push (std::make_pair (key1.pub, system.genesis.hash ()));
+    processor->expecting = key1.pub;
     auto hash1 (system.clients [0]->ledger.latest (key1.pub));
     auto block (system.clients [0]->ledger.store.block_get (hash1));
     ASSERT_NE (nullptr, block);
-    ASSERT_FALSE (processor.process_block (*block));
-    ASSERT_FALSE (processor.process_end ());
-    ASSERT_FALSE (processor.observed.empty ());
-    ASSERT_EQ (key2.pub, *processor.observed.begin ());
+    ASSERT_FALSE (processor->process_block (*block));
+    ASSERT_FALSE (processor->process_end ());
+    ASSERT_TRUE (processor->iterator.observed.empty ());
+    ASSERT_FALSE (processor->requests.empty ());
+    ASSERT_EQ (key2.pub, processor->requests.front ().first);
 }
 
 TEST (bulk_req, no_address)
