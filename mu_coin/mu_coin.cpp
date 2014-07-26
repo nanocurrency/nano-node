@@ -1510,6 +1510,11 @@ bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public
             blocks.push_back (std::move (block));
         }
     }
+    if (!remaining.is_zero ())
+    {
+        result = true;
+        blocks.clear ();
+    }
     return result;
 }
 
@@ -3229,12 +3234,26 @@ std::pair <mu_coin::block_hash, mu_coin::block_hash> mu_coin::bootstrap_connecti
         auto no_address (client.store.latest_get (request.start, hash));
         if (no_address)
         {
-            send_finished ();
+            result.first = request.end;
+            result.second = request.end;
         }
         else
         {
-            result.first = hash;
-            result.second = request.end;
+            if (!request.end.is_zero ())
+            {
+                account_visitor visitor (client.store);
+                visitor.compute (request.end);
+                if (visitor.result == request.start)
+                {
+                    result.first = hash;
+                    result.second = request.end;
+                }
+            }
+            else
+            {
+                result.first = hash;
+                result.second = request.end;
+            }
         }
     }
     return result;
@@ -3514,12 +3533,10 @@ void mu_coin::bootstrap_iterator::observed_block (mu_coin::block const & block_a
     block_a.visit (visitor);
     if (!visitor.address.is_zero ())
     {
-        if (observed.find (visitor.address) == observed.end ())
+        mu_coin::block_hash hash;
+        if (store.latest_get (visitor.address, hash))
         {
-            if (store.latest_begin (visitor.address) == store.latest_end ())
-            {
-                observed.insert (visitor.address);
-            }
+            observed.insert (visitor.address);
         }
     }
 }

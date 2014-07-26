@@ -88,7 +88,7 @@ TEST (wallet, insufficient_spend)
     mu_coin::uint256_union password;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
     auto error (wallet.generate_send (ledger, key1.pub, 500, password, blocks));
-    ASSERT_FALSE (error);
+    ASSERT_TRUE (error);
 }
 
 TEST (wallet, one_spend)

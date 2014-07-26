@@ -591,6 +591,19 @@ TEST (bootstrap_iterator, store_before_observed)
     ASSERT_TRUE (iterator.current.first.is_zero ());
 }
 
+TEST (bootstrap_iterator, observe_send)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::address address;
+    mu_coin::block_hash hash;
+    store.latest_put (address, hash);
+    mu_coin::bootstrap_iterator iterator (store);
+    mu_coin::send_block send;
+    send.hashables.destination = 1;
+    iterator.observed_block (send);
+    ASSERT_EQ (1, iterator.observed.size ());
+}
+
 TEST (bulk_processor, process_none)
 {
     mu_coin::keypair key1;
@@ -724,9 +737,24 @@ TEST (bulk_req, no_end)
     ASSERT_EQ (0, pair.first.number ());
 }
 
-TEST (bulk_req, DISABLED_end_not_owned)
+TEST (bulk_req, end_not_owned)
 {
-    // Test end that is not part of the chain of start
+    mu_coin::keypair key1;
+    mu_coin::system system (1, 24000, 25000, 1, key1.pub, 100);
+    mu_coin::keypair key2;
+    system.clients [0]->wallet.insert (key1.prv, system.clients [0]->wallet.password);
+    ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
+    mu_coin::open_block open;
+    open.hashables.representative = key2.pub;
+    open.hashables.source = system.clients [0]->ledger.latest (key1.pub);
+    mu_coin::sign_message (key2.prv, key2.pub, open.hash (), open.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, system.clients [0]->ledger.process (open));
+    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
+    mu_coin::bulk_req req;
+    req.start = key2.pub;
+    req.end = system.genesis.hash ();
+    auto pair (connection.process_bulk_req (req));
+    ASSERT_EQ (0, pair.first.number ());
 }
 
 TEST (bulk_connection, none)
