@@ -3041,7 +3041,9 @@ void mu_coin::peer_container::queue_next_refresh ()
     }
 }
 
-bool mu_coin::parse_endpoint (std::string const & string, mu_coin::endpoint & endpoint_a)
+namespace
+{
+bool parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
 {
     auto result (false);
     auto port_position (string.rfind (':'));
@@ -3058,7 +3060,8 @@ bool mu_coin::parse_endpoint (std::string const & string, mu_coin::endpoint & en
                 auto address (boost::asio::ip::address_v4::from_string (string.substr (0, port_position), ec));
                 if (ec == 0)
                 {
-                    endpoint_a = mu_coin::endpoint (address, port);
+                    address_a = address;
+                    port_a = port;
                 }
                 else
                 {
@@ -3078,6 +3081,31 @@ bool mu_coin::parse_endpoint (std::string const & string, mu_coin::endpoint & en
     else
     {
         result = true;
+    }
+    return result;
+}
+}
+
+bool mu_coin::parse_endpoint (std::string const & string, mu_coin::endpoint & endpoint_a)
+{
+    boost::asio::ip::address address;
+    uint16_t port;
+    auto result (parse_address_port (string, address, port));
+    if (!result)
+    {
+        endpoint_a = mu_coin::endpoint (address, port);
+    }
+    return result;
+}
+
+bool mu_coin::parse_tcp_endpoint (std::string const & string, mu_coin::tcp_endpoint & endpoint_a)
+{
+    boost::asio::ip::address address;
+    uint16_t port;
+    auto result (parse_address_port (string, address, port));
+    if (!result)
+    {
+        endpoint_a = mu_coin::tcp_endpoint (address, port);
     }
     return result;
 }

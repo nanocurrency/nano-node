@@ -105,7 +105,9 @@ namespace mu_coin {
     };
     using signature = uint512_union;
     using endpoint = boost::asio::ip::udp::endpoint;
+    using tcp_endpoint = boost::asio::ip::tcp::endpoint;
     bool parse_endpoint (std::string const &, mu_coin::endpoint &);
+    bool parse_tcp_endpoint (std::string const &, mu_coin::tcp_endpoint &);
 }
 
 namespace std
@@ -680,7 +682,7 @@ namespace mu_coin {
     {
     public:
         processor (mu_coin::client &);
-        void bootstrap (boost::asio::ip::tcp::endpoint const &);
+        void bootstrap (mu_coin::tcp_endpoint const &);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
@@ -710,7 +712,7 @@ namespace mu_coin {
     {
     public:
         bootstrap_processor (mu_coin::client &);
-        void run (boost::asio::ip::tcp::endpoint const &);
+        void run (mu_coin::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
         void fill_queue ();
         void send_request (std::pair <mu_coin::address, mu_coin::block_hash> const &);
@@ -767,9 +769,9 @@ namespace mu_coin {
         void accept ();
         void stop ();
         void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
-        boost::asio::ip::tcp::endpoint endpoint ();
+        mu_coin::tcp_endpoint endpoint ();
         boost::asio::ip::tcp::acceptor acceptor;
-        boost::asio::ip::tcp::endpoint local;
+        mu_coin::tcp_endpoint local;
         boost::asio::io_service & service;
         mu_coin::client & client;
         bool on;

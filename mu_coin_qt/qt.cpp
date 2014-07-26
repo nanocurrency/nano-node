@@ -14,6 +14,7 @@ settings_port_label (new QLabel ((std::string ("Port: ") + std::to_string (clien
 settings_connect_label (new QLabel ("Connect to IP:Port")),
 settings_connect_line (new QLineEdit),
 settings_connect_button (new QPushButton ("Connect")),
+settings_bootstrap_button (new QPushButton ("Bootstrap")),
 settings_password_label (new QLabel ("Password:")),
 settings_password (new QLineEdit),
 settings_back (new QPushButton ("Back")),
@@ -96,11 +97,33 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     settings_layout->addWidget (settings_connect_label);
     settings_layout->addWidget (settings_connect_line);
     settings_layout->addWidget (settings_connect_button);
+    settings_layout->addWidget (settings_bootstrap_button);
     settings_layout->addWidget (settings_password_label);
     settings_password->setEchoMode (QLineEdit::EchoMode::Password);
     settings_layout->addWidget (settings_password);
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
+    
+    QObject::connect (settings_bootstrap_button, &QPushButton::released, [this] ()
+    {
+        QString address_text_wide (settings_connect_line->text ());
+        std::string address_text (address_text_wide.toLocal8Bit ());
+        mu_coin::tcp_endpoint endpoint;
+        if (!mu_coin::parse_tcp_endpoint (address_text, endpoint))
+        {
+          QPalette palette;
+          palette.setColor (QPalette::Text, Qt::black);
+          send_address->setPalette (palette);
+          client.processor.bootstrap (endpoint);
+          settings_connect_line->clear ();
+        }
+        else
+        {
+          QPalette palette;
+          palette.setColor (QPalette::Text, Qt::red);
+          settings_connect_line->setPalette (palette);
+        }
+    });
     
     QObject::connect (settings_connect_button, &QPushButton::released, [this] ()
     {

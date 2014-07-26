@@ -24,6 +24,7 @@ namespace mu_coin_qt {
         QLabel * settings_connect_label;
         QLineEdit * settings_connect_line;
         QPushButton * settings_connect_button;
+        QPushButton * settings_bootstrap_button;
         QLabel * settings_password_label;
         QLineEdit * settings_password;
         QPushButton * settings_back;
