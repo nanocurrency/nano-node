@@ -786,7 +786,7 @@ namespace mu_coin {
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
         void receive_req_action (boost::system::error_code const &, size_t);
-        std::pair <mu_coin::block_hash, mu_coin::block_hash> process_bulk_req (mu_coin::bulk_req const &);
+        bool process_bulk_req (mu_coin::bulk_req const &, std::pair <mu_coin::block_hash, mu_coin::block_hash> &);
         std::unique_ptr <mu_coin::block> get_next ();
         void send_next ();
         void sent_action (boost::system::error_code const &, size_t);

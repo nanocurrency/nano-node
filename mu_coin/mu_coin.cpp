@@ -3242,15 +3242,16 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
         if (!error)
         {
             receive ();
-            auto next (process_bulk_req (request));
-            if (!next.first.is_zero ())
+            std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
+            auto error (process_bulk_req (request, pair));
+            if (!error)
             {
                 if (network_debug)
                 {
                     std::cerr << "Sending: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
                 }
                 auto startup (requests.empty ());
-                requests.push (next);
+                requests.push (pair);
                 if (startup)
                 {
                     send_next ();
@@ -3267,9 +3268,9 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
     }
 }
 
-std::pair <mu_coin::block_hash, mu_coin::block_hash> mu_coin::bootstrap_connection::process_bulk_req (mu_coin::bulk_req const & request)
+bool mu_coin::bootstrap_connection::process_bulk_req (mu_coin::bulk_req const & request, std::pair <mu_coin::block_hash, mu_coin::block_hash> & result_a)
 {
-    std::pair <mu_coin::block_hash, mu_coin::block_hash> result (std::make_pair (0, 0));
+    auto result (false);
     auto end_exists (request.end.is_zero () || client.store.block_exists (request.end));
     if (end_exists)
     {
@@ -3277,8 +3278,8 @@ std::pair <mu_coin::block_hash, mu_coin::block_hash> mu_coin::bootstrap_connecti
         auto no_address (client.store.latest_get (request.start, hash));
         if (no_address)
         {
-            result.first = request.end;
-            result.second = request.end;
+            result_a.first = request.end;
+            result_a.second = request.end;
         }
         else
         {
@@ -3288,21 +3289,25 @@ std::pair <mu_coin::block_hash, mu_coin::block_hash> mu_coin::bootstrap_connecti
                 visitor.compute (request.end);
                 if (visitor.result == request.start)
                 {
-                    result.first = hash;
-                    result.second = request.end;
+                    result_a.first = hash;
+                    result_a.second = request.end;
+                }
+                else
+                {
+                    result = true;
                 }
             }
             else
             {
-                result.first = hash;
-                result.second = request.end;
+                result_a.first = hash;
+                result_a.second = request.end;
             }
         }
     }
     else
     {
-        result.first = request.end;
-        result.second = request.end;
+        result_a.first = request.end;
+        result_a.second = request.end;
     }
     return result;
 }
