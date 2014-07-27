@@ -138,7 +138,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
         {
           QPalette palette;
           palette.setColor (QPalette::Text, Qt::black);
-          send_address->setPalette (palette);
+          settings_connect_line->setPalette (palette);
           client.processor.bootstrap (endpoint);
           settings_connect_line->clear ();
         }
@@ -159,7 +159,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
         {
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
-            send_address->setPalette (palette);
+            settings_connect_line->setPalette (palette);
             client.network.send_keepalive (endpoint);
             settings_connect_line->clear ();
         }
