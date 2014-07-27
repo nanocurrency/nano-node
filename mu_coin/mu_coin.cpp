@@ -3173,13 +3173,18 @@ void mu_coin::bootstrap::accept ()
     acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
     acceptor.bind (local);
     acceptor.listen ();
-    auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
-    acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & error) {accept_action (error, socket); });
+    accept_connection ();
 }
 
 void mu_coin::bootstrap::stop ()
 {
     on = false;
+}
+
+void mu_coin::bootstrap::accept_connection ()
+{
+    auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
+    acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & error) {accept_action (error, socket); accept_connection ();});
 }
 
 void mu_coin::bootstrap::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)

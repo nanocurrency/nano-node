@@ -770,6 +770,7 @@ namespace mu_coin {
         bootstrap (boost::asio::io_service &, uint16_t, mu_coin::client &);
         void accept ();
         void stop ();
+        void accept_connection ();
         void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
         mu_coin::tcp_endpoint endpoint ();
         boost::asio::ip::tcp::acceptor acceptor;
