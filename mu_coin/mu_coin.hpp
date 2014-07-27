@@ -456,6 +456,7 @@ namespace mu_coin {
     {
     public:
         keypair ();
+        keypair (std::string const &);
         mu_coin::public_key pub;
         mu_coin::private_key prv;
     };
@@ -898,7 +899,9 @@ namespace mu_coin {
     class system
     {
     public:
-        system (size_t, uint16_t, uint16_t, size_t, mu_coin::public_key const &, mu_coin::uint256_t const &);
+        system (size_t, uint16_t, uint16_t, size_t, mu_coin::uint256_t const &);
+        void generate_transaction (uint32_t);
+        mu_coin::keypair test_genesis_address;
         mu_coin::genesis genesis;
         boost::shared_ptr <boost::asio::io_service> service;
         boost::shared_ptr <boost::network::utils::thread_pool> pool;

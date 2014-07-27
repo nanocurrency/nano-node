@@ -308,6 +308,13 @@ mu_coin::keypair::keypair ()
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
+mu_coin::keypair::keypair (std::string const & prv_a)
+{
+    auto error (prv.decode_hex (prv_a));
+    assert (!error);
+    ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+}
+
 mu_coin::ledger::ledger (mu_coin::block_store & store_a) :
 store (store_a)
 {
@@ -2195,15 +2202,16 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     return result;
 }
 
-mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a, mu_coin::public_key const & address, mu_coin::uint256_t const & amount) :
-genesis (address, amount),
+mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a, mu_coin::uint256_t const & amount) :
+test_genesis_address ("E49C03BB7404C10B388AE56322217306B57F3DCBB3A5F060A2F420AD7AA3F034"),
+genesis (test_genesis_address.pub, amount),
 service (new boost::asio::io_service),
 pool (new boost::network::utils::thread_pool (threads_a))
 {
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor, address, genesis)));
+        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor, test_genesis_address.pub, genesis)));
         genesis.initialize (clients.back ()->store);
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
@@ -3763,4 +3771,24 @@ mu_coin::bootstrap_iterator & mu_coin::bootstrap_iterator::operator ++ ()
         current.first = 0;
     }
     return *this;
+}
+
+void mu_coin::system::generate_transaction (uint32_t amount)
+{
+    assert (!clients.empty ());
+    auto max (clients.size () - 1);
+    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
+    {
+        mu_coin::keypair key;
+        (*i)->wallet.insert (key.prv, (*i)->wallet.password);
+    }
+    for (uint32_t i (0); i < amount; ++i)
+    {
+        uint32_t source (::pool.GenerateWord32 (0, max));
+        uint32_t destination;
+        do
+        {
+            destination = ::pool.GenerateWord32 (0, max);
+        } while (source == destination);
+    }
 }
