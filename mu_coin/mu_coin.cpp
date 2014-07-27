@@ -3516,7 +3516,18 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
                 }
                 case mu_coin::block_type::not_a_block:
                 {
-                    process_end ();
+                    auto error (process_end ());
+					if (!error)
+					{
+						receive_block ();
+					}
+					else
+					{
+						if (network_debug)
+						{
+							std::cerr << "Error processing end block" << std::endl;
+						}
+					}
                     break;
                 }
                 default:
