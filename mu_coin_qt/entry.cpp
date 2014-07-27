@@ -6,9 +6,7 @@ int main (int argc, char ** argv)
 {
     QApplication application (argc, argv);
     static int count (2);
-    mu_coin::keypair genesis_key;
-    mu_coin::system system (1, 24000, 25000, count, genesis_key.pub, std::numeric_limits <mu_coin::uint256_t>::max ());
-    system.clients [0]->wallet.insert (genesis_key.pub, genesis_key.prv, system.clients [0]->wallet.password);
+    mu_coin::system system (1, 24000, 25000, count, std::numeric_limits <mu_coin::uint256_t>::max ());
     std::vector <std::unique_ptr <mu_coin_qt::gui>> guis;
     guis.reserve (count);
     for (auto i (0); i < count; ++i)

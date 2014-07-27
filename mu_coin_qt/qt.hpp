@@ -56,6 +56,8 @@ namespace mu_coin_qt {
         QListView * wallet_view;
         QPushButton * wallet_refresh;
         QPushButton * wallet_add_account;
+        QLineEdit * wallet_key_line;
+        QPushButton * wallet_add_key_button;
         QPushButton * wallet_back;
         
         QWidget * ledger_window;
