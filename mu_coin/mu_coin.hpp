@@ -683,7 +683,7 @@ namespace mu_coin {
     {
     public:
         processor (mu_coin::client &);
-        void bootstrap (mu_coin::tcp_endpoint const &);
+        void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
@@ -713,7 +713,7 @@ namespace mu_coin {
     class bootstrap_processor : public std::enable_shared_from_this <bootstrap_processor>
     {
     public:
-        bootstrap_processor (mu_coin::client &);
+        bootstrap_processor (mu_coin::client &, std::function <void ()> const &);
         ~bootstrap_processor ();
         void run (mu_coin::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
@@ -732,6 +732,7 @@ namespace mu_coin {
         std::array <uint8_t, 4000> buffer;
         mu_coin::client & client;
         boost::asio::ip::tcp::socket socket;
+        std::function <void ()> complete_action;
         static size_t const max_queue_size = 10;
     };
     class network

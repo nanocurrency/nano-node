@@ -15,7 +15,7 @@
 
 namespace
 {
-    bool const network_debug = true;
+    bool const network_debug = false;
 }
 
 CryptoPP::AutoSeededRandomPool pool;
@@ -3153,9 +3153,9 @@ void mu_coin::client::start ()
     peers.start ();
 }
 
-void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a)
+void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & complete_action_a)
 {
-    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client));
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client, complete_action_a));
     processor->run (endpoint_a);
 }
 
@@ -3345,7 +3345,6 @@ std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
     std::unique_ptr <mu_coin::block> result;
     assert (!requests.empty ());
     auto & front (requests.front ());
-    assert (!front.first.is_zero ());
     if (front.first != front.second)
     {
         result = client.store.block_get (front.first);
@@ -3429,10 +3428,11 @@ void mu_coin::bootstrap_processor::run (boost::asio::ip::tcp::endpoint const & e
     socket.async_connect (endpoint_a, [this_l] (boost::system::error_code const & ec) {this_l->connect_action (ec);});
 }
 
-mu_coin::bootstrap_processor::bootstrap_processor (mu_coin::client & client_a) :
+mu_coin::bootstrap_processor::bootstrap_processor (mu_coin::client & client_a, std::function <void ()> const & complete_action_a) :
 iterator (client_a.store),
 client (client_a),
-socket (client_a.network.service)
+socket (client_a.network.service),
+complete_action (complete_action_a)
 {
 }
 
@@ -3524,7 +3524,17 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
                     auto error (process_end ());
 					if (!error)
 					{
-						receive_block ();
+                        if (!requests.empty ())
+                        {
+                            receive_block ();
+                        }
+                        else
+                        {
+                            if (network_debug)
+                            {
+                                std::cerr << "Exiting bootstrap processor" << std::endl;
+                            }
+                        }
 					}
 					else
 					{
@@ -3850,6 +3860,7 @@ void mu_coin::system::generate_transaction (uint32_t amount)
 
 mu_coin::bootstrap_processor::~bootstrap_processor ()
 {
+    complete_action ();
     if (network_debug)
     {
         std::cerr << "Exiting bootstrap processor" << std::endl;

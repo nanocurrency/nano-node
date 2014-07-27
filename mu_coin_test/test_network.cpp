@@ -32,6 +32,12 @@ TEST (network, send_keepalive)
     ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
 }
 
+TEST (network, peer_notification)
+{
+    mu_coin::system system (2, 24000, 25000, 2, 100);
+    mu_coin::client client1 (system.service, system.pool, 24002, 25002, system.processor, system.test_genesis_address.pub, system.genesis);
+}
+
 TEST (network, publish_req)
 {
     auto block (std::unique_ptr <mu_coin::send_block> (new mu_coin::send_block));
@@ -605,10 +611,10 @@ TEST (bootstrap_iterator, observe_send)
     ASSERT_EQ (1, iterator.observed.size ());
 }
 
-TEST (bulk_processor, process_none)
+TEST (bootstrap_processor, process_none)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
-    auto processor (std::make_shared <mu_coin::bootstrap_processor> (*system.clients [0]));
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (*system.clients [0], [] () {}));
     ++processor->iterator;
     ASSERT_EQ (system.test_genesis_address.pub, processor->iterator.current.first);
     ASSERT_EQ (system.genesis.hash (), processor->iterator.current.second);
@@ -618,10 +624,10 @@ TEST (bulk_processor, process_none)
     ASSERT_TRUE (processor->requests.empty ());
 }
 
-TEST (bulk_processor, process_incomplete)
+TEST (bootstrap_processor, process_incomplete)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
-    auto  processor (std::make_shared <mu_coin::bootstrap_processor> (*system.clients [0]));
+    auto  processor (std::make_shared <mu_coin::bootstrap_processor> (*system.clients [0], [] () {}));
     processor->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
     processor->expecting = system.test_genesis_address.pub;
     mu_coin::send_block block1;
@@ -629,13 +635,13 @@ TEST (bulk_processor, process_incomplete)
     ASSERT_TRUE (processor->process_end ());
 }
 
-TEST (bulk_processor, process_one)
+TEST (bootstrap_processor, process_one)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     ASSERT_FALSE (system.clients [0]->send (system.test_genesis_address.pub, 100, system.clients [0]->wallet.password));
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1));
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1, [] () {}));
     ++processor->iterator;
     processor->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
     processor->expecting = system.test_genesis_address.pub;
@@ -651,7 +657,7 @@ TEST (bulk_processor, process_one)
     ASSERT_TRUE (processor->requests.empty ());
 }
 
-TEST (bulk_processor, process_two)
+TEST (bootstrap_processor, process_two)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
@@ -664,7 +670,7 @@ TEST (bulk_processor, process_two)
     ASSERT_NE (hash1, hash3);
     ASSERT_NE (hash2, hash3);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1));
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1, [] () {}));
     ++processor->iterator;
     processor->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
     processor->expecting = system.test_genesis_address.pub;
@@ -678,14 +684,14 @@ TEST (bulk_processor, process_two)
     ASSERT_TRUE (processor->requests.empty ());
 }
 
-TEST (bulk_processor, process_new)
+TEST (bootstrap_processor, process_new)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     mu_coin::keypair key2;
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1));
+    auto processor (std::make_shared <mu_coin::bootstrap_processor> (client1, [] () {}));
     ++processor->iterator;
     processor->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
     processor->expecting = system.test_genesis_address.pub;
@@ -792,11 +798,11 @@ TEST (bulk, genesis)
     mu_coin::block_hash latest2;
     ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, latest2));
     ASSERT_NE (latest1, latest2);
-    client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint ());
-    mu_coin::block_hash latest4;
+    bool finished (false);
+    client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
     do
     {
         system.service->run_one ();
-        client1.store.latest_get (system.test_genesis_address.pub, latest4);
-    } while (latest4 != latest2);
+    } while (!finished);
+    ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), client1.ledger.latest (system.test_genesis_address.pub));
 }
