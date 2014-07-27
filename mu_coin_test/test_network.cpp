@@ -572,6 +572,26 @@ TEST (bootstrap_iterator, store_before_observed)
     ASSERT_TRUE (iterator.current.first.is_zero ());
 }
 
+
+TEST (bootstrap_iterator, observed_in_iteration)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::bootstrap_iterator iterator (store);
+    mu_coin::address address1 (100);
+    mu_coin::address address2 (10);
+    mu_coin::block_hash hash;
+    store.latest_put (address1, hash);
+    ++iterator;
+    ASSERT_EQ (address1, iterator.current.first);
+    ASSERT_EQ (hash, iterator.current.second);
+    iterator.observed.insert (address2);
+    ++iterator;
+    ASSERT_EQ (address2, iterator.current.first);
+    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ++iterator;
+    ASSERT_TRUE (iterator.current.first.is_zero ());
+}
+
 TEST (bootstrap_iterator, observe_send)
 {
     mu_coin::block_store store (mu_coin::block_store_temp);

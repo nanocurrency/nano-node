@@ -3786,19 +3786,21 @@ bool mu_coin::uint256_union::operator < (mu_coin::uint256_union const & other_a)
 
 mu_coin::bootstrap_iterator::bootstrap_iterator (mu_coin::block_store & store_a) :
 store (store_a),
-current (std::make_pair (0, 0))
+current (std::make_pair (0, 0)),
+store_address (0)
 {
 }
 
 mu_coin::bootstrap_iterator & mu_coin::bootstrap_iterator::operator ++ ()
 {
-    auto next (store.latest_begin (current.first.number () + 1));
+    auto next (store.latest_begin (store_address.number () + 1));
     if (!observed.empty () && next != store.latest_end ())
     {
         if (next.key.uint256 () < *observed.begin ())
         {
             current.first = next.key.uint256 ();
             current.second = next.data.uint256 ();
+            store_address = current.first;
         }
         else
         {
@@ -3817,6 +3819,7 @@ mu_coin::bootstrap_iterator & mu_coin::bootstrap_iterator::operator ++ ()
     {
         current.first = next.key.uint256 ();
         current.second = next.data.uint256 ();
+        store_address = current.first;
     }
     else
     {

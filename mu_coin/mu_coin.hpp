@@ -707,6 +707,7 @@ namespace mu_coin {
         void observed_block (mu_coin::block const &);
         mu_coin::block_store & store;
         std::pair <mu_coin::address, mu_coin::block_hash> current;
+        mu_coin::address store_address;
         std::set <mu_coin::address> observed;
     };
     class bootstrap_processor : public std::enable_shared_from_this <bootstrap_processor>
