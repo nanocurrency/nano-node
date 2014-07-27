@@ -796,6 +796,7 @@ namespace mu_coin {
         std::vector <uint8_t> send_buffer;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;
+        std::mutex mutex;
         std::queue <std::pair <mu_coin::block_hash, mu_coin::block_hash>> requests;
     };
     class rpc

@@ -685,7 +685,8 @@ TEST (bulk_req, no_address)
     mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
     mu_coin::bulk_req req;
     auto pair (connection.process_bulk_req (req));
-    ASSERT_EQ (0, pair.first.number ());
+    ASSERT_EQ (pair.first, pair.second);
+    ASSERT_FALSE (pair.first.is_zero ());
 }
 
 TEST (bulk_req, genesis_to_end)
@@ -697,6 +698,7 @@ TEST (bulk_req, genesis_to_end)
     req.end = 0;
     auto pair (connection.process_bulk_req (req));
     ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), pair.first);
+    ASSERT_EQ (req.end, pair.second);
 }
 
 TEST (bulk_req, no_end)
@@ -707,7 +709,8 @@ TEST (bulk_req, no_end)
     req.start = system.test_genesis_address.pub;
     req.end = 1;
     auto pair (connection.process_bulk_req (req));
-    ASSERT_EQ (0, pair.first.number ());
+    ASSERT_EQ (pair.first, pair.second);
+    ASSERT_FALSE (pair.first.is_zero ());
 }
 
 TEST (bulk_req, end_not_owned)
@@ -726,7 +729,7 @@ TEST (bulk_req, end_not_owned)
     req.start = key2.pub;
     req.end = system.genesis.hash ();
     auto pair (connection.process_bulk_req (req));
-    ASSERT_EQ (0, pair.first.number ());
+    ASSERT_TRUE (pair.first.is_zero ());
 }
 
 TEST (bulk_connection, none)

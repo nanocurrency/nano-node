@@ -3241,6 +3241,7 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
         auto error (request.deserialize (stream));
         if (!error)
         {
+            receive ();
             auto next (process_bulk_req (request));
             if (!next.first.is_zero ())
             {
@@ -3250,10 +3251,16 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
                 }
                 auto startup (requests.empty ());
                 requests.push (next);
-                receive ();
                 if (startup)
                 {
                     send_next ();
+                }
+            }
+            else
+            {
+                if (network_debug)
+                {
+                    std::cerr << "Malformed request, address: " << request.start.to_string () << " does not own block: " << request.end.to_string ();
                 }
             }
         }
@@ -3292,6 +3299,11 @@ std::pair <mu_coin::block_hash, mu_coin::block_hash> mu_coin::bootstrap_connecti
             }
         }
     }
+    else
+    {
+        result.first = request.end;
+        result.second = request.end;
+    }
     return result;
 }
 
@@ -3321,11 +3333,11 @@ void mu_coin::bootstrap_connection::send_next ()
 std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
 {
     std::unique_ptr <mu_coin::block> result;
+    assert (!requests.empty ());
     auto & front (requests.front ());
     assert (!front.first.is_zero ());
     if (front.first != front.second)
     {
-        assert (!requests.empty ());
         result = client.store.block_get (front.first);
         assert (result != nullptr);
         front.first = result->previous ();
