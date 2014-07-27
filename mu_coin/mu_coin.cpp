@@ -15,7 +15,7 @@
 
 namespace
 {
-    bool const network_debug = false;
+    bool const network_debug = true;
 }
 
 CryptoPP::AutoSeededRandomPool pool;
@@ -3335,7 +3335,10 @@ std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
 
 void mu_coin::bootstrap_connection::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
-    send_next ();
+    if (!ec)
+    {
+        send_next ();
+    }
 }
 
 void mu_coin::bootstrap_connection::send_finished ()
@@ -3347,6 +3350,7 @@ void mu_coin::bootstrap_connection::send_finished ()
     {
         std::cerr << "Sending finished" << std::endl;
     }
+    requests.pop ();
     async_write (*socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
 }
 
@@ -3790,5 +3794,21 @@ void mu_coin::system::generate_transaction (uint32_t amount)
         {
             destination = ::pool.GenerateWord32 (0, max);
         } while (source == destination);
+    }
+}
+
+mu_coin::bootstrap_processor::~bootstrap_processor ()
+{
+    if (network_debug)
+    {
+        std::cerr << "Exiting bootstrap processor" << std::endl;
+    }
+}
+
+mu_coin::bootstrap_connection::~bootstrap_connection ()
+{
+    if (network_debug)
+    {
+        std::cerr << "Exiting bootstrap connection" << std::endl;
     }
 }

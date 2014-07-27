@@ -713,6 +713,7 @@ namespace mu_coin {
     {
     public:
         bootstrap_processor (mu_coin::client &);
+        ~bootstrap_processor ();
         void run (mu_coin::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
         void fill_queue ();
@@ -781,6 +782,7 @@ namespace mu_coin {
     {
     public:
         bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, mu_coin::client &);
+        ~bootstrap_connection ();
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
         void receive_req_action (boost::system::error_code const &, size_t);
