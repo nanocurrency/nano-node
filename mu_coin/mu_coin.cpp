@@ -3613,16 +3613,19 @@ mu_coin::block_hash mu_coin::genesis::hash () const
 
 void mu_coin::bootstrap_processor::received_block (boost::system::error_code const & ec, size_t size_a)
 {
-    mu_coin::bufferstream stream (buffer.data (), 1 + size_a);
-    auto block (mu_coin::deserialize_block (stream));
-    if (block != nullptr)
-    {
-        auto error (process_block (*block));
-        if (!error)
-        {
-            receive_block ();
-        }
-    }
+	if (!ec)
+	{
+		mu_coin::bufferstream stream (buffer.data (), 1 + size_a);
+		auto block (mu_coin::deserialize_block (stream));
+		if (block != nullptr)
+		{
+			auto error (process_block (*block));
+			if (!error)
+			{
+				receive_block ();
+			}
+		}
+	}
 }
 
 bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
@@ -3648,6 +3651,10 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
     }
     else
     {
+		if (network_debug)
+		{
+			std::cerr << "Block hash: " << hash.to_string () << " did not match expecting: " << expecting.to_string () << std::endl;
+		}
         result = true;
     }
     return result;
