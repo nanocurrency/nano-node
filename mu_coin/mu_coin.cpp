@@ -3345,7 +3345,15 @@ std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
     {
         result = client.store.block_get (front.first);
         assert (result != nullptr);
-        front.first = result->previous ();
+        auto previous (result->previous ());
+        if (!previous.is_zero ())
+        {
+            front.first = previous;
+        }
+        else
+        {
+            front.second = front.first;
+        }
     }
     return result;
 }

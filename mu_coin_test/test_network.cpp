@@ -744,6 +744,19 @@ TEST (bulk_connection, none)
     ASSERT_EQ (nullptr, block);
 }
 
+TEST (bulk_connection, get_next_on_open)
+{
+    mu_coin::system system (1, 24000, 25000, 1, 100);
+    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
+    connection.requests.push (std::make_pair (system.genesis.hash (), 0));
+    auto block (connection.get_next ());
+    ASSERT_NE (nullptr, block);
+    ASSERT_TRUE (block->previous ().is_zero ());
+    ASSERT_FALSE (connection.requests.empty ());
+    ASSERT_FALSE (connection.requests.front ().first.is_zero ());
+    ASSERT_EQ (connection.requests.front ().second, connection.requests.front ().first);
+}
+
 TEST (bulk, genesis)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
