@@ -136,11 +136,13 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
         mu_coin::tcp_endpoint endpoint;
         if (!mu_coin::parse_tcp_endpoint (address_text, endpoint))
         {
-          QPalette palette;
-          palette.setColor (QPalette::Text, Qt::black);
-          settings_connect_line->setPalette (palette);
-          client.processor.bootstrap (endpoint);
-          settings_connect_line->clear ();
+            QPalette palette;
+            palette.setColor (QPalette::Text, Qt::black);
+            settings_connect_line->setPalette (palette);
+            settings_bootstrap_button->setEnabled (false);
+            settings_bootstrap_button->setText ("Bootstrapping...");
+            client.processor.bootstrap (endpoint, [this] () {settings_bootstrap_button->setText ("Bootstrap"); settings_bootstrap_button->setEnabled (true);});
+            settings_connect_line->clear ();
         }
         else
         {
