@@ -9,9 +9,9 @@
 
 #include <cryptopp/osrng.h>
 
-extern CryptoPP::AutoSeededRandomPool pool;
+extern CryptoPP::AutoSeededRandomPool random_pool;
 
 void ed25519_randombytes_unsafe (void * out, size_t outlen)
 {
-    pool.GenerateBlock (reinterpret_cast <uint8_t *> (out), outlen);
+    random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (out), outlen);
 }

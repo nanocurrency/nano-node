@@ -11,6 +11,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/multi_index/random_access_index.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -490,6 +491,7 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
+		std::array <mu_coin::endpoint, 64> peers;
     };
     class keepalive_ack : public message
     {
@@ -497,6 +499,7 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
+		std::array <mu_coin::endpoint, 64> peers;
     };
     class publish_req : public message
     {
@@ -826,6 +829,7 @@ namespace mu_coin {
         peer_container (mu_coin::client &);
         void start ();
         void incoming_from_peer (mu_coin::endpoint const &);
+		void random_fill (std::array <mu_coin::endpoint, 64> &);
         std::vector <peer_information> list ();
         void refresh_action ();
         void queue_next_refresh ();

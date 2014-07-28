@@ -18,7 +18,7 @@ namespace
     bool const network_debug = false;
 }
 
-CryptoPP::AutoSeededRandomPool pool;
+CryptoPP::AutoSeededRandomPool random_pool;
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
 {
@@ -3849,11 +3849,11 @@ void mu_coin::system::generate_transaction (uint32_t amount)
     }
     for (uint32_t i (0); i < amount; ++i)
     {
-        uint32_t source (::pool.GenerateWord32 (0, max));
+        uint32_t source (random_pool.GenerateWord32 (0, max));
         uint32_t destination;
         do
         {
-            destination = ::pool.GenerateWord32 (0, max);
+            destination = random_pool.GenerateWord32 (0, max);
         } while (source == destination);
     }
 }
@@ -3873,4 +3873,25 @@ mu_coin::bootstrap_connection::~bootstrap_connection ()
     {
         std::cerr << "Exiting bootstrap connection" << std::endl;
     }
+}
+
+void mu_coin::peer_container::random_fill (std::array <mu_coin::endpoint, 64> & target_a)
+{
+	auto peers (list ());
+	if (peers.size () > target_a.size ())
+	{
+		for (auto i (peers.begin ()), j (peers.begin () + target_a.size ()), k (peers.end ()); i < j && i < k; ++i)
+		{
+			auto index (random_pool.GenerateWord32 (i - peers.begin (), peers.size ()));
+			std::swap (*i, peers [index]);
+		}
+	}
+	auto i (peers.begin ());
+	auto j (peers.end ());
+	auto k (target_a.begin ());
+	auto l (target_a.end ());
+	while (i < j && k < l)
+	{
+		*k = i->endpoint;
+	}
 }
