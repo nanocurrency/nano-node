@@ -11,6 +11,26 @@ TEST (network, construction)
     ASSERT_EQ (24000, system.clients [0]->network.socket.local_endpoint ().port ());
 }
 
+TEST (network, empty_peers)
+{
+    mu_coin::peer_container peers;
+    auto list (peers.purge_list (std::chrono::system_clock::now ()));
+    ASSERT_EQ (0, list.size ());
+}
+
+TEST (network, split)
+{
+    mu_coin::peer_container peers;
+    auto now (std::chrono::system_clock::now ());
+    mu_coin::endpoint endpoint1 (boost::asio::ip::address_v4::any (), 100);
+    mu_coin::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 101);
+    peers.peers.insert ({endpoint1, now - std::chrono::seconds (1), now - std::chrono::seconds (1)});
+    peers.peers.insert ({endpoint2, now + std::chrono::seconds (1), now + std::chrono::seconds (1)});
+    auto list (peers.purge_list (now));
+    ASSERT_EQ (1, list.size ());
+    ASSERT_EQ (endpoint2, list [0].endpoint);
+}
+
 TEST (network, send_keepalive)
 {
     mu_coin::system system (1, 24000, 25000, 2, 100);
