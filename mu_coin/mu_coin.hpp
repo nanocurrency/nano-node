@@ -832,8 +832,6 @@ namespace mu_coin {
         std::vector <peer_information> list ();
         void refresh_action ();
         void queue_next_refresh ();
-        mu_coin::client & client;
-        std::vector <mu_coin::peer_information> list ();
         std::vector <mu_coin::peer_information> purge_list (std::chrono::system_clock::time_point const &);
         std::mutex mutex;
         boost::multi_index_container
