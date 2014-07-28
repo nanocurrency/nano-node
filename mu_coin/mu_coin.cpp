@@ -1054,6 +1054,7 @@ void mu_coin::network::stop ()
 void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
 {
     mu_coin::keepalive_req message;
+    client.peers.random_fill (message.peers);
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         mu_coin::vectorstream stream (*bytes);
@@ -1115,13 +1116,21 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 {
                     ++keepalive_req_count;
                     receive ();
-                    mu_coin::keepalive_ack message;
-                    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+                    auto incoming (new mu_coin::keepalive_req);
+                    mu_coin::bufferstream stream (buffer.data (), size_a);
+                    auto error (incoming->deserialize (stream));
+                    if (!error)
                     {
-                        mu_coin::vectorstream stream (*bytes);
-                        message.serialize (stream);
+                        client.processor.process_keepalive (std::unique_ptr <mu_coin::keepalive_req> (incoming));
+                        mu_coin::keepalive_ack message;
+                        client.peers.random_fill (message.peers);
+                        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+                        {
+                            mu_coin::vectorstream stream (*bytes);
+                            message.serialize (stream);
+                        }
+                        socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
                     }
-                    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
                     break;
                 }
                 case mu_coin::message_type::keepalive_ack:
@@ -3844,4 +3853,9 @@ std::vector <mu_coin::peer_information> mu_coin::peer_container::purge_list (std
     std::vector <mu_coin::peer_information> result (pivot, peers.get <1> ().end ());
     peers.get <1> ().erase (peers.get <1> ().begin (), pivot);
     return result;
+}
+
+void mu_coin::processor::process_keepalive (std::unique_ptr <mu_coin::keepalive_req> message_a)
+{
+    
 }

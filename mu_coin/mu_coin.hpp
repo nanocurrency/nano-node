@@ -696,6 +696,7 @@ namespace mu_coin {
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
+        void process_keepalive (std::unique_ptr <mu_coin::keepalive_req>);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
 		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
         void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
@@ -759,7 +760,7 @@ namespace mu_coin {
         void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block>);
         mu_coin::endpoint endpoint ();
         mu_coin::endpoint remote;
-        std::array <uint8_t, 4000> buffer;
+        std::array <uint8_t, 512> buffer;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
         mu_coin::client & client;
