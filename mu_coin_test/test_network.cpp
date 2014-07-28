@@ -419,41 +419,6 @@ TEST (rpc, wallet_list)
     }
 }
 
-TEST (peer_refresh, empty_peers)
-{
-    mu_coin::keypair key1;
-    mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::peer_refresh refresh (system.clients [0]->peers);
-    ASSERT_EQ (0, refresh.container.peers.size ());
-    refresh.refresh_action ();
-}
-
-TEST (peer_refresh, queue_next_refresh)
-{
-    mu_coin::keypair key1;
-    mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::peer_refresh refresh (system.clients [0]->peers);
-    auto callbacks (system.processor.size ());
-    refresh.container.queue_next_refresh ();
-    ASSERT_EQ (callbacks + 1, system.processor.size ());
-}
-
-TEST (peer_refresh, prune_disconnected)
-{
-    mu_coin::keypair key1;
-    mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::peer_refresh refresh (system.clients [0]->peers);
-    ASSERT_EQ (0, refresh.container.peers.size ());
-    mu_coin::endpoint endpoint1 (boost::asio::ip::address_v4::loopback (), 24001);
-    mu_coin::endpoint endpoint2 (boost::asio::ip::address_v4::loopback (), 24002);
-    refresh.container.peers.insert ({endpoint1, std::chrono::system_clock::now () - std::chrono::seconds (100000), std::chrono::system_clock::now () - std::chrono::seconds (100000)});
-    refresh.container.peers.insert ({endpoint2, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
-    ASSERT_EQ (2, refresh.container.peers.size ());
-    refresh.prune_disconnected ();
-    ASSERT_EQ (1, refresh.container.peers.size ());
-    ASSERT_NE (refresh.container.peers.end (), refresh.container.peers.find (endpoint2));
-}
-
 TEST (parse_endpoint, valid)
 {
     std::string string ("127.0.0.1:24000");

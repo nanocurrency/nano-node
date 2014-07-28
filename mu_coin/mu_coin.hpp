@@ -694,6 +694,7 @@ namespace mu_coin {
         void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
         void remove_confirm_listener (mu_coin::block_hash const &);
+        void ongoing_keepalive ();
         size_t publish_listener_size ();
 		void confirm_ack (std::unique_ptr <mu_coin::confirm_ack>, mu_coin::endpoint const &);
 		void confirm_nak (std::unique_ptr <mu_coin::confirm_nak>, mu_coin::endpoint const &);
@@ -826,14 +827,14 @@ namespace mu_coin {
     class peer_container
     {
     public:
-        peer_container (mu_coin::client &);
-        void start ();
         void incoming_from_peer (mu_coin::endpoint const &);
 		void random_fill (std::array <mu_coin::endpoint, 64> &);
         std::vector <peer_information> list ();
         void refresh_action ();
         void queue_next_refresh ();
         mu_coin::client & client;
+        std::vector <mu_coin::peer_information> list ();
+        std::vector <mu_coin::peer_information> purge_list (std::chrono::system_clock::time_point const &);
         std::mutex mutex;
         boost::multi_index_container
         <peer_information,
@@ -844,19 +845,7 @@ namespace mu_coin {
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
             >
         > peers;
-        std::chrono::system_clock::duration const period;
-        std::chrono::system_clock::duration const cutoff;
     };
-    class peer_refresh
-    {
-    public:
-        peer_refresh (mu_coin::peer_container & container_a);
-        void refresh_action ();
-        void prune_disconnected ();
-        void send_keepalives ();
-        mu_coin::peer_container & container;
-        std::chrono::system_clock::time_point const now;
-    };   
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
     public:

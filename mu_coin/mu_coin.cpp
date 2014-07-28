@@ -1605,7 +1605,6 @@ network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
 processor (*this),
-peers (*this),
 service (processor_a)
 {
     genesis_a.initialize (store);
@@ -2983,72 +2982,6 @@ bool mu_coin::uint256_union::decode_base58check (std::string const & source_a)
     return result;
 }
 
-mu_coin::peer_container::peer_container (mu_coin::client & client_a) :
-client (client_a),
-period (std::chrono::seconds (10)),
-cutoff (period * 5)
-{
-}
-
-void mu_coin::peer_container::start ()
-{
-    refresh_action ();
-}
-
-mu_coin::peer_refresh::peer_refresh (mu_coin::peer_container & container_a) :
-container (container_a),
-now (std::chrono::system_clock::now ())
-{
-}
-
-void mu_coin::peer_refresh::refresh_action ()
-{
-    prune_disconnected ();
-    send_keepalives ();
-}
-
-void mu_coin::peer_refresh::prune_disconnected ()
-{
-    std::vector <mu_coin::endpoint> deletion;
-    for (auto i (container.peers.get <1> ().begin ()), j (container.peers.get <1> ().end ()); i != j && now - i->last_contact > container.cutoff; ++i)
-    {
-        deletion.push_back (i->endpoint);
-    }
-    for (auto i (deletion.begin ()), j (deletion.end ()); i != j; ++i)
-    {
-        container.peers.erase (*i);
-    }
-}
-
-void mu_coin::peer_refresh::send_keepalives ()
-{
-    for (auto i (container.peers.get <2> ().begin ()), j (container.peers.get <2> ().end ()); i != j && now - i->last_attempt > container.period; ++i)
-    {
-        container.client.network.send_keepalive (i->endpoint);
-    }
-}
-
-void mu_coin::peer_container::refresh_action ()
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    peer_refresh refresh (*this);
-    refresh.refresh_action ();
-    queue_next_refresh ();
-}
-
-void mu_coin::peer_container::queue_next_refresh ()
-{
-    auto next (peers.get <2> ().begin ());
-    if (next != peers.get <2> ().end ())
-    {
-        client.service.add (next->last_attempt + period, [this] () { refresh_action ();});
-    }
-    else
-    {
-        client.service.add (std::chrono::system_clock::now () + period, [this] () { refresh_action ();});
-    }
-}
-
 namespace
 {
 bool parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
@@ -3150,7 +3083,7 @@ void mu_coin::client::start ()
 {
     rpc.listen ();
     network.receive ();
-    peers.start ();
+    processor.ongoing_keepalive ();
 }
 
 void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & complete_action_a)
@@ -3894,4 +3827,25 @@ void mu_coin::peer_container::random_fill (std::array <mu_coin::endpoint, 64> & 
 	{
 		*k = i->endpoint;
 	}
+}
+
+void mu_coin::processor::ongoing_keepalive ()
+{
+    auto period (std::chrono::seconds (10));
+    auto cutoff (period * 5);
+    auto peers (client.peers.purge_list (std::chrono::system_clock::now () - cutoff));
+    for (auto i (peers.begin ()), j (peers.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
+    {
+        client.network.send_keepalive (i->endpoint);
+    }
+    client.service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
+}
+
+std::vector <mu_coin::peer_information> mu_coin::peer_container::purge_list (std::chrono::system_clock::time_point const & cutoff)
+{
+    std::unique_lock <std::mutex> lock (mutex);
+    auto pivot (peers.get <1> ().lower_bound (cutoff));
+    std::vector <mu_coin::peer_information> result (pivot, peers.get <1> ().end ());
+    peers.get <1> ().erase (peers.get <1> ().begin (), pivot);
+    return result;
 }
