@@ -11,14 +11,14 @@ TEST (network, construction)
     ASSERT_EQ (24000, system.clients [0]->network.socket.local_endpoint ().port ());
 }
 
-TEST (network, empty_peers)
+TEST (peer_container, empty_peers)
 {
     mu_coin::peer_container peers;
     auto list (peers.purge_list (std::chrono::system_clock::now ()));
     ASSERT_EQ (0, list.size ());
 }
 
-TEST (network, split)
+TEST (peer_container, split)
 {
     mu_coin::peer_container peers;
     auto now (std::chrono::system_clock::now ());
@@ -29,6 +29,43 @@ TEST (network, split)
     auto list (peers.purge_list (now));
     ASSERT_EQ (1, list.size ());
     ASSERT_EQ (endpoint2, list [0].endpoint);
+}
+
+TEST (peer_container, fill_random_clear)
+{
+    mu_coin::peer_container peers;
+    std::array <mu_coin::endpoint, 24> target;
+    std::fill (target.begin (), target.end (), mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000));
+    peers.random_fill (target);
+    ASSERT_TRUE (std::all_of (target.begin (), target.end (), [] (mu_coin::endpoint const & endpoint_a) {return endpoint_a == mu_coin::endpoint (boost::asio::ip::address_v4 (0), 0); }));
+}
+
+TEST (peer_container, fill_random_full)
+{
+    mu_coin::peer_container peers;
+    for (auto i (0); i < 100; ++i)
+    {
+        peers.incoming_from_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), i));
+    }
+    std::array <mu_coin::endpoint, 24> target;
+    std::fill (target.begin (), target.end (), mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000));
+    peers.random_fill (target);
+    ASSERT_TRUE (std::none_of (target.begin (), target.end (), [] (mu_coin::endpoint const & endpoint_a) {return endpoint_a == mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000); }));
+}
+
+TEST (peer_container, fill_random_part)
+{
+    mu_coin::peer_container peers;
+    for (auto i (0); i < 16; ++i)
+    {
+        peers.incoming_from_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), i + 1));
+    }
+    std::array <mu_coin::endpoint, 24> target;
+    std::fill (target.begin (), target.end (), mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000));
+    peers.random_fill (target);
+    ASSERT_TRUE (std::none_of (target.begin (), target.begin () + 16, [] (mu_coin::endpoint const & endpoint_a) {return endpoint_a == mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000); }));
+    ASSERT_TRUE (std::none_of (target.begin (), target.begin () + 16, [] (mu_coin::endpoint const & endpoint_a) {return endpoint_a == mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 0); }));
+    ASSERT_TRUE (std::all_of (target.begin () + 16, target.end (), [] (mu_coin::endpoint const & endpoint_a) {return endpoint_a == mu_coin::endpoint (boost::asio::ip::address_v4 (0), 0); }));
 }
 
 TEST (network, send_keepalive)

@@ -3808,25 +3808,21 @@ mu_coin::bootstrap_connection::~bootstrap_connection ()
     }
 }
 
-void mu_coin::peer_container::random_fill (std::array <mu_coin::endpoint, 64> & target_a)
+void mu_coin::peer_container::random_fill (std::array <mu_coin::endpoint, 24> & target_a)
 {
-	auto peers (list ());
-	if (peers.size () > target_a.size ())
-	{
-		for (auto i (peers.begin ()), j (peers.begin () + target_a.size ()), k (peers.end ()); i < j && i < k; ++i)
-		{
-			auto index (random_pool.GenerateWord32 (i - peers.begin (), peers.size ()));
-			std::swap (*i, peers [index]);
-		}
-	}
-	auto i (peers.begin ());
-	auto j (peers.end ());
-	auto k (target_a.begin ());
-	auto l (target_a.end ());
-	while (i < j && k < l)
-	{
-		*k = i->endpoint;
-	}
+    auto peers (list ());
+    while (peers.size () > target_a.size ())
+    {
+        auto index (random_pool.GenerateWord32 (0, peers.size ()));
+        peers [index] = peers [peers.size () - 1];
+        peers.pop_back ();
+    }
+    auto k (target_a.begin ());
+    for (auto i (peers.begin ()), j (peers.begin () + std::min (peers.size (), target_a.size ())); i != j; ++i, ++k)
+    {
+        *k = i->endpoint;
+    }
+    std::fill (target_a.begin () + std::min (peers.size (), target_a.size ()), target_a.end (), mu_coin::endpoint ());
 }
 
 void mu_coin::processor::ongoing_keepalive ()

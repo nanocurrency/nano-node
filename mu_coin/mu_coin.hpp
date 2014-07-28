@@ -491,7 +491,7 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
-		std::array <mu_coin::endpoint, 64> peers;
+		std::array <mu_coin::endpoint, 24> peers;
     };
     class keepalive_ack : public message
     {
@@ -499,7 +499,7 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
-		std::array <mu_coin::endpoint, 64> peers;
+		std::array <mu_coin::endpoint, 24> peers;
     };
     class publish_req : public message
     {
@@ -680,6 +680,13 @@ namespace mu_coin {
         std::condition_variable condition;
         std::priority_queue <operation> operations;
     };
+    class peer_information
+    {
+    public:
+        mu_coin::endpoint endpoint;
+        std::chrono::system_clock::time_point last_contact;
+        std::chrono::system_clock::time_point last_attempt;
+    };
     class client;
     using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
     class processor
@@ -817,18 +824,11 @@ namespace mu_coin {
         mu_coin::client & client;
         bool on;
     };
-    class peer_information
-    {
-    public:
-        mu_coin::endpoint endpoint;
-        std::chrono::system_clock::time_point last_contact;
-        std::chrono::system_clock::time_point last_attempt;
-    };
     class peer_container
     {
     public:
         void incoming_from_peer (mu_coin::endpoint const &);
-		void random_fill (std::array <mu_coin::endpoint, 64> &);
+		void random_fill (std::array <mu_coin::endpoint, 24> &);
         std::vector <peer_information> list ();
         void refresh_action ();
         void queue_next_refresh ();
