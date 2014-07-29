@@ -15,7 +15,7 @@
 
 namespace
 {
-    bool const network_debug = false;
+    bool const network_debug = true;
 }
 
 CryptoPP::AutoSeededRandomPool random_pool;
@@ -1062,7 +1062,7 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
     }
     if (network_debug)
     {
-        std::cerr << "Keepalive " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+        std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const &, size_t) {});
 }
@@ -1116,12 +1116,15 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 {
                     ++keepalive_req_count;
                     receive ();
-                    auto incoming (new mu_coin::keepalive_req);
+                    mu_coin::keepalive_req incoming;
                     mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
+                    auto error (incoming.deserialize (stream));
                     if (!error)
                     {
-                        client.processor.process_keepalive (std::unique_ptr <mu_coin::keepalive_req> (incoming));
+                        if (network_debug)
+                        {
+                            std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        }
                         mu_coin::keepalive_ack message;
                         client.peers.random_fill (message.peers);
                         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -1129,13 +1132,47 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             mu_coin::vectorstream stream (*bytes);
                             message.serialize (stream);
                         }
-                        socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
+                        if (network_debug)
+                        {
+                            std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
+                        }
+                        socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a)
+                        {
+                            if (network_debug)
+                            {
+                                if (error)
+                                {
+                                    std::cerr << "Send error: " << error.message () << std::endl;
+                                }
+                            }
+                        });
+                        for (auto i (incoming.peers.begin ()), j (incoming.peers.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
+                        {
+                            if (network_debug)
+                            {
+                                std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
+                            }
+                            socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), *i, [bytes] (boost::system::error_code const & error, size_t size_a)
+                            {
+                                if (network_debug)
+                                {
+                                    if (error)
+                                    {
+                                        std::cerr << "Send error: " << error.message () << std::endl;
+                                    }
+                                }
+                            });
+                        }
                     }
                     break;
                 }
                 case mu_coin::message_type::keepalive_ack:
                 {
                     ++keepalive_ack_count;
+                    if (network_debug)
+                    {
+                        std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                    }
                     receive ();
                     break;
                 }
@@ -1150,7 +1187,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     {
                         if (network_debug)
                         {
-                            std::cerr << "Publish req" << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            std::cerr << "Publish req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         }
                         auto result (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
                         switch (result)
@@ -3855,7 +3892,13 @@ std::vector <mu_coin::peer_information> mu_coin::peer_container::purge_list (std
     return result;
 }
 
-void mu_coin::processor::process_keepalive (std::unique_ptr <mu_coin::keepalive_req> message_a)
+size_t mu_coin::peer_container::size ()
 {
-    
+    std::unique_lock <std::mutex> lock (mutex);
+    return peers.size ();
+}
+
+bool mu_coin::peer_container::empty ()
+{
+    return size () == 0;
 }

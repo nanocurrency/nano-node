@@ -89,10 +89,31 @@ TEST (network, send_keepalive)
     ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
 }
 
-TEST (network, peer_notification)
+TEST (network, DISABLED_multi_keepalive)
 {
-    mu_coin::system system (2, 24000, 25000, 2, 100);
-    mu_coin::client client1 (system.service, system.pool, 24002, 25002, system.processor, system.test_genesis_address.pub, system.genesis);
+    mu_coin::system system (1, 24000, 25000, 1, 100);
+    auto list1 (system.clients [0]->peers.list ());
+    ASSERT_EQ (0, list1.size ());
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
+    client1.start ();
+    client1.network.send_keepalive (system.clients [0]->network.endpoint ());
+    ASSERT_EQ (0, client1.peers.size ());
+    while (client1.peers.size () != 1 || system.clients [0]->peers.size () != 1)
+    {
+        size_t one (client1.peers.size ());
+        size_t two (system.clients [0]->peers.size ());
+        system.service->run_one ();
+    }
+    mu_coin::client client2 (system.service, system.pool, 24002, 25002, system.processor, system.test_genesis_address.pub, system.genesis);
+    client2.start ();
+    client2.network.send_keepalive (system.clients [0]->network.endpoint ());
+    while (client1.peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2.peers.size () != 2)
+    {
+        size_t one (client1.peers.size ());
+        size_t two (system.clients [0]->peers.size ());
+        size_t three (client2.peers.size ());
+        system.service->run_one ();
+    }
 }
 
 TEST (network, publish_req)

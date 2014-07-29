@@ -696,7 +696,6 @@ namespace mu_coin {
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
         void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
-        void process_keepalive (std::unique_ptr <mu_coin::keepalive_req>);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
 		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
         void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
@@ -828,12 +827,15 @@ namespace mu_coin {
     class peer_container
     {
     public:
+        bool known_peer (mu_coin::endpoint const &);
         void incoming_from_peer (mu_coin::endpoint const &);
 		void random_fill (std::array <mu_coin::endpoint, 24> &);
         std::vector <peer_information> list ();
         void refresh_action ();
         void queue_next_refresh ();
         std::vector <mu_coin::peer_information> purge_list (std::chrono::system_clock::time_point const &);
+        size_t size ();
+        bool empty ();
         std::mutex mutex;
         boost::multi_index_container
         <peer_information,
