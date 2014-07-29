@@ -1125,18 +1125,25 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         }
-                        mu_coin::keepalive_ack message;
-                        client.peers.random_fill (message.peers);
-                        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+                        mu_coin::keepalive_ack ack_message;
+                        client.peers.random_fill (ack_message.peers);
+                        std::shared_ptr <std::vector <uint8_t>> ack_bytes (new std::vector <uint8_t>);
                         {
-                            mu_coin::vectorstream stream (*bytes);
-                            message.serialize (stream);
+                            mu_coin::vectorstream stream (*ack_bytes);
+                            ack_message.serialize (stream);
                         }
+						mu_coin::keepalive_req req_message;
+						req_message.peers = ack_message.peers;
+						std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
+						{
+							mu_coin::vectorstream stream (*req_bytes);
+							req_message.serialize (stream);
+						}
                         if (network_debug)
                         {
                             std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
                         }
-                        socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a)
+                        socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes] (boost::system::error_code const & error, size_t size_a)
                         {
                             if (network_debug)
                             {
@@ -1150,9 +1157,9 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             if (network_debug)
                             {
-                                std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
+                                std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (i->port ()) << std::endl;
                             }
-                            socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), *i, [bytes] (boost::system::error_code const & error, size_t size_a)
+                            socket.async_send_to (boost::asio::buffer (req_bytes->data (), req_bytes->size ()), *i, [req_bytes] (boost::system::error_code const & error, size_t size_a)
                             {
                                 if (network_debug)
                                 {
@@ -1958,16 +1965,17 @@ mu_coin::process_result mu_coin::processor::process_publish (std::unique_ptr <mu
 
 void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    auto existing (peers.find (endpoint_a));
-    if (existing == peers.end ())
-    {
-        peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
-    }
-    else
-    {
-        peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
-    }
+	assert (!reserved_address (endpoint_a));
+	std::lock_guard <std::mutex> lock (mutex);
+	auto existing (peers.find (endpoint_a));
+	if (existing == peers.end ())
+	{
+		peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
+	}
+	else
+	{
+		peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
+	}
 }
 
 std::vector <mu_coin::peer_information> mu_coin::peer_container::list ()
@@ -3901,4 +3909,54 @@ size_t mu_coin::peer_container::size ()
 bool mu_coin::peer_container::empty ()
 {
     return size () == 0;
+}
+
+bool mu_coin::peer_container::contacting_peer (mu_coin::endpoint const & endpoint_a)
+{
+	auto result (mu_coin::reserved_address (endpoint_a));
+	if (!result)
+	{
+		std::unique_lock <std::mutex> lock (mutex);
+		auto existing (peers.find (endpoint_a));
+		if (existing != peers.end ())
+		{
+			result = true;
+		}
+		else
+		{
+			peers.insert ({endpoint_a, std::chrono::system_clock::time_point (), std::chrono::system_clock::now ()});
+		}
+	}
+	return result;
+}
+
+bool mu_coin::reserved_address (mu_coin::endpoint const & endpoint_a)
+{
+	auto bytes (endpoint_a.address ().to_v4().to_ulong ());
+	auto result (false);
+	if (bytes <= 0x00ffffffu)
+	{
+		result = true;
+	}
+	else if (bytes >= 0xc0000200ul && bytes <= 0xc00002fful)
+	{
+		result = true;
+	}
+	else if (bytes >= 0xc6336400ul && bytes <= 0xc63364fful)
+	{
+		result = true;
+	}
+	else if (bytes >= 0xcb007100ul && bytes <= 0xcb0071fful)
+	{
+		result = true;
+	}
+	else if (bytes >= 0xe9fc0000ul && bytes <= 0xe9fc00fful)
+	{
+		result = true;
+	}
+	else if (bytes >= 0xf0000000ul)
+	{
+		result = true;
+	}
+	return result;
 }

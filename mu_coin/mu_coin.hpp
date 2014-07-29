@@ -109,6 +109,7 @@ namespace mu_coin {
     using tcp_endpoint = boost::asio::ip::tcp::endpoint;
     bool parse_endpoint (std::string const &, mu_coin::endpoint &);
     bool parse_tcp_endpoint (std::string const &, mu_coin::tcp_endpoint &);
+	bool reserved_address (mu_coin::endpoint const &);
 }
 
 namespace std
@@ -829,6 +830,7 @@ namespace mu_coin {
     public:
         bool known_peer (mu_coin::endpoint const &);
         void incoming_from_peer (mu_coin::endpoint const &);
+		bool contacting_peer (mu_coin::endpoint const &);
 		void random_fill (std::array <mu_coin::endpoint, 24> &);
         std::vector <peer_information> list ();
         void refresh_action ();
