@@ -830,6 +830,7 @@ namespace mu_coin {
     class peer_container
     {
     public:
+		peer_container (mu_coin::endpoint const &);
         bool known_peer (mu_coin::endpoint const &);
         void incoming_from_peer (mu_coin::endpoint const &);
 		bool contacting_peer (mu_coin::endpoint const &);
@@ -841,6 +842,7 @@ namespace mu_coin {
         size_t size ();
         bool empty ();
         std::mutex mutex;
+		mu_coin::endpoint self;
         boost::multi_index_container
         <peer_information,
             boost::multi_index::indexed_by

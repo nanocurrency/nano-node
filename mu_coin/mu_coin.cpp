@@ -1104,7 +1104,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
 {
     if (!error && on)
     {
-        if (!mu_coin::reserved_address (remote))
+        if (!mu_coin::reserved_address (remote) && remote != endpoint ())
         {
             if (size_a >= sizeof (mu_coin::message_type))
             {
@@ -1705,6 +1705,7 @@ network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
 processor (*this),
+peers (network.endpoint ()),
 service (processor_a)
 {
     genesis_a.initialize (store);
@@ -2013,15 +2014,25 @@ mu_coin::process_result mu_coin::processor::process_publish (std::unique_ptr <mu
 void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
 {
 	assert (!reserved_address (endpoint_a));
-	std::lock_guard <std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
-	if (existing == peers.end ())
+	if (endpoint_a != self)
 	{
-		peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
+		std::lock_guard <std::mutex> lock (mutex);
+		auto existing (peers.find (endpoint_a));
+		if (existing == peers.end ())
+		{
+			peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
+		}
+		else
+		{
+			peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
+		}
 	}
 	else
 	{
-		peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
+		if (network_debug)
+		{
+			std::cerr << "Ignoring self endpoint" << std::endl;
+		}
 	}
 }
 
@@ -3991,15 +4002,25 @@ bool mu_coin::peer_container::contacting_peer (mu_coin::endpoint const & endpoin
 	auto result (mu_coin::reserved_address (endpoint_a));
 	if (!result)
 	{
-		std::unique_lock <std::mutex> lock (mutex);
-		auto existing (peers.find (endpoint_a));
-		if (existing != peers.end ())
+		if (endpoint_a != self)
 		{
-			result = true;
+			std::unique_lock <std::mutex> lock (mutex);
+			auto existing (peers.find (endpoint_a));
+			if (existing != peers.end ())
+			{
+				result = true;
+			}
+			else
+			{
+				peers.insert ({endpoint_a, std::chrono::system_clock::time_point (), std::chrono::system_clock::now ()});
+			}
 		}
 		else
 		{
-			peers.insert ({endpoint_a, std::chrono::system_clock::time_point (), std::chrono::system_clock::now ()});
+			if (network_debug)
+			{
+				std::cerr << "Ignoring endpoint of self" << std::endl;
+			}
 		}
 	}
 	return result;
@@ -4034,4 +4055,9 @@ bool mu_coin::reserved_address (mu_coin::endpoint const & endpoint_a)
 		result = true;
 	}
 	return result;
+}
+
+mu_coin::peer_container::peer_container (mu_coin::endpoint const & self_a) :
+self (self_a)
+{
 }

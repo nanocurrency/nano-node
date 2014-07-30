@@ -11,21 +11,46 @@ TEST (network, construction)
     ASSERT_EQ (24000, system.clients [0]->network.socket.local_endpoint ().port ());
 }
 
+TEST (network, self_discard)
+{
+    mu_coin::system system (1, 24000, 25000, 1, 100);
+	system.clients [0]->network.remote = system.clients [0]->network.endpoint ();
+	ASSERT_EQ (0, system.clients [0]->network.bad_sender_count);
+	system.clients [0]->network.receive_action (boost::system::error_code {}, 0);
+	ASSERT_EQ (1, system.clients [0]->network.bad_sender_count);
+}
+
 TEST (peer_container, empty_peers)
 {
-    mu_coin::peer_container peers;
+    mu_coin::peer_container peers (mu_coin::endpoint {});
     auto list (peers.purge_list (std::chrono::system_clock::now ()));
     ASSERT_EQ (0, list.size ());
 }
 
 TEST (peer_container, no_recontact)
 {
-    mu_coin::peer_container peers;
+    mu_coin::peer_container peers (mu_coin::endpoint {});
 	mu_coin::endpoint endpoint1 (boost::asio::ip::address_v4 (0x7f000001), 100000);
 	ASSERT_EQ (0, peers.size ());
 	ASSERT_FALSE (peers.contacting_peer (endpoint1));
 	ASSERT_EQ (1, peers.size ());
 	ASSERT_TRUE (peers.contacting_peer (endpoint1));
+}
+
+TEST (peer_container, no_self_incoming)
+{
+	mu_coin::endpoint self (boost::asio::ip::address_v4 (0x7f000001), 10000);
+    mu_coin::peer_container peers (self);
+	peers.incoming_from_peer (self);
+	ASSERT_TRUE (peers.peers.empty ());
+}
+
+TEST (peer_container, no_self_contacting)
+{
+	mu_coin::endpoint self (boost::asio::ip::address_v4 (0x7f000001), 10000);
+    mu_coin::peer_container peers (self);
+	peers.contacting_peer (self);
+	ASSERT_TRUE (peers.peers.empty ());
 }
 
 TEST (keepalive_req, deserialize)
@@ -62,7 +87,7 @@ TEST (keepalive_ack, deserialize)
 
 TEST (peer_container, reserved_peers_no_contact)
 {
-    mu_coin::peer_container peers;
+    mu_coin::peer_container peers (mu_coin::endpoint {});
 	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0x00000001), 100000)));
 	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xc0000201), 100000)));
 	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xc6336401), 100000)));
@@ -75,7 +100,7 @@ TEST (peer_container, reserved_peers_no_contact)
 
 TEST (peer_container, split)
 {
-    mu_coin::peer_container peers;
+    mu_coin::peer_container peers (mu_coin::endpoint {});
     auto now (std::chrono::system_clock::now ());
     mu_coin::endpoint endpoint1 (boost::asio::ip::address_v4::any (), 100);
     mu_coin::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 101);
@@ -88,7 +113,7 @@ TEST (peer_container, split)
 
 TEST (peer_container, fill_random_clear)
 {
-    mu_coin::peer_container peers;
+    mu_coin::peer_container peers (mu_coin::endpoint {});
     std::array <mu_coin::endpoint, 24> target;
     std::fill (target.begin (), target.end (), mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000));
     peers.random_fill (target);
@@ -97,7 +122,7 @@ TEST (peer_container, fill_random_clear)
 
 TEST (peer_container, fill_random_full)
 {
-    mu_coin::peer_container peers;
+    mu_coin::peer_container peers (mu_coin::endpoint {});
     for (auto i (0); i < 100; ++i)
     {
         peers.incoming_from_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), i));
@@ -110,7 +135,7 @@ TEST (peer_container, fill_random_full)
 
 TEST (peer_container, fill_random_part)
 {
-    mu_coin::peer_container peers;
+    mu_coin::peer_container peers (mu_coin::endpoint {});
     for (auto i (0); i < 16; ++i)
     {
         peers.incoming_from_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), i + 1));
@@ -123,7 +148,7 @@ TEST (peer_container, fill_random_part)
     ASSERT_TRUE (std::all_of (target.begin () + 16, target.end (), [] (mu_coin::endpoint const & endpoint_a) {return endpoint_a == mu_coin::endpoint (boost::asio::ip::address_v4 (0), 0); }));
 }
 
-TEST (network, DISABLED_send_keepalive)
+TEST (network, send_keepalive)
 {
     mu_coin::system system (1, 24000, 25000, 2, 100);
     auto list1 (system.clients [0]->peers.list ());
