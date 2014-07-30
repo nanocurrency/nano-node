@@ -15,7 +15,7 @@
 
 namespace
 {
-    bool const network_debug = true;
+    bool const network_debug = false;
 }
 
 CryptoPP::AutoSeededRandomPool random_pool;
@@ -1142,6 +1142,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                 mu_coin::vectorstream stream (*req_bytes);
                                 req_message.serialize (stream);
                             }
+                            merge_peers (req_bytes, incoming.peers);
                             if (network_debug)
                             {
                                 std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
@@ -1156,18 +1157,31 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                     }
                                 }
                             });
-                            merge_peers (req_bytes, incoming.peers);
                         }
                         break;
                     }
                     case mu_coin::message_type::keepalive_ack:
                     {
-                        ++keepalive_ack_count;
-                        if (network_debug)
+                        mu_coin::keepalive_ack incoming;
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming.deserialize (stream));
+                        if (!error)
                         {
-                            std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            ++keepalive_ack_count;
+                            if (network_debug)
+                            {
+                                std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            }
+                            receive ();
+                            mu_coin::keepalive_req req_message;
+                            client.peers.random_fill (req_message.peers);
+                            std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
+                            {
+                                mu_coin::vectorstream stream (*req_bytes);
+                                req_message.serialize (stream);
+                            }
+                            merge_peers (req_bytes, incoming.peers);
                         }
-                        receive ();
                         break;
                     }
                     case mu_coin::message_type::publish_req:
@@ -1371,7 +1385,7 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
 {
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
     {
-        if (!client.peers.contacting_peer (*i))
+        if (!client.peers.contacting_peer (*i) && *i != endpoint ())
         {
             if (network_debug)
             {
@@ -2078,6 +2092,12 @@ bool mu_coin::publish_ack::deserialize (mu_coin::stream & stream_a)
 void mu_coin::keepalive_ack::serialize (mu_coin::stream & stream_a)
 {
     write (stream_a, mu_coin::message_type::keepalive_ack);
+    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+    {
+        uint32_t address (i->address ().to_v4 ().to_ulong ());
+        write (stream_a, address);
+        write (stream_a, i->port ());
+    }
 }
 
 bool mu_coin::keepalive_ack::deserialize (mu_coin::stream & stream_a)
@@ -2085,12 +2105,26 @@ bool mu_coin::keepalive_ack::deserialize (mu_coin::stream & stream_a)
     mu_coin::message_type type;
     auto result (read (stream_a, type));
     assert (type == mu_coin::message_type::keepalive_ack);
+    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+    {
+        uint32_t address;
+        uint16_t port;
+        read (stream_a, address);
+        read (stream_a, port);
+        *i = mu_coin::endpoint (boost::asio::ip::address_v4 (address), port);
+    }
     return result;
 }
 
 void mu_coin::keepalive_req::serialize (mu_coin::stream & stream_a)
 {
     write (stream_a, mu_coin::message_type::keepalive_req);
+    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+    {
+        uint32_t address (i->address ().to_v4 ().to_ulong ());
+        write (stream_a, address);
+        write (stream_a, i->port ());
+    }
 }
 
 bool mu_coin::keepalive_req::deserialize (mu_coin::stream & stream_a)
@@ -2098,6 +2132,14 @@ bool mu_coin::keepalive_req::deserialize (mu_coin::stream & stream_a)
     mu_coin::message_type type;
     auto result (read (stream_a, type));
     assert (type == mu_coin::message_type::keepalive_req);
+    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+    {
+        uint32_t address;
+        uint16_t port;
+        read (stream_a, address);
+        read (stream_a, port);
+        *i = mu_coin::endpoint (boost::asio::ip::address_v4 (address), port);
+    }
     return result;
 }
 
