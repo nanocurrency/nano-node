@@ -758,6 +758,7 @@ namespace mu_coin {
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
         void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block>);
+        void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <mu_coin::endpoint, 24> const &);
         mu_coin::endpoint endpoint ();
         mu_coin::endpoint remote;
         std::array <uint8_t, 512> buffer;

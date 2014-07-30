@@ -1156,23 +1156,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                     }
                                 }
                             });
-                            for (auto i (incoming.peers.begin ()), j (incoming.peers.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
-                            {
-                                if (network_debug)
-                                {
-                                    std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (i->port ()) << std::endl;
-                                }
-                                socket.async_send_to (boost::asio::buffer (req_bytes->data (), req_bytes->size ()), *i, [req_bytes] (boost::system::error_code const & error, size_t size_a)
-                                {
-                                    if (network_debug)
-                                    {
-                                        if (error)
-                                        {
-                                            std::cerr << "Send error: " << error.message () << std::endl;
-                                        }
-                                    }
-                                });
-                            }
+                            merge_peers (req_bytes, incoming.peers);
                         }
                         break;
                     }
@@ -1378,6 +1362,43 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
             if (network_debug)
             {
                 std::cerr << "Reserved sender" << std::endl;
+            }
+        }
+    }
+}
+
+void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> const & bytes_a, std::array <mu_coin::endpoint, 24> const & peers_a)
+{
+    for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
+    {
+        if (!client.peers.contacting_peer (*i))
+        {
+            if (network_debug)
+            {
+                std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (i->port ()) << std::endl;
+            }
+            socket.async_send_to (boost::asio::buffer (bytes_a->data (), bytes_a->size ()), *i, [bytes_a] (boost::system::error_code const & error, size_t size_a)
+            {
+                if (network_debug)
+                {
+                    if (error)
+                    {
+                        std::cerr << "Send error: " << error.message () << std::endl;
+                    }
+                }
+            });
+        }
+        else
+        {
+            if (network_debug)
+            {
+                if (mu_coin::reserved_address (*i))
+                {
+                    if (i->address ().to_v4 ().to_ulong () != 0 || i->port () != 0)
+                    {
+                        std::cerr << "Keepalive_req contained reserved address" << std::endl;
+                    }
+                }
             }
         }
     }
