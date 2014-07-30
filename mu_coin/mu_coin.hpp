@@ -774,6 +774,7 @@ namespace mu_coin {
         uint64_t confirm_ack_count;
         uint64_t confirm_nak_count;
         uint64_t confirm_unk_count;
+        uint64_t bad_sender_count;
         uint64_t unknown_count;
         uint64_t error_count;
         bool on;

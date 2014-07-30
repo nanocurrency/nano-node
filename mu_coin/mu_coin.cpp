@@ -1034,6 +1034,7 @@ confirm_req_count (0),
 confirm_ack_count (0),
 confirm_nak_count (0),
 confirm_unk_count (0),
+bad_sender_count (0),
 unknown_count (0),
 error_count (0),
 on (true)
@@ -1103,63 +1104,49 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
 {
     if (!error && on)
     {
-        if (size_a >= sizeof (mu_coin::message_type))
+        if (!mu_coin::reserved_address (remote))
         {
-            auto sender (remote);
-            client.peers.incoming_from_peer (sender);
-            mu_coin::bufferstream type_stream (buffer.data (), size_a);
-            mu_coin::message_type type;
-            read (type_stream, type);
-            switch (type)
+            if (size_a >= sizeof (mu_coin::message_type))
             {
-                case mu_coin::message_type::keepalive_req:
+                auto sender (remote);
+                client.peers.incoming_from_peer (sender);
+                mu_coin::bufferstream type_stream (buffer.data (), size_a);
+                mu_coin::message_type type;
+                read (type_stream, type);
+                switch (type)
                 {
-                    ++keepalive_req_count;
-                    receive ();
-                    mu_coin::keepalive_req incoming;
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming.deserialize (stream));
-                    if (!error)
+                    case mu_coin::message_type::keepalive_req:
                     {
-                        if (network_debug)
-                        {
-                            std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
-                        }
-                        mu_coin::keepalive_ack ack_message;
-                        client.peers.random_fill (ack_message.peers);
-                        std::shared_ptr <std::vector <uint8_t>> ack_bytes (new std::vector <uint8_t>);
-                        {
-                            mu_coin::vectorstream stream (*ack_bytes);
-                            ack_message.serialize (stream);
-                        }
-						mu_coin::keepalive_req req_message;
-						req_message.peers = ack_message.peers;
-						std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
-						{
-							mu_coin::vectorstream stream (*req_bytes);
-							req_message.serialize (stream);
-						}
-                        if (network_debug)
-                        {
-                            std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
-                        }
-                        socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes] (boost::system::error_code const & error, size_t size_a)
+                        ++keepalive_req_count;
+                        receive ();
+                        mu_coin::keepalive_req incoming;
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming.deserialize (stream));
+                        if (!error)
                         {
                             if (network_debug)
                             {
-                                if (error)
-                                {
-                                    std::cerr << "Send error: " << error.message () << std::endl;
-                                }
+                                std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                             }
-                        });
-                        for (auto i (incoming.peers.begin ()), j (incoming.peers.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
-                        {
+                            mu_coin::keepalive_ack ack_message;
+                            client.peers.random_fill (ack_message.peers);
+                            std::shared_ptr <std::vector <uint8_t>> ack_bytes (new std::vector <uint8_t>);
+                            {
+                                mu_coin::vectorstream stream (*ack_bytes);
+                                ack_message.serialize (stream);
+                            }
+                            mu_coin::keepalive_req req_message;
+                            req_message.peers = ack_message.peers;
+                            std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
+                            {
+                                mu_coin::vectorstream stream (*req_bytes);
+                                req_message.serialize (stream);
+                            }
                             if (network_debug)
                             {
-                                std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (i->port ()) << std::endl;
+                                std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
                             }
-                            socket.async_send_to (boost::asio::buffer (req_bytes->data (), req_bytes->size ()), *i, [req_bytes] (boost::system::error_code const & error, size_t size_a)
+                            socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes] (boost::system::error_code const & error, size_t size_a)
                             {
                                 if (network_debug)
                                 {
@@ -1169,203 +1156,228 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                     }
                                 }
                             });
+                            for (auto i (incoming.peers.begin ()), j (incoming.peers.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
+                            {
+                                if (network_debug)
+                                {
+                                    std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (i->port ()) << std::endl;
+                                }
+                                socket.async_send_to (boost::asio::buffer (req_bytes->data (), req_bytes->size ()), *i, [req_bytes] (boost::system::error_code const & error, size_t size_a)
+                                {
+                                    if (network_debug)
+                                    {
+                                        if (error)
+                                        {
+                                            std::cerr << "Send error: " << error.message () << std::endl;
+                                        }
+                                    }
+                                });
+                            }
                         }
+                        break;
                     }
-                    break;
-                }
-                case mu_coin::message_type::keepalive_ack:
-                {
-                    ++keepalive_ack_count;
-                    if (network_debug)
+                    case mu_coin::message_type::keepalive_ack:
                     {
-                        std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
-                    }
-                    receive ();
-                    break;
-                }
-                case mu_coin::message_type::publish_req:
-                {
-                    ++publish_req_count;
-                    auto incoming (new mu_coin::publish_req);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    receive ();
-                    if (!error)
-                    {
+                        ++keepalive_ack_count;
                         if (network_debug)
                         {
-                            std::cerr << "Publish req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         }
-                        auto result (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
-                        switch (result)
+                        receive ();
+                        break;
+                    }
+                    case mu_coin::message_type::publish_req:
+                    {
+                        ++publish_req_count;
+                        auto incoming (new mu_coin::publish_req);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        receive ();
+                        if (!error)
                         {
-                            case mu_coin::process_result::progress:
-                            case mu_coin::process_result::owned:
-                            case mu_coin::process_result::old:
-                            case mu_coin::process_result::gap:
+                            if (network_debug)
                             {
-                                // Either successfully updated the ledger or we see some gap in the information likely due to network loss
-                                mu_coin::publish_ack outgoing;
-                                std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+                                std::cerr << "Publish req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            }
+                            auto result (client.processor.process_publish (std::unique_ptr <mu_coin::publish_req> (incoming), sender));
+                            switch (result)
+                            {
+                                case mu_coin::process_result::progress:
+                                case mu_coin::process_result::owned:
+                                case mu_coin::process_result::old:
+                                case mu_coin::process_result::gap:
                                 {
-                                    mu_coin::vectorstream stream (*bytes);
-                                    outgoing.serialize (stream);
+                                    // Either successfully updated the ledger or we see some gap in the information likely due to network loss
+                                    mu_coin::publish_ack outgoing;
+                                    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+                                    {
+                                        mu_coin::vectorstream stream (*bytes);
+                                        outgoing.serialize (stream);
+                                    }
+                                    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
+                                    break;
                                 }
-                                socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
-                                break;
-                            }
-                            case mu_coin::process_result::bad_signature:
-                            case mu_coin::process_result::overspend:
-                            case mu_coin::process_result::overreceive:
-                            case mu_coin::process_result::not_receive_from_send:
-                            {
-                                // None of these affect the integrity of the ledger since they're all ignored
-                                mu_coin::publish_err outgoing;
-                                std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+                                case mu_coin::process_result::bad_signature:
+                                case mu_coin::process_result::overspend:
+                                case mu_coin::process_result::overreceive:
+                                case mu_coin::process_result::not_receive_from_send:
                                 {
-                                    mu_coin::vectorstream stream (*bytes);
-                                    outgoing.serialize (stream);
+                                    // None of these affect the integrity of the ledger since they're all ignored
+                                    mu_coin::publish_err outgoing;
+                                    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+                                    {
+                                        mu_coin::vectorstream stream (*bytes);
+                                        outgoing.serialize (stream);
+                                    }
+                                    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
+                                    break;
                                 }
-                                socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
-                                break;
-                            }
-                            case mu_coin::process_result::fork:
-                            {
-                                // Forked spend that needs arbitration
-                                assert (false);
-                                break;
-                            }
-                            default:
-                            {
-                                assert (false);
-                                break;
+                                case mu_coin::process_result::fork:
+                                {
+                                    // Forked spend that needs arbitration
+                                    assert (false);
+                                    break;
+                                }
+                                default:
+                                {
+                                    assert (false);
+                                    break;
+                                }
                             }
                         }
-                    }
-                    else
-                    {
-                        ++error_count;
-                    }
-                    break;
-                }
-                case mu_coin::message_type::publish_ack:
-                {
-                    ++publish_ack_count;
-                    auto incoming (new mu_coin::publish_ack);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    if (error)
-                    {
-                        ++error_count;
-                    }
-                    receive ();
-                    break;
-                }
-                case mu_coin::message_type::publish_err:
-                {
-                    ++publish_err_count;
-                    auto incoming (new mu_coin::publish_err);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    if (error)
-                    {
-                        ++error_count;
-                    }
-                    receive ();
-                    break;
-                }
-                case mu_coin::message_type::publish_nak:
-                {
-                    ++publish_nak_count;
-                    auto incoming (new mu_coin::publish_nak);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    if (error)
-                    {
-                        ++error_count;
-                    }
-                    receive ();
-                    break;
-                }
-                case mu_coin::message_type::confirm_req:
-                {
-                    ++confirm_req_count;
-                    if (network_debug)
-                    {
-                        std::cerr << "Confirm req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
-                    }
-                    auto incoming (new mu_coin::confirm_req);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    receive ();
-                    if (!error)
-                    {
-                        auto result (client.ledger.process (*incoming->block));
-                        switch (result)
+                        else
                         {
-                            case mu_coin::process_result::old:
-                            case mu_coin::process_result::progress:
+                            ++error_count;
+                        }
+                        break;
+                    }
+                    case mu_coin::message_type::publish_ack:
+                    {
+                        ++publish_ack_count;
+                        auto incoming (new mu_coin::publish_ack);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        if (error)
+                        {
+                            ++error_count;
+                        }
+                        receive ();
+                        break;
+                    }
+                    case mu_coin::message_type::publish_err:
+                    {
+                        ++publish_err_count;
+                        auto incoming (new mu_coin::publish_err);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        if (error)
+                        {
+                            ++error_count;
+                        }
+                        receive ();
+                        break;
+                    }
+                    case mu_coin::message_type::publish_nak:
+                    {
+                        ++publish_nak_count;
+                        auto incoming (new mu_coin::publish_nak);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        if (error)
+                        {
+                            ++error_count;
+                        }
+                        receive ();
+                        break;
+                    }
+                    case mu_coin::message_type::confirm_req:
+                    {
+                        ++confirm_req_count;
+                        if (network_debug)
+                        {
+                            std::cerr << "Confirm req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        }
+                        auto incoming (new mu_coin::confirm_req);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        receive ();
+                        if (!error)
+                        {
+                            auto result (client.ledger.process (*incoming->block));
+                            switch (result)
                             {
-                                client.processor.process_confirmation (incoming->session, incoming->block->hash (), sender);
-                                break;
-                            }
-                            default:
-                            {
-                                assert (false);
+                                case mu_coin::process_result::old:
+                                case mu_coin::process_result::progress:
+                                {
+                                    client.processor.process_confirmation (incoming->session, incoming->block->hash (), sender);
+                                    break;
+                                }
+                                default:
+                                {
+                                    assert (false);
+                                }
                             }
                         }
+                        break;
                     }
-                    break;
-                }
-                case mu_coin::message_type::confirm_ack:
-                {
-                    ++confirm_ack_count;
-                    if (network_debug)
+                    case mu_coin::message_type::confirm_ack:
                     {
-                        std::cerr << "Confirm ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        ++confirm_ack_count;
+                        if (network_debug)
+                        {
+                            std::cerr << "Confirm ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        }
+                        auto incoming (new mu_coin::confirm_ack);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        receive ();
+                        if (!error)
+                        {
+                            client.processor.confirm_ack (std::unique_ptr <mu_coin::confirm_ack> {incoming}, sender);
+                        }
+                        break;
                     }
-                    auto incoming (new mu_coin::confirm_ack);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    receive ();
-                    if (!error)
+                    case mu_coin::message_type::confirm_nak:
                     {
-						client.processor.confirm_ack (std::unique_ptr <mu_coin::confirm_ack> {incoming}, sender);
+                        ++confirm_nak_count;
+                        if (network_debug)
+                        {
+                            std::cerr << "Confirm nak " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        }
+                        auto incoming (new mu_coin::confirm_nak);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        receive ();
+                        if (!error)
+                        {
+                            client.processor.confirm_nak (std::unique_ptr <mu_coin::confirm_nak> {incoming}, sender);
+                        }
+                        break;
                     }
-                    break;
-                }
-                case mu_coin::message_type::confirm_nak:
-                {
-                    ++confirm_nak_count;
-                    if (network_debug)
+                    case mu_coin::message_type::confirm_unk:
                     {
-                        std::cerr << "Confirm nak " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                        ++confirm_unk_count;
+                        auto incoming (new mu_coin::confirm_unk);
+                        mu_coin::bufferstream stream (buffer.data (), size_a);
+                        auto error (incoming->deserialize (stream));
+                        receive ();
+                        break;
                     }
-                    auto incoming (new mu_coin::confirm_nak);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    receive ();
-                    if (!error)
+                    default:
                     {
-						client.processor.confirm_nak (std::unique_ptr <mu_coin::confirm_nak> {incoming}, sender);
+                        ++unknown_count;
+                        receive ();
+                        break;
                     }
-                    break;
                 }
-                case mu_coin::message_type::confirm_unk:
-                {
-                    ++confirm_unk_count;
-                    auto incoming (new mu_coin::confirm_unk);
-                    mu_coin::bufferstream stream (buffer.data (), size_a);
-                    auto error (incoming->deserialize (stream));
-                    receive ();
-                    break;
-                }
-                default:
-                {
-                    ++unknown_count;
-                    receive ();
-                    break;
-                }
+            }
+        }
+        else
+        {
+            ++bad_sender_count;
+            if (network_debug)
+            {
+                std::cerr << "Reserved sender" << std::endl;
             }
         }
     }

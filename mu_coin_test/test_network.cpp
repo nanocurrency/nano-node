@@ -272,6 +272,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     }
     ASSERT_LE (bytes.size (), system.clients [0]->network.buffer.size ());
     std::copy (bytes.data (), bytes.data () + bytes.size (), system.clients [0]->network.buffer.begin ());
+    system.clients [0]->network.remote = mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000);
     system.clients [0]->network.receive_action (boost::system::error_code {}, bytes.size ());
     ASSERT_EQ (1, receivable->acknowledged);
     ASSERT_FALSE (receivable->complete);
@@ -297,6 +298,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     }
     ASSERT_LE (bytes.size (), system.clients [0]->network.buffer.size ());
     std::copy (bytes.data (), bytes.data () + bytes.size (), system.clients [0]->network.buffer.begin ());
+    system.clients [0]->network.remote = mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000);
     system.clients [0]->network.receive_action (boost::system::error_code {}, bytes.size ());
     ASSERT_EQ (std::numeric_limits<mu_coin::uint256_t>::max (), receivable->acknowledged);
     ASSERT_TRUE (receivable->complete);
