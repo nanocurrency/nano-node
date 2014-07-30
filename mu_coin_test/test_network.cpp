@@ -171,7 +171,7 @@ TEST (network, send_keepalive)
     ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
 }
 
-TEST (network, DISABLED_multi_keepalive)
+TEST (network, multi_keepalive)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto list1 (system.clients [0]->peers.list ());
@@ -182,8 +182,6 @@ TEST (network, DISABLED_multi_keepalive)
     ASSERT_EQ (0, client1.peers.size ());
     while (client1.peers.size () != 1 || system.clients [0]->peers.size () != 1)
     {
-        size_t one (client1.peers.size ());
-        size_t two (system.clients [0]->peers.size ());
         system.service->run_one ();
     }
     mu_coin::client client2 (system.service, system.pool, 24002, 25002, system.processor, system.test_genesis_address.pub, system.genesis);
@@ -191,9 +189,6 @@ TEST (network, DISABLED_multi_keepalive)
     client2.network.send_keepalive (system.clients [0]->network.endpoint ());
     while (client1.peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2.peers.size () != 2)
     {
-        size_t one (client1.peers.size ());
-        size_t two (system.clients [0]->peers.size ());
-        size_t three (client2.peers.size ());
         system.service->run_one ();
     }
 }
