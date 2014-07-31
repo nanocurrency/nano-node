@@ -27,6 +27,7 @@ send_coins (new QPushButton ("Send")),
 show_wallet (new QPushButton ("Wallet")),
 settings (new QPushButton ("Settings")),
 show_ledger (new QPushButton ("Ledger")),
+show_peers (new QPushButton ("Peers")),
 send_coins_window (new QWidget),
 send_coins_layout (new QVBoxLayout),
 send_address_label (new QLabel ("Address:")),
@@ -50,6 +51,12 @@ ledger_model (new QStringListModel),
 ledger_view (new QListView),
 ledger_refresh (new QPushButton ("Refresh")),
 ledger_back (new QPushButton ("Back")),
+peers_window (new QWidget),
+peers_layout (new QVBoxLayout),
+peers_model (new QStringListModel),
+peers_view (new QListView),
+peers_refresh (new QPushButton ("Refresh")),
+peers_back (new QPushButton ("Back")),
 wallet_account_menu (new QMenu),
 wallet_account_copy (new QAction ("Copy", wallet_account_menu)),
 wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
@@ -83,10 +90,17 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     ledger_layout->addWidget (ledger_back);
     ledger_window->setLayout (ledger_layout);
     
+    peers_view->setModel (peers_model);
+    peers_layout->addWidget (peers_view);
+    peers_layout->addWidget (peers_refresh);
+    peers_layout->addWidget (peers_back);
+    peers_window->setLayout (peers_layout);
+    
     entry_window_layout->addWidget (send_coins);
     entry_window_layout->addWidget (show_wallet);
     entry_window_layout->addWidget (settings);
     entry_window_layout->addWidget (show_ledger);
+    entry_window_layout->addWidget (show_peers);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window->setLayout (entry_window_layout);
     
@@ -108,6 +122,18 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
     
+    QObject::connect (show_peers, &QPushButton::released, [this] ()
+    {
+        push_main_stack (peers_window);
+    });
+    QObject::connect (peers_back, &QPushButton::released, [this] ()
+    {
+        pop_main_stack ();
+    });
+    QObject::connect (peers_refresh, &QPushButton::released, [this] ()
+    {
+        refresh_peers ();
+    });
     QObject::connect (wallet_add_key_button, &QPushButton::released, [this] ()
     {
         QString key_text_wide (wallet_key_line->text ());
@@ -294,6 +320,27 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     });
     refresh_wallet ();
     refresh_ledger ();
+}
+
+void mu_coin_qt::gui::refresh_peers ()
+{
+    QStringList peers;
+    for (auto i: client.peers.list ())
+    {
+        std::stringstream endpoint;
+        endpoint << i.endpoint.address ().to_string ();
+        endpoint << ':';
+        endpoint << i.endpoint.port ();
+        endpoint << ' ';
+        time_t last_contact (std::chrono::system_clock::to_time_t (i.last_contact));
+        endpoint << ctime (&last_contact);
+        endpoint << ' ';
+        time_t last_attempt (std::chrono::system_clock::to_time_t (i.last_attempt));
+        endpoint << ctime (&last_attempt);
+        QString qendpoint (endpoint.str().c_str ());
+        peers << qendpoint;
+    }
+    peers_model->setStringList (peers);
 }
 
 void mu_coin_qt::gui::refresh_ledger ()

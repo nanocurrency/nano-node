@@ -15,7 +15,7 @@
 
 namespace
 {
-    bool const network_debug = false;
+    bool const network_debug = true;
 }
 
 CryptoPP::AutoSeededRandomPool random_pool;
