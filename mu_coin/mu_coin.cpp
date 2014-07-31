@@ -1118,10 +1118,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     case mu_coin::message_type::keepalive_req:
                     {
                         ++keepalive_req_count;
-                        receive ();
                         mu_coin::keepalive_req incoming;
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
+                        receive ();
                         if (!error)
                         {
                             if (network_debug)
@@ -1165,6 +1165,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         mu_coin::keepalive_ack incoming;
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
+                        receive ();
                         if (!error)
                         {
                             ++keepalive_ack_count;
@@ -1172,7 +1173,6 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             {
                                 std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                             }
-                            receive ();
                             mu_coin::keepalive_req req_message;
                             client.peers.random_fill (req_message.peers);
                             std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
@@ -1255,11 +1255,11 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         auto incoming (new mu_coin::publish_ack);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming->deserialize (stream));
+                        receive ();
                         if (error)
                         {
                             ++error_count;
                         }
-                        receive ();
                         break;
                     }
                     case mu_coin::message_type::publish_err:
@@ -1268,11 +1268,11 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         auto incoming (new mu_coin::publish_err);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming->deserialize (stream));
+                        receive ();
                         if (error)
                         {
                             ++error_count;
                         }
-                        receive ();
                         break;
                     }
                     case mu_coin::message_type::publish_nak:
@@ -1281,11 +1281,11 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         auto incoming (new mu_coin::publish_nak);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming->deserialize (stream));
+                        receive ();
                         if (error)
                         {
                             ++error_count;
                         }
-                        receive ();
                         break;
                     }
                     case mu_coin::message_type::confirm_req:
