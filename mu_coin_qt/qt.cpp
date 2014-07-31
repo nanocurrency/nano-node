@@ -348,13 +348,15 @@ void mu_coin_qt::gui::refresh_ledger ()
     QStringList accounts;
     for (auto i (client.ledger.store.latest_begin()), j (client.ledger.store.latest_end ()); i != j; ++i)
     {
+        std::string line;
         std::string account;
         i->first.encode_base58check (account);
-        std::string block_hash;
-        i->second.encode_hex (block_hash);
-        std::string line;
         line += account;
         line += " : ";
+        line += client.ledger.balance (i->second).convert_to <std::string> ();
+        line += " : ";
+        std::string block_hash;
+        i->second.encode_hex (block_hash);
         line += block_hash;
         QString qline (line.c_str ());
         accounts << qline;
