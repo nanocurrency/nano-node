@@ -14,8 +14,8 @@ int main (int argc, char ** argv)
         guis.push_back (std::unique_ptr <mu_coin_qt::gui> {new mu_coin_qt::gui {application, *system.clients [i]}});
         guis.back ()->balance_main_window->show ();
     }
-    std::thread network_thread ([&system] () {system.service->run ();});
-    std::thread processor_thread ([&system] () {system.processor.run ();});
+    std::thread network_thread ([&system] () {system.service->run (); std::cerr << "Network thread exited" << std::endl;});
+    std::thread processor_thread ([&system] () {system.processor.run (); std::cerr << "Processor thread exited" << std::endl;});
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {
         for (auto & i: guis)

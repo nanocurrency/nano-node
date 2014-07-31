@@ -1379,6 +1379,13 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
             }
         }
     }
+    else
+    {
+        if (network_debug)
+        {
+            std::cerr << "Receive error" << std::endl;
+        }
+    }
 }
 
 void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> const & bytes_a, std::array <mu_coin::endpoint, 24> const & peers_a)
