@@ -2355,18 +2355,17 @@ pool (new boost::network::utils::thread_pool (threads_a))
     }
     for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
     {
-        for (auto k (clients.begin ()), l (clients.end ()); k != l; ++k)
-        {
-            if (*i != *k)
-            {
-                (*i)->peers.incoming_from_peer (mu_coin::endpoint {boost::asio::ip::address_v4::loopback (), (*k)->network.socket.local_endpoint ().port ()});
-            }
-        }
-    }
-    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
-    {
         (*i)->start ();
         (*i)->bootstrap.accept ();
+    }
+    for (auto i (clients.begin ()), j (clients.begin () + 1), n (clients.end ()); j != n; ++i, ++j)
+    {
+        auto starting1 ((*i)->peers.size ());
+        auto starting2 ((*j)->peers.size ());
+        (*j)->network.send_keepalive (mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), (*i)->network.endpoint().port ()));
+        do {
+            service->run_one ();
+        } while ((*i)->peers.size () == starting1 || (*j)->peers.size () == starting2);
     }
 }
 

@@ -153,8 +153,6 @@ TEST (network, send_keepalive)
     mu_coin::system system (1, 24000, 25000, 2, 100);
     auto list1 (system.clients [0]->peers.list ());
     ASSERT_EQ (1, list1.size ());
-    system.clients [0]->network.receive ();
-    system.clients [1]->network.receive ();
     system.clients [0]->network.send_keepalive (system.clients [1]->network.endpoint ());
     while (system.clients [0]->network.keepalive_ack_count == 0)
     {
