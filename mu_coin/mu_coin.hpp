@@ -424,7 +424,6 @@ namespace mu_coin {
     enum class process_result
     {
         progress, // Hasn't been seen before, signed correctly
-        owned, // Progress and we own the address
         bad_signature, // One or more signatures was bad, forged or transmission error
         old, // Already seen and was valid
         overspend, // Malicious attempt to overspend
@@ -691,8 +690,9 @@ namespace mu_coin {
     public:
         processor (mu_coin::client &);
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
-        void publish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-        mu_coin::process_result process_publish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
+        void publish_internal (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
+        mu_coin::message_type process_and_republish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
+        void republish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
         void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
 		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
         void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);

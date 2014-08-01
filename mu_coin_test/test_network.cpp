@@ -217,12 +217,12 @@ TEST (network, send_discarded_publish)
     mu_coin::system system (1, 24000, 25000, 2, 100);
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
     system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
-    while (system.clients [1]->network.publish_req_count == 0)
+    while (system.clients [0]->network.publish_err_count == 0)
     {
         system.service->run_one ();
     }
     ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
-    ASSERT_EQ (0, system.clients [0]->network.publish_nak_count);
+    ASSERT_EQ (1, system.clients [0]->network.publish_err_count);
 }
 
 TEST (network, send_invalid_publish)
@@ -233,12 +233,12 @@ TEST (network, send_invalid_publish)
     block->hashables.balance = 20;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, block->hash (), block->signature);
     system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
-    while (system.clients [0]->network.publish_ack_count == 0)
+    while (system.clients [0]->network.publish_err_count == 0)
     {
         system.service->run_one ();
     }
     ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
-    ASSERT_EQ (1, system.clients [0]->network.publish_ack_count);
+    ASSERT_EQ (1, system.clients [0]->network.publish_err_count);
 }
 
 TEST (network, send_valid_publish)
@@ -257,7 +257,7 @@ TEST (network, send_valid_publish)
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, hash2, block2.signature);
     mu_coin::block_hash hash3;
     ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash3));
-    system.clients [0]->processor.publish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
+    system.clients [0]->processor.publish_internal (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
     while (system.clients [0]->network.publish_ack_count == 0)
     {
         system.service->run_one ();
