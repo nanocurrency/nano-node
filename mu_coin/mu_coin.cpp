@@ -3664,24 +3664,21 @@ bool mu_coin::bootstrap_processor::process_end ()
     bool result;
     if (expecting == requests.front ().second)
     {
-        bool had_block;
         mu_coin::process_result processing;
+        std::unique_ptr <mu_coin::block> block;
         do
         {
-            mu_coin::block_hash hash;
-            had_block = !client.store.successor_get (expecting, hash);
-            if (had_block)
+            block = client.store.bootstrap_get (expecting);
+            if (block != nullptr)
             {
-                auto block (client.store.bootstrap_get (hash));
-                assert (block != nullptr);
                 processing = client.ledger.process (*block);
                 if (processing == mu_coin::process_result::progress)
                 {
                     iterator.observed_block (*block);
                 }
-                expecting = hash;
+                expecting = block->hash ();
             }
-        } while (had_block && processing == mu_coin::process_result::progress);
+        } while (block != nullptr && processing == mu_coin::process_result::progress);
         result = processing != mu_coin::process_result::progress;
     }
     else if (expecting == requests.front ().first)
@@ -3745,8 +3742,7 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
     if (expecting != requests.front ().second && (expecting == requests.front ().first || hash == expecting))
     {
         auto previous (block.previous ());
-        client.store.successor_put (previous, hash);
-        client.store.bootstrap_put (hash, block);
+        client.store.bootstrap_put (previous, block);
         expecting = previous;
         if (network_debug)
         {
@@ -3805,44 +3801,10 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::bootstrap_get (mu_coin::b
     return result;
 }
 
-void mu_coin::block_store::successor_put (mu_coin::block_hash const & hash_a, mu_coin::block_hash const & successor_a)
-{
-    dbt key (hash_a);
-    dbt data (successor_a);
-    int error (successors.put (nullptr, &key.data, &data.data, 0));
-    assert (error == 0);
-}
-
-bool mu_coin::block_store::successor_get (mu_coin::block_hash const & hash_a, mu_coin::block_hash & successor_a)
-{
-    dbt key (hash_a);
-    dbt data;
-    int error (successors.get (nullptr, &key.data, &data.data, 0));
-    assert (error == 0 || error == DB_NOTFOUND);
-    bool result;
-    if (error == DB_NOTFOUND)
-    {
-        result = true;
-    }
-    else
-    {
-        result = false;
-        successor_a = data.uint256 ();
-    }
-    return result;
-}
-
 void mu_coin::block_store::bootstrap_del (mu_coin::block_hash const & hash_a)
 {
     dbt key (hash_a);
     int error (bootstrap.del (nullptr, &key.data, 0));
-    assert (error == 0);
-}
-
-void mu_coin::block_store::successor_del (mu_coin::block_hash const & hash_a)
-{
-    dbt key (hash_a);
-    int error (successors.del (nullptr, &key.data, 0));
     assert (error == 0);
 }
 
