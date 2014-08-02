@@ -15,7 +15,14 @@
 
 namespace
 {
-    bool const network_debug = false;
+    bool constexpr network_debug ()
+    {
+        return true;
+    }
+    bool constexpr network_keepalive_debug ()
+    {
+        return network_debug () && false;
+    }
 }
 
 CryptoPP::AutoSeededRandomPool random_pool;
@@ -1061,7 +1068,7 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
         mu_coin::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    if (network_debug)
+    if (network_keepalive_debug ())
     {
         std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     }
@@ -1076,7 +1083,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         mu_coin::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    if (network_debug)
+    if (network_debug ())
     {
         std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     }
@@ -1093,7 +1100,7 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
         mu_coin::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    if (network_debug)
+    if (network_debug ())
     {
         std::cerr << "Confirm " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
     }
@@ -1124,7 +1131,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         receive ();
                         if (!error)
                         {
-                            if (network_debug)
+                            if (network_keepalive_debug ())
                             {
                                 std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                             }
@@ -1143,13 +1150,13 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                 req_message.serialize (stream);
                             }
                             merge_peers (req_bytes, incoming.peers);
-                            if (network_debug)
+                            if (network_keepalive_debug ())
                             {
                                 std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
                             }
                             socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes] (boost::system::error_code const & error, size_t size_a)
                             {
-                                if (network_debug)
+                                if (network_debug ())
                                 {
                                     if (error)
                                     {
@@ -1169,7 +1176,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         if (!error)
                         {
                             ++keepalive_ack_count;
-                            if (network_debug)
+                            if (network_keepalive_debug ())
                             {
                                 std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                             }
@@ -1193,7 +1200,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         if (!error)
                         {
                             ++publish_req_count;
-                            if (network_debug)
+                            if (network_debug ())
                             {
                                 std::cerr << "Publish req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                             }
@@ -1208,7 +1215,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     case mu_coin::message_type::confirm_req:
                     {
                         ++confirm_req_count;
-                        if (network_debug)
+                        if (network_debug ())
                         {
                             std::cerr << "Confirm req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         }
@@ -1238,7 +1245,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     case mu_coin::message_type::confirm_ack:
                     {
                         ++confirm_ack_count;
-                        if (network_debug)
+                        if (network_debug ())
                         {
                             std::cerr << "Confirm ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         }
@@ -1255,7 +1262,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     case mu_coin::message_type::confirm_nak:
                     {
                         ++confirm_nak_count;
-                        if (network_debug)
+                        if (network_debug ())
                         {
                             std::cerr << "Confirm nak " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
                         }
@@ -1290,7 +1297,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
         else
         {
             ++bad_sender_count;
-            if (network_debug)
+            if (network_debug ())
             {
                 std::cerr << "Reserved sender" << std::endl;
             }
@@ -1298,7 +1305,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
     }
     else
     {
-        if (network_debug)
+        if (network_debug ())
         {
             std::cerr << "Receive error" << std::endl;
         }
@@ -1311,13 +1318,13 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
     {
         if (!client.peers.contacting_peer (*i) && *i != endpoint ())
         {
-            if (network_debug)
+            if (network_keepalive_debug ())
             {
                 std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (i->port ()) << std::endl;
             }
             socket.async_send_to (boost::asio::buffer (bytes_a->data (), bytes_a->size ()), *i, [bytes_a] (boost::system::error_code const & error, size_t size_a)
             {
-                if (network_debug)
+                if (network_debug ())
                 {
                     if (error)
                     {
@@ -1328,7 +1335,7 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
         }
         else
         {
-            if (network_debug)
+            if (network_debug ())
             {
                 if (mu_coin::reserved_address (*i))
                 {
@@ -1985,7 +1992,7 @@ void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endp
 	}
 	else
 	{
-		if (network_debug)
+		if (network_debug ())
 		{
 			std::cerr << "Ignoring self endpoint" << std::endl;
 		}
@@ -3202,7 +3209,7 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
             auto error (process_bulk_req (request, pair));
             if (!error)
             {
-                if (network_debug)
+                if (network_debug ())
                 {
                     std::cerr << "Sending: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
                 }
@@ -3215,7 +3222,7 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
             }
             else
             {
-                if (network_debug)
+                if (network_debug ())
                 {
                     std::cerr << "Malformed request, address: " << request.start.to_string () << " does not own block: " << request.end.to_string ();
                 }
@@ -3279,7 +3286,7 @@ void mu_coin::bootstrap_connection::send_next ()
             mu_coin::serialize_block (stream, *block);
         }
         auto this_l (shared_from_this ());
-        if (network_debug)
+        if (network_debug ())
         {
             std::cerr << "Sending block: " << block->hash ().to_string () << std::endl;
         }
@@ -3326,7 +3333,7 @@ void mu_coin::bootstrap_connection::send_finished ()
     send_buffer.clear ();
     send_buffer.push_back (static_cast <uint8_t> (mu_coin::block_type::not_a_block));
     auto this_l (shared_from_this ());
-    if (network_debug)
+    if (network_debug ())
     {
         std::cerr << "Sending finished" << std::endl;
     }
@@ -3410,7 +3417,7 @@ void mu_coin::bootstrap_processor::send_request (std::pair <mu_coin::address, mu
         request.serialize (stream);
     }
     auto this_l (shared_from_this ());
-    if (network_debug)
+    if (network_debug ())
     {
         std::cerr << "Requesting: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
     }
@@ -3481,7 +3488,7 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
                         }
                         else
                         {
-                            if (network_debug)
+                            if (network_debug ())
                             {
                                 std::cerr << "Exiting bootstrap processor" << std::endl;
                             }
@@ -3489,7 +3496,7 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
 					}
 					else
 					{
-						if (network_debug)
+						if (network_debug ())
 						{
 							std::cerr << "Error processing end block" << std::endl;
 						}
@@ -3607,7 +3614,7 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
     assert (!requests.empty ());
     bool result;
     auto hash (block.hash ());
-    if (network_debug)
+    if (network_debug ())
     {
         std::cerr << "Received block: " << hash.to_string () << std::endl;
     }
@@ -3616,7 +3623,7 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
         auto previous (block.previous ());
         client.store.bootstrap_put (previous, block);
         expecting = previous;
-        if (network_debug)
+        if (network_debug ())
         {
             std::cerr << "Expecting: " << expecting.to_string () << std::endl;
         }
@@ -3624,7 +3631,7 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
     }
     else
     {
-		if (network_debug)
+		if (network_debug ())
 		{
 			std::cerr << "Block hash: " << hash.to_string () << " did not match expecting: " << expecting.to_string () << std::endl;
 		}
@@ -3774,7 +3781,7 @@ void mu_coin::system::generate_transaction (uint32_t amount)
 mu_coin::bootstrap_processor::~bootstrap_processor ()
 {
     complete_action ();
-    if (network_debug)
+    if (network_debug ())
     {
         std::cerr << "Exiting bootstrap processor" << std::endl;
     }
@@ -3782,7 +3789,7 @@ mu_coin::bootstrap_processor::~bootstrap_processor ()
 
 mu_coin::bootstrap_connection::~bootstrap_connection ()
 {
-    if (network_debug)
+    if (network_debug ())
     {
         std::cerr << "Exiting bootstrap connection" << std::endl;
     }
@@ -3853,13 +3860,6 @@ bool mu_coin::peer_container::contacting_peer (mu_coin::endpoint const & endpoin
 			else
 			{
 				peers.insert ({endpoint_a, std::chrono::system_clock::time_point (), std::chrono::system_clock::now ()});
-			}
-		}
-		else
-		{
-			if (network_debug)
-			{
-				std::cerr << "Ignoring endpoint of self" << std::endl;
 			}
 		}
 	}
