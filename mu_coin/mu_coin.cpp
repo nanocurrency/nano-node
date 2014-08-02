@@ -1647,16 +1647,46 @@ client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_pat
 {
 }
 
+namespace
+{
+    class publish_processor : public std::enable_shared_from_this <publish_processor>
+    {
+    public:
+        publish_processor (mu_coin::client & client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
+        client (client_a),
+        incoming (std::move (incoming_a)),
+        sender (sender_a),
+        attempts (0)
+        {
+        }
+        void run ()
+        {
+            auto list (client.peers.list ());
+            for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+            {
+                if (i->endpoint != sender)
+                {
+                    client.network.publish_block (i->endpoint, incoming->clone ());
+                }
+            }
+            if (attempts < 3)
+            {
+                ++attempts;
+                auto this_l (shared_from_this ());
+                client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this_l] () {this_l->run ();});
+            }
+        }
+        mu_coin::client & client;
+        std::unique_ptr <mu_coin::block> incoming;
+        mu_coin::endpoint sender;
+        int attempts;
+    };
+}
+
 void mu_coin::processor::republish (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a)
 {
-    auto list (client.peers.list ());
-    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
-    {
-        if (i->endpoint != sender_a)
-        {
-            client.network.publish_block (i->endpoint, incoming_a->clone ());
-        }
-    }
+    auto republisher (std::make_shared <publish_processor> (client, std::move (incoming_a), sender_a));
+    republisher->run ();
 }
 
 namespace {
