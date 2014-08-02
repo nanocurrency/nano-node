@@ -173,6 +173,15 @@ namespace boost
             return hash (endpoint_a);
         }
     };
+    template <>
+    struct hash <mu_coin::uint256_union>
+    {
+        size_t operator () (mu_coin::uint256_union const & value_a) const
+        {
+            std::hash <mu_coin::uint256_union> hash;
+            return hash (value_a);
+        }
+    };
 }
 
 namespace mu_coin {
@@ -192,6 +201,7 @@ namespace mu_coin {
         mu_coin::uint256_union hash () const;
         virtual void hash (CryptoPP::SHA3 &) const = 0;
         virtual mu_coin::block_hash previous () const = 0;
+        virtual mu_coin::block_hash source () const = 0;
         virtual void serialize (mu_coin::stream &) const = 0;
         virtual void visit (mu_coin::block_visitor &) const = 0;
         virtual bool operator == (mu_coin::block const &) const = 0;
@@ -233,6 +243,7 @@ namespace mu_coin {
         using mu_coin::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
+        mu_coin::block_hash source () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);
         void visit (mu_coin::block_visitor &) const override;
@@ -256,6 +267,7 @@ namespace mu_coin {
         using mu_coin::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
+        mu_coin::block_hash source () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);
         void visit (mu_coin::block_visitor &) const override;
@@ -281,6 +293,7 @@ namespace mu_coin {
         using mu_coin::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
+        mu_coin::block_hash source () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);
         void visit (mu_coin::block_visitor &) const override;
@@ -304,6 +317,7 @@ namespace mu_coin {
         using mu_coin::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         mu_coin::block_hash previous () const override;
+        mu_coin::block_hash source () const override;
         void serialize (mu_coin::stream &) const override;
         bool deserialize (mu_coin::stream &);
         void visit (mu_coin::block_visitor &) const override;
@@ -429,7 +443,8 @@ namespace mu_coin {
         overspend, // Malicious attempt to overspend
         overreceive, // Malicious attempt to receive twice
         fork, // Malicious fork of existing block
-        gap, // Block marked as previous isn't in store
+        gap_previous, // Block marked as previous isn't in store
+        gap_source, // Block marked as source isn't in store
         not_receive_from_send // Receive does not have a send source
     };
     class ledger
@@ -647,6 +662,29 @@ namespace mu_coin {
     };
     class client;
     using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
+    class gap_information
+    {
+    public:
+        std::chrono::system_clock::time_point arrival;
+        mu_coin::block_hash hash;
+        std::unique_ptr <mu_coin::block> block;
+    };
+    class gap_cache
+    {
+    public:
+        gap_cache ();
+        void add (std::unique_ptr <mu_coin::block>, mu_coin::block_hash);
+        boost::multi_index_container
+        <
+            gap_information,
+            boost::multi_index::indexed_by
+            <
+                boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, mu_coin::block_hash, &gap_information::hash>>,
+                boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>
+            >
+        > blocks;
+        size_t const max;
+    };
     class processor
     {
     public:
@@ -847,6 +885,7 @@ namespace mu_coin {
         mu_coin::genesis const & genesis;
         mu_coin::address representative;
         mu_coin::block_store store;
+        mu_coin::gap_cache gap_cache;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;
         mu_coin::network network;

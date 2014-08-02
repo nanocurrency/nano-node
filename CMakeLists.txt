@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (mu_coin)
 
-add_definitions (-std=c++11 -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG)
+add_definitions (-std=c++11 -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG)
 
 include_directories (${CMAKE_SOURCE_DIR})
 

@@ -409,3 +409,61 @@ TEST (block_store, latest_find)
     auto find3 (store.latest_begin (2));
     ASSERT_EQ (second, find3);
 }
+
+TEST (gap_cache, add_new)
+{
+    mu_coin::gap_cache cache;
+    mu_coin::send_block block1;
+    cache.add (std::unique_ptr <mu_coin::send_block> (new mu_coin::send_block (block1)), block1.previous ());
+    ASSERT_NE (cache.blocks.end (), cache.blocks.find (block1.previous ()));
+}
+
+TEST (gap_cache, add_existing)
+{
+    mu_coin::gap_cache cache;
+    mu_coin::send_block block1;
+    auto previous (block1.previous ());
+    cache.add (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block1)), previous);
+    auto existing1 (cache.blocks.find (previous));
+    ASSERT_NE (cache.blocks.end (), existing1);
+    auto arrival (existing1->arrival);
+    cache.add (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block1)), previous);
+    ASSERT_EQ (1, cache.blocks.size ());
+    auto existing2 (cache.blocks.find (previous));
+    ASSERT_NE (cache.blocks.end (), existing2);
+    ASSERT_GT (existing2->arrival, arrival);
+}
+
+TEST (gap_cache, comparison)
+{
+    mu_coin::gap_cache cache;
+    mu_coin::send_block block1;
+    block1.hashables.previous = 0;
+    auto previous1 (block1.previous ());
+    cache.add (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block1)), previous1);
+    auto existing1 (cache.blocks.find (previous1));
+    ASSERT_NE (cache.blocks.end (), existing1);
+    auto arrival (existing1->arrival);
+    mu_coin::send_block block3;
+    block3.hashables.previous = 42;
+    auto previous2 (block3.previous ());
+    cache.add (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block3)), previous2);
+    ASSERT_EQ (2, cache.blocks.size ());
+    auto existing2 (cache.blocks.find (previous2));
+    ASSERT_NE (cache.blocks.end (), existing2);
+    ASSERT_GT (existing2->arrival, arrival);
+    ASSERT_EQ (arrival, cache.blocks.get <1> ().begin ()->arrival);
+}
+
+TEST (gap_cache, limit)
+{
+    mu_coin::gap_cache cache;
+    for (auto i (0); i < cache.max * 2; ++i)
+    {
+        mu_coin::send_block block1;
+        block1.hashables.previous = i;
+        auto previous (block1.previous ());
+        cache.add (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block1)), previous);
+    }
+    ASSERT_EQ (cache.max, cache.blocks.size ());
+}
