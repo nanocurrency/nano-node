@@ -464,9 +464,6 @@ namespace mu_coin {
         keepalive_req,
         keepalive_ack,
         publish_req,
-        publish_ack,
-        publish_err,
-        publish_nak,
         confirm_req,
         confirm_ack,
         confirm_nak,
@@ -507,45 +504,13 @@ namespace mu_coin {
         void serialize (mu_coin::stream &);
         std::unique_ptr <mu_coin::block> block;
     };
-    class publish_ack : public message
-    {
-    public:
-        publish_ack () = default;
-        publish_ack (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
-        void visit (mu_coin::message_visitor &) override;
-        bool operator == (mu_coin::publish_ack const &) const;
-        mu_coin::block_hash block;
-    };
-    class publish_err : public message
-    {
-    public:
-        publish_err () = default;
-        publish_err (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
-        void visit (mu_coin::message_visitor &) override;
-        mu_coin::block_hash block;
-    };
-    class publish_nak : public message
-    {
-    public:
-        publish_nak () = default;
-        publish_nak (mu_coin::block_hash const &);
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
-        void visit (mu_coin::message_visitor &) override;
-        mu_coin::block_hash block;
-        std::unique_ptr <mu_coin::block> conflict;
-    };
     class confirm_req : public message
     {
     public:
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
-        bool operator == (mu_coin::publish_ack const &) const;
+        bool operator == (mu_coin::confirm_req const &) const;
 		mu_coin::uint256_union session;
         std::unique_ptr <mu_coin::block> block;
     };
@@ -603,9 +568,6 @@ namespace mu_coin {
         virtual void keepalive_req (mu_coin::keepalive_req const &) = 0;
         virtual void keepalive_ack (mu_coin::keepalive_ack const &) = 0;
         virtual void publish_req (mu_coin::publish_req const &) = 0;
-        virtual void publish_ack (mu_coin::publish_ack const &) = 0;
-        virtual void publish_err (mu_coin::publish_err const &) = 0;
-        virtual void publish_nak (mu_coin::publish_nak const &) = 0;
         virtual void confirm_req (mu_coin::confirm_req const &) = 0;
         virtual void confirm_ack (mu_coin::confirm_ack const &) = 0;
         virtual void confirm_nak (mu_coin::confirm_nak const &) = 0;
@@ -690,10 +652,9 @@ namespace mu_coin {
     public:
         processor (mu_coin::client &);
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
-        void publish_internal (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-        mu_coin::message_type process_and_republish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
-        void republish (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
-        void process_receivable (std::unique_ptr <mu_coin::publish_req>, mu_coin::endpoint const &);
+        void process_and_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
+        void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
+        void process_receivable (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
 		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
         void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
@@ -764,9 +725,6 @@ namespace mu_coin {
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;
-        uint64_t publish_ack_count;
-        uint64_t publish_err_count;
-        uint64_t publish_nak_count;
         uint64_t confirm_req_count;
         uint64_t confirm_ack_count;
         uint64_t confirm_nak_count;
@@ -852,7 +810,7 @@ namespace mu_coin {
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
     public:
-        receivable_processor (std::unique_ptr <mu_coin::publish_req> incoming_a, mu_coin::endpoint const &, mu_coin::client & client_a);
+        receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const &, mu_coin::client & client_a);
         void run ();
         void process_acknowledged (mu_coin::uint256_t const &);
         void confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
@@ -863,7 +821,7 @@ namespace mu_coin {
         mu_coin::uint256_t threshold;
 		mu_coin::uint256_union session;
         std::chrono::system_clock::time_point timeout;
-        std::unique_ptr <mu_coin::publish_req> incoming;
+        std::unique_ptr <mu_coin::block> incoming;
         mu_coin::endpoint sender;
         mu_coin::client & client;
         std::mutex mutex;

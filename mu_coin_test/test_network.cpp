@@ -217,12 +217,14 @@ TEST (network, send_discarded_publish)
     mu_coin::system system (1, 24000, 25000, 2, 100);
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
     system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
-    while (system.clients [0]->network.publish_err_count == 0)
+    ASSERT_EQ (system.genesis.hash (), system.clients [0]->ledger.latest (system.test_genesis_address.pub));
+    ASSERT_EQ (system.genesis.hash (), system.clients [1]->ledger.latest (system.test_genesis_address.pub));
+    while (system.clients [1]->network.publish_req_count == 0)
     {
         system.service->run_one ();
     }
-    ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
-    ASSERT_EQ (1, system.clients [0]->network.publish_err_count);
+    ASSERT_EQ (system.genesis.hash (), system.clients [0]->ledger.latest (system.test_genesis_address.pub));
+    ASSERT_EQ (system.genesis.hash (), system.clients [1]->ledger.latest (system.test_genesis_address.pub));
 }
 
 TEST (network, send_invalid_publish)
@@ -233,12 +235,14 @@ TEST (network, send_invalid_publish)
     block->hashables.balance = 20;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, block->hash (), block->signature);
     system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
-    while (system.clients [0]->network.publish_err_count == 0)
+    ASSERT_EQ (system.genesis.hash (), system.clients [0]->ledger.latest (system.test_genesis_address.pub));
+    ASSERT_EQ (system.genesis.hash (), system.clients [1]->ledger.latest (system.test_genesis_address.pub));
+    while (system.clients [1]->network.publish_req_count == 0)
     {
         system.service->run_one ();
     }
-    ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
-    ASSERT_EQ (1, system.clients [0]->network.publish_err_count);
+    ASSERT_EQ (system.genesis.hash (), system.clients [0]->ledger.latest (system.test_genesis_address.pub));
+    ASSERT_EQ (system.genesis.hash (), system.clients [1]->ledger.latest (system.test_genesis_address.pub));
 }
 
 TEST (network, send_valid_publish)
@@ -257,15 +261,11 @@ TEST (network, send_valid_publish)
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, hash2, block2.signature);
     mu_coin::block_hash hash3;
     ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash3));
-    system.clients [0]->processor.publish_internal (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
-    while (system.clients [0]->network.publish_ack_count == 0)
+    system.clients [0]->processor.process_and_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
+    while (system.clients [1]->network.publish_req_count == 0)
     {
         system.service->run_one ();
     }
-    ASSERT_EQ (1, system.clients [0]->network.publish_ack_count);
-    ASSERT_EQ (0, system.clients [1]->network.publish_ack_count);
-    ASSERT_EQ (0, system.clients [0]->network.publish_req_count);
-    ASSERT_EQ (1, system.clients [1]->network.publish_req_count);
     mu_coin::block_hash hash4;
     ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash4));
     ASSERT_FALSE (hash3 == hash4);
@@ -290,7 +290,7 @@ TEST (receivable_processor, confirm_no_pos)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto block1 (new mu_coin::send_block ());
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::block> {block1}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
@@ -310,7 +310,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 {
     mu_coin::system system (1, 24000, 25000, 1, 1);
     auto block1 (new mu_coin::send_block ());
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::block> {block1}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
@@ -336,7 +336,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
     auto block1 (new mu_coin::send_block ());
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [0]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::block> {block1}, mu_coin::endpoint {}, *system.clients [0]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [0]->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
@@ -381,11 +381,10 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.account_balance (system.test_genesis_address.pub));
     ASSERT_EQ (0, system.clients [1]->ledger.account_balance (key2.pub));
-    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::publish_req> {new mu_coin::publish_req {std::unique_ptr <mu_coin::block> {block1}}}, mu_coin::endpoint {}, *system.clients [1]));
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::block> {block1}, mu_coin::endpoint {}, *system.clients [1]));
     receivable->run ();
     ASSERT_EQ (1, system.clients [1]->processor.publish_listener_size ());
-    // Confirm_req, confirm_ack, publish_req, publish_ack
-    while (system.clients [1]->network.publish_ack_count < 1)
+    while (system.clients [0]->network.publish_req_count != 1)
     {
         system.service->run_one ();
     }
