@@ -674,6 +674,7 @@ namespace mu_coin {
     public:
         gap_cache ();
         void add (std::unique_ptr <mu_coin::block>, mu_coin::block_hash);
+        std::unique_ptr <mu_coin::block> get (mu_coin::block_hash const &);
         boost::multi_index_container
         <
             gap_information,

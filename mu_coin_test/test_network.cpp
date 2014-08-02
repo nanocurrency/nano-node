@@ -925,3 +925,25 @@ TEST (bulk, genesis)
     } while (!finished);
     ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), client1.ledger.latest (system.test_genesis_address.pub));
 }
+
+TEST (client, send_out_of_order)
+{
+    mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::keypair key2;
+    mu_coin::send_block send1;
+    send1.hashables.balance = std::numeric_limits <mu_coin::uint256_t>::max () - 1000;
+    send1.hashables.destination = key2.pub;
+    send1.hashables.previous = system.genesis.hash ();
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    mu_coin::send_block send2;
+    send2.hashables.balance = std::numeric_limits <mu_coin::uint256_t>::max () - 2000;
+    send2.hashables.destination = key2.pub;
+    send2.hashables.previous = send1.hash ();
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send2.hash (), send2.signature);
+    system.clients [0]->processor.process_and_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (send2)), mu_coin::endpoint {});
+    system.clients [0]->processor.process_and_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (send1)), mu_coin::endpoint {});
+    while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::unique_ptr <mu_coin::client> const & client_a) {return client_a->ledger.account_balance (system.test_genesis_address.pub) != std::numeric_limits <mu_coin::uint256_t>::max () - 2000;}))
+    {
+        system.service->run_one ();
+    }
+}

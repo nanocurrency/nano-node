@@ -1780,6 +1780,18 @@ void mu_coin::gap_cache::add (std::unique_ptr <mu_coin::block> block_a, mu_coin:
     }
 }
 
+std::unique_ptr <mu_coin::block> mu_coin::gap_cache::get (mu_coin::block_hash const & hash_a)
+{
+    std::unique_ptr <mu_coin::block> result;
+    auto existing (blocks.find (hash_a));
+    if (existing != blocks.end ())
+    {
+        blocks.modify (existing, [&] (mu_coin::gap_information & info) {result.swap (info.block);});
+        blocks.erase (existing);
+    }
+    return result;
+}
+
 mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a, mu_coin::client & client_a) :
 threshold (client_a.ledger.supply () / 2),
 incoming (std::move (incoming_a)),
@@ -1944,8 +1956,15 @@ void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::block> in
 
 void mu_coin::processor::process_and_republish (std::unique_ptr <mu_coin::block> incoming, mu_coin::endpoint const & sender_a)
 {
-    publish_visitor visitor (client, std::move (incoming), sender_a);
-    visitor.incoming->visit (visitor);
+    std::unique_ptr <mu_coin::block> block (std::move (incoming));
+    do
+    {
+        auto hash (block->hash ());
+        publish_visitor visitor (client, std::move (block), sender_a);
+        visitor.incoming->visit (visitor);
+        block = client.gap_cache.get (hash);
+    }
+    while (block != nullptr);
 }
 
 void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
