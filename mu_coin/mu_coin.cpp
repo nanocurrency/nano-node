@@ -1070,7 +1070,7 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
     }
     if (network_keepalive_debug ())
     {
-        std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+        client.log.add (boost::str (boost::format ("Kepalive req %1%->%2%") % socket.local_endpoint().port () % endpoint_a.port ()));
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const &, size_t) {});
 }
@@ -1085,7 +1085,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     }
     if (network_debug ())
     {
-        std::cerr << "Publish " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+        client.log.add (boost::str (boost::format ("Publish %1%->%2%") % socket.local_endpoint().port () % endpoint_a.port ()));
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
 }
@@ -1102,7 +1102,7 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
     }
     if (network_debug ())
     {
-        std::cerr << "Confirm " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (endpoint_a.port ()) << std::endl;
+        client.log.add (boost::str (boost::format ("Confirm req %1%->%2%") % socket.local_endpoint ().port () % endpoint_a.port ()));
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
 }
@@ -1133,7 +1133,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             if (network_keepalive_debug ())
                             {
-                                std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                                client.log.add (boost::str (boost::format ("Keepalive req %1%<-%2%") % socket.local_endpoint ().port () % sender.port ()));
                             }
                             mu_coin::keepalive_ack ack_message;
                             client.peers.random_fill (ack_message.peers);
@@ -1152,15 +1152,16 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             merge_peers (req_bytes, incoming.peers);
                             if (network_keepalive_debug ())
                             {
-                                std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (sender.port ()) << std::endl;
+                                client.log.add (boost::str (boost::format ("Keepalive ack %1%->%2%") % socket.local_endpoint().port () % sender.port ()));
                             }
-                            socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes] (boost::system::error_code const & error, size_t size_a)
+                            auto & client_l (client);
+                            socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
                             {
                                 if (network_debug ())
                                 {
                                     if (error)
                                     {
-                                        std::cerr << "Send error: " << error.message () << std::endl;
+                                        client_l.log.add (boost::str (boost::format ("Send error: %1%") % error.message ()));
                                     }
                                 }
                             });
@@ -1178,7 +1179,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             ++keepalive_ack_count;
                             if (network_keepalive_debug ())
                             {
-                                std::cerr << "Keepalive ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                                client.log.add (boost::str (boost::format ("Keepalive ack %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
                             }
                             mu_coin::keepalive_req req_message;
                             client.peers.random_fill (req_message.peers);
@@ -1202,7 +1203,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             ++publish_req_count;
                             if (network_debug ())
                             {
-                                std::cerr << "Publish req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                                client.log.add (boost::str (boost::format ("Publish req %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
                             }
                             client.processor.process_and_republish (std::move (incoming.block), sender);
                         }
@@ -1217,7 +1218,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         ++confirm_req_count;
                         if (network_debug ())
                         {
-                            std::cerr << "Confirm req " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            client.log.add (boost::str (boost::format ("Confirm req %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
                         }
                         auto incoming (new mu_coin::confirm_req);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
@@ -1247,7 +1248,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         ++confirm_ack_count;
                         if (network_debug ())
                         {
-                            std::cerr << "Confirm ack " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            client.log.add (boost::str (boost::format ("Confirm ack %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
                         }
                         auto incoming (new mu_coin::confirm_ack);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
@@ -1264,7 +1265,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         ++confirm_nak_count;
                         if (network_debug ())
                         {
-                            std::cerr << "Confirm nak " << std::to_string (socket.local_endpoint().port ()) << "<-" << std::to_string (sender.port ()) << std::endl;
+                            client.log.add (boost::str (boost::format ("Confirm nak %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
                         }
                         auto incoming (new mu_coin::confirm_nak);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
@@ -1299,7 +1300,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
             ++bad_sender_count;
             if (network_debug ())
             {
-                std::cerr << "Reserved sender" << std::endl;
+                client.log.add ("Reserved sender");
             }
         }
     }
@@ -1307,7 +1308,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
     {
         if (network_debug ())
         {
-            std::cerr << "Receive error" << std::endl;
+            client.log.add ("Receive error");
         }
     }
 }
@@ -1320,15 +1321,16 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
         {
             if (network_keepalive_debug ())
             {
-                std::cerr << "Keepalive req " << std::to_string (socket.local_endpoint().port ()) << "->" << std::to_string (i->port ()) << std::endl;
+                client.log.add (boost::str (boost::format ("Keepalive req %1%->%2%") % socket.local_endpoint().port () % i->port ()));
             }
-            socket.async_send_to (boost::asio::buffer (bytes_a->data (), bytes_a->size ()), *i, [bytes_a] (boost::system::error_code const & error, size_t size_a)
+            auto & client_l (client);
+            socket.async_send_to (boost::asio::buffer (bytes_a->data (), bytes_a->size ()), *i, [bytes_a, &client_l] (boost::system::error_code const & error, size_t size_a)
             {
                 if (network_debug ())
                 {
                     if (error)
                     {
-                        std::cerr << "Send error: " << error.message () << std::endl;
+                        client_l.log.add (boost::str (boost::format ("Send error: %1%") % error.message ()));
                     }
                 }
             });
@@ -1341,7 +1343,7 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
                 {
                     if (i->address ().to_v4 ().to_ulong () != 0 || i->port () != 0)
                     {
-                        std::cerr << "Keepalive_req contained reserved address" << std::endl;
+                        client.log.add (boost::str (boost::format ("Keepalive req contained reserved address")));
                     }
                 }
             }
@@ -2018,13 +2020,6 @@ void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endp
 		else
 		{
 			peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
-		}
-	}
-	else
-	{
-		if (network_debug ())
-		{
-			std::cerr << "Ignoring self endpoint" << std::endl;
 		}
 	}
 }
@@ -3241,7 +3236,7 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
             {
                 if (network_debug ())
                 {
-                    std::cerr << "Sending: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
+                    client.log.add (boost::str (boost::format ("Sending: %1% down to: %2%") % request.start.to_string () % request.end.to_string ()));
                 }
                 auto startup (requests.empty ());
                 requests.push (pair);
@@ -3254,7 +3249,7 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
             {
                 if (network_debug ())
                 {
-                    std::cerr << "Malformed request, address: " << request.start.to_string () << " does not own block: " << request.end.to_string ();
+                    client.log.add (boost::str (boost::format ("Malformed request, address: %1% does not own block %2%") % request.start.to_string () % request.end.to_string ()));
                 }
             }
         }
@@ -3318,7 +3313,7 @@ void mu_coin::bootstrap_connection::send_next ()
         auto this_l (shared_from_this ());
         if (network_debug ())
         {
-            std::cerr << "Sending block: " << block->hash ().to_string () << std::endl;
+            client.log.add (boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ()));
         }
         async_write (*socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_action (ec, size_a);});
     }
@@ -3365,7 +3360,7 @@ void mu_coin::bootstrap_connection::send_finished ()
     auto this_l (shared_from_this ());
     if (network_debug ())
     {
-        std::cerr << "Sending finished" << std::endl;
+        client.log.add ("Sending finished");
     }
     requests.pop ();
     async_write (*socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
@@ -3449,7 +3444,7 @@ void mu_coin::bootstrap_processor::send_request (std::pair <mu_coin::address, mu
     auto this_l (shared_from_this ());
     if (network_debug ())
     {
-        std::cerr << "Requesting: " << request.start.to_string () << " down to: " << request.end.to_string () << std::endl;
+        client.log.add (boost::str (boost::format ("Requesting: %1% down to: %2%") % request.start.to_string () % request.end.to_string ()));
     }
     boost::asio::async_write (socket, boost::asio::buffer (bytes->data (), bytes->size ()), [bytes, this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->send_action (ec, size_a);});
 }
@@ -3520,7 +3515,7 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
                         {
                             if (network_debug ())
                             {
-                                std::cerr << "Exiting bootstrap processor" << std::endl;
+                                client.log.add ("Exiting bootstrap processor");
                             }
                         }
 					}
@@ -3528,7 +3523,7 @@ void mu_coin::bootstrap_processor::received_type (boost::system::error_code cons
 					{
 						if (network_debug ())
 						{
-							std::cerr << "Error processing end block" << std::endl;
+                            client.log.add ("Error processing end_block");
 						}
 					}
                     break;
@@ -3646,7 +3641,7 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
     auto hash (block.hash ());
     if (network_debug ())
     {
-        std::cerr << "Received block: " << hash.to_string () << std::endl;
+        client.log.add (boost::str (boost::format ("Received block: %1%") % hash.to_string ()));
     }
     if (expecting != requests.front ().second && (expecting == requests.front ().first || hash == expecting))
     {
@@ -3655,7 +3650,7 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
         expecting = previous;
         if (network_debug ())
         {
-            std::cerr << "Expecting: " << expecting.to_string () << std::endl;
+            client.log.add (boost::str (boost::format ("Expecting: %1%") % expecting.to_string ()));
         }
         result = false;
     }
@@ -3663,7 +3658,7 @@ bool mu_coin::bootstrap_processor::process_block (mu_coin::block const & block)
     {
 		if (network_debug ())
 		{
-			std::cerr << "Block hash: " << hash.to_string () << " did not match expecting: " << expecting.to_string () << std::endl;
+            client.log.add (boost::str (boost::format ("Block hash: %1% did not match expecting %1%") % expecting.to_string ()));
 		}
         result = true;
     }
@@ -3813,7 +3808,7 @@ mu_coin::bootstrap_processor::~bootstrap_processor ()
     complete_action ();
     if (network_debug ())
     {
-        std::cerr << "Exiting bootstrap processor" << std::endl;
+        client.log.add ("Exiting bootstrap processor");
     }
 }
 
@@ -3821,7 +3816,7 @@ mu_coin::bootstrap_connection::~bootstrap_connection ()
 {
     if (network_debug ())
     {
-        std::cerr << "Exiting bootstrap connection" << std::endl;
+        client.log.add ("Exiting bootstrap connection");
     }
 }
 
@@ -3950,4 +3945,22 @@ mu_coin::block_hash mu_coin::open_block::source () const
 mu_coin::block_hash mu_coin::change_block::source () const
 {
     return 0;
+}
+
+void mu_coin::log::add (std::string const & string_a)
+{
+    items.push_back (string_a);
+}
+
+void mu_coin::log::dump_cerr ()
+{
+    for (auto & i: items)
+    {
+        std::cerr << i << std::endl;
+    }
+}
+
+mu_coin::log::log () :
+items (1024)
+{
 }

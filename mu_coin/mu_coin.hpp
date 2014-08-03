@@ -12,6 +12,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/random_access_index.hpp>
+#include <boost/circular_buffer.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -876,6 +877,14 @@ namespace mu_coin {
         mu_coin::send_block send2;
         mu_coin::open_block open;
     };
+    class log
+    {
+    public:
+        log ();
+        void add (std::string const &);
+        void dump_cerr ();
+        boost::circular_buffer <std::string> items;
+    };
     class client
     {
     public:
@@ -883,6 +892,7 @@ namespace mu_coin {
         client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
         void start ();
+        mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;
         mu_coin::block_store store;
