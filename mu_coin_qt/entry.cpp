@@ -14,8 +14,30 @@ int main (int argc, char ** argv)
         guis.push_back (std::unique_ptr <mu_coin_qt::gui> {new mu_coin_qt::gui {application, *system.clients [i]}});
         guis.back ()->balance_main_window->show ();
     }
-    std::thread network_thread ([&system] () {system.service->run (); std::cerr << "Network thread exited" << std::endl;});
-    std::thread processor_thread ([&system] () {system.processor.run (); std::cerr << "Processor thread exited" << std::endl;});
+    std::thread network_thread ([&system] ()
+    {
+        try
+        {
+            system.service->run ();
+        }
+        catch (...)
+        {
+            assert (false);
+        }
+        std::cerr << "Network thread exited" << std::endl;
+    });
+    std::thread processor_thread ([&system] ()
+    {
+        try
+        {
+            system.processor.run ();
+        }
+        catch (...)
+        {
+            assert (false);
+        }
+        std::cerr << "Processor thread exited" << std::endl;
+    });
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {
         for (auto & i: guis)
@@ -24,7 +46,16 @@ int main (int argc, char ** argv)
         }
         system.processor.stop ();
     });
-    auto result (application.exec ());
+    int result;
+    try
+    {
+        result = application.exec ();
+    }
+    catch (...)
+    {
+        result = -1;
+        assert (false);
+    }
     network_thread.join ();
     processor_thread.join ();
     return result;
