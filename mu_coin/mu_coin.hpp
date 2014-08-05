@@ -29,6 +29,7 @@ namespace CryptoPP
     class SHA3;
 }
 
+std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
 namespace mu_coin {
     using stream = std::basic_streambuf <uint8_t>;
     using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
@@ -883,7 +884,7 @@ namespace mu_coin {
         log ();
         void add (std::string const &);
         void dump_cerr ();
-        boost::circular_buffer <std::string> items;
+        boost::circular_buffer <std::pair <std::chrono::system_clock::time_point, std::string>> items;
     };
     class client
     {

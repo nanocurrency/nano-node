@@ -40,6 +40,7 @@ namespace mu_coin_qt {
         QPushButton * settings;
         QPushButton * show_ledger;
         QPushButton * show_peers;
+        QPushButton * show_log;
         
         QWidget * send_coins_window;
         QVBoxLayout * send_coins_layout;
@@ -68,6 +69,13 @@ namespace mu_coin_qt {
         QPushButton * ledger_refresh;
         QPushButton * ledger_back;
         
+        QWidget * log_window;
+        QVBoxLayout * log_layout;
+        QStringListModel * log_model;
+        QListView * log_view;
+        QPushButton * log_refresh;
+        QPushButton * log_back;
+        
         QWidget * peers_window;
         QVBoxLayout * peers_layout;
         QStringListModel * peers_model;
@@ -84,5 +92,6 @@ namespace mu_coin_qt {
         void refresh_wallet ();
         void refresh_ledger ();
         void refresh_peers ();
+        void refresh_log ();
     };
 }
