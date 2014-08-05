@@ -1697,10 +1697,11 @@ namespace
         }
         void run ()
         {
+            auto hash (incoming->hash ());
             auto list (client.peers.list ());
             if (network_logging ())
             {
-                client.log.add (boost::str (boost::format ("Publishing to %1% peers") % list.size ()));;
+                client.log.add (boost::str (boost::format ("Publishing %1% to %2% peers") % hash.to_string () % list.size ()));
             }
             for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
             {
@@ -1716,14 +1717,14 @@ namespace
                 client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this_l] () {this_l->run ();});
                 if (network_logging ())
                 {
-                    client.log.add ("Queueing another publish");
+                    client.log.add (boost::str (boost::format ("Queueing another publish for %1%") % hash.to_string ()));
                 }
             }
             else
             {
                 if (network_logging ())
                 {
-                    client.log.add ("Done publishing");
+                    client.log.add (boost::str (boost::format ("Done publishing for %1%") % hash.to_string ()));
                 }
             }
         }
