@@ -695,7 +695,7 @@ namespace mu_coin {
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
         void process_and_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-        void process_receivable (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
+        void process_receivable (std::unique_ptr <mu_coin::block>);
 		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
         void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
@@ -851,7 +851,7 @@ namespace mu_coin {
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
     public:
-        receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const &, mu_coin::client & client_a);
+        receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::client & client_a);
         void run ();
         void process_acknowledged (mu_coin::uint256_t const &);
         void confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
@@ -863,7 +863,6 @@ namespace mu_coin {
 		mu_coin::uint256_union session;
         std::chrono::system_clock::time_point timeout;
         std::unique_ptr <mu_coin::block> incoming;
-        mu_coin::endpoint sender;
         mu_coin::client & client;
         std::mutex mutex;
         bool complete;

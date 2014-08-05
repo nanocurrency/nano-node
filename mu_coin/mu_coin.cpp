@@ -1207,7 +1207,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             ++publish_req_count;
                             if (network_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Publish req %1% from %2%") % incoming.block->hash ().to_string () % sender.port ()));
+                                client.log.add (boost::str (boost::format ("Publish req %1% from %2%") % incoming.block->hash ().to_string () % sender));
                             }
                             client.processor.process_and_republish (std::move (incoming.block), sender);
                         }
@@ -1228,7 +1228,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             if (network_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Confirm req %1% from %2%") % incoming.block->hash ().to_string () % sender.port ()));
+                                client.log.add (boost::str (boost::format ("Confirm req %1% from %2%") % incoming.block->hash ().to_string () % sender));
                             }
                             auto result (client.ledger.process (*incoming.block));
                             switch (result)
@@ -1258,7 +1258,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             if (network_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Confirm from %1%") % sender.port ()));
+                                client.log.add (boost::str (boost::format ("Confirm from %1%") % sender));
                             }
                             client.processor.confirm_ack (std::unique_ptr <mu_coin::confirm_ack> {incoming}, sender);
                         }
@@ -1269,7 +1269,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         ++confirm_nak_count;
                         if (network_logging ())
                         {
-                            client.log.add (boost::str (boost::format ("Confirm nak %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
+                            client.log.add (boost::str (boost::format ("Confirm nak %1%<-%2%") % socket.local_endpoint().port () % sender));
                         }
                         auto incoming (new mu_coin::confirm_nak);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
@@ -1325,7 +1325,7 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
         {
             if (network_keepalive_logging ())
             {
-                client.log.add (boost::str (boost::format ("Keepalive req %1%->%2%") % socket.local_endpoint().port () % i->port ()));
+                client.log.add (boost::str (boost::format ("Keepalive req %1%->%2%") % socket.local_endpoint().port () % i));
             }
             auto & client_l (client);
             socket.async_send_to (boost::asio::buffer (bytes_a->data (), bytes_a->size ()), *i, [bytes_a, &client_l] (boost::system::error_code const & error, size_t size_a)
@@ -1732,7 +1732,7 @@ public:
                 }
                 if (client.wallet.find (destination) != client.wallet.end ())
                 {
-                    client.processor.process_receivable (std::move (incoming), mu_coin::endpoint {});
+                    client.processor.process_receivable (std::move (incoming));
                 }
                 else
                 {
@@ -1887,10 +1887,9 @@ std::unique_ptr <mu_coin::block> mu_coin::gap_cache::get (mu_coin::block_hash co
     return result;
 }
 
-mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a, mu_coin::client & client_a) :
+mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::client & client_a) :
 threshold (client_a.ledger.supply () / 2),
 incoming (std::move (incoming_a)),
-sender (sender_a),
 client (client_a),
 complete (false)
 {
@@ -1912,10 +1911,7 @@ void mu_coin::receivable_processor::run ()
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            if (i->endpoint != sender)
-            {
-                client.network.confirm_block (i->endpoint, session, incoming->clone ());
-            }
+            client.network.confirm_block (i->endpoint, session, incoming->clone ());
         }
     }
     else
@@ -2043,9 +2039,9 @@ void receivable_message_processor::confirm_nak (mu_coin::confirm_nak const & mes
     }
 }
 
-void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::block> incoming, mu_coin::endpoint const & sender_a)
+void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::block> incoming)
 {
-    auto processor (std::make_shared <receivable_processor> (std::move (incoming), sender_a, client));
+    auto processor (std::make_shared <receivable_processor> (std::move (incoming), client));
     processor->run ();
 }
 
