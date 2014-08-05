@@ -1076,7 +1076,14 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
     {
         client.log.add (boost::str (boost::format ("Kepalive req %1%->%2%") % socket.local_endpoint().port () % endpoint_a.port ()));
     }
-    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const &, size_t) {});
+    auto & client_l (client);
+    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t)
+    {
+        if (network_logging ())
+        {
+            client_l.log.add (boost::str (boost::format ("Error sending keepalive: %1%") % ec.message ()));
+        }
+    });
 }
 
 void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
@@ -1098,7 +1105,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         {
             if (network_logging ())
             {
-                client_l.log.add (boost::str (boost::format ("Error publishing %1%") % ec));
+                client_l.log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
             }
         }
     });
@@ -1118,7 +1125,17 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
     {
         client.log.add (boost::str (boost::format ("Confirm req %1%->%2%") % socket.local_endpoint ().port () % endpoint_a.port ()));
     }
-    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
+    auto & client_l (client);
+    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
+    {
+        if (ec)
+        {
+            if (network_logging ())
+            {
+                client_l.log.add (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
+            }
+        }
+    });
 }
 
 void mu_coin::network::receive_action (boost::system::error_code const & error, size_t size_a)
@@ -1175,7 +1192,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                 {
                                     if (error)
                                     {
-                                        client_l.log.add (boost::str (boost::format ("Send error: %1%") % error.message ()));
+                                        client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
                                     }
                                 }
                             });
@@ -1344,7 +1361,7 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
                 {
                     if (error)
                     {
-                        client_l.log.add (boost::str (boost::format ("Send error: %1%") % error.message ()));
+                        client_l.log.add (boost::str (boost::format ("Error sending keepalive request: %1%") % error.message ()));
                     }
                 }
             });
@@ -2434,7 +2451,17 @@ void mu_coin::processor::process_confirmation (mu_coin::uint256_union const & se
 			}
 		}
 	}
-    client.network.socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes] (boost::system::error_code const & error, size_t size_a) {});
+    auto & client_l (client);
+    client.network.socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
+    {
+        if (ec)
+        {
+            if (network_logging ())
+            {
+                client_l.log.add (boost::str (boost::format ("Error sending confirmation response: %1%") % ec.message ()));
+            }
+        }
+    });
 }
 
 mu_coin::key_entry * mu_coin::key_entry::operator -> ()
