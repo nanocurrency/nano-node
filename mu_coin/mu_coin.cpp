@@ -1091,7 +1091,17 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         mu_coin::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
+    auto & client_l (client);
+    socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
+    {
+        if (ec)
+        {
+            if (network_logging ())
+            {
+                client_l.log.add (boost::str (boost::format ("Error publishing %1%") % ec));
+            }
+        }
+    });
 }
 
 void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block> block)
@@ -1680,6 +1690,17 @@ namespace
                 ++attempts;
                 auto this_l (shared_from_this ());
                 client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this_l] () {this_l->run ();});
+                if (network_logging ())
+                {
+                    client.log.add ("Queueing another publish");
+                }
+            }
+            else
+            {
+                if (network_logging ())
+                {
+                    client.log.add ("Done publishing");
+                }
             }
         }
         mu_coin::client & client;
