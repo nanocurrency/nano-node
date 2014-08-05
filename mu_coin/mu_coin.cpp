@@ -1710,7 +1710,7 @@ namespace
                     client.network.publish_block (i->endpoint, incoming->clone ());
                 }
             }
-            if (attempts < 3)
+            if (attempts < 0)
             {
                 ++attempts;
                 auto this_l (shared_from_this ());
