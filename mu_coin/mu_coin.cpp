@@ -1089,7 +1089,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     }
     if (network_logging ())
     {
-        client.log.add (boost::str (boost::format ("Publish %1%->%2%") % socket.local_endpoint().port () % endpoint_a.port ()));
+        client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
 }
@@ -1207,7 +1207,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             ++publish_req_count;
                             if (network_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Publish req %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
+                                client.log.add (boost::str (boost::format ("Publish req %1% from %2%") % incoming.block->hash ().to_string () % sender.port ()));
                             }
                             client.processor.process_and_republish (std::move (incoming.block), sender);
                         }
@@ -1220,23 +1220,23 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     case mu_coin::message_type::confirm_req:
                     {
                         ++confirm_req_count;
-                        if (network_logging ())
-                        {
-                            client.log.add (boost::str (boost::format ("Confirm req %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
-                        }
-                        auto incoming (new mu_coin::confirm_req);
+                        mu_coin::confirm_req incoming;
                         mu_coin::bufferstream stream (buffer.data (), size_a);
-                        auto error (incoming->deserialize (stream));
+                        auto error (incoming.deserialize (stream));
                         receive ();
                         if (!error)
                         {
-                            auto result (client.ledger.process (*incoming->block));
+                            if (network_logging ())
+                            {
+                                client.log.add (boost::str (boost::format ("Confirm req %1% from %2%") % incoming.block->hash ().to_string () % sender.port ()));
+                            }
+                            auto result (client.ledger.process (*incoming.block));
                             switch (result)
                             {
                                 case mu_coin::process_result::old:
                                 case mu_coin::process_result::progress:
                                 {
-                                    client.processor.process_confirmation (incoming->session, incoming->block->hash (), sender);
+                                    client.processor.process_confirmation (incoming.session, incoming.block->hash (), sender);
                                     break;
                                 }
                                 default:
@@ -1250,16 +1250,16 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     case mu_coin::message_type::confirm_ack:
                     {
                         ++confirm_ack_count;
-                        if (network_logging ())
-                        {
-                            client.log.add (boost::str (boost::format ("Confirm ack %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
-                        }
                         auto incoming (new mu_coin::confirm_ack);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming->deserialize (stream));
                         receive ();
                         if (!error)
                         {
+                            if (network_logging ())
+                            {
+                                client.log.add (boost::str (boost::format ("Confirm from %1%") % sender.port ()));
+                            }
                             client.processor.confirm_ack (std::unique_ptr <mu_coin::confirm_ack> {incoming}, sender);
                         }
                         break;
