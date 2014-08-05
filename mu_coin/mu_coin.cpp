@@ -1618,12 +1618,13 @@ void mu_coin::processor_service::run ()
             {
                 operations.pop ();
                 lock.unlock ();
-                std::cerr << "Performing action at " << std::chrono::system_clock::now () << "scheduled for " << operation.wakeup << std::endl;
+                std::cerr << "Performing action at " << std::chrono::system_clock::now () << " scheduled for " << operation.wakeup << std::endl;
                 operation.function ();
                 lock.lock ();
             }
             else
             {
+                std::cerr << "Sleeping until " << operation.wakeup << std::endl;
                 condition.wait_until (lock, operation.wakeup);
             }
         }
@@ -1638,6 +1639,7 @@ void mu_coin::processor_service::add (std::chrono::system_clock::time_point cons
 {
     std::lock_guard <std::mutex> lock (mutex);
     operations.push (mu_coin::operation ({wakeup_a, operation}));
+    std::cerr << "Adding operation to wakeup at " << wakeup_a << std::endl;
     condition.notify_all ();
 }
 
