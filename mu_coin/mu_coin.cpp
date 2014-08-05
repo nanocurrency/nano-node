@@ -1618,6 +1618,7 @@ void mu_coin::processor_service::run ()
             {
                 operations.pop ();
                 lock.unlock ();
+                std::cerr << "Performing action at " << std::chrono::system_clock::now () << "scheduled for " << operation.wakeup << std::endl;
                 operation.function ();
                 lock.lock ();
             }
