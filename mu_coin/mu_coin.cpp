@@ -1081,7 +1081,10 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
     {
         if (network_logging ())
         {
-            client_l.log.add (boost::str (boost::format ("Error sending keepalive: %1%") % ec.message ()));
+            if (ec)
+            {
+                client_l.log.add (boost::str (boost::format ("Error sending keepalive: %1%") % ec.message ()));
+            }
         }
     });
 }
@@ -1101,9 +1104,9 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
     auto & client_l (client);
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
     {
-        if (ec)
+        if (network_logging ())
         {
-            if (network_logging ())
+            if (ec)
             {
                 client_l.log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
             }
@@ -1128,9 +1131,9 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
     auto & client_l (client);
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
     {
-        if (ec)
+        if (network_logging ())
         {
-            if (network_logging ())
+            if (ec)
             {
                 client_l.log.add (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
             }
@@ -2458,9 +2461,9 @@ void mu_coin::processor::process_confirmation (mu_coin::uint256_union const & se
     auto & client_l (client);
     client.network.socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
     {
-        if (ec)
+        if (network_logging ())
         {
-            if (network_logging ())
+            if (ec)
             {
                 client_l.log.add (boost::str (boost::format ("Error sending confirmation response: %1%") % ec.message ()));
             }
