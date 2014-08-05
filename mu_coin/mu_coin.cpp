@@ -1081,15 +1081,15 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
 
 void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
 {
+    if (network_logging ())
+    {
+        client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
+    }
     mu_coin::publish_req message (std::move (block));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         mu_coin::vectorstream stream (*bytes);
         message.serialize (stream);
-    }
-    if (network_logging ())
-    {
-        client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
     }
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes] (boost::system::error_code const & ec, size_t size) {});
 }
