@@ -1695,6 +1695,10 @@ namespace
         void run ()
         {
             auto list (client.peers.list ());
+            if (network_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Publishing to %1% peers") % list.size ()));;
+            }
             for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
             {
                 if (i->endpoint != sender)
