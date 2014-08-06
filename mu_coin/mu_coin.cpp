@@ -1613,19 +1613,18 @@ void mu_coin::processor_service::run ()
     {
         if (!operations.empty ())
         {
-            auto & operation (operations.top ());
-            if (operation.wakeup < std::chrono::system_clock::now ())
+            auto & operation_l (operations.top ());
+            if (operation_l.wakeup < std::chrono::system_clock::now ())
             {
+                auto operation (operation_l);
                 operations.pop ();
                 lock.unlock ();
-                std::cerr << "Performing action at " << std::chrono::system_clock::now () << " scheduled for " << operation.wakeup << std::endl;
                 operation.function ();
                 lock.lock ();
             }
             else
             {
-                std::cerr << "Sleeping until " << operation.wakeup << std::endl;
-                condition.wait_until (lock, operation.wakeup);
+                condition.wait_until (lock, operation_l.wakeup);
             }
         }
         else
@@ -1639,7 +1638,6 @@ void mu_coin::processor_service::add (std::chrono::system_clock::time_point cons
 {
     std::lock_guard <std::mutex> lock (mutex);
     operations.push (mu_coin::operation ({wakeup_a, operation}));
-    std::cerr << "Adding operation to wakeup at " << wakeup_a << std::endl;
     condition.notify_all ();
 }
 
@@ -1660,9 +1658,9 @@ client (client_a)
 {
 }
 
-bool mu_coin::operation::operator < (mu_coin::operation const & other_a) const
+bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
 {
-    return wakeup < other_a.wakeup;
+    return wakeup > other_a.wakeup;
 }
 
 mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :

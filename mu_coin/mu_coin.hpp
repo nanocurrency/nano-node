@@ -636,7 +636,7 @@ namespace mu_coin {
     class operation
     {
     public:
-        bool operator < (mu_coin::operation const &) const;
+        bool operator > (mu_coin::operation const &) const;
         std::chrono::system_clock::time_point wakeup;
         std::function <void ()> function;
     };
@@ -653,7 +653,7 @@ namespace mu_coin {
         bool done;
         std::mutex mutex;
         std::condition_variable condition;
-        std::priority_queue <operation> operations;
+        std::priority_queue <operation, std::vector <operation>, std::greater <operation>> operations;
     };
     class peer_information
     {

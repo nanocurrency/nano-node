@@ -316,6 +316,19 @@ TEST (processor_service, many)
     }
 }
 
+TEST (processor_service, top_execution)
+{
+    mu_coin::processor_service service;
+    int value (0);
+    std::mutex mutex;
+    std::unique_lock <std::mutex> lock1 (mutex);
+    service.add (std::chrono::system_clock::now (), [&] () {value = 1; service.stop (); lock1.unlock ();});
+    service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (1), [&] () {value = 2; service.stop (); lock1.unlock ();});
+    service.run ();
+    std::unique_lock <std::mutex> lock2 (mutex);
+    ASSERT_EQ (1, value);
+}
+
 TEST (ledger, representative_genesis)
 {
     mu_coin::block_store store (mu_coin::block_store_temp);
