@@ -1126,7 +1126,7 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
     }
     if (network_logging ())
     {
-        client.log.add (boost::str (boost::format ("Confirm req %1%->%2%") % socket.local_endpoint ().port () % endpoint_a.port ()));
+        client.log.add (boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a));
     }
     auto & client_l (client);
     socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
@@ -1167,7 +1167,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             if (network_keepalive_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Keepalive req %1%<-%2%") % socket.local_endpoint ().port () % sender.port ()));
+                                client.log.add (boost::str (boost::format ("Received keepalive req from %1%") % sender));
                             }
                             mu_coin::keepalive_ack ack_message;
                             client.peers.random_fill (ack_message.peers);
@@ -1186,7 +1186,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             merge_peers (req_bytes, incoming.peers);
                             if (network_keepalive_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Keepalive ack %1%->%2%") % socket.local_endpoint().port () % sender.port ()));
+                                client.log.add (boost::str (boost::format ("Sending keepalive ack to %2%") % sender));
                             }
                             auto & client_l (client);
                             socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
@@ -1213,7 +1213,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             ++keepalive_ack_count;
                             if (network_keepalive_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Keepalive ack %1%<-%2%") % socket.local_endpoint().port () % sender.port ()));
+                                client.log.add (boost::str (boost::format ("Received keepalive ack from %1%") % sender));
                             }
                             mu_coin::keepalive_req req_message;
                             client.peers.random_fill (req_message.peers);
@@ -1237,7 +1237,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             ++publish_req_count;
                             if (network_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Publish req %1% from %2%") % incoming.block->hash ().to_string () % sender));
+                                client.log.add (boost::str (boost::format ("Received publish req rom %1%") % sender));
                             }
                             client.processor.process_and_republish (std::move (incoming.block), sender);
                         }
@@ -1258,7 +1258,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             if (network_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Confirm req %1% from %2%") % incoming.block->hash ().to_string () % sender));
+                                client.log.add (boost::str (boost::format ("Received confirm req from %1%") % sender));
                             }
                             auto result (client.ledger.process (*incoming.block));
                             switch (result)
@@ -1288,7 +1288,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         {
                             if (network_logging ())
                             {
-                                client.log.add (boost::str (boost::format ("Confirm from %1%") % sender));
+                                client.log.add (boost::str (boost::format ("Received Confirm from %1%") % sender));
                             }
                             client.processor.confirm_ack (std::unique_ptr <mu_coin::confirm_ack> {incoming}, sender);
                         }
@@ -1299,7 +1299,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         ++confirm_nak_count;
                         if (network_logging ())
                         {
-                            client.log.add (boost::str (boost::format ("Confirm nak %1%<-%2%") % socket.local_endpoint().port () % sender));
+                            client.log.add (boost::str (boost::format ("Received confirm nak from %1%") %  sender));
                         }
                         auto incoming (new mu_coin::confirm_nak);
                         mu_coin::bufferstream stream (buffer.data (), size_a);
@@ -1355,7 +1355,7 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
         {
             if (network_keepalive_logging ())
             {
-                client.log.add (boost::str (boost::format ("Keepalive req %1%->%2%") % socket.local_endpoint().port () % i));
+                client.log.add (boost::str (boost::format ("Sending keepalive req to %1%") % i));
             }
             auto & client_l (client);
             socket.async_send_to (boost::asio::buffer (bytes_a->data (), bytes_a->size ()), *i, [bytes_a, &client_l] (boost::system::error_code const & error, size_t size_a)
