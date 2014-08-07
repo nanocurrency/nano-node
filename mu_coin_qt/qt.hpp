@@ -29,8 +29,8 @@ namespace mu_coin_qt {
         QLineEdit * settings_password;
         QPushButton * settings_back;
         
-        QWidget * balance_main_window;
-        QVBoxLayout * balance_main_window_layout;
+        QWidget * client_window;
+        QVBoxLayout * client_layout;
         QLabel * balance_label;
         
         QWidget * entry_window;

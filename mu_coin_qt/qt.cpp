@@ -18,8 +18,8 @@ settings_bootstrap_button (new QPushButton ("Bootstrap")),
 settings_password_label (new QLabel ("Password:")),
 settings_password (new QLineEdit),
 settings_back (new QPushButton ("Back")),
-balance_main_window (new QWidget),
-balance_main_window_layout (new QVBoxLayout),
+client_window (new QWidget),
+client_layout (new QVBoxLayout),
 balance_label (new QLabel),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
@@ -123,10 +123,10 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     
     main_stack->addWidget (entry_window);
     
-    balance_main_window_layout->addWidget (balance_label);
-    balance_main_window_layout->addWidget (main_stack);
-    balance_main_window_layout->setSpacing (0);
-    balance_main_window->setLayout (balance_main_window_layout);
+    client_layout->addWidget (balance_label);
+    client_layout->addWidget (main_stack);
+    client_layout->setSpacing (0);
+    client_window->setLayout (client_layout);
     
     settings_layout->addWidget (settings_port_label);
     settings_layout->addWidget (settings_connect_label);
