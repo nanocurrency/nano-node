@@ -763,6 +763,7 @@ namespace mu_coin {
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
         mu_coin::client & client;
+        boost::asio::io_service::strand strand;
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;
