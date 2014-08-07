@@ -757,13 +757,16 @@ namespace mu_coin {
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
         void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block>);
         void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <mu_coin::endpoint, 24> const &);
+        void send_buffer (uint8_t const *, size_t, mu_coin::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
+        void send_complete (boost::system::error_code const &, size_t);
         mu_coin::endpoint endpoint ();
         mu_coin::endpoint remote;
         std::array <uint8_t, 512> buffer;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
         mu_coin::client & client;
-        boost::asio::io_service::strand strand;
+        std::queue <std::tuple <uint8_t const *, size_t, mu_coin::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
+        std::mutex mutex;
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
         uint64_t publish_req_count;

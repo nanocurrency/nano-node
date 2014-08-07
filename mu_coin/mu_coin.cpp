@@ -1038,7 +1038,6 @@ mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, m
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::any (), port)),
 service (service_a),
 client (client_a),
-strand (service_a),
 keepalive_req_count (0),
 keepalive_ack_count (0),
 publish_req_count (0),
@@ -1055,25 +1054,17 @@ on (true)
 
 void mu_coin::network::receive ()
 {
-    strand.dispatch (
-        [this] ()
+    socket.async_receive_from (boost::asio::buffer (buffer), remote,
+        [this] (boost::system::error_code const & error, size_t size_a)
         {
-            socket.async_receive_from (boost::asio::buffer (buffer), remote,
-                [this] (boost::system::error_code const & error, size_t size_a)
-                {
-                    receive_action (error, size_a);
-                });
+            receive_action (error, size_a);
         });
 }
 
 void mu_coin::network::stop ()
 {
     on = false;
-    strand.dispatch (
-        [this] ()
-        {
-            socket.close ();
-        });
+    socket.close ();
 }
 
 void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
@@ -1090,19 +1081,15 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
         client.log.add (boost::str (boost::format ("Kepalive req sent to %1%") % endpoint_a));
     }
     auto & client_l (client);
-    strand.dispatch (
-        [this, bytes, &client_l, endpoint_a] ()
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t)
         {
-            socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t)
+            if (network_logging ())
             {
-                if (network_logging ())
+                if (ec)
                 {
-                    if (ec)
-                    {
-                        client_l.log.add (boost::str (boost::format ("Error sending keepalive: %1%") % ec.message ()));
-                    }
+                    client_l.log.add (boost::str (boost::format ("Error sending keepalive: %1%") % ec.message ()));
                 }
-            });
+            }
         });
 }
 
@@ -1119,19 +1106,15 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         message.serialize (stream);
     }
     auto & client_l (client);
-    strand.dispatch (
-        [this, bytes, &client_l, endpoint_a] ()
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
         {
-            socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
+            if (network_logging ())
             {
-                if (network_logging ())
+                if (ec)
                 {
-                    if (ec)
-                    {
-                        client_l.log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
-                    }
+                    client_l.log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
                 }
-            });
+            }
         });
 }
 
@@ -1150,19 +1133,15 @@ void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & end
         client.log.add (boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a));
     }
     auto & client_l (client);
-    strand.dispatch (
-        [this, bytes, &client_l, endpoint_a] ()
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
         {
-            socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
+            if (network_logging ())
             {
-                if (network_logging ())
+                if (ec)
                 {
-                    if (ec)
-                    {
-                        client_l.log.add (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
-                    }
+                    client_l.log.add (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
                 }
-            });
+            }
         });
 }
 
@@ -1214,19 +1193,15 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                 client.log.add (boost::str (boost::format ("Sending keepalive ack to %2%") % sender));
                             }
                             auto & client_l (client);
-                            strand.dispatch (
-                                [this, ack_bytes, &client_l, sender] ()
+                            send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
                                 {
-                                    socket.async_send_to (boost::asio::buffer (ack_bytes->data (), ack_bytes->size ()), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
+                                    if (network_logging ())
                                     {
-                                        if (network_logging ())
+                                        if (error)
                                         {
-                                            if (error)
-                                            {
-                                                client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
-                                            }
+                                            client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
                                         }
-                                    });
+                                    }
                                 });
                         }
                         break;
@@ -1388,19 +1363,15 @@ void mu_coin::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> cons
             }
             auto & client_l (client);
             auto endpoint (*i);
-            strand.dispatch (
-                [this, bytes_a, &client_l, endpoint] ()
+            send_buffer (bytes_a->data (), bytes_a->size (), endpoint, [bytes_a, &client_l] (boost::system::error_code const & error, size_t size_a)
                 {
-                    socket.async_send_to (boost::asio::buffer (bytes_a->data (), bytes_a->size ()), endpoint, [bytes_a, &client_l] (boost::system::error_code const & error, size_t size_a)
+                    if (network_logging ())
                     {
-                        if (network_logging ())
+                        if (error)
                         {
-                            if (error)
-                            {
-                                client_l.log.add (boost::str (boost::format ("Error sending keepalive request: %1%") % error.message ()));
-                            }
+                            client_l.log.add (boost::str (boost::format ("Error sending keepalive request: %1%") % error.message ()));
                         }
-                    });
+                    }
                 });
         }
         else
@@ -2495,19 +2466,15 @@ void mu_coin::processor::process_confirmation (mu_coin::uint256_union const & se
 		}
 	}
     auto & client_l (client);
-    client.network.strand.dispatch (
-        [this, bytes, &client_l, sender] ()
+    client.network.send_buffer (bytes->data (), bytes->size (), sender, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
         {
-            client.network.socket.async_send_to (boost::asio::buffer (bytes->data (), bytes->size ()), sender, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
+            if (network_logging ())
             {
-                if (network_logging ())
+                if (ec)
                 {
-                    if (ec)
-                    {
-                        client_l.log.add (boost::str (boost::format ("Error sending confirmation response: %1%") % ec.message ()));
-                    }
+                    client_l.log.add (boost::str (boost::format ("Error sending confirmation response: %1%") % ec.message ()));
                 }
-            });
+            }
         });
 }
 
@@ -4119,4 +4086,32 @@ std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::
     string.pop_back ();
     stream_a << string;
     return stream_a;
+}
+
+void mu_coin::network::send_buffer (uint8_t const * data_a, size_t size_a, mu_coin::endpoint const & endpoint_a, std::function <void (boost::system::error_code const &, size_t)> callback_a)
+{
+    std::unique_lock <std::mutex> lock (mutex);
+    auto do_send (sends.empty ());
+    sends.push (std::make_tuple (data_a, size_a, endpoint_a, callback_a));
+    if (do_send)
+    {
+        socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this] (boost::system::error_code const & ec, size_t size_a) {send_complete (ec, size_a);});
+    }
+}
+
+void mu_coin::network::send_complete (boost::system::error_code const & ec, size_t size_a)
+{
+    std::tuple <uint8_t const *, size_t, mu_coin::endpoint, std::function <void (boost::system::error_code const &, size_t)>> self;
+    {
+        std::unique_lock <std::mutex> lock (mutex);
+        assert (!sends.empty ());
+        self = sends.front ();
+        sends.pop ();
+        if (!sends.empty ())
+        {
+            auto & front (sends.front ());
+            socket.async_send_to (boost::asio::buffer (std::get <0> (front), std::get <1> (front)), std::get <2> (front), [this] (boost::system::error_code const & ec, size_t size_a) {send_complete (ec, size_a);});
+        }
+    }
+    std::get <3> (self) (ec, size_a);
 }
