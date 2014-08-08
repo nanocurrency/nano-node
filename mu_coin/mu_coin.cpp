@@ -1054,6 +1054,7 @@ on (true)
 
 void mu_coin::network::receive ()
 {
+    std::unique_lock <std::mutex> lock (mutex);
     socket.async_receive_from (boost::asio::buffer (buffer), remote,
         [this] (boost::system::error_code const & error, size_t size_a)
         {
