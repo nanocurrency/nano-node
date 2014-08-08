@@ -215,12 +215,14 @@ namespace mu_coin {
     public:
         dbt () = default;
         dbt (mu_coin::uint256_union const &);
+        dbt (mu_coin::uint256_union const &, uint64_t);
         dbt (mu_coin::block const &);
         dbt (mu_coin::address const &, mu_coin::block_hash const &);
         dbt (mu_coin::private_key const &, mu_coin::secret_key const &, mu_coin::uint128_union const &);
         void adopt ();
         void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::private_key &);
         mu_coin::uint256_union uint256 () const;
+        void frontier (mu_coin::uint256_union &, uint64_t &) const;
         std::unique_ptr <mu_coin::block> block ();
         std::vector <uint8_t> bytes;
         Dbt data;
@@ -347,6 +349,7 @@ namespace mu_coin {
         account_entry * operator -> ();
         mu_coin::address first;
         mu_coin::block_hash second;
+        uint64_t time;
     };
     class account_iterator
     {
@@ -393,6 +396,8 @@ namespace mu_coin {
         block_store (block_store_temp_t const &);
         block_store (boost::filesystem::path const &);
         
+        uint64_t now ();
+        
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
 		void block_del (mu_coin::block_hash const &);
@@ -401,7 +406,7 @@ namespace mu_coin {
         block_iterator blocks_end ();
         
         void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
-        bool latest_get (mu_coin::address const &, mu_coin::block_hash &);
+        bool latest_get (mu_coin::address const &, mu_coin::block_hash &, uint64_t &);
 		void latest_del (mu_coin::address const &);
         account_iterator latest_begin (mu_coin::address const &);
         account_iterator latest_begin ();
@@ -422,7 +427,7 @@ namespace mu_coin {
         void bootstrap_del (mu_coin::block_hash const &);
         
     private:
-        // address -> block_hash                // Each address has one head block
+        // address -> block_hash, timestamp     // Each address has one head block and a last updated timestamp
         Db addresses;
         // block_hash -> block                  // Mapping block hash to contents
         Db blocks;
@@ -564,6 +569,15 @@ namespace mu_coin {
 		mu_coin::uint256_union hash () const;
         mu_coin::address rep_hint;
         mu_coin::uint256_union session;
+    };
+    class frontier_req : public message
+    {
+    public:
+        bool deserialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &);
+        void visit (mu_coin::message_visitor &) override;
+        mu_coin::address start;
+        uint64_t order;
     };
     class bulk_req : public message
     {
@@ -716,7 +730,7 @@ namespace mu_coin {
         bootstrap_iterator & operator ++ ();
         void observed_block (mu_coin::block const &);
         mu_coin::block_store & store;
-        std::pair <mu_coin::address, mu_coin::block_hash> current;
+        std::tuple <mu_coin::address, mu_coin::block_hash, uint64_t> current;
         mu_coin::address store_address;
         std::set <mu_coin::address> observed;
     };

@@ -101,7 +101,8 @@ TEST (wallet, one_spend)
     mu_coin::genesis genesis (key1.pub, 500);
     genesis.initialize (store);
     mu_coin::block_hash latest1;
-    store.latest_get (key1.pub, latest1);
+    uint64_t time;
+    store.latest_get (key1.pub, latest1, time);
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
     ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
@@ -126,11 +127,13 @@ TEST (wallet, two_spend)
     mu_coin::genesis genesis1 (key1.pub, 100);
     genesis1.initialize (store);
     mu_coin::block_hash hash1;
-    ASSERT_FALSE (store.latest_get (key1.pub, hash1));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, hash1, time1));
     mu_coin::genesis genesis2 (key2.pub, 400);
     genesis2.initialize (store);
     mu_coin::block_hash hash2;
-    ASSERT_FALSE (store.latest_get (key2.pub, hash2));
+    uint64_t time2;
+    ASSERT_FALSE (store.latest_get (key2.pub, hash2, time2));
     mu_coin::keypair key3;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
     ASSERT_FALSE (wallet.generate_send (ledger, key3.pub, 500, password, blocks));
@@ -152,7 +155,8 @@ TEST (wallet, partial_spend)
     mu_coin::genesis genesis (key1.pub, 800);
     genesis.initialize (store);
     mu_coin::block_hash latest1;
-    ASSERT_FALSE (store.latest_get (key1.pub, latest1));
+    uint64_t time;
+    ASSERT_FALSE (store.latest_get (key1.pub, latest1, time));
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
     ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
@@ -179,7 +183,8 @@ TEST (wallet, spend_no_previous)
     mu_coin::genesis genesis (key1.pub, 500);
     genesis.initialize (store);
     mu_coin::block_hash hash1;
-    ASSERT_FALSE (store.latest_get (key1.pub, hash1));
+    uint64_t time;
+    ASSERT_FALSE (store.latest_get (key1.pub, hash1, time));
     for (auto i (0); i < 50; ++i)
     {
         mu_coin::keypair key;

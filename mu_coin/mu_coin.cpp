@@ -27,6 +27,10 @@ namespace
     {
         return true;
     }
+    bool constexpr network_message_logging ()
+    {
+        return network_logging () && false;
+    }
     bool constexpr network_publish_logging ()
     {
         return network_logging () && false;
@@ -308,7 +312,8 @@ mu_coin::uint256_t mu_coin::ledger::account_balance (mu_coin::address const & ad
 {
     mu_coin::uint256_t result (0);
     mu_coin::block_hash hash;
-    auto none (store.latest_get (address_a, hash));
+    uint64_t time;
+    auto none (store.latest_get (address_a, hash, time));
     if (!none)
     {
         balance_visitor visitor (store);
@@ -533,7 +538,8 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
         {
 			auto account (ledger.account (block_a.hashables.previous));
             mu_coin::block_hash latest;
-            auto latest_error (ledger.store.latest_get (account, latest));
+            uint64_t time;
+            auto latest_error (ledger.store.latest_get (account, latest, time));
             assert (!latest_error);
             result = validate_message (account, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == mu_coin::process_result::progress)
@@ -570,7 +576,8 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
                 if (result == mu_coin::process_result::progress)
                 {
                     mu_coin::block_hash latest;
-                    auto latest_error (ledger.store.latest_get (account, latest));
+                    uint64_t time;
+                    auto latest_error (ledger.store.latest_get (account, latest, time));
                     assert (!latest_error);
                     result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork;
                     if (result == mu_coin::process_result::progress)
@@ -604,7 +611,8 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                 if (result == mu_coin::process_result::progress)
                 {
                     mu_coin::block_hash latest;
-                    result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::gap_previous : mu_coin::process_result::progress;  //Have we seen the previous block? No entries for address at all (Harmless)
+                    uint64_t time;
+                    result = ledger.store.latest_get (source_send->hashables.destination, latest, time) ? mu_coin::process_result::gap_previous : mu_coin::process_result::progress;  //Have we seen the previous block? No entries for address at all (Harmless)
                     if (result == mu_coin::process_result::progress)
                     {
                         result = latest == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
@@ -645,7 +653,8 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                 if (result == mu_coin::process_result::progress)
                 {
                     mu_coin::block_hash latest;
-                    result = ledger.store.latest_get (source_send->hashables.destination, latest) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Has this account already been opened? (Malicious)
+                    uint64_t time;
+                    result = ledger.store.latest_get (source_send->hashables.destination, latest, time) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Has this account already been opened? (Malicious)
                     if (result == mu_coin::process_result::progress)
                     {
                         ledger.store.pending_del (source_send->hash ());
@@ -939,7 +948,7 @@ void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
     store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
 }
 
-bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_coin::block_hash & hash_a)
+bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_coin::block_hash & hash_a, uint64_t & time_a)
 {
     mu_coin::dbt key (address_a);
     mu_coin::dbt data;
@@ -953,7 +962,12 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
     else
     {
         mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (data.data.get_data ()), data.data.get_size ());
-        read (stream, hash_a.bytes);
+        result = read (stream, hash_a.bytes);
+        if (!result)
+        {
+            result = read (stream, time_a);
+        }
+        assert (!result);
         result = false;
     }
     return result;
@@ -962,7 +976,7 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
 void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
 {
     mu_coin::dbt key (address_a);
-    mu_coin::dbt data (hash_a);
+    mu_coin::dbt data (hash_a, now ());
     int error (addresses.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
@@ -1026,6 +1040,16 @@ mu_coin::dbt::dbt (mu_coin::uint256_union const & address_a)
     {
         mu_coin::vectorstream stream (bytes);
         address_a.serialize (stream);
+    }
+    adopt ();
+}
+
+mu_coin::dbt::dbt (mu_coin::uint256_union const & address_a, uint64_t time_a)
+{
+    {
+        mu_coin::vectorstream stream (bytes);
+        address_a.serialize (stream);
+        write (stream, time_a);
     }
     adopt ();
 }
@@ -1108,7 +1132,7 @@ void mu_coin::network::send_keepalive (boost::asio::ip::udp::endpoint const & en
 
 void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <mu_coin::block> block)
 {
-    if (network_logging ())
+    if (network_publish_logging ())
     {
         client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
     }
@@ -1252,7 +1276,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         if (!error)
                         {
                             ++publish_req_count;
-                            if (network_logging ())
+                            if (network_message_logging ())
                             {
                                 client.log.add (boost::str (boost::format ("Received publish req rom %1%") % sender));
                             }
@@ -1273,7 +1297,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         receive ();
                         if (!error)
                         {
-                            if (network_logging ())
+                            if (network_message_logging ())
                             {
                                 client.log.add (boost::str (boost::format ("Received confirm req from %1%") % sender));
                             }
@@ -1303,7 +1327,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         receive ();
                         if (!error)
                         {
-                            if (network_logging ())
+                            if (network_message_logging ())
                             {
                                 client.log.add (boost::str (boost::format ("Received Confirm from %1%") % sender));
                             }
@@ -1314,7 +1338,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     case mu_coin::message_type::confirm_nak:
                     {
                         ++confirm_nak_count;
-                        if (network_logging ())
+                        if (network_message_logging ())
                         {
                             client.log.add (boost::str (boost::format ("Received confirm nak from %1%") %  sender));
                         }
@@ -1587,7 +1611,8 @@ bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public
         if (!balance.is_zero ())
         {
             mu_coin::block_hash latest;
-            assert (!ledger_a.store.latest_get (account, latest));
+            uint64_t time;
+            assert (!ledger_a.store.latest_get (account, latest, time));
             auto amount (std::min (remaining, balance));
             remaining -= amount;
             std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
@@ -1622,6 +1647,14 @@ mu_coin::uint256_union mu_coin::dbt::uint256 () const
     mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (data.get_data ()), data.get_size ());
     read (stream, result);
     return result;
+}
+
+void mu_coin::dbt::frontier (mu_coin::uint256_union & uint_a, uint64_t & time_a) const
+{
+    assert (data.get_size () == 40);
+    mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (data.get_data ()), data.get_size ());
+    read (stream, uint_a);
+    read (stream, time_a);
 }
 
 void mu_coin::processor_service::run ()
@@ -2030,7 +2063,8 @@ void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t con
                 if (!client.ledger.store.pending_get (send.hash ()))
                 {
                     mu_coin::block_hash previous;
-                    auto new_address (client.ledger.store.latest_get (send.hashables.destination, previous));
+                    uint64_t time;
+                    auto new_address (client.ledger.store.latest_get (send.hashables.destination, previous, time));
                     if (new_address)
                     {
                         balance_visitor visitor (client.ledger.store);
@@ -2269,7 +2303,7 @@ mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
     else
     {
         current.first = key.uint256 ();
-        current.second = data.uint256 ();
+        data.frontier (current.second, current.time);
     }
     return *this;
 }
@@ -2990,7 +3024,8 @@ void mu_coin::ledger::rollback (mu_coin::block_hash const & frontier_a)
     mu_coin::block_hash latest;
 	do
 	{
-		auto latest_error (store.latest_get (account_l, latest));
+        uint64_t time;
+		auto latest_error (store.latest_get (account_l, latest, time));
 		assert (!latest_error);
         auto block (store.block_get (latest));
         block->visit (rollback);
@@ -3023,7 +3058,8 @@ void mu_coin::ledger::move_representation (mu_coin::address const & source_a, mu
 mu_coin::block_hash mu_coin::ledger::latest (mu_coin::address const & address_a)
 {
 	mu_coin::block_hash latest;
-	auto latest_error (store.latest_get (address_a, latest));
+    uint64_t time;
+	auto latest_error (store.latest_get (address_a, latest, time));
 	assert (!latest_error);
 	return latest;
 }
@@ -3391,7 +3427,8 @@ bool mu_coin::bootstrap_connection::process_bulk_req (mu_coin::bulk_req const & 
     if (end_exists)
     {
         mu_coin::block_hash hash;
-        auto no_address (client.store.latest_get (request.start, hash));
+        uint64_t time;
+        auto no_address (client.store.latest_get (request.start, hash, time));
         if (no_address)
         {
             result_a.first = request.end;
@@ -3529,7 +3566,7 @@ cursor (cursor_a)
     else
     {
         current.first = key.uint256 ();
-        current.second = data.uint256 ();
+        data.frontier (current.second, current.time);
     }
 }
 
@@ -3587,9 +3624,9 @@ void mu_coin::bootstrap_processor::fill_queue ()
     if (requests.size () < max_queue_size)
     {
         ++iterator;
-        if (!iterator.current.first.is_zero ())
+        if (!std::get <0> (iterator.current).is_zero ())
         {
-            send_request (iterator.current);
+            send_request (std::make_pair (std::get <0> (iterator.current), std::get <1> (iterator.current)));
         }
     }
 }
@@ -3733,7 +3770,8 @@ void mu_coin::bootstrap_iterator::observed_block (mu_coin::block const & block_a
     if (!visitor.address.is_zero ())
     {
         mu_coin::block_hash hash;
-        if (store.latest_get (visitor.address, hash))
+        uint64_t time;
+        if (store.latest_get (visitor.address, hash, time))
         {
             observed.insert (visitor.address);
         }
@@ -3869,7 +3907,7 @@ bool mu_coin::uint256_union::operator < (mu_coin::uint256_union const & other_a)
 
 mu_coin::bootstrap_iterator::bootstrap_iterator (mu_coin::block_store & store_a) :
 store (store_a),
-current (std::make_pair (0, 0)),
+current (std::make_tuple (0, 0, 0)),
 store_address (0)
 {
 }
@@ -3881,32 +3919,34 @@ mu_coin::bootstrap_iterator & mu_coin::bootstrap_iterator::operator ++ ()
     {
         if (next.key.uint256 () < *observed.begin ())
         {
-            current.first = next.key.uint256 ();
-            current.second = next.data.uint256 ();
-            store_address = current.first;
+            std::get <0> (current) = next.key.uint256 ();
+            next.data.frontier (std::get <1> (current), std::get <2> (current));
+            store_address = std::get <0> (current);
         }
         else
         {
-            current.first = *observed.begin ();
-            current.second = 0;
-            observed.erase (current.first);
+            std::get <0> (current) = *observed.begin ();
+            std::get <1> (current) = 0;
+            std::get <2> (current) = 0;
+            observed.erase (std::get <0> (current));
         }
     }
     else if (!observed.empty ())
     {
-        current.first = *observed.begin ();
-        current.second = 0;
-        observed.erase (current.first);
+        std::get <0> (current) = *observed.begin ();
+        std::get <1> (current) = 0;
+        std::get <2> (current) = 0;
+        observed.erase (std::get <0> (current));
     }
     else if (next != store.latest_end ())
     {
-        current.first = next.key.uint256 ();
-        current.second = next.data.uint256 ();
-        store_address = current.first;
+        std::get <0> (current) = next.key.uint256 ();
+        next.data.frontier (std::get <1> (current), std::get <2> (current));
+        store_address = std::get <0> (current);
     }
     else
     {
-        current.first = 0;
+        std::get <0> (current) = 0;
     }
     return *this;
 }
@@ -4143,4 +4183,9 @@ void mu_coin::network::send_complete (boost::system::error_code const & ec, size
         }
     }
     std::get <3> (self) (ec, size_a);
+}
+
+uint64_t mu_coin::block_store::now ()
+{
+    
 }

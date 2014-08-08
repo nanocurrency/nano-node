@@ -253,21 +253,24 @@ TEST (network, send_valid_publish)
     system.clients [1]->wallet.insert (key2.prv, system.clients [1]->wallet.password);
     mu_coin::send_block block2;
     mu_coin::block_hash hash1;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, hash1));
+    uint64_t time1;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, hash1, time1));
     block2.hashables.previous = hash1;
     block2.hashables.balance = 50;
     block2.hashables.destination = key2.pub;
     auto hash2 (block2.hash ());
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, hash2, block2.signature);
     mu_coin::block_hash hash3;
-    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash3));
+    uint64_t time2;
+    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash3, time2));
     system.clients [0]->processor.process_and_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
     while (system.clients [1]->network.publish_req_count == 0)
     {
         system.service->run_one ();
     }
     mu_coin::block_hash hash4;
-    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash4));
+    uint64_t time3;
+    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash4, time3));
     ASSERT_FALSE (hash3 == hash4);
     ASSERT_EQ (hash2, hash4);
     ASSERT_EQ (50, system.clients [1]->ledger.account_balance (system.test_genesis_address.pub));
@@ -366,7 +369,8 @@ TEST (receivable_processor, send_with_receive)
     system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
     auto block1 (new mu_coin::send_block ());
     mu_coin::block_hash previous;
-    ASSERT_FALSE (system.clients [0]->ledger.store.latest_get (system.test_genesis_address.pub, previous));
+    uint64_t time;
+    ASSERT_FALSE (system.clients [0]->ledger.store.latest_get (system.test_genesis_address.pub, previous, time));
     block1->hashables.previous = previous;
     block1->hashables.balance = amount - 100;
     block1->hashables.destination = key2.pub;
@@ -637,7 +641,7 @@ TEST (bootstrap_iterator, empty)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::bootstrap_iterator iterator (store);
     ++iterator;
-    ASSERT_TRUE (iterator.current.first.is_zero ());
+    ASSERT_TRUE (std::get <0> (iterator.current).is_zero ());
 }
 
 TEST (bootstrap_iterator, only_store)
@@ -648,10 +652,10 @@ TEST (bootstrap_iterator, only_store)
     store.latest_put (address, hash);
     mu_coin::bootstrap_iterator iterator (store);
     ++iterator;
-    ASSERT_EQ (address, iterator.current.first);
-    ASSERT_EQ (hash, iterator.current.second);
+    ASSERT_EQ (address, std::get <0> (iterator.current));
+    ASSERT_EQ (hash, std::get <1> (iterator.current));
     ++iterator;
-    ASSERT_TRUE (iterator.current.first.is_zero ());
+    ASSERT_TRUE (std::get <0> (iterator.current).is_zero ());
 }
 
 TEST (bootstrap_iterator, only_observed)
@@ -661,10 +665,10 @@ TEST (bootstrap_iterator, only_observed)
     mu_coin::address address;
     iterator.observed.insert (address);
     ++iterator;
-    ASSERT_EQ (address, iterator.current.first);
-    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ASSERT_EQ (address, std::get <0> (iterator.current));
+    ASSERT_TRUE (std::get <1> (iterator.current).is_zero ());
     ++iterator;
-    ASSERT_TRUE (iterator.current.first.is_zero ());
+    ASSERT_TRUE (std::get <0> (iterator.current).is_zero ());
 }
 
 TEST (bootstrap_iterator, observed_before_store)
@@ -677,13 +681,13 @@ TEST (bootstrap_iterator, observed_before_store)
     mu_coin::block_hash hash;
     store.latest_put (address2, hash);
     ++iterator;
-    ASSERT_EQ (address1, iterator.current.first);
-    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ASSERT_EQ (address1, std::get <0> (iterator.current));
+    ASSERT_TRUE (std::get <1> (iterator.current).is_zero ());
     ++iterator;
-    ASSERT_EQ (address2, iterator.current.first);
-    ASSERT_EQ (hash, iterator.current.second);
+    ASSERT_EQ (address2, std::get <0> (iterator.current));
+    ASSERT_EQ (hash, std::get <1> (iterator.current));
     ++iterator;
-    ASSERT_TRUE (iterator.current.first.is_zero ());
+    ASSERT_TRUE (std::get <0> (iterator.current).is_zero ());
 }
 
 TEST (bootstrap_iterator, store_before_observed)
@@ -696,13 +700,13 @@ TEST (bootstrap_iterator, store_before_observed)
     store.latest_put (address1, hash);
     iterator.observed.insert (address2);
     ++iterator;
-    ASSERT_EQ (address1, iterator.current.first);
-    ASSERT_EQ (hash, iterator.current.second);
+    ASSERT_EQ (address1, std::get <0> (iterator.current));
+    ASSERT_EQ (hash, std::get <1> (iterator.current));
     ++iterator;
-    ASSERT_EQ (address2, iterator.current.first);
-    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ASSERT_EQ (address2, std::get <0> (iterator.current));
+    ASSERT_TRUE (std::get <1> (iterator.current).is_zero ());
     ++iterator;
-    ASSERT_TRUE (iterator.current.first.is_zero ());
+    ASSERT_TRUE (std::get <0> (iterator.current).is_zero ());
 }
 
 
@@ -715,14 +719,14 @@ TEST (bootstrap_iterator, observed_in_iteration)
     mu_coin::block_hash hash;
     store.latest_put (address1, hash);
     ++iterator;
-    ASSERT_EQ (address1, iterator.current.first);
-    ASSERT_EQ (hash, iterator.current.second);
+    ASSERT_EQ (address1, std::get <0> (iterator.current));
+    ASSERT_EQ (hash, std::get <1> (iterator.current));
     iterator.observed.insert (address2);
     ++iterator;
-    ASSERT_EQ (address2, iterator.current.first);
-    ASSERT_TRUE (iterator.current.second.is_zero ());
+    ASSERT_EQ (address2, std::get <0> (iterator.current));
+    ASSERT_TRUE (std::get <1> (iterator.current).is_zero ());
     ++iterator;
-    ASSERT_TRUE (iterator.current.first.is_zero ());
+    ASSERT_TRUE (std::get <0> (iterator.current).is_zero ());
 }
 
 TEST (bootstrap_iterator, observe_send)
@@ -743,8 +747,8 @@ TEST (bootstrap_processor, process_none)
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto processor (std::make_shared <mu_coin::bootstrap_processor> (*system.clients [0], [] () {}));
     ++processor->iterator;
-    ASSERT_EQ (system.test_genesis_address.pub, processor->iterator.current.first);
-    ASSERT_EQ (system.genesis.hash (), processor->iterator.current.second);
+    ASSERT_EQ (system.test_genesis_address.pub, std::get <0> (processor->iterator.current));
+    ASSERT_EQ (system.genesis.hash (), std::get <1> (processor->iterator.current));
     processor->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
     processor->expecting = system.test_genesis_address.pub;
     ASSERT_FALSE (processor->process_end ());
@@ -916,14 +920,17 @@ TEST (bulk, genesis)
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
     mu_coin::block_hash latest1;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, latest1));
+    uint64_t time1;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, latest1, time1));
     mu_coin::block_hash latest3;
-    ASSERT_FALSE (client1.store.latest_get (system.test_genesis_address.pub, latest3));
+    uint64_t time2;
+    ASSERT_FALSE (client1.store.latest_get (system.test_genesis_address.pub, latest3, time2));
     ASSERT_EQ (latest1, latest3);
     mu_coin::keypair key2;
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
     mu_coin::block_hash latest2;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, latest2));
+    uint64_t time3;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, latest2, time3));
     ASSERT_NE (latest1, latest2);
     bool finished (false);
     client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});

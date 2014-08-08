@@ -56,7 +56,8 @@ TEST (ledger, process_send)
     mu_coin::genesis genesis (key1.pub, 100);
     genesis.initialize (store);
     mu_coin::block_hash block1;
-    ASSERT_FALSE (store.latest_get (key1.pub, block1));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, block1, time1));
     mu_coin::send_block send;
     mu_coin::keypair key2;
     send.hashables.balance = 50;
@@ -67,7 +68,8 @@ TEST (ledger, process_send)
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (send));
     ASSERT_EQ (50, ledger.account_balance (key1.pub));
     mu_coin::block_hash hash5;
-    ASSERT_FALSE (store.latest_get (key1.pub, hash5));
+    uint64_t time2;
+    ASSERT_FALSE (store.latest_get (key1.pub, hash5, time2));
     auto latest6 (store.block_get (hash5));
     ASSERT_NE (nullptr, latest6);
     auto latest7 (dynamic_cast <mu_coin::send_block *> (latest6.get ()));
@@ -80,14 +82,16 @@ TEST (ledger, process_send)
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
     ASSERT_EQ (50, ledger.account_balance (key2.pub));
     mu_coin::block_hash hash3;
-    ASSERT_FALSE (store.latest_get (key1.pub, hash3));
+    uint64_t time3;
+    ASSERT_FALSE (store.latest_get (key1.pub, hash3, time3));
     auto latest2 (store.block_get (hash3));
     ASSERT_NE (nullptr, latest2);
     auto latest3 (dynamic_cast <mu_coin::send_block *> (latest2.get ()));
     ASSERT_NE (nullptr, latest3);
     ASSERT_EQ (send, *latest3);
     mu_coin::block_hash hash4;
-    ASSERT_FALSE (store.latest_get (key2.pub, hash4));
+    uint64_t time4;
+    ASSERT_FALSE (store.latest_get (key2.pub, hash4, time4));
     auto latest4 (store.block_get (hash4));
     ASSERT_NE (nullptr, latest4);
     auto latest5 (dynamic_cast <mu_coin::open_block *> (latest4.get ()));
@@ -95,14 +99,17 @@ TEST (ledger, process_send)
     ASSERT_EQ (open, *latest5);
 	ledger.rollback (hash2);
 	mu_coin::block_hash hash6;
-	ASSERT_TRUE (ledger.store.latest_get (key2.pub, hash6));
+    uint64_t time5;
+	ASSERT_TRUE (ledger.store.latest_get (key2.pub, hash6, time5));
 	ASSERT_FALSE (ledger.store.pending_get (hash1));
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (key1.pub));
-	ASSERT_FALSE (ledger.store.latest_get (key1.pub, hash6));
+    uint64_t time6;
+	ASSERT_FALSE (ledger.store.latest_get (key1.pub, hash6, time6));
 	ASSERT_EQ (hash1, hash6);
 	ledger.rollback (hash6);
-	ASSERT_FALSE (ledger.store.latest_get (key1.pub, hash6));
+    uint64_t time7;
+	ASSERT_FALSE (ledger.store.latest_get (key1.pub, hash6, time7));
 	ASSERT_EQ (block1, hash6);
 	ASSERT_TRUE (ledger.store.pending_get (hash1));
 	ASSERT_EQ (100, ledger.account_balance (key1.pub));
@@ -116,7 +123,8 @@ TEST (ledger, process_receive)
     mu_coin::genesis genesis (key1.pub, 100);
     genesis.initialize (store);
     mu_coin::block_hash block1;
-    ASSERT_FALSE (store.latest_get (key1.pub, block1));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, block1, time1));
     mu_coin::send_block send;
     mu_coin::keypair key2;
     send.hashables.balance = 50;
@@ -161,7 +169,8 @@ TEST (ledger, rollback_receiver)
     mu_coin::genesis genesis (key1.pub, 100);
     genesis.initialize (store);
     mu_coin::block_hash block1;
-    ASSERT_FALSE (store.latest_get (key1.pub, block1));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, block1, time1));
     mu_coin::send_block send;
     mu_coin::keypair key2;
     send.hashables.balance = 50;
@@ -182,7 +191,8 @@ TEST (ledger, rollback_receiver)
 	ASSERT_EQ (100, ledger.account_balance (key1.pub));
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
 	mu_coin::block_hash hash3;
-	ASSERT_TRUE (ledger.store.latest_get (key2.pub, hash3));
+    uint64_t time2;
+	ASSERT_TRUE (ledger.store.latest_get (key2.pub, hash3, time2));
 	ASSERT_TRUE (ledger.store.pending_get (hash3));
 }
 
@@ -194,7 +204,8 @@ TEST (ledger, process_duplicate)
     mu_coin::genesis genesis (key1.pub, 100);
     genesis.initialize (store);
     mu_coin::block_hash block1;
-    ASSERT_FALSE (store.latest_get (key1.pub, block1));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, block1, time1));
     mu_coin::send_block send;
     mu_coin::keypair key2;
     send.hashables.balance = 50;
@@ -220,7 +231,8 @@ TEST (processor_service, bad_send_signature)
     mu_coin::genesis genesis (key1.pub, 100);
     genesis.initialize (store);
     mu_coin::block_hash block1;
-    ASSERT_FALSE (store.latest_get (key1.pub, block1));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, block1, time1));
     mu_coin::send_block send;
     mu_coin::keypair key2;
     send.hashables.previous = block1;
@@ -240,7 +252,8 @@ TEST (processor_service, bad_receive_signature)
     mu_coin::genesis genesis (key1.pub, 100);
     genesis.initialize (store);
     mu_coin::block_hash block1;
-    ASSERT_FALSE (store.latest_get (key1.pub, block1));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, block1, time1));
     mu_coin::send_block send;
     mu_coin::keypair key2;
     send.hashables.previous = block1;
@@ -250,7 +263,8 @@ TEST (processor_service, bad_receive_signature)
     mu_coin::sign_message (key1.prv, key1.pub, hash1, send.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (send));
     mu_coin::block_hash hash5;
-    ASSERT_FALSE (store.latest_get (key1.pub, hash5));
+    uint64_t time2;
+    ASSERT_FALSE (store.latest_get (key1.pub, hash5, time2));
     mu_coin::receive_block receive;
     receive.hashables.source = hash1;
     receive.hashables.previous = key2.pub;
@@ -360,7 +374,8 @@ TEST (ledger, representative_change)
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key1.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     mu_coin::block_hash latest;
-    ASSERT_FALSE (store.latest_get (key1.pub, latest));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, latest, time1));
     mu_coin::change_block block;
     block.hashables.representative = key2.pub;
     block.hashables.previous = latest;
@@ -369,11 +384,13 @@ TEST (ledger, representative_change)
     ASSERT_EQ (0, ledger.weight (key1.pub));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key2.pub));
 	mu_coin::block_hash latest2;
-	ASSERT_FALSE (store.latest_get (key1.pub, latest2));
+    uint64_t time2;
+	ASSERT_FALSE (store.latest_get (key1.pub, latest2, time2));
 	ASSERT_EQ (block.hash (), latest2);
 	ledger.rollback (latest2);
 	mu_coin::block_hash latest3;
-	ASSERT_FALSE (store.latest_get (key1.pub, latest3));
+    uint64_t time3;
+	ASSERT_FALSE (store.latest_get (key1.pub, latest3, time3));
 	ASSERT_EQ (latest, latest3);
 	ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key1.pub));
 	ASSERT_EQ (0, ledger.weight (key2.pub));
@@ -389,7 +406,8 @@ TEST (ledger, send_fork)
     mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::block_hash latest;
-    ASSERT_FALSE (store.latest_get (key1.pub, latest));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, latest, time1));
     mu_coin::send_block block;
     block.hashables.destination = key2.pub;
     block.hashables.previous = latest;
@@ -414,7 +432,8 @@ TEST (ledger, receive_fork)
     mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::block_hash latest;
-    ASSERT_FALSE (store.latest_get (key1.pub, latest));
+    uint64_t time1;
+    ASSERT_FALSE (store.latest_get (key1.pub, latest, time1));
     mu_coin::send_block block;
     block.hashables.destination = key2.pub;
     block.hashables.previous = latest;

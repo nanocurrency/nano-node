@@ -103,11 +103,13 @@ TEST (block_store, add_genesis)
     mu_coin::genesis genesis (key1.pub, 800);
     genesis.initialize (db);
     mu_coin::block_hash hash1;
-    ASSERT_FALSE (db.latest_get (key1.pub, hash1));
+    uint64_t time;
+    ASSERT_FALSE (db.latest_get (key1.pub, hash1, time));
     auto block1 (db.block_get (hash1));
     ASSERT_NE (nullptr, block1);
     auto receive1 (dynamic_cast <mu_coin::open_block *> (block1.get ()));
     ASSERT_NE (nullptr, receive1);
+    ASSERT_LE (time, db.now ());
 }
 
 TEST (representation, changes)
