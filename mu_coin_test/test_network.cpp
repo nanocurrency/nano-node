@@ -397,6 +397,14 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (3, receivable.use_count ());
 }
 
+TEST (receivable_processor, timeout_after_acknowledge)
+{
+    mu_coin::system system (1, 24000, 25000, 1, 100);
+    auto receivable (std::make_shared <mu_coin::receivable_processor> (std::unique_ptr <mu_coin::block> (new mu_coin::send_block), *system.clients [0]));
+    receivable->process_acknowledged (std::numeric_limits <mu_coin::uint256_t>::max ());
+    receivable->timeout_action ();
+}
+
 TEST (client, send_self)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());

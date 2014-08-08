@@ -866,7 +866,7 @@ namespace mu_coin {
         mu_coin::uint256_t threshold;
 		mu_coin::uint256_union session;
         std::chrono::system_clock::time_point timeout;
-        std::unique_ptr <mu_coin::block> incoming;
+        std::unique_ptr <mu_coin::block> const incoming;
         mu_coin::client & client;
         std::mutex mutex;
         bool complete;
