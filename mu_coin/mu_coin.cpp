@@ -19,13 +19,21 @@ namespace
     {
         return true;
     }
+    bool constexpr ledger_duplicate_logging ()
+    {
+        return ledger_logging () && false;
+    }
     bool constexpr network_logging ()
     {
         return true;
     }
+    bool constexpr network_publish_logging ()
+    {
+        return network_logging () && false;
+    }
     bool constexpr network_packet_logging ()
     {
-        return true;
+        return network_logging () && false;
     }
     bool constexpr network_keepalive_logging ()
     {
@@ -1710,7 +1718,7 @@ namespace
         {
             auto hash (incoming->hash ());
             auto list (client.peers.list ());
-            if (network_logging ())
+            if (network_publish_logging ())
             {
                 client.log.add (boost::str (boost::format ("Publishing %1% to %2% peers") % hash.to_string () % list.size ()));
             }
@@ -1726,14 +1734,14 @@ namespace
                 ++attempts;
                 auto this_l (shared_from_this ());
                 client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this_l] () {this_l->run ();});
-                if (network_logging ())
+                if (network_publish_logging ())
                 {
                     client.log.add (boost::str (boost::format ("Queueing another publish for %1%") % hash.to_string ()));
                 }
             }
             else
             {
-                if (network_logging ())
+                if (network_publish_logging ())
                 {
                     client.log.add (boost::str (boost::format ("Done publishing for %1%") % hash.to_string ()));
                 }
@@ -1818,7 +1826,7 @@ public:
             }
             case mu_coin::process_result::old:
             {
-                if (ledger_logging ())
+                if (ledger_duplicate_logging ())
                 {
                     client.log.add (boost::str (boost::format ("Old for: %1%") % incoming->hash ().to_string ()));
                 }
@@ -3045,6 +3053,7 @@ void mu_coin::processor::confirm_nak (std::unique_ptr <mu_coin::confirm_nak> mes
 	auto session (confirm_listeners.find (message_a->session));
 	if (session != confirm_listeners.end ())
 	{
+        assert (false && "This isn't unlocking, test");
 		lock.release ();
 		session->second (std::unique_ptr <mu_coin::message> {message_a.release ()}, sender_a);
 	}
