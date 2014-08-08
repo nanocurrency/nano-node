@@ -4119,7 +4119,10 @@ void mu_coin::network::send_buffer (uint8_t const * data_a, size_t size_a, mu_co
 
 void mu_coin::network::send_complete (boost::system::error_code const & ec, size_t size_a)
 {
-    client.log.add ("Packet send complete");
+    if (network_packet_logging ())
+    {
+        client.log.add ("Packet send complete");
+    }
     std::tuple <uint8_t const *, size_t, mu_coin::endpoint, std::function <void (boost::system::error_code const &, size_t)>> self;
     {
         std::unique_lock <std::mutex> lock (mutex);
@@ -4131,7 +4134,10 @@ void mu_coin::network::send_complete (boost::system::error_code const & ec, size
             auto & front (sends.front ());
             if (network_packet_logging ())
             {
-                client.log.add ("Sending packet");
+                if (network_packet_logging ())
+                {
+                    client.log.add ("Sending packet");
+                }
             }
             socket.async_send_to (boost::asio::buffer (std::get <0> (front), std::get <1> (front)), std::get <2> (front), [this] (boost::system::error_code const & ec, size_t size_a) {send_complete (ec, size_a);});
         }
