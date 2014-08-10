@@ -3306,7 +3306,7 @@ void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpo
     processor->run (endpoint_a);
 }
 
-mu_coin::bootstrap::bootstrap (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client & client_a) :
+mu_coin::bootstrap_receiver::bootstrap_receiver (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client & client_a) :
 acceptor (service_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), port_a)),
 service (service_a),
@@ -3314,7 +3314,7 @@ client (client_a)
 {
 }
 
-void mu_coin::bootstrap::accept ()
+void mu_coin::bootstrap_receiver::accept ()
 {
     acceptor.open (local.protocol ());
     acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
@@ -3323,18 +3323,18 @@ void mu_coin::bootstrap::accept ()
     accept_connection ();
 }
 
-void mu_coin::bootstrap::stop ()
+void mu_coin::bootstrap_receiver::stop ()
 {
     on = false;
 }
 
-void mu_coin::bootstrap::accept_connection ()
+void mu_coin::bootstrap_receiver::accept_connection ()
 {
     auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
     acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & error) {accept_action (error, socket); accept_connection ();});
 }
 
-void mu_coin::bootstrap::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
+void mu_coin::bootstrap_receiver::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
 {
     auto connection (std::make_shared <mu_coin::bootstrap_connection> (socket_a, client));
     connection->receive ();
@@ -3878,7 +3878,7 @@ mu_coin::endpoint mu_coin::network::endpoint ()
     return mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), socket.local_endpoint ().port ());
 }
 
-boost::asio::ip::tcp::endpoint mu_coin::bootstrap::endpoint ()
+boost::asio::ip::tcp::endpoint mu_coin::bootstrap_receiver::endpoint ()
 {
     return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), local.port ());
 }

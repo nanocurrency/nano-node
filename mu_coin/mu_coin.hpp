@@ -793,10 +793,10 @@ namespace mu_coin {
         uint64_t error_count;
         bool on;
     };
-    class bootstrap
+    class bootstrap_receiver
     {
     public:
-        bootstrap (boost::asio::io_service &, uint16_t, mu_coin::client &);
+        bootstrap_receiver (boost::asio::io_service &, uint16_t, mu_coin::client &);
         void accept ();
         void stop ();
         void accept_connection ();
@@ -918,7 +918,7 @@ namespace mu_coin {
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;
         mu_coin::network network;
-        mu_coin::bootstrap bootstrap;
+        mu_coin::bootstrap_receiver bootstrap;
         mu_coin::rpc rpc;
         mu_coin::processor processor;
         mu_coin::peer_container peers;
