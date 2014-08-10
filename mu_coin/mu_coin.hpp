@@ -405,7 +405,7 @@ namespace mu_coin {
         block_iterator blocks_begin ();
         block_iterator blocks_end ();
         
-        void latest_put (mu_coin::address const &, mu_coin::block_hash const &);
+        void latest_put (mu_coin::address const &, mu_coin::block_hash const &, uint64_t);
         bool latest_get (mu_coin::address const &, mu_coin::block_hash &, uint64_t &);
 		void latest_del (mu_coin::address const &);
         account_iterator latest_begin (mu_coin::address const &);
@@ -577,7 +577,8 @@ namespace mu_coin {
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
         mu_coin::address start;
-        uint64_t order;
+        uint32_t age;
+        uint32_t count;
     };
     class bulk_req : public message
     {
@@ -585,9 +586,9 @@ namespace mu_coin {
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
-        mu_coin::address start;
+        mu_coin::uint256_union start;
         mu_coin::block_hash end;
-        
+        uint32_t count;
     };
     class bulk_fin : public message
     {

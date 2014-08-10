@@ -324,12 +324,13 @@ TEST (block_store, one_account)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::address address;
     mu_coin::block_hash hash;
-    store.latest_put (address, hash);
+    store.latest_put (address, hash, 100);
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (address, begin->first);
     ASSERT_EQ (hash, begin->second);
+    ASSERT_EQ (100, begin->time);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -375,17 +376,19 @@ TEST (block_store, two_account)
     mu_coin::block_hash hash1 (2);
     mu_coin::address address2 (3);
     mu_coin::block_hash hash2 (4);
-    store.latest_put (address1, hash1);
-    store.latest_put (address2, hash2);
+    store.latest_put (address1, hash1, 100);
+    store.latest_put (address2, hash2, 200);
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (address1, begin->first);
     ASSERT_EQ (hash1, begin->second);
+    ASSERT_EQ (100, begin->time);
     ++begin;
     ASSERT_NE (end, begin);
     ASSERT_EQ (address2, begin->first);
     ASSERT_EQ (hash2, begin->second);
+    ASSERT_EQ (200, begin->time);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -397,8 +400,8 @@ TEST (block_store, latest_find)
     mu_coin::block_hash hash1 (2);
     mu_coin::address address2 (3);
     mu_coin::block_hash hash2 (4);
-    store.latest_put (address1, hash1);
-    store.latest_put (address2, hash2);
+    store.latest_put (address1, hash1, 100);
+    store.latest_put (address2, hash2, 200);
     auto first (store.latest_begin ());
     auto second (store.latest_begin ());
     ++second;

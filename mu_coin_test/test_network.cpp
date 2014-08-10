@@ -649,7 +649,7 @@ TEST (bootstrap_iterator, only_store)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::address address;
     mu_coin::block_hash hash;
-    store.latest_put (address, hash);
+    store.latest_put (address, hash, 100);
     mu_coin::bootstrap_iterator iterator (store);
     ++iterator;
     ASSERT_EQ (address, std::get <0> (iterator.current));
@@ -679,7 +679,7 @@ TEST (bootstrap_iterator, observed_before_store)
     mu_coin::address address2 (100);
     iterator.observed.insert (address1);
     mu_coin::block_hash hash;
-    store.latest_put (address2, hash);
+    store.latest_put (address2, hash, 100);
     ++iterator;
     ASSERT_EQ (address1, std::get <0> (iterator.current));
     ASSERT_TRUE (std::get <1> (iterator.current).is_zero ());
@@ -697,7 +697,7 @@ TEST (bootstrap_iterator, store_before_observed)
     mu_coin::address address1 (10);
     mu_coin::address address2 (100);
     mu_coin::block_hash hash;
-    store.latest_put (address1, hash);
+    store.latest_put (address1, hash, 100);
     iterator.observed.insert (address2);
     ++iterator;
     ASSERT_EQ (address1, std::get <0> (iterator.current));
@@ -717,7 +717,7 @@ TEST (bootstrap_iterator, observed_in_iteration)
     mu_coin::address address1 (100);
     mu_coin::address address2 (10);
     mu_coin::block_hash hash;
-    store.latest_put (address1, hash);
+    store.latest_put (address1, hash, 100);
     ++iterator;
     ASSERT_EQ (address1, std::get <0> (iterator.current));
     ASSERT_EQ (hash, std::get <1> (iterator.current));
@@ -734,7 +734,7 @@ TEST (bootstrap_iterator, observe_send)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::address address;
     mu_coin::block_hash hash;
-    store.latest_put (address, hash);
+    store.latest_put (address, hash, 100);
     mu_coin::bootstrap_iterator iterator (store);
     mu_coin::send_block send;
     send.hashables.destination = 1;

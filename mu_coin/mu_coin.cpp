@@ -549,7 +549,7 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
                 {
 					ledger.move_representation (ledger.representative (block_a.hashables.previous), block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
                     ledger.store.block_put (message, block_a);
-                    ledger.store.latest_put (account, message);
+                    ledger.store.latest_put (account, message, ledger.store.now ());
                 }
             }
         }
@@ -583,7 +583,7 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
                     if (result == mu_coin::process_result::progress)
                     {
                         ledger.store.block_put (message, block_a);
-                        ledger.store.latest_put (account, message);
+                        ledger.store.latest_put (account, message, ledger.store.now ());
                         ledger.store.pending_put (message);
                     }
                 }
@@ -620,7 +620,7 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                         {
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
-                            ledger.store.latest_put (source_send->hashables.destination, hash);
+                            ledger.store.latest_put (source_send->hashables.destination, hash, ledger.store.now ());
                             ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
                         }
                         else
@@ -659,7 +659,7 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                     {
                         ledger.store.pending_del (source_send->hash ());
                         ledger.store.block_put (hash, block_a);
-                        ledger.store.latest_put (source_send->hashables.destination, hash);
+                        ledger.store.latest_put (source_send->hashables.destination, hash, ledger.store.now ());
 						ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
                     }
                 }
@@ -944,7 +944,7 @@ void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
     store_a.block_put (send1.hash (), send1);
     store_a.block_put (send2.hash (), send2);
     store_a.block_put (open.hash (), open);
-    store_a.latest_put (send2.hashables.destination, open.hash ());
+    store_a.latest_put (send2.hashables.destination, open.hash (), store_a.now ());
     store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
 }
 
@@ -973,10 +973,10 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
     return result;
 }
 
-void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a, uint64_t time_a)
 {
     mu_coin::dbt key (address_a);
-    mu_coin::dbt data (hash_a, now ());
+    mu_coin::dbt data (hash_a, time_a);
     int error (addresses.put (nullptr, &key.data, &data.data, 0));
     assert (error == 0);
 }
@@ -2978,7 +2978,7 @@ public:
 			ledger.rollback (ledger.latest (block_a.hashables.destination));
 		}
 		ledger.store.pending_del (hash);
-		ledger.store.latest_put (account, block_a.hashables.previous);
+		ledger.store.latest_put (account, block_a.hashables.previous, ledger.store.now ());
 		ledger.store.block_del (hash);
     }
     void receive_block (mu_coin::receive_block const & block_a) override
@@ -2986,7 +2986,7 @@ public:
 		auto hash (block_a.hash ());
 		auto account (ledger.account (hash));
 		ledger.move_representation (account, ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
-		ledger.store.latest_put (account, block_a.hashables.previous);
+		ledger.store.latest_put (account, block_a.hashables.previous, ledger.store.now ());
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source);
     }
@@ -3003,7 +3003,7 @@ public:
     {
 		ledger.move_representation (block_a.hashables.representative, ledger.representative (block_a.hashables.previous), ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (block_a.hash ());
-		ledger.store.latest_put (ledger.account (block_a.hashables.previous), block_a.hashables.previous);
+		ledger.store.latest_put (ledger.account (block_a.hashables.previous), block_a.hashables.previous, ledger.store.now ());
     }
     mu_coin::ledger & ledger;
 };
