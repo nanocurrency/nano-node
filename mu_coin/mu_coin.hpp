@@ -735,11 +735,11 @@ namespace mu_coin {
         mu_coin::address store_address;
         std::set <mu_coin::address> observed;
     };
-    class bootstrap_processor : public std::enable_shared_from_this <bootstrap_processor>
+    class bootstrap_initiator : public std::enable_shared_from_this <bootstrap_initiator>
     {
     public:
-        bootstrap_processor (mu_coin::client &, std::function <void ()> const &);
-        ~bootstrap_processor ();
+        bootstrap_initiator (mu_coin::client &, std::function <void ()> const &);
+        ~bootstrap_initiator ();
         void run (mu_coin::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
         void fill_queue ();
@@ -750,7 +750,6 @@ namespace mu_coin {
         void received_block (boost::system::error_code const &, size_t);
         bool process_block (mu_coin::block const &);
         bool process_end ();
-        void stop_blocks ();
         mu_coin::bootstrap_iterator iterator;
         std::queue <std::pair <mu_coin::address, mu_coin::block_hash>> requests;
         mu_coin::block_hash expecting;
