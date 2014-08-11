@@ -827,7 +827,9 @@ namespace mu_coin {
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;
         std::mutex mutex;
-        std::queue <std::pair <mu_coin::block_hash, mu_coin::block_hash>> requests;
+        mu_coin::block_hash current;
+        mu_coin::block_hash end;
+        std::queue <std::unique_ptr <mu_coin::bulk_req>> requests;
     };
     class rpc
     {

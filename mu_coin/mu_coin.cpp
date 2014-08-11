@@ -3388,32 +3388,33 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
 {
     if (!ec)
     {
-        mu_coin::bulk_req request;
+        std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
         mu_coin::bufferstream stream (receive_buffer.data (), 32 + 32 + 1);
-        auto error (request.deserialize (stream));
+        auto error (request->deserialize (stream));
         if (!error)
         {
             receive ();
-            std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
-            auto error (process_bulk_req (request, pair));
-            if (!error)
+            if (network_logging ())
             {
-                if (network_logging ())
+                client.log.add (boost::str (boost::format ("Sending: %1% down to: %2%") % request->start.to_string () % request->end.to_string ()));
+            }
+            if (requests.empty ())
+            {
+                std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
+                auto error (process_bulk_req (*request, pair));
+                if (!error)
                 {
-                    client.log.add (boost::str (boost::format ("Sending: %1% down to: %2%") % request.start.to_string () % request.end.to_string ()));
-                }
-                auto startup (requests.empty ());
-                requests.push (pair);
-                if (startup)
-                {
+                    requests.push (std::move (request));
+                    current = pair.first;
+                    end = pair.second;
                     send_next ();
                 }
-            }
-            else
-            {
-                if (network_logging ())
+                else
                 {
-                    client.log.add (boost::str (boost::format ("Malformed request, address: %1% does not own block %2%") % request.start.to_string () % request.end.to_string ()));
+                    if (network_logging ())
+                    {
+                        client.log.add (boost::str (boost::format ("Malformed request, address: %1% does not own block %2%") % request->start.to_string () % request->end.to_string ()));
+                    }
                 }
             }
         }
@@ -3492,19 +3493,18 @@ std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
 {
     std::unique_ptr <mu_coin::block> result;
     assert (!requests.empty ());
-    auto & front (requests.front ());
-    if (front.first != front.second)
+    if (current != end)
     {
-        result = client.store.block_get (front.first);
+        result = client.store.block_get (current);
         assert (result != nullptr);
         auto previous (result->previous ());
         if (!previous.is_zero ())
         {
-            front.first = previous;
+            current = previous;
         }
         else
         {
-            front.second = front.first;
+            end = current;
         }
     }
     return result;
