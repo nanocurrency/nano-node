@@ -816,20 +816,27 @@ namespace mu_coin {
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
         void receive_req_action (boost::system::error_code const &, size_t);
-        bool process_bulk_req (mu_coin::bulk_req const &, std::pair <mu_coin::block_hash, mu_coin::block_hash> &);
+        std::array <uint8_t, 128> receive_buffer;
+        std::shared_ptr <boost::asio::ip::tcp::socket> socket;
+        mu_coin::client & client;
+        std::mutex mutex;
+        std::queue <std::unique_ptr <mu_coin::bulk_req>> requests;
+    };
+    class bulk_req_response : public std::enable_shared_from_this <bulk_req_response>
+    {
+    public:
+        bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &);
+        void set_current_end ();
         std::unique_ptr <mu_coin::block> get_next ();
         void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
         void send_finished ();
         void no_block_sent (boost::system::error_code const &, size_t);
-        std::array <uint8_t, 128> receive_buffer;
+        std::shared_ptr <mu_coin::bootstrap_connection> connection;
+        std::unique_ptr <mu_coin::bulk_req> request;
         std::vector <uint8_t> send_buffer;
-        std::shared_ptr <boost::asio::ip::tcp::socket> socket;
-        mu_coin::client & client;
-        std::mutex mutex;
         mu_coin::block_hash current;
         mu_coin::block_hash end;
-        std::queue <std::unique_ptr <mu_coin::bulk_req>> requests;
     };
     class rpc
     {

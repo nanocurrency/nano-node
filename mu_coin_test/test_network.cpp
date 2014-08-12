@@ -839,38 +839,40 @@ TEST (bootstrap_processor, process_new)
 TEST (bulk_req, no_address)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
-    mu_coin::bulk_req req;
-    std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
-    ASSERT_FALSE (connection.process_bulk_req (req, pair));
-    ASSERT_EQ (pair.first, pair.second);
-    ASSERT_FALSE (pair.first.is_zero ());
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req);
+    req->start = 1;
+    req->end = 2;
+    connection->requests.push (std::move (req));
+    auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
+    ASSERT_EQ (request->current, request->end);
+    ASSERT_FALSE (request->current.is_zero ());
 }
 
 TEST (bulk_req, genesis_to_end)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
-    mu_coin::bulk_req req;
-    req.start = system.test_genesis_address.pub;
-    req.end = 0;
-    std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
-    ASSERT_FALSE (connection.process_bulk_req (req, pair));
-    ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), pair.first);
-    ASSERT_EQ (req.end, pair.second);
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req {});
+    req->start = system.test_genesis_address.pub;
+    req->end = 0;
+    connection->requests.push (std::move (req));
+    auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
+    ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), request->current);
+    ASSERT_EQ (request->request->end, request->end);
 }
 
 TEST (bulk_req, no_end)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
-    mu_coin::bulk_req req;
-    req.start = system.test_genesis_address.pub;
-    req.end = 1;
-    std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
-    ASSERT_FALSE (connection.process_bulk_req (req, pair));
-    ASSERT_EQ (pair.first, pair.second);
-    ASSERT_FALSE (pair.first.is_zero ());
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req {});
+    req->start = system.test_genesis_address.pub;
+    req->end = 1;
+    connection->requests.push (std::move (req));
+    auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
+    ASSERT_EQ (request->current, request->end);
+    ASSERT_FALSE (request->current.is_zero ());
 }
 
 TEST (bulk_req, end_not_owned)
@@ -884,38 +886,43 @@ TEST (bulk_req, end_not_owned)
     open.hashables.source = system.clients [0]->ledger.latest (system.test_genesis_address.pub);
     mu_coin::sign_message (key2.prv, key2.pub, open.hash (), open.signature);
     ASSERT_EQ (mu_coin::process_result::progress, system.clients [0]->ledger.process (open));
-    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
-    mu_coin::bulk_req req;
-    req.start = key2.pub;
-    req.end = system.genesis.hash ();
-    std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
-    ASSERT_TRUE (connection.process_bulk_req (req, pair));
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req {});
+    req->start = key2.pub;
+    req->end = system.genesis.hash ();
+    connection->requests.push (std::move (req));
+    auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
+    ASSERT_EQ (request->current, request->end);
 }
 
 TEST (bulk_connection, none)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
-    connection.current = system.genesis.hash ();
-    connection.end = system.genesis.hash ();
-    connection.requests.push (std::unique_ptr <mu_coin::bulk_req> {});
-    auto block (connection.get_next ());
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req {});
+    req->start = system.genesis.hash ();
+    req->end = system.genesis.hash ();
+    connection->requests.push (std::move (req));
+    auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
+    auto block (request->get_next ());
     ASSERT_EQ (nullptr, block);
 }
 
 TEST (bulk_connection, get_next_on_open)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
-    mu_coin::bootstrap_connection connection (nullptr, *system.clients [0]);
-    connection.current = system.genesis.hash ();
-    connection.end = 0;
-    connection.requests.push (std::unique_ptr <mu_coin::bulk_req> {});
-    auto block (connection.get_next ());
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req {});
+    req->start = system.test_genesis_address.pub;
+    req->end = 0;
+    connection->requests.push (std::move (req));
+    auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
+    auto block (request->get_next ());
     ASSERT_NE (nullptr, block);
     ASSERT_TRUE (block->previous ().is_zero ());
-    ASSERT_FALSE (connection.requests.empty ());
-    ASSERT_FALSE (connection.current.is_zero ());
-    ASSERT_EQ (connection.current, connection.end);
+    ASSERT_FALSE (connection->requests.empty ());
+    ASSERT_FALSE (request->current.is_zero ());
+    ASSERT_EQ (request->current, request->end);
 }
 
 TEST (bulk, genesis)

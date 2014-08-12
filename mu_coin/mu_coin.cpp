@@ -3398,75 +3398,63 @@ void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_cod
             {
                 client.log.add (boost::str (boost::format ("Sending: %1% down to: %2%") % request->start.to_string () % request->end.to_string ()));
             }
-            if (requests.empty ())
+            std::lock_guard <std::mutex> lock (mutex);
+            requests.push (std::move (request));
+            if (requests.size () == 1)
             {
-                std::pair <mu_coin::block_hash, mu_coin::block_hash> pair;
-                auto error (process_bulk_req (*request, pair));
-                if (!error)
-                {
-                    requests.push (std::move (request));
-                    current = pair.first;
-                    end = pair.second;
-                    send_next ();
-                }
-                else
-                {
-                    if (network_logging ())
-                    {
-                        client.log.add (boost::str (boost::format ("Malformed request, address: %1% does not own block %2%") % request->start.to_string () % request->end.to_string ()));
-                    }
-                }
+                auto response (std::make_shared <mu_coin::bulk_req_response> (shared_from_this ()));
+                response->send_next ();
             }
         }
     }
 }
 
-bool mu_coin::bootstrap_connection::process_bulk_req (mu_coin::bulk_req const & request, std::pair <mu_coin::block_hash, mu_coin::block_hash> & result_a)
+void mu_coin::bulk_req_response::set_current_end ()
 {
-    auto result (false);
-    auto end_exists (request.end.is_zero () || client.store.block_exists (request.end));
+    assert (request != nullptr);
+    auto end_exists (request->end.is_zero () || connection->client.store.block_exists (request->end));
     if (end_exists)
     {
         mu_coin::block_hash hash;
         uint64_t time;
-        auto no_address (client.store.latest_get (request.start, hash, time));
+        auto no_address (connection->client.store.latest_get (request->start, hash, time));
         if (no_address)
         {
-            result_a.first = request.end;
-            result_a.second = request.end;
+            current = request->end;
+            end = request->end;
         }
         else
         {
-            if (!request.end.is_zero ())
+            if (!request->end.is_zero ())
             {
-                account_visitor visitor (client.store);
-                visitor.compute (request.end);
-                if (visitor.result == request.start)
+                account_visitor visitor (connection->client.store);
+                visitor.compute (request->end);
+                if (visitor.result == request->start)
                 {
-                    result_a.first = hash;
-                    result_a.second = request.end;
+                    current = hash;
+                    end = request->end;
                 }
                 else
                 {
-                    result = true;
+                    current = request->end;
+                    end = request->end;
                 }
             }
             else
             {
-                result_a.first = hash;
-                result_a.second = request.end;
+                current = hash;
+                end = request->end;
             }
         }
     }
     else
     {
-        result_a.first = request.end;
-        result_a.second = request.end;
+        current = request->end;
+        end = request->end;
     }
-    return result;
 }
 
-void mu_coin::bootstrap_connection::send_next ()
+void mu_coin::bulk_req_response::send_next ()
 {
     std::unique_ptr <mu_coin::block> block (get_next ());
     if (block != nullptr)
@@ -3479,9 +3467,9 @@ void mu_coin::bootstrap_connection::send_next ()
         auto this_l (shared_from_this ());
         if (network_logging ())
         {
-            client.log.add (boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ()));
+            connection->client.log.add (boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ()));
         }
-        async_write (*socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_action (ec, size_a);});
+        async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_action (ec, size_a);});
     }
     else
     {
@@ -3489,13 +3477,12 @@ void mu_coin::bootstrap_connection::send_next ()
     }
 }
 
-std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
+std::unique_ptr <mu_coin::block> mu_coin::bulk_req_response::get_next ()
 {
     std::unique_ptr <mu_coin::block> result;
-    assert (!requests.empty ());
     if (current != end)
     {
-        result = client.store.block_get (current);
+        result = connection->client.store.block_get (current);
         assert (result != nullptr);
         auto previous (result->previous ());
         if (!previous.is_zero ())
@@ -3510,7 +3497,7 @@ std::unique_ptr <mu_coin::block> mu_coin::bootstrap_connection::get_next ()
     return result;
 }
 
-void mu_coin::bootstrap_connection::sent_action (boost::system::error_code const & ec, size_t size_a)
+void mu_coin::bulk_req_response::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -3518,27 +3505,29 @@ void mu_coin::bootstrap_connection::sent_action (boost::system::error_code const
     }
 }
 
-void mu_coin::bootstrap_connection::send_finished ()
+void mu_coin::bulk_req_response::send_finished ()
 {
     send_buffer.clear ();
     send_buffer.push_back (static_cast <uint8_t> (mu_coin::block_type::not_a_block));
     auto this_l (shared_from_this ());
     if (network_logging ())
     {
-        client.log.add ("Sending finished");
+        connection->client.log.add ("Sending finished");
     }
-    requests.pop ();
-    async_write (*socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
+    async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
 }
 
-void mu_coin::bootstrap_connection::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void mu_coin::bulk_req_response::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
         assert (size_a == 1);
-        if (!requests.empty ())
+        std::lock_guard <std::mutex> lock (connection->mutex);
+        connection->requests.pop ();
+        if (!connection->requests.empty ())
         {
-            send_next ();
+            auto response (std::make_shared <mu_coin::bulk_req_response> (connection));
+            response->send_next ();
         }
     }
 }
@@ -4183,4 +4172,13 @@ void mu_coin::network::send_complete (boost::system::error_code const & ec, size
 uint64_t mu_coin::block_store::now ()
 {
     
+}
+
+mu_coin::bulk_req_response::bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a) :
+connection (connection_a)
+{
+    assert (!connection_a->requests.empty ());
+    assert (connection_a->requests.front () != nullptr);
+    request = std::move (connection_a->requests.front ());
+    set_current_end ();
 }
