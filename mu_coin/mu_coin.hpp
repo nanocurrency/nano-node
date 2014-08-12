@@ -820,7 +820,7 @@ namespace mu_coin {
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;
         std::mutex mutex;
-        std::queue <std::unique_ptr <mu_coin::bulk_req>> requests;
+        std::queue <std::unique_ptr <mu_coin::message>> requests;
     };
     class bulk_req_response : public std::enable_shared_from_this <bulk_req_response>
     {

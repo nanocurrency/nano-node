@@ -4179,6 +4179,7 @@ connection (connection_a)
 {
     assert (!connection_a->requests.empty ());
     assert (connection_a->requests.front () != nullptr);
-    request = std::move (connection_a->requests.front ());
+    assert (dynamic_cast <mu_coin::bulk_req *> (connection_a->requests.front ().get ()) != nullptr);
+    request = std::move (std::unique_ptr <mu_coin::bulk_req> (static_cast <mu_coin::bulk_req *> (connection_a->requests.front ().release ())));
     set_current_end ();
 }
