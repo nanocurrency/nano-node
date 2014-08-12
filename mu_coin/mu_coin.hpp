@@ -605,6 +605,7 @@ namespace mu_coin {
         virtual void confirm_nak (mu_coin::confirm_nak const &) = 0;
         virtual void confirm_unk (mu_coin::confirm_unk const &) = 0;
         virtual void bulk_req (mu_coin::bulk_req const &) = 0;
+        virtual void frontier_req (mu_coin::frontier_req const &) = 0;
     };
     struct wallet_temp_t
     {
@@ -836,7 +837,14 @@ namespace mu_coin {
         std::unique_ptr <mu_coin::bulk_req> request;
         std::vector <uint8_t> send_buffer;
         mu_coin::block_hash current;
-        mu_coin::block_hash end;
+    };
+    class frontier_req_response : public std::enable_shared_from_this <frontier_req_response>
+    {
+    public:
+        frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &);
+        std::shared_ptr <mu_coin::bootstrap_connection> connection;
+        std::unique_ptr <mu_coin::frontier_req> request;
+        std::vector <uint8_t> send_buffer;
     };
     class rpc
     {

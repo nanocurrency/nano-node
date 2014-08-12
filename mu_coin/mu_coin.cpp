@@ -1945,6 +1945,10 @@ public:
     {
         assert (false);
     }
+    void frontier_req (mu_coin::frontier_req const &) override
+    {
+        assert (false);
+    }
     mu_coin::receivable_processor & processor;
     mu_coin::endpoint sender;
 };
@@ -3421,7 +3425,6 @@ void mu_coin::bulk_req_response::set_current_end ()
         if (no_address)
         {
             current = request->end;
-            end = request->end;
         }
         else
         {
@@ -3432,25 +3435,21 @@ void mu_coin::bulk_req_response::set_current_end ()
                 if (visitor.result == request->start)
                 {
                     current = hash;
-                    end = request->end;
                 }
                 else
                 {
                     current = request->end;
-                    end = request->end;
                 }
             }
             else
             {
                 current = hash;
-                end = request->end;
             }
         }
     }
     else
     {
         current = request->end;
-        end = request->end;
     }
 }
 
@@ -3480,7 +3479,7 @@ void mu_coin::bulk_req_response::send_next ()
 std::unique_ptr <mu_coin::block> mu_coin::bulk_req_response::get_next ()
 {
     std::unique_ptr <mu_coin::block> result;
-    if (current != end)
+    if (current != request->end)
     {
         result = connection->client.store.block_get (current);
         assert (result != nullptr);
@@ -3491,7 +3490,7 @@ std::unique_ptr <mu_coin::block> mu_coin::bulk_req_response::get_next ()
         }
         else
         {
-            end = current;
+            request->end = current;
         }
     }
     return result;
@@ -4180,6 +4179,30 @@ connection (connection_a)
     assert (!connection_a->requests.empty ());
     assert (connection_a->requests.front () != nullptr);
     assert (dynamic_cast <mu_coin::bulk_req *> (connection_a->requests.front ().get ()) != nullptr);
-    request = std::move (std::unique_ptr <mu_coin::bulk_req> (static_cast <mu_coin::bulk_req *> (connection_a->requests.front ().release ())));
+    request = std::unique_ptr <mu_coin::bulk_req> (static_cast <mu_coin::bulk_req *> (connection_a->requests.front ().release ()));
     set_current_end ();
+}
+
+mu_coin::frontier_req_response::frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a) :
+connection (connection_a)
+{
+    assert (!connection_a->requests.empty ());
+    assert (connection_a->requests.front () != nullptr);
+    assert (dynamic_cast <mu_coin::frontier_req *> (connection_a->requests.front ().get ()) != nullptr);
+    request = std::unique_ptr <mu_coin::frontier_req> (static_cast <mu_coin::frontier_req *> (connection_a->requests.front ().release ()));
+}
+
+bool mu_coin::frontier_req::deserialize (mu_coin::stream &)
+{
+    assert (false);
+}
+
+void mu_coin::frontier_req::serialize (mu_coin::stream &)
+{
+    assert (false);
+}
+
+void mu_coin::frontier_req::visit (mu_coin::message_visitor & visitor_a)
+{
+    visitor_a.frontier_req (*this);
 }

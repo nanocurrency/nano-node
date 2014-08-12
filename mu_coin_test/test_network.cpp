@@ -845,7 +845,7 @@ TEST (bulk_req, no_address)
     req->end = 2;
     connection->requests.push (std::move (req));
     auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
-    ASSERT_EQ (request->current, request->end);
+    ASSERT_EQ (request->current, request->request->end);
     ASSERT_FALSE (request->current.is_zero ());
 }
 
@@ -859,7 +859,7 @@ TEST (bulk_req, genesis_to_end)
     connection->requests.push (std::move (req));
     auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
     ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), request->current);
-    ASSERT_EQ (request->request->end, request->end);
+    ASSERT_EQ (request->request->end, request->request->end);
 }
 
 TEST (bulk_req, no_end)
@@ -871,7 +871,7 @@ TEST (bulk_req, no_end)
     req->end = 1;
     connection->requests.push (std::move (req));
     auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
-    ASSERT_EQ (request->current, request->end);
+    ASSERT_EQ (request->current, request->request->end);
     ASSERT_FALSE (request->current.is_zero ());
 }
 
@@ -892,7 +892,7 @@ TEST (bulk_req, end_not_owned)
     req->end = system.genesis.hash ();
     connection->requests.push (std::move (req));
     auto request (std::make_shared <mu_coin::bulk_req_response> (connection));
-    ASSERT_EQ (request->current, request->end);
+    ASSERT_EQ (request->current, request->request->end);
 }
 
 TEST (bulk_connection, none)
@@ -922,7 +922,7 @@ TEST (bulk_connection, get_next_on_open)
     ASSERT_TRUE (block->previous ().is_zero ());
     ASSERT_FALSE (connection->requests.empty ());
     ASSERT_FALSE (request->current.is_zero ());
-    ASSERT_EQ (request->current, request->end);
+    ASSERT_EQ (request->current, request->request->end);
 }
 
 TEST (bulk, genesis)
