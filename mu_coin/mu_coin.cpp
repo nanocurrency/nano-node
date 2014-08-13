@@ -3369,9 +3369,15 @@ void mu_coin::bootstrap_connection::receive_type_action (boost::system::error_co
             case mu_coin::message_type::bulk_req:
             {
                 auto this_l (shared_from_this ());
-                boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_bulk_req_action (ec, size_a);});
+                boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (mu_coin::uint256_union) + sizeof (mu_coin::uint256_union)), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_bulk_req_action (ec, size_a);});
                 break;
             }
+			case mu_coin::message_type::frontier_req:
+			{
+				auto this_l (shared_from_this ());
+				boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (mu_coin::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_frontier_req_action (ec, size_a);});
+				break;
+			}
             case mu_coin::message_type::bulk_fin:
             {
                 break;
@@ -3393,24 +3399,64 @@ void mu_coin::bootstrap_connection::receive_bulk_req_action (boost::system::erro
     if (!ec)
     {
         std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
-        mu_coin::bufferstream stream (receive_buffer.data (), 32 + 32 + 1);
+        mu_coin::bufferstream stream (receive_buffer.data (), sizeof (mu_coin::message_type) + sizeof (mu_coin::uint256_union) + sizeof (mu_coin::uint256_union));
         auto error (request->deserialize (stream));
         if (!error)
         {
             receive ();
             if (network_logging ())
             {
-                client.log.add (boost::str (boost::format ("Sending: %1% down to: %2%") % request->start.to_string () % request->end.to_string ()));
+                client.log.add (boost::str (boost::format ("Received bulk request for %1% down to %2%") % request->start.to_string () % request->end.to_string ()));
             }
-            std::lock_guard <std::mutex> lock (mutex);
-            requests.push (std::move (request));
-            if (requests.size () == 1)
-            {
-                auto response (std::make_shared <mu_coin::bulk_req_response> (shared_from_this ()));
-                response->send_next ();
-            }
+			add_request (std::unique_ptr <mu_coin::message> (request.release ()));
         }
     }
+}
+
+void mu_coin::bootstrap_connection::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a)
+{
+	if (!ec)
+	{
+		std::unique_ptr <mu_coin::frontier_req> request (new mu_coin::frontier_req);
+		mu_coin::bufferstream stream (receive_buffer.data (), sizeof (mu_coin::message_type) + sizeof (mu_coin::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
+		auto error (request->deserialize (stream));
+		if (!error)
+		{
+			receive ();
+			if (network_logging ())
+			{
+				client.log.add (boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age));
+			}
+			add_request (std::unique_ptr <mu_coin::message> (request.release ()));
+		}
+	}
+}
+
+void mu_coin::bootstrap_connection::add_request (std::unique_ptr <mu_coin::message> message_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	requests.push (std::move (message_a));
+	if (requests.size () == 1)
+	{
+		run_next ();
+	}
+}
+
+void mu_coin::bootstrap_connection::finish_request ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	requests.pop ();
+	if (!requests.empty ())
+	{
+		run_next ();
+	}
+}
+
+void mu_coin::bootstrap_connection::run_next ()
+{
+	assert (!requests.empty ());
+	auto response (std::make_shared <mu_coin::bulk_req_response> (shared_from_this (), std::unique_ptr <mu_coin::bulk_req> (static_cast <mu_coin::bulk_req *> (requests.front ().release ()))));
+	response->send_next ();
 }
 
 void mu_coin::bulk_req_response::set_current_end ()
@@ -3521,13 +3567,7 @@ void mu_coin::bulk_req_response::no_block_sent (boost::system::error_code const 
     if (!ec)
     {
         assert (size_a == 1);
-        std::lock_guard <std::mutex> lock (connection->mutex);
-        connection->requests.pop ();
-        if (!connection->requests.empty ())
-        {
-            auto response (std::make_shared <mu_coin::bulk_req_response> (connection));
-            response->send_next ();
-        }
+		connection->finish_request ();
     }
 }
 
@@ -4173,23 +4213,28 @@ uint64_t mu_coin::block_store::now ()
     
 }
 
-mu_coin::bulk_req_response::bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a) :
-connection (connection_a)
+mu_coin::bulk_req_response::bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a, std::unique_ptr <mu_coin::bulk_req> request_a) :
+connection (connection_a),
+request (std::move (request_a))
 {
-    assert (!connection_a->requests.empty ());
-    assert (connection_a->requests.front () != nullptr);
-    assert (dynamic_cast <mu_coin::bulk_req *> (connection_a->requests.front ().get ()) != nullptr);
-    request = std::unique_ptr <mu_coin::bulk_req> (static_cast <mu_coin::bulk_req *> (connection_a->requests.front ().release ()));
     set_current_end ();
 }
 
-mu_coin::frontier_req_response::frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a) :
-connection (connection_a)
+mu_coin::frontier_req_response::frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a, std::unique_ptr <mu_coin::frontier_req> request_a) :
+iterator (connection_a->client.ledger.store.latest_begin (request_a->start)),
+connection (connection_a),
+request (std::move (request_a))
 {
-    assert (!connection_a->requests.empty ());
-    assert (connection_a->requests.front () != nullptr);
-    assert (dynamic_cast <mu_coin::frontier_req *> (connection_a->requests.front ().get ()) != nullptr);
-    request = std::unique_ptr <mu_coin::frontier_req> (static_cast <mu_coin::frontier_req *> (connection_a->requests.front ().release ()));
+	advance ();
+}
+
+void mu_coin::frontier_req_response::advance ()
+{
+}
+
+void mu_coin::frontier_req_response::send_next ()
+{
+	
 }
 
 bool mu_coin::frontier_req::deserialize (mu_coin::stream & stream_a)

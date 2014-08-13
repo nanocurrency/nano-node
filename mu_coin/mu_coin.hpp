@@ -491,7 +491,8 @@ namespace mu_coin {
         confirm_nak,
         confirm_unk,
         bulk_req,
-        bulk_fin
+        bulk_fin,
+		frontier_req
     };
     class message_visitor;
     class message
@@ -818,6 +819,10 @@ namespace mu_coin {
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
         void receive_bulk_req_action (boost::system::error_code const &, size_t);
+		void receive_frontier_req_action (boost::system::error_code const &, size_t);
+		void add_request (std::unique_ptr <mu_coin::message>);
+		void finish_request ();
+		void run_next ();
         std::array <uint8_t, 128> receive_buffer;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;
@@ -827,7 +832,7 @@ namespace mu_coin {
     class bulk_req_response : public std::enable_shared_from_this <bulk_req_response>
     {
     public:
-        bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &);
+        bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &, std::unique_ptr <mu_coin::bulk_req>);
         void set_current_end ();
         std::unique_ptr <mu_coin::block> get_next ();
         void send_next ();
@@ -842,7 +847,10 @@ namespace mu_coin {
     class frontier_req_response : public std::enable_shared_from_this <frontier_req_response>
     {
     public:
-        frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &);
+        frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &, std::unique_ptr <mu_coin::frontier_req>);
+		void advance ();
+		void send_next ();
+		account_iterator iterator;
         std::shared_ptr <mu_coin::bootstrap_connection> connection;
         std::unique_ptr <mu_coin::frontier_req> request;
         std::vector <uint8_t> send_buffer;
