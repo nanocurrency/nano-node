@@ -3378,10 +3378,6 @@ void mu_coin::bootstrap_connection::receive_type_action (boost::system::error_co
 				boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (mu_coin::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_frontier_req_action (ec, size_a);});
 				break;
 			}
-            case mu_coin::message_type::bulk_fin:
-            {
-                break;
-            }
             default:
             {
                 break;
@@ -3609,7 +3605,7 @@ void mu_coin::bulk_req_response::send_finished ()
     auto this_l (shared_from_this ());
     if (network_logging ())
     {
-        connection->client.log.add ("Sending finished");
+        connection->client.log.add ("Bulk sending finished");
     }
     async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
 }
@@ -4277,16 +4273,71 @@ iterator (connection_a->client.ledger.store.latest_begin (request_a->start)),
 connection (connection_a),
 request (std::move (request_a))
 {
-	advance ();
-}
-
-void mu_coin::frontier_req_response::advance ()
-{
 }
 
 void mu_coin::frontier_req_response::send_next ()
 {
-	
+	auto pair (get_next ());
+    if (!pair.first.is_zero ())
+    {
+        {
+            send_buffer.clear ();
+            mu_coin::vectorstream stream (send_buffer);
+            write (stream, pair.first);
+            write (stream, pair.second);
+        }
+        auto this_l (shared_from_this ());
+        if (network_logging ())
+        {
+            connection->client.log.add (boost::str (boost::format ("Sending frontier for %1% %2%") % pair.first.to_string () % pair.second.to_string ()));
+        }
+        async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_action (ec, size_a);});
+    }
+    else
+    {
+        send_finished ();
+    }
+}
+
+void mu_coin::frontier_req_response::send_finished ()
+{
+    send_buffer.clear ();
+    send_buffer.push_back (static_cast <uint8_t> (mu_coin::block_type::not_a_block));
+    auto this_l (shared_from_this ());
+    if (network_logging ())
+    {
+        connection->client.log.add ("Frontier sending finished");
+    }
+    async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
+}
+
+void mu_coin::frontier_req_response::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+{
+    if (!ec)
+    {
+        assert (size_a == 1);
+		connection->finish_request ();
+    }
+}
+
+void mu_coin::frontier_req_response::sent_action (boost::system::error_code const & ec, size_t size_a)
+{
+    if (!ec)
+    {
+        send_next ();
+    }
+}
+
+std::pair <mu_coin::uint256_union, mu_coin::uint256_union> mu_coin::frontier_req_response::get_next ()
+{
+    std::pair <mu_coin::uint256_union, mu_coin::uint256_union> result (0, 0);
+    if (iterator != connection->client.ledger.store.latest_end ())
+    {
+        result.first = iterator->first;
+        result.second = iterator->second;
+        ++iterator;
+    }
+    return result;
 }
 
 bool mu_coin::frontier_req::deserialize (mu_coin::stream & stream_a)

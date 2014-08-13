@@ -491,7 +491,6 @@ namespace mu_coin {
         confirm_nak,
         confirm_unk,
         bulk_req,
-        bulk_fin,
 		frontier_req
     };
     class message_visitor;
@@ -591,10 +590,6 @@ namespace mu_coin {
         mu_coin::uint256_union start;
         mu_coin::block_hash end;
         uint32_t count;
-    };
-    class bulk_fin : public message
-    {
-    public:
     };
     class message_visitor
     {
@@ -848,12 +843,16 @@ namespace mu_coin {
     {
     public:
         frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &, std::unique_ptr <mu_coin::frontier_req>);
-		void advance ();
 		void send_next ();
+        void sent_action (boost::system::error_code const &, size_t);
+        void send_finished ();
+        void no_block_sent (boost::system::error_code const &, size_t);
+        std::pair <mu_coin::uint256_union, mu_coin::uint256_union> get_next ();
 		account_iterator iterator;
         std::shared_ptr <mu_coin::bootstrap_connection> connection;
         std::unique_ptr <mu_coin::frontier_req> request;
         std::vector <uint8_t> send_buffer;
+        size_t count;
     };
     class rpc
     {
