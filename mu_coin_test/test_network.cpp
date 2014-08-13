@@ -973,3 +973,34 @@ TEST (client, send_out_of_order)
         system.service->run_one ();
     }
 }
+
+TEST (frontier_req, begin)
+{
+    mu_coin::system system (1, 24000, 25000, 1, 100);
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::frontier_req> req (new mu_coin::frontier_req);
+    req->start = 0;
+    req->age = std::numeric_limits <decltype (req->age)>::max ();
+    req->count = std::numeric_limits <decltype (req->count)>::max ();
+    connection->requests.push (std::unique_ptr <mu_coin::message> {});
+    auto request (std::make_shared <mu_coin::frontier_req_response> (connection, std::move (req)));
+    ASSERT_EQ (connection->client.ledger.store.latest_begin (system.test_genesis_address.pub), request->iterator);
+    auto pair (request->get_next ());
+    ASSERT_EQ (system.test_genesis_address.pub, pair.first);
+    ASSERT_EQ (system.genesis.hash (), pair.second);
+}
+
+TEST (frontier_req, end)
+{
+    mu_coin::system system (1, 24000, 25000, 1, 100);
+    auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
+    std::unique_ptr <mu_coin::frontier_req> req (new mu_coin::frontier_req);
+    req->start = system.test_genesis_address.pub.number () + 1;
+    req->age = std::numeric_limits <decltype (req->age)>::max ();
+    req->count = std::numeric_limits <decltype (req->count)>::max ();
+    connection->requests.push (std::unique_ptr <mu_coin::message> {});
+    auto request (std::make_shared <mu_coin::frontier_req_response> (connection, std::move (req)));
+    ASSERT_EQ (connection->client.ledger.store.latest_end (), request->iterator);
+    auto pair (request->get_next ());
+    ASSERT_TRUE (pair.first.is_zero ());
+}
