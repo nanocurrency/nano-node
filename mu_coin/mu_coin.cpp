@@ -3435,8 +3435,9 @@ void mu_coin::bootstrap_connection::receive_frontier_req_action (boost::system::
 void mu_coin::bootstrap_connection::add_request (std::unique_ptr <mu_coin::message> message_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
+    auto start (requests.empty ());
 	requests.push (std::move (message_a));
-	if (requests.size () == 1)
+	if (start)
 	{
 		run_next ();
 	}
@@ -3452,11 +3453,62 @@ void mu_coin::bootstrap_connection::finish_request ()
 	}
 }
 
+namespace
+{
+class request_response_visitor : public mu_coin::message_visitor
+{
+public:
+    request_response_visitor (std::shared_ptr <mu_coin::bootstrap_connection> connection_a) :
+    connection (connection_a)
+    {
+    }
+    void keepalive_req (mu_coin::keepalive_req const &)
+    {
+        assert (false);
+    }
+    void keepalive_ack (mu_coin::keepalive_ack const &)
+    {
+        assert (false);
+    }
+    void publish_req (mu_coin::publish_req const &)
+    {
+        assert (false);
+    }
+    void confirm_req (mu_coin::confirm_req const &)
+    {
+        assert (false);
+    }
+    void confirm_ack (mu_coin::confirm_ack const &)
+    {
+        assert (false);
+    }
+    void confirm_nak (mu_coin::confirm_nak const &)
+    {
+        assert (false);
+    }
+    void confirm_unk (mu_coin::confirm_unk const &)
+    {
+        assert (false);
+    }
+    void bulk_req (mu_coin::bulk_req const &)
+    {
+        auto response (std::make_shared <mu_coin::bulk_req_response> (connection, std::unique_ptr <mu_coin::bulk_req> (static_cast <mu_coin::bulk_req *> (connection->requests.front ().release ()))));
+        response->send_next ();
+    }
+    void frontier_req (mu_coin::frontier_req const &)
+    {
+        auto response (std::make_shared <mu_coin::frontier_req_response> (connection, std::unique_ptr <mu_coin::frontier_req> (static_cast <mu_coin::frontier_req *> (connection->requests.front ().release ()))));
+        response->send_next ();
+    }
+    std::shared_ptr <mu_coin::bootstrap_connection> connection;
+};
+}
+
 void mu_coin::bootstrap_connection::run_next ()
 {
 	assert (!requests.empty ());
-	auto response (std::make_shared <mu_coin::bulk_req_response> (shared_from_this (), std::unique_ptr <mu_coin::bulk_req> (static_cast <mu_coin::bulk_req *> (requests.front ().release ()))));
-	response->send_next ();
+    request_response_visitor visitor (shared_from_this ());
+    requests.front ()->visit (visitor);
 }
 
 void mu_coin::bulk_req_response::set_current_end ()
