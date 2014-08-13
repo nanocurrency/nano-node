@@ -817,7 +817,7 @@ namespace mu_coin {
         ~bootstrap_connection ();
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
-        void receive_req_action (boost::system::error_code const &, size_t);
+        void receive_bulk_req_action (boost::system::error_code const &, size_t);
         std::array <uint8_t, 128> receive_buffer;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
         mu_coin::client & client;

@@ -3369,7 +3369,7 @@ void mu_coin::bootstrap_connection::receive_type_action (boost::system::error_co
             case mu_coin::message_type::bulk_req:
             {
                 auto this_l (shared_from_this ());
-                boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_req_action (ec, size_a);});
+                boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 1, 32 + 32), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->receive_bulk_req_action (ec, size_a);});
                 break;
             }
             case mu_coin::message_type::bulk_fin:
@@ -3388,7 +3388,7 @@ void mu_coin::bootstrap_connection::receive_type_action (boost::system::error_co
     }
 }
 
-void mu_coin::bootstrap_connection::receive_req_action (boost::system::error_code const & ec, size_t size_a)
+void mu_coin::bootstrap_connection::receive_bulk_req_action (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
