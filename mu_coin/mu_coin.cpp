@@ -4192,17 +4192,33 @@ connection (connection_a)
     request = std::unique_ptr <mu_coin::frontier_req> (static_cast <mu_coin::frontier_req *> (connection_a->requests.front ().release ()));
 }
 
-bool mu_coin::frontier_req::deserialize (mu_coin::stream &)
+bool mu_coin::frontier_req::deserialize (mu_coin::stream & stream_a)
 {
-    assert (false);
+    auto result (read (stream_a, start.bytes));
+    if (!result)
+    {
+        result = read (stream_a, age);
+        if (!result)
+        {
+            result = read (stream_a, count);
+        }
+    }
+    return result;
 }
 
-void mu_coin::frontier_req::serialize (mu_coin::stream &)
+void mu_coin::frontier_req::serialize (mu_coin::stream & stream_a)
 {
-    assert (false);
+    write (stream_a, start.bytes);
+    write (stream_a, age);
+    write (stream_a, count);
 }
 
 void mu_coin::frontier_req::visit (mu_coin::message_visitor & visitor_a)
 {
     visitor_a.frontier_req (*this);
+}
+
+bool mu_coin::frontier_req::operator == (mu_coin::frontier_req const & other_a) const
+{
+    return start == other_a.start && age == other_a.age && count == other_a.count;
 }

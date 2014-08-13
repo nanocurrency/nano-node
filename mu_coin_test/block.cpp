@@ -470,3 +470,20 @@ TEST (gap_cache, limit)
     }
     ASSERT_EQ (cache.max, cache.blocks.size ());
 }
+
+TEST (frontier_req, serialization)
+{
+    mu_coin::frontier_req request1;
+    request1.start = 1;
+    request1.age = 2;
+    request1.count = 3;
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream (bytes);
+        request1.serialize (stream);
+    }
+    mu_coin::bufferstream buffer (bytes.data (), bytes.size ());
+    mu_coin::frontier_req request2;
+    ASSERT_EQ (false, request2.deserialize (buffer));
+    ASSERT_EQ (request1, request2);
+}

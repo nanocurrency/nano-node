@@ -576,6 +576,7 @@ namespace mu_coin {
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &);
         void visit (mu_coin::message_visitor &) override;
+        bool operator == (mu_coin::frontier_req const &) const;
         mu_coin::address start;
         uint32_t age;
         uint32_t count;
