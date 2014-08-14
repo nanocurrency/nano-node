@@ -770,7 +770,7 @@ TEST (bootstrap_processor, process_incomplete)
     mu_coin::send_block block1;
     ASSERT_FALSE (bulk_req_initiator->process_block (block1));
     ASSERT_TRUE (bulk_req_initiator->process_end ());
-	system.service.reset ();
+    while (system.service->poll ());
 }
 
 TEST (bootstrap_processor, process_one)
@@ -849,7 +849,7 @@ TEST (bootstrap_processor, process_new)
     ASSERT_FALSE (bulk_req_initiator->process_end ());
     ASSERT_TRUE (initiator->iterator.observed.empty ());
     ASSERT_FALSE (initiator->requests.empty ());
-    ASSERT_EQ (key2.pub, initiator->requests.front ()->start);
+    while (system.service->poll ());
 }
 
 TEST (bulk_req, no_address)

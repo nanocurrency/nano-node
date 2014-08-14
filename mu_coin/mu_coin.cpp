@@ -3714,6 +3714,7 @@ void mu_coin::bootstrap_initiator::connect_action (boost::system::error_code con
 {
     if (!ec)
     {
+        std::lock_guard <std::mutex> lock (mutex);
         send_next ();
     }
 }
@@ -3745,6 +3746,8 @@ void mu_coin::bootstrap_initiator::send_next ()
 
 void mu_coin::bootstrap_initiator::run_receiver ()
 {
+    assert (!mutex.try_lock ());
+    assert (requests.front () != nullptr);
     request_visitor visitor (shared_from_this ());
     requests.front ()->visit (visitor);
 }
@@ -3761,6 +3764,7 @@ void mu_coin::bootstrap_initiator::sent_request (boost::system::error_code const
 void mu_coin::bootstrap_initiator::finish_request ()
 {
     std::lock_guard <std::mutex> lock (mutex);
+    assert (!requests.empty ());
     requests.pop ();
     if (!requests.empty ())
     {
@@ -3806,11 +3810,7 @@ void mu_coin::bulk_req_initiator::received_type (boost::system::error_code const
             case mu_coin::block_type::not_a_block:
             {
                 auto error (process_end ());
-                if (!error)
-                {
-                    connection->finish_request ();
-                }
-                else
+                if (error)
                 {
                     connection->client.log.add ("Error processing end_block");
                 }
