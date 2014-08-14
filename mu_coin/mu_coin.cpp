@@ -3729,14 +3729,14 @@ void mu_coin::bootstrap_initiator::send_next ()
         request->end = std::get <1> (iterator.current);
         auto startup (requests.empty ());
         requests.push (std::move (request));
-        if (startup)
-        {
-            run_receiver ();
-        }
         {
             send_buffer.clear ();
             mu_coin::vectorstream stream (send_buffer);
             requests.front ()->serialize (stream);
+        }
+        if (startup)
+        {
+            run_receiver ();
         }
         auto this_l (shared_from_this ());
         boost::asio::async_write (socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_request (ec, size_a);});
