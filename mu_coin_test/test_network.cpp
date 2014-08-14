@@ -749,9 +749,12 @@ TEST (bootstrap_processor, process_none)
     ++initiator->iterator;
     ASSERT_EQ (system.test_genesis_address.pub, std::get <0> (initiator->iterator.current));
     ASSERT_EQ (system.genesis.hash (), std::get <1> (initiator->iterator.current));
-    initiator->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
-    initiator->expecting = system.test_genesis_address.pub;
-    ASSERT_FALSE (initiator->process_end ());
+    initiator->requests.push (std::unique_ptr <mu_coin::bulk_req> {});
+    std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
+    request->start = system.test_genesis_address.pub;
+    request->end =system.genesis.hash ();
+    auto bulk_req_initiator (std::make_shared <mu_coin::bulk_req_initiator> (initiator, std::move (request)));
+    ASSERT_FALSE (bulk_req_initiator->process_end ());
     ASSERT_TRUE (initiator->requests.empty ());
 }
 
@@ -759,11 +762,14 @@ TEST (bootstrap_processor, process_incomplete)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto initiator (std::make_shared <mu_coin::bootstrap_initiator> (*system.clients [0], [] () {}));
-    initiator->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
-    initiator->expecting = system.test_genesis_address.pub;
+    initiator->requests.push (std::unique_ptr <mu_coin::bulk_req> {});
+    std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
+    request->start = system.test_genesis_address.pub;
+    request->end = system.genesis.hash ();
+    auto bulk_req_initiator (std::make_shared <mu_coin::bulk_req_initiator> (initiator, std::move (request)));
     mu_coin::send_block block1;
-    ASSERT_FALSE (initiator->process_block (block1));
-    ASSERT_TRUE (initiator->process_end ());
+    ASSERT_FALSE (bulk_req_initiator->process_block (block1));
+    ASSERT_TRUE (bulk_req_initiator->process_end ());
 }
 
 TEST (bootstrap_processor, process_one)
@@ -775,6 +781,7 @@ TEST (bootstrap_processor, process_one)
     auto initiator (std::make_shared <mu_coin::bootstrap_initiator> (client1, [] () {}));
     ++initiator->iterator;
     initiator->requests.push (std::make_pair (system.test_genesis_address.pub, system.genesis.hash ()));
+    std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
     initiator->expecting = system.test_genesis_address.pub;
     auto hash1 (system.clients [0]->ledger.latest (system.test_genesis_address.pub));
     auto hash2 (client1.ledger.latest (system.test_genesis_address.pub));

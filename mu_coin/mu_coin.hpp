@@ -740,22 +740,33 @@ namespace mu_coin {
         ~bootstrap_initiator ();
         void run (mu_coin::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
-        void fill_queue ();
-        void send_request (std::pair <mu_coin::address, mu_coin::block_hash> const &);
-        void send_action (boost::system::error_code const &, size_t);
+        void send_next ();
+        void sent_request (boost::system::error_code const &, size_t);
+        void run_receiver ();
+        void finish_request ();
+        mu_coin::bootstrap_iterator iterator;
+        std::queue <std::unique_ptr <mu_coin::bulk_req>> requests;
+        std::vector <uint8_t> send_buffer;
+        mu_coin::client & client;
+        boost::asio::ip::tcp::socket socket;
+        std::function <void ()> complete_action;
+        std::mutex mutex;
+        static size_t const max_queue_size = 10;
+    };
+    class bulk_req_initiator : public std::enable_shared_from_this <bulk_req_initiator>
+    {
+    public:
+        bulk_req_initiator (std::shared_ptr <mu_coin::bootstrap_initiator> const &, std::unique_ptr <mu_coin::bulk_req>);
+        ~bulk_req_initiator ();
         void receive_block ();
         void received_type (boost::system::error_code const &, size_t);
         void received_block (boost::system::error_code const &, size_t);
         bool process_block (mu_coin::block const &);
         bool process_end ();
-        mu_coin::bootstrap_iterator iterator;
-        std::queue <std::pair <mu_coin::address, mu_coin::block_hash>> requests;
+        std::array <uint8_t, 4000> receive_buffer;
+        std::unique_ptr <mu_coin::bulk_req> request;
         mu_coin::block_hash expecting;
-        std::array <uint8_t, 4000> buffer;
-        mu_coin::client & client;
-        boost::asio::ip::tcp::socket socket;
-        std::function <void ()> complete_action;
-        static size_t const max_queue_size = 10;
+        std::shared_ptr <mu_coin::bootstrap_initiator> connection;
     };
     class network
     {
