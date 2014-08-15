@@ -4308,7 +4308,10 @@ void mu_coin::network::send_complete (boost::system::error_code const & ec, size
 
 uint64_t mu_coin::block_store::now ()
 {
-    
+    boost::posix_time::ptime epoch (boost::gregorian::date (1970, 1, 1));
+    auto now (boost::posix_time::second_clock::universal_time ());
+    auto diff (now - epoch);
+    return diff.total_seconds ();
 }
 
 mu_coin::bulk_req_response::bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a, std::unique_ptr <mu_coin::bulk_req> request_a) :
@@ -4319,10 +4322,23 @@ request (std::move (request_a))
 }
 
 mu_coin::frontier_req_response::frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const & connection_a, std::unique_ptr <mu_coin::frontier_req> request_a) :
-iterator (connection_a->client.ledger.store.latest_begin (request_a->start)),
+iterator (connection_a->client.store.latest_begin (request_a->start)),
 connection (connection_a),
 request (std::move (request_a))
 {
+    skip_old ();
+}
+
+void mu_coin::frontier_req_response::skip_old ()
+{
+    if (request->age != std::numeric_limits<decltype (request->age)>::max ())
+    {
+        auto now (connection->client.store.now ());
+        while (iterator != connection->client.ledger.store.latest_end () && (now - iterator->time) >= request->age)
+        {
+            ++iterator;
+        }
+    }
 }
 
 void mu_coin::frontier_req_response::send_next ()

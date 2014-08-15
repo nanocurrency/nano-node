@@ -4,6 +4,8 @@
 TEST (block_store, construction)
 {
     mu_coin::block_store db (mu_coin::block_store_temp);
+    auto now (db.now ());
+    ASSERT_GT (now, 1408074640);
 }
 
 TEST (block_store, add_item)

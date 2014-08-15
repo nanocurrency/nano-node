@@ -854,6 +854,7 @@ namespace mu_coin {
     {
     public:
         frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &, std::unique_ptr <mu_coin::frontier_req>);
+        void skip_old ();
 		void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
         void send_finished ();
