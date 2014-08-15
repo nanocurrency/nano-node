@@ -3690,7 +3690,8 @@ public:
     }
     void frontier_req (mu_coin::frontier_req const &)
     {
-        assert (false);
+        auto response (std::make_shared <mu_coin::frontier_req_initiator> (connection, std::unique_ptr <mu_coin::frontier_req> (static_cast <mu_coin::frontier_req *> (connection->requests.front ().release ()))));
+        response->receive_frontier ();
     }
     std::shared_ptr <mu_coin::bootstrap_initiator> connection;
 };
@@ -3728,13 +3729,13 @@ void mu_coin::bootstrap_initiator::send_next ()
         std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
         request->start = std::get <0> (iterator.current);
         request->end = std::get <1> (iterator.current);
-        auto startup (requests.empty ());
-        requests.push (std::move (request));
         {
             send_buffer.clear ();
             mu_coin::vectorstream stream (send_buffer);
-            requests.front ()->serialize (stream);
+            request->serialize (stream);
         }
+        auto startup (requests.empty ());
+        requests.push (std::move (request));
         if (startup)
         {
             run_receiver ();
@@ -3742,6 +3743,11 @@ void mu_coin::bootstrap_initiator::send_next ()
         auto this_l (shared_from_this ());
         boost::asio::async_write (socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_request (ec, size_a);});
     }
+}
+
+void mu_coin::bootstrap_initiator::add_request (std::unique_ptr <mu_coin::message> message_a)
+{
+    
 }
 
 void mu_coin::bootstrap_initiator::run_receiver ()
@@ -4451,5 +4457,66 @@ mu_coin::bulk_req_initiator::~bulk_req_initiator ()
     if (network_logging ())
     {
         connection->client.log.add ("Exiting bulk_req initiator");
+    }
+}
+
+mu_coin::frontier_req_initiator::frontier_req_initiator (std::shared_ptr <mu_coin::bootstrap_initiator> const & connection_a, std::unique_ptr <mu_coin::frontier_req> request_a) :
+request (std::move (request_a)),
+connection (connection_a)
+{
+}
+
+mu_coin::frontier_req_initiator::~frontier_req_initiator ()
+{
+    if (network_logging ())
+    {
+        connection->client.log.add ("Exiting frontier_req initiator");
+    }
+}
+
+void mu_coin::frontier_req_initiator::receive_frontier ()
+{
+    auto this_l (shared_from_this ());
+    boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data (), sizeof (mu_coin::uint256_union) + sizeof (mu_coin::uint256_union)), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->received_frontier (ec, size_a);});
+}
+
+void mu_coin::frontier_req_initiator::received_frontier (boost::system::error_code const & ec, size_t size_a)
+{
+    if (!ec)
+    {
+        assert (size_a == sizeof (mu_coin::uint256_union) + sizeof (mu_coin::uint256_union));
+        mu_coin::address address;
+        mu_coin::bufferstream address_stream (receive_buffer.data (), sizeof (mu_coin::uint256_union));
+        auto error1 (address.deserialize (address_stream));
+        assert (!error1);
+        mu_coin::block_hash latest;
+        mu_coin::bufferstream latest_stream (receive_buffer.data () + sizeof (mu_coin::uint256_union), sizeof (mu_coin::uint256_union));
+        auto error2 (latest.deserialize (latest_stream));
+        assert (!error2);
+        if (!address.is_zero ())
+        {
+            mu_coin::block_hash our_latest;
+            uint64_t time;
+            auto unknown (connection->client.store.latest_get (address, our_latest, time));
+            if (unknown)
+            {
+                std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
+                request->start = address;
+                request->end = 0;
+                connection->add_request (std::move (request));
+            }
+            else
+            {
+                auto exists (connection->client.store.block_exists (latest));
+                if (!exists)
+                {
+                    std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
+                    request->start = address;
+                    request->end = our_latest;
+                    connection->add_request (std::move (request));
+                }
+            }
+            receive_frontier ();
+        }
     }
 }

@@ -744,8 +744,9 @@ namespace mu_coin {
         void sent_request (boost::system::error_code const &, size_t);
         void run_receiver ();
         void finish_request ();
+        void add_request (std::unique_ptr <mu_coin::message>);
         mu_coin::bootstrap_iterator iterator;
-        std::queue <std::unique_ptr <mu_coin::bulk_req>> requests;
+        std::queue <std::unique_ptr <mu_coin::message>> requests;
         std::vector <uint8_t> send_buffer;
         mu_coin::client & client;
         boost::asio::ip::tcp::socket socket;
@@ -766,6 +767,17 @@ namespace mu_coin {
         std::array <uint8_t, 4000> receive_buffer;
         std::unique_ptr <mu_coin::bulk_req> request;
         mu_coin::block_hash expecting;
+        std::shared_ptr <mu_coin::bootstrap_initiator> connection;
+    };
+    class frontier_req_initiator : public std::enable_shared_from_this <frontier_req_initiator>
+    {
+    public:
+        frontier_req_initiator (std::shared_ptr <mu_coin::bootstrap_initiator> const &, std::unique_ptr <mu_coin::frontier_req>);
+        ~frontier_req_initiator ();
+        void receive_frontier ();
+        void received_frontier (boost::system::error_code const &, size_t);
+        std::array <uint8_t, 4000> receive_buffer;
+        std::unique_ptr <mu_coin::frontier_req> request;
         std::shared_ptr <mu_coin::bootstrap_initiator> connection;
     };
     class network
