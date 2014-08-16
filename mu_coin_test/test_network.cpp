@@ -640,9 +640,15 @@ TEST (bootstrap_processor, process_none)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
+    auto done (false);
+    client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
+    while (!done)
+    {
+        system.service->run_one ();
+    }
 }
 
-TEST (bootstrap_processor, DISABLED_process_incomplete)
+TEST (bootstrap_processor, process_incomplete)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto initiator (std::make_shared <mu_coin::bootstrap_initiator> (*system.clients [0], [] () {}));
@@ -657,28 +663,23 @@ TEST (bootstrap_processor, DISABLED_process_incomplete)
     while (system.service->poll ());
 }
 
-TEST (bootstrap_processor, DISABLED_process_one)
+TEST (bootstrap_processor, process_one)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     ASSERT_FALSE (system.clients [0]->send (system.test_genesis_address.pub, 100, system.clients [0]->wallet.password));
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    auto initiator (std::make_shared <mu_coin::bootstrap_initiator> (client1, [] () {}));
-    initiator->requests.push (std::unique_ptr <mu_coin::bulk_req> {});
-	std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
-	request->start = system.test_genesis_address.pub;
-	request->end = system.genesis.hash ();
-	auto bulk_req_initiator (std::make_shared <mu_coin::bulk_req_initiator> (initiator, std::move (request)));
     auto hash1 (system.clients [0]->ledger.latest (system.test_genesis_address.pub));
     auto hash2 (client1.ledger.latest (system.test_genesis_address.pub));
     ASSERT_NE (hash1, hash2);
-    auto block (system.clients [0]->ledger.store.block_get (hash1));
-    ASSERT_NE (nullptr, block);
-    ASSERT_FALSE (bulk_req_initiator->process_block (*block));
-    ASSERT_FALSE (bulk_req_initiator->process_end ());
+    auto done (false);
+    client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
+    while (!done)
+    {
+        system.service->run_one ();
+    }
     auto hash3 (client1.ledger.latest (system.test_genesis_address.pub));
     ASSERT_EQ (hash1, hash3);
-    ASSERT_TRUE (initiator->requests.empty ());
 }
 
 TEST (bootstrap_processor, DISABLED_process_two)

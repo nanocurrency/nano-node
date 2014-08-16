@@ -3385,13 +3385,20 @@ void mu_coin::bootstrap_connection::receive_type_action (boost::system::error_co
 			}
             default:
             {
+                if (network_logging ())
+                {
+                    client.log.add (boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast <uint8_t> (type)));
+                }
                 break;
             }
         }
     }
     else
     {
-        receive ();
+        if (network_logging ())
+        {
+            client.log.add (boost::str (boost::format ("Error while receiving type %1%") % ec.message ()));
+        }
     }
 }
 
@@ -3431,6 +3438,13 @@ void mu_coin::bootstrap_connection::receive_frontier_req_action (boost::system::
 			add_request (std::unique_ptr <mu_coin::message> (request.release ()));
 		}
 	}
+    else
+    {
+        if (network_logging ())
+        {
+            client.log.add (boost::str (boost::format ("Error sending receiving frontier request %1%") % ec.message ()));
+        }
+    }
 }
 
 void mu_coin::bootstrap_connection::add_request (std::unique_ptr <mu_coin::message> message_a)
@@ -3721,6 +3735,13 @@ void mu_coin::bootstrap_initiator::connect_action (boost::system::error_code con
     {
         send_frontier_request ();
     }
+    else
+    {
+        if (network_logging ())
+        {
+            client.log.add (boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ()));
+        }
+    }
 }
 
 void mu_coin::bootstrap_initiator::send_frontier_request ()
@@ -3738,21 +3759,28 @@ void mu_coin::bootstrap_initiator::sent_request (boost::system::error_code const
     {
         client.log.add (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
     }
+    else
+    {
+        if (network_logging ())
+        {
+            client.log.add (boost::str (boost::format ("Error sending bootstrap request %1%") % ec.message ()));
+        }
+    }
 }
 
 void mu_coin::bootstrap_initiator::add_request (std::unique_ptr <mu_coin::message> message_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
+    send_buffer.clear ();
+    {
+        mu_coin::vectorstream stream (send_buffer);
+        message_a->serialize (stream);
+    }
     auto startup (requests.empty ());
     requests.push (std::move (message_a));
     if (startup)
     {
         run_receiver ();
-    }
-    send_buffer.clear ();
-    {
-        mu_coin::vectorstream stream (send_buffer);
-        message_a->serialize (stream);
     }
     auto this_l (shared_from_this ());
     boost::asio::async_write (socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_request (ec, size_a);});
@@ -4288,8 +4316,8 @@ void mu_coin::frontier_req_response::send_next ()
         {
             send_buffer.clear ();
             mu_coin::vectorstream stream (send_buffer);
-            write (stream, pair.first);
-            write (stream, pair.second);
+            write (stream, pair.first.bytes);
+            write (stream, pair.second.bytes);
         }
         auto this_l (shared_from_this ());
         if (network_logging ())
@@ -4306,22 +4334,33 @@ void mu_coin::frontier_req_response::send_next ()
 
 void mu_coin::frontier_req_response::send_finished ()
 {
-    send_buffer.clear ();
-    send_buffer.push_back (static_cast <uint8_t> (mu_coin::block_type::not_a_block));
+    {
+        send_buffer.clear ();
+        mu_coin::vectorstream stream (send_buffer);
+        mu_coin::uint256_union zero (0);
+        write (stream, zero.bytes);
+        write (stream, zero.bytes);
+    }
     auto this_l (shared_from_this ());
     if (network_logging ())
     {
         connection->client.log.add ("Frontier sending finished");
     }
-    async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
+    async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->no_block_sent (ec, size_a);});
 }
 
 void mu_coin::frontier_req_response::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
-        assert (size_a == 1);
 		connection->finish_request ();
+    }
+    else
+    {
+        if (network_logging ())
+        {
+            connection->client.log.add (boost::str (boost::format ("Error sending frontier finish %1%") % ec.message ()));
+        }
     }
 }
 
@@ -4330,6 +4369,13 @@ void mu_coin::frontier_req_response::sent_action (boost::system::error_code cons
     if (!ec)
     {
         send_next ();
+    }
+    else
+    {
+        if (network_logging ())
+        {
+            connection->client.log.add (boost::str (boost::format ("Error sending frontier pair %1%") % ec.message ()));
+        }
     }
 }
 
@@ -4347,13 +4393,19 @@ std::pair <mu_coin::uint256_union, mu_coin::uint256_union> mu_coin::frontier_req
 
 bool mu_coin::frontier_req::deserialize (mu_coin::stream & stream_a)
 {
-    auto result (read (stream_a, start.bytes));
+    mu_coin::message_type type;
+    auto result (read (stream_a, type));
     if (!result)
     {
-        result = read (stream_a, age);
+        assert (type == mu_coin::message_type::frontier_req);
+        result = read (stream_a, start.bytes);
         if (!result)
         {
-            result = read (stream_a, count);
+            result = read (stream_a, age);
+            if (!result)
+            {
+                result = read (stream_a, count);
+            }
         }
     }
     return result;
@@ -4361,6 +4413,7 @@ bool mu_coin::frontier_req::deserialize (mu_coin::stream & stream_a)
 
 void mu_coin::frontier_req::serialize (mu_coin::stream & stream_a)
 {
+    write (stream_a, mu_coin::message_type::frontier_req);
     write (stream_a, start.bytes);
     write (stream_a, age);
     write (stream_a, count);
@@ -4450,6 +4503,17 @@ void mu_coin::frontier_req_initiator::received_frontier (boost::system::error_co
                 }
             }
             receive_frontier ();
+        }
+        else
+        {
+            connection->finish_request ();
+        }
+    }
+    else
+    {
+        if (network_logging ())
+        {
+            connection->client.log.add (boost::str (boost::format ("Error while receiving frontier %1%") % ec.message ()));
         }
     }
 }
