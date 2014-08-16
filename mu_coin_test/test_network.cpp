@@ -682,7 +682,7 @@ TEST (bootstrap_processor, process_one)
     ASSERT_EQ (hash1, hash3);
 }
 
-TEST (bootstrap_processor, DISABLED_process_two)
+TEST (bootstrap_processor, process_two)
 {
     mu_coin::system system (1, 24000, 25000, 1, 100);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
@@ -695,20 +695,14 @@ TEST (bootstrap_processor, DISABLED_process_two)
     ASSERT_NE (hash1, hash3);
     ASSERT_NE (hash2, hash3);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    auto initiator (std::make_shared <mu_coin::bootstrap_initiator> (client1, [] () {}));
-    initiator->requests.push (std::unique_ptr <mu_coin::bulk_req> {});
-	std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
-	request->start = system.test_genesis_address.pub;
-	request->end = system.genesis.hash ();
-	auto bulk_req_initiator (std::make_shared <mu_coin::bulk_req_initiator> (initiator, std::move (request)));
-    auto block2 (system.clients [0]->ledger.store.block_get (hash3));
-    ASSERT_FALSE (bulk_req_initiator->process_block (*block2));
-    auto block1 (system.clients [0]->ledger.store.block_get (hash2));
-    ASSERT_FALSE (bulk_req_initiator->process_block (*block1));
-    ASSERT_FALSE (bulk_req_initiator->process_end ());
+    auto done (false);
+    client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
+    while (!done)
+    {
+        system.service->run_one ();
+    }
     auto hash4 (client1.ledger.latest (system.test_genesis_address.pub));
     ASSERT_EQ (hash3, hash4);
-    ASSERT_TRUE (initiator->requests.empty ());
 }
 
 TEST (bootstrap_processor, DISABLED_process_new)
