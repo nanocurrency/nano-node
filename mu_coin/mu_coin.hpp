@@ -498,6 +498,7 @@ namespace mu_coin {
     {
     public:
         virtual ~message () = default;
+        virtual void serialize (mu_coin::stream &) = 0;
         virtual void visit (mu_coin::message_visitor &) = 0;
     };
     class keepalive_req : public message
@@ -505,7 +506,7 @@ namespace mu_coin {
     public:
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
 		std::array <mu_coin::endpoint, 24> peers;
     };
     class keepalive_ack : public message
@@ -513,7 +514,7 @@ namespace mu_coin {
     public:
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
 		std::array <mu_coin::endpoint, 24> peers;
     };
     class publish_req : public message
@@ -523,14 +524,14 @@ namespace mu_coin {
         publish_req (std::unique_ptr <mu_coin::block>);
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
         std::unique_ptr <mu_coin::block> block;
     };
     class confirm_req : public message
     {
     public:
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::confirm_req const &) const;
 		mu_coin::uint256_union session;
@@ -540,7 +541,7 @@ namespace mu_coin {
     {
     public:
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::confirm_ack const &) const;
 		mu_coin::uint256_union hash () const;
@@ -552,7 +553,7 @@ namespace mu_coin {
     {
     public:
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) override;
 		mu_coin::uint256_union hash () const;
         mu_coin::uint256_union session;
@@ -564,7 +565,7 @@ namespace mu_coin {
     {
     public:
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) override;
 		mu_coin::uint256_union hash () const;
         mu_coin::address rep_hint;
@@ -574,7 +575,7 @@ namespace mu_coin {
     {
     public:
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::frontier_req const &) const;
         mu_coin::address start;
@@ -585,7 +586,7 @@ namespace mu_coin {
     {
     public:
         bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &);
+        void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) override;
         mu_coin::uint256_union start;
         mu_coin::block_hash end;
@@ -722,17 +723,6 @@ namespace mu_coin {
         std::mutex mutex;
         std::unordered_map <mu_coin::uint256_union, session> confirm_listeners;
     };
-    class bootstrap_iterator
-    {
-    public:
-        bootstrap_iterator (mu_coin::block_store &);
-        bootstrap_iterator & operator ++ ();
-        void observed_block (mu_coin::block const &);
-        mu_coin::block_store & store;
-        std::tuple <mu_coin::address, mu_coin::block_hash, uint64_t> current;
-        mu_coin::address store_address;
-        std::set <mu_coin::address> observed;
-    };
     class bootstrap_initiator : public std::enable_shared_from_this <bootstrap_initiator>
     {
     public:
@@ -740,12 +730,12 @@ namespace mu_coin {
         ~bootstrap_initiator ();
         void run (mu_coin::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
-        void send_next ();
+        void send_frontier_request ();
         void sent_request (boost::system::error_code const &, size_t);
         void run_receiver ();
         void finish_request ();
+        void add_and_send (std::unique_ptr <mu_coin::message>);
         void add_request (std::unique_ptr <mu_coin::message>);
-        mu_coin::bootstrap_iterator iterator;
         std::queue <std::unique_ptr <mu_coin::message>> requests;
         std::vector <uint8_t> send_buffer;
         mu_coin::client & client;

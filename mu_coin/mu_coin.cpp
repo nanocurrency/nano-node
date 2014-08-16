@@ -2573,6 +2573,11 @@ void mu_coin::confirm_ack::visit (mu_coin::message_visitor & visitor_a)
     visitor_a.confirm_ack (*this);
 }
 
+void mu_coin::confirm_nak::serialize (mu_coin::stream & stream_a)
+{
+    assert (false);
+}
+
 bool mu_coin::confirm_nak::deserialize (mu_coin::stream & stream_a)
 {
     mu_coin::message_type type;
@@ -3698,7 +3703,6 @@ public:
 }
 
 mu_coin::bootstrap_initiator::bootstrap_initiator (mu_coin::client & client_a, std::function <void ()> const & complete_action_a) :
-iterator (client_a.store),
 client (client_a),
 socket (client_a.network.service),
 complete_action (complete_action_a)
@@ -3715,39 +3719,43 @@ void mu_coin::bootstrap_initiator::connect_action (boost::system::error_code con
 {
     if (!ec)
     {
-        std::lock_guard <std::mutex> lock (mutex);
-        send_next ();
+        send_frontier_request ();
     }
 }
 
-void mu_coin::bootstrap_initiator::send_next ()
+void mu_coin::bootstrap_initiator::send_frontier_request ()
 {
-    assert (!mutex.try_lock ());
-    ++iterator;
-    if (!std::get <0> (iterator.current).is_zero ())
+    std::unique_ptr <mu_coin::frontier_req> request (new mu_coin::frontier_req);
+    request->start = 0;
+    request->age = std::numeric_limits <decltype (request->age)>::max ();
+    request->count = std::numeric_limits <decltype (request->age)>::max ();
+    add_request (std::move (request));
+}
+
+void mu_coin::bootstrap_initiator::sent_request (boost::system::error_code const & ec, size_t size_a)
+{
+    if (ec)
     {
-        std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
-        request->start = std::get <0> (iterator.current);
-        request->end = std::get <1> (iterator.current);
-        {
-            send_buffer.clear ();
-            mu_coin::vectorstream stream (send_buffer);
-            request->serialize (stream);
-        }
-        auto startup (requests.empty ());
-        requests.push (std::move (request));
-        if (startup)
-        {
-            run_receiver ();
-        }
-        auto this_l (shared_from_this ());
-        boost::asio::async_write (socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_request (ec, size_a);});
+        client.log.add (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
     }
 }
 
 void mu_coin::bootstrap_initiator::add_request (std::unique_ptr <mu_coin::message> message_a)
 {
-    
+    std::lock_guard <std::mutex> lock (mutex);
+    auto startup (requests.empty ());
+    requests.push (std::move (message_a));
+    if (startup)
+    {
+        run_receiver ();
+    }
+    send_buffer.clear ();
+    {
+        mu_coin::vectorstream stream (send_buffer);
+        message_a->serialize (stream);
+    }
+    auto this_l (shared_from_this ());
+    boost::asio::async_write (socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a) {this_l->sent_request (ec, size_a);});
 }
 
 void mu_coin::bootstrap_initiator::run_receiver ()
@@ -3756,15 +3764,6 @@ void mu_coin::bootstrap_initiator::run_receiver ()
     assert (requests.front () != nullptr);
     request_visitor visitor (shared_from_this ());
     requests.front ()->visit (visitor);
-}
-
-void mu_coin::bootstrap_initiator::sent_request (boost::system::error_code const & ec, size_t size_a)
-{
-    if (!ec)
-    {
-        std::lock_guard <std::mutex> lock (mutex);
-        send_next ();
-    }
 }
 
 void mu_coin::bootstrap_initiator::finish_request ()
@@ -3776,7 +3775,6 @@ void mu_coin::bootstrap_initiator::finish_request ()
     {
         run_receiver ();
     }
-    send_next ();
 }
 
 void mu_coin::bulk_req_initiator::receive_block ()
@@ -3874,10 +3872,6 @@ bool mu_coin::bulk_req_initiator::process_end ()
             if (block != nullptr)
             {
                 processing = connection->client.ledger.process (*block);
-                if (processing == mu_coin::process_result::progress)
-                {
-                    connection->iterator.observed_block (*block);
-                }
                 expecting = block->hash ();
             }
         } while (block != nullptr && processing == mu_coin::process_result::progress);
@@ -3893,21 +3887,6 @@ bool mu_coin::bulk_req_initiator::process_end ()
     }
     connection->finish_request ();
     return result;
-}
-
-void mu_coin::bootstrap_iterator::observed_block (mu_coin::block const & block_a)
-{
-    observed_visitor visitor;
-    block_a.visit (visitor);
-    if (!visitor.address.is_zero ())
-    {
-        mu_coin::block_hash hash;
-        uint64_t time;
-        if (store.latest_get (visitor.address, hash, time))
-        {
-            observed.insert (visitor.address);
-        }
-    }
 }
 
 mu_coin::block_hash mu_coin::genesis::hash () const
@@ -4030,52 +4009,6 @@ std::string mu_coin::uint256_union::to_string () const
 bool mu_coin::uint256_union::operator < (mu_coin::uint256_union const & other_a) const
 {
     return number () < other_a.number ();
-}
-
-mu_coin::bootstrap_iterator::bootstrap_iterator (mu_coin::block_store & store_a) :
-store (store_a),
-current (std::make_tuple (0, 0, 0)),
-store_address (0)
-{
-}
-
-mu_coin::bootstrap_iterator & mu_coin::bootstrap_iterator::operator ++ ()
-{
-    auto next (store.latest_begin (store_address.number () + 1));
-    if (!observed.empty () && next != store.latest_end ())
-    {
-        if (next.key.uint256 () < *observed.begin ())
-        {
-            std::get <0> (current) = next.key.uint256 ();
-            next.data.frontier (std::get <1> (current), std::get <2> (current));
-            store_address = std::get <0> (current);
-        }
-        else
-        {
-            std::get <0> (current) = *observed.begin ();
-            std::get <1> (current) = 0;
-            std::get <2> (current) = 0;
-            observed.erase (std::get <0> (current));
-        }
-    }
-    else if (!observed.empty ())
-    {
-        std::get <0> (current) = *observed.begin ();
-        std::get <1> (current) = 0;
-        std::get <2> (current) = 0;
-        observed.erase (std::get <0> (current));
-    }
-    else if (next != store.latest_end ())
-    {
-        std::get <0> (current) = next.key.uint256 ();
-        next.data.frontier (std::get <1> (current), std::get <2> (current));
-        store_address = std::get <0> (current);
-    }
-    else
-    {
-        std::get <0> (current) = 0;
-    }
-    return *this;
 }
 
 void mu_coin::system::generate_transaction (uint32_t amount)
