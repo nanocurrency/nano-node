@@ -705,26 +705,28 @@ TEST (bootstrap_processor, process_two)
     ASSERT_EQ (hash3, hash4);
 }
 
-TEST (bootstrap_processor, DISABLED_process_new)
+TEST (bootstrap_processor, process_new)
 {
-    mu_coin::system system (1, 24000, 25000, 1, 100);
+    mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     mu_coin::keypair key2;
+    system.clients [1]->wallet.insert (key2.prv, system.clients [1]->wallet.password);
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
-    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    auto initiator (std::make_shared <mu_coin::bootstrap_initiator> (client1, [] () {}));
-    initiator->requests.push (std::unique_ptr <mu_coin::bulk_req> {});
-	std::unique_ptr <mu_coin::bulk_req> request (new mu_coin::bulk_req);
-	request->start = system.test_genesis_address.pub;
-	request->end = system.genesis.hash ();
-	auto bulk_req_initiator (std::make_shared <mu_coin::bulk_req_initiator> (initiator, std::move (request)));
-    auto hash1 (system.clients [0]->ledger.latest (system.test_genesis_address.pub));
-    auto block (system.clients [0]->ledger.store.block_get (hash1));
-    ASSERT_NE (nullptr, block);
-    ASSERT_FALSE (bulk_req_initiator->process_block (*block));
-    ASSERT_FALSE (bulk_req_initiator->process_end ());
-    ASSERT_FALSE (initiator->requests.empty ());
-    while (system.service->poll ());
+    while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
+    {
+        system.service->run_one ();
+    }
+    auto balance1 (system.clients [0]->ledger.account_balance (system.test_genesis_address.pub));
+    auto balance2 (system.clients [0]->ledger.account_balance (key2.pub));
+    mu_coin::client client1 (system.service, system.pool, 24002, 25002, system.processor, system.test_genesis_address.pub, system.genesis);
+    auto done (false);
+    client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
+    while (!done)
+    {
+        system.service->run_one ();
+    }
+    ASSERT_EQ (balance1, client1.ledger.account_balance (system.test_genesis_address.pub));
+    ASSERT_EQ (balance2, client1.ledger.account_balance (key2.pub));
 }
 
 TEST (bulk_req, no_address)
