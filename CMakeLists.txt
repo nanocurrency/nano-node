@@ -43,6 +43,6 @@ add_executable (mu_coin_qt
     mu_coin_qt/qt.cpp
     mu_coin_qt/qt.hpp)
 
-target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${CPPNETLIB_LIBRARIES})
+target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${CPPNETLIB_LIBRARIES} pthread)
 
-target_link_libraries (mu_coin_qt mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY})
+target_link_libraries (mu_coin_qt mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread)
