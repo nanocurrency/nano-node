@@ -1499,8 +1499,8 @@ db (db_a)
     {
         auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
         assert (error1 == UNQLITE_OK);
-        auto error2 (unqlite_kv_cursor_first_entry (cursor));
-        set_from_return (error2);
+        unqlite_kv_cursor_first_entry (cursor);
+        set_from_cursor ();
     }
     else
     {
@@ -1510,9 +1510,16 @@ db (db_a)
     }
 }
 
-void mu_coin::key_iterator::set_from_return (int value_a)
+void mu_coin::key_iterator::set_from_cursor ()
 {
-    if (value_a == UNQLITE_NOTFOUND)
+    if (unqlite_kv_cursor_valid_entry (cursor))
+    {
+        int key_size (sizeof (current.first.bytes));
+        unqlite_kv_cursor_key (cursor, current.first.bytes.data (), &key_size);
+        int64_t value_size (sizeof (current.second.bytes));
+        unqlite_kv_cursor_data (cursor, current.second.bytes.data (), &value_size);
+    }
+    else
     {
         current.first.clear ();
         current.second.clear ();
@@ -1521,19 +1528,12 @@ void mu_coin::key_iterator::set_from_return (int value_a)
         db = nullptr;
         cursor = nullptr;
     }
-    else
-    {
-        int key_size (sizeof (current.first.bytes));
-        unqlite_kv_cursor_key (cursor, current.first.bytes.data (), &key_size);
-        int64_t value_size (sizeof (current.second.bytes));
-        unqlite_kv_cursor_data (cursor, current.second.bytes.data (), &value_size);
-    }
 }
 
 mu_coin::key_iterator & mu_coin::key_iterator::operator ++ ()
 {
-    auto error (unqlite_kv_cursor_next_entry (cursor));
-    set_from_return (error);
+    unqlite_kv_cursor_next_entry (cursor);
+    set_from_cursor ();
     return *this;
 }
 
@@ -1553,8 +1553,8 @@ db (db_a)
 {
     auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
     assert (error1 == UNQLITE_OK);
-    auto error2 (unqlite_kv_cursor_seek (cursor, key_a.bytes.data (), key_a.bytes.size (), UNQLITE_CURSOR_MATCH_EXACT));
-    set_from_return (error2);
+    unqlite_kv_cursor_seek (cursor, key_a.bytes.data (), key_a.bytes.size (), UNQLITE_CURSOR_MATCH_EXACT);
+    set_from_cursor ();
 }
 
 mu_coin::key_iterator mu_coin::wallet::find (mu_coin::uint256_union const & key)
@@ -2278,8 +2278,8 @@ db (db_a)
     {
         auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
         assert (error1 == UNQLITE_OK);
-        auto error2 (unqlite_kv_cursor_first_entry (cursor));
-        set_from_return (error2);
+        unqlite_kv_cursor_first_entry (cursor);
+        set_from_cursor ();
     }
     else
     {
@@ -2292,24 +2292,14 @@ db (db_a)
 
 mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
 {
-    auto error (unqlite_kv_cursor_next_entry (cursor));
-    set_from_return (error);
+    unqlite_kv_cursor_next_entry (cursor);
+    set_from_cursor ();
     return *this;
 }
 
-void mu_coin::account_iterator::set_from_return (int value_a)
+void mu_coin::account_iterator::set_from_cursor ()
 {
-    if (value_a == UNQLITE_NOTFOUND)
-    {
-        auto error (unqlite_kv_cursor_release (db, cursor));
-        assert (error == UNQLITE_OK);
-        cursor = nullptr;
-        db = nullptr;
-        current.first.clear ();
-        current.second.clear ();
-        current.time = 0;
-    }
-    else
+    if (unqlite_kv_cursor_valid_entry (cursor))
     {
         int key_size (current.first.bytes.size ());
         unqlite_kv_cursor_key (cursor, current.first.bytes.data (), &key_size);
@@ -2318,6 +2308,16 @@ void mu_coin::account_iterator::set_from_return (int value_a)
         int64_t value_size (value.bytes.size ());
         unqlite_kv_cursor_data (cursor, value.bytes.data (), &value_size);
         value.frontier (current.second, current.time);
+    }
+    else
+    {
+        auto error (unqlite_kv_cursor_release (db, cursor));
+        assert (error == UNQLITE_OK);
+        cursor = nullptr;
+        db = nullptr;
+        current.first.clear ();
+        current.second.clear ();
+        current.time = 0;
     }
 }
 
@@ -2343,8 +2343,8 @@ db (db_a)
     {
         auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
         assert (error1 == UNQLITE_OK);
-        auto error2 (unqlite_kv_cursor_first_entry (cursor));
-        set_from_return (error2);
+        unqlite_kv_cursor_first_entry (cursor);
+        set_from_cursor ();
     }
     else
     {
@@ -2355,25 +2355,17 @@ db (db_a)
 
 mu_coin::block_iterator & mu_coin::block_iterator::operator ++ ()
 {
-    auto error (unqlite_kv_cursor_next_entry (cursor));
-    set_from_return (error);
+    unqlite_kv_cursor_next_entry (cursor);
+    set_from_cursor ();
     return *this;
 }
 
-void mu_coin::block_iterator::set_from_return (int value_a)
+void mu_coin::block_iterator::set_from_cursor ()
 {
-    if (value_a == UNQLITE_NOTFOUND)
-    {
-        auto error (unqlite_kv_cursor_release (db, cursor));
-        assert (error == UNQLITE_OK);
-        db = nullptr;
-        cursor = nullptr;
-        current.first.clear ();
-        current.second.release ();
-    }
-    else
+    if (unqlite_kv_cursor_valid_entry (cursor))
     {
         int key_size (current.first.bytes.size ());
+        auto key_error1 (unqlite_kv_cursor_key (cursor, nullptr, &key_size));
         auto key_error (unqlite_kv_cursor_key (cursor, current.first.bytes.data (), &key_size));
         assert (key_error == UNQLITE_OK);
         int64_t value_size;
@@ -2386,6 +2378,15 @@ void mu_coin::block_iterator::set_from_return (int value_a)
         mu_coin::bufferstream stream (value.data (), value.size ());
         current.second = mu_coin::deserialize_block (stream);
         assert (current.second != nullptr);
+    }
+    else
+    {
+        auto error (unqlite_kv_cursor_release (db, cursor));
+        assert (error == UNQLITE_OK);
+        db = nullptr;
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.release ();
     }
 }
 mu_coin::block_entry & mu_coin::block_iterator::operator -> ()
@@ -3691,8 +3692,8 @@ db (db_a)
     auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
     assert (error1 == UNQLITE_OK);
     current.first = address_a;
-    auto result (unqlite_kv_cursor_seek (cursor, current.first.bytes.data (), current.first.bytes.size (), UNQLITE_CURSOR_MATCH_GE));
-    set_from_return (result);
+    unqlite_kv_cursor_seek (cursor, current.first.bytes.data (), current.first.bytes.size (), UNQLITE_CURSOR_MATCH_GE);
+    set_from_cursor ();
 }
 
 namespace

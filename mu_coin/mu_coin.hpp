@@ -360,7 +360,7 @@ namespace mu_coin {
         account_iterator (unqlite *, mu_coin::address const &);
         account_iterator (mu_coin::account_iterator &&) = default;
         account_iterator (mu_coin::account_iterator const &) = default;
-        void set_from_return (int);
+        void set_from_cursor ();
         account_iterator & operator ++ ();
         account_entry & operator -> ();
         bool operator == (mu_coin::account_iterator const &) const;
@@ -386,7 +386,7 @@ namespace mu_coin {
         block_entry & operator -> ();
         bool operator == (mu_coin::block_iterator const &) const;
         bool operator != (mu_coin::block_iterator const &) const;
-        void set_from_return (int);
+        void set_from_cursor ();
         unqlite * db;
         unqlite_kv_cursor * cursor;
         mu_coin::block_entry current;
@@ -624,7 +624,7 @@ namespace mu_coin {
         key_iterator (unqlite *);
         key_iterator (unqlite *, mu_coin::uint256_union const &);
         key_iterator (mu_coin::key_iterator const &) = default;
-        void set_from_return (int);
+        void set_from_cursor ();
         key_iterator & operator ++ ();
         mu_coin::key_entry & operator -> ();
         bool operator == (mu_coin::key_iterator const &) const;
