@@ -356,15 +356,15 @@ namespace mu_coin {
     class account_iterator
     {
     public:
-        account_iterator (unqlite *, unqlite_kv_cursor *);
-        account_iterator (unqlite *, unqlite_kv_cursor *, mu_coin::address const &);
+        account_iterator (unqlite *);
+        account_iterator (unqlite *, mu_coin::address const &);
         account_iterator (mu_coin::account_iterator &&) = default;
         account_iterator (mu_coin::account_iterator const &) = default;
+        void set_from_return (int);
         account_iterator & operator ++ ();
         account_entry & operator -> ();
         bool operator == (mu_coin::account_iterator const &) const;
         bool operator != (mu_coin::account_iterator const &) const;
-        void clear ();
         unqlite * db;
         unqlite_kv_cursor * cursor;
         mu_coin::account_entry current;

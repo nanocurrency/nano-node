@@ -2271,18 +2271,33 @@ size_t mu_coin::processor::publish_listener_size ()
     return confirm_listeners.size ();
 }
 
-mu_coin::account_iterator::account_iterator (unqlite * db_a, unqlite_kv_cursor * cursor_a) :
-db (db_a),
-cursor (cursor_a)
+mu_coin::account_iterator::account_iterator (unqlite * db_a) :
+db (db_a)
 {
+    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+    assert (error1 == UNQLITE_OK);
+    auto error2 (unqlite_kv_cursor_next_entry (cursor));
+    set_from_return (error2);
 }
 
 mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
 {
-    auto result (unqlite_kv_cursor_next_entry (cursor));
-    if (result == UNQLITE_NOTFOUND)
+    auto error (unqlite_kv_cursor_next_entry (cursor));
+    set_from_return (error);
+    return *this;
+}
+
+void mu_coin::account_iterator::set_from_return (int value_a)
+{
+    if (value_a == UNQLITE_NOTFOUND)
     {
-        clear ();
+        auto error (unqlite_kv_cursor_release (db, cursor));
+        assert (error == UNQLITE_OK);
+        cursor = nullptr;
+        db = nullptr;
+        current.first.clear ();
+        current.second.clear ();
+        current.time = 0;
     }
     else
     {
@@ -2294,17 +2309,6 @@ mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
         unqlite_kv_cursor_data (cursor, value.bytes.data (), &value_size);
         value.frontier (current.second, current.time);
     }
-    return *this;
-}
-
-void mu_coin::account_iterator::clear ()
-{
-    auto error (unqlite_kv_cursor_release (db, cursor));
-    assert (error == UNQLITE_OK);
-    cursor = nullptr;
-    db = nullptr;
-    current.first.clear ();
-    current.second.clear ();
 }
 
 mu_coin::account_entry & mu_coin::account_iterator::operator -> ()
@@ -2397,17 +2401,13 @@ mu_coin::block_iterator mu_coin::block_store::blocks_end ()
 
 mu_coin::account_iterator mu_coin::block_store::latest_begin ()
 {
-    unqlite_kv_cursor * cursor;
-    auto error (unqlite_kv_cursor_init (addresses, &cursor));
-    assert (error == UNQLITE_OK);
-    mu_coin::account_iterator result (addresses, cursor);
-    ++result;
+    mu_coin::account_iterator result (addresses);
     return result;
 }
 
 mu_coin::account_iterator mu_coin::block_store::latest_end ()
 {
-    mu_coin::account_iterator result (nullptr, nullptr);
+    mu_coin::account_iterator result (nullptr);
     return result;
 }
 
@@ -3665,31 +3665,18 @@ void mu_coin::bulk_req_response::no_block_sent (boost::system::error_code const 
 
 mu_coin::account_iterator mu_coin::block_store::latest_begin (mu_coin::address const & address_a)
 {
-    unqlite_kv_cursor * cursor;
-    auto error (unqlite_kv_cursor_init (addresses, &cursor));
-    assert (error == UNQLITE_OK);
-    mu_coin::account_iterator result (addresses, cursor, address_a);
+    mu_coin::account_iterator result (addresses, address_a);
     return result;
 }
 
-mu_coin::account_iterator::account_iterator (unqlite * db_a, unqlite_kv_cursor * cursor_a, mu_coin::address const & address_a) :
-db (db_a),
-cursor (cursor_a)
+mu_coin::account_iterator::account_iterator (unqlite * db_a, mu_coin::address const & address_a) :
+db (db_a)
 {
+    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+    assert (error1 == UNQLITE_OK);
     current.first = address_a;
     auto result (unqlite_kv_cursor_seek (cursor, current.first.bytes.data (), current.first.bytes.size (), UNQLITE_CURSOR_MATCH_GE));
-    if (result == UNQLITE_NOTFOUND)
-    {
-        clear ();
-    }
-    else
-    {
-        int64_t value_size;
-        unqlite_kv_cursor_data (cursor, nullptr, &value_size);
-        mu_coin::entry value;
-        value.bytes.resize (value_size);
-        value.frontier (current.second, current.time);
-    }
+    set_from_return (result);
 }
 
 namespace
