@@ -379,14 +379,14 @@ namespace mu_coin {
     class block_iterator
     {
     public:
-        block_iterator (unqlite *, unqlite_kv_cursor *);
+        block_iterator (unqlite *);
         block_iterator (mu_coin::block_iterator &&) = default;
         block_iterator (mu_coin::block_iterator const &) = default;
         block_iterator & operator ++ ();
         block_entry & operator -> ();
         bool operator == (mu_coin::block_iterator const &) const;
         bool operator != (mu_coin::block_iterator const &) const;
-        void clear ();
+        void set_from_return (int);
         unqlite * db;
         unqlite_kv_cursor * cursor;
         mu_coin::block_entry current;
@@ -621,9 +621,10 @@ namespace mu_coin {
     class key_iterator
     {
     public:
-        key_iterator (unqlite *, unqlite_kv_cursor *);
+        key_iterator (unqlite *);
+        key_iterator (unqlite *, mu_coin::uint256_union const &);
         key_iterator (mu_coin::key_iterator const &) = default;
-        void clear ();
+        void set_from_return (int);
         key_iterator & operator ++ ();
         mu_coin::key_entry & operator -> ();
         bool operator == (mu_coin::key_iterator const &) const;

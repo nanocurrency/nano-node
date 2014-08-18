@@ -1492,28 +1492,25 @@ void mu_coin::entry::key (mu_coin::uint256_union const & key_a, mu_coin::uint128
     prv = encrypted.prv (key_a, iv);
 }
 
-mu_coin::key_iterator::key_iterator (unqlite * db_a, unqlite_kv_cursor * cursor_a) :
-db (db_a),
-cursor (cursor_a)
+mu_coin::key_iterator::key_iterator (unqlite * db_a) :
+db (db_a)
 {
+    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+    assert (error1 == UNQLITE_OK);
+    auto error2 (unqlite_kv_cursor_first_entry (cursor));
+    set_from_return (error2);
 }
 
-void mu_coin::key_iterator::clear ()
+void mu_coin::key_iterator::set_from_return (int value_a)
 {
-    current.first.clear ();
-    current.second.clear ();
-    auto error (unqlite_kv_cursor_release (db, cursor));
-    assert (error == UNQLITE_OK);
-    db = nullptr;
-    cursor = nullptr;
-}
-
-mu_coin::key_iterator & mu_coin::key_iterator::operator ++ ()
-{
-    auto result (unqlite_kv_cursor_next_entry (cursor));
-    if (result == UNQLITE_NOTFOUND)
+    if (value_a == UNQLITE_NOTFOUND)
     {
-        clear ();
+        current.first.clear ();
+        current.second.clear ();
+        auto error (unqlite_kv_cursor_release (db, cursor));
+        assert (error == UNQLITE_OK);
+        db = nullptr;
+        cursor = nullptr;
     }
     else
     {
@@ -1522,6 +1519,12 @@ mu_coin::key_iterator & mu_coin::key_iterator::operator ++ ()
         int64_t value_size (sizeof (current.second.bytes));
         unqlite_kv_cursor_data (cursor, current.second.bytes.data (), &value_size);
     }
+}
+
+mu_coin::key_iterator & mu_coin::key_iterator::operator ++ ()
+{
+    auto error (unqlite_kv_cursor_next_entry (cursor));
+    set_from_return (error);
     return *this;
 }
 
@@ -1532,40 +1535,28 @@ mu_coin::key_entry & mu_coin::key_iterator::operator -> ()
 
 mu_coin::key_iterator mu_coin::wallet::begin ()
 {
-    unqlite_kv_cursor * cursor;
-    auto init_error (unqlite_kv_cursor_init (handle, &cursor));
-    assert (init_error == UNQLITE_OK);
-    mu_coin::key_iterator result (handle, cursor);
-    ++result;
+    mu_coin::key_iterator result (handle);
     return result;
+}
+
+mu_coin::key_iterator::key_iterator (unqlite * db_a, mu_coin::uint256_union const & key_a) :
+db (db_a)
+{
+    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+    assert (error1 == UNQLITE_OK);
+    auto error2 (unqlite_kv_cursor_seek (cursor, key_a.bytes.data (), key_a.bytes.size (), UNQLITE_CURSOR_MATCH_EXACT));
+    set_from_return (error2);
 }
 
 mu_coin::key_iterator mu_coin::wallet::find (mu_coin::uint256_union const & key)
 {
-    unqlite_kv_cursor * cursor;
-    auto init_error (unqlite_kv_cursor_init (handle, &cursor));
-    assert (init_error == UNQLITE_OK);
-    mu_coin::key_iterator result (handle, cursor);
-    auto exists (unqlite_kv_cursor_seek (cursor, key.bytes.data (), key.bytes.size (), UNQLITE_CURSOR_MATCH_EXACT));
-    if (exists == UNQLITE_NOTFOUND)
-    {
-        result.clear ();
-    }
-    else
-    {
-        int key_size (result.current.first.bytes.size ());
-        auto key_error (unqlite_kv_cursor_key (cursor, result.current.first.bytes.data (), &key_size));
-        assert (key_error == UNQLITE_OK);
-        int64_t value_size (result.current.second.bytes.size ());
-        auto value_error (unqlite_kv_cursor_data (cursor, result.current.second.bytes.data (), &value_size));
-        assert (value_error == UNQLITE_OK);
-    }
+    mu_coin::key_iterator result (handle, key);
     return result;
 }
 
 mu_coin::key_iterator mu_coin::wallet::end ()
 {
-    return mu_coin::key_iterator (nullptr, nullptr);
+    return mu_coin::key_iterator (nullptr);
 }
 
 bool mu_coin::key_iterator::operator == (mu_coin::key_iterator const & other_a) const
@@ -2276,7 +2267,7 @@ db (db_a)
 {
     auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
     assert (error1 == UNQLITE_OK);
-    auto error2 (unqlite_kv_cursor_next_entry (cursor));
+    auto error2 (unqlite_kv_cursor_first_entry (cursor));
     set_from_return (error2);
 }
 
@@ -2326,18 +2317,32 @@ bool mu_coin::account_iterator::operator != (mu_coin::account_iterator const & o
     return !(*this == other_a);
 }
 
-mu_coin::block_iterator::block_iterator (unqlite * db_a, unqlite_kv_cursor * cursor_a) :
-db (db_a),
-cursor (cursor_a)
+mu_coin::block_iterator::block_iterator (unqlite * db_a) :
+db (db_a)
 {
+    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+    assert (error1 == UNQLITE_OK);
+    auto error2 (unqlite_kv_cursor_first_entry (cursor));
+    set_from_return (error2);
 }
 
 mu_coin::block_iterator & mu_coin::block_iterator::operator ++ ()
 {
-    auto result (unqlite_kv_cursor_next_entry (cursor));
-    if (result == UNQLITE_NOTFOUND)
+    auto error (unqlite_kv_cursor_next_entry (cursor));
+    set_from_return (error);
+    return *this;
+}
+
+void mu_coin::block_iterator::set_from_return (int value_a)
+{
+    if (value_a == UNQLITE_NOTFOUND)
     {
-        clear ();
+        auto error (unqlite_kv_cursor_release (db, cursor));
+        assert (error == UNQLITE_OK);
+        db = nullptr;
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.release ();
     }
     else
     {
@@ -2355,19 +2360,7 @@ mu_coin::block_iterator & mu_coin::block_iterator::operator ++ ()
         current.second = mu_coin::deserialize_block (stream);
         assert (current.second != nullptr);
     }
-    return *this;
 }
-
-void mu_coin::block_iterator::clear ()
-{
-    auto error (unqlite_kv_cursor_release (db, cursor));
-    assert (error == UNQLITE_OK);
-    db = nullptr;
-    cursor = nullptr;
-    current.first.clear ();
-    current.second.release ();
-}
-
 mu_coin::block_entry & mu_coin::block_iterator::operator -> ()
 {
     return current;
@@ -2385,17 +2378,13 @@ bool mu_coin::block_iterator::operator != (mu_coin::block_iterator const & other
 
 mu_coin::block_iterator mu_coin::block_store::blocks_begin ()
 {
-    unqlite_kv_cursor * cursor;
-    auto error (unqlite_kv_cursor_init (blocks, &cursor));
-    assert (error == UNQLITE_OK);
-    mu_coin::block_iterator result (blocks, cursor);
-    ++result;
+    mu_coin::block_iterator result (blocks);
     return result;
 }
 
 mu_coin::block_iterator mu_coin::block_store::blocks_end ()
 {
-    mu_coin::block_iterator result (nullptr, nullptr);
+    mu_coin::block_iterator result (nullptr);
     return result;
 }
 
