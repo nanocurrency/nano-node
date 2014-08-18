@@ -1495,10 +1495,19 @@ void mu_coin::entry::key (mu_coin::uint256_union const & key_a, mu_coin::uint128
 mu_coin::key_iterator::key_iterator (unqlite * db_a) :
 db (db_a)
 {
-    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-    assert (error1 == UNQLITE_OK);
-    auto error2 (unqlite_kv_cursor_first_entry (cursor));
-    set_from_return (error2);
+    if (db_a != nullptr)
+    {
+        auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+        assert (error1 == UNQLITE_OK);
+        auto error2 (unqlite_kv_cursor_first_entry (cursor));
+        set_from_return (error2);
+    }
+    else
+    {
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.clear ();
+    }
 }
 
 void mu_coin::key_iterator::set_from_return (int value_a)
@@ -2265,10 +2274,20 @@ size_t mu_coin::processor::publish_listener_size ()
 mu_coin::account_iterator::account_iterator (unqlite * db_a) :
 db (db_a)
 {
-    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-    assert (error1 == UNQLITE_OK);
-    auto error2 (unqlite_kv_cursor_first_entry (cursor));
-    set_from_return (error2);
+    if (db_a != nullptr)
+    {
+        auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+        assert (error1 == UNQLITE_OK);
+        auto error2 (unqlite_kv_cursor_first_entry (cursor));
+        set_from_return (error2);
+    }
+    else
+    {
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.clear ();
+        current.time = 0;
+    }
 }
 
 mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
@@ -2320,10 +2339,18 @@ bool mu_coin::account_iterator::operator != (mu_coin::account_iterator const & o
 mu_coin::block_iterator::block_iterator (unqlite * db_a) :
 db (db_a)
 {
-    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-    assert (error1 == UNQLITE_OK);
-    auto error2 (unqlite_kv_cursor_first_entry (cursor));
-    set_from_return (error2);
+    if (db_a != nullptr)
+    {
+        auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
+        assert (error1 == UNQLITE_OK);
+        auto error2 (unqlite_kv_cursor_first_entry (cursor));
+        set_from_return (error2);
+    }
+    else
+    {
+        cursor = nullptr;
+        current.first.clear ();
+    }
 }
 
 mu_coin::block_iterator & mu_coin::block_iterator::operator ++ ()
