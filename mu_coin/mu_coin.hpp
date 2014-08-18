@@ -16,7 +16,10 @@
 
 #include <ed25519-donna/ed25519.h>
 
-#include <db_cxx.h>
+extern "C"
+{
+#include <unqlite-db/unqlite.h>
+}
 
 #include <unordered_map>
 #include <unordered_set>
@@ -211,22 +214,20 @@ namespace mu_coin {
         virtual std::unique_ptr <mu_coin::block> clone () const = 0;
         virtual mu_coin::block_type type () const = 0;
     };
-    class dbt
+    class entry
     {
     public:
-        dbt () = default;
-        dbt (mu_coin::uint256_union const &);
-        dbt (mu_coin::uint256_union const &, uint64_t);
-        dbt (mu_coin::block const &);
-        dbt (mu_coin::address const &, mu_coin::block_hash const &);
-        dbt (mu_coin::private_key const &, mu_coin::secret_key const &, mu_coin::uint128_union const &);
-        void adopt ();
+        entry () = default;
+        entry (mu_coin::uint256_union const &);
+        entry (mu_coin::uint256_union const &, uint64_t);
+        entry (mu_coin::block const &);
+        entry (mu_coin::address const &, mu_coin::block_hash const &);
+        entry (mu_coin::private_key const &, mu_coin::secret_key const &, mu_coin::uint128_union const &);
         void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::private_key &);
         mu_coin::uint256_union uint256 () const;
         void frontier (mu_coin::uint256_union &, uint64_t &) const;
         std::unique_ptr <mu_coin::block> block ();
         std::vector <uint8_t> bytes;
-        Dbt data;
     };
     std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::stream &);
     void serialize_block (mu_coin::stream &, mu_coin::block const &);
@@ -355,17 +356,17 @@ namespace mu_coin {
     class account_iterator
     {
     public:
-        account_iterator (Dbc *);
-        account_iterator (Dbc *, mu_coin::address const &);
+        account_iterator (unqlite *, unqlite_kv_cursor *);
+        account_iterator (unqlite *, unqlite_kv_cursor *, mu_coin::address const &);
         account_iterator (mu_coin::account_iterator &&) = default;
         account_iterator (mu_coin::account_iterator const &) = default;
         account_iterator & operator ++ ();
         account_entry & operator -> ();
         bool operator == (mu_coin::account_iterator const &) const;
         bool operator != (mu_coin::account_iterator const &) const;
-        Dbc * cursor;
-        dbt key;
-        dbt data;
+        void clear ();
+        unqlite * db;
+        unqlite_kv_cursor * cursor;
         mu_coin::account_entry current;
     };
     class block_entry
@@ -378,16 +379,16 @@ namespace mu_coin {
     class block_iterator
     {
     public:
-        block_iterator (Dbc *);
+        block_iterator (unqlite *, unqlite_kv_cursor *);
         block_iterator (mu_coin::block_iterator &&) = default;
         block_iterator (mu_coin::block_iterator const &) = default;
         block_iterator & operator ++ ();
         block_entry & operator -> ();
         bool operator == (mu_coin::block_iterator const &) const;
         bool operator != (mu_coin::block_iterator const &) const;
-        Dbc * cursor;
-        dbt key;
-        dbt data;
+        void clear ();
+        unqlite * db;
+        unqlite_kv_cursor * cursor;
         mu_coin::block_entry current;
     };
     extern block_store_temp_t block_store_temp;
@@ -429,19 +430,19 @@ namespace mu_coin {
         
     private:
         // address -> block_hash, timestamp     // Each address has one head block and a last updated timestamp
-        Db addresses;
+        unqlite * addresses;
         // block_hash -> block                  // Mapping block hash to contents
-        Db blocks;
+        unqlite * blocks;
         // block_hash ->                        // Pending blocks
-        Db pending;
+        unqlite * pending;
         // address -> weight                    // Representation
-        Db representation;
+        unqlite * representation;
         // block_hash -> block                  // Fork proof
-        Db forks;
+        unqlite * forks;
         // block_hash -> block                  // Unchecked bootstrap blocks
-        Db bootstrap;
+        unqlite * bootstrap;
         // block_hash -> block_hash             // Tracking successors for bootstrapping
-        Db successors;
+        unqlite * successors;
     };
     enum class process_result
     {
@@ -620,7 +621,7 @@ namespace mu_coin {
     class key_iterator
     {
     public:
-        key_iterator (Dbc *);
+        key_iterator (unqlite *, unqlite_kv_cursor *);
         key_iterator (mu_coin::key_iterator const &) = default;
         void clear ();
         key_iterator & operator ++ ();
@@ -628,9 +629,8 @@ namespace mu_coin {
         bool operator == (mu_coin::key_iterator const &) const;
         bool operator != (mu_coin::key_iterator const &) const;
         mu_coin::key_entry current;
-        Dbc * cursor;
-        dbt key;
-        dbt data;
+        unqlite * db;
+        unqlite_kv_cursor * cursor;
     };
     class wallet
     {
@@ -646,7 +646,7 @@ namespace mu_coin {
         key_iterator end ();
         mu_coin::uint256_union password;
     private:
-        Db handle;
+        unqlite * handle;
     };
     class operation
     {
