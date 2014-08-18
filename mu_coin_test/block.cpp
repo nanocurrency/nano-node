@@ -381,16 +381,16 @@ TEST (block_store, two_account)
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
-    ASSERT_EQ (address1, begin->first);
-    ASSERT_EQ (hash1, begin->second);
-    ASSERT_EQ (100, begin->time);
+    EXPECT_EQ (address1, begin->first);
+    EXPECT_EQ (hash1, begin->second);
+    EXPECT_EQ (100, begin->time);
     ++begin;
     ASSERT_NE (end, begin);
-    ASSERT_EQ (address2, begin->first);
-    ASSERT_EQ (hash2, begin->second);
-    ASSERT_EQ (200, begin->time);
+    EXPECT_EQ (address2, begin->first);
+    EXPECT_EQ (hash2, begin->second);
+    EXPECT_EQ (200, begin->time);
     ++begin;
-    ASSERT_EQ (end, begin);
+    EXPECT_EQ (end, begin);
 }
 
 TEST (block_store, latest_find)
