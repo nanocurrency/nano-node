@@ -886,35 +886,40 @@ block_store (boost::filesystem::unique_path ())
 {
 }
 
-mu_coin::block_store::block_store (boost::filesystem::path const & path_a)
+mu_coin::block_store::block_store (boost::filesystem::path const & path_a) :
+addresses (nullptr, 0),
+blocks (nullptr, 0),
+pending (nullptr, 0),
+representation (nullptr, 0),
+forks (nullptr, 0),
+bootstrap (nullptr, 0),
+successors (nullptr, 0)
 {
     boost::filesystem::create_directories (path_a);
-    unqlite_open (&addresses, (path_a / "addresses.bdb").native ().c_str (), UNQLITE_OPEN_CREATE);
-    unqlite_open (&blocks, (path_a / "blocks.bdb").native ().c_str (), UNQLITE_OPEN_CREATE);
-    unqlite_open (&pending, (path_a / "pending.bdb").native ().c_str (), UNQLITE_OPEN_CREATE);
-    unqlite_open (&representation, (path_a / "representation.bdb").native ().c_str (), UNQLITE_OPEN_CREATE);
-    unqlite_open (&forks, (path_a / "forks.bdb").native ().c_str (), UNQLITE_OPEN_CREATE);
-    unqlite_open (&bootstrap, (path_a / "bootstrap.bdb").native ().c_str (), UNQLITE_OPEN_CREATE);
-    unqlite_open (&successors, (path_a / "successors.bdb").native ().c_str (), UNQLITE_OPEN_CREATE);
+    addresses.open (nullptr, (path_a / "addresses.bdb").native ().c_str (), nullptr, DB_BTREE, DB_CREATE | DB_EXCL, 0);
+    blocks.open (nullptr, (path_a / "blocks.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    pending.open (nullptr, (path_a / "pending.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    representation.open (nullptr, (path_a / "representation.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    forks.open (nullptr, (path_a / "forks.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    bootstrap.open (nullptr, (path_a / "bootstrap.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
+    successors.open (nullptr, (path_a / "successors.bdb").native ().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
 {
-    mu_coin::entry key (hash_a);
-    mu_coin::entry value (block_a);
-    int error (unqlite_kv_store (blocks, key.bytes.data (), key.bytes.size (), value.bytes.data (), value.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    dbt key (hash_a);
+    dbt data (block_a);
+    int error (blocks.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
 }
 
 std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block_hash const & hash_a)
 {
-    mu_coin::entry key (hash_a);
-    mu_coin::entry value;
-    value.bytes.resize (256);
-    int64_t size (256);
-    int error (unqlite_kv_fetch (blocks, key.bytes.data (), key.bytes.size (), value.bytes.data (), &size));
-    assert (error == UNQLITE_OK || error == UNQLITE_NOTFOUND);
-    auto result (value.block ());
+    mu_coin::dbt key (hash_a);
+    mu_coin::dbt data;
+    int error (blocks.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
+    auto result (data.block ());
     return result;
 }
 
@@ -945,20 +950,18 @@ void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
 
 bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_coin::block_hash & hash_a, uint64_t & time_a)
 {
-    mu_coin::entry key (address_a);
-    mu_coin::entry value;
-    value.bytes.resize (64);
-    int64_t size (64);
-    int error (unqlite_kv_fetch (addresses, key.bytes.data (), key.bytes.size (), value.bytes.data (), &size));
-    assert (error == UNQLITE_OK || error == UNQLITE_NOTFOUND);
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data;
+    int error (addresses.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
     bool result;
-    if (error == UNQLITE_NOTFOUND)
+    if (error == DB_NOTFOUND)
     {
         result = true;
     }
     else
     {
-        mu_coin::bufferstream stream (value.bytes.data (), value.bytes.size ());
+        mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (data.data.get_data ()), data.data.get_size ());
         result = read (stream, hash_a.bytes);
         if (!result)
         {
@@ -972,34 +975,36 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
 
 void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a, uint64_t time_a)
 {
-    mu_coin::entry key (address_a);
-    mu_coin::entry value (hash_a, time_a);
-    int error (unqlite_kv_store (addresses, key.bytes.data (), key.bytes.size (), value.bytes.data (), value.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data (hash_a, time_a);
+    int error (addresses.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
 }
 
 void mu_coin::block_store::pending_put (mu_coin::identifier const & identifier_a)
 {
-    mu_coin::entry key (identifier_a);
-    int error (unqlite_kv_store (pending, key.bytes.data (), key.bytes.size (), nullptr, 0));
-    assert (error == UNQLITE_OK);
+    mu_coin::dbt key (identifier_a);
+    mu_coin::dbt data;
+    int error (pending.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
 }
 
 void mu_coin::block_store::pending_del (mu_coin::identifier const & identifier_a)
 {
-    mu_coin::entry key (identifier_a);
-    int error (unqlite_kv_delete (pending, key.bytes.data (), key.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    mu_coin::dbt key (identifier_a);
+    mu_coin::dbt data;
+    int error (pending.del (nullptr, &key.data, 0));
+    assert (error == 0);
 }
 
 bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a)
 {
-    mu_coin::entry key (identifier_a);
-    int64_t size (0);
-    int error (unqlite_kv_fetch (pending, key.bytes.data (), key.bytes.size (), nullptr, &size));
-    assert (error == UNQLITE_OK || error == UNQLITE_NOTFOUND);
+    mu_coin::dbt key (identifier_a);
+    mu_coin::dbt data;
+    int error (pending.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
     bool result;
-    if (error == UNQLITE_NOTFOUND)
+    if (error == DB_NOTFOUND)
     {
         result = true;
     }
@@ -1010,37 +1015,59 @@ bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a
     return result;
 }
 
-std::unique_ptr <mu_coin::block> mu_coin::entry::block()
+std::unique_ptr <mu_coin::block> mu_coin::dbt::block()
 {
-    mu_coin::bufferstream stream (bytes.data (), bytes.data () + bytes.size ());
-    auto result (mu_coin::deserialize_block (stream));
+    std::unique_ptr <mu_coin::block> result;
+    if (data.get_size () > 0)
+    {
+        mu_coin::bufferstream stream (reinterpret_cast <uint8_t *> (data.get_data ()), reinterpret_cast <uint8_t *> (data.get_data ()) + data.get_size ());
+        result = mu_coin::deserialize_block (stream);
+    }
     return result;
 }
 
-mu_coin::entry::entry (mu_coin::block const & block_a)
+mu_coin::dbt::dbt (mu_coin::block const & block_a)
 {
-    mu_coin::vectorstream stream (bytes);
-    mu_coin::serialize_block (stream, block_a);
+    {
+        mu_coin::vectorstream stream (bytes);
+        mu_coin::serialize_block (stream, block_a);
+    }
+    adopt ();
 }
 
-mu_coin::entry::entry (mu_coin::uint256_union const & address_a)
+mu_coin::dbt::dbt (mu_coin::uint256_union const & address_a)
 {
-    mu_coin::vectorstream stream (bytes);
-    address_a.serialize (stream);
+    {
+        mu_coin::vectorstream stream (bytes);
+        address_a.serialize (stream);
+    }
+    adopt ();
 }
 
-mu_coin::entry::entry (mu_coin::uint256_union const & address_a, uint64_t time_a)
+mu_coin::dbt::dbt (mu_coin::uint256_union const & address_a, uint64_t time_a)
 {
-    mu_coin::vectorstream stream (bytes);
-    address_a.serialize (stream);
-    write (stream, time_a);
+    {
+        mu_coin::vectorstream stream (bytes);
+        address_a.serialize (stream);
+        write (stream, time_a);
+    }
+    adopt ();
 }
 
-mu_coin::entry::entry (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+mu_coin::dbt::dbt (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
 {
-    mu_coin::vectorstream stream (bytes);
-    write (stream, address_a.bytes);
-    write (stream, hash_a.bytes);
+    {
+        mu_coin::vectorstream stream (bytes);
+        write (stream, address_a.bytes);
+        write (stream, hash_a.bytes);
+    }
+    adopt ();
+}
+
+void mu_coin::dbt::adopt ()
+{
+    data.set_data (bytes.data ());
+    data.set_size (bytes.size ());
 }
 
 mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::client & client_a) :
@@ -1425,17 +1452,21 @@ void mu_coin::publish_req::serialize (mu_coin::stream & stream_a)
 mu_coin::wallet_temp_t mu_coin::wallet_temp;
 
 
-mu_coin::entry::entry (mu_coin::private_key const & prv, mu_coin::secret_key const & key, mu_coin::uint128_union const & iv)
+mu_coin::dbt::dbt (mu_coin::private_key const & prv, mu_coin::secret_key const & key, mu_coin::uint128_union const & iv)
 {
     mu_coin::uint256_union encrypted (prv, key, iv);
-    mu_coin::vectorstream stream (bytes);
-    write (stream, encrypted.bytes);
+    {
+        mu_coin::vectorstream stream (bytes);
+        write (stream, encrypted.bytes);
+    }
+    adopt ();
 }
 
 mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, boost::filesystem::path const & path_a) :
-password (password_a)
+password (password_a),
+handle (nullptr, 0)
 {
-    unqlite_open (&handle, path_a.native().c_str (), UNQLITE_OPEN_CREATE);
+    handle.open (nullptr, path_a.native().c_str (), nullptr, DB_HASH, DB_CREATE | DB_EXCL, 0);
 }
 
 mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, mu_coin::wallet_temp_t const &) :
@@ -1445,10 +1476,10 @@ wallet (password_a, boost::filesystem::unique_path ())
 
 void mu_coin::wallet::insert (mu_coin::public_key const & pub, mu_coin::private_key const & prv, mu_coin::uint256_union const & key_a)
 {
-    mu_coin::entry key (pub);
-    mu_coin::entry value (prv, key_a, pub.owords [0]);
-    auto error (unqlite_kv_store (handle, key.bytes.data (), key.bytes.size (), value.bytes.data (), value.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    dbt key (pub);
+    dbt value (prv, key_a, pub.owords [0]);
+    auto error (handle.put (0, &key.data, &value.data, 0));
+    assert (error == 0);
 }
 
 void mu_coin::wallet::insert (mu_coin::private_key const & prv, mu_coin::uint256_union const & key)
@@ -1460,20 +1491,21 @@ void mu_coin::wallet::insert (mu_coin::private_key const & prv, mu_coin::uint256
 
 bool mu_coin::wallet::fetch (mu_coin::public_key const & pub, mu_coin::secret_key const & key_a, mu_coin::private_key & prv)
 {
-    mu_coin::entry key (pub);
-    mu_coin::entry value;
-    value.bytes.resize (32);
+    dbt key (pub);
+    dbt value;
     auto result (false);
-    int64_t size (32);
-    auto error (unqlite_kv_fetch (handle, key.bytes.data (), key.bytes.size (), value.bytes.data (), &size));
-    if (error == UNQLITE_OK)
+    auto error (handle.get (0, &key.data, &value.data, 0));
+    if (error == 0)
     {
         value.key (key_a, pub.owords [0], prv);
-        mu_coin::public_key compare;
-        ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
-        if (!(pub == compare))
+        if (!result)
         {
-            result = true;
+            mu_coin::public_key compare;
+            ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
+            if (!(pub == compare))
+            {
+                result = true;
+            }
         }
     }
     else
@@ -1483,57 +1515,40 @@ bool mu_coin::wallet::fetch (mu_coin::public_key const & pub, mu_coin::secret_ke
     return result;
 }
 
-void mu_coin::entry::key (mu_coin::uint256_union const & key_a, mu_coin::uint128_union const & iv, mu_coin::private_key & prv)
+void mu_coin::dbt::key (mu_coin::uint256_union const & key_a, mu_coin::uint128_union const & iv, mu_coin::private_key & prv)
 {
     mu_coin::uint256_union encrypted;
-    mu_coin::bufferstream stream (bytes.data (), bytes.size ());
+    mu_coin::bufferstream stream (reinterpret_cast <uint8_t *> (data.get_data ()), data.get_size ());
     auto result (read (stream, encrypted.bytes));
     assert (!result);
     prv = encrypted.prv (key_a, iv);
 }
 
-mu_coin::key_iterator::key_iterator (unqlite * db_a) :
-db (db_a)
+mu_coin::key_iterator::key_iterator (Dbc * cursor_a) :
+cursor (cursor_a)
 {
-    if (db_a != nullptr)
-    {
-        auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-        assert (error1 == UNQLITE_OK);
-        unqlite_kv_cursor_first_entry (cursor);
-        set_from_cursor ();
-    }
-    else
-    {
-        cursor = nullptr;
-        current.first.clear ();
-        current.second.clear ();
-    }
 }
 
-void mu_coin::key_iterator::set_from_cursor ()
+void mu_coin::key_iterator::clear ()
 {
-    if (unqlite_kv_cursor_valid_entry (cursor))
-    {
-        int key_size (sizeof (current.first.bytes));
-        unqlite_kv_cursor_key (cursor, current.first.bytes.data (), &key_size);
-        int64_t value_size (sizeof (current.second.bytes));
-        unqlite_kv_cursor_data (cursor, current.second.bytes.data (), &value_size);
-    }
-    else
-    {
-        current.first.clear ();
-        current.second.clear ();
-        auto error (unqlite_kv_cursor_release (db, cursor));
-        assert (error == UNQLITE_OK);
-        db = nullptr;
-        cursor = nullptr;
-    }
+    current.first.clear ();
+    current.second.clear ();
+    cursor->close ();
+    cursor = nullptr;
 }
 
 mu_coin::key_iterator & mu_coin::key_iterator::operator ++ ()
 {
-    unqlite_kv_cursor_next_entry (cursor);
-    set_from_cursor ();
+    auto result (cursor->get (&key.data, &data.data, DB_NEXT));
+    if (result == DB_NOTFOUND)
+    {
+        clear ();
+    }
+    else
+    {
+        current.first = key.uint256 ();
+        current.second = data.uint256 ();
+    }
     return *this;
 }
 
@@ -1544,22 +1559,29 @@ mu_coin::key_entry & mu_coin::key_iterator::operator -> ()
 
 mu_coin::key_iterator mu_coin::wallet::begin ()
 {
-    mu_coin::key_iterator result (handle);
+    Dbc * cursor;
+    handle.cursor (0, &cursor, 0);
+    mu_coin::key_iterator result (cursor);
+    ++result;
     return result;
-}
-
-mu_coin::key_iterator::key_iterator (unqlite * db_a, mu_coin::uint256_union const & key_a) :
-db (db_a)
-{
-    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-    assert (error1 == UNQLITE_OK);
-    unqlite_kv_cursor_seek (cursor, key_a.bytes.data (), key_a.bytes.size (), UNQLITE_CURSOR_MATCH_EXACT);
-    set_from_cursor ();
 }
 
 mu_coin::key_iterator mu_coin::wallet::find (mu_coin::uint256_union const & key)
 {
-    mu_coin::key_iterator result (handle, key);
+    Dbc * cursor;
+    handle.cursor (0, &cursor, 0);
+    mu_coin::key_iterator result (cursor);
+    result.key = key;
+    auto exists (cursor->get (&result.key.data, &result.data.data, DB_SET));
+    if (exists == DB_NOTFOUND)
+    {
+        result.clear ();
+    }
+    else
+    {
+        result.current.first = result.key.uint256 ();
+        result.current.second = result.data.uint256 ();
+    }
     return result;
 }
 
@@ -1570,8 +1592,7 @@ mu_coin::key_iterator mu_coin::wallet::end ()
 
 bool mu_coin::key_iterator::operator == (mu_coin::key_iterator const & other_a) const
 {
-    assert (db == other_a.db || db == nullptr && cursor == nullptr || other_a.db == nullptr && other_a.cursor == nullptr);
-    return (cursor == nullptr && other_a.cursor == nullptr) || (current.first == other_a.current.first);
+    return cursor == other_a.cursor;
 }
 
 bool mu_coin::key_iterator::operator != (mu_coin::key_iterator const & other_a) const
@@ -1619,24 +1640,21 @@ mu_coin::uint256_union::uint256_union (uint64_t value)
     *this = mu_coin::uint256_t (value);
 }
 
-mu_coin::uint256_union mu_coin::entry::uint256 () const
+mu_coin::uint256_union mu_coin::dbt::uint256 () const
 {
-    assert (bytes.size () == 32);
+    assert (data.get_size () == 32);
     mu_coin::uint256_union result;
-    mu_coin::bufferstream stream (bytes.data (), bytes.size ());
-    auto error (read (stream, result));
-    assert (!error);
+    mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (data.get_data ()), data.get_size ());
+    read (stream, result);
     return result;
 }
 
-void mu_coin::entry::frontier (mu_coin::uint256_union & uint_a, uint64_t & time_a) const
+void mu_coin::dbt::frontier (mu_coin::uint256_union & uint_a, uint64_t & time_a) const
 {
-    assert (bytes.size () == 40);
-    mu_coin::bufferstream stream (bytes.data (), bytes.size ());
-    auto error (read (stream, uint_a));
-    assert (!error);
-    error = read (stream, time_a);
-    assert (!error);
+    assert (data.get_size () == 40);
+    mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (data.get_data ()), data.get_size ());
+    read (stream, uint_a);
+    read (stream, time_a);
 }
 
 void mu_coin::processor_service::run ()
@@ -2271,54 +2289,27 @@ size_t mu_coin::processor::publish_listener_size ()
     return confirm_listeners.size ();
 }
 
-mu_coin::account_iterator::account_iterator (unqlite * db_a) :
-db (db_a)
+mu_coin::account_iterator::account_iterator (Dbc * cursor_a) :
+cursor (cursor_a)
 {
-    if (db_a != nullptr)
-    {
-        auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-        assert (error1 == UNQLITE_OK);
-        unqlite_kv_cursor_first_entry (cursor);
-        set_from_cursor ();
-    }
-    else
-    {
-        cursor = nullptr;
-        current.first.clear ();
-        current.second.clear ();
-        current.time = 0;
-    }
 }
 
 mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
 {
-    unqlite_kv_cursor_next_entry (cursor);
-    set_from_cursor ();
-    return *this;
-}
-
-void mu_coin::account_iterator::set_from_cursor ()
-{
-    if (unqlite_kv_cursor_valid_entry (cursor))
+    auto result (cursor->get (&key.data, &data.data, DB_NEXT));
+    if (result == DB_NOTFOUND)
     {
-        int key_size (current.first.bytes.size ());
-        unqlite_kv_cursor_key (cursor, current.first.bytes.data (), &key_size);
-        mu_coin::entry value;
-        value.bytes.resize (40);
-        int64_t value_size (value.bytes.size ());
-        unqlite_kv_cursor_data (cursor, value.bytes.data (), &value_size);
-        value.frontier (current.second, current.time);
+        cursor->close ();
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.clear ();
     }
     else
     {
-        auto error (unqlite_kv_cursor_release (db, cursor));
-        assert (error == UNQLITE_OK);
-        cursor = nullptr;
-        db = nullptr;
-        current.first.clear ();
-        current.second.clear ();
-        current.time = 0;
+        current.first = key.uint256 ();
+        data.frontier (current.second, current.time);
     }
+    return *this;
 }
 
 mu_coin::account_entry & mu_coin::account_iterator::operator -> ()
@@ -2336,59 +2327,29 @@ bool mu_coin::account_iterator::operator != (mu_coin::account_iterator const & o
     return !(*this == other_a);
 }
 
-mu_coin::block_iterator::block_iterator (unqlite * db_a) :
-db (db_a)
+mu_coin::block_iterator::block_iterator (Dbc * cursor_a) :
+cursor (cursor_a)
 {
-    if (db_a != nullptr)
-    {
-        auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-        assert (error1 == UNQLITE_OK);
-        unqlite_kv_cursor_first_entry (cursor);
-        set_from_cursor ();
-    }
-    else
-    {
-        cursor = nullptr;
-        current.first.clear ();
-    }
 }
 
 mu_coin::block_iterator & mu_coin::block_iterator::operator ++ ()
 {
-    unqlite_kv_cursor_next_entry (cursor);
-    set_from_cursor ();
-    return *this;
-}
-
-void mu_coin::block_iterator::set_from_cursor ()
-{
-    if (unqlite_kv_cursor_valid_entry (cursor))
+    auto result (cursor->get (&key.data, &data.data, DB_NEXT));
+    if (result == DB_NOTFOUND)
     {
-        int key_size (current.first.bytes.size ());
-        auto key_error1 (unqlite_kv_cursor_key (cursor, nullptr, &key_size));
-        auto key_error (unqlite_kv_cursor_key (cursor, current.first.bytes.data (), &key_size));
-        assert (key_error == UNQLITE_OK);
-        int64_t value_size;
-        auto value_error1 (unqlite_kv_cursor_data (cursor, nullptr, &value_size));
-        assert (value_error1 == UNQLITE_OK);
-        std::vector <uint8_t> value;
-        value.resize (value_size);
-        auto value_error2 (unqlite_kv_cursor_data (cursor, value.data (), &value_size));
-        assert (value_error2 == UNQLITE_OK);
-        mu_coin::bufferstream stream (value.data (), value.size ());
-        current.second = mu_coin::deserialize_block (stream);
-        assert (current.second != nullptr);
-    }
-    else
-    {
-        auto error (unqlite_kv_cursor_release (db, cursor));
-        assert (error == UNQLITE_OK);
-        db = nullptr;
+        cursor->close ();
         cursor = nullptr;
         current.first.clear ();
         current.second.release ();
     }
+    else
+    {
+        current.first = key.uint256 ();
+        current.second = data.block ();
+    }
+    return *this;
 }
+
 mu_coin::block_entry & mu_coin::block_iterator::operator -> ()
 {
     return current;
@@ -2406,7 +2367,10 @@ bool mu_coin::block_iterator::operator != (mu_coin::block_iterator const & other
 
 mu_coin::block_iterator mu_coin::block_store::blocks_begin ()
 {
-    mu_coin::block_iterator result (blocks);
+    Dbc * cursor;
+    blocks.cursor (0, &cursor, 0);
+    mu_coin::block_iterator result (cursor);
+    ++result;
     return result;
 }
 
@@ -2418,7 +2382,10 @@ mu_coin::block_iterator mu_coin::block_store::blocks_end ()
 
 mu_coin::account_iterator mu_coin::block_store::latest_begin ()
 {
-    mu_coin::account_iterator result (addresses);
+    Dbc * cursor;
+    addresses.cursor (0, &cursor, 0);
+    mu_coin::account_iterator result (cursor);
+    ++result;
     return result;
 }
 
@@ -2868,16 +2835,15 @@ void mu_coin::open_hashables::hash (CryptoPP::SHA3 & hash_a) const
 
 mu_coin::uint256_t mu_coin::block_store::representation_get (mu_coin::address const & address_a)
 {
-    mu_coin::entry key (address_a);
-    mu_coin::entry value;
-    value.bytes.resize (32);
-    int64_t value_size (32);
-    auto error (unqlite_kv_fetch (representation, key.bytes.data (), key.bytes.size (), value.bytes.data (), &value_size));
-    assert (error == UNQLITE_OK || error == UNQLITE_NOTFOUND);
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data;
+    int error (representation.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
     mu_coin::uint256_t result;
-    if (error == UNQLITE_OK)
+    if (error == 0)
     {
-        result = value.uint256 ().number ();
+        assert (data.data.get_size () == 32);
+        result = data.uint256 ().number ();
     }
     else
     {
@@ -2888,10 +2854,10 @@ mu_coin::uint256_t mu_coin::block_store::representation_get (mu_coin::address co
 
 void mu_coin::block_store::representation_put (mu_coin::address const & address_a, mu_coin::uint256_t const & representation_a)
 {
-    mu_coin::entry key (address_a);
-    mu_coin::entry value (mu_coin::uint256_union {representation_a});
-    auto error (unqlite_kv_store (representation, key.bytes.data (), key.bytes.size (), value.bytes.data (), value.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data (mu_coin::uint256_union {representation_a});
+    int error (representation.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
 }
 
 mu_coin::address mu_coin::ledger::representative (mu_coin::block_hash const & hash_a)
@@ -2982,30 +2948,20 @@ void mu_coin::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
 
 std::unique_ptr <mu_coin::block> mu_coin::block_store::fork_get (mu_coin::block_hash const & hash_a)
 {
-    mu_coin::entry key (hash_a);
-    int64_t value_size;
-    auto error1 (unqlite_kv_fetch (forks, key.bytes.data (), key.bytes.size (), nullptr, &value_size));
-    assert (error1 == UNQLITE_OK || error1 == UNQLITE_NOTFOUND);
-    std::unique_ptr <mu_coin::block> result;
-    if (error1 == UNQLITE_OK)
-    {
-        std::vector <uint8_t> value;
-        value.resize (value_size);
-        auto error2 (unqlite_kv_fetch (forks, key.bytes.data (), key.bytes.size (), value.data (), &value_size));
-        assert (error2 == UNQLITE_OK || error2 == UNQLITE_NOTFOUND);
-        mu_coin::bufferstream stream (value.data (), value.size ());
-        result = mu_coin::deserialize_block (stream);
-        assert (result != nullptr);
-    }
+    mu_coin::dbt key (hash_a);
+    mu_coin::dbt data;
+    int error (forks.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
+    auto result (data.block ());
     return result;
 }
 
 void mu_coin::block_store::fork_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
 {
-    mu_coin::entry key (hash_a);
-    mu_coin::entry value (block_a);
-    auto error (unqlite_kv_store (forks, key.bytes.data (), key.bytes.size (), value.bytes.data (), value.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    dbt key (hash_a);
+    dbt data (block_a);
+    int error (forks.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
 }
 
 bool mu_coin::uint256_union::operator != (mu_coin::uint256_union const & other_a) const
@@ -3064,9 +3020,10 @@ public:
 
 void mu_coin::block_store::block_del (mu_coin::block_hash const & hash_a)
 {
-    mu_coin::entry key (hash_a);
-    auto error (unqlite_kv_delete (blocks, key.bytes.data (), key.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    mu_coin::dbt key (hash_a);
+    mu_coin::dbt data;
+    int error (blocks.del (nullptr, &key.data, 0));
+    assert (error == 0);
 }
 
 void mu_coin::ledger::rollback (mu_coin::block_hash const & frontier_a)
@@ -3118,9 +3075,10 @@ mu_coin::block_hash mu_coin::ledger::latest (mu_coin::address const & address_a)
 
 void mu_coin::block_store::latest_del (mu_coin::address const & address_a)
 {
-    mu_coin::entry key (address_a);
-    auto error (unqlite_kv_delete (addresses, key.bytes.data (), key.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    mu_coin::dbt key (address_a);
+    mu_coin::dbt data;
+    int error (addresses.del (nullptr, &key.data, 0));
+    assert (error == 0);
 }
 
 void mu_coin::processor::confirm_ack (std::unique_ptr <mu_coin::confirm_ack> message_a, mu_coin::endpoint const & sender_a)
@@ -3682,18 +3640,29 @@ void mu_coin::bulk_req_response::no_block_sent (boost::system::error_code const 
 
 mu_coin::account_iterator mu_coin::block_store::latest_begin (mu_coin::address const & address_a)
 {
-    mu_coin::account_iterator result (addresses, address_a);
+    Dbc * cursor;
+    addresses.cursor (0, &cursor, 0);
+    mu_coin::account_iterator result (cursor, address_a);
     return result;
 }
 
-mu_coin::account_iterator::account_iterator (unqlite * db_a, mu_coin::address const & address_a) :
-db (db_a)
+mu_coin::account_iterator::account_iterator (Dbc * cursor_a, mu_coin::address const & address_a) :
+cursor (cursor_a)
 {
-    auto error1 (unqlite_kv_cursor_init (db_a, &cursor));
-    assert (error1 == UNQLITE_OK);
-    current.first = address_a;
-    unqlite_kv_cursor_seek (cursor, current.first.bytes.data (), current.first.bytes.size (), UNQLITE_CURSOR_MATCH_GE);
-    set_from_cursor ();
+    key = address_a;
+    auto result (cursor->get (&key.data, &data.data, DB_SET_RANGE));
+    if (result == DB_NOTFOUND)
+    {
+        cursor->close ();
+        cursor = nullptr;
+        current.first.clear ();
+        current.second.clear ();
+    }
+    else
+    {
+        current.first = key.uint256 ();
+        data.frontier (current.second, current.time);
+    }
 }
 
 namespace
@@ -4003,11 +3972,11 @@ bool mu_coin::bulk_req_initiator::process_block (mu_coin::block const & block)
 
 bool mu_coin::block_store::block_exists (mu_coin::block_hash const & hash_a)
 {
-    mu_coin::entry key (hash_a);
+    dbt key (hash_a);
+    dbt data;
     bool result;
-    int64_t size;
-    auto error (unqlite_kv_fetch (blocks, key.bytes.data (), key.bytes.size (), nullptr, &size));
-    if (error == UNQLITE_NOTFOUND)
+    int error (blocks.get (nullptr, &key.data, &data.data, 0));
+    if (error == DB_NOTFOUND)
     {
         result = false;
     }
@@ -4020,37 +3989,27 @@ bool mu_coin::block_store::block_exists (mu_coin::block_hash const & hash_a)
 
 void mu_coin::block_store::bootstrap_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
 {
-    mu_coin::entry key (hash_a);
-    mu_coin::entry value (block_a);
-    auto error (unqlite_kv_store (bootstrap, key.bytes.data (), key.bytes.size (), value.bytes.data (), value.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    dbt key (hash_a);
+    dbt data (block_a);
+    int error (bootstrap.put (nullptr, &key.data, &data.data, 0));
+    assert (error == 0);
 }
 
 std::unique_ptr <mu_coin::block> mu_coin::block_store::bootstrap_get (mu_coin::block_hash const & hash_a)
 {
-    mu_coin::entry key (hash_a);
-    int64_t size;
-    auto error1 (unqlite_kv_fetch (bootstrap, key.bytes.data (), key.bytes.size (), nullptr, &size));
-    assert (error1 == UNQLITE_OK || error1 == UNQLITE_NOTFOUND);
-    std::unique_ptr <mu_coin::block> result;
-    if (error1 == UNQLITE_OK)
-    {
-        std::vector <uint8_t> value;
-        value.resize (size);
-        auto error2 (unqlite_kv_fetch (bootstrap, key.bytes.data (), key.bytes.size (), value.data (), &size));
-        assert (error2 == UNQLITE_OK);
-        mu_coin::bufferstream stream (value.data (), value.size ());
-        result = mu_coin::deserialize_block (stream);
-        assert (result != nullptr);
-    }
+    dbt key (hash_a);
+    dbt data;
+    int error (bootstrap.get (nullptr, &key.data, &data.data, 0));
+    assert (error == 0 || error == DB_NOTFOUND);
+    auto result (data.block ());
     return result;
 }
 
 void mu_coin::block_store::bootstrap_del (mu_coin::block_hash const & hash_a)
 {
-    mu_coin::entry key (hash_a);
-    auto error (unqlite_kv_delete (bootstrap, key.bytes.data (), key.bytes.size ()));
-    assert (error == UNQLITE_OK);
+    dbt key (hash_a);
+    int error (bootstrap.del (nullptr, &key.data, 0));
+    assert (error == 0);
 }
 
 mu_coin::endpoint mu_coin::network::endpoint ()
