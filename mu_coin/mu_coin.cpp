@@ -2491,7 +2491,7 @@ pool (new boost::network::utils::thread_pool (threads_a))
     {
         auto starting1 ((*i)->peers.size ());
         auto starting2 ((*j)->peers.size ());
-        (*j)->network.send_keepalive (mu_coin::endpoint (boost::asio::ip::address_v4::loopback (), (*i)->network.endpoint().port ()));
+        (*j)->network.send_keepalive ((*i)->network.endpoint ());
         do {
             service->run_one ();
         } while ((*i)->peers.size () == starting1 || (*j)->peers.size () == starting2);
@@ -3908,7 +3908,7 @@ bool mu_coin::bulk_req_initiator::process_end ()
             block = connection->client.store.bootstrap_get (expecting);
             if (block != nullptr)
             {
-                processing = connection->client.ledger.process (*block);
+                processing = connection->client.processor.process_receive (*block);
                 expecting = block->hash ();
             }
         } while (block != nullptr && processing == mu_coin::process_result::progress);

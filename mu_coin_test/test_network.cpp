@@ -922,18 +922,21 @@ TEST (bulk, genesis)
     ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), client1.ledger.latest (system.test_genesis_address.pub));
 }
 
-TEST (bulk, DISABLED_offline_send)
+TEST (bulk, offline_send)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    mu_coin::keypair key2;
-    client1.wallet.insert (key2.prv, system.clients [0]->wallet.password);
-    ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
+    client1.network.send_keepalive (system.clients [0]->network.endpoint ());
+    client1.start ();
     do
     {
         system.service->run_one ();
-    } while (system.clients [0]->ledger.account_balance (system.test_genesis_address.pub) == std::numeric_limits <mu_coin::uint256_t>::max ());
+    } while (system.clients [0]->peers.empty () || client1.peers.empty ());
+    mu_coin::keypair key2;
+    client1.wallet.insert (key2.prv, system.clients [0]->wallet.password);
+    ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_NE (std::numeric_limits <mu_coin::uint256_t>::max (), system.clients [0]->ledger.account_balance (system.test_genesis_address.pub));
     bool finished;
     client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
     do
