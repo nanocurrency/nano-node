@@ -1112,11 +1112,11 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         });
 }
 
-void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block> block)
+void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::uint256_union const & session_a, mu_coin::block const & block)
 {
     mu_coin::confirm_req message;
 	message.session = session_a;
-	message.block = std::move (block);
+	message.block = block.clone ();
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         mu_coin::vectorstream stream (*bytes);
@@ -1237,7 +1237,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             {
                                 client.log.add (boost::str (boost::format ("Received publish req rom %1%") % sender));
                             }
-                            client.processor.process_and_republish (std::move (incoming.block), sender);
+                            client.processor.process_receive_republish (std::move (incoming.block), sender);
                         }
                         else
                         {
@@ -1671,181 +1671,95 @@ client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_pat
 
 namespace
 {
-    class publish_processor : public std::enable_shared_from_this <publish_processor>
-    {
-    public:
-        publish_processor (mu_coin::client & client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
-        client (client_a),
-        incoming (std::move (incoming_a)),
-        sender (sender_a),
-        attempts (0)
-        {
-        }
-        void run ()
-        {
-            auto hash (incoming->hash ());
-            auto list (client.peers.list ());
-            if (network_publish_logging ())
-            {
-                client.log.add (boost::str (boost::format ("Publishing %1% to %2% peers") % hash.to_string () % list.size ()));
-            }
-            for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
-            {
-                if (i->endpoint != sender)
-                {
-                    client.network.publish_block (i->endpoint, incoming->clone ());
-                }
-            }
-            if (attempts < 0)
-            {
-                ++attempts;
-                auto this_l (shared_from_this ());
-                client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this_l] () {this_l->run ();});
-                if (network_publish_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Queueing another publish for %1%") % hash.to_string ()));
-                }
-            }
-            else
-            {
-                if (network_publish_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Done publishing for %1%") % hash.to_string ()));
-                }
-            }
-        }
-        mu_coin::client & client;
-        std::unique_ptr <mu_coin::block> incoming;
-        mu_coin::endpoint sender;
-        int attempts;
-    };
-}
-
-void mu_coin::processor::republish (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a)
-{
-    auto republisher (std::make_shared <publish_processor> (client, std::move (incoming_a), sender_a));
-    republisher->run ();
-}
-
-namespace {
-class publish_visitor : public mu_coin::block_visitor
+class publish_processor : public std::enable_shared_from_this <publish_processor>
 {
 public:
-    publish_visitor (mu_coin::client & client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
+    publish_processor (mu_coin::client & client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
     client (client_a),
     incoming (std::move (incoming_a)),
-    sender (sender_a)
+    sender (sender_a),
+    attempts (0)
     {
     }
-    void send_block (mu_coin::send_block const & block_a)
+    void run ()
     {
-        handle_process_result (client.ledger.process (block_a), block_a.hashables.destination);
-    }
-    void receive_block (mu_coin::receive_block const & block_a)
-    {
-        handle_process_result (client.ledger.process (block_a), 0);
-    }
-    void open_block (mu_coin::open_block const & block_a)
-    {
-        handle_process_result (client.ledger.process (block_a), 0);
-    }
-    void change_block (mu_coin::change_block const & block_a)
-    {
-        handle_process_result (client.ledger.process (block_a), 0);
-    }
-    void handle_process_result (mu_coin::process_result result_a, mu_coin::address destination)
-    {
-        switch (result_a)
+        auto hash (incoming->hash ());
+        auto list (client.peers.list ());
+        if (network_publish_logging ())
         {
-            case mu_coin::process_result::progress:
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Progress for: %1%") % incoming->hash ().to_string ()));
-                }
-                if (client.wallet.find (destination) != client.wallet.end ())
-                {
-                    client.processor.process_receivable (std::move (incoming));
-                }
-                else
-                {
-                    client.processor.republish (std::move (incoming), sender);
-                }
-                break;
-            case mu_coin::process_result::gap_previous:
+            client.log.add (boost::str (boost::format ("Publishing %1% to %2% peers") % hash.to_string () % list.size ()));
+        }
+        for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+        {
+            if (i->endpoint != sender)
             {
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Gap previous for: %1%") % incoming->hash ().to_string ()));
-                }
-                auto previous (incoming->previous ());
-                client.gap_cache.add (std::move (incoming), previous);
-                break;
+                client.network.publish_block (i->endpoint, incoming->clone ());
             }
-            case mu_coin::process_result::gap_source:
+        }
+        if (attempts < 0)
+        {
+            ++attempts;
+            auto this_l (shared_from_this ());
+            client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this_l] () {this_l->run ();});
+            if (network_publish_logging ())
             {
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Gap source for: %1%") % incoming->hash ().to_string ()));
-                }
-                auto source (incoming->source ());
-                client.gap_cache.add (std::move (incoming), source);
-                break;
+                client.log.add (boost::str (boost::format ("Queueing another publish for %1%") % hash.to_string ()));
             }
-            case mu_coin::process_result::old:
+        }
+        else
+        {
+            if (network_publish_logging ())
             {
-                if (ledger_duplicate_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Old for: %1%") % incoming->hash ().to_string ()));
-                }
-                break;
-            }
-            case mu_coin::process_result::bad_signature:
-            {
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Bad signature for: %1%") % incoming->hash ().to_string ()));
-                }
-                break;
-            }
-            case mu_coin::process_result::overspend:
-            {
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Overspend for: %1%") % incoming->hash ().to_string ()));
-                }
-                break;
-            }
-            case mu_coin::process_result::overreceive:
-            {
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Overreceive for: %1%") % incoming->hash ().to_string ()));
-                }
-                break;
-            }
-            case mu_coin::process_result::not_receive_from_send:
-            {
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Not receive from spend for: %1%") % incoming->hash ().to_string ()));
-                }
-                break;
-            }
-            case mu_coin::process_result::fork:
-            {
-                if (ledger_logging ())
-                {
-                    client.log.add (boost::str (boost::format ("Fork for: %1%") % incoming->hash ().to_string ()));
-                }
-                assert (false);
-                break;
+                client.log.add (boost::str (boost::format ("Done publishing for %1%") % hash.to_string ()));
             }
         }
     }
     mu_coin::client & client;
     std::unique_ptr <mu_coin::block> incoming;
     mu_coin::endpoint sender;
-    mu_coin::message_type result;
+    int attempts;
+};
+}
+
+void mu_coin::processor::republish (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a)
+{
+    auto republisher (std::make_shared <publish_processor> (client, incoming_a->clone (), sender_a));
+    republisher->run ();
+}
+
+namespace {
+class republish_visitor : public mu_coin::block_visitor
+{
+public:
+    republish_visitor (mu_coin::client & client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
+    client (client_a),
+    incoming (std::move (incoming_a)),
+    sender (sender_a)
+    {
+        assert (client_a.store.block_exists (incoming->hash ()));
+    }
+    void send_block (mu_coin::send_block const & block_a)
+    {
+        if (client.wallet.find (block_a.hashables.destination) == client.wallet.end ())
+        {
+            client.processor.republish (std::move (incoming), sender);
+        }
+    }
+    void receive_block (mu_coin::receive_block const & block_a)
+    {
+        client.processor.republish (std::move (incoming), sender);
+    }
+    void open_block (mu_coin::open_block const & block_a)
+    {
+        client.processor.republish (std::move (incoming), sender);
+    }
+    void change_block (mu_coin::change_block const & block_a)
+    {
+        client.processor.republish (std::move (incoming), sender);
+    }
+    mu_coin::client & client;
+    std::unique_ptr <mu_coin::block> incoming;
+    mu_coin::endpoint sender;
 };
 
 class receivable_message_processor : public mu_coin::message_visitor
@@ -1894,7 +1808,7 @@ max (128)
 }
 
 
-void mu_coin::gap_cache::add (std::unique_ptr <mu_coin::block> block_a, mu_coin::block_hash needed_a)
+void mu_coin::gap_cache::add (mu_coin::block const & block_a, mu_coin::block_hash needed_a)
 {
     auto existing (blocks.find (needed_a));
     if (existing != blocks.end ())
@@ -1903,7 +1817,7 @@ void mu_coin::gap_cache::add (std::unique_ptr <mu_coin::block> block_a, mu_coin:
     }
     else
     {
-        blocks.insert ({std::chrono::system_clock::now (), needed_a, std::move (block_a)});
+        blocks.insert ({std::chrono::system_clock::now (), needed_a, block_a.clone ()});
         if (blocks.size () > max)
         {
             blocks.get <1> ().erase (blocks.get <1> ().begin ());
@@ -1947,7 +1861,7 @@ void mu_coin::receivable_processor::run ()
         auto list (client.peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            client.network.confirm_block (i->endpoint, session, incoming->clone ());
+            client.network.confirm_block (i->endpoint, session, *incoming);
         }
     }
     else
@@ -2011,7 +1925,7 @@ void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t con
                         open->hashables.representative = client.representative;
                         mu_coin::sign_message (prv, send.hashables.destination, open->hash (), open->signature);
                         prv.bytes.fill (0);
-                        client.processor.process_and_republish (std::unique_ptr <mu_coin::block> (open), mu_coin::endpoint {});
+                        client.processor.process_receive_republish (std::unique_ptr <mu_coin::block> (open), mu_coin::endpoint {});
                     }
                     else
                     {
@@ -2022,7 +1936,7 @@ void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t con
                         receive->hashables.source = hash;
                         mu_coin::sign_message (prv, send.hashables.destination, receive->hash (), receive->signature);
                         prv.bytes.fill (0);
-                        client.processor.process_and_republish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
+                        client.processor.process_receive_republish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
                     }
                 }
                 else
@@ -2075,23 +1989,154 @@ void receivable_message_processor::confirm_nak (mu_coin::confirm_nak const & mes
     }
 }
 
-void mu_coin::processor::process_receivable (std::unique_ptr <mu_coin::block> incoming)
+void mu_coin::processor::process_receivable (mu_coin::block const & incoming)
 {
-    auto processor (std::make_shared <receivable_processor> (std::move (incoming), client));
+    auto processor (std::make_shared <receivable_processor> (incoming.clone (), client));
     processor->run ();
 }
 
-void mu_coin::processor::process_and_republish (std::unique_ptr <mu_coin::block> incoming, mu_coin::endpoint const & sender_a)
+void mu_coin::processor::process_receive_republish (std::unique_ptr <mu_coin::block> incoming, mu_coin::endpoint const & sender_a)
 {
     std::unique_ptr <mu_coin::block> block (std::move (incoming));
     do
     {
         auto hash (block->hash ());
-        publish_visitor visitor (client, std::move (block), sender_a);
-        visitor.incoming->visit (visitor);
+        auto process_result (process_receive (*block));
+        switch (process_result)
+        {
+            case mu_coin::process_result::progress:
+            {
+                republish_visitor visitor (client, std::move (block), sender_a);
+                visitor.incoming->visit (visitor);
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
         block = client.gap_cache.get (hash);
     }
     while (block != nullptr);
+}
+
+namespace
+{
+class receivable_visitor : public mu_coin::block_visitor
+{
+public:
+    receivable_visitor (mu_coin::client & client_a, mu_coin::block const & incoming_a) :
+    client (client_a),
+    incoming (incoming_a)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        if (client.wallet.find (block_a.hashables.destination) != client.wallet.end ())
+        {
+            client.processor.process_receivable (incoming);
+        }
+    }
+    void receive_block (mu_coin::receive_block const &) override
+    {
+    }
+    void open_block (mu_coin::open_block const &) override
+    {
+    }
+    void change_block (mu_coin::change_block const &) override
+    {
+    }
+    mu_coin::client & client;
+    mu_coin::block const & incoming;
+};
+}
+
+mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block const & incoming)
+{
+    auto result (client.ledger.process (incoming));
+    switch (result)
+    {
+        case mu_coin::process_result::progress:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Progress for: %1%") % incoming.hash ().to_string ()));
+            }
+            receivable_visitor visitor (client, incoming);
+            incoming.visit (visitor);
+            break;
+        }
+        case mu_coin::process_result::gap_previous:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Gap previous for: %1%") % incoming.hash ().to_string ()));
+            }
+            auto previous (incoming.previous ());
+            client.gap_cache.add (incoming, previous);
+            break;
+        }
+        case mu_coin::process_result::gap_source:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Gap source for: %1%") % incoming.hash ().to_string ()));
+            }
+            auto source (incoming.source ());
+            client.gap_cache.add (incoming, source);
+            break;
+        }
+        case mu_coin::process_result::old:
+        {
+            if (ledger_duplicate_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Old for: %1%") % incoming.hash ().to_string ()));
+            }
+            break;
+        }
+        case mu_coin::process_result::bad_signature:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Bad signature for: %1%") % incoming.hash ().to_string ()));
+            }
+            break;
+        }
+        case mu_coin::process_result::overspend:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Overspend for: %1%") % incoming.hash ().to_string ()));
+            }
+            break;
+        }
+        case mu_coin::process_result::overreceive:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Overreceive for: %1%") % incoming.hash ().to_string ()));
+            }
+            break;
+        }
+        case mu_coin::process_result::not_receive_from_send:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Not receive from spend for: %1%") % incoming.hash ().to_string ()));
+            }
+            break;
+        }
+        case mu_coin::process_result::fork:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Fork for: %1%") % incoming.hash ().to_string ()));
+            }
+            assert (false);
+            break;
+        }
+    }
+    return result;
 }
 
 void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
@@ -2419,7 +2464,7 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     {
         for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
         {
-            processor.process_and_republish (std::move (*i), mu_coin::endpoint {});
+            processor.process_receive_republish (std::move (*i), mu_coin::endpoint {});
         }
     }
     return result;

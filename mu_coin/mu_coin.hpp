@@ -680,7 +680,7 @@ namespace mu_coin {
     {
     public:
         gap_cache ();
-        void add (std::unique_ptr <mu_coin::block>, mu_coin::block_hash);
+        void add (mu_coin::block const &, mu_coin::block_hash);
         std::unique_ptr <mu_coin::block> get (mu_coin::block_hash const &);
         boost::multi_index_container
         <
@@ -698,9 +698,10 @@ namespace mu_coin {
     public:
         processor (mu_coin::client &);
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
-        void process_and_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
+        mu_coin::process_result process_receive (mu_coin::block const &);
+        void process_receive_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-        void process_receivable (std::unique_ptr <mu_coin::block>);
+        void process_receivable (mu_coin::block const &);
 		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
         void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
@@ -771,7 +772,7 @@ namespace mu_coin {
         void rpc_action (boost::system::error_code const &, size_t);
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, std::unique_ptr <mu_coin::block>);
+        void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, mu_coin::block const &);
         void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <mu_coin::endpoint, 24> const &);
         void send_buffer (uint8_t const *, size_t, mu_coin::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
