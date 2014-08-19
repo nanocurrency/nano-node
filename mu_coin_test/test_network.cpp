@@ -196,7 +196,7 @@ TEST (network, publish_req)
     auto block (std::unique_ptr <mu_coin::send_block> (new mu_coin::send_block));
     mu_coin::keypair key1;
     mu_coin::keypair key2;
-    block->hashables.previous.clear ();
+    block->hashables.previous = 0;
     block->hashables.balance = 200;
     block->hashables.destination = key2.pub;
     mu_coin::publish_req req (std::move (block));
@@ -231,7 +231,7 @@ TEST (network, send_invalid_publish)
 {
     mu_coin::system system (1, 24000, 25000, 2, 100);
     std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
-    block->hashables.previous.clear ();
+    block->hashables.previous = 0;
     block->hashables.balance = 20;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, block->hash (), block->signature);
     system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
@@ -252,24 +252,27 @@ TEST (network, send_valid_publish)
     mu_coin::keypair key2;
     system.clients [1]->wallet.insert (key2.prv, system.clients [1]->wallet.password);
     mu_coin::send_block block2;
-    mu_coin::frontier frontier1;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, frontier1));
-    block2.hashables.previous = frontier1.hash;
+    mu_coin::block_hash hash1;
+    uint64_t time1;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, hash1, time1));
+    block2.hashables.previous = hash1;
     block2.hashables.balance = 50;
     block2.hashables.destination = key2.pub;
     auto hash2 (block2.hash ());
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, hash2, block2.signature);
-    mu_coin::frontier frontier2;
-    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, frontier2));
+    mu_coin::block_hash hash3;
+    uint64_t time2;
+    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash3, time2));
     system.clients [0]->processor.process_and_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
     while (system.clients [1]->network.publish_req_count == 0)
     {
         system.service->run_one ();
     }
-    mu_coin::frontier frontier3;
-    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, frontier3));
-    ASSERT_FALSE (frontier2.hash == frontier3.hash);
-    ASSERT_EQ (hash2, frontier3.hash);
+    mu_coin::block_hash hash4;
+    uint64_t time3;
+    ASSERT_FALSE (system.clients [1]->store.latest_get (system.test_genesis_address.pub, hash4, time3));
+    ASSERT_FALSE (hash3 == hash4);
+    ASSERT_EQ (hash2, hash4);
     ASSERT_EQ (50, system.clients [1]->ledger.account_balance (system.test_genesis_address.pub));
 }
 
@@ -365,9 +368,10 @@ TEST (receivable_processor, send_with_receive)
     mu_coin::keypair key2;
     system.clients [1]->wallet.insert (key2.pub, key2.prv, system.clients [1]->wallet.password);
     auto block1 (new mu_coin::send_block ());
-    mu_coin::frontier frontier1;
-    ASSERT_FALSE (system.clients [0]->ledger.store.latest_get (system.test_genesis_address.pub, frontier1));
-    block1->hashables.previous = frontier1.hash;
+    mu_coin::block_hash previous;
+    uint64_t time;
+    ASSERT_FALSE (system.clients [0]->ledger.store.latest_get (system.test_genesis_address.pub, previous, time));
+    block1->hashables.previous = previous;
     block1->hashables.balance = amount - 100;
     block1->hashables.destination = key2.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, block1->hash (), block1->signature);
@@ -744,7 +748,7 @@ TEST (bulk_req, genesis_to_end)
     auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
     std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req {});
     req->start = system.test_genesis_address.pub;
-    req->end.clear ();
+    req->end = 0;
     connection->requests.push (std::unique_ptr <mu_coin::message> {});
     auto request (std::make_shared <mu_coin::bulk_req_response> (connection, std::move (req)));
     ASSERT_EQ (system.clients [0]->ledger.latest (system.test_genesis_address.pub), request->current);
@@ -803,7 +807,7 @@ TEST (bulk_connection, get_next_on_open)
     auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
     std::unique_ptr <mu_coin::bulk_req> req (new mu_coin::bulk_req {});
     req->start = system.test_genesis_address.pub;
-    req->end.clear ();
+    req->end = 0;
     connection->requests.push (std::unique_ptr <mu_coin::message> {});
     auto request (std::make_shared <mu_coin::bulk_req_response> (connection, std::move (req)));
     auto block (request->get_next ());
@@ -841,7 +845,7 @@ TEST (frontier_req, begin)
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
     std::unique_ptr <mu_coin::frontier_req> req (new mu_coin::frontier_req);
-    req->start.clear ();
+    req->start = 0;
     req->age = std::numeric_limits <decltype (req->age)>::max ();
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <mu_coin::message> {});
@@ -872,7 +876,7 @@ TEST (frontier_req, time_bound)
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
     std::unique_ptr <mu_coin::frontier_req> req (new mu_coin::frontier_req);
-    req->start.clear ();
+    req->start = 0;
     req->age = 0;
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <mu_coin::message> {});
@@ -887,7 +891,7 @@ TEST (frontier_req, time_cutoff)
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto connection (std::make_shared <mu_coin::bootstrap_connection> (nullptr, *system.clients [0]));
     std::unique_ptr <mu_coin::frontier_req> req (new mu_coin::frontier_req);
-    req->start.clear ();
+    req->start = 0;
     req->age = 10;
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <mu_coin::message> {});
@@ -903,16 +907,19 @@ TEST (bulk, genesis)
     mu_coin::system system (1, 24000, 25000, 1, 100);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
-    mu_coin::frontier frontier1;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, frontier1));
-    mu_coin::frontier frontier2;
-    ASSERT_FALSE (client1.store.latest_get (system.test_genesis_address.pub, frontier2));
-    ASSERT_EQ (frontier1.hash, frontier2.hash);
+    mu_coin::block_hash latest1;
+    uint64_t time1;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, latest1, time1));
+    mu_coin::block_hash latest3;
+    uint64_t time2;
+    ASSERT_FALSE (client1.store.latest_get (system.test_genesis_address.pub, latest3, time2));
+    ASSERT_EQ (latest1, latest3);
     mu_coin::keypair key2;
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
-    mu_coin::frontier frontier3;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, frontier3));
-    ASSERT_NE (frontier1.hash, frontier3.hash);
+    mu_coin::block_hash latest2;
+    uint64_t time3;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, latest2, time3));
+    ASSERT_NE (latest1, latest2);
     bool finished (false);
     client1.processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
     do

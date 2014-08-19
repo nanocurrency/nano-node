@@ -42,7 +42,7 @@ TEST (transaction_block, empty)
 {
     mu_coin::keypair key1;
     mu_coin::send_block block;
-    block.hashables.previous.clear ();
+    block.hashables.previous = 0;
     block.hashables.balance = 13;
     mu_coin::uint256_union hash (block.hash ());
     mu_coin::sign_message (key1.prv, key1.pub, hash, block.signature);
@@ -324,13 +324,13 @@ TEST (block_store, one_account)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::address address;
     mu_coin::block_hash hash;
-    store.latest_put (address, {hash, 100});
+    store.latest_put (address, hash, 100);
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (address, begin->first);
-    ASSERT_EQ (hash, begin->second.hash);
-    ASSERT_EQ (100, begin->second.time);
+    ASSERT_EQ (hash, begin->second);
+    ASSERT_EQ (100, begin->time);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -376,19 +376,19 @@ TEST (block_store, two_account)
     mu_coin::block_hash hash1 (2);
     mu_coin::address address2 (3);
     mu_coin::block_hash hash2 (4);
-    store.latest_put (address1, {hash1, 100});
-    store.latest_put (address2, {hash2, 200});
+    store.latest_put (address1, hash1, 100);
+    store.latest_put (address2, hash2, 200);
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (address1, begin->first);
-    ASSERT_EQ (hash1, begin->second.hash);
-    ASSERT_EQ (100, begin->second.time);
+    ASSERT_EQ (hash1, begin->second);
+    ASSERT_EQ (100, begin->time);
     ++begin;
     ASSERT_NE (end, begin);
     ASSERT_EQ (address2, begin->first);
-    ASSERT_EQ (hash2, begin->second.hash);
-    ASSERT_EQ (200, begin->second.time);
+    ASSERT_EQ (hash2, begin->second);
+    ASSERT_EQ (200, begin->time);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -400,8 +400,8 @@ TEST (block_store, latest_find)
     mu_coin::block_hash hash1 (2);
     mu_coin::address address2 (3);
     mu_coin::block_hash hash2 (4);
-    store.latest_put (address1, {hash1, 100});
-    store.latest_put (address2, {hash2, 200});
+    store.latest_put (address1, hash1, 100);
+    store.latest_put (address2, hash2, 200);
     auto first (store.latest_begin ());
     auto second (store.latest_begin ());
     ++second;
@@ -441,7 +441,7 @@ TEST (gap_cache, comparison)
 {
     mu_coin::gap_cache cache;
     mu_coin::send_block block1;
-    block1.hashables.previous.clear ();
+    block1.hashables.previous = 0;
     auto previous1 (block1.previous ());
     cache.add (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block1)), previous1);
     auto existing1 (cache.blocks.find (previous1));

@@ -16,7 +16,7 @@
 
 #include <ed25519-donna/ed25519.h>
 
-#include <leveldb/db.h>
+#include <db_cxx.h>
 
 #include <unordered_map>
 #include <unordered_set>
@@ -67,7 +67,6 @@ namespace mu_coin {
         uint256_union (std::string const &);
         uint256_union (mu_coin::uint256_union const &, mu_coin::uint256_union const &, uint128_union const &);
         uint256_union prv (uint256_union const &, uint128_union const &) const;
-        uint256_union & operator = (leveldb::Slice const &);
         bool operator == (mu_coin::uint256_union const &) const;
         bool operator != (mu_coin::uint256_union const &) const;
         bool operator < (mu_coin::uint256_union const &) const;
@@ -80,7 +79,6 @@ namespace mu_coin {
         void serialize (mu_coin::stream &) const;
         bool deserialize (mu_coin::stream &);
         std::array <uint8_t, 32> bytes;
-        std::array <char, 32> chars;
         std::array <uint64_t, 4> qwords;
         std::array <uint128_union, 2> owords;
         void clear ();
@@ -213,6 +211,23 @@ namespace mu_coin {
         virtual std::unique_ptr <mu_coin::block> clone () const = 0;
         virtual mu_coin::block_type type () const = 0;
     };
+    class dbt
+    {
+    public:
+        dbt () = default;
+        dbt (mu_coin::uint256_union const &);
+        dbt (mu_coin::uint256_union const &, uint64_t);
+        dbt (mu_coin::block const &);
+        dbt (mu_coin::address const &, mu_coin::block_hash const &);
+        dbt (mu_coin::private_key const &, mu_coin::secret_key const &, mu_coin::uint128_union const &);
+        void adopt ();
+        void key (mu_coin::uint256_union const &, mu_coin::uint128_union const &, mu_coin::private_key &);
+        mu_coin::uint256_union uint256 () const;
+        void frontier (mu_coin::uint256_union &, uint64_t &) const;
+        std::unique_ptr <mu_coin::block> block ();
+        std::vector <uint8_t> bytes;
+        Dbt data;
+    };
     std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::stream &);
     void serialize_block (mu_coin::stream &, mu_coin::block const &);
     void sign_message (mu_coin::private_key const &, mu_coin::public_key const &, mu_coin::uint256_union const &, mu_coin::uint512_union &);
@@ -329,34 +344,28 @@ namespace mu_coin {
     struct block_store_temp_t
     {
     };
-    class frontier
-    {
-    public:
-        void serialize (mu_coin::stream &) const;
-        bool deserialize (mu_coin::stream &);
-        mu_coin::uint256_union hash;
-        uint64_t time;
-    };
     class account_entry
     {
     public:
         account_entry * operator -> ();
         mu_coin::address first;
-        mu_coin::frontier second;
+        mu_coin::block_hash second;
+        uint64_t time;
     };
     class account_iterator
     {
     public:
-        account_iterator (leveldb::DB *);
-        account_iterator (leveldb::DB *, std::nullptr_t);
-        account_iterator (leveldb::DB *, mu_coin::address const &);
+        account_iterator (Dbc *);
+        account_iterator (Dbc *, mu_coin::address const &);
         account_iterator (mu_coin::account_iterator &&) = default;
+        account_iterator (mu_coin::account_iterator const &) = default;
         account_iterator & operator ++ ();
         account_entry & operator -> ();
         bool operator == (mu_coin::account_iterator const &) const;
         bool operator != (mu_coin::account_iterator const &) const;
-        void set_current ();
-        std::unique_ptr <leveldb::Iterator> iterator;
+        Dbc * cursor;
+        dbt key;
+        dbt data;
         mu_coin::account_entry current;
     };
     class block_entry
@@ -369,15 +378,16 @@ namespace mu_coin {
     class block_iterator
     {
     public:
-        block_iterator (leveldb::DB *);
-        block_iterator (leveldb::DB *, std::nullptr_t);
+        block_iterator (Dbc *);
         block_iterator (mu_coin::block_iterator &&) = default;
+        block_iterator (mu_coin::block_iterator const &) = default;
         block_iterator & operator ++ ();
         block_entry & operator -> ();
         bool operator == (mu_coin::block_iterator const &) const;
         bool operator != (mu_coin::block_iterator const &) const;
-        void set_current ();
-        std::unique_ptr <leveldb::Iterator> iterator;
+        Dbc * cursor;
+        dbt key;
+        dbt data;
         mu_coin::block_entry current;
     };
     extern block_store_temp_t block_store_temp;
@@ -396,8 +406,8 @@ namespace mu_coin {
         block_iterator blocks_begin ();
         block_iterator blocks_end ();
         
-        void latest_put (mu_coin::address const &, mu_coin::frontier const &);
-        bool latest_get (mu_coin::address const &, mu_coin::frontier &);
+        void latest_put (mu_coin::address const &, mu_coin::block_hash const &, uint64_t);
+        bool latest_get (mu_coin::address const &, mu_coin::block_hash &, uint64_t &);
 		void latest_del (mu_coin::address const &);
         account_iterator latest_begin (mu_coin::address const &);
         account_iterator latest_begin ();
@@ -419,19 +429,19 @@ namespace mu_coin {
         
     private:
         // address -> block_hash, timestamp     // Each address has one head block and a last updated timestamp
-        leveldb::DB * addresses;
+        Db addresses;
         // block_hash -> block                  // Mapping block hash to contents
-        leveldb::DB * blocks;
+        Db blocks;
         // block_hash ->                        // Pending blocks
-        leveldb::DB * pending;
+        Db pending;
         // address -> weight                    // Representation
-        leveldb::DB * representation;
+        Db representation;
         // block_hash -> block                  // Fork proof
-        leveldb::DB * forks;
+        Db forks;
         // block_hash -> block                  // Unchecked bootstrap blocks
-        leveldb::DB * bootstrap;
+        Db bootstrap;
         // block_hash -> block_hash             // Tracking successors for bootstrapping
-        leveldb::DB * successors;
+        Db successors;
     };
     enum class process_result
     {
@@ -610,17 +620,17 @@ namespace mu_coin {
     class key_iterator
     {
     public:
-        key_iterator (leveldb::DB *); // Begin iterator
-        key_iterator (leveldb::DB *, std::nullptr_t); // End iterator
-        key_iterator (leveldb::DB *, mu_coin::uint256_union const &);
-        key_iterator (mu_coin::key_iterator &&) = default;
-        void set_current ();
+        key_iterator (Dbc *);
+        key_iterator (mu_coin::key_iterator const &) = default;
+        void clear ();
         key_iterator & operator ++ ();
         mu_coin::key_entry & operator -> ();
         bool operator == (mu_coin::key_iterator const &) const;
         bool operator != (mu_coin::key_iterator const &) const;
         mu_coin::key_entry current;
-        std::unique_ptr <leveldb::Iterator> iterator;
+        Dbc * cursor;
+        dbt key;
+        dbt data;
     };
     class wallet
     {
@@ -636,7 +646,7 @@ namespace mu_coin {
         key_iterator end ();
         mu_coin::uint256_union password;
     private:
-        leveldb::DB * handle;
+        Db handle;
     };
     class operation
     {
