@@ -393,10 +393,10 @@ void mu_coin_qt::gui::refresh_ledger ()
         i->first.encode_base58check (account);
         line += account;
         line += " : ";
-        line += client.ledger.balance (i->second).convert_to <std::string> ();
+        line += client.ledger.balance (i->second.hash).convert_to <std::string> ();
         line += " : ";
         std::string block_hash;
-        i->second.encode_hex (block_hash);
+        i->second.hash.encode_hex (block_hash);
         line += block_hash;
         QString qline (line.c_str ());
         accounts << qline;
