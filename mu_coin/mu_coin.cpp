@@ -1445,8 +1445,8 @@ bool mu_coin::wallet::fetch (mu_coin::public_key const & pub, mu_coin::secret_ke
     {
         mu_coin::uint256_union encrypted;
         mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        auto result (read (stream, encrypted.bytes));
-        assert (!result);
+        auto result2 (read (stream, encrypted.bytes));
+        assert (!result2);
         prv = encrypted.prv (key_a, pub.owords [0]);
         mu_coin::public_key compare;
         ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
@@ -1537,13 +1537,13 @@ mu_coin::key_iterator mu_coin::wallet::find (mu_coin::uint256_union const & key)
 
 mu_coin::key_iterator mu_coin::wallet::end ()
 {
-    return mu_coin::key_iterator (nullptr);
+    return mu_coin::key_iterator (handle, nullptr);
 }
 
 bool mu_coin::key_iterator::operator == (mu_coin::key_iterator const & other_a) const
 {
     auto lhs_valid (iterator->Valid ());
-    auto rhs_valid (iterator->Valid ());
+    auto rhs_valid (other_a.iterator->Valid ());
     return (!lhs_valid && !rhs_valid) || (lhs_valid && rhs_valid && current.first == other_a.current.first);
 }
 
@@ -3966,7 +3966,7 @@ void mu_coin::block_store::bootstrap_put (mu_coin::block_hash const & hash_a, mu
         mu_coin::vectorstream stream (vector);
         mu_coin::serialize_block (stream, block_a);
     }
-    auto status (bootstrap->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data (), vector.size ()))));
+    auto status (bootstrap->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
     assert (status.ok () | status.IsNotFound ());
 }
 
