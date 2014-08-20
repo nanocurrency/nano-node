@@ -5,9 +5,6 @@ add_definitions (-std=c++11 -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOM
 
 include_directories (${CMAKE_SOURCE_DIR})
 
-find_package (BerkeleyDB REQUIRED)
-include_directories (${BerkeleyDB_INCLUDE_DIR})
-
 find_package (Boost REQUIRED COMPONENTS filesystem system thread)
 include_directories (${Boost_INCLUDE_DIR})
 
@@ -46,6 +43,6 @@ add_executable (mu_coin_qt
     mu_coin_qt/qt.cpp
     mu_coin_qt/qt.hpp)
 
-target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${CPPNETLIB_LIBRARIES} pthread ${LevelDB_LIBRARY})
+target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_qt mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${BerkeleyDB_LIBRARIES} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${LevelDB_LIBRARY})
+target_link_libraries (mu_coin_qt mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${LevelDB_LIBRARY})
