@@ -656,7 +656,6 @@ TEST (bootstrap_processor, process_incomplete)
     mu_coin::send_block block1;
     ASSERT_FALSE (bulk_req_initiator->process_block (block1));
     ASSERT_TRUE (bulk_req_initiator->process_end ());
-    while (system.service->poll ());
 }
 
 TEST (bootstrap_processor, process_one)

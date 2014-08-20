@@ -1148,7 +1148,11 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
             if (size_a >= sizeof (mu_coin::message_type))
             {
                 auto sender (remote);
-                client.peers.incoming_from_peer (sender);
+                auto new_peer (client.peers.incoming_from_peer (sender));
+                if (new_peer)
+                {
+                    client.processor.bootstrap (mu_coin::tcp_endpoint (sender.address (), sender.port ()), [] () {});
+                }
                 mu_coin::bufferstream type_stream (buffer.data (), size_a);
                 mu_coin::message_type type;
                 read (type_stream, type);
@@ -2139,9 +2143,10 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
     return result;
 }
 
-void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
+bool mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
 {
 	assert (!reserved_address (endpoint_a));
+    auto result (true);
 	if (endpoint_a != self)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
@@ -2149,12 +2154,14 @@ void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endp
 		if (existing == peers.end ())
 		{
 			peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
+            result = false;
 		}
 		else
 		{
 			peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
 		}
 	}
+    return result;
 }
 
 std::vector <mu_coin::peer_information> mu_coin::peer_container::list ()
@@ -4086,18 +4093,18 @@ void mu_coin::system::generate_transaction (uint32_t amount)
 mu_coin::bootstrap_initiator::~bootstrap_initiator ()
 {
     complete_action ();
-    if (network_logging ())
+    /*if (network_logging ())
     {
         client.log.add ("Exiting bootstrap processor");
-    }
+    }*/
 }
 
 mu_coin::bootstrap_connection::~bootstrap_connection ()
 {
-    if (network_logging ())
+    /*if (network_logging ())
     {
         client.log.add ("Exiting bootstrap connection");
-    }
+    }*/
 }
 
 void mu_coin::peer_container::random_fill (std::array <mu_coin::endpoint, 24> & target_a)
@@ -4464,10 +4471,10 @@ connection (connection_a)
 
 mu_coin::bulk_req_initiator::~bulk_req_initiator ()
 {
-    if (network_logging ())
+    /*if (network_logging ())
     {
         connection->client.log.add ("Exiting bulk_req initiator");
-    }
+    }*/
 }
 
 mu_coin::frontier_req_initiator::frontier_req_initiator (std::shared_ptr <mu_coin::bootstrap_initiator> const & connection_a, std::unique_ptr <mu_coin::frontier_req> request_a) :
@@ -4478,10 +4485,10 @@ connection (connection_a)
 
 mu_coin::frontier_req_initiator::~frontier_req_initiator ()
 {
-    if (network_logging ())
+    /*if (network_logging ())
     {
         connection->client.log.add ("Exiting frontier_req initiator");
-    }
+    }*/
 }
 
 void mu_coin::frontier_req_initiator::receive_frontier ()

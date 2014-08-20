@@ -876,7 +876,7 @@ namespace mu_coin {
     public:
 		peer_container (mu_coin::endpoint const &);
         bool known_peer (mu_coin::endpoint const &);
-        void incoming_from_peer (mu_coin::endpoint const &);
+        bool incoming_from_peer (mu_coin::endpoint const &);
 		bool contacting_peer (mu_coin::endpoint const &);
 		void random_fill (std::array <mu_coin::endpoint, 24> &);
         std::vector <peer_information> list ();
