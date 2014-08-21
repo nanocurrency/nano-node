@@ -152,3 +152,18 @@ TEST (bootstrap, simple)
     auto block4 (store.bootstrap_get (block1.previous ()));
     ASSERT_EQ (nullptr, block4);
 }
+
+TEST (checksum, simple)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::block_hash hash0;
+    ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash0));
+    mu_coin::block_hash hash1;
+    store.checksum_put (0x100, 0x10, hash1);
+    mu_coin::block_hash hash2;
+    ASSERT_FALSE (store.checksum_get (0x100, 0x10, hash2));
+    ASSERT_EQ (hash1, hash2);
+    store.checksum_del (0x100, 0x10);
+    mu_coin::block_hash hash3;
+    ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash3));
+}

@@ -909,6 +909,8 @@ mu_coin::block_store::block_store (boost::filesystem::path const & path_a)
     assert (status6.ok ());
     auto status7 (leveldb::DB::Open (options, (path_a / "successors.ldb").native ().c_str (), &successors));
     assert (status7.ok ());
+    auto status8 (leveldb::DB::Open (options, (path_a / "checksum.ldb").native ().c_str (), &checksum));
+    assert (status8.ok ());
 }
 
 void mu_coin::block_store::block_put (mu_coin::block_hash const & hash_a, mu_coin::block const & block_a)
@@ -4546,4 +4548,41 @@ void mu_coin::frontier_req_initiator::received_frontier (boost::system::error_co
             connection->client.log.add (boost::str (boost::format ("Error while receiving frontier %1%") % ec.message ()));
         }
     }
+}
+
+void mu_coin::block_store::checksum_put (uint64_t prefix, uint8_t mask, mu_coin::uint256_union const & hash_a)
+{
+    assert ((prefix & 0xff) == 0);
+    uint64_t key (prefix | mask);
+    auto status (checksum->Put (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
+    assert (status.ok ());
+}
+
+bool mu_coin::block_store::checksum_get (uint64_t prefix, uint8_t mask, mu_coin::uint256_union & hash_a)
+{
+    assert ((prefix & 0xff) == 0);
+    std::string value;
+    uint64_t key (prefix | mask);
+    auto status (checksum->Get (leveldb::ReadOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)), &value));
+    assert (status.ok () || status.IsNotFound ());
+    bool result;
+    if (status.ok ())
+    {
+        result = false;
+        mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        auto error (hash_a.deserialize (stream));
+        assert (!error);
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
+}
+
+void mu_coin::block_store::checksum_del (uint64_t prefix, uint8_t mask)
+{
+    assert ((prefix & 0xff) == 0);
+    uint64_t key (prefix | mask);
+    checksum->Delete (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)));
 }

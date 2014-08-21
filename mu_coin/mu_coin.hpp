@@ -417,6 +417,10 @@ namespace mu_coin {
         std::unique_ptr <mu_coin::block> bootstrap_get (mu_coin::block_hash const &);
         void bootstrap_del (mu_coin::block_hash const &);
         
+        void checksum_put (uint64_t, uint8_t, mu_coin::uint256_union const &);
+        bool checksum_get (uint64_t, uint8_t, mu_coin::uint256_union &);
+        void checksum_del (uint64_t, uint8_t);
+        
     private:
         // address -> block_hash, timestamp     // Each address has one head block and a last updated timestamp
         leveldb::DB * addresses;
@@ -432,6 +436,8 @@ namespace mu_coin {
         leveldb::DB * bootstrap;
         // block_hash -> block_hash             // Tracking successors for bootstrapping
         leveldb::DB * successors;
+        // (uint56_t, uint8_t) -> block_hash    // Mapping of region to checksum
+        leveldb::DB * checksum;
     };
     enum class process_result
     {
@@ -650,6 +656,7 @@ namespace mu_coin {
     public:
         processor_service ();
         void run ();
+        size_t poll ();
         void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
         void stop ();
         bool stopped ();
