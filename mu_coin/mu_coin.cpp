@@ -354,6 +354,7 @@ mu_coin::keypair::keypair (std::string const & prv_a)
 mu_coin::ledger::ledger (mu_coin::block_store & store_a) :
 store (store_a)
 {
+    store.checksum_put (0, 0, 0);
 }
 
 bool mu_coin::uint256_union::operator == (mu_coin::uint256_union const & other_a) const
@@ -556,7 +557,7 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
                 {
 					ledger.move_representation (ledger.representative (block_a.hashables.previous), block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
                     ledger.store.block_put (message, block_a);
-                    ledger.store.latest_put (account, {message, ledger.store.now ()});
+                    ledger.change_latest (account, message);
                 }
             }
         }
@@ -589,7 +590,7 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
                     if (result == mu_coin::process_result::progress)
                     {
                         ledger.store.block_put (message, block_a);
-                        ledger.store.latest_put (account, {message, ledger.store.now ()});
+                        ledger.change_latest (account, message);
                         ledger.store.pending_put (message);
                     }
                 }
@@ -625,7 +626,7 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                         {
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
-                            ledger.store.latest_put (source_send->hashables.destination, {hash, ledger.store.now ()});
+                            ledger.change_latest (source_send->hashables.destination, hash);
                             ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
                         }
                         else
@@ -663,7 +664,7 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                     {
                         ledger.store.pending_del (source_send->hash ());
                         ledger.store.block_put (hash, block_a);
-                        ledger.store.latest_put (source_send->hashables.destination, {hash, ledger.store.now ()});
+                        ledger.change_latest (source_send->hashables.destination, hash);
 						ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
                     }
                 }
@@ -960,8 +961,7 @@ void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
     store_a.block_put (send1.hash (), send1);
     store_a.block_put (send2.hash (), send2);
     store_a.block_put (open.hash (), open);
-    mu_coin::frontier frontier ({open.hash (), store_a.now ()});
-    store_a.latest_put (send2.hashables.destination, frontier);
+    store_a.latest_put (send2.hashables.destination, {open.hash (), store_a.now ()});
     store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
 }
 
@@ -1668,6 +1668,7 @@ peers (network.endpoint ()),
 service (processor_a)
 {
     genesis_a.initialize (store);
+    ledger.checksum_update (genesis.hash ());
 }
 
 mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
@@ -3026,7 +3027,7 @@ public:
 			ledger.rollback (ledger.latest (block_a.hashables.destination));
 		}
 		ledger.store.pending_del (hash);
-		ledger.store.latest_put (account, {block_a.hashables.previous, ledger.store.now ()});
+        ledger.change_latest (account, block_a.hashables.previous);
 		ledger.store.block_del (hash);
     }
     void receive_block (mu_coin::receive_block const & block_a) override
@@ -3034,7 +3035,7 @@ public:
 		auto hash (block_a.hash ());
 		auto account (ledger.account (hash));
 		ledger.move_representation (account, ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
-		ledger.store.latest_put (account, {block_a.hashables.previous, ledger.store.now ()});
+        ledger.change_latest (account, block_a.hashables.previous);
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source);
     }
@@ -3043,7 +3044,7 @@ public:
 		auto hash (block_a.hash ());
 		auto account (ledger.account (hash));
 		ledger.move_representation (account, ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
-		ledger.store.latest_del (account);
+        ledger.change_latest (account, 0);
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source);
     }
@@ -3051,7 +3052,7 @@ public:
     {
 		ledger.move_representation (block_a.hashables.representative, ledger.representative (block_a.hashables.previous), ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (block_a.hash ());
-		ledger.store.latest_put (ledger.account (block_a.hashables.previous), {block_a.hashables.previous, ledger.store.now ()});
+        ledger.change_latest (ledger.account (block_a.hashables.previous), block_a.hashables.previous);
     }
     mu_coin::ledger & ledger;
 };
@@ -4585,4 +4586,63 @@ void mu_coin::block_store::checksum_del (uint64_t prefix, uint8_t mask)
     assert ((prefix & 0xff) == 0);
     uint64_t key (prefix | mask);
     checksum->Delete (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)));
+}
+
+mu_coin::uint256_union & mu_coin::uint256_union::operator ^= (mu_coin::uint256_union const & other_a)
+{
+    auto j (other_a.qwords.begin ());
+    for (auto i (qwords.begin ()), n (qwords.end ()); i != n; ++i, ++j)
+    {
+        *i ^= *j;
+    }
+    return *this;
+}
+
+mu_coin::uint256_union mu_coin::uint256_union::operator ^ (mu_coin::uint256_union const & other_a) const
+{
+    mu_coin::uint256_union result;
+    auto k (result.qwords.begin ());
+    for (auto i (qwords.begin ()), j (other_a.qwords.begin ()), n (qwords.end ()); i != n; ++i, ++j, ++k)
+    {
+        *k = *i ^ *j;
+    }
+    return result;
+}
+
+mu_coin::checksum mu_coin::ledger::checksum (mu_coin::address const & begin_a, mu_coin::address const & end_a)
+{
+    mu_coin::checksum result;
+    auto error (store.checksum_get (0, 0, result));
+    assert (!error);
+    return result;
+}
+
+void mu_coin::ledger::checksum_update (mu_coin::block_hash const & hash_a)
+{
+    mu_coin::checksum value;
+    auto error (store.checksum_get (0, 0, value));
+    assert (!error);
+    value ^= hash_a;
+    store.checksum_put (0, 0, value);
+}
+
+void mu_coin::ledger::change_latest (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
+{
+    mu_coin::frontier frontier;
+    auto exists (!store.latest_get (address_a, frontier));
+    if (exists)
+    {
+        checksum_update (frontier.hash);
+    }
+    if (!hash_a.is_zero())
+    {
+        frontier.hash = hash_a;
+        frontier.time = store.now ();
+        store.latest_put (address_a, frontier);
+        checksum_update (hash_a);
+    }
+    else
+    {
+        store.latest_del (address_a);
+    }
 }

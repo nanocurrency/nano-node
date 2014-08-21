@@ -68,6 +68,8 @@ namespace mu_coin {
         uint256_union (mu_coin::uint256_union const &, mu_coin::uint256_union const &, uint128_union const &);
         uint256_union prv (uint256_union const &, uint128_union const &) const;
         uint256_union & operator = (leveldb::Slice const &);
+        uint256_union & operator ^= (mu_coin::uint256_union const &);
+        uint256_union operator ^ (mu_coin::uint256_union const &) const;
         bool operator == (mu_coin::uint256_union const &) const;
         bool operator != (mu_coin::uint256_union const &) const;
         bool operator < (mu_coin::uint256_union const &) const;
@@ -96,6 +98,7 @@ namespace mu_coin {
     using public_key = uint256_union;
     using private_key = uint256_union;
     using secret_key = uint256_union;
+    using checksum = uint256_union;
     union uint512_union
     {
         uint512_union () = default;
@@ -417,8 +420,8 @@ namespace mu_coin {
         std::unique_ptr <mu_coin::block> bootstrap_get (mu_coin::block_hash const &);
         void bootstrap_del (mu_coin::block_hash const &);
         
-        void checksum_put (uint64_t, uint8_t, mu_coin::uint256_union const &);
-        bool checksum_get (uint64_t, uint8_t, mu_coin::uint256_union &);
+        void checksum_put (uint64_t, uint8_t, mu_coin::checksum const &);
+        bool checksum_get (uint64_t, uint8_t, mu_coin::checksum &);
         void checksum_del (uint64_t, uint8_t);
         
     private:
@@ -465,7 +468,10 @@ namespace mu_coin {
         mu_coin::uint256_t supply ();
         mu_coin::process_result process (mu_coin::block const &);
         void rollback (mu_coin::block_hash const &);
+        void change_latest (mu_coin::address const &, mu_coin::block_hash const &);
 		void move_representation (mu_coin::address const &, mu_coin::address const &, mu_coin::uint256_t const &);
+        void checksum_update (mu_coin::block_hash const &);
+        mu_coin::checksum checksum (mu_coin::address const &, mu_coin::address const &);
         mu_coin::block_store & store;
     };
     class keypair
