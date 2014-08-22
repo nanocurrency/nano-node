@@ -43,7 +43,7 @@ int main (int argc, char ** argv)
     {
         for (auto & i: system.clients)
         {
-            i->network.stop ();
+            i->client_m->network.stop ();
         }
         system.processor.stop ();
     });
