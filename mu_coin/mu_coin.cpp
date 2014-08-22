@@ -1175,6 +1175,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             }
                             mu_coin::keepalive_ack ack_message;
                             client.peers.random_fill (ack_message.peers);
+                            ack_message.checksum = client.ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ());
                             std::shared_ptr <std::vector <uint8_t>> ack_bytes (new std::vector <uint8_t>);
                             {
                                 mu_coin::vectorstream stream (*ack_bytes);
