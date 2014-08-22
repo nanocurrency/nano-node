@@ -3780,13 +3780,9 @@ void mu_coin::bootstrap_initiator::sent_request (boost::system::error_code const
 {
     if (ec)
     {
-        client.log.add (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
-    }
-    else
-    {
         if (network_logging ())
         {
-            client.log.add (boost::str (boost::format ("Error sending bootstrap request %1%") % ec.message ()));
+            client.log.add (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
         }
     }
 }
