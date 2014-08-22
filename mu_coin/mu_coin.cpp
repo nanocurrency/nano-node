@@ -1664,6 +1664,11 @@ client (client_a)
 {
 }
 
+void mu_coin::processor::stop ()
+{
+    confirm_listeners.clear ();
+}
+
 bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
 {
     return wakeup > other_a.wakeup;

@@ -712,6 +712,7 @@ namespace mu_coin {
     {
     public:
         processor (mu_coin::client_impl &);
+        void stop ();
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
         mu_coin::process_result process_receive (mu_coin::block const &);
         void process_receive_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
