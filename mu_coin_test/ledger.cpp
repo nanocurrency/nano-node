@@ -31,7 +31,7 @@ TEST (system, system_genesis)
     mu_coin::system system (1, 24000, 25000, 2, 500);
     for (auto & i: system.clients)
     {
-        ASSERT_EQ (500, i->ledger.account_balance (system.test_genesis_address.pub));
+        ASSERT_EQ (500, i->client_m->ledger.account_balance (system.test_genesis_address.pub));
     }
 }
 

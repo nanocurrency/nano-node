@@ -682,7 +682,7 @@ namespace mu_coin {
         std::chrono::system_clock::time_point last_contact;
         std::chrono::system_clock::time_point last_attempt;
     };
-    class client;
+    class client_impl;
     using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
     class gap_information
     {
@@ -711,7 +711,7 @@ namespace mu_coin {
     class processor
     {
     public:
-        processor (mu_coin::client &);
+        processor (mu_coin::client_impl &);
         void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
         mu_coin::process_result process_receive (mu_coin::block const &);
         void process_receive_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
@@ -725,7 +725,7 @@ namespace mu_coin {
         size_t publish_listener_size ();
 		void confirm_ack (std::unique_ptr <mu_coin::confirm_ack>, mu_coin::endpoint const &);
 		void confirm_nak (std::unique_ptr <mu_coin::confirm_nak>, mu_coin::endpoint const &);
-        mu_coin::client & client;
+        mu_coin::client_impl & client;
     private:
         std::mutex mutex;
         std::unordered_map <mu_coin::uint256_union, session> confirm_listeners;
@@ -733,7 +733,7 @@ namespace mu_coin {
     class bootstrap_initiator : public std::enable_shared_from_this <bootstrap_initiator>
     {
     public:
-        bootstrap_initiator (mu_coin::client &, std::function <void ()> const &);
+        bootstrap_initiator (std::shared_ptr <mu_coin::client_impl>, std::function <void ()> const &);
         ~bootstrap_initiator ();
         void run (mu_coin::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
@@ -745,7 +745,7 @@ namespace mu_coin {
         void add_request (std::unique_ptr <mu_coin::message>);
         std::queue <std::unique_ptr <mu_coin::message>> requests;
         std::vector <uint8_t> send_buffer;
-        mu_coin::client & client;
+        std::shared_ptr <mu_coin::client_impl> client;
         boost::asio::ip::tcp::socket socket;
         std::function <void ()> complete_action;
         std::mutex mutex;
@@ -780,7 +780,7 @@ namespace mu_coin {
     class network
     {
     public:
-        network (boost::asio::io_service &, uint16_t, mu_coin::client &);
+        network (boost::asio::io_service &, uint16_t, mu_coin::client_impl &);
         void receive ();
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
@@ -796,7 +796,7 @@ namespace mu_coin {
         std::array <uint8_t, 512> buffer;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
-        mu_coin::client & client;
+        mu_coin::client_impl & client;
         std::queue <std::tuple <uint8_t const *, size_t, mu_coin::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
         std::mutex mutex;
         uint64_t keepalive_req_count;
@@ -814,8 +814,8 @@ namespace mu_coin {
     class bootstrap_receiver
     {
     public:
-        bootstrap_receiver (boost::asio::io_service &, uint16_t, mu_coin::client &);
-        void accept ();
+        bootstrap_receiver (boost::asio::io_service &, uint16_t, mu_coin::client_impl &);
+        void start ();
         void stop ();
         void accept_connection ();
         void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
@@ -823,13 +823,13 @@ namespace mu_coin {
         boost::asio::ip::tcp::acceptor acceptor;
         mu_coin::tcp_endpoint local;
         boost::asio::io_service & service;
-        mu_coin::client & client;
+        mu_coin::client_impl & client;
         bool on;
     };
     class bootstrap_connection : public std::enable_shared_from_this <bootstrap_connection>
     {
     public:
-        bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, mu_coin::client &);
+        bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <mu_coin::client_impl>);
         ~bootstrap_connection ();
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
@@ -840,7 +840,7 @@ namespace mu_coin {
 		void run_next ();
         std::array <uint8_t, 128> receive_buffer;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
-        mu_coin::client & client;
+        std::shared_ptr <mu_coin::client_impl> client;
         std::mutex mutex;
         std::queue <std::unique_ptr <mu_coin::message>> requests;
     };
@@ -878,12 +878,13 @@ namespace mu_coin {
     class rpc
     {
     public:
-        rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, mu_coin::client &);
-        void listen ();
+        rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, mu_coin::client_impl &);
+        void start ();
+        void stop ();
         boost::network::http::server <mu_coin::rpc> server;
         void operator () (boost::network::http::server <mu_coin::rpc>::request const &, boost::network::http::server <mu_coin::rpc>::response &);
         void log (const char *) {}
-        mu_coin::client & client;
+        mu_coin::client_impl & client;
         bool on;
     };
     class peer_container
@@ -915,7 +916,7 @@ namespace mu_coin {
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
     public:
-        receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::client & client_a);
+        receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, std::shared_ptr <mu_coin::client_impl> client_a);
         void run ();
         void process_acknowledged (mu_coin::uint256_t const &);
         void confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
@@ -927,7 +928,7 @@ namespace mu_coin {
 		mu_coin::uint256_union session;
         std::chrono::system_clock::time_point timeout;
         std::unique_ptr <mu_coin::block> const incoming;
-        mu_coin::client & client;
+        std::shared_ptr <mu_coin::client_impl> client;
         std::mutex mutex;
         bool complete;
     };
@@ -949,13 +950,15 @@ namespace mu_coin {
         void dump_cerr ();
         boost::circular_buffer <std::pair <std::chrono::system_clock::time_point, std::string>> items;
     };
-    class client
+    class client_impl : public std::enable_shared_from_this <mu_coin::client_impl>
     {
     public:
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        client_impl (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        client_impl (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
         void start ();
+        void stop ();
+        std::shared_ptr <mu_coin::client_impl> shared ();
         mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;
@@ -969,6 +972,14 @@ namespace mu_coin {
         mu_coin::processor processor;
         mu_coin::peer_container peers;
         mu_coin::processor_service & service;
+    };
+    class client
+    {
+    public:
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        ~client ();
+        std::shared_ptr <mu_coin::client_impl> client_m;
     };
     class system
     {
