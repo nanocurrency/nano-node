@@ -3749,6 +3749,10 @@ complete_action (complete_action_a)
 
 void mu_coin::bootstrap_initiator::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
 {
+    if (network_logging ())
+    {
+        client.log.add (boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint_a));
+    }
     auto this_l (shared_from_this ());
     socket.async_connect (endpoint_a, [this_l] (boost::system::error_code const & ec) {this_l->connect_action (ec);});
 }
