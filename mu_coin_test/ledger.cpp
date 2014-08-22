@@ -460,7 +460,7 @@ TEST (ledger, checksum_single)
     mu_coin::sign_message (key1.prv, key1.pub, block1.hash (), block1.signature);
     mu_coin::checksum check1 (ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()));
 	ASSERT_EQ (genesis.hash (), check1);
-    ASSERT_FALSE (ledger.process (block1));
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block1));
     mu_coin::checksum check2 (ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()));
     ASSERT_EQ (block1.hash (), check2);
 }
@@ -478,12 +478,12 @@ TEST (ledger, checksum_two)
     block1.hashables.previous = ledger.latest (key1.pub);
 	block1.hashables.destination = key2.pub;
     mu_coin::sign_message (key1.prv, key1.pub, block1.hash (), block1.signature);
-    ASSERT_FALSE (ledger.process (block1));
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block1));
 	mu_coin::checksum check1 (ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()));
 	mu_coin::open_block block2;
 	block2.hashables.source = block1.hash ();
 	mu_coin::sign_message (key2.prv, key2.pub, block2.hash (), block2.signature);
-	ASSERT_FALSE (ledger.process (block2));
+	ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block2));
 	mu_coin::checksum check2 (ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()));
 	ASSERT_EQ (check1, check2 ^ block2.hash ());
 }
