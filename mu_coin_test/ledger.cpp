@@ -454,14 +454,15 @@ TEST (ledger, checksum_single)
     genesis.initialize (store);
     mu_coin::ledger ledger (store);
     store.checksum_put (0, 0, genesis.hash ());
+	ASSERT_EQ (genesis.hash (), ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()));
     mu_coin::change_block block1;
     block1.hashables.previous = ledger.latest (key1.pub);
     mu_coin::sign_message (key1.prv, key1.pub, block1.hash (), block1.signature);
     mu_coin::checksum check1 (ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()));
+	ASSERT_EQ (genesis.hash (), check1);
     ASSERT_FALSE (ledger.process (block1));
     mu_coin::checksum check2 (ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()));
-    auto hash (block1.hash ());
-    ASSERT_EQ (check1, check2 ^ hash);
+    ASSERT_EQ (block1.hash (), check2);
 }
 
 TEST (ledger, DISABLED_checksum_range)
