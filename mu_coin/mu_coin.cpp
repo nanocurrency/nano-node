@@ -1150,7 +1150,11 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
             if (size_a >= sizeof (mu_coin::message_type))
             {
                 auto sender (remote);
-                auto known_peer (client.peers.incoming_from_peer (sender));
+                auto known_peer (client.peers.known_peer (sender));
+                if (!known_peer)
+                {
+                    send_keepalive (sender);
+                }
                 mu_coin::bufferstream type_stream (buffer.data (), size_a);
                 mu_coin::message_type type;
                 read (type_stream, type);
@@ -1223,7 +1227,8 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                 req_message.serialize (stream);
                             }
                             merge_peers (req_bytes, incoming.peers);
-							if (!known_peer && incoming.checksum != client.ledger.checksum (0, std::numeric_limits<mu_coin::uint256_t>::max ()))
+                            client.peers.incoming_from_peer (sender);
+							if (!known_peer && incoming.checksum != client.ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()))
 							{
 								client.processor.bootstrap (mu_coin::tcp_endpoint (sender.address (), sender.port ()), [] () {});
 							}
@@ -2146,10 +2151,9 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
     return result;
 }
 
-bool mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
+void mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endpoint_a)
 {
 	assert (!reserved_address (endpoint_a));
-    auto result (true);
 	if (endpoint_a != self)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
@@ -2157,14 +2161,12 @@ bool mu_coin::peer_container::incoming_from_peer (mu_coin::endpoint const & endp
 		if (existing == peers.end ())
 		{
 			peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
-            result = false;
 		}
 		else
 		{
 			peers.modify (existing, [] (mu_coin::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
 		}
 	}
-    return result;
 }
 
 std::vector <mu_coin::peer_information> mu_coin::peer_container::list ()
@@ -4652,4 +4654,10 @@ void mu_coin::ledger::change_latest (mu_coin::address const & address_a, mu_coin
 bool mu_coin::keepalive_ack::operator == (mu_coin::keepalive_ack const & other_a) const
 {
 	return (peers == other_a.peers) && (checksum == other_a.checksum);
+}
+
+bool mu_coin::peer_container::known_peer (mu_coin::endpoint const & endpoint_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    return peers.find (endpoint_a) != peers.end ();
 }

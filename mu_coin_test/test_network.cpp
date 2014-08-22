@@ -154,7 +154,8 @@ TEST (network, send_keepalive)
     auto list1 (system.clients [0]->peers.list ());
     ASSERT_EQ (1, list1.size ());
     system.clients [0]->network.send_keepalive (system.clients [1]->network.endpoint ());
-    while (system.clients [0]->network.keepalive_ack_count == 0)
+    auto initial (system.clients [0]->network.keepalive_ack_count);
+    while (system.clients [0]->network.keepalive_ack_count == initial)
     {
         system.service->run_one ();
     }
@@ -162,10 +163,8 @@ TEST (network, send_keepalive)
     auto peers2 (system.clients [1]->peers.list ());
     ASSERT_EQ (1, peers1.size ());
     ASSERT_EQ (1, peers2.size ());
-    ASSERT_EQ (1, system.clients [0]->network.keepalive_ack_count);
     ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.clients [1]->network.endpoint ();}));
     ASSERT_GT (peers1 [0].last_contact, list1 [0].last_contact);
-    ASSERT_EQ (1, system.clients [1]->network.keepalive_req_count);
     ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (mu_coin::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
 }
 
@@ -953,6 +952,22 @@ TEST (client, auto_bootstrap)
     client1.wallet.insert (key2.prv, system.clients [0]->wallet.password);
     ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
     client1.network.send_keepalive (system.clients [0]->network.endpoint ());
+    client1.start ();
+    do
+    {
+        system.service->run_one ();
+    } while (client1.ledger.account_balance (key2.pub) != 100);
+}
+
+TEST (client, auto_bootstrap_reverse)
+{
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
+    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
+    mu_coin::keypair key2;
+    client1.wallet.insert (key2.prv, system.clients [0]->wallet.password);
+    ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
+    system.clients [0]->network.send_keepalive (client1.network.endpoint ());
     client1.start ();
     do
     {
