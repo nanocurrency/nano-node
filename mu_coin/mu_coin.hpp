@@ -350,9 +350,9 @@ namespace mu_coin {
     class account_iterator
     {
     public:
-        account_iterator (leveldb::DB *);
-        account_iterator (leveldb::DB *, std::nullptr_t);
-        account_iterator (leveldb::DB *, mu_coin::address const &);
+        account_iterator (leveldb::DB &);
+        account_iterator (leveldb::DB &, std::nullptr_t);
+        account_iterator (leveldb::DB &, mu_coin::address const &);
         account_iterator (mu_coin::account_iterator &&) = default;
         account_iterator & operator ++ ();
         account_entry & operator -> ();
@@ -372,8 +372,8 @@ namespace mu_coin {
     class block_iterator
     {
     public:
-        block_iterator (leveldb::DB *);
-        block_iterator (leveldb::DB *, std::nullptr_t);
+        block_iterator (leveldb::DB &);
+        block_iterator (leveldb::DB &, std::nullptr_t);
         block_iterator (mu_coin::block_iterator &&) = default;
         block_iterator & operator ++ ();
         block_entry & operator -> ();
@@ -426,21 +426,21 @@ namespace mu_coin {
         
     private:
         // address -> block_hash, timestamp     // Each address has one head block and a last updated timestamp
-        leveldb::DB * addresses;
+        std::unique_ptr <leveldb::DB> addresses;
         // block_hash -> block                  // Mapping block hash to contents
-        leveldb::DB * blocks;
+        std::unique_ptr <leveldb::DB> blocks;
         // block_hash ->                        // Pending blocks
-        leveldb::DB * pending;
+        std::unique_ptr <leveldb::DB> pending;
         // address -> weight                    // Representation
-        leveldb::DB * representation;
+        std::unique_ptr <leveldb::DB> representation;
         // block_hash -> block                  // Fork proof
-        leveldb::DB * forks;
+        std::unique_ptr <leveldb::DB> forks;
         // block_hash -> block                  // Unchecked bootstrap blocks
-        leveldb::DB * bootstrap;
+        std::unique_ptr <leveldb::DB> bootstrap;
         // block_hash -> block_hash             // Tracking successors for bootstrapping
-        leveldb::DB * successors;
+        std::unique_ptr <leveldb::DB> successors;
         // (uint56_t, uint8_t) -> block_hash    // Mapping of region to checksum
-        leveldb::DB * checksum;
+        std::unique_ptr <leveldb::DB> checksum;
     };
     enum class process_result
     {

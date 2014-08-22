@@ -893,24 +893,33 @@ block_store (boost::filesystem::unique_path ())
 
 mu_coin::block_store::block_store (boost::filesystem::path const & path_a)
 {
+    leveldb::DB * db;
     boost::filesystem::create_directories (path_a);
     leveldb::Options options;
     options.create_if_missing = true;
-    auto status1 (leveldb::DB::Open (options, (path_a / "addresses.ldb").native ().c_str (), &addresses));
+    auto status1 (leveldb::DB::Open (options, (path_a / "addresses.ldb").native ().c_str (), &db));
+    addresses.reset (db);
     assert (status1.ok ());
-    auto status2 (leveldb::DB::Open (options, (path_a / "blocks.ldb").native ().c_str (), &blocks));
+    auto status2 (leveldb::DB::Open (options, (path_a / "blocks.ldb").native ().c_str (), &db));
+    blocks.reset (db);
     assert (status2.ok ());
-    auto status3 (leveldb::DB::Open (options, (path_a / "pending.ldb").native ().c_str (), &pending));
+    auto status3 (leveldb::DB::Open (options, (path_a / "pending.ldb").native ().c_str (), &db));
+    pending.reset (db);
     assert (status3.ok ());
-    auto status4 (leveldb::DB::Open (options, (path_a / "representation.ldb").native ().c_str (), &representation));
+    auto status4 (leveldb::DB::Open (options, (path_a / "representation.ldb").native ().c_str (), &db));
+    representation.reset (db);
     assert (status4.ok ());
-    auto status5 (leveldb::DB::Open (options, (path_a / "forks.ldb").native ().c_str (), &forks));
+    auto status5 (leveldb::DB::Open (options, (path_a / "forks.ldb").native ().c_str (), &db));
+    forks.reset (db);
     assert (status5.ok ());
-    auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").native ().c_str (), &bootstrap));
+    auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").native ().c_str (), &db));
+    bootstrap.reset (db);
     assert (status6.ok ());
-    auto status7 (leveldb::DB::Open (options, (path_a / "successors.ldb").native ().c_str (), &successors));
+    auto status7 (leveldb::DB::Open (options, (path_a / "successors.ldb").native ().c_str (), &db));
+    successors.reset (db);
     assert (status7.ok ());
-    auto status8 (leveldb::DB::Open (options, (path_a / "checksum.ldb").native ().c_str (), &checksum));
+    auto status8 (leveldb::DB::Open (options, (path_a / "checksum.ldb").native ().c_str (), &db));
+    checksum.reset (db);
     assert (status8.ok ());
 }
 
@@ -2297,15 +2306,15 @@ size_t mu_coin::processor::publish_listener_size ()
     return confirm_listeners.size ();
 }
 
-mu_coin::account_iterator::account_iterator (leveldb::DB * db_a) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
+mu_coin::account_iterator::account_iterator (leveldb::DB & db_a) :
+iterator (db_a.NewIterator (leveldb::ReadOptions ()))
 {
     iterator->SeekToFirst ();
     set_current ();
 }
 
-mu_coin::account_iterator::account_iterator (leveldb::DB * db_a, std::nullptr_t) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
+mu_coin::account_iterator::account_iterator (leveldb::DB & db_a, std::nullptr_t) :
+iterator (db_a.NewIterator (leveldb::ReadOptions ()))
 {
     set_current ();
 }
@@ -2368,15 +2377,15 @@ bool mu_coin::account_iterator::operator != (mu_coin::account_iterator const & o
     return !(*this == other_a);
 }
 
-mu_coin::block_iterator::block_iterator (leveldb::DB * db_a) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
+mu_coin::block_iterator::block_iterator (leveldb::DB & db_a) :
+iterator (db_a.NewIterator (leveldb::ReadOptions ()))
 {
     iterator->SeekToFirst ();
     set_current ();
 }
 
-mu_coin::block_iterator::block_iterator (leveldb::DB * db_a, std::nullptr_t) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
+mu_coin::block_iterator::block_iterator (leveldb::DB & db_a, std::nullptr_t) :
+iterator (db_a.NewIterator (leveldb::ReadOptions ()))
 {
     set_current ();
 }
@@ -2424,25 +2433,25 @@ bool mu_coin::block_iterator::operator != (mu_coin::block_iterator const & other
 
 mu_coin::block_iterator mu_coin::block_store::blocks_begin ()
 {
-    mu_coin::block_iterator result (blocks);
+    mu_coin::block_iterator result (*blocks);
     return result;
 }
 
 mu_coin::block_iterator mu_coin::block_store::blocks_end ()
 {
-    mu_coin::block_iterator result (blocks, nullptr);
+    mu_coin::block_iterator result (*blocks, nullptr);
     return result;
 }
 
 mu_coin::account_iterator mu_coin::block_store::latest_begin ()
 {
-    mu_coin::account_iterator result (addresses);
+    mu_coin::account_iterator result (*addresses);
     return result;
 }
 
 mu_coin::account_iterator mu_coin::block_store::latest_end ()
 {
-    mu_coin::account_iterator result (addresses, nullptr);
+    mu_coin::account_iterator result (*addresses, nullptr);
     return result;
 }
 
@@ -3706,12 +3715,12 @@ void mu_coin::bulk_req_response::no_block_sent (boost::system::error_code const 
 
 mu_coin::account_iterator mu_coin::block_store::latest_begin (mu_coin::address const & address_a)
 {
-    mu_coin::account_iterator result (addresses, address_a);
+    mu_coin::account_iterator result (*addresses, address_a);
     return result;
 }
 
-mu_coin::account_iterator::account_iterator (leveldb::DB * db_a, mu_coin::address const & address_a) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
+mu_coin::account_iterator::account_iterator (leveldb::DB & db_a, mu_coin::address const & address_a) :
+iterator (db_a.NewIterator (leveldb::ReadOptions ()))
 {
     iterator->Seek (leveldb::Slice (address_a.chars.data (), address_a.chars.size ()));
     set_current ();
