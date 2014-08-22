@@ -30,7 +30,7 @@ TEST (peer_container, empty_peers)
 TEST (peer_container, no_recontact)
 {
     mu_coin::peer_container peers (mu_coin::endpoint {});
-	mu_coin::endpoint endpoint1 (boost::asio::ip::address_v4 (0x7f000001), 100000);
+	mu_coin::endpoint endpoint1 (boost::asio::ip::address_v4 (0x7f000001), 10000);
 	ASSERT_EQ (0, peers.size ());
 	ASSERT_FALSE (peers.contacting_peer (endpoint1));
 	ASSERT_EQ (1, peers.size ());
@@ -88,13 +88,13 @@ TEST (keepalive_ack, deserialize)
 TEST (peer_container, reserved_peers_no_contact)
 {
     mu_coin::peer_container peers (mu_coin::endpoint {});
-	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0x00000001), 100000)));
-	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xc0000201), 100000)));
-	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xc6336401), 100000)));
-	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xcb007101), 100000)));
-	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xe9fc0001), 100000)));
-	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xf0000001), 100000)));
-	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xffffffff), 100000)));
+	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0x00000001), 10000)));
+	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xc0000201), 10000)));
+	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xc6336401), 10000)));
+	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xcb007101), 10000)));
+	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xe9fc0001), 10000)));
+	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xf0000001), 10000)));
+	ASSERT_TRUE (peers.contacting_peer (mu_coin::endpoint (boost::asio::ip::address_v4 (0xffffffff), 10000)));
 	ASSERT_EQ (0, peers.size ());
 }
 
