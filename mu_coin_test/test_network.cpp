@@ -53,6 +53,17 @@ TEST (peer_container, no_self_contacting)
 	ASSERT_TRUE (peers.peers.empty ());
 }
 
+TEST (peer_container, old_known)
+{
+	mu_coin::endpoint self (boost::asio::ip::address_v4 (0x7f000001), 10000);
+	mu_coin::endpoint other (boost::asio::ip::address_v4 (0x7f000001), 10001);
+    mu_coin::peer_container peers (self);
+	peers.contacting_peer (other);
+	ASSERT_FALSE (peers.known_peer (other));
+    peers.incoming_from_peer (other);
+    ASSERT_TRUE (peers.known_peer (other));
+}
+
 TEST (keepalive_req, deserialize)
 {
     mu_coin::keepalive_req message1;
@@ -946,8 +957,10 @@ TEST (bulk, offline_send)
 TEST (client, auto_bootstrap)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
+    system.clients [0]->client_m->peers.incoming_from_peer (system.clients [0]->client_m->network.endpoint ());
     system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
+    client1.client_m->peers.incoming_from_peer (client1.client_m->network.endpoint ());
     mu_coin::keypair key2;
     client1.client_m->wallet.insert (key2.prv, system.clients [0]->client_m->wallet.password);
     ASSERT_FALSE (system.clients [0]->client_m->send (key2.pub, 100, system.clients [0]->client_m->wallet.password));
@@ -962,8 +975,10 @@ TEST (client, auto_bootstrap)
 TEST (client, auto_bootstrap_reverse)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
+    system.clients [0]->client_m->peers.incoming_from_peer (system.clients [0]->client_m->network.endpoint ());
     system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
     mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
+    client1.client_m->peers.incoming_from_peer (client1.client_m->network.endpoint ());
     mu_coin::keypair key2;
     client1.client_m->wallet.insert (key2.prv, system.clients [0]->client_m->wallet.password);
     ASSERT_FALSE (system.clients [0]->client_m->send (key2.pub, 100, system.clients [0]->client_m->wallet.password));

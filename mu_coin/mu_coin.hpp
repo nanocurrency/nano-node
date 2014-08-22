@@ -727,6 +727,8 @@ namespace mu_coin {
 		void confirm_ack (std::unique_ptr <mu_coin::confirm_ack>, mu_coin::endpoint const &);
 		void confirm_nak (std::unique_ptr <mu_coin::confirm_nak>, mu_coin::endpoint const &);
         mu_coin::client_impl & client;
+        static std::chrono::seconds constexpr period = std::chrono::seconds (10);
+        static std::chrono::seconds constexpr cutoff = period * 5;
     private:
         std::mutex mutex;
         std::unordered_map <mu_coin::uint256_union, session> confirm_listeners;

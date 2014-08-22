@@ -46,6 +46,8 @@ namespace
 }
 
 CryptoPP::AutoSeededRandomPool random_pool;
+std::chrono::seconds constexpr mu_coin::processor::period;
+std::chrono::seconds constexpr mu_coin::processor::cutoff;
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
 {
@@ -1240,7 +1242,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             client.peers.incoming_from_peer (sender);
 							if (!known_peer && incoming.checksum != client.ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()))
 							{
-								client.processor.bootstrap (mu_coin::tcp_endpoint (sender.address (), sender.port ()), [] () {});
+								client.processor.bootstrap (mu_coin::tcp_endpoint (sender.address (), sender.port ()),
+                                    [] ()
+                                    {
+                                    });
 							}
                         }
                         break;
@@ -4177,8 +4182,6 @@ void mu_coin::peer_container::random_fill (std::array <mu_coin::endpoint, 24> & 
 
 void mu_coin::processor::ongoing_keepalive ()
 {
-    auto period (std::chrono::seconds (10));
-    auto cutoff (period * 5);
     auto peers (client.peers.purge_list (std::chrono::system_clock::now () - cutoff));
     for (auto i (peers.begin ()), j (peers.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
     {
@@ -4703,7 +4706,8 @@ bool mu_coin::keepalive_ack::operator == (mu_coin::keepalive_ack const & other_a
 bool mu_coin::peer_container::known_peer (mu_coin::endpoint const & endpoint_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    return peers.find (endpoint_a) != peers.end ();
+    auto existing (peers.find (endpoint_a));
+    return existing != peers.end () && existing->last_contact > std::chrono::system_clock::now () - mu_coin::processor::cutoff;
 }
 
 std::shared_ptr <mu_coin::client_impl> mu_coin::client_impl::shared ()
