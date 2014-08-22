@@ -518,7 +518,9 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
+		bool operator == (mu_coin::keepalive_ack const &) const;
 		std::array <mu_coin::endpoint, 24> peers;
+		mu_coin::uint256_union checksum;
     };
     class publish_req : public message
     {

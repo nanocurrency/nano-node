@@ -487,3 +487,17 @@ TEST (frontier_req, serialization)
     ASSERT_EQ (false, request2.deserialize (buffer));
     ASSERT_EQ (request1, request2);
 }
+
+TEST (keepalive_ack, serialization)
+{
+	mu_coin::keepalive_ack request1;
+	std::vector <uint8_t> bytes;
+	{
+		mu_coin::vectorstream stream (bytes);
+		request1.serialize (stream);
+	}
+	mu_coin::keepalive_ack request2;
+	mu_coin::bufferstream buffer (bytes.data (), bytes.size ());
+	ASSERT_FALSE (request2.deserialize (buffer));
+	ASSERT_EQ (request1, request2);
+}
