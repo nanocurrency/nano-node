@@ -943,3 +943,19 @@ TEST (bulk, offline_send)
         system.service->run_one ();
     } while (!finished || client1.ledger.account_balance (key2.pub) != 100);
 }
+
+TEST (client, auto_bootstrap)
+{
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
+    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
+    mu_coin::client client1 (system.service, system.pool, 24001, 25001, system.processor, system.test_genesis_address.pub, system.genesis);
+    mu_coin::keypair key2;
+    client1.wallet.insert (key2.prv, system.clients [0]->wallet.password);
+    ASSERT_FALSE (system.clients [0]->send (key2.pub, 100, system.clients [0]->wallet.password));
+    client1.network.send_keepalive (system.clients [0]->network.endpoint ());
+    client1.start ();
+    do
+    {
+        system.service->run_one ();
+    } while (client1.ledger.account_balance (key2.pub) != 100);
+}

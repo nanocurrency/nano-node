@@ -1150,7 +1150,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
             if (size_a >= sizeof (mu_coin::message_type))
             {
                 auto sender (remote);
-                auto new_peer (client.peers.incoming_from_peer (sender));
+                auto known_peer (client.peers.incoming_from_peer (sender));
                 mu_coin::bufferstream type_stream (buffer.data (), size_a);
                 mu_coin::message_type type;
                 read (type_stream, type);
@@ -1223,7 +1223,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                 req_message.serialize (stream);
                             }
                             merge_peers (req_bytes, incoming.peers);
-							if (new_peer && incoming.checksum != client.ledger.checksum (0, std::numeric_limits<mu_coin::uint256_t>::max ()))
+							if (!known_peer && incoming.checksum != client.ledger.checksum (0, std::numeric_limits<mu_coin::uint256_t>::max ()))
 							{
 								client.processor.bootstrap (mu_coin::tcp_endpoint (sender.address (), sender.port ()), [] () {});
 							}
