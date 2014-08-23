@@ -355,6 +355,7 @@ namespace mu_coin {
         account_iterator (leveldb::DB &, mu_coin::address const &);
         account_iterator (mu_coin::account_iterator &&) = default;
         account_iterator & operator ++ ();
+        account_iterator & operator = (mu_coin::account_iterator &&) = default;
         account_entry & operator -> ();
         bool operator == (mu_coin::account_iterator const &) const;
         bool operator != (mu_coin::account_iterator const &) const;
@@ -959,9 +960,12 @@ namespace mu_coin {
         client_impl (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
         client_impl (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
+        mu_coin::uint256_t balance ();
         void start ();
         void stop ();
         std::shared_ptr <mu_coin::client_impl> shared ();
+        void generate_activity ();
+        void generate_usage_traffic (uint32_t, uint32_t);
         mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;

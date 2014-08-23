@@ -2353,7 +2353,6 @@ mu_coin::account_iterator & mu_coin::account_iterator::operator ++ ()
     set_current ();
     return *this;
 }
-
 mu_coin::account_entry & mu_coin::account_iterator::operator -> ()
 {
     return current;
@@ -4713,4 +4712,81 @@ bool mu_coin::peer_container::known_peer (mu_coin::endpoint const & endpoint_a)
 std::shared_ptr <mu_coin::client_impl> mu_coin::client_impl::shared ()
 {
     return shared_from_this ();
+}
+
+namespace
+{
+class traffic_generator : std::enable_shared_from_this <traffic_generator>
+{
+public:
+    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <mu_coin::client_impl> client_a) :
+    count (count_a),
+    wait (wait_a),
+    client (client_a)
+    {
+    }
+    void run ()
+    {
+        auto count_l (count - 1);
+        count = count_l - 1;
+        client->generate_activity ();
+        if (count_l > 0)
+        {
+            auto this_l (shared_from_this ());
+            client->service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
+        }
+    }
+    uint32_t count;
+    uint32_t wait;
+    std::shared_ptr <mu_coin::client_impl> client;
+};
+}
+
+void mu_coin::client_impl::generate_activity ()
+{
+    auto balance_l (balance ());
+    if (!balance_l.is_zero ())
+    {
+        mu_coin::uint256_union random_amount;
+        random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
+        mu_coin::uint256_t amount (random_amount.number () % balance_l);
+        auto what (random_pool.GenerateByte ());
+        mu_coin::address destination;
+        if (what < 0xc0 && store.latest_begin () != store.latest_end ())
+        {
+            mu_coin::address account;
+            random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
+            mu_coin::account_iterator entry (store.latest_begin (account));
+            if (entry == store.latest_end ())
+            {
+                entry = store.latest_begin ();
+            }
+            assert (entry != store.latest_end ());
+            destination = entry->first;
+        }
+        else
+        {
+            mu_coin::keypair key;
+            wallet.insert (key.prv, wallet.password);
+            destination = key.pub;
+        }
+        send (destination, amount, wallet.password);
+    }
+}
+
+void mu_coin::client_impl::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
+{
+    
+}
+
+mu_coin::uint256_t mu_coin::client_impl::balance ()
+{
+    mu_coin::uint256_t result;
+    for (auto i (wallet.begin ()), n (wallet.end ()); i !=  n; ++i)
+    {
+        auto pub (i->first);
+        auto account_balance (ledger.account_balance (pub));
+        result += account_balance;
+    }
+    return result;
 }
