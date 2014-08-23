@@ -510,6 +510,15 @@ TEST (client, balance)
 
 TEST (system, generate_send_existing)
 {
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+    mu_coin::frontier frontier1;
+    ASSERT_FALSE (system.clients [0]->client_m->store.latest_get (system.test_genesis_address.pub, frontier1));
+    system.generate_send_existing (*system.clients [0]->client_m);
+    mu_coin::frontier frontier2;
+    ASSERT_FALSE (system.clients [0]->client_m->store.latest_get (system.test_genesis_address.pub, frontier2));
+    ASSERT_NE (frontier1.hash, frontier2.hash);
+    ASSERT_EQ (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), std::numeric_limits <mu_coin::uint256_t>::max ());
 }
 
 TEST (system, generate_send_new)
@@ -540,5 +549,12 @@ TEST (system, generate_send_new)
 
 TEST (system, generate_mass_activity)
 {
-    
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    system.generate_mass_activity (10, *system.clients [0]->client_m);
+}
+
+TEST (system, DISABLED_generate_mass_activity_long)
+{
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    system.generate_mass_activity (10000, *system.clients [0]->client_m);
 }
