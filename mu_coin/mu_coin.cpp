@@ -4125,26 +4125,6 @@ bool mu_coin::uint256_union::operator < (mu_coin::uint256_union const & other_a)
     return number () < other_a.number ();
 }
 
-void mu_coin::system::generate_transaction (uint32_t amount)
-{
-    assert (!clients.empty ());
-    auto max (clients.size () - 1);
-    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
-    {
-        mu_coin::keypair key;
-        (*i)->client_m->wallet.insert (key.prv, (*i)->client_m->wallet.password);
-    }
-    for (uint32_t i (0); i < amount; ++i)
-    {
-        uint32_t source (random_pool.GenerateWord32 (0, max));
-        uint32_t destination;
-        do
-        {
-            destination = random_pool.GenerateWord32 (0, max);
-        } while (source == destination);
-    }
-}
-
 mu_coin::bootstrap_initiator::~bootstrap_initiator ()
 {
     complete_action ();
@@ -4716,20 +4696,21 @@ std::shared_ptr <mu_coin::client_impl> mu_coin::client_impl::shared ()
 
 namespace
 {
-class traffic_generator : std::enable_shared_from_this <traffic_generator>
+class traffic_generator : public std::enable_shared_from_this <traffic_generator>
 {
 public:
-    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <mu_coin::client_impl> client_a) :
+    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::system & system_a) :
     count (count_a),
     wait (wait_a),
-    client (client_a)
+    client (client_a),
+    system (system_a)
     {
     }
     void run ()
     {
         auto count_l (count - 1);
         count = count_l - 1;
-        client->generate_activity ();
+        system.generate_activity (*client);
         if (count_l > 0)
         {
             auto this_l (shared_from_this ());
@@ -4739,44 +4720,76 @@ public:
     uint32_t count;
     uint32_t wait;
     std::shared_ptr <mu_coin::client_impl> client;
+    mu_coin::system & system;
 };
 }
 
-void mu_coin::client_impl::generate_activity ()
+void mu_coin::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
 {
-    auto balance_l (balance ());
-    if (!balance_l.is_zero ())
+    for (size_t i (0), n (clients.size ()); i != n; ++i)
     {
-        mu_coin::uint256_union random_amount;
-        random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
-        mu_coin::uint256_t amount (random_amount.number () % balance_l);
-        auto what (random_pool.GenerateByte ());
-        mu_coin::address destination;
-        if (what < 0xc0 && store.latest_begin () != store.latest_end ())
-        {
-            mu_coin::address account;
-            random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
-            mu_coin::account_iterator entry (store.latest_begin (account));
-            if (entry == store.latest_end ())
-            {
-                entry = store.latest_begin ();
-            }
-            assert (entry != store.latest_end ());
-            destination = entry->first;
-        }
-        else
-        {
-            mu_coin::keypair key;
-            wallet.insert (key.prv, wallet.password);
-            destination = key.pub;
-        }
-        send (destination, amount, wallet.password);
+        generate_usage_traffic (count_a, wait_a, i);
     }
 }
 
-void mu_coin::client_impl::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
+void mu_coin::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, size_t index_a)
 {
-    
+    assert (clients.size () > index_a);
+    assert (count_a > 0);
+    auto generate (std::make_shared <traffic_generator> (count_a, wait_a, clients [index_a]->client_m, *this));
+    generate->run ();
+}
+
+void mu_coin::system::generate_activity (mu_coin::client_impl & client_a)
+{
+    auto what (random_pool.GenerateByte ());
+    if (what < 0xc0 && client_a.store.latest_begin () != client_a.store.latest_end ())
+    {
+        generate_send_existing (client_a);
+    }
+    else
+    {
+        generate_send_new (client_a);
+    }
+}
+
+mu_coin::uint256_t mu_coin::system::get_random_amount (mu_coin::client_impl & client_a)
+{
+    mu_coin::uint512_t balance (client_a.balance ());
+    std::string balance_text (balance.convert_to <std::string> ());
+    mu_coin::uint256_union random_amount;
+    random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
+    auto result (((mu_coin::uint512_t {random_amount.number ()} * balance) / mu_coin::uint512_t {std::numeric_limits <mu_coin::uint256_t>::max ()}).convert_to <mu_coin::uint256_t> ());
+    std::string text (result.convert_to <std::string> ());
+    return result;
+}
+
+void mu_coin::system::generate_send_existing (mu_coin::client_impl & client_a)
+{
+    mu_coin::address account;
+    random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
+    mu_coin::account_iterator entry (client_a.store.latest_begin (account));
+    if (entry == client_a.store.latest_end ())
+    {
+        entry = client_a.store.latest_begin ();
+    }
+    assert (entry != client_a.store.latest_end ());
+    client_a.send (entry->first, get_random_amount (client_a), client_a.wallet.password);
+}
+
+void mu_coin::system::generate_send_new (mu_coin::client_impl & client_a)
+{
+    mu_coin::keypair key;
+    client_a.wallet.insert (key.prv, client_a.wallet.password);
+    client_a.send (key.pub, get_random_amount (client_a), client_a.wallet.password);
+}
+
+void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client_impl & client_a)
+{
+    for (uint32_t i (0); i < count_a; ++i)
+    {
+        generate_activity (client_a);
+    }
 }
 
 mu_coin::uint256_t mu_coin::client_impl::balance ()

@@ -499,5 +499,46 @@ TEST (ledger, DISABLED_checksum_range)
     ASSERT_TRUE (check2.is_zero ());
     mu_coin::checksum check3 (ledger.checksum (42, std::numeric_limits <mu_coin::uint256_t>::max ()));
     ASSERT_EQ (hash1, check3);
+}
+
+TEST (client, balance)
+{
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), system.clients [0]->client_m->balance ());
+}
+
+TEST (system, generate_send_existing)
+{
+}
+
+TEST (system, generate_send_new)
+{
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+    auto iterator1 (system.clients [0]->client_m->store.latest_begin ());
+    ++iterator1;
+    ASSERT_EQ (system.clients [0]->client_m->store.latest_end (), iterator1);
+    system.generate_send_new (*system.clients [0]->client_m);
+    mu_coin::address new_address;
+    auto iterator2 (system.clients [0]->client_m->store.latest_begin ());
+    if (iterator2->first != system.test_genesis_address.pub)
+    {
+        new_address = iterator2->first;
+    }
+    ++iterator2;
+    ASSERT_NE (system.clients [0]->client_m->store.latest_end (), iterator2);
+    if (iterator2->first != system.test_genesis_address.pub)
+    {
+        new_address = iterator2->first;
+    }
+    ++iterator2;
+    ASSERT_EQ (system.clients [0]->client_m->store.latest_end (), iterator2);
+    ASSERT_LT (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), std::numeric_limits <mu_coin::uint256_t>::max ());
+    ASSERT_GT (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), 0);
+}
+
+TEST (system, generate_mass_activity)
+{
     
 }

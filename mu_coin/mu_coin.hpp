@@ -964,8 +964,6 @@ namespace mu_coin {
         void start ();
         void stop ();
         std::shared_ptr <mu_coin::client_impl> shared ();
-        void generate_activity ();
-        void generate_usage_traffic (uint32_t, uint32_t);
         mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;
@@ -992,7 +990,13 @@ namespace mu_coin {
     {
     public:
         system (size_t, uint16_t, uint16_t, size_t, mu_coin::uint256_t const &);
-        void generate_transaction (uint32_t);
+        void generate_activity (mu_coin::client_impl &);
+        void generate_mass_activity (uint32_t, mu_coin::client_impl &);
+        void generate_usage_traffic (uint32_t, uint32_t, size_t);
+        void generate_usage_traffic (uint32_t, uint32_t);
+        mu_coin::uint256_t get_random_amount (mu_coin::client_impl &);
+        void generate_send_new (mu_coin::client_impl &);
+        void generate_send_existing (mu_coin::client_impl &);
         mu_coin::keypair test_genesis_address;
         mu_coin::genesis genesis;
         boost::shared_ptr <boost::asio::io_service> service;
