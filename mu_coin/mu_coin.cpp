@@ -4687,7 +4687,6 @@ void mu_coin::ledger::checksum_update (mu_coin::block_hash const & hash_a)
 
 void mu_coin::ledger::change_latest (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
 {
-    std::cerr << boost::str (boost::format ("Changing frontier for %1% to %2%\n") % address_a.to_string () % hash_a.to_string ());
     mu_coin::frontier frontier;
     auto exists (!store.latest_get (address_a, frontier));
     if (exists)
