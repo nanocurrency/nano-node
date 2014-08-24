@@ -2110,11 +2110,11 @@ public:
     }
     void send_block (mu_coin::send_block const & block_a) override
     {
-        client.log.add (boost::str (boost::format ("Sending from:\n\t%1% to:\n\t%2% amount:\n\t%3% block:\n\t%4%") % client.ledger.account (block_a.hash ()).to_string () % block_a.hashables.destination.to_string () % client.ledger.amount (block_a.hash ()) % block_a.hash ().to_string ()));
+        client.log.add (boost::str (boost::format ("Sending from:\n\t%1% to:\n\t%2% amount:\n\t%3% previous:\n\t%4% block:\n\t%5%") % client.ledger.account (block_a.hash ()).to_string () % block_a.hashables.destination.to_string () % client.ledger.amount (block_a.hash ()) % block_a.hashables.previous.to_string () % block_a.hash ().to_string ()));
     }
     void receive_block (mu_coin::receive_block const & block_a) override
     {
-        client.log.add (boost::str (boost::format ("Receiving from:\n\t%1% to:\n\t%2% block:\n\t%3%") % client.ledger.account (block_a.hashables.source).to_string () % client.ledger.account (block_a.hash ()).to_string () % block_a.hash ().to_string ()));
+        client.log.add (boost::str (boost::format ("Receiving from:\n\t%1% to:\n\t%2% previous:\n\t%3% block:\n\t%4%") % client.ledger.account (block_a.hashables.source).to_string () % client.ledger.account (block_a.hash ()).to_string () %block_a.hashables.previous.to_string () % block_a.hash ().to_string ()));
     }
     void open_block (mu_coin::open_block const & block_a) override
     {
@@ -4687,6 +4687,7 @@ void mu_coin::ledger::checksum_update (mu_coin::block_hash const & hash_a)
 
 void mu_coin::ledger::change_latest (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a)
 {
+    std::cerr << boost::str (boost::format ("Changing frontier for %1% to %2%\n") % address_a.to_string () % hash_a.to_string ());
     mu_coin::frontier frontier;
     auto exists (!store.latest_get (address_a, frontier));
     if (exists)

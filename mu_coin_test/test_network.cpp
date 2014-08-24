@@ -989,3 +989,13 @@ TEST (client, auto_bootstrap_reverse)
         system.service->run_one ();
     } while (client1.client_m->ledger.account_balance (key2.pub) != 100);
 }
+
+TEST (client, multi_account_send_atomicness)
+{
+    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
+    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+    mu_coin::keypair key1;
+    system.clients [0]->client_m->wallet.insert (key1.prv, system.clients [0]->client_m->wallet.password);
+    system.clients [0]->client_m->send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2, system.clients [0]->client_m->wallet.password);
+    system.clients [0]->client_m->send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2 + std::numeric_limits<mu_coin::uint256_t>::max () / 4, system.clients [0]->client_m->wallet.password);
+}
