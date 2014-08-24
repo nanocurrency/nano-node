@@ -629,7 +629,7 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
                             ledger.change_latest (source_send->hashables.destination, hash);
-                            ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
+                            ledger.move_representation (ledger.representative (block_a.hashables.source), ledger.representative (hash), ledger.amount (block_a.hashables.source));
                         }
                         else
                         {
@@ -667,7 +667,7 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                         ledger.store.pending_del (source_send->hash ());
                         ledger.store.block_put (hash, block_a);
                         ledger.change_latest (source_send->hashables.destination, hash);
-						ledger.move_representation (ledger.account (block_a.hashables.source), ledger.representative (hash), ledger.amount (block_a.hashables.source));
+						ledger.move_representation (ledger.representative (block_a.hashables.source), ledger.representative (hash), ledger.amount (block_a.hashables.source));
                     }
                 }
             }
@@ -3105,9 +3105,8 @@ public:
     void receive_block (mu_coin::receive_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-		auto account (ledger.account (hash));
-		ledger.move_representation (account, ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
-        ledger.change_latest (account, block_a.hashables.previous);
+		ledger.move_representation (ledger.representative (hash), ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
+        ledger.change_latest (ledger.account (hash), block_a.hashables.previous);
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source);
     }
@@ -3169,7 +3168,8 @@ void mu_coin::ledger::move_representation (mu_coin::address const & source_a, mu
 	auto source_previous (store.representation_get (source_a));
 	assert (source_previous >= amount_a);
     store.representation_put (source_a, source_previous - amount_a);
-    store.representation_put (destination_a,  + amount_a);
+    auto destination_previous (store.representation_get (destination_a));
+    store.representation_put (destination_a, destination_previous + amount_a);
 }
 
 mu_coin::block_hash mu_coin::ledger::latest (mu_coin::address const & address_a)

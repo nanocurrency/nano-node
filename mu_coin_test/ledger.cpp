@@ -547,7 +547,7 @@ TEST (system, generate_send_new)
     ASSERT_GT (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), 0);
 }
 
-TEST (system, generate_mass_activity)
+TEST (system, DISABLED_generate_mass_activity)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
@@ -607,6 +607,7 @@ TEST (ledger, representation)
     mu_coin::keypair key4;
     mu_coin::change_block block5;
     block5.hashables.previous = block4.hash ();
+    block5.hashables.representative = key4.pub;
     mu_coin::sign_message (key2.prv, key2.pub, block5.hash (), block5.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block5));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 200, store.representation_get (key1.pub));
@@ -629,6 +630,7 @@ TEST (ledger, representation)
     mu_coin::open_block block7;
     block7.hashables.representative = key6.pub;
     block7.hashables.source = block6.hash ();
+    mu_coin::sign_message (key5.prv, key5.pub, block7.hash (), block7.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block7));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 200, store.representation_get (key1.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
@@ -636,4 +638,27 @@ TEST (ledger, representation)
     ASSERT_EQ (100, store.representation_get (key4.pub));
     ASSERT_EQ (0, store.representation_get (key5.pub));
     ASSERT_EQ (100, store.representation_get (key6.pub));
+    mu_coin::send_block block8;
+    block8.hashables.balance.clear ();
+    block8.hashables.destination = key5.pub;
+    block8.hashables.previous = block6.hash ();
+    mu_coin::sign_message (key2.prv, key2.pub, block8.hash (), block8.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block8));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 200, store.representation_get (key1.pub));
+    ASSERT_EQ (0, store.representation_get (key2.pub));
+    ASSERT_EQ (0, store.representation_get (key3.pub));
+    ASSERT_EQ (100, store.representation_get (key4.pub));
+    ASSERT_EQ (0, store.representation_get (key5.pub));
+    ASSERT_EQ (100, store.representation_get (key6.pub));
+    mu_coin::receive_block block9;
+    block9.hashables.previous = block7.hash ();
+    block9.hashables.source = block8.hash ();
+    mu_coin::sign_message (key5.prv, key5.pub, block9.hash (), block9.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (block9));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 200, store.representation_get (key1.pub));
+    ASSERT_EQ (0, store.representation_get (key2.pub));
+    ASSERT_EQ (0, store.representation_get (key3.pub));
+    ASSERT_EQ (0, store.representation_get (key4.pub));
+    ASSERT_EQ (0, store.representation_get (key5.pub));
+    ASSERT_EQ (200, store.representation_get (key6.pub));
 }
