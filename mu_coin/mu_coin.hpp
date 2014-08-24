@@ -921,6 +921,7 @@ namespace mu_coin {
     {
     public:
         receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, std::shared_ptr <mu_coin::client_impl> client_a);
+        ~receivable_processor ();
         void run ();
         void process_acknowledged (mu_coin::uint256_t const &);
         void confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);

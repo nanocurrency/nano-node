@@ -667,7 +667,7 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                         ledger.store.pending_del (source_send->hash ());
                         ledger.store.block_put (hash, block_a);
                         ledger.change_latest (source_send->hashables.destination, hash);
-						ledger.move_representation (ledger.account (block_a.hashables.source), ledger.account (hash), ledger.amount (block_a.hashables.source));
+						ledger.move_representation (ledger.account (block_a.hashables.source), ledger.representative (hash), ledger.amount (block_a.hashables.source));
                     }
                 }
             }
@@ -1893,6 +1893,10 @@ complete (false)
     ed25519_randombytes_unsafe (session.bytes.data (), sizeof (session.bytes));
 }
 
+mu_coin::receivable_processor::~receivable_processor ()
+{
+}
+
 void mu_coin::receivable_processor::run ()
 {
     mu_coin::uint256_t weight (0);
@@ -1900,6 +1904,7 @@ void mu_coin::receivable_processor::run ()
     {
         weight = client->ledger.weight (client->representative);
     }
+    std::string rep_weight (weight.convert_to <std::string> ());
     process_acknowledged (weight);
     if (!complete)
     {
@@ -2096,6 +2101,30 @@ public:
     mu_coin::client_impl & client;
     mu_coin::block const & incoming;
 };
+class progress_log_visitor : public mu_coin::block_visitor
+{
+public:
+    progress_log_visitor (mu_coin::client_impl & client_a) :
+    client (client_a)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        client.log.add (boost::str (boost::format ("Sending from:\n\t%1% to:\n\t%2% amount:\n\t%3% block:\n\t%4%") % client.ledger.account (block_a.hash ()).to_string () % block_a.hashables.destination.to_string () % client.ledger.amount (block_a.hash ()) % block_a.hash ().to_string ()));
+    }
+    void receive_block (mu_coin::receive_block const & block_a) override
+    {
+        client.log.add (boost::str (boost::format ("Receiving from:\n\t%1% to:\n\t%2% block:\n\t%3%") % client.ledger.account (block_a.hashables.source).to_string () % client.ledger.account (block_a.hash ()).to_string () % block_a.hash ().to_string ()));
+    }
+    void open_block (mu_coin::open_block const & block_a) override
+    {
+        client.log.add (boost::str (boost::format ("Open from:\n\t%1% to:\n\t%2% block:\n\t%3%") % client.ledger.account (block_a.hashables.source).to_string () % client.ledger.account (block_a.hash ()).to_string () % block_a.hash ().to_string ()));
+    }
+    void change_block (mu_coin::change_block const & block_a) override
+    {
+    }
+    mu_coin::client_impl & client;
+};
 }
 
 mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block const & incoming)
@@ -2107,7 +2136,8 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Progress for: %1%") % incoming.hash ().to_string ()));
+                progress_log_visitor logger (client);
+                incoming.visit (logger);
             }
             receivable_visitor visitor (client, incoming);
             incoming.visit (visitor);
@@ -3084,9 +3114,8 @@ public:
     void open_block (mu_coin::open_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-		auto account (ledger.account (hash));
-		ledger.move_representation (account, ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
-        ledger.change_latest (account, 0);
+		ledger.move_representation (ledger.representative (hash), ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
+        ledger.change_latest (ledger.account (hash), 0);
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source);
     }
@@ -3140,7 +3169,7 @@ void mu_coin::ledger::move_representation (mu_coin::address const & source_a, mu
 	auto source_previous (store.representation_get (source_a));
 	assert (source_previous >= amount_a);
     store.representation_put (source_a, source_previous - amount_a);
-    store.representation_put (destination_a, store.representation_get (destination_a) + amount_a);
+    store.representation_put (destination_a,  + amount_a);
 }
 
 mu_coin::block_hash mu_coin::ledger::latest (mu_coin::address const & address_a)
@@ -4788,6 +4817,10 @@ void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client_
 {
     for (uint32_t i (0); i < count_a; ++i)
     {
+        if ((i & 0xff) == 0)
+        {
+            std::cerr << boost::str (boost::format ("Mass activity iteration %1%\n") % i);
+        }
         generate_activity (client_a);
     }
 }
