@@ -1685,11 +1685,11 @@ representative (representative_a),
 store (block_store_path_a),
 ledger (store),
 wallet (0, wallet_path_a),
-transactions (ledger, wallet),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
 processor (*this),
+transactions (ledger, wallet, processor),
 peers (network.endpoint ()),
 service (processor_a)
 {
@@ -4809,9 +4809,10 @@ mu_coin::uint256_t mu_coin::client_impl::balance ()
     return result;
 }
 
-mu_coin::transactions::transactions (mu_coin::ledger & ledger_a, mu_coin::wallet & wallet_a) :
+mu_coin::transactions::transactions (mu_coin::ledger & ledger_a, mu_coin::wallet & wallet_a, mu_coin::processor & processor_a) :
 ledger (ledger_a),
-wallet (wallet_a)
+wallet (wallet_a),
+processor (processor_a)
 {
 }
 
@@ -4832,7 +4833,7 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
             mu_coin::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
-            client->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (open), mu_coin::endpoint {});
+            processor.process_receive_republish (std::unique_ptr <mu_coin::block> (open), mu_coin::endpoint {});
         }
         else
         {
@@ -4842,7 +4843,7 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
             receive->hashables.previous = frontier.hash;
             receive->hashables.source = hash;
             mu_coin::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
-            client->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
+            processor.process_receive_republish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
         }
         result = false;
     }
