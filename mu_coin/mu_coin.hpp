@@ -653,6 +653,15 @@ namespace mu_coin {
     private:
         leveldb::DB * handle;
     };
+    class transactions
+    {
+    public:
+        transactions (mu_coin::ledger &, mu_coin::wallet &);
+        bool receive (mu_coin::send_block const &, mu_coin::private_key const &, mu_coin::address const &);
+        std::mutex mutex;
+        mu_coin::ledger & ledger;
+        mu_coin::wallet & wallet;
+    };
     class operation
     {
     public:
@@ -972,6 +981,7 @@ namespace mu_coin {
         mu_coin::gap_cache gap_cache;
         mu_coin::ledger ledger;
         mu_coin::wallet wallet;
+        mu_coin::transactions transactions;
         mu_coin::network network;
         mu_coin::bootstrap_receiver bootstrap;
         mu_coin::rpc rpc;

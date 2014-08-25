@@ -1685,6 +1685,7 @@ representative (representative_a),
 store (block_store_path_a),
 ledger (store),
 wallet (0, wallet_path_a),
+transactions (ledger, wallet),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
@@ -1960,41 +1961,12 @@ void mu_coin::receivable_processor::process_acknowledged (mu_coin::uint256_t con
             lock.unlock ();
             assert (dynamic_cast <mu_coin::send_block *> (incoming.get ()) != nullptr);
             auto & send (static_cast <mu_coin::send_block &> (*incoming.get ()));
-            auto hash (send.hash ());
             mu_coin::private_key prv;
             if (!client->wallet.fetch (send.hashables.destination, client->wallet.password, prv))
             {
-                if (!client->ledger.store.pending_get (send.hash ()))
-                {
-                    mu_coin::frontier frontier;
-                    auto new_address (client->ledger.store.latest_get (send.hashables.destination, frontier));
-                    if (new_address)
-                    {
-                        balance_visitor visitor (client->ledger.store);
-                        visitor.compute (send.hashables.previous);
-                        auto open (new mu_coin::open_block);
-                        open->hashables.source = hash;
-                        open->hashables.representative = client->representative;
-                        mu_coin::sign_message (prv, send.hashables.destination, open->hash (), open->signature);
-                        prv.bytes.fill (0);
-                        client->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (open), mu_coin::endpoint {});
-                    }
-                    else
-                    {
-                        balance_visitor visitor (client->ledger.store);
-                        visitor.compute (send.hashables.previous);
-                        auto receive (new mu_coin::receive_block);
-                        receive->hashables.previous = frontier.hash;
-                        receive->hashables.source = hash;
-                        mu_coin::sign_message (prv, send.hashables.destination, receive->hash (), receive->signature);
-                        prv.bytes.fill (0);
-                        client->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
-                    }
-                }
-                else
-                {
-                    // Ledger doesn't have this marked as available to receive anymore
-                }
+                auto error (client->transactions.receive (send, prv, client->representative));
+                prv.bytes.fill (0);
+                assert (!error);
             }
             else
             {
@@ -4833,6 +4805,51 @@ mu_coin::uint256_t mu_coin::client_impl::balance ()
         auto pub (i->first);
         auto account_balance (ledger.account_balance (pub));
         result += account_balance;
+    }
+    return result;
+}
+
+mu_coin::transactions::transactions (mu_coin::ledger & ledger_a, mu_coin::wallet & wallet_a) :
+ledger (ledger_a),
+wallet (wallet_a)
+{
+}
+
+bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin::private_key const & prv_a, mu_coin::address const & representative_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    auto hash (send_a.hash ());
+    bool result;
+    if (!ledger.store.pending_get (hash))
+    {
+        mu_coin::frontier frontier;
+        auto new_address (ledger.store.latest_get (send_a.hashables.destination, frontier));
+        if (new_address)
+        {
+            balance_visitor visitor (ledger.store);
+            visitor.compute (send_a.hashables.previous);
+            auto open (new mu_coin::open_block);
+            open->hashables.source = hash;
+            open->hashables.representative = representative_a;
+            mu_coin::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
+            client->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (open), mu_coin::endpoint {});
+        }
+        else
+        {
+            balance_visitor visitor (ledger.store);
+            visitor.compute (send_a.hashables.previous);
+            auto receive (new mu_coin::receive_block);
+            receive->hashables.previous = frontier.hash;
+            receive->hashables.source = hash;
+            mu_coin::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
+            client->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (receive), mu_coin::endpoint {});
+        }
+        result = false;
+    }
+    else
+    {
+        result = true;
+        // Ledger doesn't have this marked as available to receive anymore
     }
     return result;
 }
