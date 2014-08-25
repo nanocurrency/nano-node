@@ -1664,6 +1664,38 @@ size_t mu_coin::processor_service::poll_one ()
     return result;
 }
 
+size_t mu_coin::processor_service::poll ()
+{
+    std::unique_lock <std::mutex> lock (mutex);
+    size_t result (0);
+    auto done_l (false);
+    while (!done_l)
+    {
+        if (!operations.empty ())
+        {
+            auto & operation_l (operations.top ());
+            if (operation_l.wakeup < std::chrono::system_clock::now ())
+            {
+                auto operation (operation_l);
+                operations.pop ();
+                lock.unlock ();
+                operation.function ();
+                ++result;
+                lock.lock ();
+            }
+            else
+            {
+                done_l = true;
+            }
+        }
+        else
+        {
+            done_l = true;
+        }
+    }
+    return result;
+}
+
 void mu_coin::processor_service::add (std::chrono::system_clock::time_point const & wakeup_a, std::function <void ()> const & operation)
 {
     std::lock_guard <std::mutex> lock (mutex);
@@ -4768,6 +4800,13 @@ void mu_coin::system::generate_activity (mu_coin::client_impl & client_a)
     {
         generate_send_new (client_a);
     }
+    size_t polled;
+    do
+    {
+        polled = 0;
+        polled += service->poll ();
+        polled += processor.poll ();
+    } while (polled != 0);
 }
 
 mu_coin::uint256_t mu_coin::system::get_random_amount (mu_coin::client_impl & client_a)

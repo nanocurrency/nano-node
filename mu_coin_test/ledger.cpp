@@ -549,19 +549,33 @@ TEST (system, generate_send_new)
     ASSERT_GT (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), 0);
 }
 
-TEST (system, DISABLED_generate_mass_activity)
+TEST (system, generate_mass_activity)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
-    system.generate_mass_activity (10, *system.clients [0]->client_m);
+    size_t count (20);
+    system.generate_mass_activity (count, *system.clients [0]->client_m);
+    size_t accounts (0);
+    for (auto i (system.clients [0]->client_m->store.latest_begin ()), n (system.clients [0]->client_m->store.latest_end ()); i != n; ++i)
+    {
+        ++accounts;
+    }
+    ASSERT_GT (accounts, count / 10);
 }
 
 TEST (system, DISABLED_generate_mass_activity_long)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
     system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
-    system.generate_mass_activity (1000, *system.clients [0]->client_m);
+    size_t count (10000);
+    system.generate_mass_activity (count, *system.clients [0]->client_m);
     system.clients [0]->client_m->log.dump_cerr ();
+    size_t accounts (0);
+    for (auto i (system.clients [0]->client_m->store.latest_begin ()), n (system.clients [0]->client_m->store.latest_end ()); i != n; ++i)
+    {
+        ++accounts;
+    }
+    ASSERT_GT (accounts, count / 10);
 }
 
 TEST (ledger, representation)

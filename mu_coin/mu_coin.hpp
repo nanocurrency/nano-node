@@ -665,6 +665,7 @@ namespace mu_coin {
     public:
         processor_service ();
         void run ();
+        size_t poll ();
         size_t poll_one ();
         void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
         void stop ();
