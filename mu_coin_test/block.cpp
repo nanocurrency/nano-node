@@ -426,11 +426,12 @@ TEST (gap_cache, add_existing)
     mu_coin::gap_cache cache;
     mu_coin::send_block block1;
     auto previous (block1.previous ());
-    cache.add (mu_coin::send_block (block1), previous);
+    cache.add (block1, previous);
     auto existing1 (cache.blocks.find (previous));
     ASSERT_NE (cache.blocks.end (), existing1);
     auto arrival (existing1->arrival);
-    cache.add (mu_coin::send_block (block1), previous);
+    while (arrival == std::chrono::system_clock::now ());
+    cache.add (block1, previous);
     ASSERT_EQ (1, cache.blocks.size ());
     auto existing2 (cache.blocks.find (previous));
     ASSERT_NE (cache.blocks.end (), existing2);
