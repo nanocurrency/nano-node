@@ -1645,6 +1645,25 @@ void mu_coin::processor_service::run ()
     }
 }
 
+size_t mu_coin::processor_service::poll_one ()
+{
+    std::unique_lock <std::mutex> lock (mutex);
+    size_t result (0);
+    if (!operations.empty ())
+    {
+        auto & operation_l (operations.top ());
+        if (operation_l.wakeup < std::chrono::system_clock::now ())
+        {
+            auto operation (operation_l);
+            operations.pop ();
+            lock.unlock ();
+            operation.function ();
+            result = 1;
+        }
+    }
+    return result;
+}
+
 void mu_coin::processor_service::add (std::chrono::system_clock::time_point const & wakeup_a, std::function <void ()> const & operation)
 {
     std::lock_guard <std::mutex> lock (mutex);
@@ -1898,7 +1917,13 @@ mu_coin::receivable_processor::~receivable_processor ()
 {
 }
 
-void mu_coin::receivable_processor::run ()
+void mu_coin::receivable_processor::start ()
+{
+    auto this_l (shared_from_this ());
+    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->initiate_confirmation ();});
+}
+
+void mu_coin::receivable_processor::initiate_confirmation ()
 {
     mu_coin::uint256_t weight (0);
     if (client->wallet.find (client->representative) != client->wallet.end ())
@@ -2016,7 +2041,7 @@ void receivable_message_processor::confirm_nak (mu_coin::confirm_nak const & mes
 void mu_coin::processor::process_receivable (mu_coin::block const & incoming)
 {
     auto processor (std::make_shared <receivable_processor> (incoming.clone (), client.shared ()));
-    processor->run ();
+    processor->start ();
 }
 
 void mu_coin::processor::process_receive_republish (std::unique_ptr <mu_coin::block> incoming, mu_coin::endpoint const & sender_a)
@@ -2508,16 +2533,7 @@ void balance_visitor::compute (mu_coin::block_hash const & block_hash)
 
 bool mu_coin::client_impl::send (mu_coin::public_key const & address, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & password)
 {
-    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    auto result (wallet.generate_send (ledger, address, coins, password, blocks));
-    if (!result)
-    {
-        for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
-        {
-            processor.process_receive_republish (std::move (*i), mu_coin::endpoint {});
-        }
-    }
-    return result;
+    return transactions.send (address, coins, password);
 }
 
 mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a, mu_coin::uint256_t const & amount) :
@@ -4851,6 +4867,21 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
     {
         result = true;
         // Ledger doesn't have this marked as available to receive anymore
+    }
+    return result;
+}
+
+bool mu_coin::transactions::send (mu_coin::address const & address_a, mu_coin::uint256_t const & coins_a, mu_coin::secret_key const & key_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
+    auto result (wallet.generate_send (ledger, address_a, coins_a, key_a, blocks));
+    if (!result)
+    {
+        for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+        {
+            processor.process_receive_republish (std::move (*i), mu_coin::endpoint {});
+        }
     }
     return result;
 }

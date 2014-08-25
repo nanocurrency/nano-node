@@ -665,7 +665,7 @@ namespace mu_coin {
     public:
         processor_service ();
         void run ();
-        size_t poll ();
+        size_t poll_one ();
         void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
         void stop ();
         bool stopped ();
@@ -739,6 +739,7 @@ namespace mu_coin {
     public:
         transactions (mu_coin::ledger &, mu_coin::wallet &, mu_coin::processor &);
         bool receive (mu_coin::send_block const &, mu_coin::private_key const &, mu_coin::address const &);
+        bool send (mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
         std::mutex mutex;
         mu_coin::ledger & ledger;
         mu_coin::wallet & wallet;
@@ -932,7 +933,8 @@ namespace mu_coin {
     public:
         receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, std::shared_ptr <mu_coin::client_impl> client_a);
         ~receivable_processor ();
-        void run ();
+        void start ();
+        void initiate_confirmation ();
         void process_acknowledged (mu_coin::uint256_t const &);
         void confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
         void timeout_action ();
