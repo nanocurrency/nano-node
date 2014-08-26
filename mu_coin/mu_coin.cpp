@@ -17,7 +17,7 @@ namespace
 {
     bool constexpr ledger_logging ()
     {
-        return true;
+        return false;
     }
     bool constexpr ledger_duplicate_logging ()
     {
@@ -4887,8 +4887,6 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
         auto new_address (ledger.store.latest_get (send_a.hashables.destination, frontier));
         if (new_address)
         {
-            balance_visitor visitor (ledger.store);
-            visitor.compute (send_a.hashables.previous);
             auto open (new mu_coin::open_block);
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
@@ -4897,8 +4895,6 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
         }
         else
         {
-            balance_visitor visitor (ledger.store);
-            visitor.compute (send_a.hashables.previous);
             auto receive (new mu_coin::receive_block);
             receive->hashables.previous = frontier.hash;
             receive->hashables.source = hash;
