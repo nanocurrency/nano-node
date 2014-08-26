@@ -1589,7 +1589,8 @@ bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public
         if (!balance.is_zero ())
         {
             mu_coin::frontier frontier;
-            assert (!ledger_a.store.latest_get (account, frontier));
+            result = ledger_a.store.latest_get (account, frontier);
+            assert (!result);
             auto amount (std::min (remaining, balance));
             remaining -= amount;
             std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
