@@ -539,12 +539,12 @@ namespace
 void ledger_processor::change_block (mu_coin::change_block const & block_a)
 {
     mu_coin::uint256_union message (block_a.hash ());
-    auto existing (ledger.store.block_get (message));
-    result = existing != nullptr ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block before? (Harmless)
+    auto existing (ledger.store.block_exists (message));
+    result = existing ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block before? (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        auto previous (ledger.store.block_get (block_a.hashables.previous));
-        result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous;  // Have we seen the previous block before? (Harmless)
+        auto previous (ledger.store.block_exists (block_a.hashables.previous));
+        result = previous ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous;  // Have we seen the previous block before? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
 			auto account (ledger.account (block_a.hashables.previous));
@@ -569,12 +569,12 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
 void ledger_processor::send_block (mu_coin::send_block const & block_a)
 {
     mu_coin::uint256_union message (block_a.hash ());
-    auto existing (ledger.store.block_get (message));
-    result = existing != nullptr ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block before? (Harmless)
+    auto existing (ledger.store.block_exists (message));
+    result = existing ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block before? (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        auto previous (ledger.store.block_get (block_a.hashables.previous));
-        result = previous != nullptr ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous; // Have we seen the previous block before? (Harmless)
+        auto previous (ledger.store.block_exists (block_a.hashables.previous));
+        result = previous ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous; // Have we seen the previous block before? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
 			auto account (ledger.account (block_a.hashables.previous));
@@ -604,8 +604,8 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
 void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
 {
     auto hash (block_a.hash ());
-    auto existing (ledger.store.block_get (hash));
-    result = existing != nullptr ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block already?  (Harmless)
+    auto existing (ledger.store.block_exists (hash));
+    result = existing ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block already?  (Harmless)
     if (result == mu_coin::process_result::progress)
     {
         auto source_block (ledger.store.block_get (block_a.hashables.source));
@@ -645,8 +645,8 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
 void ledger_processor::open_block (mu_coin::open_block const & block_a)
 {
     auto hash (block_a.hash ());
-    auto existing (ledger.store.block_get (hash));
-    result = existing != nullptr ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block already? (Harmless)
+    auto existing (ledger.store.block_exists (hash));
+    result = existing ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block already? (Harmless)
     if (result == mu_coin::process_result::progress)
     {
         auto source_block (ledger.store.block_get (block_a.hashables.source));
@@ -4843,11 +4843,15 @@ void mu_coin::system::generate_send_new (mu_coin::client_impl & client_a)
 
 void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client_impl & client_a)
 {
+    auto previous (std::chrono::system_clock::now ());
     for (uint32_t i (0); i < count_a; ++i)
     {
         if ((i & 0xff) == 0)
         {
-            std::cerr << boost::str (boost::format ("Mass activity iteration %1%\n") % i);
+            auto now (std::chrono::system_clock::now ());
+            auto ms (std::chrono::duration_cast <std::chrono::milliseconds> (now - previous).count ());
+            std::cerr << boost::str (boost::format ("Mass activity iteration %1% ms %2% ms/t %3%\n") % i % ms % (ms / 256));
+            previous = now;
         }
         generate_activity (client_a);
     }
