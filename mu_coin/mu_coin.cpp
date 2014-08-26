@@ -972,7 +972,7 @@ void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
     store_a.block_put (send1.hash (), send1);
     store_a.block_put (send2.hash (), send2);
     store_a.block_put (open.hash (), open);
-    store_a.latest_put (send2.hashables.destination, {open.hash (), store_a.now ()});
+    store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, store_a.now ()});
     store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
 }
 
@@ -989,13 +989,8 @@ bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_co
     else
     {
         mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        result = read (stream, frontier_a.hash.bytes);
-        if (!result)
-        {
-            result = read (stream, frontier_a.time);
-        }
+        result = frontier_a.deserialize (stream);
         assert (!result);
-        result = false;
     }
     return result;
 }
@@ -2403,6 +2398,7 @@ void mu_coin::account_iterator::set_current ()
     {
         current.first.clear ();
         current.second.hash.clear ();
+        current.second.representative.clear ();
         current.second.time = 0;
     }
 }
@@ -2421,6 +2417,7 @@ mu_coin::account_entry & mu_coin::account_iterator::operator -> ()
 void mu_coin::frontier::serialize (mu_coin::stream & stream_a) const
 {
     write (stream_a, hash.bytes);
+    write (stream_a, representative.bytes);
     write (stream_a, time);
 }
 
@@ -2429,7 +2426,11 @@ bool mu_coin::frontier::deserialize (mu_coin::stream & stream_a)
     auto result (read (stream_a, hash.bytes));
     if (!result)
     {
-        result = read (stream_a, time);
+        result = read (stream_a, representative.bytes);
+        if (!result)
+        {
+            result = read (stream_a, time);
+        }
     }
     return result;
 }
@@ -4924,4 +4925,9 @@ bool mu_coin::transactions::send (mu_coin::address const & address_a, mu_coin::u
         }
     }
     return result;
+}
+
+bool mu_coin::frontier::operator == (mu_coin::frontier const & other_a) const
+{
+    return hash == other_a.hash && representative == other_a.representative && time == other_a.time;
 }

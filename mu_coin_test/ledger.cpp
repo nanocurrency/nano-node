@@ -24,6 +24,10 @@ TEST (ledger, genesis_balance)
     genesis.initialize (store);
     auto balance (ledger.account_balance (key1.pub));
     ASSERT_EQ (500, balance);
+    mu_coin::frontier frontier;
+    ASSERT_FALSE (store.latest_get (key1.pub, frontier));
+    ASSERT_GE (store.now (), frontier.time);
+    ASSERT_LT (store.now () - frontier.time, 10);
 }
 
 TEST (system, system_genesis)

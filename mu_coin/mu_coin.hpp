@@ -337,7 +337,9 @@ namespace mu_coin {
     public:
         void serialize (mu_coin::stream &) const;
         bool deserialize (mu_coin::stream &);
+        bool operator == (mu_coin::frontier const &) const;
         mu_coin::uint256_union hash;
+        mu_coin::address representative;
         uint64_t time;
     };
     class account_entry
