@@ -146,6 +146,7 @@ TEST (ledger, process_receive)
     mu_coin::block_hash hash2 (open.hash ());
     mu_coin::sign_message (key2.prv, key2.pub, hash2, open.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
+    ASSERT_EQ (50, ledger.weight (key3.pub));
 	mu_coin::send_block send2;
 	send2.hashables.balance = 25;
 	send2.hashables.previous = hash1;
