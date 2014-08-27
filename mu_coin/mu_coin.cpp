@@ -2988,9 +2988,21 @@ void mu_coin::block_store::representation_put (mu_coin::address const & address_
 
 mu_coin::address mu_coin::ledger::representative (mu_coin::block_hash const & hash_a)
 {
+    auto result (representative_calculated (hash_a));
+    //assert (result == representative_cached (hash_a));
+    return result;
+}
+
+mu_coin::address mu_coin::ledger::representative_calculated (mu_coin::block_hash const & hash_a)
+{
 	representative_visitor visitor (store);
 	visitor.compute (hash_a);
 	return visitor.result;
+}
+
+mu_coin::address mu_coin::ledger::representative_cached (mu_coin::block_hash const & hash_a)
+{
+    assert (false);
 }
 
 mu_coin::uint256_t mu_coin::ledger::weight (mu_coin::address const & address_a)
