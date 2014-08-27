@@ -688,3 +688,55 @@ TEST (ledger, representation)
     ASSERT_EQ (0, store.representation_get (key5.pub));
     ASSERT_EQ (200, store.representation_get (key6.pub));
 }
+
+TEST (ledger, double_open)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::ledger ledger (store);
+    mu_coin::keypair key1;
+    mu_coin::genesis genesis (key1.pub);
+    genesis.initialize (store);
+    mu_coin::keypair key2;
+    mu_coin::send_block send1;
+    send1.hashables.balance = 1;
+    send1.hashables.destination = key2.pub;
+    send1.hashables.previous = genesis.hash ();
+    mu_coin::sign_message(key1.prv, key1.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (send1));
+    mu_coin::open_block open1;
+    open1.hashables.representative = key2.pub;
+    open1.hashables.source = send1.hash ();
+    mu_coin::sign_message (key2.prv, key2.pub, open1.hash (), open1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open1));
+    mu_coin::open_block open2;
+    open2.hashables.representative = key1.pub;
+    open2.hashables.source = send1.hash ();
+    mu_coin::sign_message (key2.prv, key2.pub, open2.hash (), open2.signature);
+    ASSERT_EQ (mu_coin::process_result::overreceive, ledger.process (open2));
+}
+
+TEST (ledegr, double_receive)
+{
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::ledger ledger (store);
+    mu_coin::keypair key1;
+    mu_coin::genesis genesis (key1.pub);
+    genesis.initialize (store);
+    mu_coin::keypair key2;
+    mu_coin::send_block send1;
+    send1.hashables.balance = 1;
+    send1.hashables.destination = key2.pub;
+    send1.hashables.previous = genesis.hash ();
+    mu_coin::sign_message(key1.prv, key1.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (send1));
+    mu_coin::open_block open1;
+    open1.hashables.representative = key2.pub;
+    open1.hashables.source = send1.hash ();
+    mu_coin::sign_message (key2.prv, key2.pub, open1.hash (), open1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open1));
+    mu_coin::receive_block receive1;
+    receive1.hashables.previous = open1.hash ();
+    receive1.hashables.source = send1.hash ();
+    mu_coin::sign_message (key2.prv, key2.pub, receive1.hash (), receive1.signature);
+    ASSERT_EQ (mu_coin::process_result::overreceive, ledger.process (receive1));
+}
