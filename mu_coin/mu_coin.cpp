@@ -678,7 +678,7 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
                             ledger.change_latest (source_send->hashables.destination, hash);
-                            ledger.move_representation (ledger.representative (block_a.hashables.source), ledger.representative (hash), ledger.amount (block_a.hashables.source));
+                            ledger.move_representation (ledger.representative (block_a.hashables.source), block_a.hashables.representative, ledger.amount (block_a.hashables.source));
                         }
                     }
                 }
