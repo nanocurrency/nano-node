@@ -605,43 +605,37 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
     result = existing ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block already?  (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        auto source_block (ledger.store.block_get (block_a.hashables.source));
-        result = source_block == nullptr ? mu_coin::process_result::gap_source : mu_coin::process_result::progress; // Have we seen the source block? (Harmless)
+        auto source_missing (!ledger.store.block_exists (block_a.hashables.source));
+        result = source_missing ? mu_coin::process_result::gap_source : mu_coin::process_result::progress; // Have we seen the source block? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
-            auto source_send (dynamic_cast <mu_coin::send_block *> (source_block.get ()));
-            result = source_send == nullptr ? mu_coin::process_result::not_receive_from_send : mu_coin::process_result::progress; // Are we receiving from a send (Malformed)
+            mu_coin::address source_account;
+            mu_coin::uint256_union amount;
+            mu_coin::address destination_account;
+            result = ledger.store.pending_get (block_a.hashables.source, source_account, amount, destination_account) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
             if (result == mu_coin::process_result::progress)
             {
-                auto source_hash (source_send->hash ());
-                mu_coin::address source_account;
-                mu_coin::uint256_union amount;
-                mu_coin::address destination_account;
-                result = ledger.store.pending_get (source_hash, source_account, amount, destination_account) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
+                result = mu_coin::validate_message (destination_account, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
                 if (result == mu_coin::process_result::progress)
                 {
-                    result = mu_coin::validate_message (source_send->hashables.destination, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
+                    mu_coin::frontier frontier;
+                    result = ledger.store.latest_get (destination_account, frontier) ? mu_coin::process_result::gap_previous : mu_coin::process_result::progress;  //Have we seen the previous block? No entries for address at all (Harmless)
                     if (result == mu_coin::process_result::progress)
                     {
-                        mu_coin::frontier frontier;
-                        result = ledger.store.latest_get (source_send->hashables.destination, frontier) ? mu_coin::process_result::gap_previous : mu_coin::process_result::progress;  //Have we seen the previous block? No entries for address at all (Harmless)
+                        result = frontier.hash == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
                         if (result == mu_coin::process_result::progress)
                         {
-                            result = frontier.hash == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
-                            if (result == mu_coin::process_result::progress)
-                            {
-                                mu_coin::frontier source_frontier;
-                                auto error (ledger.store.latest_get (source_account, source_frontier));
-                                assert (!error);
-                                ledger.store.pending_del (source_hash);
-                                ledger.store.block_put (hash, block_a);
-                                ledger.change_latest (source_send->hashables.destination, hash, frontier.representative, frontier.balance.number () + amount.number ());
-                                ledger.move_representation (source_frontier.representative, frontier.representative, amount.number ());
-                            }
-                            else
-                            {
-                                result = ledger.store.block_get (frontier.hash) ? mu_coin::process_result::fork : mu_coin::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
-                            }
+                            mu_coin::frontier source_frontier;
+                            auto error (ledger.store.latest_get (source_account, source_frontier));
+                            assert (!error);
+                            ledger.store.pending_del (block_a.hashables.source);
+                            ledger.store.block_put (hash, block_a);
+                            ledger.change_latest (destination_account, hash, frontier.representative, frontier.balance.number () + amount.number ());
+                            ledger.move_representation (source_frontier.representative, frontier.representative, amount.number ());
+                        }
+                        else
+                        {
+                            result = ledger.store.block_get (frontier.hash) ? mu_coin::process_result::fork : mu_coin::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
                         }
                     }
                 }
@@ -657,36 +651,30 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
     result = existing ? mu_coin::process_result::old : mu_coin::process_result::progress; // Have we seen this block already? (Harmless)
     if (result == mu_coin::process_result::progress)
     {
-        auto source_block (ledger.store.block_get (block_a.hashables.source));
-        result = source_block == nullptr ? mu_coin::process_result::gap_source : mu_coin::process_result::progress; // Have we seen the source block? (Harmless)
+        auto source_missing (!ledger.store.block_exists (block_a.hashables.source));
+        result = source_missing ? mu_coin::process_result::gap_source : mu_coin::process_result::progress; // Have we seen the source block? (Harmless)
         if (result == mu_coin::process_result::progress)
         {
-            auto source_send (dynamic_cast <mu_coin::send_block *> (source_block.get ()));
-            result = source_send == nullptr ? mu_coin::process_result::not_receive_from_send : mu_coin::process_result::progress; // Are we receiving from a send (Malformed)
+            mu_coin::address source_account;
+            mu_coin::uint256_union amount;
+            mu_coin::address destination_account;
+            result = ledger.store.pending_get (block_a.hashables.source, source_account, amount, destination_account) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
             if (result == mu_coin::process_result::progress)
             {
-                auto source_hash (source_send->hash ());
-                mu_coin::address source_account;
-                mu_coin::uint256_union amount;
-                mu_coin::address destination_account;
-                result = ledger.store.pending_get (source_hash, source_account, amount, destination_account) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
+                result = mu_coin::validate_message (destination_account, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
                 if (result == mu_coin::process_result::progress)
                 {
-                    result = mu_coin::validate_message (source_send->hashables.destination, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
+                    mu_coin::frontier frontier;
+                    result = ledger.store.latest_get (destination_account, frontier) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Has this account already been opened? (Malicious)
                     if (result == mu_coin::process_result::progress)
                     {
-                        mu_coin::frontier frontier;
-                        result = ledger.store.latest_get (source_send->hashables.destination, frontier) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Has this account already been opened? (Malicious)
-                        if (result == mu_coin::process_result::progress)
-                        {
-                            mu_coin::frontier source_frontier;
-                            auto error (ledger.store.latest_get (source_account, source_frontier));
-                            assert (!error);
-                            ledger.store.pending_del (source_send->hash ());
-                            ledger.store.block_put (hash, block_a);
-                            ledger.change_latest (source_send->hashables.destination, hash, block_a.hashables.representative, amount.number ());
-                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, amount.number ());
-                        }
+                        mu_coin::frontier source_frontier;
+                        auto error (ledger.store.latest_get (source_account, source_frontier));
+                        assert (!error);
+                        ledger.store.pending_del (block_a.hashables.source);
+                        ledger.store.block_put (hash, block_a);
+                        ledger.change_latest (destination_account, hash, block_a.hashables.representative, amount.number ());
+                        ledger.move_representation (source_frontier.representative, block_a.hashables.representative, amount.number ());
                     }
                 }
             }
