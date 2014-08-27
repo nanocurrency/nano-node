@@ -3166,7 +3166,7 @@ public:
     void receive_block (mu_coin::receive_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-		ledger.move_representation (ledger.representative (hash), ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
+		ledger.move_representation (ledger.representative (hash), ledger.representative (block_a.hashables.source), ledger.amount (block_a.hashables.source));
         ledger.change_latest (ledger.account (hash), block_a.hashables.previous);
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
@@ -3174,7 +3174,7 @@ public:
     void open_block (mu_coin::open_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-		ledger.move_representation (ledger.representative (hash), ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
+		ledger.move_representation (ledger.representative (hash), ledger.representative (block_a.hashables.source), ledger.amount (block_a.hashables.source));
         ledger.change_latest (ledger.account (hash), 0);
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
