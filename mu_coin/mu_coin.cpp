@@ -559,7 +559,7 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
                 {
 					ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
                     ledger.store.block_put (message, block_a);
-                    ledger.change_latest (account, message, block_a.hashables.representative);
+                    ledger.change_latest (account, message, block_a.hashables.representative, frontier.balance);
                 }
             }
         }
@@ -592,7 +592,7 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
                     if (result == mu_coin::process_result::progress)
                     {
                         ledger.store.block_put (message, block_a);
-                        ledger.change_latest (account, message, frontier.representative);
+                        ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
                         ledger.store.pending_put (message, account);
                     }
                 }
@@ -634,10 +634,11 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                                 mu_coin::frontier source_frontier;
                                 auto error (ledger.store.latest_get (source_account, source_frontier));
                                 assert (!error);
+                                auto amount (ledger.amount (block_a.hashables.source));
                                 ledger.store.pending_del (source_hash);
                                 ledger.store.block_put (hash, block_a);
-                                ledger.change_latest (source_send->hashables.destination, hash, frontier.representative);
-                                ledger.move_representation (source_frontier.representative, frontier.representative, ledger.amount (block_a.hashables.source));
+                                ledger.change_latest (source_send->hashables.destination, hash, frontier.representative, frontier.balance.number () + amount);
+                                ledger.move_representation (source_frontier.representative, frontier.representative, amount);
                             }
                             else
                             {
@@ -681,10 +682,11 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                             mu_coin::frontier source_frontier;
                             auto error (ledger.store.latest_get (source_account, source_frontier));
                             assert (!error);
+                            auto amount (ledger.amount (block_a.hashables.source));
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
-                            ledger.change_latest (source_send->hashables.destination, hash, block_a.hashables.representative);
-                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, ledger.amount (block_a.hashables.source));
+                            ledger.change_latest (source_send->hashables.destination, hash, block_a.hashables.representative, amount);
+                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, amount);
                         }
                     }
                 }
@@ -990,7 +992,7 @@ void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
     store_a.block_put (send1.hash (), send1);
     store_a.block_put (send2.hash (), send2);
     store_a.block_put (open.hash (), open);
-    store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, store_a.now ()});
+    store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, send1.hashables.balance, store_a.now ()});
     store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
 }
 
@@ -2445,6 +2447,7 @@ void mu_coin::frontier::serialize (mu_coin::stream & stream_a) const
 {
     write (stream_a, hash.bytes);
     write (stream_a, representative.bytes);
+    write (stream_a, balance.bytes);
     write (stream_a, time);
 }
 
@@ -2456,7 +2459,11 @@ bool mu_coin::frontier::deserialize (mu_coin::stream & stream_a)
         result = read (stream_a, representative.bytes);
         if (!result)
         {
-            result = read (stream_a, time);
+            result = read (stream_a, balance.bytes);
+            if (!result)
+            {
+                result = read (stream_a, time);
+            }
         }
     }
     return result;
@@ -3162,7 +3169,7 @@ public:
         mu_coin::frontier frontier;
         ledger.store.latest_get (sender, frontier);
 		ledger.store.pending_del (hash);
-        ledger.change_latest (sender, block_a.hashables.previous, frontier.representative);
+        ledger.change_latest (sender, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
     }
     void receive_block (mu_coin::receive_block const & block_a) override
@@ -3170,7 +3177,7 @@ public:
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
 		ledger.move_representation (ledger.representative (hash), representative, ledger.amount (block_a.hashables.source));
-        ledger.change_latest (ledger.account (hash), block_a.hashables.previous, representative);
+        ledger.change_latest (ledger.account (hash), block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
     }
@@ -3179,16 +3186,19 @@ public:
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
 		ledger.move_representation (ledger.representative (hash), representative, ledger.amount (block_a.hashables.source));
-        ledger.change_latest (ledger.account (hash), 0, representative);
+        ledger.change_latest (ledger.account (hash), 0, representative, 0);
 		ledger.store.block_del (hash);
 		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
     }
     void change_block (mu_coin::change_block const & block_a) override
     {
         auto representative (ledger.representative (block_a.hashables.previous));
+        auto account (ledger.account (block_a.hashables.previous));
+        mu_coin::frontier frontier;
+        ledger.store.latest_get (account, frontier);
 		ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (block_a.hash ());
-        ledger.change_latest (ledger.account (block_a.hashables.previous), block_a.hashables.previous, representative);
+        ledger.change_latest (account, block_a.hashables.previous, representative, frontier.balance);
     }
     mu_coin::ledger & ledger;
 };
@@ -4751,7 +4761,7 @@ void mu_coin::ledger::checksum_update (mu_coin::block_hash const & hash_a)
     store.checksum_put (0, 0, value);
 }
 
-void mu_coin::ledger::change_latest (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a, mu_coin::address const & representative_a)
+void mu_coin::ledger::change_latest (mu_coin::address const & address_a, mu_coin::block_hash const & hash_a, mu_coin::address const & representative_a, mu_coin::uint256_union const & balance_a)
 {
     mu_coin::frontier frontier;
     auto exists (!store.latest_get (address_a, frontier));
@@ -4763,6 +4773,7 @@ void mu_coin::ledger::change_latest (mu_coin::address const & address_a, mu_coin
     {
         frontier.hash = hash_a;
         frontier.representative = representative_a;
+        frontier.balance = balance_a;
         frontier.time = store.now ();
         store.latest_put (address_a, frontier);
         checksum_update (hash_a);
@@ -4975,5 +4986,5 @@ bool mu_coin::transactions::send (mu_coin::address const & address_a, mu_coin::u
 
 bool mu_coin::frontier::operator == (mu_coin::frontier const & other_a) const
 {
-    return hash == other_a.hash && representative == other_a.representative && time == other_a.time;
+    return hash == other_a.hash && representative == other_a.representative && balance == other_a.balance && time == other_a.time;
 }

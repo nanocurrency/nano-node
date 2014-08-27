@@ -340,6 +340,7 @@ namespace mu_coin {
         bool operator == (mu_coin::frontier const &) const;
         mu_coin::uint256_union hash;
         mu_coin::address representative;
+        mu_coin::uint256_union balance;
         uint64_t time;
     };
     class account_entry
@@ -428,7 +429,7 @@ namespace mu_coin {
         void checksum_del (uint64_t, uint8_t);
         
     private:
-        // address -> block_hash, timestamp     // Each address has one head block and a last updated timestamp
+        // address -> block_hash, representative, balance, timestamp    // Address to frontier block, representative, balance, last_change
         std::unique_ptr <leveldb::DB> addresses;
         // block_hash -> block                  // Mapping block hash to contents
         std::unique_ptr <leveldb::DB> blocks;
@@ -473,7 +474,7 @@ namespace mu_coin {
         mu_coin::uint256_t supply ();
         mu_coin::process_result process (mu_coin::block const &);
         void rollback (mu_coin::block_hash const &);
-        void change_latest (mu_coin::address const &, mu_coin::block_hash const &, mu_coin::address const &);
+        void change_latest (mu_coin::address const &, mu_coin::block_hash const &, mu_coin::address const &, mu_coin::uint256_union const &);
 		void move_representation (mu_coin::address const &, mu_coin::address const &, mu_coin::uint256_t const &);
         void checksum_update (mu_coin::block_hash const &);
         mu_coin::checksum checksum (mu_coin::address const &, mu_coin::address const &);
