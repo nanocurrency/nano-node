@@ -410,9 +410,9 @@ namespace mu_coin {
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
-        void pending_put (mu_coin::block_hash const &);
+        void pending_put (mu_coin::block_hash const &, mu_coin::address const &);
         void pending_del (mu_coin::identifier const &);
-        bool pending_get (mu_coin::identifier const &);
+        bool pending_get (mu_coin::identifier const &, mu_coin::address &);
         
         mu_coin::uint256_t representation_get (mu_coin::address const &);
         void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
@@ -433,7 +433,7 @@ namespace mu_coin {
         std::unique_ptr <leveldb::DB> addresses;
         // block_hash -> block                  // Mapping block hash to contents
         std::unique_ptr <leveldb::DB> blocks;
-        // block_hash ->                        // Pending blocks
+        // block_hash -> address                // Pending blocks to sender address
         std::unique_ptr <leveldb::DB> pending;
         // address -> weight                    // Representation
         std::unique_ptr <leveldb::DB> representation;

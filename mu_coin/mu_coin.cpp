@@ -593,7 +593,7 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
                     {
                         ledger.store.block_put (message, block_a);
                         ledger.change_latest (account, message);
-                        ledger.store.pending_put (message);
+                        ledger.store.pending_put (message, account);
                     }
                 }
             }
@@ -1006,9 +1006,14 @@ void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_co
     assert (status.ok ());
 }
 
-void mu_coin::block_store::pending_put (mu_coin::identifier const & identifier_a)
+void mu_coin::block_store::pending_put (mu_coin::identifier const & identifier_a, mu_coin::address const & address_a)
 {
-    auto status (pending->Put (leveldb::WriteOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), leveldb::Slice (nullptr, 0)));
+    std::vector <uint8_t> vector;
+    {
+        mu_coin::vectorstream stream (vector);
+        address_a.serialize (stream);
+    }
+    auto status (pending->Put (leveldb::WriteOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
     assert (status.ok ());
 }
 
@@ -1018,7 +1023,7 @@ void mu_coin::block_store::pending_del (mu_coin::identifier const & identifier_a
     assert (status.ok ());
 }
 
-bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a)
+bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a, mu_coin::address & address_a)
 {
     std::string value;
     auto status (pending->Get (leveldb::ReadOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), &value));
@@ -1031,6 +1036,10 @@ bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a
     else
     {
         result = false;
+        assert (value.size () == sizeof (address_a.bytes));
+        mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        auto error (address_a.deserialize (stream));
+        assert (!error);
     }
     return result;
 }
@@ -3133,7 +3142,8 @@ public:
     {
 		auto hash (block_a.hash ());
 		auto account (ledger.account (hash));
-		while (ledger.store.pending_get (hash))
+        mu_coin::address sender;
+		while (ledger.store.pending_get (hash, sender))
 		{
 			ledger.rollback (ledger.latest (block_a.hashables.destination));
 		}
@@ -3147,7 +3157,7 @@ public:
 		ledger.move_representation (ledger.representative (hash), ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
         ledger.change_latest (ledger.account (hash), block_a.hashables.previous);
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source);
+		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
     }
     void open_block (mu_coin::open_block const & block_a) override
     {
@@ -3155,7 +3165,7 @@ public:
 		ledger.move_representation (ledger.representative (hash), ledger.account (block_a.hashables.source), ledger.amount (block_a.hashables.source));
         ledger.change_latest (ledger.account (hash), 0);
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source);
+		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
     }
     void change_block (mu_coin::change_block const & block_a) override
     {
@@ -4899,7 +4909,8 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
     std::lock_guard <std::mutex> lock (mutex);
     auto hash (send_a.hash ());
     bool result;
-    if (!ledger.store.pending_get (hash))
+    mu_coin::address sender;
+    if (!ledger.store.pending_get (hash, sender))
     {
         mu_coin::frontier frontier;
         auto new_address (ledger.store.latest_get (send_a.hashables.destination, frontier));
