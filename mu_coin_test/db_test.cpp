@@ -90,17 +90,20 @@ TEST (block_store, add_pending)
     mu_coin::block_hash hash1;
     mu_coin::address sender1;
     mu_coin::uint256_union amount1;
-    auto pending1 (db.pending_get (hash1, sender1, amount1));
+    mu_coin::address destination1;
+    auto pending1 (db.pending_get (hash1, sender1, amount1, destination1));
     ASSERT_TRUE (pending1);
-    db.pending_put (hash1, sender1, amount1);
+    db.pending_put (hash1, sender1, amount1, destination1);
     mu_coin::address sender2;
     mu_coin::uint256_union amount2;
-    auto pending2 (db.pending_get (hash1, sender2, amount2));
+    mu_coin::address destination2;
+    auto pending2 (db.pending_get (hash1, sender2, amount2, destination2));
     ASSERT_EQ (sender1, sender2);
     ASSERT_EQ (amount1, amount2);
+    ASSERT_EQ (destination1, destination2);
     ASSERT_FALSE (pending2);
     db.pending_del (hash1);
-    auto pending3 (db.pending_get (hash1, sender2, amount2));
+    auto pending3 (db.pending_get (hash1, sender2, amount2, destination2));
     ASSERT_TRUE (pending3);
 }
 
