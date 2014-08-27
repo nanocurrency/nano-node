@@ -406,6 +406,7 @@ namespace mu_coin {
         void latest_put (mu_coin::address const &, mu_coin::frontier const &);
         bool latest_get (mu_coin::address const &, mu_coin::frontier &);
 		void latest_del (mu_coin::address const &);
+        bool latest_exists (mu_coin::address const &);
         account_iterator latest_begin (mu_coin::address const &);
         account_iterator latest_begin ();
         account_iterator latest_end ();
@@ -413,6 +414,7 @@ namespace mu_coin {
         void pending_put (mu_coin::block_hash const &, mu_coin::address const &, mu_coin::uint256_union const &, mu_coin::address const &);
         void pending_del (mu_coin::identifier const &);
         bool pending_get (mu_coin::identifier const &, mu_coin::address &, mu_coin::uint256_union &, mu_coin::address &);
+        bool pending_exists (mu_coin::block_hash const &);
         
         mu_coin::uint256_t representation_get (mu_coin::address const &);
         void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);

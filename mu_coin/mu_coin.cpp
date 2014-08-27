@@ -1032,6 +1032,22 @@ void mu_coin::block_store::pending_del (mu_coin::identifier const & identifier_a
     assert (status.ok ());
 }
 
+bool mu_coin::block_store::pending_exists (mu_coin::address const & address_a)
+{
+    std::unique_ptr <leveldb::Iterator> iterator (pending->NewIterator (leveldb::ReadOptions {}));
+    iterator->Seek (leveldb::Slice (address_a.chars.data (), address_a.chars.size ()));
+    bool result;
+    if (iterator->Valid ())
+    {
+        result = true;
+    }
+    else
+    {
+        result = false;
+    }
+    return result;
+}
+
 bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a, mu_coin::address & source_a, mu_coin::uint256_union & amount_a, mu_coin::address & destination_a)
 {
     std::string value;
@@ -3261,6 +3277,22 @@ void mu_coin::block_store::latest_del (mu_coin::address const & address_a)
     assert (status.ok ());
 }
 
+bool mu_coin::block_store::latest_exists (mu_coin::address const & address_a)
+{
+    std::unique_ptr <leveldb::Iterator> existing (addresses->NewIterator (leveldb::ReadOptions {}));
+    existing->Seek (leveldb::Slice (address_a.chars.data (), address_a.chars.size ()));
+    bool result;
+    if (existing->Valid ())
+    {
+        result = true;
+    }
+    else
+    {
+        result = false;
+    }
+    return result;
+}
+
 void mu_coin::processor::confirm_ack (std::unique_ptr <mu_coin::confirm_ack> message_a, mu_coin::endpoint const & sender_a)
 {
 	std::unique_lock <std::mutex> lock (mutex);
@@ -4937,10 +4969,7 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
     std::lock_guard <std::mutex> lock (mutex);
     auto hash (send_a.hash ());
     bool result;
-    mu_coin::address sender;
-    mu_coin::uint256_union amount;
-    mu_coin::address destination;
-    if (!ledger.store.pending_get (hash, sender, amount, destination))
+    if (ledger.store.pending_exists (hash))
     {
         mu_coin::frontier frontier;
         auto new_address (ledger.store.latest_get (send_a.hashables.destination, frontier));
