@@ -4902,7 +4902,7 @@ void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client_
     auto previous (std::chrono::system_clock::now ());
     for (uint32_t i (0); i < count_a; ++i)
     {
-        if ((i & 0xff) == 0)
+        if ((i & 0x3ff) == 0)
         {
             auto now (std::chrono::system_clock::now ());
             auto ms (std::chrono::duration_cast <std::chrono::milliseconds> (now - previous).count ());
