@@ -590,7 +590,7 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
                     {
                         ledger.store.block_put (message, block_a);
                         ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
-                        ledger.store.pending_put (message, account);
+                        ledger.store.pending_put (message, account, frontier.balance.number () - block_a.hashables.balance.number ());
                     }
                 }
             }
@@ -615,7 +615,8 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
             {
                 auto source_hash (source_send->hash ());
                 mu_coin::address source_account;
-                result = ledger.store.pending_get (source_hash, source_account) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
+                mu_coin::uint256_union amount;
+                result = ledger.store.pending_get (source_hash, source_account, amount) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
                 if (result == mu_coin::process_result::progress)
                 {
                     result = mu_coin::validate_message (source_send->hashables.destination, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
@@ -631,11 +632,10 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                                 mu_coin::frontier source_frontier;
                                 auto error (ledger.store.latest_get (source_account, source_frontier));
                                 assert (!error);
-                                auto amount (ledger.amount (block_a.hashables.source));
                                 ledger.store.pending_del (source_hash);
                                 ledger.store.block_put (hash, block_a);
-                                ledger.change_latest (source_send->hashables.destination, hash, frontier.representative, frontier.balance.number () + amount);
-                                ledger.move_representation (source_frontier.representative, frontier.representative, amount);
+                                ledger.change_latest (source_send->hashables.destination, hash, frontier.representative, frontier.balance.number () + amount.number ());
+                                ledger.move_representation (source_frontier.representative, frontier.representative, amount.number ());
                             }
                             else
                             {
@@ -666,7 +666,8 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
             {
                 auto source_hash (source_send->hash ());
                 mu_coin::address source_account;
-                result = ledger.store.pending_get (source_hash, source_account) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
+                mu_coin::uint256_union amount;
+                result = ledger.store.pending_get (source_hash, source_account, amount) ? mu_coin::process_result::overreceive : mu_coin::process_result::progress; // Has this source already been received (Malformed)
                 if (result == mu_coin::process_result::progress)
                 {
                     result = mu_coin::validate_message (source_send->hashables.destination, hash, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is the signature valid (Malformed)
@@ -679,11 +680,10 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                             mu_coin::frontier source_frontier;
                             auto error (ledger.store.latest_get (source_account, source_frontier));
                             assert (!error);
-                            auto amount (ledger.amount (block_a.hashables.source));
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
-                            ledger.change_latest (source_send->hashables.destination, hash, block_a.hashables.representative, amount);
-                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, amount);
+                            ledger.change_latest (source_send->hashables.destination, hash, block_a.hashables.representative, amount.number ());
+                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, amount.number ());
                         }
                     }
                 }
@@ -1023,12 +1023,13 @@ void mu_coin::block_store::latest_put (mu_coin::address const & address_a, mu_co
     assert (status.ok ());
 }
 
-void mu_coin::block_store::pending_put (mu_coin::identifier const & identifier_a, mu_coin::address const & address_a)
+void mu_coin::block_store::pending_put (mu_coin::identifier const & identifier_a, mu_coin::address const & address_a, mu_coin::uint256_union const & amount_a)
 {
     std::vector <uint8_t> vector;
     {
         mu_coin::vectorstream stream (vector);
         address_a.serialize (stream);
+        amount_a.serialize (stream);
     }
     auto status (pending->Put (leveldb::WriteOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
     assert (status.ok ());
@@ -1040,7 +1041,7 @@ void mu_coin::block_store::pending_del (mu_coin::identifier const & identifier_a
     assert (status.ok ());
 }
 
-bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a, mu_coin::address & address_a)
+bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a, mu_coin::address & address_a, mu_coin::uint256_union & amount_a)
 {
     std::string value;
     auto status (pending->Get (leveldb::ReadOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), &value));
@@ -1053,10 +1054,12 @@ bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a
     else
     {
         result = false;
-        assert (value.size () == sizeof (address_a.bytes));
+        assert (value.size () == sizeof (address_a.bytes) + sizeof (amount_a.bytes));
         mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        auto error (address_a.deserialize (stream));
-        assert (!error);
+        auto error1 (address_a.deserialize (stream));
+        assert (!error1);
+        auto error2 (amount_a.deserialize (stream));
+        assert (!error2);
     }
     return result;
 }
@@ -3159,7 +3162,8 @@ public:
     {
 		auto hash (block_a.hash ());
         mu_coin::address sender;
-		while (ledger.store.pending_get (hash, sender))
+        mu_coin::uint256_union amount;
+		while (ledger.store.pending_get (hash, sender, amount))
 		{
 			ledger.rollback (ledger.latest (block_a.hashables.destination));
 		}
@@ -3173,19 +3177,21 @@ public:
     {
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
-		ledger.move_representation (ledger.representative (hash), representative, ledger.amount (block_a.hashables.source));
+        auto amount (ledger.amount (block_a.hashables.source));
+		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (ledger.account (hash), block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
+		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount);
     }
     void open_block (mu_coin::open_block const & block_a) override
     {
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
-		ledger.move_representation (ledger.representative (hash), representative, ledger.amount (block_a.hashables.source));
+        auto amount (ledger.amount (block_a.hashables.source));
+		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (ledger.account (hash), 0, representative, 0);
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source));
+		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount);
     }
     void change_block (mu_coin::change_block const & block_a) override
     {
@@ -4936,7 +4942,8 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
     auto hash (send_a.hash ());
     bool result;
     mu_coin::address sender;
-    if (!ledger.store.pending_get (hash, sender))
+    mu_coin::uint256_union amount;
+    if (!ledger.store.pending_get (hash, sender, amount))
     {
         mu_coin::frontier frontier;
         auto new_address (ledger.store.latest_get (send_a.hashables.destination, frontier));

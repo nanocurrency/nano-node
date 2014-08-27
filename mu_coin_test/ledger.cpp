@@ -104,8 +104,10 @@ TEST (ledger, process_send)
 	mu_coin::frontier frontier5;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier5));
     mu_coin::address sender1;
-	ASSERT_FALSE (ledger.store.pending_get (hash1, sender1));
+    mu_coin::uint256_union amount1;
+	ASSERT_FALSE (ledger.store.pending_get (hash1, sender1, amount1));
     ASSERT_EQ (key1.pub, sender1);
+    ASSERT_EQ (50, amount1.number ());
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (key1.pub));
     ASSERT_EQ (100, ledger.weight (key1.pub));
@@ -118,7 +120,8 @@ TEST (ledger, process_send)
 	ASSERT_FALSE (ledger.store.latest_get (key1.pub, frontier7));
 	ASSERT_EQ (frontier1.hash, frontier7.hash);
     mu_coin::address sender2;
-	ASSERT_TRUE (ledger.store.pending_get (hash1, sender2));
+    mu_coin::uint256_union amount2;
+	ASSERT_TRUE (ledger.store.pending_get (hash1, sender2, amount2));
 	ASSERT_EQ (100, ledger.account_balance (key1.pub));
 }
 
@@ -170,8 +173,10 @@ TEST (ledger, process_receive)
     ASSERT_EQ (50, ledger.weight (key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
     mu_coin::address sender1;
-	ASSERT_FALSE (ledger.store.pending_get (hash3, sender1));
+    mu_coin::uint256_union amount1;
+	ASSERT_FALSE (ledger.store.pending_get (hash3, sender1, amount1));
     ASSERT_EQ (key1.pub, sender1);
+    ASSERT_EQ (25, amount1.number ());
 }
 
 TEST (ledger, rollback_receiver)
@@ -213,7 +218,8 @@ TEST (ledger, rollback_receiver)
 	mu_coin::frontier frontier2;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier2));
     mu_coin::address sender1;
-	ASSERT_TRUE (ledger.store.pending_get (frontier2.hash, sender1));
+    mu_coin::uint256_union amount1;
+	ASSERT_TRUE (ledger.store.pending_get (frontier2.hash, sender1, amount1));
 }
 
 TEST (ledger, rollback_representation)

@@ -410,9 +410,9 @@ namespace mu_coin {
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
-        void pending_put (mu_coin::block_hash const &, mu_coin::address const &);
+        void pending_put (mu_coin::block_hash const &, mu_coin::address const &, mu_coin::uint256_union const &);
         void pending_del (mu_coin::identifier const &);
-        bool pending_get (mu_coin::identifier const &, mu_coin::address &);
+        bool pending_get (mu_coin::identifier const &, mu_coin::address &, mu_coin::uint256_union &);
         
         mu_coin::uint256_t representation_get (mu_coin::address const &);
         void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
@@ -431,19 +431,19 @@ namespace mu_coin {
     private:
         // address -> block_hash, representative, balance, timestamp    // Address to frontier block, representative, balance, last_change
         std::unique_ptr <leveldb::DB> addresses;
-        // block_hash -> block                  // Mapping block hash to contents
+        // block_hash -> block                                          // Mapping block hash to contents
         std::unique_ptr <leveldb::DB> blocks;
-        // block_hash -> address                // Pending blocks to sender address
+        // block_hash -> address, amount                                // Pending blocks to sender address, amount
         std::unique_ptr <leveldb::DB> pending;
-        // address -> weight                    // Representation
+        // address -> weight                                            // Representation
         std::unique_ptr <leveldb::DB> representation;
-        // block_hash -> block                  // Fork proof
+        // block_hash -> block                                          // Fork proof
         std::unique_ptr <leveldb::DB> forks;
-        // block_hash -> block                  // Unchecked bootstrap blocks
+        // block_hash -> block                                          // Unchecked bootstrap blocks
         std::unique_ptr <leveldb::DB> bootstrap;
-        // block_hash -> block_hash             // Tracking successors for bootstrapping
+        // block_hash -> block_hash                                     // Tracking successors for bootstrapping
         std::unique_ptr <leveldb::DB> successors;
-        // (uint56_t, uint8_t) -> block_hash    // Mapping of region to checksum
+        // (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
         std::unique_ptr <leveldb::DB> checksum;
     };
     enum class process_result
