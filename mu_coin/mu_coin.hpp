@@ -340,6 +340,7 @@ namespace mu_coin {
         bool operator == (mu_coin::frontier const &) const;
         mu_coin::uint256_union hash;
         mu_coin::address representative;
+        mu_coin::address account;
         uint64_t time;
     };
     class account_entry

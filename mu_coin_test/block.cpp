@@ -335,7 +335,7 @@ TEST (block_store, one_account)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::address address;
     mu_coin::block_hash hash;
-    store.latest_put (address, {hash, address, 100});
+    store.latest_put (address, {hash, address, address, 100});
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
@@ -387,8 +387,8 @@ TEST (block_store, two_account)
     mu_coin::block_hash hash1 (2);
     mu_coin::address address2 (3);
     mu_coin::block_hash hash2 (4);
-    store.latest_put (address1, {hash1, address1, 100});
-    store.latest_put (address2, {hash2, address2, 200});
+    store.latest_put (address1, {hash1, address1, address1, 100});
+    store.latest_put (address2, {hash2, address2, address2, 200});
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
@@ -411,8 +411,8 @@ TEST (block_store, latest_find)
     mu_coin::block_hash hash1 (2);
     mu_coin::address address2 (3);
     mu_coin::block_hash hash2 (4);
-    store.latest_put (address1, {hash1, 100});
-    store.latest_put (address2, {hash2, 200});
+    store.latest_put (address1, {hash1, address1, address1, 100});
+    store.latest_put (address2, {hash2, address2, address2, 200});
     auto first (store.latest_begin ());
     auto second (store.latest_begin ());
     ++second;

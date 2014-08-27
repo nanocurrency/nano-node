@@ -972,7 +972,7 @@ void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
     store_a.block_put (send1.hash (), send1);
     store_a.block_put (send2.hash (), send2);
     store_a.block_put (open.hash (), open);
-    store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, store_a.now ()});
+    store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, send2.hashables.destination, store_a.now ()});
     store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
 }
 
@@ -2418,6 +2418,7 @@ void mu_coin::frontier::serialize (mu_coin::stream & stream_a) const
 {
     write (stream_a, hash.bytes);
     write (stream_a, representative.bytes);
+    write (stream_a, account);
     write (stream_a, time);
 }
 
@@ -2429,7 +2430,11 @@ bool mu_coin::frontier::deserialize (mu_coin::stream & stream_a)
         result = read (stream_a, representative.bytes);
         if (!result)
         {
-            result = read (stream_a, time);
+            result = read (stream_a, account.bytes);
+            if (!result)
+            {
+                result = read (stream_a, time);
+            }
         }
     }
     return result;
@@ -4941,5 +4946,5 @@ bool mu_coin::transactions::send (mu_coin::address const & address_a, mu_coin::u
 
 bool mu_coin::frontier::operator == (mu_coin::frontier const & other_a) const
 {
-    return hash == other_a.hash && representative == other_a.representative && time == other_a.time;
+    return hash == other_a.hash && representative == other_a.representative && account == other_a.account && time == other_a.time;
 }
