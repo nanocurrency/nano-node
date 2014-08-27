@@ -326,9 +326,7 @@ mu_coin::uint256_t mu_coin::ledger::account_balance (mu_coin::address const & ad
     auto none (store.latest_get (address_a, frontier));
     if (!none)
     {
-        balance_visitor visitor (store);
-        visitor.compute (frontier.hash);
-        result = visitor.result;
+        result = frontier.balance.number ();
     }
     return result;
 }
@@ -581,13 +579,12 @@ void ledger_processor::send_block (mu_coin::send_block const & block_a)
             result = validate_message (account, message, block_a.signature) ? mu_coin::process_result::bad_signature : mu_coin::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == mu_coin::process_result::progress)
             {
-                mu_coin::uint256_t coins (ledger.balance (block_a.hashables.previous));
-                result = coins > block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend; // Is this trying to spend more than they have (Malicious)
+                mu_coin::frontier frontier;
+                auto latest_error (ledger.store.latest_get (account, frontier));
+                assert (!latest_error);
+                result = frontier.balance.number () >= block_a.hashables.balance.number () ? mu_coin::process_result::progress : mu_coin::process_result::overspend; // Is this trying to spend more than they have (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
-                    mu_coin::frontier frontier;
-                    auto latest_error (ledger.store.latest_get (account, frontier));
-                    assert (!latest_error);
                     result = frontier.hash == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork;
                     if (result == mu_coin::process_result::progress)
                     {
