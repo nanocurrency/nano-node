@@ -557,7 +557,7 @@ void ledger_processor::change_block (mu_coin::change_block const & block_a)
                 result = frontier.hash == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Is the previous block the latest (Malicious)
                 if (result == mu_coin::process_result::progress)
                 {
-					ledger.move_representation (ledger.representative (block_a.hashables.previous), block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
+					ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
                     ledger.store.block_put (message, block_a);
                     ledger.change_latest (account, message, block_a.hashables.representative);
                 }
@@ -631,10 +631,13 @@ void ledger_processor::receive_block (mu_coin::receive_block const & block_a)
                             result = frontier.hash == block_a.hashables.previous ? mu_coin::process_result::progress : mu_coin::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
                             if (result == mu_coin::process_result::progress)
                             {
+                                mu_coin::frontier source_frontier;
+                                auto error (ledger.store.latest_get (source_account, source_frontier));
+                                assert (!error);
                                 ledger.store.pending_del (source_hash);
                                 ledger.store.block_put (hash, block_a);
                                 ledger.change_latest (source_send->hashables.destination, hash, frontier.representative);
-                                ledger.move_representation (ledger.representative (block_a.hashables.source), frontier.representative, ledger.amount (block_a.hashables.source));
+                                ledger.move_representation (source_frontier.representative, frontier.representative, ledger.amount (block_a.hashables.source));
                             }
                             else
                             {
@@ -675,10 +678,13 @@ void ledger_processor::open_block (mu_coin::open_block const & block_a)
                         result = ledger.store.latest_get (source_send->hashables.destination, frontier) ? mu_coin::process_result::progress : mu_coin::process_result::fork; // Has this account already been opened? (Malicious)
                         if (result == mu_coin::process_result::progress)
                         {
+                            mu_coin::frontier source_frontier;
+                            auto error (ledger.store.latest_get (source_account, source_frontier));
+                            assert (!error);
                             ledger.store.pending_del (source_send->hash ());
                             ledger.store.block_put (hash, block_a);
                             ledger.change_latest (source_send->hashables.destination, hash, block_a.hashables.representative);
-                            ledger.move_representation (ledger.representative (block_a.hashables.source), block_a.hashables.representative, ledger.amount (block_a.hashables.source));
+                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, ledger.amount (block_a.hashables.source));
                         }
                     }
                 }
