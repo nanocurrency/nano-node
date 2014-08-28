@@ -304,7 +304,6 @@ TEST (receivable_processor, confirm_no_pos)
     receivable->initiate_confirmation ();
     ASSERT_EQ (1, system.clients [0]->client_m->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
-	con1.session = receivable->session;
     con1.address = system.test_genesis_address.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
@@ -324,7 +323,6 @@ TEST (receivable_processor, confirm_insufficient_pos)
     receivable->initiate_confirmation ();
     ASSERT_EQ (1, system.clients [0]->client_m->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
-	con1.session = receivable->session;
     con1.address = system.test_genesis_address.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
@@ -350,7 +348,6 @@ TEST (receivable_processor, confirm_sufficient_pos)
     receivable->initiate_confirmation ();
     ASSERT_EQ (1, system.clients [0]->client_m->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
-	con1.session = receivable->session;
     con1.address = system.test_genesis_address.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
