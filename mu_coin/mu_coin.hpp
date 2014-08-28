@@ -726,8 +726,8 @@ namespace mu_coin {
         void process_receive_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         void process_receivable (mu_coin::block const &);
-		void process_unknown (mu_coin::uint256_union const &, mu_coin::vectorstream &);
-        void process_confirmation (mu_coin::uint256_union const &, mu_coin::block_hash const &, mu_coin::endpoint const &);
+		void process_unknown (mu_coin::vectorstream &);
+        void process_confirmation (mu_coin::block_hash const &, mu_coin::endpoint const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
         void remove_confirm_listener (mu_coin::block_hash const &);
         void ongoing_keepalive ();
@@ -809,7 +809,7 @@ namespace mu_coin {
         void rpc_action (boost::system::error_code const &, size_t);
         void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void confirm_block (mu_coin::endpoint const &, mu_coin::uint256_union const & session_a, mu_coin::block const &);
+        void confirm_block (mu_coin::endpoint const &, mu_coin::block const &);
         void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <mu_coin::endpoint, 24> const &);
         void send_buffer (uint8_t const *, size_t, mu_coin::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
@@ -938,18 +938,18 @@ namespace mu_coin {
     class receivable_processor : public std::enable_shared_from_this <receivable_processor>
     {
     public:
-        receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, std::shared_ptr <mu_coin::client_impl> client_a);
+        receivable_processor (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>);
         ~receivable_processor ();
         void start ();
         void initiate_confirmation ();
         void process_acknowledged (mu_coin::uint256_t const &);
-        void confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & source);
+        void confirm_ack (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &);
         void timeout_action ();
         void advance_timeout ();
+        mu_coin::uint256_union root;
         mu_coin::uint256_t acknowledged;
         mu_coin::uint256_t nacked;
         mu_coin::uint256_t threshold;
-		mu_coin::uint256_union session;
         std::chrono::system_clock::time_point timeout;
         std::unique_ptr <mu_coin::block> const incoming;
         std::shared_ptr <mu_coin::client_impl> client;

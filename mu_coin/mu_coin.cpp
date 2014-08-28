@@ -1158,7 +1158,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         });
 }
 
-void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::uint256_union const & session_a, mu_coin::block const & block)
+void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::block const & block)
 {
     mu_coin::confirm_req message;
 	message.block = block.clone ();
@@ -1322,7 +1322,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                                 case mu_coin::process_result::old:
                                 case mu_coin::process_result::progress:
                                 {
-                                    client.processor.process_confirmation (incoming.block->previous (), incoming.block->hash (), sender);
+                                    client.processor.process_confirmation (incoming.block->hash (), sender);
                                     break;
                                 }
                                 default:
@@ -1969,13 +1969,13 @@ std::unique_ptr <mu_coin::block> mu_coin::gap_cache::get (mu_coin::block_hash co
     return result;
 }
 
-mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, std::shared_ptr <mu_coin::client_impl> client_a) :
+mu_coin::receivable_processor::receivable_processor (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::uint256_union const & root_a, std::shared_ptr <mu_coin::client_impl> client_a) :
+root (root_a),
 threshold (client_a->ledger.supply () / 2),
 incoming (std::move (incoming_a)),
 client (client_a),
 complete (false)
 {
-    ed25519_randombytes_unsafe (session.bytes.data (), sizeof (session.bytes));
 }
 
 mu_coin::receivable_processor::~receivable_processor ()
@@ -2000,11 +2000,11 @@ void mu_coin::receivable_processor::initiate_confirmation ()
     if (!complete)
     {
         auto this_l (shared_from_this ());
-        client->processor.add_confirm_listener (session, [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->confirm_ack (std::move (message_a), endpoint_a);});
+        client->processor.add_confirm_listener (root, [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->confirm_ack (std::move (message_a), endpoint_a);});
         auto list (client->peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            client->network.confirm_block (i->endpoint, session, *incoming);
+            client->network.confirm_block (i->endpoint, *incoming);
         }
     }
     else
@@ -2103,7 +2103,9 @@ void receivable_message_processor::confirm_frk (mu_coin::confirm_frk const & mes
 
 void mu_coin::processor::process_receivable (mu_coin::block const & incoming)
 {
-    auto processor (std::make_shared <receivable_processor> (incoming.clone (), client.shared ()));
+    auto root (incoming.previous ());
+    assert (!root.is_zero ());
+    auto processor (std::make_shared <receivable_processor> (incoming.clone (), root, client.shared ()));
     processor->start ();
 }
 
@@ -2637,14 +2639,14 @@ pool (new boost::network::utils::thread_pool (threads_a))
     }
 }
 
-void mu_coin::processor::process_unknown (mu_coin::uint256_union const & session_a, mu_coin::vectorstream & stream_a)
+void mu_coin::processor::process_unknown (mu_coin::vectorstream & stream_a)
 {
 	mu_coin::confirm_unk outgoing;
 	outgoing.rep_hint = client.representative;
 	outgoing.serialize (stream_a);
 }
 
-void mu_coin::processor::process_confirmation (mu_coin::uint256_union const & session_a, mu_coin::block_hash const & hash_a, mu_coin::endpoint const & sender)
+void mu_coin::processor::process_confirmation (mu_coin::block_hash const & hash_a, mu_coin::endpoint const & sender)
 {
     mu_coin::private_key prv;
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -2652,19 +2654,20 @@ void mu_coin::processor::process_confirmation (mu_coin::uint256_union const & se
 		mu_coin::vectorstream stream (*bytes);
 		if (client.wallet.fetch (client.representative, client.wallet.password, prv))
 		{
-			process_unknown (session_a, stream);
+			process_unknown (stream);
 		}
 		else
 		{
 			auto weight (client.ledger.weight (client.representative));
 			if (weight.is_zero ())
 			{
-				process_unknown (session_a, stream);
+				process_unknown (stream);
 			}
 			else
 			{
 				mu_coin::confirm_ack outgoing;
 				outgoing.address = client.representative;
+                outgoing.block = hash_a;
 				mu_coin::sign_message (prv, client.representative, outgoing.hash (), outgoing.signature);
 				assert (!mu_coin::validate_message (client.representative, outgoing.hash (), outgoing.signature));
 				{
