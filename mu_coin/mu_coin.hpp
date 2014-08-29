@@ -499,7 +499,6 @@ namespace mu_coin {
         publish_req,
         confirm_req,
         confirm_ack,
-        confirm_frk,
         confirm_unk,
         bulk_req,
 		frontier_req
@@ -558,21 +557,9 @@ namespace mu_coin {
         bool operator == (mu_coin::confirm_ack const &) const;
 		mu_coin::uint256_union hash () const;
         mu_coin::address address;
-        mu_coin::block_hash block;
         mu_coin::signature signature;
-    };
-    class confirm_frk : public message
-    {
-    public:
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) override;
-		mu_coin::uint256_union hash () const;
-        mu_coin::address address;
-        mu_coin::signature signature;
-        std::unique_ptr <mu_coin::block> winner;
-        std::unique_ptr <mu_coin::block> loser;
         uint64_t sequence;
+        std::unique_ptr <mu_coin::block> block;
     };
     class confirm_unk : public message
     {
@@ -612,7 +599,6 @@ namespace mu_coin {
         virtual void publish_req (mu_coin::publish_req const &) = 0;
         virtual void confirm_req (mu_coin::confirm_req const &) = 0;
         virtual void confirm_ack (mu_coin::confirm_ack const &) = 0;
-        virtual void confirm_frk (mu_coin::confirm_frk const &) = 0;
         virtual void confirm_unk (mu_coin::confirm_unk const &) = 0;
         virtual void bulk_req (mu_coin::bulk_req const &) = 0;
         virtual void frontier_req (mu_coin::frontier_req const &) = 0;
@@ -727,13 +713,12 @@ namespace mu_coin {
         void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         void process_receivable (mu_coin::block const &);
 		void process_unknown (mu_coin::vectorstream &);
-        void process_confirmation (mu_coin::block_hash const &, mu_coin::endpoint const &);
+        void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
         void remove_confirm_listener (mu_coin::block_hash const &);
         void ongoing_keepalive ();
         size_t publish_listener_size ();
 		void confirm_ack (std::unique_ptr <mu_coin::confirm_ack>, mu_coin::endpoint const &);
-		void confirm_frk (std::unique_ptr <mu_coin::confirm_frk>, mu_coin::endpoint const &);
         mu_coin::client_impl & client;
         static std::chrono::seconds constexpr period = std::chrono::seconds (10);
         static std::chrono::seconds constexpr cutoff = period * 5;
@@ -826,7 +811,6 @@ namespace mu_coin {
         uint64_t publish_req_count;
         uint64_t confirm_req_count;
         uint64_t confirm_ack_count;
-        uint64_t confirm_frk_count;
         uint64_t confirm_unk_count;
         uint64_t bad_sender_count;
         uint64_t unknown_count;

@@ -273,6 +273,7 @@ TEST (confirm_ack, serialization)
     mu_coin::confirm_ack con1;
     mu_coin::keypair key1;
     con1.address = key1.pub;
+    con1.block = std::unique_ptr <mu_coin::block> (new mu_coin::send_block);
     mu_coin::sign_message (key1.prv, key1.pub, con1.hash (), con1.signature);
     std::vector <uint8_t> bytes;
     {
