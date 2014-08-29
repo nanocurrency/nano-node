@@ -935,11 +935,11 @@ namespace mu_coin {
             >
         > peers;
     };
-    class receivable_processor : public std::enable_shared_from_this <receivable_processor>
+    class block_confirmation : public std::enable_shared_from_this <block_confirmation>
     {
     public:
-        receivable_processor (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>);
-        ~receivable_processor ();
+        block_confirmation (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>, std::function <void (mu_coin::block_hash const &)> const &);
+        ~block_confirmation ();
         void start ();
         void initiate_confirmation ();
         void process_acknowledged (mu_coin::uint256_t const &);
@@ -955,6 +955,7 @@ namespace mu_coin {
         std::shared_ptr <mu_coin::client_impl> client;
         std::mutex mutex;
         bool complete;
+        std::function <void (mu_coin::block_hash const &)> completion_action;
     };
     class genesis
     {
