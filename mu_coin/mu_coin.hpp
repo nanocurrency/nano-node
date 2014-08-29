@@ -807,10 +807,10 @@ namespace mu_coin {
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
         void rpc_action (boost::system::error_code const &, size_t);
-        void send_keepalive (mu_coin::endpoint const &);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void confirm_block (mu_coin::endpoint const &, mu_coin::block const &);
         void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <mu_coin::endpoint, 24> const &);
+        void send_keepalive (mu_coin::endpoint const &);
+        void send_confirm_req (mu_coin::endpoint const &, mu_coin::block const &);
         void send_buffer (uint8_t const *, size_t, mu_coin::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
         mu_coin::endpoint endpoint ();
@@ -943,7 +943,7 @@ namespace mu_coin {
         void start ();
         void initiate_confirmation ();
         void process_acknowledged (mu_coin::uint256_t const &);
-        void confirm_ack (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &);
+        void process_message (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &);
         void timeout_action ();
         void advance_timeout ();
         mu_coin::uint256_union root;

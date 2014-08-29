@@ -1158,7 +1158,7 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         });
 }
 
-void mu_coin::network::confirm_block (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::block const & block)
+void mu_coin::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, mu_coin::block const & block)
 {
     mu_coin::confirm_req message;
 	message.block = block.clone ();
@@ -2001,11 +2001,11 @@ void mu_coin::block_confirmation::initiate_confirmation ()
     if (!complete)
     {
         auto this_l (shared_from_this ());
-        client->processor.add_confirm_listener (root, [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->confirm_ack (std::move (message_a), endpoint_a);});
+        client->processor.add_confirm_listener (root, [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (std::move (message_a), endpoint_a);});
         auto list (client->peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
-            client->network.confirm_block (i->endpoint, *incoming);
+            client->network.send_confirm_req (i->endpoint, *incoming);
         }
     }
     else
@@ -2014,7 +2014,7 @@ void mu_coin::block_confirmation::initiate_confirmation ()
     }
 }
 
-void mu_coin::block_confirmation::confirm_ack (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & sender)
+void mu_coin::block_confirmation::process_message (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & sender)
 {
     receivable_message_processor processor_l (*this, sender);
     message->visit (processor_l);
