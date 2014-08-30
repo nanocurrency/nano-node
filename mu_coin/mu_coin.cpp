@@ -2054,7 +2054,7 @@ void mu_coin::block_confirmation::process_acknowledged (mu_coin::uint256_t const
 
 void receivable_message_processor::confirm_ack (mu_coin::confirm_ack const & message)
 {
-    if (!mu_coin::validate_message (message.address, message.hash (), message.signature))
+    if (!mu_coin::validate_message (message.address, message.block->hash (), message.signature))
     {
         auto weight (confirmation.client->ledger.weight (message.address));
         std::string ack_string (weight.convert_to <std::string> ());
@@ -2637,8 +2637,8 @@ void mu_coin::processor::process_confirmation (mu_coin::block const & block_a, m
 				mu_coin::confirm_ack outgoing;
 				outgoing.address = client.representative;
                 outgoing.block = block_a.clone ();
-				mu_coin::sign_message (prv, client.representative, outgoing.hash (), outgoing.signature);
-				assert (!mu_coin::validate_message (client.representative, outgoing.hash (), outgoing.signature));
+				mu_coin::sign_message (prv, client.representative, outgoing.block->hash (), outgoing.signature);
+				assert (!mu_coin::validate_message (client.representative, outgoing.block->hash (), outgoing.signature));
 				{
 					mu_coin::vectorstream stream (*bytes);
 					outgoing.serialize (stream);
@@ -3235,12 +3235,11 @@ void mu_coin::processor::confirm_ack (std::unique_ptr <mu_coin::confirm_ack> mes
     }
 }
 
-mu_coin::uint256_union mu_coin::confirm_ack::hash () const
+mu_coin::uint256_union mu_coin::vote::hash () const
 {
 	mu_coin::uint256_union result;
     CryptoPP::SHA3 hash (32);
-    auto block_hash (block->hash ());
-    hash.Update (block_hash.bytes.data (), sizeof (block_hash.bytes));
+    hash.Update (block.bytes.data (), sizeof (block.bytes));
     union {
         uint64_t qword;
         std::array <uint8_t, 8> bytes;
@@ -4938,25 +4937,28 @@ void mu_coin::conflicts::add (mu_coin::block_hash const & root_a, mu_coin::vote 
 
 void mu_coin::votes::add (mu_coin::vote const & vote_a)
 {
-    auto existing (rep_votes.find (vote_a.address));
-    if (existing == rep_votes.end ())
+    if (!mu_coin::validate_message (vote_a.address, vote_a.hash (), vote_a.signature))
     {
-        rep_votes.insert (std::make_pair (vote_a.address, std::make_pair (vote_a.sequence, vote_a.block)));
-    }
-    else
-    {
-        if (existing->second.first < vote_a.sequence)
+        auto existing (rep_votes.find (vote_a.address));
+        if (existing == rep_votes.end ())
         {
-            existing->second.second = vote_a.block;
+            rep_votes.insert (std::make_pair (vote_a.address, std::make_pair (vote_a.sequence, vote_a.block)));
         }
-    }
-    if (uncontested_m.is_zero ())
-    {
-        uncontested_m = vote_a.block;
-    }
-    else if (uncontested_m != vote_a.block)
-    {
-        uncontested_m = 1;
+        else
+        {
+            if (existing->second.first < vote_a.sequence)
+            {
+                existing->second.second = vote_a.block;
+            }
+        }
+        if (uncontested_m.is_zero ())
+        {
+            uncontested_m = vote_a.block;
+        }
+        else if (uncontested_m != vote_a.block)
+        {
+            uncontested_m = 1;
+        }
     }
 }
 

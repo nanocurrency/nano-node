@@ -306,7 +306,7 @@ TEST (receivable_processor, confirm_no_pos)
     mu_coin::confirm_ack con1;
     con1.address = system.test_genesis_address.pub;
     con1.block = block1->clone ();
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.hash (), con1.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.block->hash (), con1.signature);
     std::vector <uint8_t> bytes;
     mu_coin::vectorstream stream (bytes);
     con1.serialize (stream);
@@ -327,7 +327,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     mu_coin::confirm_ack con1;
     con1.address = system.test_genesis_address.pub;
     con1.block = block1->clone ();
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.hash (), con1.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.block->hash (), con1.signature);
     std::vector <uint8_t> bytes;
     {
         mu_coin::vectorstream stream (bytes);
@@ -354,7 +354,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     mu_coin::confirm_ack con1;
     con1.address = system.test_genesis_address.pub;
     con1.block = block1->clone ();
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.hash (), con1.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.block->hash (), con1.signature);
     std::vector <uint8_t> bytes;
     {
         mu_coin::vectorstream stream (bytes);

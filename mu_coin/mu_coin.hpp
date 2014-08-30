@@ -485,6 +485,7 @@ namespace mu_coin {
     class vote
     {
     public:
+		mu_coin::uint256_union hash () const;
         mu_coin::signature signature;
         mu_coin::address address;
         mu_coin::block_hash block;
@@ -579,7 +580,6 @@ namespace mu_coin {
         void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) override;
         bool operator == (mu_coin::confirm_ack const &) const;
-		mu_coin::uint256_union hash () const;
         mu_coin::address address;
         mu_coin::signature signature;
         uint64_t sequence;
