@@ -4926,29 +4926,37 @@ bool mu_coin::frontier::operator == (mu_coin::frontier const & other_a) const
     return hash == other_a.hash && representative == other_a.representative && balance == other_a.balance && time == other_a.time;
 }
 
-void mu_coin::conflicts::add (mu_coin::address const & representative_a, uint64_t sequence_a, mu_coin::block_hash const & root_a, mu_coin::block_hash const & hash_a)
+void mu_coin::conflicts::add (mu_coin::block_hash const & root_a, mu_coin::vote const & vote_a)
 {
     auto existing_votes (roots.find (root_a));
     if (existing_votes == roots.end ())
     {
         roots.insert (std::make_pair (root_a, std::unique_ptr <votes> (new votes)));
     }
-    roots.find (root_a)->second->add (representative_a, sequence_a, hash_a);
+    roots.find (root_a)->second->add (vote_a);
 }
 
-void mu_coin::votes::add (mu_coin::address const & representative_a, uint64_t sequence_a, mu_coin::block_hash const & hash_a)
+void mu_coin::votes::add (mu_coin::vote const & vote_a)
 {
-    auto existing (rep_votes.find (representative_a));
+    auto existing (rep_votes.find (vote_a.address));
     if (existing == rep_votes.end ())
     {
-        rep_votes.insert (std::make_pair (representative_a, std::make_pair (sequence_a, hash_a)));
+        rep_votes.insert (std::make_pair (vote_a.address, std::make_pair (vote_a.sequence, vote_a.block)));
     }
     else
     {
-        if (existing->second.first < sequence_a)
+        if (existing->second.first < vote_a.sequence)
         {
-            existing->second.second = hash_a;
+            existing->second.second = vote_a.block;
         }
+    }
+    if (uncontested_m.is_zero ())
+    {
+        uncontested_m = vote_a.block;
+    }
+    else if (uncontested_m != vote_a.block)
+    {
+        uncontested_m = 1;
     }
 }
 
@@ -4975,4 +4983,14 @@ mu_coin::block_hash mu_coin::votes::winner (mu_coin::ledger & ledger_a)
         }
     }
     return winner_l.first;
+}
+
+bool mu_coin::votes::uncontested ()
+{
+    return uncontested_m != 1;
+}
+
+mu_coin::votes::votes () :
+uncontested_m (0)
+{
 }
