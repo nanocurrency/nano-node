@@ -482,6 +482,18 @@ namespace mu_coin {
         mu_coin::checksum checksum (mu_coin::address const &, mu_coin::address const &);
         mu_coin::block_store & store;
     };
+    class votes
+    {
+    public:
+        void add (mu_coin::address const &, mu_coin::block_hash const &);
+        std::unordered_map <mu_coin::address, mu_coin::block_hash> rep_votes;
+    };
+    class conflicts
+    {
+    public:
+        void add (mu_coin::address const &, mu_coin::block_hash const &, mu_coin::block_hash const &);
+        std::unordered_map <mu_coin::block_hash, std::unique_ptr <votes>> roots;
+    };
     class keypair
     {
     public:

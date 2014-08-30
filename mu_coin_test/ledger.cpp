@@ -827,3 +827,108 @@ TEST (ledegr, double_receive)
     mu_coin::sign_message (key2.prv, key2.pub, receive1.hash (), receive1.signature);
     ASSERT_EQ (mu_coin::process_result::overreceive, ledger.process (receive1));
 }
+
+TEST (votes, add_one)
+{
+    mu_coin::votes votes;
+    mu_coin::address address (1);
+    mu_coin::block_hash block (2);
+    ASSERT_EQ (0, votes.rep_votes.size ());
+    votes.add (address, block);
+    ASSERT_EQ (1, votes.rep_votes.size ());
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address));
+    ASSERT_EQ (block, votes.rep_votes [address]);
+}
+
+TEST (votes, add_two)
+{
+    mu_coin::votes votes;
+    mu_coin::address address1 (1);
+    mu_coin::block_hash block1 (2);
+    mu_coin::address address2 (3);
+    mu_coin::block_hash block2 (4);
+    ASSERT_EQ (0, votes.rep_votes.size ());
+    votes.add (address1, block1);
+    votes.add (address2, block2);
+    ASSERT_EQ (2, votes.rep_votes.size ());
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address1));
+    ASSERT_EQ (block1, votes.rep_votes [address1]);
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address2));
+    ASSERT_EQ (block2, votes.rep_votes [address2]);
+}
+
+TEST (votes, add_existing)
+{
+    mu_coin::votes votes;
+    mu_coin::address address (1);
+    mu_coin::block_hash block1 (2);
+    mu_coin::block_hash block2 (3);
+    ASSERT_EQ (0, votes.rep_votes.size ());
+    votes.add (address, block1);
+    votes.add (address, block2);
+    ASSERT_EQ (1, votes.rep_votes.size ());
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address));
+    ASSERT_EQ (block2, votes.rep_votes [address]);
+}
+
+TEST (conflicts, add_one)
+{
+    mu_coin::conflicts conflicts;
+    mu_coin::address address;
+    mu_coin::block_hash root;
+    mu_coin::block_hash block;
+    ASSERT_EQ (0, conflicts.roots.size ());
+    conflicts.add (address, root, block);
+    ASSERT_EQ (1, conflicts.roots.size ());
+    auto existing (conflicts.roots.find (root));
+    ASSERT_NE (conflicts.roots.end (), existing);
+    ASSERT_EQ (1, existing->second->rep_votes.size ());
+    auto existing_vote (existing->second->rep_votes.find (address));
+    ASSERT_NE (existing->second->rep_votes.end (), existing_vote);
+    ASSERT_EQ (block, existing_vote->second);
+}
+
+TEST (conflicts, add_two)
+{
+    mu_coin::conflicts conflicts;
+    mu_coin::address address;
+    mu_coin::block_hash root1;
+    mu_coin::block_hash block1;
+    mu_coin::block_hash root2;
+    mu_coin::block_hash block2;
+    ASSERT_EQ (0, conflicts.roots.size ());
+    conflicts.add (address, root1, block1);
+    conflicts.add (address, root2, block2);
+    ASSERT_EQ (2, conflicts.roots.size ());
+    auto existing1 (conflicts.roots.find (root1));
+    ASSERT_NE (conflicts.roots.end (), existing1);
+    ASSERT_EQ (1, existing1->second->rep_votes.size ());
+    auto existing_vote1 (existing1->second->rep_votes.find (address));
+    ASSERT_NE (existing1->second->rep_votes.end (), existing_vote1);
+    ASSERT_EQ (block1, existing_vote1->second);
+    auto existing2 (conflicts.roots.find (root2));
+    ASSERT_NE (conflicts.roots.end (), existing2);
+    ASSERT_EQ (1, existing2->second->rep_votes.size ());
+    auto existing_vote2 (existing2->second->rep_votes.find (address));
+    ASSERT_NE (existing2->second->rep_votes.end (), existing_vote2);
+    ASSERT_EQ (block2, existing_vote2->second);
+}
+
+TEST (conflicts, add_existing)
+{
+    mu_coin::conflicts conflicts;
+    mu_coin::address address;
+    mu_coin::block_hash root;
+    mu_coin::block_hash block1;
+    mu_coin::block_hash block2;
+    ASSERT_EQ (0, conflicts.roots.size ());
+    conflicts.add (address, root, block1);
+    conflicts.add (address, root, block2);
+    ASSERT_EQ (1, conflicts.roots.size ());
+    auto existing (conflicts.roots.find (root));
+    ASSERT_NE (conflicts.roots.end (), existing);
+    ASSERT_EQ (1, existing->second->rep_votes.size ());
+    auto existing_vote (existing->second->rep_votes.find (address));
+    ASSERT_NE (existing->second->rep_votes.end (), existing_vote);
+    ASSERT_EQ (block2, existing_vote->second);
+}

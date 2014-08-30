@@ -4925,3 +4925,18 @@ bool mu_coin::frontier::operator == (mu_coin::frontier const & other_a) const
 {
     return hash == other_a.hash && representative == other_a.representative && balance == other_a.balance && time == other_a.time;
 }
+
+void mu_coin::conflicts::add (mu_coin::address const & representative_a, mu_coin::block_hash const & root_a, mu_coin::block_hash const & hash_a)
+{
+    auto existing_votes (roots.find (root_a));
+    if (existing_votes == roots.end ())
+    {
+        roots.insert (std::make_pair (root_a, std::unique_ptr <votes> (new votes)));
+    }
+    roots.find (root_a)->second->add (representative_a, hash_a);
+}
+
+void mu_coin::votes::add (mu_coin::address const & representative_a, mu_coin::block_hash const & hash_a)
+{
+    rep_votes [representative_a] = hash_a;
+}
