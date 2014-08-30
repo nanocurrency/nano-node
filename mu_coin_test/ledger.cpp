@@ -834,10 +834,10 @@ TEST (votes, add_one)
     mu_coin::votes votes;
     mu_coin::block_hash block (2);
     ASSERT_EQ (0, votes.rep_votes.size ());
-    votes.add (system.test_genesis_address.pub, block);
+    votes.add (system.test_genesis_address.pub, 1, block);
     ASSERT_EQ (1, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (block, votes.rep_votes [system.test_genesis_address.pub]);
+    ASSERT_EQ (block, votes.rep_votes [system.test_genesis_address.pub].second);
     auto block2 (votes.winner (system.clients [0]->client_m->ledger));
     ASSERT_EQ (block, block2);
 }
@@ -850,13 +850,13 @@ TEST (votes, add_two)
     mu_coin::block_hash block1 (2);
     mu_coin::block_hash block2 (4);
     ASSERT_EQ (0, votes.rep_votes.size ());
-    votes.add (address1, block1);
-    votes.add (system.test_genesis_address.pub, block2);
+    votes.add (address1, 1, block1);
+    votes.add (system.test_genesis_address.pub, 1, block2);
     ASSERT_EQ (2, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address1));
-    ASSERT_EQ (block1, votes.rep_votes [address1]);
+    ASSERT_EQ (block1, votes.rep_votes [address1].second);
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub]);
+    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub].second);
     auto block3 (votes.winner (system.clients [0]->client_m->ledger));
     ASSERT_EQ (block2, block3);
 }
@@ -868,15 +868,34 @@ TEST (votes, add_existing)
     mu_coin::block_hash block1 (2);
     mu_coin::block_hash block2 (3);
     ASSERT_EQ (0, votes.rep_votes.size ());
-    votes.add (system.test_genesis_address.pub, block1);
+    votes.add (system.test_genesis_address.pub, 1, block1);
     auto winner1 (votes.winner (system.clients [0]->client_m->ledger));
     ASSERT_EQ (block1, winner1);
-    votes.add (system.test_genesis_address.pub, block2);
+    votes.add (system.test_genesis_address.pub, 2, block2);
     auto winner2 (votes.winner (system.clients [0]->client_m->ledger));
     ASSERT_EQ (block2, winner2);
     ASSERT_EQ (1, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub]);
+    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub].second);
+}
+
+TEST (votes, add_old)
+{
+    
+    mu_coin::system system (1, 24000, 25000, 1, 500);
+    mu_coin::votes votes;
+    mu_coin::block_hash block1 (2);
+    mu_coin::block_hash block2 (3);
+    ASSERT_EQ (0, votes.rep_votes.size ());
+    votes.add (system.test_genesis_address.pub, 2, block1);
+    auto winner1 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_EQ (block1, winner1);
+    votes.add (system.test_genesis_address.pub, 1, block2);
+    auto winner2 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_EQ (block1, winner2);
+    ASSERT_EQ (1, votes.rep_votes.size ());
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
+    ASSERT_EQ (block1, votes.rep_votes [system.test_genesis_address.pub].second);
 }
 
 TEST (conflicts, add_one)
@@ -886,14 +905,14 @@ TEST (conflicts, add_one)
     mu_coin::block_hash root;
     mu_coin::block_hash block;
     ASSERT_EQ (0, conflicts.roots.size ());
-    conflicts.add (address, root, block);
+    conflicts.add (address, 1, root, block);
     ASSERT_EQ (1, conflicts.roots.size ());
     auto existing (conflicts.roots.find (root));
     ASSERT_NE (conflicts.roots.end (), existing);
     ASSERT_EQ (1, existing->second->rep_votes.size ());
     auto existing_vote (existing->second->rep_votes.find (address));
     ASSERT_NE (existing->second->rep_votes.end (), existing_vote);
-    ASSERT_EQ (block, existing_vote->second);
+    ASSERT_EQ (block, existing_vote->second.second);
 }
 
 TEST (conflicts, add_two)
@@ -905,21 +924,21 @@ TEST (conflicts, add_two)
     mu_coin::block_hash root2;
     mu_coin::block_hash block2;
     ASSERT_EQ (0, conflicts.roots.size ());
-    conflicts.add (address, root1, block1);
-    conflicts.add (address, root2, block2);
+    conflicts.add (address, 1, root1, block1);
+    conflicts.add (address, 1, root2, block2);
     ASSERT_EQ (2, conflicts.roots.size ());
     auto existing1 (conflicts.roots.find (root1));
     ASSERT_NE (conflicts.roots.end (), existing1);
     ASSERT_EQ (1, existing1->second->rep_votes.size ());
     auto existing_vote1 (existing1->second->rep_votes.find (address));
     ASSERT_NE (existing1->second->rep_votes.end (), existing_vote1);
-    ASSERT_EQ (block1, existing_vote1->second);
+    ASSERT_EQ (block1, existing_vote1->second.second);
     auto existing2 (conflicts.roots.find (root2));
     ASSERT_NE (conflicts.roots.end (), existing2);
     ASSERT_EQ (1, existing2->second->rep_votes.size ());
     auto existing_vote2 (existing2->second->rep_votes.find (address));
     ASSERT_NE (existing2->second->rep_votes.end (), existing_vote2);
-    ASSERT_EQ (block2, existing_vote2->second);
+    ASSERT_EQ (block2, existing_vote2->second.second);
 }
 
 TEST (conflicts, add_existing)
@@ -930,13 +949,13 @@ TEST (conflicts, add_existing)
     mu_coin::block_hash block1;
     mu_coin::block_hash block2;
     ASSERT_EQ (0, conflicts.roots.size ());
-    conflicts.add (address, root, block1);
-    conflicts.add (address, root, block2);
+    conflicts.add (address, 1, root, block1);
+    conflicts.add (address, 2, root, block2);
     ASSERT_EQ (1, conflicts.roots.size ());
     auto existing (conflicts.roots.find (root));
     ASSERT_NE (conflicts.roots.end (), existing);
     ASSERT_EQ (1, existing->second->rep_votes.size ());
     auto existing_vote (existing->second->rep_votes.find (address));
     ASSERT_NE (existing->second->rep_votes.end (), existing_vote);
-    ASSERT_EQ (block2, existing_vote->second);
+    ASSERT_EQ (block2, existing_vote->second.second);
 }
