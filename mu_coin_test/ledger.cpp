@@ -830,45 +830,53 @@ TEST (ledegr, double_receive)
 
 TEST (votes, add_one)
 {
+    mu_coin::system system (1, 24000, 25000, 1, 500);
     mu_coin::votes votes;
-    mu_coin::address address (1);
     mu_coin::block_hash block (2);
     ASSERT_EQ (0, votes.rep_votes.size ());
-    votes.add (address, block);
+    votes.add (system.test_genesis_address.pub, block);
     ASSERT_EQ (1, votes.rep_votes.size ());
-    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address));
-    ASSERT_EQ (block, votes.rep_votes [address]);
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
+    ASSERT_EQ (block, votes.rep_votes [system.test_genesis_address.pub]);
+    auto block2 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_EQ (block, block2);
 }
 
 TEST (votes, add_two)
 {
+    mu_coin::system system (1, 24000, 25000, 1, 500);
     mu_coin::votes votes;
     mu_coin::address address1 (1);
     mu_coin::block_hash block1 (2);
-    mu_coin::address address2 (3);
     mu_coin::block_hash block2 (4);
     ASSERT_EQ (0, votes.rep_votes.size ());
     votes.add (address1, block1);
-    votes.add (address2, block2);
+    votes.add (system.test_genesis_address.pub, block2);
     ASSERT_EQ (2, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address1));
     ASSERT_EQ (block1, votes.rep_votes [address1]);
-    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address2));
-    ASSERT_EQ (block2, votes.rep_votes [address2]);
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
+    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub]);
+    auto block3 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_EQ (block2, block3);
 }
 
 TEST (votes, add_existing)
 {
+    mu_coin::system system (1, 24000, 25000, 1, 500);
     mu_coin::votes votes;
-    mu_coin::address address (1);
     mu_coin::block_hash block1 (2);
     mu_coin::block_hash block2 (3);
     ASSERT_EQ (0, votes.rep_votes.size ());
-    votes.add (address, block1);
-    votes.add (address, block2);
+    votes.add (system.test_genesis_address.pub, block1);
+    auto winner1 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_EQ (block1, winner1);
+    votes.add (system.test_genesis_address.pub, block2);
+    auto winner2 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_EQ (block2, winner2);
     ASSERT_EQ (1, votes.rep_votes.size ());
-    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (address));
-    ASSERT_EQ (block2, votes.rep_votes [address]);
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
+    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub]);
 }
 
 TEST (conflicts, add_one)

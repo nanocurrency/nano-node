@@ -486,6 +486,7 @@ namespace mu_coin {
     {
     public:
         void add (mu_coin::address const &, mu_coin::block_hash const &);
+        mu_coin::block_hash winner (mu_coin::ledger &);
         std::unordered_map <mu_coin::address, mu_coin::block_hash> rep_votes;
     };
     class conflicts

@@ -4940,3 +4940,28 @@ void mu_coin::votes::add (mu_coin::address const & representative_a, mu_coin::bl
 {
     rep_votes [representative_a] = hash_a;
 }
+
+mu_coin::block_hash mu_coin::votes::winner (mu_coin::ledger & ledger_a)
+{
+    std::unordered_map <mu_coin::block_hash, mu_coin::uint256_t> totals;
+    for (auto i: rep_votes)
+    {
+        auto existing (totals.find (i.second));
+        if (existing == totals.end ())
+        {
+            totals.insert (std::make_pair (i.second, 0));
+            existing = totals.find (i.second);
+        }
+        auto weight (ledger_a.weight (i.first));
+        existing->second += weight;
+    }
+    std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner_l;
+    for (auto i: totals)
+    {
+        if (i.second > winner_l.second)
+        {
+            winner_l = i;
+        }
+    }
+    return winner_l.first;
+}
