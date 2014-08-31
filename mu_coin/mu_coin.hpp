@@ -742,9 +742,9 @@ namespace mu_coin {
         void process_receive_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
 		void process_message (mu_coin::message &, mu_coin::endpoint const &, bool);
-        void process_receivable (mu_coin::block const &);
 		void process_unknown (mu_coin::vectorstream &);
         void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
+        void confirm_block (mu_coin::block const &);
         void process_confirmed (mu_coin::block_hash const &, mu_coin::block const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
         void remove_confirm_listener (mu_coin::block_hash const &);
@@ -954,7 +954,7 @@ namespace mu_coin {
     class block_confirmation : public std::enable_shared_from_this <block_confirmation>
     {
     public:
-        block_confirmation (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>, std::function <void (mu_coin::block_hash const &)> const &);
+        block_confirmation (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>);
         ~block_confirmation ();
         void start ();
         void initiate_confirmation ();
@@ -970,7 +970,6 @@ namespace mu_coin {
         std::shared_ptr <mu_coin::client_impl> client;
         std::mutex mutex;
         bool complete;
-        std::function <void (mu_coin::block_hash const &)> completion_action;
     };
     class genesis
     {

@@ -1889,13 +1889,12 @@ std::unique_ptr <mu_coin::block> mu_coin::gap_cache::get (mu_coin::block_hash co
     return result;
 }
 
-mu_coin::block_confirmation::block_confirmation (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::uint256_union const & root_a, std::shared_ptr <mu_coin::client_impl> client_a, std::function <void (mu_coin::block_hash const &)> const & completion_action_a) :
+mu_coin::block_confirmation::block_confirmation (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::uint256_union const & root_a, std::shared_ptr <mu_coin::client_impl> client_a) :
 root (root_a),
 threshold (client_a->ledger.supply () / 2),
 incoming (std::move (incoming_a)),
 client (client_a),
-complete (false),
-completion_action (completion_action_a)
+complete (false)
 {
     client->conflicts.start (incoming->previous ());
 }
@@ -2036,11 +2035,11 @@ void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & mes
     assert (false);
 }
 
-void mu_coin::processor::process_receivable (mu_coin::block const & incoming)
+void mu_coin::processor::confirm_block (mu_coin::block const & incoming)
 {
     auto root (incoming.previous ());
     assert (!root.is_zero ());
-    auto confirmation (std::make_shared <block_confirmation> (incoming.clone (), root, client.shared (), [] (mu_coin::uint256_union const &) {}));
+    auto confirmation (std::make_shared <block_confirmation> (incoming.clone (), root, client.shared ()));
     confirmation->start ();
 }
 
@@ -2083,7 +2082,7 @@ public:
     {
         if (client.wallet.find (block_a.hashables.destination) != client.wallet.end ())
         {
-            client.processor.process_receivable (incoming);
+            client.processor.confirm_block (incoming);
         }
     }
     void receive_block (mu_coin::receive_block const &) override
@@ -2098,6 +2097,7 @@ public:
     mu_coin::client_impl & client;
     mu_coin::block const & incoming;
 };
+    
 class progress_log_visitor : public mu_coin::block_visitor
 {
 public:
@@ -5141,20 +5141,48 @@ void mu_coin::processor::process_message (mu_coin::message & message_a, mu_coin:
 	message_a.visit (visitor);
 }
 
+namespace
+{
+class confirmed_visitor : public mu_coin::block_visitor
+{
+public:
+    confirmed_visitor (mu_coin::client_impl & client_a) :
+    client (client_a)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        mu_coin::private_key prv;
+        if (!client.wallet.fetch (block_a.hashables.destination, client.wallet.password, prv))
+        {
+            auto error (client.transactions.receive (block_a, prv, client.representative));
+            prv.bytes.fill (0);
+            assert (!error);
+        }
+        else
+        {
+            // Wallet doesn't contain key for this destination or couldn't decrypt
+        }
+    }
+    void receive_block (mu_coin::receive_block const &) override
+    {
+        assert (false);
+    }
+    void open_block (mu_coin::open_block const &) override
+    {
+        assert (false);
+    }
+    void change_block (mu_coin::change_block const &) override
+    {
+        assert (false);
+    }
+    mu_coin::client_impl & client;
+};
+}
+
 void mu_coin::processor::process_confirmed (mu_coin::block_hash const & stored_a, mu_coin::block const & confirmed_a)
 {
     assert (client.store.block_get (stored_a) != nullptr);
-    assert (dynamic_cast <mu_coin::send_block const *> (&confirmed_a) != nullptr);
-    auto & send (static_cast <mu_coin::send_block const &> (confirmed_a));
-    mu_coin::private_key prv;
-    if (!client.wallet.fetch (send.hashables.destination, client.wallet.password, prv))
-    {
-        auto error (client.transactions.receive (send, prv, client.representative));
-        prv.bytes.fill (0);
-        assert (!error);
-    }
-    else
-    {
-        // Wallet doesn't contain key for this destination or couldn't decrypt
-    }
+    confirmed_visitor visitor (client);
+    confirmed_a.visit (visitor);
 }
