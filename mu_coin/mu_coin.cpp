@@ -1213,6 +1213,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
 							++keepalive_req_count;
 							client.processor.process_message (incoming, sender, known_peer);
                         }
+						else
+						{
+							++error_count;
+						}
                         break;
                     }
                     case mu_coin::message_type::keepalive_ack:
@@ -1226,6 +1230,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                             ++keepalive_ack_count;
 							client.processor.process_message (incoming, sender, known_peer);
                         }
+						else
+						{
+							++error_count;
+						}
                         break;
                     }
                     case mu_coin::message_type::publish_req:
@@ -1256,6 +1264,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
 							++confirm_req_count;
 							client.processor.process_message (incoming, sender, known_peer);
                         }
+						else
+						{
+							++error_count;
+						}
                         break;
                     }
                     case mu_coin::message_type::confirm_ack:
@@ -1269,6 +1281,10 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
 							++confirm_ack_count;
 							client.processor.process_message (incoming, sender, known_peer);
                         }
+						else
+						{
+							++error_count;
+						}
                         break;
                     }
                     case mu_coin::message_type::confirm_unk:
@@ -5115,15 +5131,15 @@ public:
 	}
 	void confirm_unk (mu_coin::confirm_unk const &) override
 	{
-		
+		assert (false);
 	}
 	void bulk_req (mu_coin::bulk_req const &) override
 	{
-		
+		assert (false);
 	}
 	void frontier_req (mu_coin::frontier_req const &) override
 	{
-		
+		assert (false);
 	}
 	mu_coin::client_impl & client;
 	mu_coin::endpoint sender;
