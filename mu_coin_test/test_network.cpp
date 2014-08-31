@@ -301,7 +301,7 @@ TEST (receivable_processor, confirm_no_pos)
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto block1 (new mu_coin::send_block ());
     auto receivable (std::make_shared <mu_coin::block_confirmation> (std::unique_ptr <mu_coin::block> {block1}, block1->previous (), system.clients [0]->client_m));
-    receivable->initiate_confirmation ();
+    receivable->begin_confirmation ();
     ASSERT_EQ (1, system.clients [0]->client_m->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
     con1.address = system.test_genesis_address.pub;
@@ -317,7 +317,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     auto block1 (new mu_coin::send_block ());
     system.clients [0]->client_m->store.block_put (block1->hash (), *block1);
     auto receivable (std::make_shared <mu_coin::block_confirmation> (std::unique_ptr <mu_coin::block> {block1}, block1->previous (), system.clients [0]->client_m));
-    receivable->initiate_confirmation ();
+    receivable->begin_confirmation ();
     ASSERT_EQ (1, system.clients [0]->client_m->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
     con1.address = system.test_genesis_address.pub;
@@ -341,7 +341,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     auto block1 (new mu_coin::send_block ());
     system.clients [0]->client_m->store.block_put (block1->hash (), *block1);
     auto receivable (std::make_shared <mu_coin::block_confirmation> (std::unique_ptr <mu_coin::block> {block1}, block1->previous (), system.clients [0]->client_m));
-    receivable->initiate_confirmation ();
+    receivable->begin_confirmation ();
     ASSERT_EQ (1, system.clients [0]->client_m->processor.publish_listener_size ());
     mu_coin::confirm_ack con1;
     con1.address = system.test_genesis_address.pub;
@@ -383,7 +383,7 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (amount - 100, system.clients [1]->client_m->ledger.account_balance (system.test_genesis_address.pub));
     ASSERT_EQ (0, system.clients [1]->client_m->ledger.account_balance (key2.pub));
     auto receivable (std::make_shared <mu_coin::block_confirmation> (std::unique_ptr <mu_coin::block> {block1}, block1->previous (), system.clients [1]->client_m));
-    receivable->initiate_confirmation ();
+    receivable->begin_confirmation ();
     ASSERT_EQ (1, system.clients [1]->client_m->processor.publish_listener_size ());
     while (system.clients [0]->client_m->network.publish_req_count != 1)
     {
@@ -403,7 +403,7 @@ TEST (receivable_processor, timeout_after_acknowledge)
     mu_coin::system system (1, 24000, 25000, 1, 100);
     auto block (new mu_coin::send_block);
     auto receivable (std::make_shared <mu_coin::block_confirmation> (std::unique_ptr <mu_coin::block> (block), block->previous (), system.clients [0]->client_m));
-    receivable->process_confirmation ();
+    receivable->check_confirmation ();
     receivable->timeout_action ();
 }
 

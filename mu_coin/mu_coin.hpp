@@ -957,9 +957,9 @@ namespace mu_coin {
         block_confirmation (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>);
         ~block_confirmation ();
         void start ();
-        void initiate_confirmation ();
+        void begin_confirmation ();
         void process_message (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
-        void process_confirmation ();
+        void check_confirmation ();
         void timeout_action ();
         void advance_timeout ();
 		mu_coin::uint256_t uncontested ();

@@ -1868,10 +1868,10 @@ mu_coin::block_confirmation::~block_confirmation ()
 void mu_coin::block_confirmation::start ()
 {
     auto this_l (shared_from_this ());
-    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->initiate_confirmation ();});
+    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->begin_confirmation ();});
 }
 
-void mu_coin::block_confirmation::initiate_confirmation ()
+void mu_coin::block_confirmation::begin_confirmation ()
 {
     if (client->wallet.find (client->representative) != client->wallet.end ())
     {
@@ -1885,7 +1885,7 @@ void mu_coin::block_confirmation::initiate_confirmation ()
         prv.clear ();
         client->conflicts.add (incoming->previous (), vote);
     }
-    process_confirmation ();
+    check_confirmation ();
     if (!complete)
     {
         auto this_l (shared_from_this ());
@@ -1944,7 +1944,7 @@ void mu_coin::block_confirmation::process_message (mu_coin::confirm_ack const & 
     vote.block = message.block->hash ();
     vote.signature = message.signature;
     client->conflicts.add (visitor.result, vote);
-    process_confirmation ();
+    check_confirmation ();
 }
 
 void mu_coin::block_confirmation::advance_timeout ()
@@ -1967,7 +1967,7 @@ void mu_coin::block_confirmation::timeout_action ()
     }
 }
 
-void mu_coin::block_confirmation::process_confirmation ()
+void mu_coin::block_confirmation::check_confirmation ()
 {
     std::unique_lock <std::mutex> lock (mutex);
     if (!complete)
