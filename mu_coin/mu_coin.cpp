@@ -4984,13 +4984,19 @@ mu_coin::block_hash mu_coin::votes::winner (mu_coin::ledger & ledger_a)
     return winner_l.first;
 }
 
-bool mu_coin::votes::uncontested ()
+mu_coin::uint256_t mu_coin::votes::uncontested ()
 {
-    return uncontested_m != 1;
+    mu_coin::uint256_t result;
+    if (uncontested_block != 1)
+    {
+        result = uncontested_weight;
+    }
+    return result;
 }
 
-mu_coin::votes::votes () :
-uncontested_m (0)
+mu_coin::votes::votes (mu_coin::ledger & ledger_a) :
+uncontested_m (0),
+ledger (ledger_a)
 {
 }
 

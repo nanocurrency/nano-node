@@ -494,12 +494,14 @@ namespace mu_coin {
     class votes
     {
     public:
-        votes ();
+        votes (mu_coin::ledger &);
         void add (mu_coin::vote const &);
-        bool uncontested ();
-        mu_coin::block_hash uncontested_m;
-        mu_coin::block_hash winner (mu_coin::ledger &);
+        mu_coin::uint256_t uncontested ();
+        mu_coin::block_hash uncontested_block;
+        mu_coin::uint256_t uncontested_weight;
+        mu_coin::block_hash winner ();
         std::unordered_map <mu_coin::address, std::pair <uint64_t, mu_coin::block_hash>> rep_votes;
+        mu_coin::ledger & ledger;
     };
     class conflicts
     {

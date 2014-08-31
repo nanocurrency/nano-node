@@ -932,28 +932,32 @@ TEST (votes, add_contesting)
     vote1.block = block1;
     mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
-    ASSERT_TRUE (votes.uncontested ());
+    auto uncontested1 (votes.uncontested ());
+    ASSERT_EQ ();
     mu_coin::vote vote2;
     vote2.address = key2.pub;
     vote2.sequence = 1;
     vote2.block = block1;
     mu_coin::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
     votes.add (vote2);
-    ASSERT_TRUE (votes.uncontested ());
+    auto uncontested2 (votes.uncontested ());
+    ASSERT_TRUE ();
     mu_coin::vote vote3;
     vote3.address = key3.pub;
     vote3.sequence = 1;
     vote3.block = block2;
     mu_coin::sign_message (key3.prv, key3.pub, vote3.hash (), vote3.signature);
     votes.add (vote3);
-    ASSERT_FALSE (votes.uncontested ());
+    auto uncontested3 (votes.uncontested ());
+    ASSERT_FALSE ();
     mu_coin::vote vote4;
     vote4.address = key3.pub;
     vote4.sequence = 2;
     vote4.block = block1;
     mu_coin::sign_message (key3.prv, key3.pub, vote4.hash (), vote4.signature);
     votes.add (vote4);
-    ASSERT_FALSE (votes.uncontested ());
+    auto uncontested4 (votes.uncontested ());
+    ASSERT_FALSE ();
 }
 
 TEST (votes, add_old)
