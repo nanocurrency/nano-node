@@ -2074,9 +2074,9 @@ public:
 };
 }
 
-mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block const & incoming)
+mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block const & block_a)
 {
-    auto result (client.ledger.process (incoming));
+    auto result (client.ledger.process (block_a));
     switch (result)
     {
         case mu_coin::process_result::progress:
@@ -2084,37 +2084,37 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
             if (ledger_logging ())
             {
                 progress_log_visitor logger (client);
-                incoming.visit (logger);
+                block_a.visit (logger);
             }
-            receivable_visitor visitor (client, incoming);
-            incoming.visit (visitor);
+            receivable_visitor visitor (client, block_a);
+            block_a.visit (visitor);
             break;
         }
         case mu_coin::process_result::gap_previous:
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Gap previous for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ()));
             }
-            auto previous (incoming.previous ());
-            client.gap_cache.add (incoming, previous);
+            auto previous (block_a.previous ());
+            client.gap_cache.add (block_a, previous);
             break;
         }
         case mu_coin::process_result::gap_source:
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Gap source for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ()));
             }
-            auto source (incoming.source ());
-            client.gap_cache.add (incoming, source);
+            auto source (block_a.source ());
+            client.gap_cache.add (block_a, source);
             break;
         }
         case mu_coin::process_result::old:
         {
             if (ledger_duplicate_logging ())
             {
-                client.log.add (boost::str (boost::format ("Old for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Old for: %1%") % block_a.hash ().to_string ()));
             }
             break;
         }
@@ -2122,7 +2122,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Bad signature for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Bad signature for: %1%") % block_a.hash ().to_string ()));
             }
             break;
         }
@@ -2130,7 +2130,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Overspend for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Overspend for: %1%") % block_a.hash ().to_string ()));
             }
             break;
         }
@@ -2138,7 +2138,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Overreceive for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Overreceive for: %1%") % block_a.hash ().to_string ()));
             }
             break;
         }
@@ -2146,7 +2146,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Not receive from spend for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Not receive from spend for: %1%") % block_a.hash ().to_string ()));
             }
             break;
         }
@@ -2154,9 +2154,9 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Fork for: %1%") % incoming.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ()));
             }
-            assert (false);
+			confirm_block (block_a);
             break;
         }
     }

@@ -1116,7 +1116,7 @@ TEST (conflicts, add_existing)
     ASSERT_EQ (block2, existing_vote->second.second);
 }
 
-TEST (fork, DISABLED_publish)
+TEST (fork, publish)
 {
     mu_coin::system system (1, 24000, 25000, 1, 500);
     mu_coin::keypair key1;

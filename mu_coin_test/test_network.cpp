@@ -730,6 +730,10 @@ TEST (bootstrap_processor, process_new)
         system.processor.poll_one ();
     }
     ASSERT_EQ (balance1, client1.client_m->ledger.account_balance (system.test_genesis_address.pub));
+	if (balance2 != client1.client_m->ledger.account_balance (key2.pub))
+	{
+		client1.client_m->log.dump_cerr ();
+	}
     ASSERT_EQ (balance2, client1.client_m->ledger.account_balance (key2.pub));
 }
 
