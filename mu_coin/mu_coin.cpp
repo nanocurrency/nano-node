@@ -1962,6 +1962,7 @@ completion_action (completion_action_a)
 
 mu_coin::block_confirmation::~block_confirmation ()
 {
+    client->conflicts.stop (incoming->previous ());
 }
 
 void mu_coin::block_confirmation::start ()
@@ -1972,13 +1973,20 @@ void mu_coin::block_confirmation::start ()
 
 void mu_coin::block_confirmation::initiate_confirmation ()
 {
-    mu_coin::uint256_t weight (0);
     if (client->wallet.find (client->representative) != client->wallet.end ())
     {
-        weight = client->ledger.weight (client->representative);
+        mu_coin::vote vote;
+        vote.address = client->representative;
+        vote.sequence = 0;
+        vote.block = incoming->hash ();
+        mu_coin::private_key prv;
+        client->wallet.fetch (client->representative, client->wallet.password, prv);
+        mu_coin::sign_message (prv, client->representative, vote.block, vote.signature);
+        prv.clear ();
+        client->conflicts.add (incoming->previous (), vote);
     }
-    std::string rep_weight (weight.convert_to <std::string> ());
-    process_acknowledged (weight);
+    client->conflicts.start (incoming->previous ());
+    process_confirmation ();
     if (!complete)
     {
         auto this_l (shared_from_this ());
@@ -2021,13 +2029,12 @@ void mu_coin::block_confirmation::timeout_action ()
     }
 }
 
-void mu_coin::block_confirmation::process_acknowledged (mu_coin::uint256_t const & acknowledged_a)
+void mu_coin::block_confirmation::process_confirmation ()
 {
     std::unique_lock <std::mutex> lock (mutex);
     if (!complete)
     {
-        acknowledged += acknowledged_a;
-        if (acknowledged > threshold && nacked.is_zero ())
+        if (client->conflicts.roots [incoming->previous ()]->add)
         {
             complete = true;
             lock.unlock ();
@@ -2052,22 +2059,54 @@ void mu_coin::block_confirmation::process_acknowledged (mu_coin::uint256_t const
     }
 }
 
+namespace {
+class root_visitor : public mu_coin::block_visitor
+{
+public:
+    root_visitor (mu_coin::block_store & store_a) :
+    store (store_a)
+    {
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    void receive_block (mu_coin::receive_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    void open_block (mu_coin::open_block const & block_a) override
+    {
+        auto source (store.block_get (block_a.source ()));
+        assert (source != nullptr);
+        assert (dynamic_cast <mu_coin::send_block *> (source.get ()) != nullptr);
+        result = static_cast <mu_coin::send_block *> (source.get ())->hashables.destination;
+    }
+    void change_block (mu_coin::change_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    mu_coin::block_store & store;
+    mu_coin::block_hash result;
+};
+}
+
 void receivable_message_processor::confirm_ack (mu_coin::confirm_ack const & message)
 {
-    if (!mu_coin::validate_message (message.address, message.block->hash (), message.signature))
-    {
-        auto weight (confirmation.client->ledger.weight (message.address));
-        std::string ack_string (weight.convert_to <std::string> ());
-        confirmation.process_acknowledged (weight);
-    }
-    else
-    {
-        // Signature didn't match
-    }
+    root_visitor visitor (confirmation.client->store);
+    message.block->visit (visitor);
+    mu_coin::vote vote;
+    vote.address = message.address;
+    vote.sequence = message.sequence;
+    vote.block = message.block->hash ();
+    vote.signature = message.signature;
+    confirmation.client->conflicts.add (visitor.result, vote);
+    
 }
 
 void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & message)
 {
+    assert (false);
 }
 
 void mu_coin::processor::process_receivable (mu_coin::block const & incoming)

@@ -955,13 +955,11 @@ namespace mu_coin {
         ~block_confirmation ();
         void start ();
         void initiate_confirmation ();
-        void process_acknowledged (mu_coin::uint256_t const &);
         void process_message (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &);
+        void process_confirmation ();
         void timeout_action ();
         void advance_timeout ();
         mu_coin::uint256_union root;
-        mu_coin::uint256_t acknowledged;
-        mu_coin::uint256_t nacked;
         mu_coin::uint256_t threshold;
         std::chrono::system_clock::time_point timeout;
         std::unique_ptr <mu_coin::block> const incoming;
@@ -1001,6 +999,7 @@ namespace mu_coin {
         mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;
+        mu_coin::conflicts conflicts;
         mu_coin::block_store store;
         mu_coin::gap_cache gap_cache;
         mu_coin::ledger ledger;
