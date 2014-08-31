@@ -509,6 +509,7 @@ namespace mu_coin {
         void add (mu_coin::block_hash const &, mu_coin::vote const &);
         void start (mu_coin::block_hash const &);
         void stop (mu_coin::block_hash const &);
+		mu_coin::uint256_t uncontested (mu_coin::block_hash const &);
         std::unordered_map <mu_coin::block_hash, std::unique_ptr <votes>> roots;
 		mu_coin::ledger & ledger;
     };
@@ -959,6 +960,7 @@ namespace mu_coin {
         void process_confirmation ();
         void timeout_action ();
         void advance_timeout ();
+		mu_coin::uint256_t uncontested ();
         mu_coin::uint256_union root;
         mu_coin::uint256_t threshold;
         std::chrono::system_clock::time_point timeout;
@@ -999,10 +1001,10 @@ namespace mu_coin {
         mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;
-        mu_coin::conflicts conflicts;
         mu_coin::block_store store;
         mu_coin::gap_cache gap_cache;
         mu_coin::ledger ledger;
+        mu_coin::conflicts conflicts;
         mu_coin::wallet wallet;
         mu_coin::network network;
         mu_coin::bootstrap_receiver bootstrap;

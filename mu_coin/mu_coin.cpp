@@ -1750,6 +1750,7 @@ genesis (genesis_a),
 representative (representative_a),
 store (block_store_path_a),
 ledger (store),
+conflicts (ledger),
 wallet (0, wallet_path_a),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
@@ -1958,6 +1959,7 @@ client (client_a),
 complete (false),
 completion_action (completion_action_a)
 {
+    client->conflicts.start (incoming->previous ());
 }
 
 mu_coin::block_confirmation::~block_confirmation ()
@@ -1981,11 +1983,10 @@ void mu_coin::block_confirmation::initiate_confirmation ()
         vote.block = incoming->hash ();
         mu_coin::private_key prv;
         client->wallet.fetch (client->representative, client->wallet.password, prv);
-        mu_coin::sign_message (prv, client->representative, vote.block, vote.signature);
+        mu_coin::sign_message (prv, client->representative, vote.hash (), vote.signature);
         prv.clear ();
         client->conflicts.add (incoming->previous (), vote);
     }
-    client->conflicts.start (incoming->previous ());
     process_confirmation ();
     if (!complete)
     {
@@ -2034,7 +2035,7 @@ void mu_coin::block_confirmation::process_confirmation ()
     std::unique_lock <std::mutex> lock (mutex);
     if (!complete)
     {
-        if (client->conflicts.roots [incoming->previous ()]->add)
+        if (uncontested () >= threshold)
         {
             complete = true;
             lock.unlock ();
@@ -2101,7 +2102,7 @@ void receivable_message_processor::confirm_ack (mu_coin::confirm_ack const & mes
     vote.block = message.block->hash ();
     vote.signature = message.signature;
     confirmation.client->conflicts.add (visitor.result, vote);
-    
+    confirmation.process_confirmation ();
 }
 
 void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & message)
@@ -2676,8 +2677,13 @@ void mu_coin::processor::process_confirmation (mu_coin::block const & block_a, m
 				mu_coin::confirm_ack outgoing;
 				outgoing.address = client.representative;
                 outgoing.block = block_a.clone ();
-				mu_coin::sign_message (prv, client.representative, outgoing.block->hash (), outgoing.signature);
-				assert (!mu_coin::validate_message (client.representative, outgoing.block->hash (), outgoing.signature));
+				outgoing.sequence = 0;
+				mu_coin::vote vote;
+				vote.address = outgoing.address;
+				vote.block = block_a.hash ();
+				vote.sequence = 0;
+				mu_coin::sign_message (prv, client.representative, vote.hash (), outgoing.signature);
+				assert (!mu_coin::validate_message (client.representative, vote.hash (), outgoing.signature));
 				{
 					mu_coin::vectorstream stream (*bytes);
 					outgoing.serialize (stream);
@@ -5058,4 +5064,20 @@ void mu_coin::conflicts::stop (mu_coin::block_hash const & root_a)
 mu_coin::conflicts::conflicts (mu_coin::ledger & ledger_a) :
 ledger (ledger_a)
 {
+}
+
+mu_coin::uint256_t mu_coin::conflicts::uncontested (mu_coin::block_hash const & hash_a)
+{
+	auto existing (roots.find (hash_a));
+	mu_coin::uint256_t result;
+	if (existing != roots.end ())
+	{
+		result = existing->second->uncontested ();
+	}
+	return result;
+}
+
+mu_coin::uint256_t mu_coin::block_confirmation::uncontested ()
+{
+	return client->conflicts.roots [incoming->previous ()]->uncontested ();
 }
