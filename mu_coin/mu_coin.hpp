@@ -505,6 +505,8 @@ namespace mu_coin {
     {
     public:
         void add (mu_coin::block_hash const &, mu_coin::vote const &);
+        void start (mu_coin::block_hash const &);
+        void stop (mu_coin::block_hash const &);
         std::unordered_map <mu_coin::block_hash, std::unique_ptr <votes>> roots;
     };
     class keypair

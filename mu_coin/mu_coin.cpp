@@ -4927,12 +4927,9 @@ bool mu_coin::frontier::operator == (mu_coin::frontier const & other_a) const
 
 void mu_coin::conflicts::add (mu_coin::block_hash const & root_a, mu_coin::vote const & vote_a)
 {
-    auto existing_votes (roots.find (root_a));
-    if (existing_votes == roots.end ())
-    {
-        roots.insert (std::make_pair (root_a, std::unique_ptr <votes> (new votes)));
-    }
-    roots.find (root_a)->second->add (vote_a);
+    auto existing (roots.find (root_a));
+    assert (existing != roots.end ());
+    existing->second->add (vote_a);
 }
 
 void mu_coin::votes::add (mu_coin::vote const & vote_a)
@@ -4995,4 +4992,16 @@ bool mu_coin::votes::uncontested ()
 mu_coin::votes::votes () :
 uncontested_m (0)
 {
+}
+
+void mu_coin::conflicts::start (mu_coin::block_hash const & root_a)
+{
+    assert (roots.find (root_a) == roots.end ());
+    roots.insert (std::make_pair (root_a, std::unique_ptr <mu_coin::votes> (new mu_coin::votes)));
+}
+
+void mu_coin::conflicts::stop (mu_coin::block_hash const & root_a)
+{
+    assert (roots.find (root_a) != roots.end ());
+    roots.erase (root_a);
 }
