@@ -1115,3 +1115,26 @@ TEST (conflicts, add_existing)
     ASSERT_NE (existing->second->rep_votes.end (), existing_vote);
     ASSERT_EQ (block2, existing_vote->second.second);
 }
+
+TEST (fork, DISABLED_publish)
+{
+    mu_coin::system system (1, 24000, 25000, 1, 500);
+    mu_coin::keypair key1;
+    std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
+    send1->hashables.previous = system.genesis.hash ();
+    send1->hashables.balance.clear ();
+    send1->hashables.destination = key1.pub;
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1->hash (), send1->signature);
+    mu_coin::publish_req publish1;
+    publish1.block = std::move (send1);
+    mu_coin::keypair key2;
+    std::unique_ptr <mu_coin::send_block> send2 (new mu_coin::send_block);
+    send2->hashables.previous = system.genesis.hash ();
+    send2->hashables.balance.clear ();
+    send2->hashables.destination = key2.pub;
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send2->hash (), send2->signature);
+    mu_coin::publish_req publish2;
+    publish2.block = std::move (send2);
+    system.clients [0]->client_m->processor.process_message (publish1, mu_coin::endpoint {}, true);
+    system.clients [0]->client_m->processor.process_message (publish2, mu_coin::endpoint {}, true);
+}

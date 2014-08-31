@@ -353,7 +353,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	vote.block = block1->hash ();
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote.hash (), con1.signature);
 	system.clients [0]->client_m->processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
-    ASSERT_EQ (std::numeric_limits<mu_coin::uint256_t>::max (), receivable->uncontested ());
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), receivable->uncontested ());
     ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (3, receivable.use_count ());
 }
