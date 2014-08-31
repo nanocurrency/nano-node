@@ -1211,41 +1211,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         receive ();
                         if (!error)
                         {
-                            if (network_keepalive_logging ())
-                            {
-                                client.log.add (boost::str (boost::format ("Received keepalive req from %1%") % sender));
-                            }
-                            mu_coin::keepalive_ack ack_message;
-                            client.peers.random_fill (ack_message.peers);
-                            ack_message.checksum = client.ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ());
-                            std::shared_ptr <std::vector <uint8_t>> ack_bytes (new std::vector <uint8_t>);
-                            {
-                                mu_coin::vectorstream stream (*ack_bytes);
-                                ack_message.serialize (stream);
-                            }
-                            mu_coin::keepalive_req req_message;
-                            req_message.peers = ack_message.peers;
-                            std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
-                            {
-                                mu_coin::vectorstream stream (*req_bytes);
-                                req_message.serialize (stream);
-                            }
-                            merge_peers (req_bytes, incoming.peers);
-                            if (network_keepalive_logging ())
-                            {
-                                client.log.add (boost::str (boost::format ("Sending keepalive ack to %2%") % sender));
-                            }
-                            auto & client_l (client);
-                            send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
-                                {
-                                    if (network_logging ())
-                                    {
-                                        if (error)
-                                        {
-                                            client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
-                                        }
-                                    }
-                                });
+							client.processor.process_message (incoming, sender);
                         }
                         break;
                     }
@@ -5080,4 +5046,91 @@ mu_coin::uint256_t mu_coin::conflicts::uncontested (mu_coin::block_hash const & 
 mu_coin::uint256_t mu_coin::block_confirmation::uncontested ()
 {
 	return client->conflicts.roots [incoming->previous ()]->uncontested ();
+}
+
+namespace
+{
+class network_message_visitor : public mu_coin::message_visitor
+{
+public:
+	network_message_visitor (mu_coin::client_impl & client_a, mu_coin::endpoint const & sender_a) :
+	client (client_a),
+	sender (sender_a)
+	{
+	}
+	void keepalive_req (mu_coin::keepalive_req const & message_a) override
+	{
+		if (network_keepalive_logging ())
+		{
+			client.log.add (boost::str (boost::format ("Received keepalive req from %1%") % sender));
+		}
+		mu_coin::keepalive_ack ack_message;
+		client.peers.random_fill (ack_message.peers);
+		ack_message.checksum = client.ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ());
+		std::shared_ptr <std::vector <uint8_t>> ack_bytes (new std::vector <uint8_t>);
+		{
+			mu_coin::vectorstream stream (*ack_bytes);
+			ack_message.serialize (stream);
+		}
+		mu_coin::keepalive_req req_message;
+		req_message.peers = ack_message.peers;
+		std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
+		{
+			mu_coin::vectorstream stream (*req_bytes);
+			req_message.serialize (stream);
+		}
+		client.network.merge_peers (req_bytes, message_a.peers);
+		if (network_keepalive_logging ())
+		{
+			client.log.add (boost::str (boost::format ("Sending keepalive ack to %2%") % sender));
+		}
+		auto & client_l (client);
+		client.network.send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
+		{
+			if (network_logging ())
+			{
+				if (error)
+				{
+					client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
+				}
+			}
+		});
+	}
+	void keepalive_ack (mu_coin::keepalive_ack const &) override
+	{
+		
+	}
+	void publish_req (mu_coin::publish_req const &) override
+	{
+		
+	}
+	void confirm_req (mu_coin::confirm_req const &) override
+	{
+		
+	}
+	void confirm_ack (mu_coin::confirm_ack const &) override
+	{
+		
+	}
+	void confirm_unk (mu_coin::confirm_unk const &) override
+	{
+		
+	}
+	void bulk_req (mu_coin::bulk_req const &) override
+	{
+		
+	}
+	void frontier_req (mu_coin::frontier_req const &) override
+	{
+		
+	}
+	mu_coin::client_impl & client;
+	mu_coin::endpoint sender;
+};
+}
+
+void mu_coin::processor::process_message (mu_coin::message & message_a, mu_coin::endpoint const & endpoint_a)
+{
+	network_message_visitor visitor (client, endpoint_a);
+	message_a.visit (visitor);
 }
