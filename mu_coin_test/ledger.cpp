@@ -1119,6 +1119,7 @@ TEST (conflicts, add_existing)
 TEST (fork, publish)
 {
     mu_coin::system system (1, 24000, 25000, 1, 500);
+	system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
     mu_coin::keypair key1;
     std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
     send1->hashables.previous = system.genesis.hash ();
@@ -1137,4 +1138,6 @@ TEST (fork, publish)
     publish2.block = std::move (send2);
     system.clients [0]->client_m->processor.process_message (publish1, mu_coin::endpoint {}, true);
     system.clients [0]->client_m->processor.process_message (publish2, mu_coin::endpoint {}, true);
+	ASSERT_EQ (1, system.processor.poll_one ());
+	ASSERT_EQ (system.clients [0]->client_m->conflicts.roots.end (), system.clients [0]->client_m->conflicts.roots.find (publish1.block->hash ()));
 }
