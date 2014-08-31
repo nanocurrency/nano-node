@@ -1977,19 +1977,7 @@ void mu_coin::block_confirmation::process_confirmation ()
         {
             complete = true;
             lock.unlock ();
-            assert (dynamic_cast <mu_coin::send_block *> (incoming.get ()) != nullptr);
-            auto & send (static_cast <mu_coin::send_block &> (*incoming.get ()));
-            mu_coin::private_key prv;
-            if (!client->wallet.fetch (send.hashables.destination, client->wallet.password, prv))
-            {
-                auto error (client->transactions.receive (send, prv, client->representative));
-                prv.bytes.fill (0);
-                assert (!error);
-            }
-            else
-            {
-                // Wallet doesn't contain key for this destination or couldn't decrypt
-            }
+            client->processor.process_confirmed (incoming->hash (), *incoming);
         }
         else
         {
@@ -5151,4 +5139,22 @@ void mu_coin::processor::process_message (mu_coin::message & message_a, mu_coin:
 {
 	network_message_visitor visitor (client, endpoint_a, known_peer_a);
 	message_a.visit (visitor);
+}
+
+void mu_coin::processor::process_confirmed (mu_coin::block_hash const & stored_a, mu_coin::block const & confirmed_a)
+{
+    assert (client.store.block_get (stored_a) != nullptr);
+    assert (dynamic_cast <mu_coin::send_block const *> (&confirmed_a) != nullptr);
+    auto & send (static_cast <mu_coin::send_block const &> (confirmed_a));
+    mu_coin::private_key prv;
+    if (!client.wallet.fetch (send.hashables.destination, client.wallet.password, prv))
+    {
+        auto error (client.transactions.receive (send, prv, client.representative));
+        prv.bytes.fill (0);
+        assert (!error);
+    }
+    else
+    {
+        // Wallet doesn't contain key for this destination or couldn't decrypt
+    }
 }

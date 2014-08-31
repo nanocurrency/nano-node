@@ -745,6 +745,7 @@ namespace mu_coin {
         void process_receivable (mu_coin::block const &);
 		void process_unknown (mu_coin::vectorstream &);
         void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
+        void process_confirmed (mu_coin::block_hash const &, mu_coin::block const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
         void remove_confirm_listener (mu_coin::block_hash const &);
         void ongoing_keepalive ();
