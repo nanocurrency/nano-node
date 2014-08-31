@@ -4948,18 +4948,18 @@ void mu_coin::votes::add (mu_coin::vote const & vote_a)
                 existing->second.second = vote_a.block;
             }
         }
-        if (uncontested_m.is_zero ())
+        if (uncontested_block.is_zero ())
         {
-            uncontested_m = vote_a.block;
+            uncontested_block = vote_a.block;
         }
-        else if (uncontested_m != vote_a.block)
+        else if (uncontested_block != vote_a.block)
         {
-            uncontested_m = 1;
+            uncontested_block = 1;
         }
     }
 }
 
-mu_coin::block_hash mu_coin::votes::winner (mu_coin::ledger & ledger_a)
+mu_coin::block_hash mu_coin::votes::winner ()
 {
     std::unordered_map <mu_coin::block_hash, mu_coin::uint256_t> totals;
     for (auto i: rep_votes)
@@ -4970,7 +4970,7 @@ mu_coin::block_hash mu_coin::votes::winner (mu_coin::ledger & ledger_a)
             totals.insert (std::make_pair (i.second.second, 0));
             existing = totals.find (i.second.second);
         }
-        auto weight (ledger_a.weight (i.first));
+        auto weight (ledger.weight (i.first));
         existing->second += weight;
     }
     std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner_l;
@@ -4989,13 +4989,17 @@ mu_coin::uint256_t mu_coin::votes::uncontested ()
     mu_coin::uint256_t result;
     if (uncontested_block != 1)
     {
-        result = uncontested_weight;
+		for (auto i: rep_votes)
+		{
+			assert (i.second.second == uncontested_block);
+			result += ledger.weight (i.first);
+		}
     }
     return result;
 }
 
 mu_coin::votes::votes (mu_coin::ledger & ledger_a) :
-uncontested_m (0),
+uncontested_block (0),
 ledger (ledger_a)
 {
 }
@@ -5003,11 +5007,16 @@ ledger (ledger_a)
 void mu_coin::conflicts::start (mu_coin::block_hash const & root_a)
 {
     assert (roots.find (root_a) == roots.end ());
-    roots.insert (std::make_pair (root_a, std::unique_ptr <mu_coin::votes> (new mu_coin::votes)));
+    roots.insert (std::make_pair (root_a, std::unique_ptr <mu_coin::votes> (new mu_coin::votes (ledger))));
 }
 
 void mu_coin::conflicts::stop (mu_coin::block_hash const & root_a)
 {
     assert (roots.find (root_a) != roots.end ());
     roots.erase (root_a);
+}
+
+mu_coin::conflicts::conflicts (mu_coin::ledger & ledger_a) :
+ledger (ledger_a)
+{
 }

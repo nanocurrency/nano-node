@@ -497,19 +497,20 @@ namespace mu_coin {
         votes (mu_coin::ledger &);
         void add (mu_coin::vote const &);
         mu_coin::uint256_t uncontested ();
-        mu_coin::block_hash uncontested_block;
-        mu_coin::uint256_t uncontested_weight;
         mu_coin::block_hash winner ();
         std::unordered_map <mu_coin::address, std::pair <uint64_t, mu_coin::block_hash>> rep_votes;
+        mu_coin::block_hash uncontested_block;
         mu_coin::ledger & ledger;
     };
     class conflicts
     {
     public:
+		conflicts (mu_coin::ledger &);
         void add (mu_coin::block_hash const &, mu_coin::vote const &);
         void start (mu_coin::block_hash const &);
         void stop (mu_coin::block_hash const &);
         std::unordered_map <mu_coin::block_hash, std::unique_ptr <votes>> roots;
+		mu_coin::ledger & ledger;
     };
     class keypair
     {

@@ -830,7 +830,9 @@ TEST (ledegr, double_receive)
 
 TEST (votes, add_unsigned)
 {
-    mu_coin::votes votes;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+    mu_coin::ledger ledger (store);
+    mu_coin::votes votes (ledger);
     mu_coin::block_hash block (2);
     ASSERT_EQ (0, votes.rep_votes.size ());
     mu_coin::vote vote1;
@@ -843,27 +845,35 @@ TEST (votes, add_unsigned)
 
 TEST (votes, add_one)
 {
-    mu_coin::system system (1, 24000, 25000, 1, 500);
-    mu_coin::votes votes;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key1;
+	mu_coin::genesis genesis (key1.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::votes votes (ledger);
     mu_coin::block_hash block (2);
     ASSERT_EQ (0, votes.rep_votes.size ());
     mu_coin::vote vote1;
     vote1.sequence = 1;
     vote1.block = block;
-    vote1.address = system.test_genesis_address.pub;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote1.hash (), vote1.signature);
+    vote1.address = key1.pub;
+    mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
     ASSERT_EQ (1, votes.rep_votes.size ());
-    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (block, votes.rep_votes [system.test_genesis_address.pub].second);
-    auto block2 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key1.pub));
+    ASSERT_EQ (block, votes.rep_votes [key1.pub].second);
+    auto block2 (votes.winner ());
     ASSERT_EQ (block, block2);
 }
 
 TEST (votes, add_two)
 {
-    mu_coin::system system (1, 24000, 25000, 1, 500);
-    mu_coin::votes votes;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key2;
+	mu_coin::genesis genesis (key2.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::votes votes (ledger);
     mu_coin::keypair key1;
     mu_coin::block_hash block1 (2);
     mu_coin::block_hash block2 (4);
@@ -875,53 +885,61 @@ TEST (votes, add_two)
     mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
     mu_coin::vote vote2;
-    vote2.address = system.test_genesis_address.pub;
+    vote2.address = key2.pub;
     vote2.sequence = 1;
     vote2.block = block2;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote2.hash (), vote2.signature);
+    mu_coin::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
     votes.add (vote2);
     ASSERT_EQ (2, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key1.pub));
     ASSERT_EQ (block1, votes.rep_votes [key1.pub].second);
-    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub].second);
-    auto block3 (votes.winner (system.clients [0]->client_m->ledger));
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key2.pub));
+    ASSERT_EQ (block2, votes.rep_votes [key2.pub].second);
+    auto block3 (votes.winner ());
     ASSERT_EQ (block2, block3);
 }
 
 TEST (votes, add_existing)
 {
-    mu_coin::system system (1, 24000, 25000, 1, 500);
-    mu_coin::votes votes;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key1;
+	mu_coin::genesis genesis (key1.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::votes votes (ledger);
     mu_coin::block_hash block1 (2);
     mu_coin::block_hash block2 (3);
     ASSERT_EQ (0, votes.rep_votes.size ());
     mu_coin::vote vote1;
-    vote1.address = system.test_genesis_address.pub;
+    vote1.address = key1.pub;
     vote1.sequence = 1;
     vote1.block = block1;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote1.hash (), vote1.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
-    auto winner1 (votes.winner (system.clients [0]->client_m->ledger));
+    auto winner1 (votes.winner ());
     ASSERT_EQ (block1, winner1);
     mu_coin::vote vote2;
-    vote2.address = system.test_genesis_address.pub;
+    vote2.address = key1.pub;
     vote2.sequence = 2;
     vote2.block = block2;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote2.hash (), vote2.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, vote2.hash (), vote2.signature);
     votes.add (vote2);
-    auto winner2 (votes.winner (system.clients [0]->client_m->ledger));
+    auto winner2 (votes.winner ());
     ASSERT_EQ (block2, winner2);
     ASSERT_EQ (1, votes.rep_votes.size ());
-    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (block2, votes.rep_votes [system.test_genesis_address.pub].second);
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key1.pub));
+    ASSERT_EQ (block2, votes.rep_votes [key1.pub].second);
 }
 
 TEST (votes, add_contesting)
 {
-    mu_coin::votes votes;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key2;
+	mu_coin::genesis genesis (key2.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::votes votes (ledger);
     mu_coin::keypair key1;
-    mu_coin::keypair key2;
     mu_coin::keypair key3;
     mu_coin::block_hash block1 (2);
     mu_coin::block_hash block2 (4);
@@ -933,7 +951,7 @@ TEST (votes, add_contesting)
     mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
     auto uncontested1 (votes.uncontested ());
-    ASSERT_EQ ();
+    ASSERT_EQ (0, uncontested1);
     mu_coin::vote vote2;
     vote2.address = key2.pub;
     vote2.sequence = 1;
@@ -941,7 +959,7 @@ TEST (votes, add_contesting)
     mu_coin::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
     votes.add (vote2);
     auto uncontested2 (votes.uncontested ());
-    ASSERT_TRUE ();
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), uncontested2);
     mu_coin::vote vote3;
     vote3.address = key3.pub;
     vote3.sequence = 1;
@@ -949,7 +967,7 @@ TEST (votes, add_contesting)
     mu_coin::sign_message (key3.prv, key3.pub, vote3.hash (), vote3.signature);
     votes.add (vote3);
     auto uncontested3 (votes.uncontested ());
-    ASSERT_FALSE ();
+    ASSERT_EQ (0, uncontested3);
     mu_coin::vote vote4;
     vote4.address = key3.pub;
     vote4.sequence = 2;
@@ -957,42 +975,49 @@ TEST (votes, add_contesting)
     mu_coin::sign_message (key3.prv, key3.pub, vote4.hash (), vote4.signature);
     votes.add (vote4);
     auto uncontested4 (votes.uncontested ());
-    ASSERT_FALSE ();
+    ASSERT_EQ (0, uncontested4);
 }
 
 TEST (votes, add_old)
 {
-    
-    mu_coin::system system (1, 24000, 25000, 1, 500);
-    mu_coin::votes votes;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key1;
+	mu_coin::genesis genesis (key1.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::votes votes (ledger);
     mu_coin::block_hash block1 (2);
     mu_coin::block_hash block2 (3);
     ASSERT_EQ (0, votes.rep_votes.size ());
     mu_coin::vote vote1;
-    vote1.address = system.test_genesis_address.pub;
+    vote1.address = key1.pub;
     vote1.sequence = 2;
     vote1.block = block1;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote1.hash (), vote1.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
-    auto winner1 (votes.winner (system.clients [0]->client_m->ledger));
+    auto winner1 (votes.winner ());
     ASSERT_EQ (block1, winner1);
     mu_coin::vote vote2;
-    vote2.address = system.test_genesis_address.pub;
+    vote2.address = key1.pub;
     vote2.sequence = 1;
     vote2.block = block2;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote2.hash (), vote2.signature);
+    mu_coin::sign_message (key1.prv, key1.pub, vote2.hash (), vote2.signature);
     votes.add (vote2);
-    auto winner2 (votes.winner (system.clients [0]->client_m->ledger));
+    auto winner2 (votes.winner ());
     ASSERT_EQ (block1, winner2);
     ASSERT_EQ (1, votes.rep_votes.size ());
-    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (block1, votes.rep_votes [system.test_genesis_address.pub].second);
+    ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key1.pub));
+    ASSERT_EQ (block1, votes.rep_votes [key1.pub].second);
 }
 
 TEST (conflicts, add_one)
 {
-    mu_coin::conflicts conflicts;
-    mu_coin::keypair key1;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key1;
+	mu_coin::genesis genesis (key1.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::conflicts conflicts (ledger);
     mu_coin::block_hash root;
     mu_coin::block_hash block;
     ASSERT_EQ (0, conflicts.roots.size ());
@@ -1017,8 +1042,12 @@ TEST (conflicts, add_one)
 
 TEST (conflicts, add_two)
 {
-    mu_coin::conflicts conflicts;
-    mu_coin::keypair key1;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key1;
+	mu_coin::genesis genesis (key1.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::conflicts conflicts (ledger);
     mu_coin::block_hash root1;
     mu_coin::block_hash block1;
     mu_coin::block_hash root2;
@@ -1055,8 +1084,12 @@ TEST (conflicts, add_two)
 
 TEST (conflicts, add_existing)
 {
-    mu_coin::conflicts conflicts;
-    mu_coin::keypair key1;
+    mu_coin::block_store store (mu_coin::block_store_temp);
+	mu_coin::keypair key1;
+	mu_coin::genesis genesis (key1.pub);
+	genesis.initialize (store);
+    mu_coin::ledger ledger (store);
+    mu_coin::conflicts conflicts (ledger);
     mu_coin::block_hash root;
     mu_coin::block_hash block1;
     mu_coin::block_hash block2;
