@@ -924,9 +924,6 @@ mu_coin::block_store::block_store (boost::filesystem::path const & path_a)
     auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").native ().c_str (), &db));
     bootstrap.reset (db);
     assert (status6.ok ());
-    auto status7 (leveldb::DB::Open (options, (path_a / "successors.ldb").native ().c_str (), &db));
-    successors.reset (db);
-    assert (status7.ok ());
     auto status8 (leveldb::DB::Open (options, (path_a / "checksum.ldb").native ().c_str (), &db));
     checksum.reset (db);
     assert (status8.ok ());
