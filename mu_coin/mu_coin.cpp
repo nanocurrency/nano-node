@@ -1204,14 +1204,14 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                 {
                     case mu_coin::message_type::keepalive_req:
                     {
-                        ++keepalive_req_count;
                         mu_coin::keepalive_req incoming;
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
                         receive ();
                         if (!error)
                         {
-							client.processor.process_message (incoming, sender);
+							++keepalive_req_count;
+							client.processor.process_message (incoming, sender, known_peer);
                         }
                         break;
                     }
@@ -1224,26 +1224,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         if (!error)
                         {
                             ++keepalive_ack_count;
-                            if (network_keepalive_logging ())
-                            {
-                                client.log.add (boost::str (boost::format ("Received keepalive ack from %1%") % sender));
-                            }
-                            mu_coin::keepalive_req req_message;
-                            client.peers.random_fill (req_message.peers);
-                            std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
-                            {
-                                mu_coin::vectorstream stream (*req_bytes);
-                                req_message.serialize (stream);
-                            }
-                            merge_peers (req_bytes, incoming.peers);
-                            client.peers.incoming_from_peer (sender);
-							if (!known_peer && incoming.checksum != client.ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()))
-							{
-								client.processor.bootstrap (mu_coin::tcp_endpoint (sender.address (), sender.port ()),
-                                    [] ()
-                                    {
-                                    });
-							}
+							client.processor.process_message (incoming, sender, known_peer);
                         }
                         break;
                     }
@@ -1256,11 +1237,7 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         if (!error)
                         {
                             ++publish_req_count;
-                            if (network_message_logging ())
-                            {
-                                client.log.add (boost::str (boost::format ("Received publish req rom %1%") % sender));
-                            }
-                            client.processor.process_receive_republish (std::move (incoming.block), sender);
+							client.processor.process_message (incoming, sender, known_peer);
                         }
                         else
                         {
@@ -5053,9 +5030,10 @@ namespace
 class network_message_visitor : public mu_coin::message_visitor
 {
 public:
-	network_message_visitor (mu_coin::client_impl & client_a, mu_coin::endpoint const & sender_a) :
+	network_message_visitor (mu_coin::client_impl & client_a, mu_coin::endpoint const & sender_a, bool known_peer_a) :
 	client (client_a),
-	sender (sender_a)
+	sender (sender_a),
+	known_peer (known_peer_a)
 	{
 	}
 	void keepalive_req (mu_coin::keepalive_req const & message_a) override
@@ -5096,13 +5074,36 @@ public:
 			}
 		});
 	}
-	void keepalive_ack (mu_coin::keepalive_ack const &) override
+	void keepalive_ack (mu_coin::keepalive_ack const & message_a) override
 	{
-		
+		if (network_keepalive_logging ())
+		{
+			client.log.add (boost::str (boost::format ("Received keepalive ack from %1%") % sender));
+		}
+		mu_coin::keepalive_req req_message;
+		client.peers.random_fill (req_message.peers);
+		std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
+		{
+			mu_coin::vectorstream stream (*req_bytes);
+			req_message.serialize (stream);
+		}
+		client.network.merge_peers (req_bytes, message_a.peers);
+		client.peers.incoming_from_peer (sender);
+		if (!known_peer && message_a.checksum != client.ledger.checksum (0, std::numeric_limits <mu_coin::uint256_t>::max ()))
+		{
+			client.processor.bootstrap (mu_coin::tcp_endpoint (sender.address (), sender.port ()),
+										[] ()
+										{
+										});
+		}
 	}
-	void publish_req (mu_coin::publish_req const &) override
+	void publish_req (mu_coin::publish_req const & message_a) override
 	{
-		
+		if (network_message_logging ())
+		{
+			client.log.add (boost::str (boost::format ("Received publish req rom %1%") % sender));
+		}
+		client.processor.process_receive_republish (message_a.block->clone (), sender);
 	}
 	void confirm_req (mu_coin::confirm_req const &) override
 	{
@@ -5126,11 +5127,12 @@ public:
 	}
 	mu_coin::client_impl & client;
 	mu_coin::endpoint sender;
+	bool known_peer;
 };
 }
 
-void mu_coin::processor::process_message (mu_coin::message & message_a, mu_coin::endpoint const & endpoint_a)
+void mu_coin::processor::process_message (mu_coin::message & message_a, mu_coin::endpoint const & endpoint_a, bool known_peer_a)
 {
-	network_message_visitor visitor (client, endpoint_a);
+	network_message_visitor visitor (client, endpoint_a, known_peer_a);
 	message_a.visit (visitor);
 }

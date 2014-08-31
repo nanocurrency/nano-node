@@ -741,7 +741,7 @@ namespace mu_coin {
         mu_coin::process_result process_receive (mu_coin::block const &);
         void process_receive_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
         void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-		void process_message (mu_coin::message &, mu_coin::endpoint const &);
+		void process_message (mu_coin::message &, mu_coin::endpoint const &, bool);
         void process_receivable (mu_coin::block const &);
 		void process_unknown (mu_coin::vectorstream &);
         void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
