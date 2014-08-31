@@ -540,12 +540,12 @@ namespace mu_coin {
     public:
         virtual ~message () = default;
         virtual void serialize (mu_coin::stream &) = 0;
-        virtual void visit (mu_coin::message_visitor &) = 0;
+        virtual void visit (mu_coin::message_visitor &) const = 0;
     };
     class keepalive_req : public message
     {
     public:
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
 		std::array <mu_coin::endpoint, 24> peers;
@@ -553,7 +553,7 @@ namespace mu_coin {
     class keepalive_ack : public message
     {
     public:
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
 		bool operator == (mu_coin::keepalive_ack const &) const;
@@ -565,7 +565,7 @@ namespace mu_coin {
     public:
         publish_req () = default;
         publish_req (std::unique_ptr <mu_coin::block>);
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
         std::unique_ptr <mu_coin::block> block;
@@ -575,7 +575,7 @@ namespace mu_coin {
     public:
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
         bool operator == (mu_coin::confirm_req const &) const;
         std::unique_ptr <mu_coin::block> block;
     };
@@ -584,7 +584,7 @@ namespace mu_coin {
     public:
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
         bool operator == (mu_coin::confirm_ack const &) const;
         mu_coin::address address;
         mu_coin::signature signature;
@@ -596,7 +596,7 @@ namespace mu_coin {
     public:
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
 		mu_coin::uint256_union hash () const;
         mu_coin::address rep_hint;
     };
@@ -605,7 +605,7 @@ namespace mu_coin {
     public:
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
         bool operator == (mu_coin::frontier_req const &) const;
         mu_coin::address start;
         uint32_t age;
@@ -616,7 +616,7 @@ namespace mu_coin {
     public:
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) override;
+        void visit (mu_coin::message_visitor &) const override;
         mu_coin::uint256_union start;
         mu_coin::block_hash end;
         uint32_t count;
@@ -707,7 +707,7 @@ namespace mu_coin {
         std::chrono::system_clock::time_point last_attempt;
     };
     class client_impl;
-    using session = std::function <void (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &)>;
+    using session = std::function <void (mu_coin::message const &, mu_coin::endpoint const &)>;
     class gap_information
     {
     public:
@@ -749,7 +749,7 @@ namespace mu_coin {
         void remove_confirm_listener (mu_coin::block_hash const &);
         void ongoing_keepalive ();
         size_t publish_listener_size ();
-		void confirm_ack (std::unique_ptr <mu_coin::confirm_ack>, mu_coin::endpoint const &);
+		void confirm_ack (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
         mu_coin::client_impl & client;
         static std::chrono::seconds constexpr period = std::chrono::seconds (10);
         static std::chrono::seconds constexpr cutoff = period * 5;
@@ -957,7 +957,7 @@ namespace mu_coin {
         ~block_confirmation ();
         void start ();
         void initiate_confirmation ();
-        void process_message (std::unique_ptr <mu_coin::message>, mu_coin::endpoint const &);
+        void process_message (mu_coin::message const &, mu_coin::endpoint const &);
         void process_confirmation ();
         void timeout_action ();
         void advance_timeout ();

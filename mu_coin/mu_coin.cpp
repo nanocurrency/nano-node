@@ -1247,48 +1247,27 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                     }
                     case mu_coin::message_type::confirm_req:
                     {
-                        ++confirm_req_count;
                         mu_coin::confirm_req incoming;
                         mu_coin::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
                         receive ();
                         if (!error)
                         {
-                            if (network_message_logging ())
-                            {
-                                client.log.add (boost::str (boost::format ("Received confirm req from %1%") % sender));
-                            }
-                            auto result (client.ledger.process (*incoming.block));
-                            switch (result)
-                            {
-                                case mu_coin::process_result::old:
-                                case mu_coin::process_result::progress:
-                                {
-                                    client.processor.process_confirmation (*incoming.block, sender);
-                                    break;
-                                }
-                                default:
-                                {
-                                    assert (false);
-                                }
-                            }
+							++confirm_req_count;
+							client.processor.process_message (incoming, sender, known_peer);
                         }
                         break;
                     }
                     case mu_coin::message_type::confirm_ack:
                     {
-                        ++confirm_ack_count;
-                        auto incoming (new mu_coin::confirm_ack);
+                        mu_coin::confirm_ack incoming;
                         mu_coin::bufferstream stream (buffer.data (), size_a);
-                        auto error (incoming->deserialize (stream));
+                        auto error (incoming.deserialize (stream));
                         receive ();
                         if (!error)
                         {
-                            if (network_message_logging ())
-                            {
-                                client.log.add (boost::str (boost::format ("Received Confirm from %1%") % sender));
-                            }
-                            client.processor.confirm_ack (std::unique_ptr <mu_coin::confirm_ack> {incoming}, sender);
+							++confirm_ack_count;
+							client.processor.process_message (incoming, sender, known_peer);
                         }
                         break;
                     }
@@ -1934,7 +1913,7 @@ void mu_coin::block_confirmation::initiate_confirmation ()
     if (!complete)
     {
         auto this_l (shared_from_this ());
-        client->processor.add_confirm_listener (root, [this_l] (std::unique_ptr <mu_coin::message> message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (std::move (message_a), endpoint_a);});
+        client->processor.add_confirm_listener (root, [this_l] (mu_coin::message const & message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (message_a, endpoint_a);});
         auto list (client->peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
@@ -1947,10 +1926,10 @@ void mu_coin::block_confirmation::initiate_confirmation ()
     }
 }
 
-void mu_coin::block_confirmation::process_message (std::unique_ptr <mu_coin::message> message, mu_coin::endpoint const & sender)
+void mu_coin::block_confirmation::process_message (mu_coin::message const & message, mu_coin::endpoint const & sender)
 {
     receivable_message_processor processor_l (*this, sender);
-    message->visit (processor_l);
+    message.visit (processor_l);
 }
 
 void mu_coin::block_confirmation::advance_timeout ()
@@ -2272,17 +2251,17 @@ void mu_coin::processor::remove_confirm_listener (mu_coin::block_hash const & bl
     confirm_listeners.erase (block_a);
 }
 
-void mu_coin::keepalive_req::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::keepalive_req::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.keepalive_req (*this);
 }
 
-void mu_coin::keepalive_ack::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::keepalive_ack::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.keepalive_ack (*this);
 }
 
-void mu_coin::publish_req::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::publish_req::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.publish_req (*this);
 }
@@ -2692,7 +2671,7 @@ bool mu_coin::confirm_ack::operator == (mu_coin::confirm_ack const & other_a) co
     return result;
 }
 
-void mu_coin::confirm_ack::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::confirm_ack::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.confirm_ack (*this);
 }
@@ -2716,12 +2695,12 @@ bool mu_coin::confirm_unk::deserialize (mu_coin::stream & stream_a)
     return result;
 }
 
-void mu_coin::confirm_req::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::confirm_req::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.confirm_req (*this);
 }
 
-void mu_coin::confirm_unk::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::confirm_unk::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.confirm_unk (*this);
 }
@@ -3212,14 +3191,14 @@ bool mu_coin::block_store::latest_exists (mu_coin::address const & address_a)
     return result;
 }
 
-void mu_coin::processor::confirm_ack (std::unique_ptr <mu_coin::confirm_ack> message_a, mu_coin::endpoint const & sender_a)
+void mu_coin::processor::confirm_ack (mu_coin::confirm_ack const & message_a, mu_coin::endpoint const & sender_a)
 {
     std::unique_lock <std::mutex> lock (mutex);
-    auto session (confirm_listeners.find (message_a->block->previous ()));
+    auto session (confirm_listeners.find (message_a.block->previous ()));
     if (session != confirm_listeners.end ())
     {
         lock.unlock ();
-        session->second (std::unique_ptr <mu_coin::message> {message_a.release ()}, sender_a);
+        session->second (message_a, sender_a);
     }
 }
 
@@ -3388,7 +3367,7 @@ bool mu_coin::parse_tcp_endpoint (std::string const & string, mu_coin::tcp_endpo
     return result;
 }
 
-void mu_coin::bulk_req::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::bulk_req::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.bulk_req (*this);
 }
@@ -4513,7 +4492,7 @@ void mu_coin::frontier_req::serialize (mu_coin::stream & stream_a)
     write (stream_a, count);
 }
 
-void mu_coin::frontier_req::visit (mu_coin::message_visitor & visitor_a)
+void mu_coin::frontier_req::visit (mu_coin::message_visitor & visitor_a) const
 {
     visitor_a.frontier_req (*this);
 }
@@ -5105,13 +5084,34 @@ public:
 		}
 		client.processor.process_receive_republish (message_a.block->clone (), sender);
 	}
-	void confirm_req (mu_coin::confirm_req const &) override
+	void confirm_req (mu_coin::confirm_req const & message_a) override
 	{
-		
+		if (network_message_logging ())
+		{
+			client.log.add (boost::str (boost::format ("Received confirm req from %1%") % sender));
+		}
+		auto result (client.ledger.process (*message_a.block));
+		switch (result)
+		{
+			case mu_coin::process_result::old:
+			case mu_coin::process_result::progress:
+			{
+				client.processor.process_confirmation (*message_a.block, sender);
+				break;
+			}
+			default:
+			{
+				assert (false);
+			}
+		}
 	}
-	void confirm_ack (mu_coin::confirm_ack const &) override
+	void confirm_ack (mu_coin::confirm_ack const & message_a) override
 	{
-		
+		if (network_message_logging ())
+		{
+			client.log.add (boost::str (boost::format ("Received Confirm from %1%") % sender));
+		}
+		client.processor.confirm_ack (message_a, sender);
 	}
 	void confirm_unk (mu_coin::confirm_unk const &) override
 	{
