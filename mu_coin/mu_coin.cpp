@@ -1814,51 +1814,12 @@ public:
     std::unique_ptr <mu_coin::block> incoming;
     mu_coin::endpoint sender;
 };
-
-class receivable_message_processor : public mu_coin::message_visitor
-{
-public:
-    receivable_message_processor (mu_coin::block_confirmation & confirmation_a, mu_coin::endpoint const & sender_a) :
-    confirmation (confirmation_a),
-    sender (sender_a)
-    {
-    }
-    void keepalive_req (mu_coin::keepalive_req const &) override
-    {
-        assert (false);
-    }
-    void keepalive_ack (mu_coin::keepalive_ack const &) override
-    {
-        assert (false);
-    }
-    void publish_req (mu_coin::publish_req const &) override
-    {
-        assert (false);
-    }
-    void confirm_req (mu_coin::confirm_req const &) override
-    {
-        assert (false);
-    }
-    void confirm_ack (mu_coin::confirm_ack const &) override;
-    void confirm_unk (mu_coin::confirm_unk const &) override;
-    void bulk_req (mu_coin::bulk_req const &) override
-    {
-        assert (false);
-    }
-    void frontier_req (mu_coin::frontier_req const &) override
-    {
-        assert (false);
-    }
-    mu_coin::block_confirmation & confirmation;
-    mu_coin::endpoint sender;
-};
 }
 
 mu_coin::gap_cache::gap_cache () :
 max (128)
 {
 }
-
 
 void mu_coin::gap_cache::add (mu_coin::block const & block_a, mu_coin::block_hash needed_a)
 {
@@ -1928,7 +1889,7 @@ void mu_coin::block_confirmation::initiate_confirmation ()
     if (!complete)
     {
         auto this_l (shared_from_this ());
-        client->processor.add_confirm_listener (root, [this_l] (mu_coin::message const & message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (message_a, endpoint_a);});
+        client->processor.add_confirm_listener (root, [this_l] (mu_coin::confirm_ack const & message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (message_a, endpoint_a);});
         auto list (client->peers.list ());
         for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
         {
@@ -1937,14 +1898,53 @@ void mu_coin::block_confirmation::initiate_confirmation ()
     }
     else
     {
-        // Didn't need anyone else to authorize?  Wow, you're rich.
+        // Didn't need anyone else to confirm?  Wow, you're rich.
     }
 }
 
-void mu_coin::block_confirmation::process_message (mu_coin::message const & message, mu_coin::endpoint const & sender)
+namespace {
+    class root_visitor : public mu_coin::block_visitor
+    {
+    public:
+        root_visitor (mu_coin::block_store & store_a) :
+        store (store_a)
+        {
+        }
+        void send_block (mu_coin::send_block const & block_a) override
+        {
+            result = block_a.previous ();
+        }
+        void receive_block (mu_coin::receive_block const & block_a) override
+        {
+            result = block_a.previous ();
+        }
+        void open_block (mu_coin::open_block const & block_a) override
+        {
+            auto source (store.block_get (block_a.source ()));
+            assert (source != nullptr);
+            assert (dynamic_cast <mu_coin::send_block *> (source.get ()) != nullptr);
+            result = static_cast <mu_coin::send_block *> (source.get ())->hashables.destination;
+        }
+        void change_block (mu_coin::change_block const & block_a) override
+        {
+            result = block_a.previous ();
+        }
+        mu_coin::block_store & store;
+        mu_coin::block_hash result;
+    };
+}
+
+void mu_coin::block_confirmation::process_message (mu_coin::confirm_ack const & message, mu_coin::endpoint const & sender)
 {
-    receivable_message_processor processor_l (*this, sender);
-    message.visit (processor_l);
+    root_visitor visitor (client->store);
+    message.block->visit (visitor);
+    mu_coin::vote vote;
+    vote.address = message.address;
+    vote.sequence = message.sequence;
+    vote.block = message.block->hash ();
+    vote.signature = message.signature;
+    client->conflicts.add (visitor.result, vote);
+    process_confirmation ();
 }
 
 void mu_coin::block_confirmation::advance_timeout ()
@@ -1983,56 +1983,6 @@ void mu_coin::block_confirmation::process_confirmation ()
             advance_timeout ();
         }
     }
-}
-
-namespace {
-class root_visitor : public mu_coin::block_visitor
-{
-public:
-    root_visitor (mu_coin::block_store & store_a) :
-    store (store_a)
-    {
-    }
-    void send_block (mu_coin::send_block const & block_a) override
-    {
-        result = block_a.previous ();
-    }
-    void receive_block (mu_coin::receive_block const & block_a) override
-    {
-        result = block_a.previous ();
-    }
-    void open_block (mu_coin::open_block const & block_a) override
-    {
-        auto source (store.block_get (block_a.source ()));
-        assert (source != nullptr);
-        assert (dynamic_cast <mu_coin::send_block *> (source.get ()) != nullptr);
-        result = static_cast <mu_coin::send_block *> (source.get ())->hashables.destination;
-    }
-    void change_block (mu_coin::change_block const & block_a) override
-    {
-        result = block_a.previous ();
-    }
-    mu_coin::block_store & store;
-    mu_coin::block_hash result;
-};
-}
-
-void receivable_message_processor::confirm_ack (mu_coin::confirm_ack const & message)
-{
-    root_visitor visitor (confirmation.client->store);
-    message.block->visit (visitor);
-    mu_coin::vote vote;
-    vote.address = message.address;
-    vote.sequence = message.sequence;
-    vote.block = message.block->hash ();
-    vote.signature = message.signature;
-    confirmation.client->conflicts.add (visitor.result, vote);
-    confirmation.process_confirmation ();
-}
-
-void receivable_message_processor::confirm_unk (mu_coin::confirm_unk const & message)
-{
-    assert (false);
 }
 
 void mu_coin::processor::confirm_block (mu_coin::block const & incoming)
@@ -5182,7 +5132,7 @@ public:
 
 void mu_coin::processor::process_confirmed (mu_coin::block_hash const & stored_a, mu_coin::block const & confirmed_a)
 {
-    assert (client.store.block_get (stored_a) != nullptr);
+    assert (client.store.block_exists (stored_a));
     confirmed_visitor visitor (client);
     confirmed_a.visit (visitor);
 }

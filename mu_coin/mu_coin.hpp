@@ -707,7 +707,6 @@ namespace mu_coin {
         std::chrono::system_clock::time_point last_attempt;
     };
     class client_impl;
-    using session = std::function <void (mu_coin::message const &, mu_coin::endpoint const &)>;
     class gap_information
     {
     public:
@@ -732,6 +731,7 @@ namespace mu_coin {
         > blocks;
         size_t const max;
     };
+    using session = std::function <void (mu_coin::confirm_ack const &, mu_coin::endpoint const &)>;
     class processor
     {
     public:
@@ -958,7 +958,7 @@ namespace mu_coin {
         ~block_confirmation ();
         void start ();
         void initiate_confirmation ();
-        void process_message (mu_coin::message const &, mu_coin::endpoint const &);
+        void process_message (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
         void process_confirmation ();
         void timeout_action ();
         void advance_timeout ();
