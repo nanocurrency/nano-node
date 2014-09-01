@@ -1863,14 +1863,16 @@ mu_coin::block_confirmation::~block_confirmation ()
     client->conflicts.stop (incoming->previous ());
 }
 
-void mu_coin::block_confirmation::start ()
+void mu_coin::block_confirmation::start_confirm ()
 {
     auto this_l (shared_from_this ());
     client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->begin_confirmation ();});
-    if (client->is_representative ())
-    {
-        
-    }
+}
+
+void mu_coin::block_confirmation::start_announce ()
+{
+    auto this_l (shared_from_this ());
+    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->announce_vote ();});
 }
 
 void mu_coin::block_confirmation::begin_confirmation ()
@@ -1901,6 +1903,52 @@ void mu_coin::block_confirmation::begin_confirmation ()
     else
     {
         // Didn't need anyone else to confirm?  Wow, you're rich.
+    }
+}
+
+void mu_coin::block_confirmation::announce_vote ()
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    auto winner_l (winner ());
+    auto block (client->store.block_get (winner_l.first));
+    assert (block != nullptr);
+    client->network.confirm_block (std::move (block), sequence);
+    ++sequence;
+}
+
+void mu_coin::network::confirm_block (std::unique_ptr <mu_coin::block> block_a, uint64_t sequence_a)
+{
+    mu_coin::confirm_ack confirm;
+    confirm.address = client.representative;
+    confirm.sequence = sequence_a;
+    confirm.block = std::move (block_a);
+    mu_coin::vote vote;
+    vote.block = confirm.block->hash ();
+    vote.sequence = confirm.sequence;
+    mu_coin::private_key prv;
+    auto error (client.wallet.fetch (client.representative, client.wallet.password, prv));
+    assert (!error);
+    mu_coin::sign_message (prv, client.representative, vote.hash (), confirm.signature);
+    prv.clear ();
+    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+    {
+        mu_coin::vectorstream stream (*bytes);
+        confirm.serialize (stream);
+    }
+    auto & client_l (client);
+    auto list (client.peers.list ());
+    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+    {
+        client.network.send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
+            {
+                if (network_logging ())
+                {
+                    if (ec)
+                    {
+                        client_l.log.add (boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ()));
+                    }
+                }
+            });
     }
 }
 
@@ -1980,14 +2028,6 @@ void mu_coin::block_confirmation::check_confirmation ()
     }
 }
 
-void mu_coin::processor::confirm_block (mu_coin::block const & incoming)
-{
-    auto root (incoming.previous ());
-    assert (!root.is_zero ());
-    auto confirmation (std::make_shared <block_confirmation> (incoming.clone (), root, client.shared ()));
-    confirmation->start ();
-}
-
 void mu_coin::processor::process_receive_republish (std::unique_ptr <mu_coin::block> incoming, mu_coin::endpoint const & sender_a)
 {
     std::unique_ptr <mu_coin::block> block (std::move (incoming));
@@ -2027,7 +2067,10 @@ public:
     {
         if (client.wallet.find (block_a.hashables.destination) != client.wallet.end ())
         {
-            client.processor.confirm_block (incoming);
+            auto root (incoming.previous ());
+            assert (!root.is_zero ());
+            auto confirmation (std::make_shared <mu_coin::block_confirmation> (incoming.clone (), root, client.shared ()));
+            confirmation->start_confirm ();
         }
     }
     void receive_block (mu_coin::receive_block const &) override
@@ -2169,7 +2212,14 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
                 client.log.add (boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ()));
             }
             auto successor (client.ledger.successor (block_a.previous ()));
-			confirm_block (*successor);
+            auto root (block_a.previous ());
+            assert (!root.is_zero ());
+            auto confirmation (std::make_shared <block_confirmation> (std::move (successor), root, client.shared ()));
+            confirmation->start_confirm ();
+            if (client.is_representative ())
+            {
+                confirmation->start_announce ();
+            }
             break;
         }
     }
@@ -2575,10 +2625,7 @@ void mu_coin::processor::process_confirmation (mu_coin::block const & block_a, m
 				vote.sequence = 0;
 				mu_coin::sign_message (prv, client.representative, vote.hash (), outgoing.signature);
 				assert (!mu_coin::validate_message (client.representative, vote.hash (), outgoing.signature));
-				{
-					mu_coin::vectorstream stream (*bytes);
-					outgoing.serialize (stream);
-				}
+                outgoing.serialize (stream);
 			}
 		}
 	}

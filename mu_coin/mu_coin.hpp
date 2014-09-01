@@ -747,7 +747,6 @@ namespace mu_coin {
 		void process_message (mu_coin::message &, mu_coin::endpoint const &, bool);
 		void process_unknown (mu_coin::vectorstream &);
         void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
-        void confirm_block (mu_coin::block const &);
         void process_confirmed (mu_coin::block_hash const &, mu_coin::block const &);
         void add_confirm_listener (mu_coin::block_hash const &, session const &);
         void remove_confirm_listener (mu_coin::block_hash const &);
@@ -828,6 +827,7 @@ namespace mu_coin {
         void receive_action (boost::system::error_code const &, size_t);
         void rpc_action (boost::system::error_code const &, size_t);
         void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
+        void confirm_block (std::unique_ptr <mu_coin::block>, uint64_t);
         void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <mu_coin::endpoint, 24> const &);
         void send_keepalive (mu_coin::endpoint const &);
         void send_confirm_req (mu_coin::endpoint const &, mu_coin::block const &);
@@ -959,8 +959,10 @@ namespace mu_coin {
     public:
         block_confirmation (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>);
         ~block_confirmation ();
-        void start ();
+        void start_confirm ();
         void begin_confirmation ();
+        void start_announce ();
+        void announce_vote ();
         void process_message (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
         void check_confirmation ();
         void decision_cutoff ();
@@ -972,6 +974,7 @@ namespace mu_coin {
         std::unique_ptr <mu_coin::block> const incoming;
         std::shared_ptr <mu_coin::client_impl> client;
         std::mutex mutex;
+        uint64_t sequence;
         bool waiting;
         bool complete;
     };
