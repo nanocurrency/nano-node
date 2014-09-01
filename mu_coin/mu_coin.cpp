@@ -4987,6 +4987,11 @@ mu_coin::uint256_t mu_coin::block_confirmation::uncontested ()
 	return client->conflicts.roots [incoming->previous ()]->uncontested ();
 }
 
+bool mu_coin::block_confirmation::conflicted ()
+{
+    return client->conflicts.roots [incoming->previous ()]->conflicted ();
+}
+
 std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::block_confirmation::winner ()
 {
     return client->conflicts.roots [incoming->previous ()]->winner ();
