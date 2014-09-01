@@ -1165,9 +1165,9 @@ TEST (fork, publish)
 	}
 }
 
-TEST (fork, DISABLED_keep)
+TEST (fork, keep)
 {
-    mu_coin::system system (1, 24000, 25000, 2, 500);
+    mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
 	system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
     mu_coin::keypair key1;
     std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
@@ -1194,6 +1194,6 @@ TEST (fork, DISABLED_keep)
 		system.service->poll_one ();
 		system.processor.poll_one ();
 	}
-	ASSERT_TRUE (system.clients [0]->client_m->store.block_exists (send1->hash ()));
-	ASSERT_TRUE (system.clients [1]->client_m->store.block_exists (send1->hash ()));
+	ASSERT_TRUE (system.clients [0]->client_m->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.clients [1]->client_m->store.block_exists (publish1.block->hash ()));
 }

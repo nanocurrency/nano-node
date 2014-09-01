@@ -1977,7 +1977,17 @@ void mu_coin::block_confirmation::check_confirmation ()
         }
         else
         {
-            advance_timeout ();
+            auto winner_l (winner ());
+            if (winner_l.second >= threshold)
+            {
+                complete = true;
+                lock.unlock ();
+                client->processor.process_confirmed (incoming->hash (), *incoming);
+            }
+            else
+            {
+                advance_timeout ();
+            }
         }
     }
 }
@@ -4970,6 +4980,11 @@ mu_coin::uint256_t mu_coin::conflicts::uncontested (mu_coin::block_hash const & 
 mu_coin::uint256_t mu_coin::block_confirmation::uncontested ()
 {
 	return client->conflicts.roots [incoming->previous ()]->uncontested ();
+}
+
+std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::block_confirmation::winner ()
+{
+    return client->conflicts.roots [incoming->previous ()]->winner ();
 }
 
 namespace

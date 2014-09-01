@@ -964,6 +964,7 @@ namespace mu_coin {
         void timeout_action ();
         void advance_timeout ();
 		mu_coin::uint256_t uncontested ();
+        std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
         mu_coin::uint256_union root;
         mu_coin::uint256_t threshold;
         std::chrono::system_clock::time_point timeout;
