@@ -1185,4 +1185,11 @@ TEST (fork, DISABLED_keep)
 	system.clients [1]->client_m->processor.process_message (publish1, mu_coin::endpoint {}, true);
     system.clients [0]->client_m->processor.process_message (publish2, mu_coin::endpoint {}, true);
 	system.clients [1]->client_m->processor.process_message (publish2, mu_coin::endpoint {}, true);
+	while (system.clients [0]->client_m->conflicts.roots.size () == 1)
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+	}
+	ASSERT_TRUE (system.clients [0]->client_m->store.block_exists (send1->hash ()));
+	ASSERT_TRUE (system.clients [1]->client_m->store.block_exists (send1->hash ()));
 }
