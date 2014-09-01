@@ -1003,6 +1003,7 @@ namespace mu_coin {
         void start ();
         void stop ();
         std::shared_ptr <mu_coin::client_impl> shared ();
+        bool is_representative ();
         mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;

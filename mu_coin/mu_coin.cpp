@@ -1867,11 +1867,15 @@ void mu_coin::block_confirmation::start ()
 {
     auto this_l (shared_from_this ());
     client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->begin_confirmation ();});
+    if (client->is_representative ())
+    {
+        
+    }
 }
 
 void mu_coin::block_confirmation::begin_confirmation ()
 {
-    if (client->wallet.find (client->representative) != client->wallet.end ())
+    if (client->is_representative ())
     {
         mu_coin::vote vote;
         vote.address = client->representative;
@@ -2164,7 +2168,8 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
             {
                 client.log.add (boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ()));
             }
-			confirm_block (*client.ledger.successor (block_a.previous ()));
+            auto successor (client.ledger.successor (block_a.previous ()));
+			confirm_block (*successor);
             break;
         }
     }
@@ -2541,11 +2546,10 @@ void mu_coin::processor::process_unknown (mu_coin::vectorstream & stream_a)
 
 void mu_coin::processor::process_confirmation (mu_coin::block const & block_a, mu_coin::endpoint const & sender)
 {
-    mu_coin::private_key prv;
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
 	{
 		mu_coin::vectorstream stream (*bytes);
-		if (client.wallet.fetch (client.representative, client.wallet.password, prv))
+		if (!client.is_representative ())
 		{
 			process_unknown (stream);
 		}
@@ -2558,6 +2562,9 @@ void mu_coin::processor::process_confirmation (mu_coin::block const & block_a, m
 			}
 			else
 			{
+                mu_coin::private_key prv;
+                auto error (client.wallet.fetch (client.representative, client.wallet.password, prv));
+                assert (!error);
 				mu_coin::confirm_ack outgoing;
 				outgoing.address = client.representative;
                 outgoing.block = block_a.clone ();
@@ -5172,4 +5179,9 @@ std::unique_ptr <mu_coin::block> mu_coin::ledger::successor (mu_coin::block_hash
 		assert (result != nullptr);
 	} 
 	return result;
+}
+
+bool mu_coin::client_impl::is_representative ()
+{
+    return wallet.find (representative) != wallet.end ();
 }
