@@ -1860,7 +1860,7 @@ complete (false)
 
 mu_coin::block_confirmation::~block_confirmation ()
 {
-    client->conflicts.stop (incoming->previous ());
+	client->conflicts.stop (incoming->previous ());
 }
 
 void mu_coin::block_confirmation::start_confirm ()
@@ -1937,7 +1937,7 @@ void mu_coin::network::confirm_block (std::unique_ptr <mu_coin::block> block_a, 
     }
     auto & client_l (client);
     auto list (client.peers.list ());
-    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+    for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
     {
         client.network.send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
             {
@@ -5022,16 +5022,19 @@ mu_coin::uint256_t mu_coin::conflicts::uncontested (mu_coin::block_hash const & 
 
 mu_coin::uint256_t mu_coin::block_confirmation::uncontested ()
 {
+	assert (client->conflicts.roots.find (incoming->previous ()) != client->conflicts.roots.end ());
 	return client->conflicts.roots [incoming->previous ()]->uncontested ();
 }
 
 bool mu_coin::block_confirmation::conflicted ()
 {
+	assert (client->conflicts.roots.find (incoming->previous ()) != client->conflicts.roots.end ());
     return client->conflicts.roots [incoming->previous ()]->conflicted ();
 }
 
 std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::block_confirmation::winner ()
 {
+	assert (client->conflicts.roots.find (incoming->previous ()) != client->conflicts.roots.end ());
     return client->conflicts.roots [incoming->previous ()]->winner ();
 }
 

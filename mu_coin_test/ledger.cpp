@@ -1176,6 +1176,7 @@ TEST (fork, publish)
 TEST (fork, keep)
 {
     mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
+	ASSERT_EQ (1, system.clients [0]->client_m->peers.size ());
 	system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
     mu_coin::keypair key1;
     std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
