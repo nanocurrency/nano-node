@@ -4894,7 +4894,7 @@ void mu_coin::votes::add (mu_coin::vote const & vote_a)
     }
 }
 
-mu_coin::block_hash mu_coin::votes::winner ()
+std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::votes::winner ()
 {
     std::unordered_map <mu_coin::block_hash, mu_coin::uint256_t> totals;
     for (auto i: rep_votes)
@@ -4911,12 +4911,12 @@ mu_coin::block_hash mu_coin::votes::winner ()
     std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner_l;
     for (auto i: totals)
     {
-        if (i.second > winner_l.second)
+        if (i.second >= winner_l.second)
         {
             winner_l = i;
         }
     }
-    return winner_l.first;
+    return winner_l;
 }
 
 mu_coin::uint256_t mu_coin::votes::uncontested ()

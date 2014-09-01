@@ -862,8 +862,9 @@ TEST (votes, add_one)
     ASSERT_EQ (1, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key1.pub));
     ASSERT_EQ (block, votes.rep_votes [key1.pub].second);
-    auto block2 (votes.winner ());
-    ASSERT_EQ (block, block2);
+    auto winner (votes.winner ());
+    ASSERT_EQ (block, winner.first);
+    ASSERT_EQ (ledger.weight (key1.pub), winner.second);
 }
 
 TEST (votes, add_two)
@@ -895,8 +896,8 @@ TEST (votes, add_two)
     ASSERT_EQ (block1, votes.rep_votes [key1.pub].second);
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key2.pub));
     ASSERT_EQ (block2, votes.rep_votes [key2.pub].second);
-    auto block3 (votes.winner ());
-    ASSERT_EQ (block2, block3);
+    auto winner (votes.winner ());
+    ASSERT_EQ (block2, winner.first);
 }
 
 TEST (votes, add_existing)
@@ -917,7 +918,7 @@ TEST (votes, add_existing)
     mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
     auto winner1 (votes.winner ());
-    ASSERT_EQ (block1, winner1);
+    ASSERT_EQ (block1, winner1.first);
     mu_coin::vote vote2;
     vote2.address = key1.pub;
     vote2.sequence = 2;
@@ -925,7 +926,7 @@ TEST (votes, add_existing)
     mu_coin::sign_message (key1.prv, key1.pub, vote2.hash (), vote2.signature);
     votes.add (vote2);
     auto winner2 (votes.winner ());
-    ASSERT_EQ (block2, winner2);
+    ASSERT_EQ (block2, winner2.first);
     ASSERT_EQ (1, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key1.pub));
     ASSERT_EQ (block2, votes.rep_votes [key1.pub].second);
@@ -952,6 +953,9 @@ TEST (votes, add_contesting)
     votes.add (vote1);
     auto uncontested1 (votes.uncontested ());
     ASSERT_EQ (0, uncontested1);
+    auto winner1 (votes.winner ());
+    ASSERT_EQ (block1, winner1.first);
+    ASSERT_EQ (0, winner1.second);
     mu_coin::vote vote2;
     vote2.address = key2.pub;
     vote2.sequence = 1;
@@ -996,7 +1000,7 @@ TEST (votes, add_old)
     mu_coin::sign_message (key1.prv, key1.pub, vote1.hash (), vote1.signature);
     votes.add (vote1);
     auto winner1 (votes.winner ());
-    ASSERT_EQ (block1, winner1);
+    ASSERT_EQ (block1, winner1.first);
     mu_coin::vote vote2;
     vote2.address = key1.pub;
     vote2.sequence = 1;
@@ -1004,7 +1008,7 @@ TEST (votes, add_old)
     mu_coin::sign_message (key1.prv, key1.pub, vote2.hash (), vote2.signature);
     votes.add (vote2);
     auto winner2 (votes.winner ());
-    ASSERT_EQ (block1, winner2);
+    ASSERT_EQ (block1, winner2.first);
     ASSERT_EQ (1, votes.rep_votes.size ());
     ASSERT_NE (votes.rep_votes.end (), votes.rep_votes.find (key1.pub));
     ASSERT_EQ (block1, votes.rep_votes [key1.pub].second);
