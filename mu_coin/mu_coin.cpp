@@ -1852,6 +1852,7 @@ root (root_a),
 threshold (client_a->ledger.supply () / 2),
 incoming (std::move (incoming_a)),
 client (client_a),
+waiting (false),
 complete (false)
 {
     client->conflicts.start (incoming->previous ());
@@ -1944,24 +1945,12 @@ void mu_coin::block_confirmation::process_message (mu_coin::confirm_ack const & 
     check_confirmation ();
 }
 
-void mu_coin::block_confirmation::advance_timeout ()
+void mu_coin::block_confirmation::decision_cutoff ()
 {
-    auto this_l (shared_from_this ());
-    timeout = std::chrono::system_clock::now () + std::chrono::seconds (5);
-    client->service.add (timeout, [this_l] () {this_l->timeout_action ();});
-}
-
-void mu_coin::block_confirmation::timeout_action ()
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    if (timeout < std::chrono::system_clock::now ())
-    {
-        
-    }
-    else
-    {
-        // Timeout signals may be invalid if we've received action since they were queued
-    }
+    std::unique_lock <std::mutex> lock (mutex);
+    complete = true;
+    lock.unlock ();
+    client->processor.process_confirmed (incoming->hash (), *incoming);
 }
 
 void mu_coin::block_confirmation::check_confirmation ()
@@ -1969,7 +1958,7 @@ void mu_coin::block_confirmation::check_confirmation ()
     std::unique_lock <std::mutex> lock (mutex);
     if (!complete)
     {
-        if (uncontested () >= threshold)
+        if (!waiting && uncontested () >= threshold)
         {
             complete = true;
             lock.unlock ();
@@ -1977,16 +1966,11 @@ void mu_coin::block_confirmation::check_confirmation ()
         }
         else
         {
-            auto winner_l (winner ());
-            if (winner_l.second >= threshold)
+            if (!waiting && conflicted ())
             {
-                complete = true;
-                lock.unlock ();
-                client->processor.process_confirmed (incoming->hash (), *incoming);
-            }
-            else
-            {
-                advance_timeout ();
+                waiting = true;
+                auto this_l (shared_from_this ());
+                client->service.add (std::chrono::system_clock::now () + std::chrono::seconds (5 * 60), [this_l] () {this_l->decision_cutoff ();});
             }
         }
     }
@@ -5155,15 +5139,12 @@ public:
     }
     void receive_block (mu_coin::receive_block const &) override
     {
-        assert (false);
     }
     void open_block (mu_coin::open_block const &) override
     {
-        assert (false);
     }
     void change_block (mu_coin::change_block const &) override
     {
-        assert (false);
     }
     mu_coin::client_impl & client;
 };

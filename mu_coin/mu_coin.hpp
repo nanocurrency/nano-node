@@ -963,17 +963,16 @@ namespace mu_coin {
         void begin_confirmation ();
         void process_message (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
         void check_confirmation ();
-        void timeout_action ();
-        void advance_timeout ();
+        void decision_cutoff ();
 		mu_coin::uint256_t uncontested ();
         bool conflicted ();
         std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
         mu_coin::uint256_union root;
         mu_coin::uint256_t threshold;
-        std::chrono::system_clock::time_point timeout;
         std::unique_ptr <mu_coin::block> const incoming;
         std::shared_ptr <mu_coin::client_impl> client;
         std::mutex mutex;
+        bool waiting;
         bool complete;
     };
     class genesis
