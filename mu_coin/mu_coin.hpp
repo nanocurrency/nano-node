@@ -469,6 +469,7 @@ namespace mu_coin {
         mu_coin::uint256_t balance (mu_coin::block_hash const &);
 		mu_coin::uint256_t account_balance (mu_coin::address const &);
         mu_coin::uint256_t weight (mu_coin::address const &);
+		std::unique_ptr <mu_coin::block> successor (mu_coin::block_hash const &);
 		mu_coin::block_hash latest (mu_coin::address const &);
         mu_coin::address representative (mu_coin::block_hash const &);
         mu_coin::address representative_calculated (mu_coin::block_hash const &);

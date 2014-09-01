@@ -2069,6 +2069,23 @@ public:
     }
     mu_coin::client_impl & client;
 };
+	
+class successor_visitor : public mu_coin::block_visitor
+{
+public:
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+    }
+    void receive_block (mu_coin::receive_block const & block_a) override
+    {
+    }
+    void open_block (mu_coin::open_block const & block_a) override
+    {
+    }
+    void change_block (mu_coin::change_block const & block_a) override
+    {
+    }
+};
 }
 
 mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block const & block_a)
@@ -2153,7 +2170,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
             {
                 client.log.add (boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ()));
             }
-			confirm_block (block_a);
+			confirm_block (*client.ledger.successor (block_a.previous ()));
             break;
         }
     }
@@ -5132,4 +5149,21 @@ void mu_coin::processor::process_confirmed (mu_coin::block_hash const & stored_a
     assert (client.store.block_exists (stored_a));
     confirmed_visitor visitor (client);
     confirmed_a.visit (visitor);
+}
+
+std::unique_ptr <mu_coin::block> mu_coin::ledger::successor (mu_coin::block_hash const & block_a)
+{
+	assert (store.block_exists (block_a));
+	auto account_l (account (block_a));
+	auto latest_l (latest (account_l));
+	assert (latest_l != block_a);
+	std::unique_ptr <mu_coin::block> result (store.block_get (latest_l));
+	assert (result != nullptr);
+	while (result->previous () != block_a)
+	{
+		auto previous_hash (result->previous ());
+		result = store.block_get (previous_hash);
+		assert (result != nullptr);
+	} 
+	return result;
 }
