@@ -4904,6 +4904,11 @@ void mu_coin::votes::add (mu_coin::vote const & vote_a)
     }
 }
 
+bool mu_coin::votes::conflicted ()
+{
+    return uncontested_block == 1;
+}
+
 std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::votes::winner ()
 {
     std::unordered_map <mu_coin::block_hash, mu_coin::uint256_t> totals;
