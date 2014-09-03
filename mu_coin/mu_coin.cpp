@@ -1852,8 +1852,7 @@ root (root_a),
 threshold (client_a->ledger.supply () / 2),
 incoming (std::move (incoming_a)),
 client (client_a),
-waiting (false),
-complete (false)
+conflicted (false)
 {
     client->conflicts.start (incoming->previous ());
 }
@@ -1890,19 +1889,12 @@ void mu_coin::block_confirmation::begin_confirmation ()
         client->conflicts.add (incoming->previous (), vote);
     }
     check_confirmation ();
-    if (!complete)
+    auto this_l (shared_from_this ());
+    client->processor.add_confirm_listener (root, [this_l] (mu_coin::confirm_ack const & message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (message_a, endpoint_a);});
+    auto list (client->peers.list ());
+    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
     {
-        auto this_l (shared_from_this ());
-        client->processor.add_confirm_listener (root, [this_l] (mu_coin::confirm_ack const & message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (message_a, endpoint_a);});
-        auto list (client->peers.list ());
-        for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
-        {
-            client->network.send_confirm_req (i->endpoint, *incoming);
-        }
-    }
-    else
-    {
-        // Didn't need anyone else to confirm?  Wow, you're rich.
+        client->network.send_confirm_req (i->endpoint, *incoming);
     }
 }
 
@@ -2000,7 +1992,6 @@ void mu_coin::block_confirmation::process_message (mu_coin::confirm_ack const & 
 void mu_coin::block_confirmation::decision_cutoff ()
 {
     std::unique_lock <std::mutex> lock (mutex);
-    complete = true;
     lock.unlock ();
     client->processor.process_confirmed (incoming->hash (), *incoming);
 }
@@ -2008,23 +1999,25 @@ void mu_coin::block_confirmation::decision_cutoff ()
 void mu_coin::block_confirmation::check_confirmation ()
 {
     std::unique_lock <std::mutex> lock (mutex);
-    if (!complete)
+    if (!conflicted)
     {
-        if (!waiting && uncontested () >= threshold)
+        auto winner_l (winner ());
+        if (winner_l.second >= threshold)
         {
-            complete = true;
             lock.unlock ();
             client->processor.process_confirmed (incoming->hash (), *incoming);
         }
-        else
-        {
-            if (!waiting && conflicted ())
-            {
-                waiting = true;
-                auto this_l (shared_from_this ());
-                client->service.add (std::chrono::system_clock::now () + std::chrono::seconds (5 * 60), [this_l] () {this_l->decision_cutoff ();});
-            }
-        }
+    }
+}
+
+void mu_coin::block_confirmation::set_conflicted ()
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    if (!conflicted)
+    {
+        conflicted = true;
+        auto this_l (shared_from_this ());
+        client->service.add (std::chrono::system_clock::now () + std::chrono::seconds (5 * 60), [this_l] () {this_l->decision_cutoff ();});
     }
 }
 
@@ -2215,6 +2208,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
             auto root (block_a.previous ());
             assert (!root.is_zero ());
             auto confirmation (std::make_shared <block_confirmation> (std::move (successor), root, client.shared ()));
+            confirmation->set_conflicted ();
             confirmation->start_confirm ();
             if (client.is_representative ())
             {
@@ -4931,20 +4925,7 @@ void mu_coin::votes::add (mu_coin::vote const & vote_a)
                 existing->second.second = vote_a.block;
             }
         }
-        if (uncontested_block.is_zero ())
-        {
-            uncontested_block = vote_a.block;
-        }
-        else if (uncontested_block != vote_a.block)
-        {
-            uncontested_block = 1;
-        }
     }
-}
-
-bool mu_coin::votes::conflicted ()
-{
-    return uncontested_block == 1;
 }
 
 std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::votes::winner ()
@@ -4972,22 +4953,7 @@ std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::votes::winner ()
     return winner_l;
 }
 
-mu_coin::uint256_t mu_coin::votes::uncontested ()
-{
-    mu_coin::uint256_t result;
-    if (uncontested_block != 1)
-    {
-		for (auto i: rep_votes)
-		{
-			assert (i.second.second == uncontested_block);
-			result += ledger.weight (i.first);
-		}
-    }
-    return result;
-}
-
 mu_coin::votes::votes (mu_coin::ledger & ledger_a) :
-uncontested_block (0),
 ledger (ledger_a)
 {
 }
@@ -5009,33 +4975,16 @@ ledger (ledger_a)
 {
 }
 
-mu_coin::uint256_t mu_coin::conflicts::uncontested (mu_coin::block_hash const & hash_a)
+mu_coin::votes & mu_coin::block_confirmation::conflict ()
 {
-	auto existing (roots.find (hash_a));
-	mu_coin::uint256_t result;
-	if (existing != roots.end ())
-	{
-		result = existing->second->uncontested ();
-	}
-	return result;
-}
-
-mu_coin::uint256_t mu_coin::block_confirmation::uncontested ()
-{
-	assert (client->conflicts.roots.find (incoming->previous ()) != client->conflicts.roots.end ());
-	return client->conflicts.roots [incoming->previous ()]->uncontested ();
-}
-
-bool mu_coin::block_confirmation::conflicted ()
-{
-	assert (client->conflicts.roots.find (incoming->previous ()) != client->conflicts.roots.end ());
-    return client->conflicts.roots [incoming->previous ()]->conflicted ();
+    auto entry (client->conflicts.roots.find (incoming->previous ()));
+    assert (entry != client->conflicts.roots.end ());
+    return *entry->second;
 }
 
 std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::block_confirmation::winner ()
 {
-	assert (client->conflicts.roots.find (incoming->previous ()) != client->conflicts.roots.end ());
-    return client->conflicts.roots [incoming->previous ()]->winner ();
+    return conflict ().winner ();
 }
 
 namespace

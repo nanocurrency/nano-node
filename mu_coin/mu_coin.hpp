@@ -496,12 +496,9 @@ namespace mu_coin {
     {
     public:
         votes (mu_coin::ledger &);
-        void add (mu_coin::vote const &);        
-        mu_coin::uint256_t uncontested ();
-        bool conflicted ();
+        void add (mu_coin::vote const &);
         std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
         std::unordered_map <mu_coin::address, std::pair <uint64_t, mu_coin::block_hash>> rep_votes;
-        mu_coin::block_hash uncontested_block;
         mu_coin::ledger & ledger;
     };
     class conflicts
@@ -511,8 +508,6 @@ namespace mu_coin {
         void add (mu_coin::block_hash const &, mu_coin::vote const &);
         void start (mu_coin::block_hash const &);
         void stop (mu_coin::block_hash const &);
-		mu_coin::uint256_t uncontested (mu_coin::block_hash const &);
-        bool conflicted (mu_coin::block_hash const &);
         std::unordered_map <mu_coin::block_hash, std::unique_ptr <votes>> roots;
 		mu_coin::ledger & ledger;
     };
@@ -966,8 +961,8 @@ namespace mu_coin {
         void process_message (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
         void check_confirmation ();
         void decision_cutoff ();
-		mu_coin::uint256_t uncontested ();
-        bool conflicted ();
+        void set_conflicted ();
+        mu_coin::votes & conflict ();
         std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
         mu_coin::uint256_union root;
         mu_coin::uint256_t threshold;
@@ -975,8 +970,7 @@ namespace mu_coin {
         std::shared_ptr <mu_coin::client_impl> client;
         std::mutex mutex;
         uint64_t sequence;
-        bool waiting;
-        bool complete;
+        bool conflicted;
     };
     class genesis
     {

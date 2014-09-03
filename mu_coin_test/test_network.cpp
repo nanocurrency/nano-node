@@ -295,7 +295,6 @@ TEST (receivable_processor, confirm_no_pos)
     con1.block = block1->clone ();
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.block->hash (), con1.signature);
 	system.clients [0]->client_m->processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
-    ASSERT_TRUE (receivable->uncontested ().is_zero ());
 }
 
 TEST (receivable_processor, confirm_insufficient_pos)
@@ -316,8 +315,6 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	vote.block = block1->hash ();
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote.hash (), con1.signature);
 	system.clients [0]->client_m->processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
-    ASSERT_EQ (1, receivable->uncontested ());
-    ASSERT_FALSE (receivable->complete);
     // Shared_from_this, local
     ASSERT_EQ (2, receivable.use_count ());
 }
@@ -340,8 +337,6 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	vote.block = block1->hash ();
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote.hash (), con1.signature);
 	system.clients [0]->client_m->processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
-    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), receivable->uncontested ());
-    ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (2, receivable.use_count ());
 }
 
@@ -380,8 +375,6 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (100, system.clients [0]->client_m->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->client_m->ledger.account_balance (system.test_genesis_address.pub));
     ASSERT_EQ (100, system.clients [1]->client_m->ledger.account_balance (key2.pub));
-    ASSERT_EQ (amount, receivable->uncontested ());
-    ASSERT_TRUE (receivable->complete);
     ASSERT_EQ (2, receivable.use_count ());
 }
 
