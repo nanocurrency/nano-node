@@ -1196,13 +1196,21 @@ TEST (fork, keep)
     publish2.block = std::move (send2);
     system.clients [0]->client_m->processor.process_message (publish1, mu_coin::endpoint {}, true);
 	system.clients [1]->client_m->processor.process_message (publish1, mu_coin::endpoint {}, true);
+    ASSERT_EQ (0, system.clients [0]->client_m->conflicts.roots.size ());
     system.clients [0]->client_m->processor.process_message (publish2, mu_coin::endpoint {}, true);
 	system.clients [1]->client_m->processor.process_message (publish2, mu_coin::endpoint {}, true);
-	while (system.clients [0]->client_m->conflicts.roots.size () == 1)
+    ASSERT_EQ (1, system.clients [0]->client_m->conflicts.roots.size ());
+    auto conflict (system.clients [0]->client_m->conflicts.roots.find (system.genesis.hash ()));
+    ASSERT_NE (system.clients [0]->client_m->conflicts.roots.end (), conflict);
+    ASSERT_EQ (0, conflict->second->rep_votes.size ());
+	while (conflict->second->rep_votes.empty ())
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();
 	}
+    auto winner (conflict->second->winner ());
+    ASSERT_EQ (publish1.block->hash (), winner.first);
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), winner.second);
 	ASSERT_TRUE (system.clients [0]->client_m->store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (system.clients [1]->client_m->store.block_exists (publish1.block->hash ()));
 }

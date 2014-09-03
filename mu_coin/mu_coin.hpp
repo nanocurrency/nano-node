@@ -496,7 +496,7 @@ namespace mu_coin {
     {
     public:
         votes (mu_coin::ledger &);
-        void add (mu_coin::vote const &);
+        void add (mu_coin::vote const &);        
         mu_coin::uint256_t uncontested ();
         bool conflicted ();
         std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
