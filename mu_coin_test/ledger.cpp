@@ -1125,7 +1125,7 @@ TEST (ledger, successor)
 	ASSERT_EQ (send1, *system.clients [0]->client_m->ledger.successor (system.genesis.hash ()));
 }
 
-TEST (fork, DISABLED_publish)
+TEST (fork, publish)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
 	system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
@@ -1149,12 +1149,20 @@ TEST (fork, DISABLED_publish)
 	ASSERT_EQ (0, system.clients [0]->client_m->conflicts.roots.size ());
     system.clients [0]->client_m->processor.process_message (publish2, mu_coin::endpoint {}, true);
 	ASSERT_EQ (1, system.clients [0]->client_m->conflicts.roots.size ());
-	ASSERT_NE (system.clients [0]->client_m->conflicts.roots.end (), system.clients [0]->client_m->conflicts.roots.find (publish1.block->previous ()));
-	while (!system.clients [0]->client_m->conflicts.roots.empty ())
+    auto conflict1 (system.clients [0]->client_m->conflicts.roots.find (publish1.block->previous ()));
+	ASSERT_NE (system.clients [0]->client_m->conflicts.roots.end (), conflict1);
+    ASSERT_TRUE (conflict1->second->rep_votes.empty ());
+	while (conflict1->second->rep_votes.empty ())
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();
 	}
+    ASSERT_EQ (1, conflict1->second->rep_votes.size ());
+    ASSERT_NE (conflict1->second->rep_votes.end (), conflict1->second->rep_votes.find (system.test_genesis_address.pub));
+    ASSERT_EQ (publish1.block->hash (), conflict1->second->rep_votes.find (system.test_genesis_address.pub)->second.second);
+    auto winner (conflict1->second->winner ());
+    ASSERT_EQ (publish1.block->hash (), winner.first);
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), winner.second);
 }
 
 TEST (fork, DISABLED_keep)
