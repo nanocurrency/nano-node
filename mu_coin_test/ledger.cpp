@@ -1165,7 +1165,7 @@ TEST (fork, publish)
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), winner.second);
 }
 
-TEST (fork, DISABLED_keep)
+TEST (fork, keep)
 {
     mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
 	ASSERT_EQ (1, system.clients [0]->client_m->peers.size ());
@@ -1194,6 +1194,7 @@ TEST (fork, DISABLED_keep)
     ASSERT_EQ (1, system.clients [0]->client_m->conflicts.roots.size ());
     auto conflict (system.clients [0]->client_m->conflicts.roots.find (system.genesis.hash ()));
     ASSERT_NE (system.clients [0]->client_m->conflicts.roots.end (), conflict);
+    ASSERT_TRUE (conflict->second->rep_votes.empty ());
     while (conflict->second->rep_votes.empty ())
 	{
 		system.service->poll_one ();
