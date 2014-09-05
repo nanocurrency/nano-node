@@ -492,24 +492,37 @@ namespace mu_coin {
         mu_coin::block_hash block;
         uint64_t sequence;
     };
+    class client_impl;
     class votes
     {
     public:
-        votes (mu_coin::ledger &);
+        votes (std::shared_ptr <mu_coin::client_impl>, mu_coin::uint256_union const &);
+        ~votes ();
         void add (mu_coin::vote const &);
+        void start_announce ();
+        void start_request ();
+        void announce_vote ();
+        void set_conflicted ();
         std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
+        mu_coin::uint256_union root;
+        mu_coin::uint256_t threshold;
+        std::unique_ptr <mu_coin::block> const incoming;
+        std::shared_ptr <mu_coin::client_impl> client;
+        uint64_t sequence;
+        bool conflicted;
         std::unordered_map <mu_coin::address, std::pair <uint64_t, mu_coin::block_hash>> rep_votes;
-        mu_coin::ledger & ledger;
+        std::mutex mutex;
     };
     class conflicts
     {
     public:
 		conflicts (mu_coin::ledger &);
         void add (mu_coin::block_hash const &, mu_coin::vote const &);
-        void start (mu_coin::block_hash const &);
+        std::shared_ptr <mu_coin::votes> start (mu_coin::block_hash const &);
         void stop (mu_coin::block_hash const &);
-        std::unordered_map <mu_coin::block_hash, std::unique_ptr <votes>> roots;
+        std::unordered_map <mu_coin::block_hash, std::weak_ptr <mu_coin::votes>> roots;
 		mu_coin::ledger & ledger;
+        std::mutex mute;
     };
     class keypair
     {
@@ -704,7 +717,6 @@ namespace mu_coin {
         std::chrono::system_clock::time_point last_contact;
         std::chrono::system_clock::time_point last_attempt;
     };
-    class client_impl;
     class gap_information
     {
     public:
@@ -743,17 +755,10 @@ namespace mu_coin {
 		void process_unknown (mu_coin::vectorstream &);
         void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
         void process_confirmed (mu_coin::block_hash const &, mu_coin::block const &);
-        void add_confirm_listener (mu_coin::block_hash const &, session const &);
-        void remove_confirm_listener (mu_coin::block_hash const &);
         void ongoing_keepalive ();
-        size_t publish_listener_size ();
-		void confirm_ack (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
         mu_coin::client_impl & client;
         static std::chrono::seconds constexpr period = std::chrono::seconds (10);
         static std::chrono::seconds constexpr cutoff = period * 5;
-    private:
-        std::mutex mutex;
-        std::unordered_map <mu_coin::block_hash, session> confirm_listeners;
     };
     class transactions
     {
@@ -948,29 +953,6 @@ namespace mu_coin {
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
             >
         > peers;
-    };
-    class block_confirmation : public std::enable_shared_from_this <block_confirmation>
-    {
-    public:
-        block_confirmation (std::unique_ptr <mu_coin::block>, mu_coin::uint256_union const &, std::shared_ptr <mu_coin::client_impl>);
-        ~block_confirmation ();
-        void start_confirm ();
-        void begin_confirmation ();
-        void start_announce ();
-        void announce_vote ();
-        void process_message (mu_coin::confirm_ack const &, mu_coin::endpoint const &);
-        void check_confirmation ();
-        void decision_cutoff ();
-        void set_conflicted ();
-        mu_coin::votes & conflict ();
-        std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
-        mu_coin::uint256_union root;
-        mu_coin::uint256_t threshold;
-        std::unique_ptr <mu_coin::block> const incoming;
-        std::shared_ptr <mu_coin::client_impl> client;
-        std::mutex mutex;
-        uint64_t sequence;
-        bool conflicted;
     };
     class genesis
     {

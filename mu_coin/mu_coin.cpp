@@ -1672,7 +1672,6 @@ client (client_a)
 
 void mu_coin::processor::stop ()
 {
-    confirm_listeners.clear ();
 }
 
 bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
@@ -1862,10 +1861,10 @@ mu_coin::block_confirmation::~block_confirmation ()
 	client->conflicts.stop (incoming->previous ());
 }
 
-void mu_coin::block_confirmation::start_confirm ()
+void mu_coin::block_confirmation::start_tally ()
 {
     auto this_l (shared_from_this ());
-    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->begin_confirmation ();});
+    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->check_confirmation ();});
 }
 
 void mu_coin::block_confirmation::start_announce ()
@@ -1874,23 +1873,8 @@ void mu_coin::block_confirmation::start_announce ()
     client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->announce_vote ();});
 }
 
-void mu_coin::block_confirmation::begin_confirmation ()
+void mu_coin::block_confirmation::start_request ()
 {
-    if (client->is_representative ())
-    {
-        mu_coin::vote vote;
-        vote.address = client->representative;
-        vote.sequence = 0;
-        vote.block = incoming->hash ();
-        mu_coin::private_key prv;
-        client->wallet.fetch (client->representative, client->wallet.password, prv);
-        mu_coin::sign_message (prv, client->representative, vote.hash (), vote.signature);
-        prv.clear ();
-        client->conflicts.add (incoming->previous (), vote);
-    }
-    check_confirmation ();
-    auto this_l (shared_from_this ());
-    client->processor.add_confirm_listener (root, [this_l] (mu_coin::confirm_ack const & message_a, mu_coin::endpoint const & endpoint_a) {this_l->process_message (message_a, endpoint_a);});
     auto list (client->peers.list ());
     for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
     {
@@ -2063,7 +2047,8 @@ public:
             auto root (incoming.previous ());
             assert (!root.is_zero ());
             auto confirmation (std::make_shared <mu_coin::block_confirmation> (incoming.clone (), root, client.shared ()));
-            confirmation->start_confirm ();
+            confirmation->start_tally ();
+            confirmation->start_request ();
         }
     }
     void receive_block (mu_coin::receive_block const &) override
@@ -2209,7 +2194,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
             assert (!root.is_zero ());
             auto confirmation (std::make_shared <block_confirmation> (std::move (successor), root, client.shared ()));
             confirmation->set_conflicted ();
-            confirmation->start_confirm ();
+            confirmation->start_tally ();
             if (client.is_representative ())
             {
                 confirmation->start_announce ();
@@ -2248,18 +2233,6 @@ std::vector <mu_coin::peer_information> mu_coin::peer_container::list ()
         result.push_back (*i);
     }
     return result;
-}
-
-void mu_coin::processor::add_confirm_listener (mu_coin::uint256_union const & session_a, session const & function_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    confirm_listeners [session_a] = function_a;
-}
-
-void mu_coin::processor::remove_confirm_listener (mu_coin::block_hash const & block_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    confirm_listeners.erase (block_a);
 }
 
 void mu_coin::keepalive_req::visit (mu_coin::message_visitor & visitor_a) const
@@ -2342,12 +2315,6 @@ size_t mu_coin::processor_service::size ()
 {
     std::lock_guard <std::mutex> lock (mutex);
     return operations.size ();
-}
-
-size_t mu_coin::processor::publish_listener_size ()
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    return confirm_listeners.size ();
 }
 
 mu_coin::account_iterator::account_iterator (leveldb::DB & db_a) :
@@ -3199,17 +3166,6 @@ bool mu_coin::block_store::latest_exists (mu_coin::address const & address_a)
         result = false;
     }
     return result;
-}
-
-void mu_coin::processor::confirm_ack (mu_coin::confirm_ack const & message_a, mu_coin::endpoint const & sender_a)
-{
-    std::unique_lock <std::mutex> lock (mutex);
-    auto session (confirm_listeners.find (message_a.block->previous ()));
-    if (session != confirm_listeners.end ())
-    {
-        lock.unlock ();
-        session->second (message_a, sender_a);
-    }
 }
 
 mu_coin::uint256_union mu_coin::vote::hash () const
@@ -4953,9 +4909,22 @@ std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::votes::winner ()
     return winner_l;
 }
 
-mu_coin::votes::votes (mu_coin::ledger & ledger_a) :
-ledger (ledger_a)
+mu_coin::votes::votes (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::uint256_union const & root_a) :
+client (client_a),
+root (root_a)
 {
+    if (client_a->is_representative ())
+    {
+        mu_coin::vote vote;
+        vote.address = client->representative;
+        vote.sequence = 0;
+        vote.block = incoming->hash ();
+        mu_coin::private_key prv;
+        client->wallet.fetch (client->representative, client->wallet.password, prv);
+        mu_coin::sign_message (prv, client->representative, vote.hash (), vote.signature);
+        prv.clear ();
+        add (incoming->previous (), vote);
+    }
 }
 
 void mu_coin::conflicts::start (mu_coin::block_hash const & root_a)
@@ -5094,7 +5063,15 @@ public:
 		{
 			client.log.add (boost::str (boost::format ("Received Confirm from %1%") % sender));
 		}
-		client.processor.confirm_ack (message_a, sender);
+        client.processor.process_receive_republish (message_a.block->clone (), sender);
+        mu_coin::vote vote;
+        vote.signature = message_a.signature;
+        vote.address = message_a.address;
+        vote.block = message_a.block->hash ();
+        vote.sequence = message_a.sequence;
+        root_visitor root (client.store);
+        message_a.block->visit (root);
+        client.conflicts.add (root.result, vote);
 	}
 	void confirm_unk (mu_coin::confirm_unk const &) override
 	{
