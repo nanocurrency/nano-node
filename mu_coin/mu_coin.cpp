@@ -1846,34 +1846,7 @@ std::unique_ptr <mu_coin::block> mu_coin::gap_cache::get (mu_coin::block_hash co
     return result;
 }
 
-mu_coin::block_confirmation::block_confirmation (std::unique_ptr <mu_coin::block> incoming_a, mu_coin::uint256_union const & root_a, std::shared_ptr <mu_coin::client_impl> client_a) :
-root (root_a),
-threshold (client_a->ledger.supply () / 2),
-incoming (std::move (incoming_a)),
-client (client_a),
-conflicted (false)
-{
-    client->conflicts.start (incoming->previous ());
-}
-
-mu_coin::block_confirmation::~block_confirmation ()
-{
-	client->conflicts.stop (incoming->previous ());
-}
-
-void mu_coin::block_confirmation::start_tally ()
-{
-    auto this_l (shared_from_this ());
-    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->check_confirmation ();});
-}
-
-void mu_coin::block_confirmation::start_announce ()
-{
-    auto this_l (shared_from_this ());
-    client->service.add (std::chrono::system_clock::now (), [this_l] () {this_l->announce_vote ();});
-}
-
-void mu_coin::block_confirmation::start_request ()
+void mu_coin::votes::start_request ()
 {
     auto list (client->peers.list ());
     for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
@@ -4911,7 +4884,8 @@ std::pair <mu_coin::block_hash, mu_coin::uint256_t> mu_coin::votes::winner ()
 
 mu_coin::votes::votes (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::uint256_union const & root_a) :
 client (client_a),
-root (root_a)
+root (root_a),
+threshold (client_a->ledger.supply () / 2),
 {
     if (client_a->is_representative ())
     {

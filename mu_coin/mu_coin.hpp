@@ -493,26 +493,32 @@ namespace mu_coin {
         uint64_t sequence;
     };
     class client_impl;
-    class votes
+    class votes : public std::enable_shared_from_this <mu_coin::votes>
     {
     public:
         votes (std::shared_ptr <mu_coin::client_impl>, mu_coin::uint256_union const &);
         ~votes ();
         void add (mu_coin::vote const &);
-        void start_announce ();
         void start_request ();
-        void announce_vote ();
         void set_conflicted ();
         std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
         mu_coin::uint256_union root;
         mu_coin::uint256_t threshold;
         std::unique_ptr <mu_coin::block> const incoming;
         std::shared_ptr <mu_coin::client_impl> client;
-        uint64_t sequence;
         bool conflicted;
         std::unordered_map <mu_coin::address, std::pair <uint64_t, mu_coin::block_hash>> rep_votes;
         std::mutex mutex;
     };
+	class announcement : public std::enable_shared_from_this <mu_coin::announcement>
+	{
+	public:
+		announcement (std::shared_ptr <mu_coin::votes>);
+		void start_announce ();
+        void announce ();
+        uint64_t sequence;
+		std::shared_ptr <mu_coin::votes> votes;
+	};
     class conflicts
     {
     public:
