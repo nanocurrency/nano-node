@@ -1858,6 +1858,7 @@ void mu_coin::votes::start_request (mu_coin::block const & block_a)
 void mu_coin::votes::announce_vote ()
 {
     auto winner_l (winner ());
+	assert (winner_l.first != nullptr);
     client->network.confirm_block (std::move (winner_l.first), sequence);
     auto now (std::chrono::system_clock::now ());
     if (now - last_vote < std::chrono::seconds (15))
@@ -4842,19 +4843,16 @@ std::pair <std::unique_ptr <mu_coin::block>, mu_coin::uint256_t> mu_coin::votes:
 mu_coin::votes::votes (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::block const & block_a) :
 client (client_a),
 root (client_a->store.root (block_a)),
+last_winner (block_a.hash ()),
 last_vote (std::chrono::system_clock::now ())
 {
-    if (client_a->is_representative ())
+	client_a->representative_vote (*this, block_a);
+}
+
+void mu_coin::votes::init ()
+{
+    if (client->is_representative ())
     {
-        mu_coin::vote vote_l;
-        vote_l.address = client->representative;
-        vote_l.sequence = 0;
-        vote_l.block = block_a.clone ();
-        mu_coin::private_key prv;
-        client->wallet.fetch (client->representative, client->wallet.password, prv);
-        mu_coin::sign_message (prv, client->representative, vote_l.hash (), vote_l.signature);
-        prv.clear ();
-        vote (vote_l);
         announce_vote ();
     }
     timeout_action ();
@@ -4887,7 +4885,8 @@ void mu_coin::conflicts::start (mu_coin::block const & block_a, bool request_a)
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
-        auto votes (std::make_shared <mu_coin::votes> (client.shared_from_this (), block_a));
+        auto votes (std::make_shared <mu_coin::votes> (client.shared (), block_a));
+		votes->init ();
         roots.insert (std::make_pair (root, std::weak_ptr <mu_coin::votes> (votes)));
         if (request_a)
         {
@@ -5119,4 +5118,25 @@ std::unique_ptr <mu_coin::block> mu_coin::ledger::successor (mu_coin::block_hash
 bool mu_coin::client_impl::is_representative ()
 {
     return wallet.find (representative) != wallet.end ();
+}
+
+void mu_coin::client_impl::representative_vote (mu_coin::votes & votes_a, mu_coin::block const & block_a)
+{
+	mu_coin::private_key prv;
+	if (is_representative ())
+	{
+		wallet.fetch (representative, wallet.password, prv);
+	}
+	else
+	{
+		mu_coin::keypair anonymous;
+		prv = anonymous.prv;
+	}
+	mu_coin::vote vote_l;
+	vote_l.address = representative;
+	vote_l.sequence = 0;
+	vote_l.block = block_a.clone ();
+	mu_coin::sign_message (prv, representative, vote_l.hash (), vote_l.signature);
+	prv.clear ();
+	votes_a.vote (vote_l);
 }

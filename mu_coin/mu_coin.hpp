@@ -499,6 +499,7 @@ namespace mu_coin {
     public:
         votes (std::shared_ptr <mu_coin::client_impl>, mu_coin::block const &);
         ~votes ();
+		void init ();
         void vote (mu_coin::vote const &);
         void start_request (mu_coin::block const &);
         void announce_vote ();
@@ -982,6 +983,7 @@ namespace mu_coin {
         void stop ();
         std::shared_ptr <mu_coin::client_impl> shared ();
         bool is_representative ();
+		void representative_vote (mu_coin::votes &, mu_coin::block const &);
         mu_coin::log log;
         mu_coin::genesis const & genesis;
         mu_coin::address representative;
