@@ -396,6 +396,7 @@ namespace mu_coin {
         
         uint64_t now ();
         
+        mu_coin::block_hash root (mu_coin::block const &);
         void block_put (mu_coin::block_hash const &, mu_coin::block const &);
         std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
 		void block_del (mu_coin::block_hash const &);
@@ -483,54 +484,46 @@ namespace mu_coin {
         mu_coin::checksum checksum (mu_coin::address const &, mu_coin::address const &);
         mu_coin::block_store & store;
     };
+    class client_impl;
     class vote
     {
     public:
-		mu_coin::uint256_union hash () const;
-        mu_coin::signature signature;
+        mu_coin::uint256_union hash () const;
         mu_coin::address address;
-        mu_coin::block_hash block;
+        mu_coin::signature signature;
         uint64_t sequence;
+        std::unique_ptr <mu_coin::block> block;
     };
-	class tally
-	{
-	public:
-		mu_coin::address representative;
-		mu_coin::block_hash winner;
-		mu_coin::uint256_t weight;
-		uint64_t sequence;
-	};
-    class client_impl;
     class votes : public std::enable_shared_from_this <mu_coin::votes>
     {
     public:
-        votes (std::shared_ptr <mu_coin::client_impl>, mu_coin::uint256_union const &);
+        votes (std::shared_ptr <mu_coin::client_impl>, mu_coin::block const &);
         ~votes ();
-        void add (mu_coin::vote const &);
-        void start_request ();
-		void start_announce ();
-        void set_forked ();
-        std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
-        mu_coin::uint256_union root;
-        mu_coin::uint256_t threshold;
-        std::unique_ptr <mu_coin::block> const incoming;
+        void vote (mu_coin::vote const &);
+        void start_request (mu_coin::block const &);
+        void announce_vote ();
+        void timeout_action ();
+        std::pair <std::unique_ptr <mu_coin::block>, mu_coin::uint256_t> winner ();
+        mu_coin::uint256_t uncontested_threshold ();
+        mu_coin::uint256_t contested_threshold ();
+        mu_coin::uint256_t flip_threshold ();
         std::shared_ptr <mu_coin::client_impl> client;
+        mu_coin::block_hash const root;
+        mu_coin::block_hash last_winner;
         uint64_t sequence;
 		std::chrono::system_clock::time_point last_vote;
-        bool forked;
-        std::unordered_map <mu_coin::address, std::pair <uint64_t, mu_coin::block_hash>> rep_votes;
-        std::mutex mutex;
+        std::unordered_map <mu_coin::address, std::pair <uint64_t, std::unique_ptr <mu_coin::block>>> rep_votes;
     };
     class conflicts
     {
     public:
-		conflicts (mu_coin::ledger &);
-        std::shared_ptr <mu_coin::votes> start (mu_coin::block_hash const &);
-		std::shared_ptr <mu_coin::votes> join (mu_coin::block_hash const &);
+		conflicts (mu_coin::client_impl &);
+        void start (mu_coin::block const &, bool);
+		void update (mu_coin::vote const &);
         void stop (mu_coin::block_hash const &);
         std::unordered_map <mu_coin::block_hash, std::weak_ptr <mu_coin::votes>> roots;
-		mu_coin::ledger & ledger;
-        std::mutex mute;
+		mu_coin::client_impl & client;
+        std::mutex mutex;
     };
     class keypair
     {
@@ -605,10 +598,7 @@ namespace mu_coin {
         void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) const override;
         bool operator == (mu_coin::confirm_ack const &) const;
-        mu_coin::address address;
-        mu_coin::signature signature;
-        uint64_t sequence;
-        std::unique_ptr <mu_coin::block> block;
+        mu_coin::vote vote;
     };
     class confirm_unk : public message
     {
@@ -774,6 +764,7 @@ namespace mu_coin {
         transactions (mu_coin::ledger &, mu_coin::wallet &, mu_coin::processor &);
         bool receive (mu_coin::send_block const &, mu_coin::private_key const &, mu_coin::address const &);
         bool send (mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
+        void vote (mu_coin::vote const &);
         std::mutex mutex;
         mu_coin::ledger & ledger;
         mu_coin::wallet & wallet;
