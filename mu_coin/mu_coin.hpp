@@ -492,6 +492,14 @@ namespace mu_coin {
         mu_coin::block_hash block;
         uint64_t sequence;
     };
+	class tally
+	{
+	public:
+		mu_coin::address representative;
+		mu_coin::block_hash winner;
+		mu_coin::uint256_t weight;
+		uint64_t sequence;
+	};
     class client_impl;
     class votes : public std::enable_shared_from_this <mu_coin::votes>
     {
@@ -500,31 +508,25 @@ namespace mu_coin {
         ~votes ();
         void add (mu_coin::vote const &);
         void start_request ();
-        void set_conflicted ();
+		void start_announce ();
+        void set_forked ();
         std::pair <mu_coin::block_hash, mu_coin::uint256_t> winner ();
         mu_coin::uint256_union root;
         mu_coin::uint256_t threshold;
         std::unique_ptr <mu_coin::block> const incoming;
         std::shared_ptr <mu_coin::client_impl> client;
-        bool conflicted;
+        uint64_t sequence;
+		std::chrono::system_clock::time_point last_vote;
+        bool forked;
         std::unordered_map <mu_coin::address, std::pair <uint64_t, mu_coin::block_hash>> rep_votes;
         std::mutex mutex;
     };
-	class announcement : public std::enable_shared_from_this <mu_coin::announcement>
-	{
-	public:
-		announcement (std::shared_ptr <mu_coin::votes>);
-		void start_announce ();
-        void announce ();
-        uint64_t sequence;
-		std::shared_ptr <mu_coin::votes> votes;
-	};
     class conflicts
     {
     public:
 		conflicts (mu_coin::ledger &);
-        void add (mu_coin::block_hash const &, mu_coin::vote const &);
         std::shared_ptr <mu_coin::votes> start (mu_coin::block_hash const &);
+		std::shared_ptr <mu_coin::votes> join (mu_coin::block_hash const &);
         void stop (mu_coin::block_hash const &);
         std::unordered_map <mu_coin::block_hash, std::weak_ptr <mu_coin::votes>> roots;
 		mu_coin::ledger & ledger;
