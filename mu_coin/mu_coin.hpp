@@ -498,8 +498,7 @@ namespace mu_coin {
     {
     public:
         votes (std::shared_ptr <mu_coin::client_impl>, mu_coin::block const &);
-        ~votes ();
-		void start ();
+        void start ();
         void vote (mu_coin::vote const &);
         void start_request (mu_coin::block const &);
         void announce_vote ();
@@ -523,7 +522,7 @@ namespace mu_coin {
         void start (mu_coin::block const &, bool);
 		void update (mu_coin::vote const &);
         void stop (mu_coin::block_hash const &);
-        std::unordered_map <mu_coin::block_hash, std::weak_ptr <mu_coin::votes>> roots;
+        std::unordered_map <mu_coin::block_hash, std::shared_ptr <mu_coin::votes>> roots;
 		mu_coin::client_impl & client;
         std::mutex mutex;
     };

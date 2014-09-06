@@ -839,7 +839,7 @@ TEST (votes, add_unsigned)
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second.lock ());
+    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->rep_votes.size ());
     mu_coin::vote vote1;
@@ -861,7 +861,7 @@ TEST (votes, add_one)
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second.lock ());
+    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     ASSERT_EQ (1, votes1->rep_votes.size ());
     mu_coin::vote vote1;
     vote1.sequence = 1;
@@ -889,7 +889,7 @@ TEST (votes, add_two)
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second.lock ());
+    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     mu_coin::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
@@ -928,7 +928,7 @@ TEST (votes, add_existing)
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second.lock ());
+    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     mu_coin::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
@@ -965,7 +965,7 @@ TEST (votes, add_old)
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second.lock ());
+    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     mu_coin::vote vote1;
     vote1.sequence = 2;
     vote1.block = send1.clone ();
@@ -1007,10 +1007,9 @@ TEST (conflicts, start_stop)
     auto root1 (client1.store.root (send1));
     auto existing1 (client1.conflicts.roots.find (root1));
     ASSERT_NE (client1.conflicts.roots.end (), existing1);
-    auto votes1 (existing1->second.lock ());
+    auto votes1 (existing1->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->rep_votes.size ());
-    ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (system.test_genesis_address.pub));
     client1.conflicts.stop (root1);
     ASSERT_EQ (0, client1.conflicts.roots.size ());
 }
@@ -1041,10 +1040,9 @@ TEST (conflicts, add_existing)
     mu_coin::sign_message (key2.prv, key2.pub, vote1.hash (), vote1.signature);
     client1.conflicts.update (vote1);
     ASSERT_EQ (1, client1.conflicts.roots.size ());
-    auto votes1 (client1.conflicts.roots [client1.store.root (send2)].lock ());
+    auto votes1 (client1.conflicts.roots [client1.store.root (send2)]);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (2, votes1->rep_votes.size ());
-    ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (system.test_genesis_address.pub));
     ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (key2.pub));
 }
 
@@ -1109,7 +1107,7 @@ TEST (fork, publish)
 	ASSERT_EQ (1, client1.conflicts.roots.size ());
     auto conflict1 (client1.conflicts.roots.find (client1.store.root (*publish1.block)));
 	ASSERT_NE (client1.conflicts.roots.end (), conflict1);
-    auto votes1 (conflict1->second.lock ());
+    auto votes1 (conflict1->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->rep_votes.size ());
 	while (votes1->rep_votes.size () == 1)
@@ -1156,7 +1154,7 @@ TEST (fork, keep)
     ASSERT_EQ (1, client1.conflicts.roots.size ());
     auto conflict (client1.conflicts.roots.find (system.genesis.hash ()));
     ASSERT_NE (client1.conflicts.roots.end (), conflict);
-    auto votes1 (conflict->second.lock ());
+    auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->rep_votes.size ());
     while (votes1->rep_votes.size () == 1)
