@@ -4804,13 +4804,36 @@ void mu_coin::votes::vote (mu_coin::vote const & vote_a)
                 existing->second.second = vote_a.block->clone ();
             }
         }
-    }
-    auto winner_l (winner ());
-    if (!(*winner_l.first == *last_winner))
-    {
-        client->ledger.rollback (last_winner->hash ());
-        client->processor.process_receive (*winner_l.first);
-		last_winner = std::move (winner_l.first);
+        assert (rep_votes.size () > 0);
+        auto winner_l (winner ());
+        if (winner_l.second > flip_threshold ())
+        {
+            if (!(*winner_l.first == *last_winner))
+            {
+                client->ledger.rollback (last_winner->hash ());
+                client->processor.process_receive (*winner_l.first);
+                last_winner = std::move (winner_l.first);
+            }
+        }
+        if (!confirmed)
+        {
+            if (rep_votes.size () == 1)
+            {
+                if (winner_l.second > uncontested_threshold ())
+                {
+                    confirmed = true;
+                    client->processor.process_confirmed (*last_winner);
+                }
+            }
+            else
+            {
+                if (winner_l.second > contested_threshold ())
+                {
+                    confirmed = true;
+                    client->processor.process_confirmed (*last_winner);
+                }
+            }
+        }
     }
 }
 
@@ -4845,13 +4868,15 @@ mu_coin::votes::votes (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin:
 client (client_a),
 root (client_a->store.root (block_a)),
 last_winner (block_a.clone ()),
+sequence (0),
+confirmed (false),
 last_vote (std::chrono::system_clock::now ())
 {
-	client_a->representative_vote (*this, block_a);
 }
 
-void mu_coin::votes::init ()
+void mu_coin::votes::start ()
 {
+	client->representative_vote (*this, *last_winner);
     if (client->is_representative ())
     {
         announce_vote ();
@@ -4887,7 +4912,7 @@ void mu_coin::conflicts::start (mu_coin::block const & block_a, bool request_a)
     if (existing == roots.end ())
     {
         auto votes (std::make_shared <mu_coin::votes> (client.shared (), block_a));
-		client.service.add (std::chrono::system_clock::now (), [votes] () {votes->init ();});
+		client.service.add (std::chrono::system_clock::now (), [votes] () {votes->start ();});
         roots.insert (std::make_pair (root, std::weak_ptr <mu_coin::votes> (votes)));
         if (request_a)
         {
@@ -5092,9 +5117,8 @@ public:
 };
 }
 
-void mu_coin::processor::process_confirmed (mu_coin::block_hash const & stored_a, mu_coin::block const & confirmed_a)
+void mu_coin::processor::process_confirmed (mu_coin::block const & confirmed_a)
 {
-    assert (client.store.block_exists (stored_a));
     confirmed_visitor visitor (client);
     confirmed_a.visit (visitor);
 }
@@ -5123,21 +5147,17 @@ bool mu_coin::client_impl::is_representative ()
 
 void mu_coin::client_impl::representative_vote (mu_coin::votes & votes_a, mu_coin::block const & block_a)
 {
-	mu_coin::private_key prv;
+    mu_coin::keypair key;
 	if (is_representative ())
 	{
-		wallet.fetch (representative, wallet.password, prv);
-	}
-	else
-	{
-		mu_coin::keypair anonymous;
-		prv = anonymous.prv;
+        key.pub = representative;
+		wallet.fetch (representative, wallet.password, key.prv);
 	}
 	mu_coin::vote vote_l;
-	vote_l.address = representative;
+	vote_l.address = key.pub;
 	vote_l.sequence = 0;
 	vote_l.block = block_a.clone ();
-	mu_coin::sign_message (prv, representative, vote_l.hash (), vote_l.signature);
-	prv.clear ();
+	mu_coin::sign_message (key.prv, key.pub, vote_l.hash (), vote_l.signature);
+	key.prv.clear ();
 	votes_a.vote (vote_l);
 }

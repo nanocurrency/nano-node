@@ -499,7 +499,7 @@ namespace mu_coin {
     public:
         votes (std::shared_ptr <mu_coin::client_impl>, mu_coin::block const &);
         ~votes ();
-		void init ();
+		void start ();
         void vote (mu_coin::vote const &);
         void start_request (mu_coin::block const &);
         void announce_vote ();
@@ -512,6 +512,7 @@ namespace mu_coin {
         mu_coin::block_hash const root;
 		std::unique_ptr <mu_coin::block> last_winner;
         uint64_t sequence;
+        bool confirmed;
 		std::chrono::system_clock::time_point last_vote;
         std::unordered_map <mu_coin::address, std::pair <uint64_t, std::unique_ptr <mu_coin::block>>> rep_votes;
     };
@@ -753,7 +754,7 @@ namespace mu_coin {
 		void process_message (mu_coin::message &, mu_coin::endpoint const &, bool);
 		void process_unknown (mu_coin::vectorstream &);
         void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
-        void process_confirmed (mu_coin::block_hash const &, mu_coin::block const &);
+        void process_confirmed (mu_coin::block const &);
         void ongoing_keepalive ();
         mu_coin::client_impl & client;
         static std::chrono::seconds constexpr period = std::chrono::seconds (10);
