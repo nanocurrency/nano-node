@@ -510,7 +510,7 @@ namespace mu_coin {
         mu_coin::uint256_t flip_threshold ();
         std::shared_ptr <mu_coin::client_impl> client;
         mu_coin::block_hash const root;
-        mu_coin::block_hash last_winner;
+		std::unique_ptr <mu_coin::block> last_winner;
         uint64_t sequence;
 		std::chrono::system_clock::time_point last_vote;
         std::unordered_map <mu_coin::address, std::pair <uint64_t, std::unique_ptr <mu_coin::block>>> rep_votes;

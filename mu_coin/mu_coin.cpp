@@ -4806,10 +4806,11 @@ void mu_coin::votes::vote (mu_coin::vote const & vote_a)
         }
     }
     auto winner_l (winner ());
-    if (winner_l.first->hash () != last_winner)
+    if (!(*winner_l.first == *last_winner))
     {
-        client->ledger.rollback (last_winner);
+        client->ledger.rollback (last_winner->hash ());
         client->processor.process_receive (*winner_l.first);
+		last_winner = std::move (winner_l.first);
     }
 }
 
@@ -4843,7 +4844,7 @@ std::pair <std::unique_ptr <mu_coin::block>, mu_coin::uint256_t> mu_coin::votes:
 mu_coin::votes::votes (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::block const & block_a) :
 client (client_a),
 root (client_a->store.root (block_a)),
-last_winner (block_a.hash ()),
+last_winner (block_a.clone ()),
 last_vote (std::chrono::system_clock::now ())
 {
 	client_a->representative_vote (*this, block_a);
@@ -4886,7 +4887,7 @@ void mu_coin::conflicts::start (mu_coin::block const & block_a, bool request_a)
     if (existing == roots.end ())
     {
         auto votes (std::make_shared <mu_coin::votes> (client.shared (), block_a));
-		votes->init ();
+		client.service.add (std::chrono::system_clock::now (), [votes] () {votes->init ();});
         roots.insert (std::make_pair (root, std::weak_ptr <mu_coin::votes> (votes)));
         if (request_a)
         {
