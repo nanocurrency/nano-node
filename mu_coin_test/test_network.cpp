@@ -286,27 +286,37 @@ TEST (network, send_valid_publish)
 TEST (receivable_processor, confirm_insufficient_pos)
 {
     mu_coin::system system (1, 24000, 25000, 1, 1);
+    auto & client1 (*system.clients [0]->client_m);
     mu_coin::send_block block1;
-    system.clients [0]->client_m->conflicts.start (block1, true);
+    block1.hashables.previous = system.genesis.hash ();
+    block1.hashables.balance.clear ();
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, block1.hash (), block1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (block1));
+    client1.conflicts.start (block1, true);
     mu_coin::keypair key1;
     mu_coin::confirm_ack con1;
     con1.vote.address = key1.pub;
     con1.vote.block = block1.clone ();
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.vote.hash (), con1.vote.signature);
-	system.clients [0]->client_m->processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
+	client1.processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
 }
 
 TEST (receivable_processor, confirm_sufficient_pos)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits<mu_coin::uint256_t>::max ());
+    auto & client1 (*system.clients [0]->client_m);
     mu_coin::send_block block1;
-    system.clients [0]->client_m->conflicts.start (block1, true);
+    block1.hashables.previous = system.genesis.hash ();
+    block1.hashables.balance.clear ();
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, block1.hash (), block1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (block1));
+    client1.conflicts.start (block1, true);
     mu_coin::keypair key1;
     mu_coin::confirm_ack con1;
     con1.vote.address = key1.pub;
     con1.vote.block = block1.clone ();
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, con1.vote.hash (), con1.vote.signature);
-	system.clients [0]->client_m->processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
+	client1.processor.process_message (con1, mu_coin::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000), true);
 }
 
 TEST (receivable_processor, send_with_receive)

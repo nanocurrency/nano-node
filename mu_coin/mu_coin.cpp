@@ -2136,7 +2136,7 @@ mu_coin::process_result mu_coin::processor::process_receive (mu_coin::block cons
             {
                 client.log.add (boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ()));
             }
-            client.conflicts.start (block_a, false);
+            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), false);
             break;
         }
     }
@@ -4876,6 +4876,7 @@ sequence (0),
 confirmed (false),
 last_vote (std::chrono::system_clock::now ())
 {
+    assert (client_a->store.block_exists (block_a.hash ()));
     mu_coin::keypair anonymous;
     mu_coin::vote vote_l;
     vote_l.address = anonymous.pub;

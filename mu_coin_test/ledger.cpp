@@ -838,6 +838,7 @@ TEST (votes, add_unsigned)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     ASSERT_NE (nullptr, votes1);
@@ -860,14 +861,15 @@ TEST (votes, add_one)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     ASSERT_EQ (1, votes1->rep_votes.size ());
     mu_coin::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
-    vote1.address = key1.pub;
-    mu_coin::sign_message (key1.pub, key1.prv, vote1.hash (), vote1.signature);
+    vote1.address = system.test_genesis_address.pub;
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     ASSERT_EQ (2, votes1->rep_votes.size ());
     auto existing1 (votes1->rep_votes.find (system.test_genesis_address.pub));
@@ -888,13 +890,14 @@ TEST (votes, add_two)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     mu_coin::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.address = system.test_genesis_address.pub;
-    mu_coin::sign_message (system.test_genesis_address.pub, system.test_genesis_address.prv, vote1.hash (), vote1.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     mu_coin::send_block send2;
     mu_coin::keypair key2;
@@ -908,7 +911,7 @@ TEST (votes, add_two)
     vote2.block = send2.clone ();
     mu_coin::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
     votes1->vote (vote2);
-    ASSERT_EQ (2, votes1->rep_votes.size ());
+    ASSERT_EQ (3, votes1->rep_votes.size ());
     ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (system.test_genesis_address.pub));
     ASSERT_EQ (send1, *votes1->rep_votes [system.test_genesis_address.pub].second);
     ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (key2.pub));
@@ -927,13 +930,14 @@ TEST (votes, add_existing)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     mu_coin::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.address = system.test_genesis_address.pub;
-    mu_coin::sign_message (system.test_genesis_address.pub, system.test_genesis_address.prv, vote1.hash (), vote1.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     mu_coin::send_block send2;
     mu_coin::keypair key2;
@@ -945,11 +949,11 @@ TEST (votes, add_existing)
     vote2.address = system.test_genesis_address.pub;
     vote2.sequence = 2;
     vote2.block = send2.clone ();
-    mu_coin::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote2.hash (), vote2.signature);
     votes1->vote (vote2);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (2, votes1->rep_votes.size ());
     ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_EQ (send1, *votes1->rep_votes [system.test_genesis_address.pub].second);
+    ASSERT_EQ (send2, *votes1->rep_votes [system.test_genesis_address.pub].second);
     auto winner (votes1->winner ());
     ASSERT_EQ (send2, *winner.first);
 }
@@ -964,13 +968,14 @@ TEST (votes, add_old)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     mu_coin::vote vote1;
     vote1.sequence = 2;
     vote1.block = send1.clone ();
     vote1.address = system.test_genesis_address.pub;
-    mu_coin::sign_message (system.test_genesis_address.pub, system.test_genesis_address.prv, vote1.hash (), vote1.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     mu_coin::send_block send2;
     mu_coin::keypair key2;
@@ -984,7 +989,7 @@ TEST (votes, add_old)
     vote2.block = send2.clone ();
     mu_coin::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
     votes1->vote (vote2);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (2, votes1->rep_votes.size ());
     ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (system.test_genesis_address.pub));
     ASSERT_EQ (send1, *votes1->rep_votes [system.test_genesis_address.pub].second);
     auto winner (votes1->winner ());
@@ -1001,6 +1006,7 @@ TEST (conflicts, start_stop)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     ASSERT_EQ (0, client1.conflicts.roots.size ());
     client1.conflicts.start (send1, false);
     ASSERT_EQ (1, client1.conflicts.roots.size ());
@@ -1024,6 +1030,7 @@ TEST (conflicts, add_existing)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     mu_coin::send_block send2;
     mu_coin::keypair key2;
@@ -1056,13 +1063,15 @@ TEST (conflicts, add_two)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     mu_coin::send_block send2;
     mu_coin::keypair key2;
     send2.hashables.previous = send1.hash ();
     send2.hashables.balance.clear ();
     send2.hashables.destination = key2.pub;
-    mu_coin::sign_message (key1.prv, key1.pub, send2.hash (), send2.signature);
+    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send2.hash (), send2.signature);
+    ASSERT_EQ (mu_coin::process_result::progress, client1.ledger.process (send2));
     client1.conflicts.start (send2, false);
     ASSERT_EQ (2, client1.conflicts.roots.size ());
 }
@@ -1128,6 +1137,7 @@ TEST (fork, keep)
 {
     mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
     auto & client1 (*system.clients [0]->client_m);
+    auto & client2 (*system.clients [1]->client_m);
 	ASSERT_EQ (1, client1.peers.size ());
 	client1.wallet.insert (system.test_genesis_address.prv, client1.wallet.password);
     mu_coin::keypair key1;
@@ -1147,10 +1157,10 @@ TEST (fork, keep)
     mu_coin::publish_req publish2;
     publish2.block = std::move (send2);
     client1.processor.process_message (publish1, mu_coin::endpoint {}, true);
-	client1.processor.process_message (publish1, mu_coin::endpoint {}, true);
+	client2.processor.process_message (publish1, mu_coin::endpoint {}, true);
     ASSERT_EQ (0, client1.conflicts.roots.size ());
     client1.processor.process_message (publish2, mu_coin::endpoint {}, true);
-	client1.processor.process_message (publish2, mu_coin::endpoint {}, true);
+	client2.processor.process_message (publish2, mu_coin::endpoint {}, true);
     ASSERT_EQ (1, client1.conflicts.roots.size ());
     auto conflict (client1.conflicts.roots.find (system.genesis.hash ()));
     ASSERT_NE (client1.conflicts.roots.end (), conflict);
