@@ -4896,28 +4896,29 @@ void mu_coin::votes::start ()
     {
         announce_vote ();
     }
-    auto stopper (std::make_shared <mu_coin::conflicts_stop> (client, root));
-    timeout_action (stopper);
+    auto client_l (client);
+    auto root_l (root);
+    auto destructable (std::make_shared <mu_coin::destructable> ([client_l, root_l] () {client_l->conflicts.stop (root_l);}));
+    timeout_action (destructable);
 }
 
-mu_coin::conflicts_stop::conflicts_stop (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::block_hash const & root_a) :
-client (client_a),
-root (root_a)
+mu_coin::destructable::destructable (std::function <void ()> operation_a) :
+operation (operation_a)
 {
 }
 
-mu_coin::conflicts_stop::~conflicts_stop ()
+mu_coin::destructable::~destructable ()
 {
-    client->conflicts.stop (root);
+    operation ();
 }
 
-void mu_coin::votes::timeout_action (std::shared_ptr <conflicts_stop> stopper_a)
+void mu_coin::votes::timeout_action (std::shared_ptr <mu_coin::destructable> destructable_a)
 {
     auto now (std::chrono::system_clock::now ());
     if (now - last_vote < std::chrono::seconds (15))
     {
         auto this_l (shared_from_this ());
-        client->service.add (now + std::chrono::seconds (15), [this_l, stopper_a] () {this_l->timeout_action (stopper_a);});
+        client->service.add (now + std::chrono::seconds (15), [this_l, destructable_a] () {this_l->timeout_action (destructable_a);});
     }
 }
 

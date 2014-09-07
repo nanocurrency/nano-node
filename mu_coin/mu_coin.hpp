@@ -494,13 +494,12 @@ namespace mu_coin {
         uint64_t sequence;
         std::unique_ptr <mu_coin::block> block;
     };
-    class conflicts_stop
+    class destructable
     {
     public:
-        conflicts_stop (std::shared_ptr <mu_coin::client_impl>, mu_coin::block_hash const &);
-        ~conflicts_stop ();
-        std::shared_ptr <mu_coin::client_impl> client;
-        mu_coin::block_hash root;
+        destructable (std::function <void ()>);
+        ~destructable ();
+        std::function <void ()> operation;
     };
     class votes : public std::enable_shared_from_this <mu_coin::votes>
     {
@@ -510,7 +509,7 @@ namespace mu_coin {
         void vote (mu_coin::vote const &);
         void start_request (mu_coin::block const &);
         void announce_vote ();
-        void timeout_action (std::shared_ptr <mu_coin::conflicts_stop>);
+        void timeout_action (std::shared_ptr <mu_coin::destructable>);
         std::pair <std::unique_ptr <mu_coin::block>, mu_coin::uint256_t> winner ();
         mu_coin::uint256_t uncontested_threshold ();
         mu_coin::uint256_t contested_threshold ();
