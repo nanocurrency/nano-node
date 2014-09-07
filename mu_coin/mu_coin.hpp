@@ -494,6 +494,14 @@ namespace mu_coin {
         uint64_t sequence;
         std::unique_ptr <mu_coin::block> block;
     };
+    class conflicts_stop
+    {
+    public:
+        conflicts_stop (std::shared_ptr <mu_coin::client_impl>, mu_coin::block_hash const &);
+        ~conflicts_stop ();
+        std::shared_ptr <mu_coin::client_impl> client;
+        mu_coin::block_hash root;
+    };
     class votes : public std::enable_shared_from_this <mu_coin::votes>
     {
     public:
@@ -502,7 +510,7 @@ namespace mu_coin {
         void vote (mu_coin::vote const &);
         void start_request (mu_coin::block const &);
         void announce_vote ();
-        void timeout_action ();
+        void timeout_action (std::shared_ptr <mu_coin::conflicts_stop>);
         std::pair <std::unique_ptr <mu_coin::block>, mu_coin::uint256_t> winner ();
         mu_coin::uint256_t uncontested_threshold ();
         mu_coin::uint256_t contested_threshold ();
@@ -977,6 +985,7 @@ namespace mu_coin {
     public:
         client_impl (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
         client_impl (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        ~client_impl ();
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
         mu_coin::uint256_t balance ();
         void start ();

@@ -43,6 +43,10 @@ namespace
     {
         return network_logging () && false;
     }
+    bool constexpr client_lifetime_tracing ()
+    {
+        return false;
+    }
 }
 
 CryptoPP::AutoSeededRandomPool random_pool;
@@ -1694,6 +1698,10 @@ transactions (ledger, wallet, processor),
 peers (network.endpoint ()),
 service (processor_a)
 {
+    if (client_lifetime_tracing ())
+    {
+        std::cerr << "Constructing client\n";
+    }
     genesis_a.initialize (store);
     ledger.checksum_update (genesis.hash ());
 }
@@ -1701,6 +1709,14 @@ service (processor_a)
 mu_coin::client_impl::client_impl (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
 client_impl (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a, representative_a, genesis_a)
 {
+}
+
+mu_coin::client_impl::~client_impl ()
+{
+    if (client_lifetime_tracing ())
+    {
+        std::cerr << "Destructing client\n";
+    }
 }
 
 mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
@@ -1868,20 +1884,6 @@ void mu_coin::votes::announce_vote ()
     }
 }
 
-void mu_coin::votes::timeout_action ()
-{
-    auto now (std::chrono::system_clock::now ());
-    if (now - last_vote < std::chrono::seconds (15))
-    {
-        auto this_l (shared_from_this ());
-        client->service.add (now + std::chrono::seconds (15), [this_l] () {this_l->timeout_action ();});
-    }
-    else
-    {
-        client->conflicts.stop (root);
-    }
-}
-
 void mu_coin::network::confirm_block (std::unique_ptr <mu_coin::block> block_a, uint64_t sequence_a)
 {
     mu_coin::confirm_ack confirm;
@@ -1915,36 +1917,37 @@ void mu_coin::network::confirm_block (std::unique_ptr <mu_coin::block> block_a, 
     }
 }
 
-namespace {
-    class root_visitor : public mu_coin::block_visitor
+namespace
+{
+class root_visitor : public mu_coin::block_visitor
+{
+public:
+    root_visitor (mu_coin::block_store & store_a) :
+    store (store_a)
     {
-    public:
-        root_visitor (mu_coin::block_store & store_a) :
-        store (store_a)
-        {
-        }
-        void send_block (mu_coin::send_block const & block_a) override
-        {
-            result = block_a.previous ();
-        }
-        void receive_block (mu_coin::receive_block const & block_a) override
-        {
-            result = block_a.previous ();
-        }
-        void open_block (mu_coin::open_block const & block_a) override
-        {
-            auto source (store.block_get (block_a.source ()));
-            assert (source != nullptr);
-            assert (dynamic_cast <mu_coin::send_block *> (source.get ()) != nullptr);
-            result = static_cast <mu_coin::send_block *> (source.get ())->hashables.destination;
-        }
-        void change_block (mu_coin::change_block const & block_a) override
-        {
-            result = block_a.previous ();
-        }
-        mu_coin::block_store & store;
-        mu_coin::block_hash result;
-    };
+    }
+    void send_block (mu_coin::send_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    void receive_block (mu_coin::receive_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    void open_block (mu_coin::open_block const & block_a) override
+    {
+        auto source (store.block_get (block_a.source ()));
+        assert (source != nullptr);
+        assert (dynamic_cast <mu_coin::send_block *> (source.get ()) != nullptr);
+        result = static_cast <mu_coin::send_block *> (source.get ())->hashables.destination;
+    }
+    void change_block (mu_coin::change_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    mu_coin::block_store & store;
+    mu_coin::block_hash result;
+};
 }
 
 mu_coin::block_hash mu_coin::block_store::root (mu_coin::block const & block_a)
@@ -4893,7 +4896,29 @@ void mu_coin::votes::start ()
     {
         announce_vote ();
     }
-    timeout_action ();
+    auto stopper (std::make_shared <mu_coin::conflicts_stop> (client, root));
+    timeout_action (stopper);
+}
+
+mu_coin::conflicts_stop::conflicts_stop (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::block_hash const & root_a) :
+client (client_a),
+root (root_a)
+{
+}
+
+mu_coin::conflicts_stop::~conflicts_stop ()
+{
+    client->conflicts.stop (root);
+}
+
+void mu_coin::votes::timeout_action (std::shared_ptr <conflicts_stop> stopper_a)
+{
+    auto now (std::chrono::system_clock::now ());
+    if (now - last_vote < std::chrono::seconds (15))
+    {
+        auto this_l (shared_from_this ());
+        client->service.add (now + std::chrono::seconds (15), [this_l, stopper_a] () {this_l->timeout_action (stopper_a);});
+    }
 }
 
 mu_coin::uint256_t mu_coin::votes::uncontested_threshold ()

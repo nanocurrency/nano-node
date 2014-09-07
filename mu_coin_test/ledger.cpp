@@ -1091,46 +1091,51 @@ TEST (ledger, successor)
 
 TEST (fork, publish)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
-	client1.wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
-    mu_coin::keypair key1;
-    std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
-    send1->hashables.previous = system.genesis.hash ();
-    send1->hashables.balance.clear ();
-    send1->hashables.destination = key1.pub;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1->hash (), send1->signature);
-    mu_coin::publish_req publish1;
-    publish1.block = std::move (send1);
-    mu_coin::keypair key2;
-    std::unique_ptr <mu_coin::send_block> send2 (new mu_coin::send_block);
-    send2->hashables.previous = system.genesis.hash ();
-    send2->hashables.balance.clear ();
-    send2->hashables.destination = key2.pub;
-    mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send2->hash (), send2->signature);
-    mu_coin::publish_req publish2;
-    publish2.block = std::move (send2);
-    client1.processor.process_message (publish1, mu_coin::endpoint {}, true);
-	ASSERT_EQ (0, client1.conflicts.roots.size ());
-    client1.processor.process_message (publish2, mu_coin::endpoint {}, true);
-	ASSERT_EQ (1, client1.conflicts.roots.size ());
-    auto conflict1 (client1.conflicts.roots.find (client1.store.root (*publish1.block)));
-	ASSERT_NE (client1.conflicts.roots.end (), conflict1);
-    auto votes1 (conflict1->second);
-    ASSERT_NE (nullptr, votes1);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
-	while (votes1->rep_votes.size () == 1)
-	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
-	}
-    ASSERT_EQ (2, votes1->rep_votes.size ());
-    auto existing1 (votes1->rep_votes.find (system.test_genesis_address.pub));
-    ASSERT_NE (votes1->rep_votes.end (), existing1);
-    ASSERT_EQ (*publish1.block, *existing1->second.second);
-    auto winner (votes1->winner ());
-    ASSERT_EQ (*publish1.block, *winner.first);
-    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), winner.second);
+    std::weak_ptr <mu_coin::client_impl> client0;
+    {
+        mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+        client0 = system.clients [0]->client_m;
+        auto & client1 (*system.clients [0]->client_m);
+        client1.wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+        mu_coin::keypair key1;
+        std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
+        send1->hashables.previous = system.genesis.hash ();
+        send1->hashables.balance.clear ();
+        send1->hashables.destination = key1.pub;
+        mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1->hash (), send1->signature);
+        mu_coin::publish_req publish1;
+        publish1.block = std::move (send1);
+        mu_coin::keypair key2;
+        std::unique_ptr <mu_coin::send_block> send2 (new mu_coin::send_block);
+        send2->hashables.previous = system.genesis.hash ();
+        send2->hashables.balance.clear ();
+        send2->hashables.destination = key2.pub;
+        mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send2->hash (), send2->signature);
+        mu_coin::publish_req publish2;
+        publish2.block = std::move (send2);
+        client1.processor.process_message (publish1, mu_coin::endpoint {}, true);
+        ASSERT_EQ (0, client1.conflicts.roots.size ());
+        client1.processor.process_message (publish2, mu_coin::endpoint {}, true);
+        ASSERT_EQ (1, client1.conflicts.roots.size ());
+        auto conflict1 (client1.conflicts.roots.find (client1.store.root (*publish1.block)));
+        ASSERT_NE (client1.conflicts.roots.end (), conflict1);
+        auto votes1 (conflict1->second);
+        ASSERT_NE (nullptr, votes1);
+        ASSERT_EQ (1, votes1->rep_votes.size ());
+        while (votes1->rep_votes.size () == 1)
+        {
+            system.service->poll_one ();
+            system.processor.poll_one ();
+        }
+        ASSERT_EQ (2, votes1->rep_votes.size ());
+        auto existing1 (votes1->rep_votes.find (system.test_genesis_address.pub));
+        ASSERT_NE (votes1->rep_votes.end (), existing1);
+        ASSERT_EQ (*publish1.block, *existing1->second.second);
+        auto winner (votes1->winner ());
+        ASSERT_EQ (*publish1.block, *winner.first);
+        ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), winner.second);
+    }
+    ASSERT_TRUE (client0.expired ());
 }
 
 TEST (fork, keep)
@@ -1188,8 +1193,8 @@ TEST (fork, flip)
     mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
     auto & client1 (*system.clients [0]->client_m);
     auto & client2 (*system.clients [1]->client_m);
-	ASSERT_EQ (1, client1.peers.size ());
-	client1.wallet.insert (system.test_genesis_address.prv, client1.wallet.password);
+    ASSERT_EQ (1, client1.peers.size ());
+    client1.wallet.insert (system.test_genesis_address.prv, client1.wallet.password);
     mu_coin::keypair key1;
     std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
     send1->hashables.previous = system.genesis.hash ();
@@ -1207,11 +1212,11 @@ TEST (fork, flip)
     mu_coin::publish_req publish2;
     publish2.block = std::move (send2);
     client1.processor.process_message (publish1, mu_coin::endpoint {}, true);
-	client2.processor.process_message (publish2, mu_coin::endpoint {}, true);
+    client2.processor.process_message (publish2, mu_coin::endpoint {}, true);
     ASSERT_EQ (0, client1.conflicts.roots.size ());
     ASSERT_EQ (0, client2.conflicts.roots.size ());
     client1.processor.process_message (publish2, mu_coin::endpoint {}, true);
-	client2.processor.process_message (publish1, mu_coin::endpoint {}, true);
+    client2.processor.process_message (publish1, mu_coin::endpoint {}, true);
     ASSERT_EQ (1, client1.conflicts.roots.size ());
     ASSERT_EQ (1, client2.conflicts.roots.size ());
     auto conflict (client2.conflicts.roots.find (system.genesis.hash ()));
@@ -1219,19 +1224,19 @@ TEST (fork, flip)
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->rep_votes.size ());
-	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
+    ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
+    ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
     while (votes1->rep_votes.size () == 1)
-	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
-	}
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+    }
     auto winner (votes1->winner ());
     ASSERT_EQ (*publish1.block, *winner.first);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), winner.second);
-	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (client2.store.block_exists (publish1.block->hash ()));
-	ASSERT_FALSE (client2.store.block_exists (publish2.block->hash ()));
+    ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
+    ASSERT_TRUE (client2.store.block_exists (publish1.block->hash ()));
+    ASSERT_FALSE (client2.store.block_exists (publish2.block->hash ()));
 }
 
 TEST (fork, multi_flip)
