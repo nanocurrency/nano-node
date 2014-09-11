@@ -45,7 +45,7 @@ namespace
     }
     bool constexpr client_lifetime_tracing ()
     {
-        return true;
+        return false;
     }
 }
 
@@ -1074,7 +1074,7 @@ bool mu_coin::block_store::pending_get (mu_coin::identifier const & identifier_a
     return result;
 }
 
-mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::client_impl & client_a) :
+mu_coin::network::network (boost::asio::io_service & service_a, uint16_t port, mu_coin::client & client_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::any (), port)),
 service (service_a),
 client (client_a),
@@ -1669,7 +1669,7 @@ void mu_coin::processor_service::stop ()
     condition.notify_all ();
 }
 
-mu_coin::processor::processor (mu_coin::client_impl & client_a) :
+mu_coin::processor::processor (mu_coin::client & client_a) :
 client (client_a)
 {
 }
@@ -1683,7 +1683,7 @@ bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
     return wakeup > other_a.wakeup;
 }
 
-mu_coin::client_impl::client_impl (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
 genesis (genesis_a),
 representative (representative_a),
 store (block_store_path_a),
@@ -1706,12 +1706,12 @@ service (processor_a)
     ledger.checksum_update (genesis.hash ());
 }
 
-mu_coin::client_impl::client_impl (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
-client_impl (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a, representative_a, genesis_a)
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
+client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a, representative_a, genesis_a)
 {
 }
 
-mu_coin::client_impl::~client_impl ()
+mu_coin::client::~client ()
 {
     if (client_lifetime_tracing ())
     {
@@ -1719,27 +1719,12 @@ mu_coin::client_impl::~client_impl ()
     }
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
-client_m (std::make_shared <mu_coin::client_impl> (service_a, pool_a, port_a, command_port_a, wallet_path_a, block_store_path_a, processor_a, representative_a, genesis_a))
-{
-}
-
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
-client_m (std::make_shared <mu_coin::client_impl> (service_a, pool_a, port_a, command_port_a, processor_a, representative_a, genesis_a))
-{
-}
-
-mu_coin::client::~client ()
-{
-    client_m->stop ();
-}
-
 namespace
 {
 class publish_processor : public std::enable_shared_from_this <publish_processor>
 {
 public:
-    publish_processor (std::shared_ptr <mu_coin::client_impl> client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
+    publish_processor (std::shared_ptr <mu_coin::client> client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
     client (client_a),
     incoming (std::move (incoming_a)),
     sender (sender_a),
@@ -1779,7 +1764,7 @@ public:
             }
         }
     }
-    std::shared_ptr <mu_coin::client_impl> client;
+    std::shared_ptr <mu_coin::client> client;
     std::unique_ptr <mu_coin::block> incoming;
     mu_coin::endpoint sender;
     int attempts;
@@ -1796,7 +1781,7 @@ namespace {
 class republish_visitor : public mu_coin::block_visitor
 {
 public:
-    republish_visitor (std::shared_ptr <mu_coin::client_impl> client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
+    republish_visitor (std::shared_ptr <mu_coin::client> client_a, std::unique_ptr <mu_coin::block> incoming_a, mu_coin::endpoint const & sender_a) :
     client (client_a),
     incoming (std::move (incoming_a)),
     sender (sender_a)
@@ -1822,7 +1807,7 @@ public:
     {
         client->processor.republish (std::move (incoming), sender);
     }
-    std::shared_ptr <mu_coin::client_impl> client;
+    std::shared_ptr <mu_coin::client> client;
     std::unique_ptr <mu_coin::block> incoming;
     mu_coin::endpoint sender;
 };
@@ -1987,7 +1972,7 @@ namespace
 class receivable_visitor : public mu_coin::block_visitor
 {
 public:
-    receivable_visitor (mu_coin::client_impl & client_a, mu_coin::block const & incoming_a) :
+    receivable_visitor (mu_coin::client & client_a, mu_coin::block const & incoming_a) :
     client (client_a),
     incoming (incoming_a)
     {
@@ -2010,14 +1995,14 @@ public:
     void change_block (mu_coin::change_block const &) override
     {
     }
-    mu_coin::client_impl & client;
+    mu_coin::client & client;
     mu_coin::block const & incoming;
 };
     
 class progress_log_visitor : public mu_coin::block_visitor
 {
 public:
-    progress_log_visitor (mu_coin::client_impl & client_a) :
+    progress_log_visitor (mu_coin::client & client_a) :
     client (client_a)
     {
     }
@@ -2036,7 +2021,7 @@ public:
     void change_block (mu_coin::change_block const & block_a) override
     {
     }
-    mu_coin::client_impl & client;
+    mu_coin::client & client;
 };
 	
 class successor_visitor : public mu_coin::block_visitor
@@ -2457,7 +2442,7 @@ void balance_visitor::compute (mu_coin::block_hash const & block_hash)
     block->visit (*this);
 }
 
-bool mu_coin::client_impl::send (mu_coin::public_key const & address, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & password)
+bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & password)
 {
     return transactions.send (address, coins, password);
 }
@@ -2471,21 +2456,27 @@ pool (new boost::network::utils::thread_pool (threads_a))
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        clients.push_back (std::unique_ptr <mu_coin::client> (new mu_coin::client (service, pool, port_a + i, command_port_a + i, processor, test_genesis_address.pub, genesis)));
-        genesis.initialize (clients.back ()->client_m->store);
-    }
-    for (auto i (clients.begin ()), j (clients.end ()); i != j; ++i)
-    {
-        (*i)->client_m->start ();
+        auto client (std::make_shared <mu_coin::client> (service, pool, port_a + i, command_port_a + i, processor, test_genesis_address.pub, genesis));
+        genesis.initialize (client->store);
+        client->start ();
+        clients.push_back (client);
     }
     for (auto i (clients.begin ()), j (clients.begin () + 1), n (clients.end ()); j != n; ++i, ++j)
     {
-        auto starting1 ((*i)->client_m->peers.size ());
-        auto starting2 ((*j)->client_m->peers.size ());
-        (*j)->client_m->network.send_keepalive ((*i)->client_m->network.endpoint ());
+        auto starting1 ((*i)->peers.size ());
+        auto starting2 ((*j)->peers.size ());
+        (*j)->network.send_keepalive ((*i)->network.endpoint ());
         do {
             service->run_one ();
-        } while ((*i)->client_m->peers.size () == starting1 || (*j)->client_m->peers.size () == starting2);
+        } while ((*i)->peers.size () == starting1 || (*j)->peers.size () == starting2);
+    }
+}
+
+mu_coin::system::~system ()
+{
+    for (auto & i: clients)
+    {
+        i->stop ();
     }
 }
 
@@ -2626,7 +2617,7 @@ void mu_coin::confirm_req::serialize (mu_coin::stream & stream_a)
     mu_coin::serialize_block (stream_a, *block);
 }
 
-mu_coin::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, mu_coin::client_impl & client_a) :
+mu_coin::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, mu_coin::client & client_a) :
 server (decltype (server)::options (*this).address ("0.0.0.0").port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
 client (client_a)
 {
@@ -3298,7 +3289,7 @@ void mu_coin::bulk_req::serialize (mu_coin::stream & stream_a)
     write (stream_a, end);
 }
 
-void mu_coin::client_impl::start ()
+void mu_coin::client::start ()
 {
     rpc.start ();
     network.receive ();
@@ -3306,7 +3297,7 @@ void mu_coin::client_impl::start ()
     bootstrap.start ();
 }
 
-void mu_coin::client_impl::stop ()
+void mu_coin::client::stop ()
 {
     rpc.stop ();
     network.stop ();
@@ -3320,7 +3311,7 @@ void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpo
     processor->run (endpoint_a);
 }
 
-mu_coin::bootstrap_receiver::bootstrap_receiver (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client_impl & client_a) :
+mu_coin::bootstrap_receiver::bootstrap_receiver (boost::asio::io_service & service_a, uint16_t port_a, mu_coin::client & client_a) :
 acceptor (service_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), port_a)),
 service (service_a),
@@ -3355,7 +3346,7 @@ void mu_coin::bootstrap_receiver::accept_action (boost::system::error_code const
     connection->receive ();
 }
 
-mu_coin::bootstrap_connection::bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <mu_coin::client_impl> client_a) :
+mu_coin::bootstrap_connection::bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <mu_coin::client> client_a) :
 socket (socket_a),
 client (client_a)
 {
@@ -3699,7 +3690,7 @@ public:
 };
 }
 
-mu_coin::bootstrap_initiator::bootstrap_initiator (std::shared_ptr <mu_coin::client_impl> client_a, std::function <void ()> const & complete_action_a) :
+mu_coin::bootstrap_initiator::bootstrap_initiator (std::shared_ptr <mu_coin::client> client_a, std::function <void ()> const & complete_action_a) :
 client (client_a),
 socket (client_a->network.service),
 complete_action (complete_action_a)
@@ -4603,7 +4594,7 @@ bool mu_coin::peer_container::known_peer (mu_coin::endpoint const & endpoint_a)
     return existing != peers.end () && existing->last_contact > std::chrono::system_clock::now () - mu_coin::processor::cutoff;
 }
 
-std::shared_ptr <mu_coin::client_impl> mu_coin::client_impl::shared ()
+std::shared_ptr <mu_coin::client> mu_coin::client::shared ()
 {
     return shared_from_this ();
 }
@@ -4613,7 +4604,7 @@ namespace
 class traffic_generator : public std::enable_shared_from_this <traffic_generator>
 {
 public:
-    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::system & system_a) :
+    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <mu_coin::client> client_a, mu_coin::system & system_a) :
     count (count_a),
     wait (wait_a),
     client (client_a),
@@ -4633,7 +4624,7 @@ public:
     }
     uint32_t count;
     uint32_t wait;
-    std::shared_ptr <mu_coin::client_impl> client;
+    std::shared_ptr <mu_coin::client> client;
     mu_coin::system & system;
 };
 }
@@ -4650,11 +4641,11 @@ void mu_coin::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a,
 {
     assert (clients.size () > index_a);
     assert (count_a > 0);
-    auto generate (std::make_shared <traffic_generator> (count_a, wait_a, clients [index_a]->client_m, *this));
+    auto generate (std::make_shared <traffic_generator> (count_a, wait_a, clients [index_a], *this));
     generate->run ();
 }
 
-void mu_coin::system::generate_activity (mu_coin::client_impl & client_a)
+void mu_coin::system::generate_activity (mu_coin::client & client_a)
 {
     auto what (random_pool.GenerateByte ());
     if (what < 0xc0 && client_a.store.latest_begin () != client_a.store.latest_end ())
@@ -4674,7 +4665,7 @@ void mu_coin::system::generate_activity (mu_coin::client_impl & client_a)
     } while (polled != 0);
 }
 
-mu_coin::uint256_t mu_coin::system::get_random_amount (mu_coin::client_impl & client_a)
+mu_coin::uint256_t mu_coin::system::get_random_amount (mu_coin::client & client_a)
 {
     mu_coin::uint512_t balance (client_a.balance ());
     std::string balance_text (balance.convert_to <std::string> ());
@@ -4685,7 +4676,7 @@ mu_coin::uint256_t mu_coin::system::get_random_amount (mu_coin::client_impl & cl
     return result;
 }
 
-void mu_coin::system::generate_send_existing (mu_coin::client_impl & client_a)
+void mu_coin::system::generate_send_existing (mu_coin::client & client_a)
 {
     mu_coin::address account;
     random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
@@ -4698,14 +4689,14 @@ void mu_coin::system::generate_send_existing (mu_coin::client_impl & client_a)
     client_a.send (entry->first, get_random_amount (client_a), client_a.wallet.password);
 }
 
-void mu_coin::system::generate_send_new (mu_coin::client_impl & client_a)
+void mu_coin::system::generate_send_new (mu_coin::client & client_a)
 {
     mu_coin::keypair key;
     client_a.wallet.insert (key.prv, client_a.wallet.password);
     client_a.send (key.pub, get_random_amount (client_a), client_a.wallet.password);
 }
 
-void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client_impl & client_a)
+void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client & client_a)
 {
     auto previous (std::chrono::system_clock::now ());
     for (uint32_t i (0); i < count_a; ++i)
@@ -4721,7 +4712,7 @@ void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client_
     }
 }
 
-mu_coin::uint256_t mu_coin::client_impl::balance ()
+mu_coin::uint256_t mu_coin::client::balance ()
 {
     mu_coin::uint256_t result;
     for (auto i (wallet.begin ()), n (wallet.end ()); i !=  n; ++i)
@@ -4871,7 +4862,7 @@ std::pair <std::unique_ptr <mu_coin::block>, mu_coin::uint256_t> mu_coin::votes:
     return winner_l;
 }
 
-mu_coin::votes::votes (std::shared_ptr <mu_coin::client_impl> client_a, mu_coin::block const & block_a) :
+mu_coin::votes::votes (std::shared_ptr <mu_coin::client> client_a, mu_coin::block const & block_a) :
 client (client_a),
 root (client_a->store.root (block_a)),
 last_winner (block_a.clone ()),
@@ -4971,7 +4962,7 @@ void mu_coin::conflicts::stop (mu_coin::block_hash const & root_a)
     roots.erase (root_a);
 }
 
-mu_coin::conflicts::conflicts (mu_coin::client_impl & client_a) :
+mu_coin::conflicts::conflicts (mu_coin::client & client_a) :
 client (client_a)
 {
 }
@@ -4981,7 +4972,7 @@ namespace
 class network_message_visitor : public mu_coin::message_visitor
 {
 public:
-	network_message_visitor (mu_coin::client_impl & client_a, mu_coin::endpoint const & sender_a, bool known_peer_a) :
+	network_message_visitor (mu_coin::client & client_a, mu_coin::endpoint const & sender_a, bool known_peer_a) :
 	client (client_a),
 	sender (sender_a),
 	known_peer (known_peer_a)
@@ -5098,7 +5089,7 @@ public:
 	{
 		assert (false);
 	}
-	mu_coin::client_impl & client;
+	mu_coin::client & client;
 	mu_coin::endpoint sender;
 	bool known_peer;
 };
@@ -5115,7 +5106,7 @@ namespace
 class confirmed_visitor : public mu_coin::block_visitor
 {
 public:
-    confirmed_visitor (mu_coin::client_impl & client_a) :
+    confirmed_visitor (mu_coin::client & client_a) :
     client (client_a)
     {
     }
@@ -5142,7 +5133,7 @@ public:
     void change_block (mu_coin::change_block const &) override
     {
     }
-    mu_coin::client_impl & client;
+    mu_coin::client & client;
 };
 }
 
@@ -5169,12 +5160,12 @@ std::unique_ptr <mu_coin::block> mu_coin::ledger::successor (mu_coin::block_hash
 	return result;
 }
 
-bool mu_coin::client_impl::is_representative ()
+bool mu_coin::client::is_representative ()
 {
     return wallet.find (representative) != wallet.end ();
 }
 
-void mu_coin::client_impl::representative_vote (mu_coin::votes & votes_a, mu_coin::block const & block_a)
+void mu_coin::client::representative_vote (mu_coin::votes & votes_a, mu_coin::block const & block_a)
 {
 	if (is_representative ())
 	{

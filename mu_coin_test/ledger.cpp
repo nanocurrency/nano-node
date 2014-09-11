@@ -36,7 +36,7 @@ TEST (system, system_genesis)
     mu_coin::system system (1, 24000, 25000, 2, 500);
     for (auto & i: system.clients)
     {
-        ASSERT_EQ (500, i->client_m->ledger.account_balance (system.test_genesis_address.pub));
+        ASSERT_EQ (500, i->ledger.account_balance (system.test_genesis_address.pub));
     }
 }
 
@@ -602,26 +602,26 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (client, balance)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
-    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), system.clients [0]->client_m->balance ());
+    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), system.clients [0]->balance ());
 }
 
 TEST (system, generate_send_existing)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     mu_coin::frontier frontier1;
-    ASSERT_FALSE (system.clients [0]->client_m->store.latest_get (system.test_genesis_address.pub, frontier1));
-    system.generate_send_existing (*system.clients [0]->client_m);
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, frontier1));
+    system.generate_send_existing (*system.clients [0]);
     mu_coin::frontier frontier2;
-    ASSERT_FALSE (system.clients [0]->client_m->store.latest_get (system.test_genesis_address.pub, frontier2));
+    ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, frontier2));
     ASSERT_NE (frontier1.hash, frontier2.hash);
-    while (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub) == std::numeric_limits <mu_coin::uint256_t>::max ())
+    while (system.clients [0]->ledger.account_balance (system.test_genesis_address.pub) == std::numeric_limits <mu_coin::uint256_t>::max ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
     }
-    while (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub) != std::numeric_limits <mu_coin::uint256_t>::max ())
+    while (system.clients [0]->ledger.account_balance (system.test_genesis_address.pub) != std::numeric_limits <mu_coin::uint256_t>::max ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -631,26 +631,26 @@ TEST (system, generate_send_existing)
 TEST (system, generate_send_new)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
-    auto iterator1 (system.clients [0]->client_m->store.latest_begin ());
+    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
+    auto iterator1 (system.clients [0]->store.latest_begin ());
     ++iterator1;
-    ASSERT_EQ (system.clients [0]->client_m->store.latest_end (), iterator1);
-    system.generate_send_new (*system.clients [0]->client_m);
+    ASSERT_EQ (system.clients [0]->store.latest_end (), iterator1);
+    system.generate_send_new (*system.clients [0]);
     mu_coin::address new_address;
-    auto iterator2 (system.clients [0]->client_m->wallet.begin ());
+    auto iterator2 (system.clients [0]->wallet.begin ());
     if (iterator2->first != system.test_genesis_address.pub)
     {
         new_address = iterator2->first;
     }
     ++iterator2;
-    ASSERT_NE (system.clients [0]->client_m->wallet.end (), iterator2);
+    ASSERT_NE (system.clients [0]->wallet.end (), iterator2);
     if (iterator2->first != system.test_genesis_address.pub)
     {
         new_address = iterator2->first;
     }
     ++iterator2;
-    ASSERT_EQ (system.clients [0]->client_m->wallet.end (), iterator2);
-    while (system.clients [0]->client_m->ledger.account_balance (new_address) == 0)
+    ASSERT_EQ (system.clients [0]->wallet.end (), iterator2);
+    while (system.clients [0]->ledger.account_balance (new_address) == 0)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -660,11 +660,11 @@ TEST (system, generate_send_new)
 TEST (system, generate_mass_activity)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     size_t count (20);
-    system.generate_mass_activity (count, *system.clients [0]->client_m);
+    system.generate_mass_activity (count, *system.clients [0]);
     size_t accounts (0);
-    for (auto i (system.clients [0]->client_m->store.latest_begin ()), n (system.clients [0]->client_m->store.latest_end ()); i != n; ++i)
+    for (auto i (system.clients [0]->store.latest_begin ()), n (system.clients [0]->store.latest_end ()); i != n; ++i)
     {
         ++accounts;
     }
@@ -674,12 +674,12 @@ TEST (system, generate_mass_activity)
 TEST (system, DISABLED_generate_mass_activity_long)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     size_t count (10000);
-    system.generate_mass_activity (count, *system.clients [0]->client_m);
-    system.clients [0]->client_m->log.dump_cerr ();
+    system.generate_mass_activity (count, *system.clients [0]);
+    system.clients [0]->log.dump_cerr ();
     size_t accounts (0);
-    for (auto i (system.clients [0]->client_m->store.latest_begin ()), n (system.clients [0]->client_m->store.latest_end ()); i != n; ++i)
+    for (auto i (system.clients [0]->store.latest_begin ()), n (system.clients [0]->store.latest_end ()); i != n; ++i)
     {
         ++accounts;
     }
@@ -842,7 +842,7 @@ TEST (ledegr, double_receive)
 TEST (votes, add_unsigned)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -865,7 +865,7 @@ TEST (votes, add_unsigned)
 TEST (votes, add_one)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -894,7 +894,7 @@ TEST (votes, add_one)
 TEST (votes, add_two)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -934,7 +934,7 @@ TEST (votes, add_two)
 TEST (votes, add_existing)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -972,7 +972,7 @@ TEST (votes, add_existing)
 TEST (votes, add_old)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -1010,7 +1010,7 @@ TEST (votes, add_old)
 TEST (conflicts, start_stop)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -1034,7 +1034,7 @@ TEST (conflicts, start_stop)
 TEST (conflicts, add_existing)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -1067,7 +1067,7 @@ TEST (conflicts, add_existing)
 TEST (conflicts, add_two)
 {
     mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
+    auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
     send1.hashables.previous = system.genesis.hash ();
@@ -1096,18 +1096,18 @@ TEST (ledger, successor)
 	send1.hashables.balance.clear ();
 	send1.hashables.destination = key1.pub;
 	mu_coin::sign_message (system.test_genesis_address.prv, system.test_genesis_address.pub, send1.hash (), send1.signature);
-	ASSERT_EQ (mu_coin::process_result::progress, system.clients [0]->client_m->ledger.process (send1));
-	ASSERT_EQ (send1, *system.clients [0]->client_m->ledger.successor (system.genesis.hash ()));
+	ASSERT_EQ (mu_coin::process_result::progress, system.clients [0]->ledger.process (send1));
+	ASSERT_EQ (send1, *system.clients [0]->ledger.successor (system.genesis.hash ()));
 }
 
 TEST (fork, publish)
 {
-    std::weak_ptr <mu_coin::client_impl> client0;
+    std::weak_ptr <mu_coin::client> client0;
     {
         mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-        client0 = system.clients [0]->client_m;
-        auto & client1 (*system.clients [0]->client_m);
-        client1.wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
+        client0 = system.clients [0];
+        auto & client1 (*system.clients [0]);
+        client1.wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
         mu_coin::keypair key1;
         std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
         send1->hashables.previous = system.genesis.hash ();
@@ -1152,8 +1152,8 @@ TEST (fork, publish)
 TEST (fork, keep)
 {
     mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
-    auto & client2 (*system.clients [1]->client_m);
+    auto & client1 (*system.clients [0]);
+    auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());
 	client1.wallet.insert (system.test_genesis_address.prv, client1.wallet.password);
     mu_coin::keypair key1;
@@ -1185,8 +1185,8 @@ TEST (fork, keep)
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->rep_votes.size ());
-	ASSERT_TRUE (system.clients [0]->client_m->store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (system.clients [1]->client_m->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
     while (votes1->rep_votes.size () == 1)
 	{
 		system.service->poll_one ();
@@ -1195,15 +1195,15 @@ TEST (fork, keep)
     auto winner (votes1->winner ());
     ASSERT_EQ (*publish1.block, *winner.first);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), winner.second);
-	ASSERT_TRUE (system.clients [0]->client_m->store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (system.clients [1]->client_m->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
 }
 
 TEST (fork, flip)
 {
     mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
-    auto & client2 (*system.clients [1]->client_m);
+    auto & client1 (*system.clients [0]);
+    auto & client2 (*system.clients [1]);
     ASSERT_EQ (1, client1.peers.size ());
     client1.wallet.insert (system.test_genesis_address.prv, client1.wallet.password);
     mu_coin::keypair key1;
@@ -1253,8 +1253,8 @@ TEST (fork, flip)
 TEST (fork, multi_flip)
 {
     mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
-    auto & client1 (*system.clients [0]->client_m);
-    auto & client2 (*system.clients [1]->client_m);
+    auto & client1 (*system.clients [0]);
+    auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());
 	client1.wallet.insert (system.test_genesis_address.prv, client1.wallet.password);
     mu_coin::keypair key1;
