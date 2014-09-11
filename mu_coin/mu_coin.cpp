@@ -45,7 +45,7 @@ namespace
     }
     bool constexpr client_lifetime_tracing ()
     {
-        return false;
+        return true;
     }
 }
 

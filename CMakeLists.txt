@@ -1,7 +1,13 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (mu_coin)
 
-add_definitions (-std=c++11 -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG)
+if (WIN32)
+    set (PLATFORM_DEFINES "-D_WIN32_WINNT=0x0501 -DWINVER=0x0501")
+else (WIN32)
+    set (PLATFORM_DEFINES "")
+endif (WIN32)
+
+add_definitions (-std=c++11 -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG ${PLATFORM_DEFINES})
 
 include_directories (${CMAKE_SOURCE_DIR})
 
@@ -45,9 +51,15 @@ add_executable (mu_coin_qt
     mu_coin_qt/entry.cpp
     mu_coin_qt/qt.cpp
     mu_coin_qt/qt.hpp)
+    
+if (WIN32)
+    set (PLATFORM_LIBS "ws2_32 mswsock")
+else (WIN32)
+    set (PLATFORM_LIBS "")
+endif (WIN32)
 
-target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${LevelDB_LIBRARY})
+target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_cli mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${LevelDB_LIBRARY})
+target_link_libraries (mu_coin_cli mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_qt mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${LevelDB_LIBRARY})
+target_link_libraries (mu_coin_qt mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})

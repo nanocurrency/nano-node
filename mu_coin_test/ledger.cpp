@@ -4,6 +4,7 @@
 #include <cryptopp/randpool.h>
 
 #include <thread>
+#include <atomic>
 #include <condition_variable>
 
 TEST (ledger, empty)

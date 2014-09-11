@@ -164,6 +164,7 @@ TEST (network, send_keepalive)
     mu_coin::system system (1, 24000, 25000, 2, 100);
     auto list1 (system.clients [0]->client_m->peers.list ());
     ASSERT_EQ (1, list1.size ());
+    while (list1 [0].last_contact == std::chrono::system_clock::now ());
     system.clients [0]->client_m->network.send_keepalive (system.clients [1]->client_m->network.endpoint ());
     auto initial (system.clients [0]->client_m->network.keepalive_ack_count);
     while (system.clients [0]->client_m->network.keepalive_ack_count == initial)
@@ -361,9 +362,12 @@ TEST (client, send_self)
     system.clients [0]->client_m->wallet.insert (system.test_genesis_address.prv, system.clients [0]->client_m->wallet.password);
     system.clients [0]->client_m->wallet.insert (key2.prv, system.clients [0]->client_m->wallet.password);
     ASSERT_FALSE (system.clients [0]->client_m->transactions.send (key2.pub, 1000, system.clients [0]->client_m->wallet.password));
-    system.processor.poll_one ();
+    while (system.clients [0]->client_m->ledger.account_balance (key2.pub).is_zero ())
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+    }
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub));
-    ASSERT_FALSE (system.clients [0]->client_m->ledger.account_balance (key2.pub).is_zero ());
 }
 
 TEST (client, send_single)
@@ -669,19 +673,13 @@ TEST (bootstrap_processor, process_new)
     auto balance1 (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub));
     auto balance2 (system.clients [0]->client_m->ledger.account_balance (key2.pub));
     mu_coin::client client1 (system.service, system.pool, 24002, 25002, system.processor, system.test_genesis_address.pub, system.genesis);
-    auto done (false);
-    client1.client_m->processor.bootstrap (system.clients [0]->client_m->bootstrap.endpoint (), [&done] () {done = true;});
-    while (!done)
+    client1.client_m->processor.bootstrap (system.clients [0]->client_m->bootstrap.endpoint (), [] () {});
+    while (client1.client_m->ledger.account_balance (key2.pub) != balance2)
     {
         system.service->run_one ();
         system.processor.poll_one ();
     }
     ASSERT_EQ (balance1, client1.client_m->ledger.account_balance (system.test_genesis_address.pub));
-	if (balance2 != client1.client_m->ledger.account_balance (key2.pub))
-	{
-		client1.client_m->log.dump_cerr ();
-	}
-    ASSERT_EQ (balance2, client1.client_m->ledger.account_balance (key2.pub));
 }
 
 TEST (bulk_req, no_address)

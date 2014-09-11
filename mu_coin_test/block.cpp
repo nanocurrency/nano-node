@@ -498,7 +498,7 @@ TEST (frontier_req, serialization)
     }
     mu_coin::bufferstream buffer (bytes.data (), bytes.size ());
     mu_coin::frontier_req request2;
-    ASSERT_EQ (false, request2.deserialize (buffer));
+    ASSERT_FALSE (request2.deserialize (buffer));
     ASSERT_EQ (request1, request2);
 }
 
