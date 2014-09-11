@@ -461,6 +461,7 @@ TEST (gap_cache, comparison)
     auto existing1 (cache.blocks.find (previous1));
     ASSERT_NE (cache.blocks.end (), existing1);
     auto arrival (existing1->arrival);
+    while (std::chrono::system_clock::now () == arrival);
     mu_coin::send_block block3;
     block3.hashables.previous = 42;
     auto previous2 (block3.previous ());

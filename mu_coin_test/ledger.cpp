@@ -616,8 +616,16 @@ TEST (system, generate_send_existing)
     mu_coin::frontier frontier2;
     ASSERT_FALSE (system.clients [0]->client_m->store.latest_get (system.test_genesis_address.pub, frontier2));
     ASSERT_NE (frontier1.hash, frontier2.hash);
-    system.processor.poll_one ();
-    ASSERT_EQ (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), std::numeric_limits <mu_coin::uint256_t>::max ());
+    while (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub) == std::numeric_limits <mu_coin::uint256_t>::max ())
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+    }
+    while (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub) != std::numeric_limits <mu_coin::uint256_t>::max ())
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+    }
 }
 
 TEST (system, generate_send_new)
@@ -628,23 +636,25 @@ TEST (system, generate_send_new)
     ++iterator1;
     ASSERT_EQ (system.clients [0]->client_m->store.latest_end (), iterator1);
     system.generate_send_new (*system.clients [0]->client_m);
-    system.processor.poll_one ();
     mu_coin::address new_address;
-    auto iterator2 (system.clients [0]->client_m->store.latest_begin ());
+    auto iterator2 (system.clients [0]->client_m->wallet.begin ());
     if (iterator2->first != system.test_genesis_address.pub)
     {
         new_address = iterator2->first;
     }
     ++iterator2;
-    ASSERT_NE (system.clients [0]->client_m->store.latest_end (), iterator2);
+    ASSERT_NE (system.clients [0]->client_m->wallet.end (), iterator2);
     if (iterator2->first != system.test_genesis_address.pub)
     {
         new_address = iterator2->first;
     }
     ++iterator2;
-    ASSERT_EQ (system.clients [0]->client_m->store.latest_end (), iterator2);
-    ASSERT_LT (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), std::numeric_limits <mu_coin::uint256_t>::max ());
-    ASSERT_GT (system.clients [0]->client_m->ledger.account_balance (system.test_genesis_address.pub), 0);
+    ASSERT_EQ (system.clients [0]->client_m->wallet.end (), iterator2);
+    while (system.clients [0]->client_m->ledger.account_balance (new_address) == 0)
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+    }
 }
 
 TEST (system, generate_mass_activity)
