@@ -2,9 +2,9 @@ cmake_minimum_required (VERSION 2.8.11)
 project (mu_coin)
 
 if (WIN32)
-    set (PLATFORM_DEFINES "-D_WIN32_WINNT=0x0501 -DWINVER=0x0501")
+    set (PLATFORM_DEFINES -D_WIN32_WINNT=0x0501 -DWINVER=0x0501)
 else (WIN32)
-    set (PLATFORM_DEFINES "")
+    set (PLATFORM_DEFINES)
 endif (WIN32)
 
 add_definitions (-std=c++11 -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG ${PLATFORM_DEFINES})
