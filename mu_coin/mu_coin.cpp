@@ -1390,9 +1390,10 @@ mu_coin::wallet_temp_t mu_coin::wallet_temp;
 mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, boost::filesystem::path const & path_a) :
 password (password_a)
 {
+    boost::filesystem::create_directories (path_a);
     leveldb::Options options;
     options.create_if_missing = true;
-    auto status (leveldb::DB::Open (options, path_a.string (), &handle));
+    auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &handle));
     assert (status.ok ());
 }
 
@@ -1683,13 +1684,13 @@ bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
     return wakeup > other_a.wakeup;
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & wallet_path_a, boost::filesystem::path const & block_store_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & data_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
 genesis (genesis_a),
 representative (representative_a),
-store (block_store_path_a),
+store (data_path_a),
 ledger (store),
 conflicts (*this),
-wallet (0, wallet_path_a),
+wallet (0, data_path_a),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
@@ -1707,7 +1708,7 @@ service (processor_a)
 }
 
 mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
-client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), boost::filesystem::unique_path (), processor_a, representative_a, genesis_a)
+client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), processor_a, representative_a, genesis_a)
 {
 }
 
