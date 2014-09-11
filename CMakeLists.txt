@@ -53,9 +53,9 @@ add_executable (mu_coin_qt
     mu_coin_qt/qt.hpp)
     
 if (WIN32)
-    set (PLATFORM_LIBS "ws2_32 mswsock")
+    set (PLATFORM_LIBS ws2_32 mswsock)
 else (WIN32)
-    set (PLATFORM_LIBS "")
+    set (PLATFORM_LIBS)
 endif (WIN32)
 
 target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
