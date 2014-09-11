@@ -910,25 +910,25 @@ mu_coin::block_store::block_store (boost::filesystem::path const & path_a)
     boost::filesystem::create_directories (path_a);
     leveldb::Options options;
     options.create_if_missing = true;
-    auto status1 (leveldb::DB::Open (options, (path_a / "addresses.ldb").native ().c_str (), &db));
+    auto status1 (leveldb::DB::Open (options, (path_a / "addresses.ldb").string (), &db));
     addresses.reset (db);
     assert (status1.ok ());
-    auto status2 (leveldb::DB::Open (options, (path_a / "blocks.ldb").native ().c_str (), &db));
+    auto status2 (leveldb::DB::Open (options, (path_a / "blocks.ldb").string (), &db));
     blocks.reset (db);
     assert (status2.ok ());
-    auto status3 (leveldb::DB::Open (options, (path_a / "pending.ldb").native ().c_str (), &db));
+    auto status3 (leveldb::DB::Open (options, (path_a / "pending.ldb").string (), &db));
     pending.reset (db);
     assert (status3.ok ());
-    auto status4 (leveldb::DB::Open (options, (path_a / "representation.ldb").native ().c_str (), &db));
+    auto status4 (leveldb::DB::Open (options, (path_a / "representation.ldb").string (), &db));
     representation.reset (db);
     assert (status4.ok ());
-    auto status5 (leveldb::DB::Open (options, (path_a / "forks.ldb").native ().c_str (), &db));
+    auto status5 (leveldb::DB::Open (options, (path_a / "forks.ldb").string (), &db));
     forks.reset (db);
     assert (status5.ok ());
-    auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").native ().c_str (), &db));
+    auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").string (), &db));
     bootstrap.reset (db);
     assert (status6.ok ());
-    auto status8 (leveldb::DB::Open (options, (path_a / "checksum.ldb").native ().c_str (), &db));
+    auto status8 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
     checksum.reset (db);
     assert (status8.ok ());
 }
@@ -1392,7 +1392,7 @@ password (password_a)
 {
     leveldb::Options options;
     options.create_if_missing = true;
-    auto status (leveldb::DB::Open (options, path_a.native().c_str (), &handle));
+    auto status (leveldb::DB::Open (options, path_a.string (), &handle));
     assert (status.ok ());
 }
 
