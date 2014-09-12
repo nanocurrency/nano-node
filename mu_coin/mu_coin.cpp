@@ -976,12 +976,13 @@ mu_coin::genesis::genesis (mu_coin::address const & key_a)
 
 void mu_coin::genesis::initialize (mu_coin::block_store & store_a) const
 {
-    //assert (store_a.latest_begin () == store_a.latest_end ());
+    assert (store_a.latest_begin () == store_a.latest_end ());
     store_a.block_put (send1.hash (), send1);
     store_a.block_put (send2.hash (), send2);
     store_a.block_put (open.hash (), open);
     store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, send1.hashables.balance, store_a.now ()});
     store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
+    store_a.checksum_put (0, 0, hash ());
 }
 
 bool mu_coin::block_store::latest_get (mu_coin::address const & address_a, mu_coin::frontier & frontier_a)
@@ -1685,7 +1686,6 @@ bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
 }
 
 mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & data_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
-genesis (genesis_a),
 representative (representative_a),
 store (data_path_a),
 ledger (store),
@@ -1703,8 +1703,10 @@ service (processor_a)
     {
         std::cerr << "Constructing client\n";
     }
-    genesis_a.initialize (store);
-    ledger.checksum_update (genesis.hash ());
+    if (store.latest_begin () == store.latest_end ())
+    {
+        genesis_a.initialize (store);
+    }
 }
 
 mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
@@ -2458,7 +2460,6 @@ pool (new boost::network::utils::thread_pool (threads_a))
     for (size_t i (0); i < count_a; ++i)
     {
         auto client (std::make_shared <mu_coin::client> (service, pool, port_a + i, command_port_a + i, processor, test_genesis_address.pub, genesis));
-        genesis.initialize (client->store);
         client->start ();
         clients.push_back (client);
     }

@@ -993,7 +993,6 @@ namespace mu_coin {
         bool is_representative ();
 		void representative_vote (mu_coin::votes &, mu_coin::block const &);
         mu_coin::log log;
-        mu_coin::genesis const & genesis;
         mu_coin::address representative;
         mu_coin::block_store store;
         mu_coin::gap_cache gap_cache;
