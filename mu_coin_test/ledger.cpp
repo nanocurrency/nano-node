@@ -21,10 +21,10 @@ TEST (ledger, genesis_balance)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 500);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     auto balance (ledger.account_balance (key1.pub));
-    ASSERT_EQ (500, balance);
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), balance);
     mu_coin::frontier frontier;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier));
     ASSERT_GE (store.now (), frontier.time);
@@ -33,10 +33,10 @@ TEST (ledger, genesis_balance)
 
 TEST (system, system_genesis)
 {
-    mu_coin::system system (1, 24000, 25000, 2, 500);
+    mu_coin::system system (1, 24000, 25000, 2);
     for (auto & i: system.clients)
     {
-        ASSERT_EQ (500, i->ledger.account_balance (system.test_genesis_address.pub));
+        ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), i->ledger.account_balance (system.test_genesis_address.pub));
     }
 }
 
@@ -58,7 +58,7 @@ TEST (ledger, process_send)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
@@ -84,9 +84,9 @@ TEST (ledger, process_send)
     mu_coin::block_hash hash2 (open.hash ());
     mu_coin::sign_message (key2.prv, key2.pub, hash2, open.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
-    ASSERT_EQ (50, ledger.account_balance (key2.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.account_balance (key2.pub));
     ASSERT_EQ (50, ledger.weight (key1.pub));
-    ASSERT_EQ (50, ledger.weight (key2.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.weight (key2.pub));
     mu_coin::frontier frontier3;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier3));
     auto latest2 (store.block_get (frontier3.hash));
@@ -110,10 +110,10 @@ TEST (ledger, process_send)
 	ASSERT_FALSE (ledger.store.pending_get (hash1, sender1, amount1, destination1));
     ASSERT_EQ (key1.pub, sender1);
     ASSERT_EQ (key2.pub, destination1);
-    ASSERT_EQ (50, amount1.number ());
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, amount1.number ());
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (key1.pub));
-    ASSERT_EQ (100, ledger.weight (key1.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key1.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     mu_coin::frontier frontier6;
 	ASSERT_FALSE (ledger.store.latest_get (key1.pub, frontier6));
@@ -126,7 +126,7 @@ TEST (ledger, process_send)
     mu_coin::uint256_union amount2;
     mu_coin::address destination2;
 	ASSERT_TRUE (ledger.store.pending_get (hash1, sender2, amount2, destination2));
-	ASSERT_EQ (100, ledger.account_balance (key1.pub));
+	ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.account_balance (key1.pub));
 }
 
 TEST (ledger, process_receive)
@@ -134,7 +134,7 @@ TEST (ledger, process_receive)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
@@ -153,7 +153,7 @@ TEST (ledger, process_receive)
     mu_coin::block_hash hash2 (open.hash ());
     mu_coin::sign_message (key2.prv, key2.pub, hash2, open.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
-    ASSERT_EQ (50, ledger.weight (key3.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.weight (key3.pub));
 	mu_coin::send_block send2;
 	send2.hashables.balance = 25;
 	send2.hashables.previous = hash1;
@@ -169,12 +169,12 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (mu_coin::process_result::progress, ledger.process (receive));
 	ASSERT_EQ (hash4, ledger.latest (key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (key1.pub));
-	ASSERT_EQ (75, ledger.account_balance (key2.pub));
-    ASSERT_EQ (75, ledger.weight (key3.pub));
+	ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 25, ledger.account_balance (key2.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 25, ledger.weight (key3.pub));
 	ledger.rollback (hash4);
 	ASSERT_EQ (25, ledger.account_balance (key1.pub));
-	ASSERT_EQ (50, ledger.account_balance (key2.pub));
-    ASSERT_EQ (50, ledger.weight (key3.pub));
+	ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.account_balance (key2.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.weight (key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
     mu_coin::address sender1;
     mu_coin::uint256_union amount1;
@@ -189,7 +189,7 @@ TEST (ledger, rollback_receiver)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
@@ -210,14 +210,14 @@ TEST (ledger, rollback_receiver)
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (open));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (key1.pub));
-	ASSERT_EQ (50, ledger.account_balance (key2.pub));
+	ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.account_balance (key2.pub));
     ASSERT_EQ (50, ledger.weight (key1.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
-    ASSERT_EQ (50, ledger.weight (key3.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.weight (key3.pub));
 	ledger.rollback (hash1);
-	ASSERT_EQ (100, ledger.account_balance (key1.pub));
+	ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.account_balance (key1.pub));
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
-    ASSERT_EQ (100, ledger.weight (key1.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key1.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     ASSERT_EQ (0, ledger.weight (key3.pub));
 	mu_coin::frontier frontier2;
@@ -233,7 +233,7 @@ TEST (ledger, rollback_representation)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::keypair key5;
     mu_coin::change_block change1;
@@ -274,15 +274,15 @@ TEST (ledger, rollback_representation)
     mu_coin::sign_message (key2.prv, key2.pub, receive1.hash (), receive1.signature);
     ASSERT_EQ (mu_coin::process_result::progress, ledger.process (receive1));
     ASSERT_EQ (1, ledger.weight (key3.pub));
-    ASSERT_EQ (99, ledger.weight (key4.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1, ledger.weight (key4.pub));
     ledger.rollback (receive1.hash ());
     ASSERT_EQ (50, ledger.weight (key3.pub));
-    ASSERT_EQ (50, ledger.weight (key4.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 50, ledger.weight (key4.pub));
     ledger.rollback (open.hash ());
-    ASSERT_EQ (100, ledger.weight (key3.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key3.pub));
     ASSERT_EQ (0, ledger.weight (key4.pub));
     ledger.rollback (change2.hash ());
-    ASSERT_EQ (100, ledger.weight (key5.pub));
+    ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), ledger.weight (key5.pub));
     ASSERT_EQ (0, ledger.weight (key3.pub));
 }
 
@@ -291,7 +291,7 @@ TEST (ledger, process_duplicate)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
@@ -317,7 +317,7 @@ TEST (processor_service, bad_send_signature)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
@@ -337,7 +337,7 @@ TEST (processor_service, bad_receive_signature)
     mu_coin::keypair key1;
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub, 100);
+    mu_coin::genesis genesis (key1.pub);
     genesis.initialize (store);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
@@ -601,14 +601,14 @@ TEST (ledger, DISABLED_checksum_range)
 
 TEST (client, balance)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), system.clients [0]->balance ());
 }
 
 TEST (system, generate_send_existing)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (system.test_genesis_address.pub, frontier1));
@@ -630,7 +630,7 @@ TEST (system, generate_send_existing)
 
 TEST (system, generate_send_new)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     auto iterator1 (system.clients [0]->store.latest_begin ());
     ++iterator1;
@@ -659,7 +659,7 @@ TEST (system, generate_send_new)
 
 TEST (system, generate_mass_activity)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     size_t count (20);
     system.generate_mass_activity (count, *system.clients [0]);
@@ -673,7 +673,7 @@ TEST (system, generate_mass_activity)
 
 TEST (system, DISABLED_generate_mass_activity_long)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
     size_t count (10000);
     system.generate_mass_activity (count, *system.clients [0]);
@@ -841,7 +841,7 @@ TEST (ledegr, double_receive)
 
 TEST (votes, add_unsigned)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -864,7 +864,7 @@ TEST (votes, add_unsigned)
 
 TEST (votes, add_one)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -893,7 +893,7 @@ TEST (votes, add_one)
 
 TEST (votes, add_two)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -933,7 +933,7 @@ TEST (votes, add_two)
 
 TEST (votes, add_existing)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -971,7 +971,7 @@ TEST (votes, add_existing)
 
 TEST (votes, add_old)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -1009,7 +1009,7 @@ TEST (votes, add_old)
 
 TEST (conflicts, start_stop)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -1033,7 +1033,7 @@ TEST (conflicts, start_stop)
 
 TEST (conflicts, add_existing)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -1066,7 +1066,7 @@ TEST (conflicts, add_existing)
 
 TEST (conflicts, add_two)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
     auto & client1 (*system.clients [0]);
     mu_coin::send_block send1;
     mu_coin::keypair key1;
@@ -1089,7 +1089,7 @@ TEST (conflicts, add_two)
 
 TEST (ledger, successor)
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 1);
 	mu_coin::keypair key1;
 	mu_coin::send_block send1;
 	send1.hashables.previous = system.genesis.hash ();
@@ -1104,7 +1104,7 @@ TEST (fork, publish)
 {
     std::weak_ptr <mu_coin::client> client0;
     {
-        mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
+        mu_coin::system system (1, 24000, 25000, 1);
         client0 = system.clients [0];
         auto & client1 (*system.clients [0]);
         client1.wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
@@ -1151,7 +1151,7 @@ TEST (fork, publish)
 
 TEST (fork, keep)
 {
-    mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 2);
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());
@@ -1201,7 +1201,7 @@ TEST (fork, keep)
 
 TEST (fork, flip)
 {
-    mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 2);
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
     ASSERT_EQ (1, client1.peers.size ());
@@ -1252,7 +1252,7 @@ TEST (fork, flip)
 
 TEST (fork, multi_flip)
 {
-    mu_coin::system system (1, 24000, 25000, 2, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, 2);
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());

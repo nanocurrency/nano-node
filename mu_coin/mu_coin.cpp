@@ -959,10 +959,10 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block
     return result;
 }
 
-mu_coin::genesis::genesis (mu_coin::address const & key_a, mu_coin::uint256_t const & coins_a)
+mu_coin::genesis::genesis (mu_coin::address const & key_a)
 {
     send1.hashables.destination.clear ();
-    send1.hashables.balance = coins_a;
+    send1.hashables.balance = std::numeric_limits <mu_coin::uint256_t>::max ();
     send1.hashables.previous.clear ();
     send1.signature.clear ();
     send2.hashables.destination = key_a;
@@ -2448,9 +2448,9 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     return transactions.send (address, coins, password);
 }
 
-mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a, mu_coin::uint256_t const & amount) :
+mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a) :
 test_genesis_address ("E49C03BB7404C10B388AE56322217306B57F3DCBB3A5F060A2F420AD7AA3F034"),
-genesis (test_genesis_address.pub, amount),
+genesis (test_genesis_address.pub),
 service (new boost::asio::io_service),
 pool (new boost::network::utils::thread_pool (threads_a))
 {

@@ -964,7 +964,7 @@ namespace mu_coin {
     class genesis
     {
     public:
-        explicit genesis (mu_coin::address const &, mu_coin::uint256_t const & = std::numeric_limits <uint256_t>::max ());
+        explicit genesis (mu_coin::address const &);
         void initialize (mu_coin::block_store &) const;
         mu_coin::block_hash hash () const;
         mu_coin::send_block send1;
@@ -1011,7 +1011,7 @@ namespace mu_coin {
     class system
     {
     public:
-        system (size_t, uint16_t, uint16_t, size_t, mu_coin::uint256_t const &);
+        system (size_t, uint16_t, uint16_t, size_t);
         ~system ();
         void generate_activity (mu_coin::client &);
         void generate_mass_activity (uint32_t, mu_coin::client &);
