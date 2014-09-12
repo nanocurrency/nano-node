@@ -52,6 +52,9 @@ namespace
 CryptoPP::AutoSeededRandomPool random_pool;
 std::chrono::seconds constexpr mu_coin::processor::period;
 std::chrono::seconds constexpr mu_coin::processor::cutoff;
+mu_coin::keypair mu_coin::test_genesis_key ("E49C03BB7404C10B388AE56322217306B57F3DCBB3A5F060A2F420AD7AA3F034");
+mu_coin::address mu_coin::genesis_address (mu_coin::test_genesis_key.pub);
+
 
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
 {
@@ -959,18 +962,18 @@ std::unique_ptr <mu_coin::block> mu_coin::block_store::block_get (mu_coin::block
     return result;
 }
 
-mu_coin::genesis::genesis (mu_coin::address const & key_a)
+mu_coin::genesis::genesis ()
 {
     send1.hashables.destination.clear ();
     send1.hashables.balance = std::numeric_limits <mu_coin::uint256_t>::max ();
     send1.hashables.previous.clear ();
     send1.signature.clear ();
-    send2.hashables.destination = key_a;
+    send2.hashables.destination = genesis_address;
     send2.hashables.balance.clear ();
     send2.hashables.previous = send1.hash ();
     send2.signature.clear ();
     open.hashables.source = send2.hash ();
-    open.hashables.representative = key_a;
+    open.hashables.representative = genesis_address;
     open.signature.clear ();
 }
 
@@ -1685,7 +1688,7 @@ bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
     return wakeup > other_a.wakeup;
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & data_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & data_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
 representative (representative_a),
 store (data_path_a),
 ledger (store),
@@ -1705,12 +1708,13 @@ service (processor_a)
     }
     if (store.latest_begin () == store.latest_end ())
     {
-        genesis_a.initialize (store);
+        mu_coin::genesis genesis;
+        genesis.initialize (store);
     }
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a, mu_coin::genesis const & genesis_a) :
-client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), processor_a, representative_a, genesis_a)
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
+client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), processor_a, representative_a)
 {
 }
 
@@ -2451,15 +2455,13 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
 }
 
 mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a) :
-test_genesis_address ("E49C03BB7404C10B388AE56322217306B57F3DCBB3A5F060A2F420AD7AA3F034"),
-genesis (test_genesis_address.pub),
 service (new boost::asio::io_service),
 pool (new boost::network::utils::thread_pool (threads_a))
 {
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        auto client (std::make_shared <mu_coin::client> (service, pool, port_a + i, command_port_a + i, processor, test_genesis_address.pub, genesis));
+        auto client (std::make_shared <mu_coin::client> (service, pool, port_a + i, command_port_a + i, processor, mu_coin::genesis_address));
         client->start ();
         clients.push_back (client);
     }

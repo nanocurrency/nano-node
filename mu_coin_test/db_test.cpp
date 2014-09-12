@@ -110,11 +110,10 @@ TEST (block_store, add_pending)
 TEST (block_store, add_genesis)
 {
     mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::keypair key1;
-    mu_coin::genesis genesis (key1.pub);
+    mu_coin::genesis genesis;
     genesis.initialize (db);
     mu_coin::frontier frontier;
-    ASSERT_FALSE (db.latest_get (key1.pub, frontier));
+    ASSERT_FALSE (db.latest_get (mu_coin::genesis_address, frontier));
     auto block1 (db.block_get (frontier.hash));
     ASSERT_NE (nullptr, block1);
     auto receive1 (dynamic_cast <mu_coin::open_block *> (block1.get ()));

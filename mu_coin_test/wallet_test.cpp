@@ -86,16 +86,15 @@ TEST (wallet, insufficient_spend)
 
 TEST (wallet, one_spend)
 {
-    mu_coin::keypair key1;
     mu_coin::uint256_union password;
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
-    wallet.insert (key1.pub, key1.prv, password);
+    wallet.insert (mu_coin::test_genesis_key.pub, mu_coin::test_genesis_key.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub);
+    mu_coin::genesis genesis;
     genesis.initialize (store);
     mu_coin::frontier frontier1;
-    store.latest_get (key1.pub, frontier1);
+    store.latest_get (mu_coin::test_genesis_key.pub, frontier1);
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
     ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, std::numeric_limits <mu_coin::uint256_t>::max (), password, blocks));
@@ -103,7 +102,7 @@ TEST (wallet, one_spend)
     auto & send (*blocks [0]);
     ASSERT_EQ (frontier1.hash, send.hashables.previous);
     ASSERT_EQ (0, send.hashables.balance.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, send.hash (), send.signature));
+    ASSERT_FALSE (mu_coin::validate_message (mu_coin::test_genesis_key.pub, send.hash (), send.signature));
     ASSERT_EQ (key2.pub, send.hashables.destination);
 }
 
@@ -137,29 +136,27 @@ TEST (wallet, DISABLED_two_spend)
 
 TEST (wallet, partial_spend)
 {
-    mu_coin::keypair key1;
     mu_coin::uint256_union password;
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
-    wallet.insert (key1.pub, key1.prv, password);
+    wallet.insert (mu_coin::test_genesis_key.pub, mu_coin::test_genesis_key.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub);
+    mu_coin::genesis genesis;
     genesis.initialize (store);
     mu_coin::frontier frontier1;
-    ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
+    ASSERT_FALSE (store.latest_get (mu_coin::test_genesis_key.pub, frontier1));
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
     ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (frontier1.hash, blocks [0]->hashables.previous);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 500, blocks [0]->hashables.balance.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, blocks [0]->hash (), blocks [0]->signature));
+    ASSERT_FALSE (mu_coin::validate_message (mu_coin::test_genesis_key.pub, blocks [0]->hash (), blocks [0]->signature));
     ASSERT_EQ (key2.pub, blocks [0]->hashables.destination);
 }
 
 TEST (wallet, spend_no_previous)
 {
-    mu_coin::keypair key1;
     mu_coin::uint256_union password;
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     for (auto i (0); i < 50; ++i)
@@ -167,13 +164,13 @@ TEST (wallet, spend_no_previous)
         mu_coin::keypair key;
         wallet.insert (key.pub, key.prv, password);
     }
-    wallet.insert (key1.pub, key1.prv, password);
+    wallet.insert (mu_coin::test_genesis_key.pub, mu_coin::test_genesis_key.prv, password);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
-    mu_coin::genesis genesis (key1.pub);
+    mu_coin::genesis genesis;
     genesis.initialize (store);
     mu_coin::frontier frontier1;
-    ASSERT_FALSE (store.latest_get (key1.pub, frontier1));
+    ASSERT_FALSE (store.latest_get (mu_coin::test_genesis_key.pub, frontier1));
     for (auto i (0); i < 50; ++i)
     {
         mu_coin::keypair key;
@@ -185,7 +182,7 @@ TEST (wallet, spend_no_previous)
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (frontier1.hash, blocks [0]->hashables.previous);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 500, blocks [0]->hashables.balance.number ());
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, blocks [0]->hash (), blocks [0]->signature));
+    ASSERT_FALSE (mu_coin::validate_message (mu_coin::test_genesis_key.pub, blocks [0]->hash (), blocks [0]->signature));
     ASSERT_EQ (key2.pub, blocks [0]->hashables.destination);
 }
 

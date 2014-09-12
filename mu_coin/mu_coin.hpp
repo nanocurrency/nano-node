@@ -961,10 +961,12 @@ namespace mu_coin {
             >
         > peers;
     };
+    extern mu_coin::keypair test_genesis_key;
+    extern mu_coin::address genesis_address;
     class genesis
     {
     public:
-        explicit genesis (mu_coin::address const &);
+        explicit genesis ();
         void initialize (mu_coin::block_store &) const;
         mu_coin::block_hash hash () const;
         mu_coin::send_block send1;
@@ -982,8 +984,8 @@ namespace mu_coin {
     class client : public std::enable_shared_from_this <mu_coin::client>
     {
     public:
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &, mu_coin::genesis const &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &);
+        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &);
         ~client ();
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
         mu_coin::uint256_t balance ();
@@ -1019,8 +1021,6 @@ namespace mu_coin {
         mu_coin::uint256_t get_random_amount (mu_coin::client &);
         void generate_send_new (mu_coin::client &);
         void generate_send_existing (mu_coin::client &);
-        mu_coin::keypair test_genesis_address;
-        mu_coin::genesis genesis;
         boost::shared_ptr <boost::asio::io_service> service;
         boost::shared_ptr <boost::network::utils::thread_pool> pool;
         mu_coin::processor_service processor;
