@@ -21,6 +21,7 @@ find_package (CryptoPP REQUIRED)
 include_directories (${CRYPTOPP_INCLUDE_DIR})
 
 find_package (Qt5 REQUIRED COMPONENTS Core Gui Widgets)
+include_directories (${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
 
 find_package (cppnetlib 0.11.0 REQUIRED)
 include_directories (${CPPNETLIB_INCLUDE_DIRS})
@@ -47,10 +48,15 @@ add_executable (mu_coin_test
 add_executable (mu_coin_cli
     mu_coin_cli/entry.cpp)
     
-add_executable (mu_coin_qt
-    mu_coin_qt/entry.cpp
+add_library (mu_coin_qt
     mu_coin_qt/qt.cpp
     mu_coin_qt/qt.hpp)
+    
+add_executable (mu_coin_qt_client
+    mu_coin_qt_client/entry.cpp)
+    
+add_executable (mu_coin_qt_system
+    mu_coin_qt_system/entry.cpp)
     
 if (WIN32)
     set (PLATFORM_LIBS ws2_32 mswsock)
@@ -62,4 +68,6 @@ target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_
 
 target_link_libraries (mu_coin_cli mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_qt mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+target_link_libraries (mu_coin_qt_client mu_coin mu_coin_qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+
+target_link_libraries (mu_coin_qt_system mu_coin mu_coin_qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
