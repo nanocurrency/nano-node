@@ -650,10 +650,6 @@ namespace mu_coin {
         virtual void bulk_req (mu_coin::bulk_req const &) = 0;
         virtual void frontier_req (mu_coin::frontier_req const &) = 0;
     };
-    struct wallet_temp_t
-    {
-    };
-    extern wallet_temp_t wallet_temp;
     class key_entry
     {
     public:
@@ -679,7 +675,6 @@ namespace mu_coin {
     class wallet
     {
     public:
-        wallet (mu_coin::uint256_union const &, wallet_temp_t const &);
         wallet (mu_coin::uint256_union const &, boost::filesystem::path const &);
         void insert (mu_coin::private_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::private_key &);

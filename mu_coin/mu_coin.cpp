@@ -1389,8 +1389,6 @@ void mu_coin::publish_req::serialize (mu_coin::stream & stream_a)
     mu_coin::serialize_block (stream_a, *block);
 }
 
-mu_coin::wallet_temp_t mu_coin::wallet_temp;
-
 mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, boost::filesystem::path const & path_a) :
 password (password_a)
 {
@@ -1399,11 +1397,6 @@ password (password_a)
     options.create_if_missing = true;
     auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &handle));
     assert (status.ok ());
-}
-
-mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, mu_coin::wallet_temp_t const &) :
-wallet (password_a, boost::filesystem::unique_path ())
-{
 }
 
 void mu_coin::wallet::insert (mu_coin::private_key const & prv)
