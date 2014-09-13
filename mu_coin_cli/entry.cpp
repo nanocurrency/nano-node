@@ -2,8 +2,8 @@
 
 int main ()
 {
-    mu_coin::system system (1, 24000, 25000, 1, std::numeric_limits <mu_coin::uint256_t>::max ());
-    system.clients [0]->wallet.insert (system.test_genesis_address.prv, system.clients [0]->wallet.password);
+    mu_coin::system system (1, 24000, 25000, 1);
+    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     size_t count (10000);
     system.generate_mass_activity (count, *system.clients [0]);
 }

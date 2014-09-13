@@ -8,12 +8,12 @@
 #include <QtWidgets>
 
 namespace mu_coin_qt {
-    class gui
+    class client
     {
     public:
-        gui (QApplication &, mu_coin::client &);
-        ~gui ();
-        mu_coin::client & client;
+        client (QApplication &, mu_coin::client &);
+        ~client ();
+        mu_coin::client & client_m;
         
         QApplication & application;
         QStackedWidget * main_stack;

@@ -4,8 +4,8 @@
 
 #include <sstream>
 
-mu_coin_qt::gui::gui (QApplication & application_a, mu_coin::client & client_a) :
-client (client_a),
+mu_coin_qt::client::client (QApplication & application_a, mu_coin::client & client_a) :
+client_m (client_a),
 application (application_a),
 main_stack (new QStackedWidget),
 settings_window (new QWidget),
@@ -174,7 +174,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             palette.setColor (QPalette::Text, Qt::black);
             wallet_key_line->setPalette (palette);
             wallet_key_line->clear ();
-            client.wallet.insert (key);
+            client_m.wallet.insert (key);
             refresh_wallet ();
         }
         else
@@ -196,7 +196,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             settings_connect_line->setPalette (palette);
             settings_bootstrap_button->setEnabled (false);
             settings_bootstrap_button->setText ("Bootstrapping...");
-            client.processor.bootstrap (endpoint, [this] () {settings_bootstrap_button->setText ("Bootstrap"); settings_bootstrap_button->setEnabled (true);});
+            client_m.processor.bootstrap (endpoint, [this] () {settings_bootstrap_button->setText ("Bootstrap"); settings_bootstrap_button->setEnabled (true);});
             settings_connect_line->clear ();
         }
         else
@@ -217,7 +217,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
             settings_connect_line->setPalette (palette);
-            client.network.send_keepalive (endpoint);
+            client_m.network.send_keepalive (endpoint);
             settings_connect_line->clear ();
         }
         else
@@ -276,7 +276,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             parse_error = address.decode_base58check (address_text_narrow);
             if (!parse_error)
             {
-                auto send_error (client.send (address, coins.number (), client.wallet.password));
+                auto send_error (client_m.send (address, coins.number (), client_m.wallet.password));
                 if (!send_error)
                 {
                     QPalette palette;
@@ -344,17 +344,17 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     QObject::connect (wallet_add_account, &QPushButton::released, [this] ()
     {
         mu_coin::keypair key;
-        client.wallet.insert (key.pub, key.prv, client.wallet.password);
+        client_m.wallet.insert (key.prv);
         refresh_wallet ();
     });
     refresh_wallet ();
     refresh_ledger ();
 }
 
-void mu_coin_qt::gui::refresh_log ()
+void mu_coin_qt::client::refresh_log ()
 {
     QStringList log;
-    for (auto i: client.log.items)
+    for (auto i: client_m.log.items)
     {
         std::stringstream entry;
         entry << i.first << ' ' << i.second << std::endl;
@@ -364,10 +364,10 @@ void mu_coin_qt::gui::refresh_log ()
     log_model->setStringList (log);
 }
 
-void mu_coin_qt::gui::refresh_peers ()
+void mu_coin_qt::client::refresh_peers ()
 {
     QStringList peers;
-    for (auto i: client.peers.list ())
+    for (auto i: client_m.peers.list ())
     {
         std::stringstream endpoint;
         endpoint << i.endpoint.address ().to_string ();
@@ -383,17 +383,17 @@ void mu_coin_qt::gui::refresh_peers ()
     peers_model->setStringList (peers);
 }
 
-void mu_coin_qt::gui::refresh_ledger ()
+void mu_coin_qt::client::refresh_ledger ()
 {
     QStringList accounts;
-    for (auto i (client.ledger.store.latest_begin()), j (client.ledger.store.latest_end ()); i != j; ++i)
+    for (auto i (client_m.ledger.store.latest_begin()), j (client_m.ledger.store.latest_end ()); i != j; ++i)
     {
         std::string line;
         std::string account;
         i->first.encode_base58check (account);
         line += account;
         line += " : ";
-        line += client.ledger.balance (i->second.hash).convert_to <std::string> ();
+        line += client_m.ledger.balance (i->second.hash).convert_to <std::string> ();
         line += " : ";
         std::string block_hash;
         i->second.hash.encode_hex (block_hash);
@@ -404,14 +404,14 @@ void mu_coin_qt::gui::refresh_ledger ()
     ledger_model->setStringList (accounts);
 }
 
-void mu_coin_qt::gui::refresh_wallet ()
+void mu_coin_qt::client::refresh_wallet ()
 {
     QStringList keys;
     mu_coin::uint256_t balance;
-    for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
+    for (auto i (client_m.wallet.begin ()), j (client_m.wallet.end ()); i != j; ++i)
     {
         mu_coin::public_key key (i->first);
-        auto account_balance (client.ledger.account_balance (key));
+        auto account_balance (client_m.ledger.account_balance (key));
         balance += account_balance;
         std::string string;
         key.encode_base58check (string);
@@ -424,17 +424,17 @@ void mu_coin_qt::gui::refresh_wallet ()
     wallet_model->setStringList (keys);
 }
 
-mu_coin_qt::gui::~gui ()
+mu_coin_qt::client::~client ()
 {
 }
 
-void mu_coin_qt::gui::push_main_stack (QWidget * widget_a)
+void mu_coin_qt::client::push_main_stack (QWidget * widget_a)
 {
     main_stack->addWidget (widget_a);
     main_stack->setCurrentIndex (main_stack->count () - 1);
 }
 
-void mu_coin_qt::gui::pop_main_stack ()
+void mu_coin_qt::client::pop_main_stack ()
 {
     main_stack->removeWidget (main_stack->currentWidget ());
 }

@@ -6,12 +6,12 @@ int main (int argc, char ** argv)
 {
     QApplication application (argc, argv);
     static int count (4);
-    mu_coin::system system (1, 24000, 25000, count, std::numeric_limits <mu_coin::uint256_t>::max ());
+    mu_coin::system system (1, 24000, 25000, count);
     std::unique_ptr <QTabWidget> client_tabs (new QTabWidget);
-    std::vector <std::unique_ptr <mu_coin_qt::gui>> guis;
+    std::vector <std::unique_ptr <mu_coin_qt::client>> guis;
     for (auto i (0); i < count; ++i)
     {
-        guis.push_back (std::unique_ptr <mu_coin_qt::gui> (new mu_coin_qt::gui {application, *system.clients [i]}));
+        guis.push_back (std::unique_ptr <mu_coin_qt::client> (new mu_coin_qt::client (application, *system.clients [i])));
         client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Client %1%") % i).c_str ());
     }
     client_tabs->show ();
