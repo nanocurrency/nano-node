@@ -681,10 +681,9 @@ namespace mu_coin {
     public:
         wallet (mu_coin::uint256_union const &, wallet_temp_t const &);
         wallet (mu_coin::uint256_union const &, boost::filesystem::path const &);
-        void insert (mu_coin::public_key const &, mu_coin::private_key const &, mu_coin::secret_key const &);
-        void insert (mu_coin::private_key const &, mu_coin::secret_key const &);
-        bool fetch (mu_coin::public_key const &, mu_coin::secret_key const &, mu_coin::private_key &);
-        bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::uint256_union const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
+        void insert (mu_coin::private_key const &);
+        bool fetch (mu_coin::public_key const &, mu_coin::private_key &);
+        bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
         key_iterator find (mu_coin::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();

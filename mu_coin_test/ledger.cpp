@@ -587,14 +587,14 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (client, balance)
 {
     mu_coin::system system (1, 24000, 25000, 1);
-    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv, system.clients [0]->wallet.password);
+    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max (), system.clients [0]->balance ());
 }
 
 TEST (system, generate_send_existing)
 {
     mu_coin::system system (1, 24000, 25000, 1);
-    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv, system.clients [0]->wallet.password);
+    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::frontier frontier1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (mu_coin::test_genesis_key.pub, frontier1));
     system.generate_send_existing (*system.clients [0]);
@@ -616,7 +616,7 @@ TEST (system, generate_send_existing)
 TEST (system, generate_send_new)
 {
     mu_coin::system system (1, 24000, 25000, 1);
-    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv, system.clients [0]->wallet.password);
+    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     auto iterator1 (system.clients [0]->store.latest_begin ());
     ++iterator1;
     ASSERT_EQ (system.clients [0]->store.latest_end (), iterator1);
@@ -645,7 +645,7 @@ TEST (system, generate_send_new)
 TEST (system, generate_mass_activity)
 {
     mu_coin::system system (1, 24000, 25000, 1);
-    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv, system.clients [0]->wallet.password);
+    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     size_t count (20);
     system.generate_mass_activity (count, *system.clients [0]);
     size_t accounts (0);
@@ -659,7 +659,7 @@ TEST (system, generate_mass_activity)
 TEST (system, DISABLED_generate_mass_activity_long)
 {
     mu_coin::system system (1, 24000, 25000, 1);
-    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv, system.clients [0]->wallet.password);
+    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     size_t count (10000);
     system.generate_mass_activity (count, *system.clients [0]);
     system.clients [0]->log.dump_cerr ();
@@ -1098,7 +1098,7 @@ TEST (fork, publish)
         mu_coin::system system (1, 24000, 25000, 1);
         client0 = system.clients [0];
         auto & client1 (*system.clients [0]);
-        client1.wallet.insert (mu_coin::test_genesis_key.prv, system.clients [0]->wallet.password);
+        client1.wallet.insert (mu_coin::test_genesis_key.prv);
         mu_coin::keypair key1;
 		mu_coin::genesis genesis;
         std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
@@ -1147,7 +1147,7 @@ TEST (fork, keep)
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());
-	client1.wallet.insert (mu_coin::test_genesis_key.prv, client1.wallet.password);
+	client1.wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::keypair key1;
 	mu_coin::genesis genesis;
     std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
@@ -1198,7 +1198,7 @@ TEST (fork, flip)
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
     ASSERT_EQ (1, client1.peers.size ());
-    client1.wallet.insert (mu_coin::test_genesis_key.prv, client1.wallet.password);
+    client1.wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::keypair key1;
 	mu_coin::genesis genesis;
     std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);
@@ -1250,7 +1250,7 @@ TEST (fork, multi_flip)
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());
-	client1.wallet.insert (mu_coin::test_genesis_key.prv, client1.wallet.password);
+	client1.wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::keypair key1;
 	mu_coin::genesis genesis;
     std::unique_ptr <mu_coin::send_block> send1 (new mu_coin::send_block);

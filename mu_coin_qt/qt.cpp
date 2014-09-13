@@ -174,7 +174,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             palette.setColor (QPalette::Text, Qt::black);
             wallet_key_line->setPalette (palette);
             wallet_key_line->clear ();
-            client.wallet.insert (key, client.wallet.password);
+            client.wallet.insert (key);
             refresh_wallet ();
         }
         else

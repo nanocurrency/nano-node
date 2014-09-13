@@ -1406,21 +1406,16 @@ wallet (password_a, boost::filesystem::unique_path ())
 {
 }
 
-void mu_coin::wallet::insert (mu_coin::public_key const & pub, mu_coin::private_key const & prv, mu_coin::uint256_union const & key_a)
+void mu_coin::wallet::insert (mu_coin::private_key const & prv)
 {
-    mu_coin::uint256_union encrypted (prv, key_a, pub.owords [0]);
+    mu_coin::public_key pub;
+    ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+    mu_coin::uint256_union encrypted (prv, password, pub.owords [0]);
     auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (pub.chars.data (), pub.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
     assert (status.ok ());
 }
 
-void mu_coin::wallet::insert (mu_coin::private_key const & prv, mu_coin::uint256_union const & key)
-{
-    mu_coin::public_key pub;
-    ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-    insert (pub, prv, key);
-}
-
-bool mu_coin::wallet::fetch (mu_coin::public_key const & pub, mu_coin::secret_key const & key_a, mu_coin::private_key & prv)
+bool mu_coin::wallet::fetch (mu_coin::public_key const & pub, mu_coin::private_key & prv)
 {
     auto result (false);
     std::string value;
@@ -1431,7 +1426,7 @@ bool mu_coin::wallet::fetch (mu_coin::public_key const & pub, mu_coin::secret_ke
         mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
         auto result2 (read (stream, encrypted.bytes));
         assert (!result2);
-        prv = encrypted.prv (key_a, pub.owords [0]);
+        prv = encrypted.prv (password, pub.owords [0]);
         mu_coin::public_key compare;
         ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
         if (!(pub == compare))
@@ -1536,7 +1531,7 @@ bool mu_coin::key_iterator::operator != (mu_coin::key_iterator const & other_a) 
     return !(*this == other_a);
 }
 
-bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public_key const & destination, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & key, std::vector <std::unique_ptr <mu_coin::send_block>> & blocks)
+bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public_key const & destination, mu_coin::uint256_t const & coins, std::vector <std::unique_ptr <mu_coin::send_block>> & blocks)
 {
     bool result (false);
     mu_coin::uint256_t remaining (coins);
@@ -1556,7 +1551,7 @@ bool mu_coin::wallet::generate_send (mu_coin::ledger & ledger_a, mu_coin::public
             block->hashables.previous = frontier.hash;
             block->hashables.balance = balance - amount;
             mu_coin::private_key prv;
-            result = fetch (account, key, prv);
+            result = fetch (account, prv);
             assert (!result);
             sign_message (prv, account, block->hash (), block->signature);
             prv.clear ();
@@ -1883,7 +1878,7 @@ void mu_coin::network::confirm_block (std::unique_ptr <mu_coin::block> block_a, 
     confirm.vote.sequence = sequence_a;
     confirm.vote.block = std::move (block_a);
     mu_coin::private_key prv;
-    auto error (client.wallet.fetch (client.representative, client.wallet.password, prv));
+    auto error (client.wallet.fetch (client.representative, prv));
     assert (!error);
     mu_coin::sign_message (prv, client.representative, confirm.vote.hash (), confirm.vote.signature);
     prv.clear ();
@@ -2510,7 +2505,7 @@ void mu_coin::processor::process_confirmation (mu_coin::block const & block_a, m
 			else
 			{
                 mu_coin::private_key prv;
-                auto error (client.wallet.fetch (client.representative, client.wallet.password, prv));
+                auto error (client.wallet.fetch (client.representative, prv));
                 assert (!error);
 				mu_coin::confirm_ack outgoing;
 				outgoing.vote.address = client.representative;
@@ -2680,7 +2675,7 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
             else if (action == "wallet_create")
             {
                 mu_coin::keypair new_key;
-                client.wallet.insert (new_key.pub, new_key.prv, client.wallet.password);
+                client.wallet.insert (new_key.prv);
                 boost::property_tree::ptree response_l;
                 std::string account;
                 new_key.pub.encode_hex (account);
@@ -4696,7 +4691,7 @@ void mu_coin::system::generate_send_existing (mu_coin::client & client_a)
 void mu_coin::system::generate_send_new (mu_coin::client & client_a)
 {
     mu_coin::keypair key;
-    client_a.wallet.insert (key.prv, client_a.wallet.password);
+    client_a.wallet.insert (key.prv);
     client_a.send (key.pub, get_random_amount (client_a), client_a.wallet.password);
 }
 
@@ -4774,7 +4769,7 @@ bool mu_coin::transactions::send (mu_coin::address const & address_a, mu_coin::u
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    auto result (wallet.generate_send (ledger, address_a, coins_a, key_a, blocks));
+    auto result (wallet.generate_send (ledger, address_a, coins_a, blocks));
     if (!result)
     {
         for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
@@ -5117,7 +5112,7 @@ public:
     void send_block (mu_coin::send_block const & block_a) override
     {
         mu_coin::private_key prv;
-        if (!client.wallet.fetch (block_a.hashables.destination, client.wallet.password, prv))
+        if (!client.wallet.fetch (block_a.hashables.destination, prv))
         {
             auto error (client.transactions.receive (block_a, prv, client.representative));
             prv.bytes.fill (0);
@@ -5178,7 +5173,7 @@ void mu_coin::client::representative_vote (mu_coin::votes & votes_a, mu_coin::bl
         vote_l.address = representative;
         vote_l.sequence = 0;
         vote_l.block = block_a.clone ();
-		wallet.fetch (representative, wallet.password, prv);
+		wallet.fetch (representative, prv);
         mu_coin::sign_message (prv, representative, vote_l.hash (), vote_l.signature);
         prv.clear ();
         votes_a.vote (vote_l);

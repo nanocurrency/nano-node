@@ -6,25 +6,21 @@ TEST (wallet, no_key)
 {
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
-    mu_coin::uint256_union secret;
-    secret.bytes.fill (0);
     mu_coin::private_key prv1;
-    ASSERT_TRUE (wallet.fetch (key1.pub, secret, prv1));
+    ASSERT_TRUE (wallet.fetch (key1.pub, prv1));
 }
 
 TEST (wallet, retrieval)
 {
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
-    mu_coin::uint256_union secret;
-    secret.bytes.fill (0);
-    wallet.insert (key1.prv, secret);
+    wallet.insert (key1.prv);
     mu_coin::private_key prv1;
-    ASSERT_FALSE (wallet.fetch (key1.pub, secret, prv1));
+    ASSERT_FALSE (wallet.fetch (key1.pub, prv1));
     ASSERT_EQ (key1.prv, prv1);
-    secret.bytes [16] ^= 1;
+    wallet.password.bytes [16] ^= 1;
     mu_coin::private_key prv2;
-    ASSERT_TRUE (wallet.fetch (key1.pub, secret, prv2));
+    ASSERT_TRUE (wallet.fetch (key1.pub, prv2));
 }
 
 TEST (wallet, empty_iteration)
@@ -39,13 +35,11 @@ TEST (wallet, one_item_iteration)
 {
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
-    mu_coin::uint256_union secret;
-    secret.bytes.fill (0);
-    wallet.insert (key1.prv, secret);
+    wallet.insert (key1.prv);
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         ASSERT_EQ (key1.pub, i->first);
-        ASSERT_EQ (key1.prv, i->second.prv (secret, i->first.owords [0]));
+        ASSERT_EQ (key1.prv, i->second.prv (wallet.password, i->first.owords [0]));
     }
 }
 
@@ -54,16 +48,14 @@ TEST (wallet, two_item_iteration)
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
     mu_coin::keypair key2;
-    mu_coin::uint256_union secret;
-    secret.bytes.fill (0);
-    wallet.insert (key1.prv, secret);
-    wallet.insert (key2.prv, secret);
+    wallet.insert (key1.prv);
+    wallet.insert (key2.prv);
     std::vector <mu_coin::public_key> keys1;
     std::vector <mu_coin::private_key> keys2;
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         keys1.push_back (i->first);
-        keys2.push_back (i->second.prv (secret, i->first.owords [0]));
+        keys2.push_back (i->second.prv (wallet.password, i->first.owords [0]));
     }
     ASSERT_EQ (2, keys1.size ());
     ASSERT_EQ (2, keys2.size ());
@@ -79,16 +71,14 @@ TEST (wallet, insufficient_spend)
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::keypair key1;
-    mu_coin::uint256_union password;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    ASSERT_TRUE (wallet.generate_send (ledger, key1.pub, 500, password, blocks));
+    ASSERT_TRUE (wallet.generate_send (ledger, key1.pub, 500, blocks));
 }
 
 TEST (wallet, one_spend)
 {
-    mu_coin::uint256_union password;
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
-    wallet.insert (mu_coin::test_genesis_key.pub, mu_coin::test_genesis_key.prv, password);
+    wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::genesis genesis;
@@ -97,7 +87,7 @@ TEST (wallet, one_spend)
     store.latest_get (mu_coin::test_genesis_key.pub, frontier1);
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, std::numeric_limits <mu_coin::uint256_t>::max (), password, blocks));
+    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, std::numeric_limits <mu_coin::uint256_t>::max (), blocks));
     ASSERT_EQ (1, blocks.size ());
     auto & send (*blocks [0]);
     ASSERT_EQ (frontier1.hash, send.hashables.previous);
@@ -136,9 +126,8 @@ TEST (wallet, DISABLED_two_spend)
 
 TEST (wallet, partial_spend)
 {
-    mu_coin::uint256_union password;
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
-    wallet.insert (mu_coin::test_genesis_key.pub, mu_coin::test_genesis_key.prv, password);
+    wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::genesis genesis;
@@ -147,7 +136,7 @@ TEST (wallet, partial_spend)
     ASSERT_FALSE (store.latest_get (mu_coin::test_genesis_key.pub, frontier1));
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
+    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, blocks));
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (frontier1.hash, blocks [0]->hashables.previous);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 500, blocks [0]->hashables.balance.number ());
@@ -157,14 +146,13 @@ TEST (wallet, partial_spend)
 
 TEST (wallet, spend_no_previous)
 {
-    mu_coin::uint256_union password;
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     for (auto i (0); i < 50; ++i)
     {
         mu_coin::keypair key;
-        wallet.insert (key.pub, key.prv, password);
+        wallet.insert (key.prv);
     }
-    wallet.insert (mu_coin::test_genesis_key.pub, mu_coin::test_genesis_key.prv, password);
+    wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::genesis genesis;
@@ -174,11 +162,11 @@ TEST (wallet, spend_no_previous)
     for (auto i (0); i < 50; ++i)
     {
         mu_coin::keypair key;
-        wallet.insert (key.pub, key.prv, password);
+        wallet.insert (key.prv);
     }
     mu_coin::keypair key2;
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
-    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, password, blocks));
+    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, blocks));
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (frontier1.hash, blocks [0]->hashables.previous);
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 500, blocks [0]->hashables.balance.number ());
@@ -197,7 +185,7 @@ TEST (wallet, find_existing)
 {
     mu_coin::wallet wallet (0, mu_coin::wallet_temp);
     mu_coin::keypair key1;
-    wallet.insert (key1.pub, key1.prv, wallet.password);
+    wallet.insert (key1.prv);
     auto existing (wallet.find (key1.pub));
     ASSERT_NE (wallet.end (), existing);
     ++existing;
