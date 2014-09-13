@@ -8,9 +8,10 @@ int main (int argc, char ** argv)
     auto service (boost::make_shared <boost::asio::io_service> ());
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     mu_coin::processor_service processor;
-    auto client (std::make_shared <mu_coin::client> (service, pool, 24000, 25000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, ));
-    std::unique_ptr <mu_coin_qt::gui> (new mu_coin_qt::gui (application, *client))
-    std::thread network_thread ([&system] ()
+    auto client (std::make_shared <mu_coin::client> (service, pool, 24000, 25000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, mu_coin::genesis_address));
+    std::unique_ptr <mu_coin_qt::gui> gui (new mu_coin_qt::gui (application, *client));
+	gui->client_window->show ();
+    std::thread network_thread ([&service] ()
     {
         try
         {
@@ -22,7 +23,7 @@ int main (int argc, char ** argv)
         }
         std::cerr << "Network thread exited" << std::endl;
     });
-    std::thread processor_thread ([&system] ()
+    std::thread processor_thread ([&processor] ()
     {
         try
         {
