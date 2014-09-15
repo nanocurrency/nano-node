@@ -679,6 +679,7 @@ namespace mu_coin {
         void insert (mu_coin::private_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::private_key &);
         bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
+		bool valid_password ();
         key_iterator find (mu_coin::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
@@ -767,6 +768,7 @@ namespace mu_coin {
         bool receive (mu_coin::send_block const &, mu_coin::private_key const &, mu_coin::address const &);
         bool send (mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
         void vote (mu_coin::vote const &);
+		void rekey (mu_coin::uint256_union const &);
         std::mutex mutex;
         mu_coin::ledger & ledger;
         mu_coin::wallet & wallet;

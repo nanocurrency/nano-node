@@ -5172,3 +5172,23 @@ void mu_coin::client::representative_vote (mu_coin::votes & votes_a, mu_coin::bl
         votes_a.vote (vote_l);
 	}
 }
+
+bool mu_coin::wallet::valid_password ()
+{
+	bool result (true);
+	auto first (begin ());
+	auto last (end ());
+	if (first != last)
+	{
+		mu_coin::uint256_union prv;
+		result = !fetch (first->first, prv);
+		prv.clear ();
+	}
+	return result;
+}
+
+void mu_coin::transactions::rekey (mu_coin::uint256_union const & new_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	assert (wallet.valid_password ());
+}
