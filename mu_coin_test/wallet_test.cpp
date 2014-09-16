@@ -8,19 +8,23 @@ TEST (wallet, no_key)
     mu_coin::keypair key1;
     mu_coin::private_key prv1;
     ASSERT_TRUE (wallet.fetch (key1.pub, prv1));
+    ASSERT_TRUE (wallet.valid_password ());
 }
 
 TEST (wallet, retrieval)
 {
     mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
     mu_coin::keypair key1;
+    ASSERT_TRUE (wallet.valid_password ());
     wallet.insert (key1.prv);
     mu_coin::private_key prv1;
     ASSERT_FALSE (wallet.fetch (key1.pub, prv1));
+    ASSERT_TRUE (wallet.valid_password ());
     ASSERT_EQ (key1.prv, prv1);
     wallet.password.bytes [16] ^= 1;
     mu_coin::private_key prv2;
     ASSERT_TRUE (wallet.fetch (key1.pub, prv2));
+    ASSERT_FALSE (wallet.valid_password ());
 }
 
 TEST (wallet, empty_iteration)
