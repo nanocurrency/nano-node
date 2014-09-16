@@ -1397,6 +1397,24 @@ password (password_a)
     options.create_if_missing = true;
     auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &handle));
     assert (status.ok ());
+    mu_coin::uint256_union wallet_password_key;
+    wallet_password_key.clear ();
+    std::string wallet_password_value;
+    auto wallet_password_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet_password_key.chars.data (), wallet_password_key.chars.size ()), &wallet_password_value));
+    if (wallet_password_status.IsNotFound ())
+    {
+        mu_coin::uint256_union zero;
+        zero.clear ();
+        mu_coin::uint256_union wallet_password;
+        random_pool.GenerateBlock (wallet_password.bytes.data (), sizeof (wallet_password.bytes));
+        mu_coin::uint256_union encrypted (wallet_password, password_a, password_a.owords [0]);
+        auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
+        assert (status1.ok ());
+        mu_coin::uint256_union one (1);
+        mu_coin::uint256_union check (zero, wallet_password, wallet_password.owords [0]);
+        auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
+        assert (status2.ok ());
+    }
 }
 
 void mu_coin::wallet::insert (mu_coin::private_key const & prv)
@@ -1483,6 +1501,10 @@ mu_coin::key_entry & mu_coin::key_iterator::operator -> ()
 mu_coin::key_iterator mu_coin::wallet::begin ()
 {
     mu_coin::key_iterator result (handle);
+    assert (result != end ());
+    ++result;
+    assert (result != end ());
+    ++result;
     return result;
 }
 
