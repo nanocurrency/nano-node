@@ -1421,7 +1421,7 @@ void mu_coin::wallet::insert (mu_coin::private_key const & prv)
 {
     mu_coin::public_key pub;
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-    mu_coin::uint256_union encrypted (prv, password, pub.owords [0]);
+    mu_coin::uint256_union encrypted (prv, wallet_key (), pub.owords [0]);
     auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (pub.chars.data (), pub.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
     assert (status.ok ());
 }
@@ -1437,7 +1437,7 @@ bool mu_coin::wallet::fetch (mu_coin::public_key const & pub, mu_coin::private_k
         mu_coin::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
         auto result2 (read (stream, encrypted.bytes));
         assert (!result2);
-        prv = encrypted.prv (password, pub.owords [0]);
+        prv = encrypted.prv (wallet_key (), pub.owords [0]);
         mu_coin::public_key compare;
         ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
         if (!(pub == compare))
@@ -2459,9 +2459,9 @@ void balance_visitor::compute (mu_coin::block_hash const & block_hash)
     block->visit (*this);
 }
 
-bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint256_t const & coins, mu_coin::uint256_union const & password)
+bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint256_t const & coins)
 {
-    return transactions.send (address, coins, password);
+    return transactions.send (address, coins);
 }
 
 mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a) :
@@ -4700,14 +4700,14 @@ void mu_coin::system::generate_send_existing (mu_coin::client & client_a)
         entry = client_a.store.latest_begin ();
     }
     assert (entry != client_a.store.latest_end ());
-    client_a.send (entry->first, get_random_amount (client_a), client_a.wallet.password);
+    client_a.send (entry->first, get_random_amount (client_a));
 }
 
 void mu_coin::system::generate_send_new (mu_coin::client & client_a)
 {
     mu_coin::keypair key;
     client_a.wallet.insert (key.prv);
-    client_a.send (key.pub, get_random_amount (client_a), client_a.wallet.password);
+    client_a.send (key.pub, get_random_amount (client_a));
 }
 
 void mu_coin::system::generate_mass_activity (uint32_t count_a, mu_coin::client & client_a)
@@ -4780,7 +4780,7 @@ bool mu_coin::transactions::receive (mu_coin::send_block const & send_a, mu_coin
     return result;
 }
 
-bool mu_coin::transactions::send (mu_coin::address const & address_a, mu_coin::uint256_t const & coins_a, mu_coin::secret_key const & key_a)
+bool mu_coin::transactions::send (mu_coin::address const & address_a, mu_coin::uint256_t const & coins_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <mu_coin::send_block>> blocks;
@@ -5230,8 +5230,20 @@ bool mu_coin::wallet::valid_password ()
     return check () == check_l;
 }
 
-void mu_coin::transactions::rekey (mu_coin::uint256_union const & new_a)
+void mu_coin::transactions::rekey (mu_coin::uint256_union const & password_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	assert (wallet.valid_password ());
+    wallet.rekey (password_a);
+}
+
+void mu_coin::wallet::rekey (mu_coin::uint256_union const & password_a)
+{
+	assert (valid_password ());
+    auto wallet_key_l (wallet_key ());
+    password = password_a;
+    mu_coin::uint256_union zero;
+    zero.clear ();
+    mu_coin::uint256_union encrypted (wallet_key_l, password_a, password_a.owords [0]);
+    auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
+    assert (status1.ok ());
 }

@@ -43,7 +43,7 @@ TEST (wallet, one_item_iteration)
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         ASSERT_EQ (key1.pub, i->first);
-        ASSERT_EQ (key1.prv, i->second.prv (wallet.password, i->first.owords [0]));
+        ASSERT_EQ (key1.prv, i->second.prv (wallet.wallet_key (), i->first.owords [0]));
     }
 }
 
@@ -59,7 +59,7 @@ TEST (wallet, two_item_iteration)
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         keys1.push_back (i->first);
-        keys2.push_back (i->second.prv (wallet.password, i->first.owords [0]));
+        keys2.push_back (i->second.prv (wallet.wallet_key (), i->first.owords [0]));
     }
     ASSERT_EQ (2, keys1.size ());
     ASSERT_EQ (2, keys2.size ());
@@ -194,6 +194,23 @@ TEST (wallet, find_existing)
     ASSERT_NE (wallet.end (), existing);
     ++existing;
     ASSERT_EQ (wallet.end (), existing);
+}
+
+TEST (wallet, rekey)
+{
+    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::keypair key1;
+    wallet.insert (key1.prv);
+    mu_coin::uint256_union prv1;
+    wallet.fetch (key1.pub, prv1);
+    ASSERT_EQ (key1.prv, prv1);
+    auto password1 (wallet.password);
+    password1.bytes [16] ^= 1;
+    wallet.rekey (password1);
+    ASSERT_EQ (password1, wallet.password);
+    mu_coin::uint256_union prv2;
+    wallet.fetch (key1.pub, prv2);
+    ASSERT_EQ (key1.prv, prv2);
 }
 
 TEST (base58, encode_zero)

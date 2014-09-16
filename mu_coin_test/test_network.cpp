@@ -365,7 +365,7 @@ TEST (client, send_self)
     mu_coin::keypair key2;
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     system.clients [0]->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
         system.service->poll_one ();
@@ -380,7 +380,7 @@ TEST (client, send_single)
     mu_coin::keypair key2;
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     system.clients [1]->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
@@ -396,7 +396,7 @@ TEST (client, send_single_observing_peer)
     mu_coin::keypair key2;
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     system.clients [1]->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <mu_coin::client> const & client_a) {return client_a->ledger.account_balance (key2.pub).is_zero();}))
@@ -412,7 +412,7 @@ TEST (client, send_single_many_peers)
     mu_coin::keypair key2;
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     system.clients [1]->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <mu_coin::client> const & client_a) {return client_a->ledger.account_balance (key2.pub).is_zero();}))
@@ -498,7 +498,7 @@ TEST (network, receive_weight_change)
     mu_coin::keypair key2;
     system.clients [1]->wallet.insert (key2.prv);
     system.clients [1]->representative = key2.pub;
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 2, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 2));
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <mu_coin::client> const & client_a) {return client_a->ledger.weight (key2.pub) != 2;}))
     {
         system.service->poll_one ();
@@ -625,7 +625,7 @@ TEST (bootstrap_processor, process_one)
 {
     mu_coin::system system (1, 24000, 25000, 1);
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (mu_coin::test_genesis_key.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (mu_coin::test_genesis_key.pub, 100));
     auto client1 (std::make_shared <mu_coin::client> (system.service, system.pool, 24001, 25001, system.processor, mu_coin::test_genesis_key.pub));
     auto hash1 (system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub));
     auto hash2 (client1->ledger.latest (mu_coin::test_genesis_key.pub));
@@ -645,9 +645,9 @@ TEST (bootstrap_processor, process_two)
     mu_coin::system system (1, 24000, 25000, 1);
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     auto hash1 (system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub));
-    ASSERT_FALSE (system.clients [0]->transactions.send (mu_coin::test_genesis_key.pub, 50, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (mu_coin::test_genesis_key.pub, 50));
     auto hash2 (system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub));
-    ASSERT_FALSE (system.clients [0]->transactions.send (mu_coin::test_genesis_key.pub, 50, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (mu_coin::test_genesis_key.pub, 50));
     auto hash3 (system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
     ASSERT_NE (hash1, hash3);
@@ -669,7 +669,7 @@ TEST (bootstrap_processor, process_new)
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::keypair key2;
     system.clients [1]->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
         system.service->poll_one ();
@@ -731,7 +731,7 @@ TEST (bulk_req, end_not_owned)
     mu_coin::system system (1, 24000, 25000, 1);
     mu_coin::keypair key2;
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     mu_coin::open_block open;
     open.hashables.representative = key2.pub;
     open.hashables.source = system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub);
@@ -876,7 +876,7 @@ TEST (bulk, genesis)
     ASSERT_FALSE (client1->store.latest_get (mu_coin::test_genesis_key.pub, frontier2));
     ASSERT_EQ (frontier1.hash, frontier2.hash);
     mu_coin::keypair key2;
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     mu_coin::frontier frontier3;
     ASSERT_FALSE (system.clients [0]->store.latest_get (mu_coin::test_genesis_key.pub, frontier3));
     ASSERT_NE (frontier1.hash, frontier3.hash);
@@ -903,7 +903,7 @@ TEST (bulk, offline_send)
     } while (system.clients [0]->peers.empty () || client1->peers.empty ());
     mu_coin::keypair key2;
     client1->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     ASSERT_NE (std::numeric_limits <mu_coin::uint256_t>::max (), system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
     bool finished;
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
@@ -923,7 +923,7 @@ TEST (client, auto_bootstrap)
     client1->peers.incoming_from_peer (client1->network.endpoint ());
     mu_coin::keypair key2;
     client1->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
     do
@@ -942,7 +942,7 @@ TEST (client, auto_bootstrap_reverse)
     client1->peers.incoming_from_peer (client1->network.endpoint ());
     mu_coin::keypair key2;
     client1->wallet.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100, system.clients [0]->wallet.password));
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     system.clients [0]->network.send_keepalive (client1->network.endpoint ());
     client1->start ();
     do
@@ -958,6 +958,6 @@ TEST (client, multi_account_send_atomicness)
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::keypair key1;
     system.clients [0]->wallet.insert (key1.prv);
-    system.clients [0]->transactions.send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2, system.clients [0]->wallet.password);
-    system.clients [0]->transactions.send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2 + std::numeric_limits<mu_coin::uint256_t>::max () / 4, system.clients [0]->wallet.password);
+    system.clients [0]->transactions.send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2);
+    system.clients [0]->transactions.send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2 + std::numeric_limits<mu_coin::uint256_t>::max () / 4);
 }

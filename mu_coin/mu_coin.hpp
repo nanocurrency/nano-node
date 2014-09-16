@@ -677,6 +677,7 @@ namespace mu_coin {
     public:
         wallet (mu_coin::uint256_union const &, boost::filesystem::path const &);
         mu_coin::uint256_union check ();
+		void rekey (mu_coin::uint256_union const &);
         mu_coin::uint256_union wallet_key ();
         void insert (mu_coin::private_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::private_key &);
@@ -768,7 +769,7 @@ namespace mu_coin {
     public:
         transactions (mu_coin::ledger &, mu_coin::wallet &, mu_coin::processor &);
         bool receive (mu_coin::send_block const &, mu_coin::private_key const &, mu_coin::address const &);
-        bool send (mu_coin::address const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
+        bool send (mu_coin::address const &, mu_coin::uint256_t const &);
         void vote (mu_coin::vote const &);
 		void rekey (mu_coin::uint256_union const &);
         std::mutex mutex;
@@ -985,7 +986,7 @@ namespace mu_coin {
         client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &);
         client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &);
         ~client ();
-        bool send (mu_coin::public_key const &, mu_coin::uint256_t const &, mu_coin::secret_key const &);
+        bool send (mu_coin::public_key const &, mu_coin::uint256_t const &);
         mu_coin::uint256_t balance ();
         void start ();
         void stop ();
