@@ -676,6 +676,8 @@ namespace mu_coin {
     {
     public:
         wallet (mu_coin::uint256_union const &, boost::filesystem::path const &);
+        mu_coin::uint256_union check ();
+        mu_coin::uint256_union wallet_key ();
         void insert (mu_coin::private_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::private_key &);
         bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);

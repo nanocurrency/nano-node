@@ -1405,13 +1405,13 @@ password (password_a)
     {
         mu_coin::uint256_union zero;
         zero.clear ();
-        mu_coin::uint256_union wallet_password;
-        random_pool.GenerateBlock (wallet_password.bytes.data (), sizeof (wallet_password.bytes));
-        mu_coin::uint256_union encrypted (wallet_password, password_a, password_a.owords [0]);
+        mu_coin::uint256_union wallet_key;
+        random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
+        mu_coin::uint256_union encrypted (wallet_key, password_a, password_a.owords [0]);
         auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
         assert (status1.ok ());
         mu_coin::uint256_union one (1);
-        mu_coin::uint256_union check (zero, wallet_password, wallet_password.owords [0]);
+        mu_coin::uint256_union check (zero, wallet_key, wallet_key.owords [0]);
         auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
         assert (status2.ok ());
     }
@@ -5195,18 +5195,39 @@ void mu_coin::client::representative_vote (mu_coin::votes & votes_a, mu_coin::bl
 	}
 }
 
+mu_coin::uint256_union mu_coin::wallet::check ()
+{
+    mu_coin::uint256_union one (1);
+    std::string check;
+    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), &check));
+    assert (status.ok ());
+    mu_coin::uint256_union result;
+    assert (check.size () == sizeof (mu_coin::uint256_union));
+    std::copy (check.begin (), check.end (), result.chars.begin ());
+    return result;
+}
+
+mu_coin::uint256_union mu_coin::wallet::wallet_key ()
+{
+    mu_coin::uint256_union zero;
+    zero.clear ();
+    std::string encrypted_wallet_key;
+    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), &encrypted_wallet_key));
+    assert (status.ok ());
+    assert (encrypted_wallet_key.size () == sizeof (mu_coin::uint256_union));
+    mu_coin::uint256_union encrypted_key;
+    std::copy (encrypted_wallet_key.begin (), encrypted_wallet_key.end (), encrypted_key.chars.begin ());
+    return encrypted_key.prv (password, password.owords [0]);
+}
+
 bool mu_coin::wallet::valid_password ()
 {
-	bool result (true);
-	auto first (begin ());
-	auto last (end ());
-	if (first != last)
-	{
-		mu_coin::uint256_union prv;
-		result = !fetch (first->first, prv);
-		prv.clear ();
-	}
-	return result;
+    mu_coin::uint256_union zero;
+    zero.clear ();
+    auto wallet_key_l (wallet_key ());
+    mu_coin::uint256_union check_l (zero, wallet_key_l, wallet_key_l.owords [0]);
+    wallet_key_l.clear ();
+    return check () == check_l;
 }
 
 void mu_coin::transactions::rekey (mu_coin::uint256_union const & new_a)
