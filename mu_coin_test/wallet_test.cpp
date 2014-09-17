@@ -4,7 +4,7 @@
 
 TEST (wallet, no_key)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::keypair key1;
     mu_coin::private_key prv1;
     ASSERT_TRUE (wallet.fetch (key1.pub, prv1));
@@ -13,7 +13,7 @@ TEST (wallet, no_key)
 
 TEST (wallet, retrieval)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::keypair key1;
     ASSERT_TRUE (wallet.valid_password ());
     wallet.insert (key1.prv);
@@ -29,7 +29,7 @@ TEST (wallet, retrieval)
 
 TEST (wallet, empty_iteration)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     auto i (wallet.begin ());
     auto j (wallet.end ());
     ASSERT_EQ (i, j);
@@ -37,7 +37,7 @@ TEST (wallet, empty_iteration)
 
 TEST (wallet, one_item_iteration)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::keypair key1;
     wallet.insert (key1.prv);
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
@@ -49,7 +49,7 @@ TEST (wallet, one_item_iteration)
 
 TEST (wallet, two_item_iteration)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::keypair key1;
     mu_coin::keypair key2;
     wallet.insert (key1.prv);
@@ -71,7 +71,7 @@ TEST (wallet, two_item_iteration)
 
 TEST (wallet, insufficient_spend)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
     mu_coin::keypair key1;
@@ -81,7 +81,7 @@ TEST (wallet, insufficient_spend)
 
 TEST (wallet, one_spend)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
@@ -130,7 +130,7 @@ TEST (wallet, DISABLED_two_spend)
 
 TEST (wallet, partial_spend)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::block_store store (mu_coin::block_store_temp);
     mu_coin::ledger ledger (store);
@@ -150,7 +150,7 @@ TEST (wallet, partial_spend)
 
 TEST (wallet, spend_no_previous)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     for (auto i (0); i < 50; ++i)
     {
         mu_coin::keypair key;
@@ -180,14 +180,14 @@ TEST (wallet, spend_no_previous)
 
 TEST (wallet, find_none)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::uint256_union account;
     ASSERT_EQ (wallet.end (), wallet.find (account));
 }
 
 TEST (wallet, find_existing)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::keypair key1;
     wallet.insert (key1.prv);
     auto existing (wallet.find (key1.pub));
@@ -198,7 +198,7 @@ TEST (wallet, find_existing)
 
 TEST (wallet, rekey)
 {
-    mu_coin::wallet wallet (0, boost::filesystem::unique_path ());
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
     mu_coin::keypair key1;
     wallet.insert (key1.prv);
     mu_coin::uint256_union prv1;
@@ -244,4 +244,14 @@ TEST (base58, encode_fail)
     str0 [16] ^= 1;
     mu_coin::uint256_union number1;
     ASSERT_TRUE (number1.decode_base58check (str0));
+}
+
+TEST (wallet, hash_password)
+{
+    mu_coin::wallet wallet (boost::filesystem::unique_path ());
+    auto hash1 (wallet.hash_password (""));
+    auto hash2 (wallet.hash_password (""));
+    ASSERT_EQ (hash1, hash2);
+    auto hash3 (wallet.hash_password ("a"));
+    ASSERT_NE (hash1, hash3);
 }

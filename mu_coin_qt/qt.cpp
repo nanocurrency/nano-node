@@ -432,22 +432,6 @@ void mu_coin_qt::client::pop_main_stack ()
     main_stack->removeWidget (main_stack->currentWidget ());
 }
 
-namespace
-{
-mu_coin::uint256_union hash_password (std::string const & password_a)
-{
-    CryptoPP::SHA3 hash (32);
-    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-    mu_coin::uint256_union result;
-    hash.Final (result.bytes.data ());
-    return result;
-}
-mu_coin::uint256_union hash_password (QString const & password_a)
-{
-    return hash_password (std::string (password_a.toLocal8Bit ()));
-}
-}
-
 void mu_coin_qt::password_change::clear ()
 {
     password_label->setStyleSheet ("QLabel { color: black }");

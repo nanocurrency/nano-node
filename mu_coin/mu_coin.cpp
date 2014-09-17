@@ -1389,8 +1389,8 @@ void mu_coin::publish_req::serialize (mu_coin::stream & stream_a)
     mu_coin::serialize_block (stream_a, *block);
 }
 
-mu_coin::wallet::wallet (mu_coin::uint256_union const & password_a, boost::filesystem::path const & path_a) :
-password (password_a)
+mu_coin::wallet::wallet (boost::filesystem::path const & path_a) :
+password (hash_password (""))
 {
     boost::filesystem::create_directories (path_a);
     leveldb::Options options;
@@ -1407,7 +1407,7 @@ password (password_a)
         zero.clear ();
         mu_coin::uint256_union wallet_key;
         random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-        mu_coin::uint256_union encrypted (wallet_key, password_a, password_a.owords [0]);
+        mu_coin::uint256_union encrypted (wallet_key, password, password.owords [0]);
         auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
         assert (status1.ok ());
         mu_coin::uint256_union one (1);
@@ -1703,7 +1703,7 @@ representative (representative_a),
 store (data_path_a),
 ledger (store),
 conflicts (*this),
-wallet (0, data_path_a),
+wallet (data_path_a),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 rpc (service_a, pool_a, command_port_a, *this),
@@ -5246,4 +5246,13 @@ void mu_coin::wallet::rekey (mu_coin::uint256_union const & password_a)
     mu_coin::uint256_union encrypted (wallet_key_l, password_a, password_a.owords [0]);
     auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
     assert (status1.ok ());
+}
+
+mu_coin::uint256_union mu_coin::wallet::hash_password (std::string const & password_a)
+{
+    CryptoPP::SHA3 hash (32);
+    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+    mu_coin::uint256_union result;
+    hash.Final (result.bytes.data ());
+    return result;
 }

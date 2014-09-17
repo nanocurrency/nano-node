@@ -675,7 +675,7 @@ namespace mu_coin {
     class wallet
     {
     public:
-        wallet (mu_coin::uint256_union const &, boost::filesystem::path const &);
+        wallet (boost::filesystem::path const &);
         mu_coin::uint256_union check ();
 		void rekey (mu_coin::uint256_union const &);
         mu_coin::uint256_union wallet_key ();
@@ -686,6 +686,7 @@ namespace mu_coin {
         key_iterator find (mu_coin::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
+        mu_coin::uint256_union hash_password (std::string const &);
         mu_coin::uint256_union password;
     private:
         leveldb::DB * handle;
