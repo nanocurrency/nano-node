@@ -36,6 +36,7 @@ int main (int argc, char ** argv)
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {
         client->stop ();
+        processor.stop ();
     });
     int result;
     try

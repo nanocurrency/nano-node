@@ -41,7 +41,7 @@ int main (int argc, char ** argv)
     {
         for (auto & i: system.clients)
         {
-            i->network.stop ();
+            i->stop ();
         }
         system.processor.stop ();
     });

@@ -3316,7 +3316,7 @@ void mu_coin::client::stop ()
     rpc.stop ();
     network.stop ();
     bootstrap.stop ();
-    service.stop ();
+    processor.stop ();
 }
 
 void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & complete_action_a)
