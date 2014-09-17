@@ -1,10 +1,11 @@
 #include <mu_coin_qt/qt.hpp>
 
-#include <cryptopp/sha.h>
+#include <cryptopp/sha3.h>
 
 #include <sstream>
 
 mu_coin_qt::client::client (QApplication & application_a, mu_coin::client & client_a) :
+password_change (*this),
 client_m (client_a),
 application (application_a),
 main_stack (new QStackedWidget),
@@ -15,8 +16,7 @@ settings_connect_label (new QLabel ("Connect to IP:Port")),
 settings_connect_line (new QLineEdit),
 settings_connect_button (new QPushButton ("Connect")),
 settings_bootstrap_button (new QPushButton ("Bootstrap")),
-settings_password_label (new QLabel ("Password:")),
-settings_password (new QLineEdit),
+settings_change_password_button (new QPushButton ("Change Password")),
 settings_back (new QPushButton ("Back")),
 client_window (new QWidget),
 client_layout (new QVBoxLayout),
@@ -67,7 +67,7 @@ peers_back (new QPushButton ("Back")),
 wallet_account_menu (new QMenu),
 wallet_account_copy (new QAction ("Copy", wallet_account_menu)),
 wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
-{    
+{
     send_coins_layout->addWidget (send_address_label);
     send_coins_layout->addWidget (send_address);
     send_coins_layout->addWidget (send_count_label);
@@ -133,9 +133,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     settings_layout->addWidget (settings_connect_line);
     settings_layout->addWidget (settings_connect_button);
     settings_layout->addWidget (settings_bootstrap_button);
-    settings_layout->addWidget (settings_password_label);
-    settings_password->setEchoMode (QLineEdit::EchoMode::Password);
-    settings_layout->addWidget (settings_password);
+    settings_layout->addWidget (settings_change_password_button);
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
     
@@ -276,7 +274,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             parse_error = address.decode_base58check (address_text_narrow);
             if (!parse_error)
             {
-                auto send_error (client_m.send (address, coins.number (), client_m.wallet.password));
+                auto send_error (client_m.send (address, coins.number ()));
                 if (!send_error)
                 {
                     QPalette palette;
@@ -332,14 +330,9 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     {
         push_main_stack (send_coins_window);
     });
-    QObject::connect (settings_password, &QLineEdit::editingFinished, [this] ()
+    QObject::connect (settings_change_password_button, &QPushButton::released, [this] ()
     {
-/*        CryptoPP::SHA256 hash;
-        QString text_w (settings_password.text ());
-        std::string text (text_w.toLocal8Bit ());
-        settings_password.clear ();
-        hash.Update (reinterpret_cast <uint8_t const *> (text.c_str ()), text.size ());
-        hash.Final (password.bytes.data ());*/
+        push_main_stack (password_change.window);
     });
     QObject::connect (wallet_add_account, &QPushButton::released, [this] ()
     {
@@ -437,4 +430,72 @@ void mu_coin_qt::client::push_main_stack (QWidget * widget_a)
 void mu_coin_qt::client::pop_main_stack ()
 {
     main_stack->removeWidget (main_stack->currentWidget ());
+}
+
+namespace
+{
+mu_coin::uint256_union hash_password (std::string const & password_a)
+{
+    CryptoPP::SHA3 hash (32);
+    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+    mu_coin::uint256_union result;
+    hash.Final (result.bytes.data ());
+    return result;
+}
+mu_coin::uint256_union hash_password (QString const & password_a)
+{
+    return hash_password (std::string (password_a.toLocal8Bit ()));
+}
+}
+
+void mu_coin_qt::password_change::clear ()
+{
+    password_label->setStyleSheet ("QLabel { color: black }");
+    password->clear ();
+    retype_label->setStyleSheet ("QLabel { color: black }");
+    retype->clear ();
+}
+
+mu_coin_qt::password_change::password_change (mu_coin_qt::client & client_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+password_label (new QLabel ("New password:")),
+password (new QLineEdit),
+retype_label (new QLabel ("Retype password:")),
+retype (new QLineEdit),
+change (new QPushButton ("Change password")),
+back (new QPushButton ("Back")),
+client (client_a)
+{
+    password->setEchoMode (QLineEdit::EchoMode::Password);
+    layout->addWidget (password_label);
+    layout->addWidget (password);
+    retype->setEchoMode (QLineEdit::EchoMode::Password);
+    layout->addWidget (retype_label);
+    layout->addWidget (retype);
+    layout->addWidget (change);
+    layout->addWidget (back);
+    layout->setContentsMargins (0, 0, 0, 0);
+    window->setLayout (layout);
+    QObject::connect (change, &QPushButton::released, [this] ()
+    {
+        if (client.client_m.wallet.valid_password ())
+        {
+            if (password->text () == retype->text ())
+            {
+                client.client_m.transactions.rekey (hash_password (password->text ()));
+                clear ();
+            }
+            else
+            {
+                password_label->setStyleSheet ("QLabel { color: red }");
+                retype_label->setStyleSheet ("QLabel { color: red }");
+            }
+        }
+    });
+    QObject::connect (back, &QPushButton::released, [this] ()
+    {
+        clear ();
+        client.pop_main_stack ();
+    });
 }
