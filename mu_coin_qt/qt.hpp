@@ -24,13 +24,29 @@ namespace mu_coin_qt {
         QPushButton * back;
         mu_coin_qt::client & client;
     };
+    class enter_password
+    {
+    public:
+        enter_password (mu_coin_qt::client &);
+        void activate ();
+        void update_label ();
+        QWidget * window;
+        QVBoxLayout * layout;
+        QLabel * valid;
+        QLineEdit * password;
+        QPushButton * unlock;
+        QPushButton * lock;
+        QPushButton * back;
+        mu_coin_qt::client & client;
+    };
     class client
     {
     public:
         client (QApplication &, mu_coin::client &);
         ~client ();
-        mu_coin_qt::password_change password_change;
         mu_coin::client & client_m;
+        mu_coin_qt::password_change password_change;
+        mu_coin_qt::enter_password enter_password;
         
         QApplication & application;
         QStackedWidget * main_stack;
@@ -42,6 +58,7 @@ namespace mu_coin_qt {
         QLineEdit * settings_connect_line;
         QPushButton * settings_connect_button;
         QPushButton * settings_bootstrap_button;
+        QPushButton * settings_enter_password_button;
         QPushButton * settings_change_password_button;
         QPushButton * settings_back;
         
@@ -103,8 +120,8 @@ namespace mu_coin_qt {
         QAction * wallet_account_copy;
         QAction * wallet_account_cancel;
         void pop_main_stack ();
-    private:
         void push_main_stack (QWidget *);
+    private:
         void refresh_wallet ();
         void refresh_ledger ();
         void refresh_peers ();

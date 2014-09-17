@@ -677,7 +677,7 @@ namespace mu_coin {
     public:
         wallet (boost::filesystem::path const &);
         mu_coin::uint256_union check ();
-		void rekey (mu_coin::uint256_union const &);
+		bool rekey (mu_coin::uint256_union const &);
         mu_coin::uint256_union wallet_key ();
         void insert (mu_coin::private_key const &);
         bool fetch (mu_coin::public_key const &, mu_coin::private_key &);
@@ -772,7 +772,7 @@ namespace mu_coin {
         bool receive (mu_coin::send_block const &, mu_coin::private_key const &, mu_coin::address const &);
         bool send (mu_coin::address const &, mu_coin::uint256_t const &);
         void vote (mu_coin::vote const &);
-		void rekey (mu_coin::uint256_union const &);
+		bool rekey (mu_coin::uint256_union const &);
         std::mutex mutex;
         mu_coin::ledger & ledger;
         mu_coin::wallet & wallet;

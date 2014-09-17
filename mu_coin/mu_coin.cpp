@@ -3316,7 +3316,7 @@ void mu_coin::client::stop ()
     rpc.stop ();
     network.stop ();
     bootstrap.stop ();
-    processor.stop ();
+    service.stop ();
 }
 
 void mu_coin::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & complete_action_a)
@@ -5230,22 +5230,30 @@ bool mu_coin::wallet::valid_password ()
     return check () == check_l;
 }
 
-void mu_coin::transactions::rekey (mu_coin::uint256_union const & password_a)
+bool mu_coin::transactions::rekey (mu_coin::uint256_union const & password_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-    wallet.rekey (password_a);
+    return wallet.rekey (password_a);
 }
 
-void mu_coin::wallet::rekey (mu_coin::uint256_union const & password_a)
+bool mu_coin::wallet::rekey (mu_coin::uint256_union const & password_a)
 {
-	assert (valid_password ());
-    auto wallet_key_l (wallet_key ());
-    password = password_a;
-    mu_coin::uint256_union zero;
-    zero.clear ();
-    mu_coin::uint256_union encrypted (wallet_key_l, password_a, password_a.owords [0]);
-    auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
-    assert (status1.ok ());
+    bool result (false);
+	if (valid_password ())
+    {
+        auto wallet_key_l (wallet_key ());
+        password = password_a;
+        mu_coin::uint256_union zero;
+        zero.clear ();
+        mu_coin::uint256_union encrypted (wallet_key_l, password_a, password_a.owords [0]);
+        auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
+        assert (status1.ok ());
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
 }
 
 mu_coin::uint256_union mu_coin::wallet::hash_password (std::string const & password_a)

@@ -82,3 +82,27 @@ TEST (client, password_nochange)
     ASSERT_EQ ("1", client.password_change.password->text ());
     ASSERT_EQ ("2", client.password_change.retype->text ());
 }
+
+TEST (client, enter_password)
+{
+    mu_coin::system system (1, 24000, 25000, 1);
+    int argc (0);
+    QApplication application (argc, nullptr);
+    mu_coin_qt::client client (application, *system.clients [0]);
+    ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.valid));
+    ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.password));
+    ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.unlock));
+    ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.lock));
+    ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.back));
+    ASSERT_FALSE (client.client_m.wallet.rekey (client.client_m.wallet.hash_password("abc")));
+    QTest::mouseClick (client.settings, Qt::LeftButton);
+    QTest::mouseClick (client.settings_enter_password_button, Qt::LeftButton);
+    QTest::keyClicks (client.enter_password.password, "a");
+    QTest::mouseClick (client.enter_password.unlock, Qt::LeftButton);
+    ASSERT_EQ ("Password: INVALID", client.enter_password.valid->text ());
+    client.enter_password.password->setText ("");
+    QTest::keyClicks (client.enter_password.password, "abc");
+    QTest::mouseClick (client.enter_password.unlock, Qt::LeftButton);
+    ASSERT_EQ ("Password: Valid", client.enter_password.valid->text ());
+    ASSERT_EQ ("", client.enter_password.password->text ());
+}

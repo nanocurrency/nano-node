@@ -5,8 +5,9 @@
 #include <sstream>
 
 mu_coin_qt::client::client (QApplication & application_a, mu_coin::client & client_a) :
-password_change (*this),
 client_m (client_a),
+password_change (*this),
+enter_password (*this),
 application (application_a),
 main_stack (new QStackedWidget),
 settings_window (new QWidget),
@@ -16,6 +17,7 @@ settings_connect_label (new QLabel ("Connect to IP:Port")),
 settings_connect_line (new QLineEdit),
 settings_connect_button (new QPushButton ("Connect")),
 settings_bootstrap_button (new QPushButton ("Bootstrap")),
+settings_enter_password_button (new QPushButton ("Enter Password")),
 settings_change_password_button (new QPushButton ("Change Password")),
 settings_back (new QPushButton ("Back")),
 client_window (new QWidget),
@@ -133,6 +135,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     settings_layout->addWidget (settings_connect_line);
     settings_layout->addWidget (settings_connect_button);
     settings_layout->addWidget (settings_bootstrap_button);
+    settings_layout->addWidget (settings_enter_password_button);
     settings_layout->addWidget (settings_change_password_button);
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
@@ -330,6 +333,10 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     {
         push_main_stack (send_coins_window);
     });
+    QObject::connect (settings_enter_password_button, &QPushButton::released, [this] ()
+    {
+        enter_password.activate ();
+    });
     QObject::connect (settings_change_password_button, &QPushButton::released, [this] ()
     {
         push_main_stack (password_change.window);
@@ -482,4 +489,59 @@ client (client_a)
         clear ();
         client.pop_main_stack ();
     });
+}
+
+mu_coin_qt::enter_password::enter_password (mu_coin_qt::client & client_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+valid (new QLabel),
+password (new QLineEdit),
+unlock (new QPushButton ("Unlock")),
+lock (new QPushButton ("Lock")),
+back (new QPushButton ("Back")),
+client (client_a)
+{
+    password->setEchoMode (QLineEdit::EchoMode::Password);
+    layout->addWidget (valid);
+    layout->addWidget (password);
+    layout->addWidget (unlock);
+    layout->addWidget (lock);
+    layout->addWidget (back);
+    window->setLayout (layout);
+    QObject::connect (back, &QPushButton::released, [this] ()
+    {
+        assert (client.main_stack->currentWidget () == window);
+        client.pop_main_stack ();
+    });
+    QObject::connect (unlock, &QPushButton::released, [this] ()
+    {
+        client.client_m.wallet.password = client.client_m.wallet.hash_password (std::string (password->text ().toLocal8Bit ()));
+        update_label ();
+    });
+    QObject::connect (lock, &QPushButton::released, [this] ()
+    {
+        client.client_m.wallet.password.clear ();
+        update_label ();
+    });
+}
+
+void mu_coin_qt::enter_password::activate ()
+{
+    client.push_main_stack (window);
+    update_label ();
+}
+
+void mu_coin_qt::enter_password::update_label ()
+{
+    if (client.client_m.wallet.valid_password ())
+    {
+        valid->setStyleSheet ("QLabel { color: black }");
+        valid->setText ("Password: Valid");
+        password->setText ("");
+    }
+    else
+    {
+        valid->setStyleSheet ("QLabel { color: red }");
+        valid->setText ("Password: INVALID");
+    }
 }

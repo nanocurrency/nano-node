@@ -21,7 +21,6 @@ int main (int argc, char ** argv)
         {
             assert (false);
         }
-        std::cerr << "Network thread exited" << std::endl;
     });
     std::thread processor_thread ([&processor] ()
     {
@@ -33,7 +32,6 @@ int main (int argc, char ** argv)
         {
             assert (false);
         }
-        std::cerr << "Processor thread exited" << std::endl;
     });
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {

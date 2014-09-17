@@ -206,11 +206,13 @@ TEST (wallet, rekey)
     ASSERT_EQ (key1.prv, prv1);
     auto password1 (wallet.password);
     password1.bytes [16] ^= 1;
-    wallet.rekey (password1);
+    ASSERT_FALSE (wallet.rekey (password1));
     ASSERT_EQ (password1, wallet.password);
     mu_coin::uint256_union prv2;
     wallet.fetch (key1.pub, prv2);
     ASSERT_EQ (key1.prv, prv2);
+    wallet.password = 2;
+    ASSERT_TRUE (wallet.rekey (password1));
 }
 
 TEST (base58, encode_zero)
