@@ -467,7 +467,7 @@ client (client_a)
         {
             if (password->text () == retype->text ())
             {
-                client.client_m.transactions.rekey (hash_password (password->text ()));
+                client.client_m.transactions.rekey (client.client_m.wallet.hash_password (std::string (password->text ().toLocal8Bit ())));
                 clear ();
             }
             else
