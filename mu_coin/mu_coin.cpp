@@ -1,6 +1,5 @@
 #include <mu_coin/mu_coin.hpp>
 
-#include <cryptopp/sha3.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
 #include <ed25519-donna/ed25519.h>
@@ -5265,31 +5264,26 @@ mu_coin::uint256_union mu_coin::wallet::hash_password (std::string const & passw
     return result;
 }
 
-mu_coin::work::work (size_t entries_a, uint64_t spacing_a, uint64_t iterations_a) :
-spacing (spacing_a),
-iterations (iterations_a)
+mu_coin::work::work (size_t entries_a) :
+hash (32)
 {
 	data.resize (entries_a);
 }
 
 mu_coin::uint256_union mu_coin::work::perform (mu_coin::uint256_union const & initial_a)
 {
+	auto iterations (data.size ());
+	auto mask (iterations - 1);
 	auto value (initial_a);
 	for (auto i (data.begin ()), n (data.end ()); i != n; ++i)
 	{
-		for (uint64_t j (0), m (spacing); j != m; ++j)
-		{
-			CryptoPP::SHA3 hash (32);
-			hash.Update (value.bytes.data (), value.bytes.size ());
-			hash.Final (value.bytes.data ());
-		}
+		hash.Update (value.bytes.data (), value.bytes.size ());
+		hash.Final (value.bytes.data ());
 		*i = value;
 	}
-	auto entries (data.size ());
-	for (uint64_t i (0), n (iterations); i != n; ++i)
+	for (size_t i (0); i != iterations; ++i)
 	{
-		auto index ((value.number () % entries).convert_to <size_t> ());
-		CryptoPP::SHA3 hash (32);
+		auto index (value.qwords [0] & mask);
 		auto & entry (data [index]);
 		hash.Update (entry.bytes.data (), entry.bytes.size ());
 		hash.Final (value.bytes.data ());

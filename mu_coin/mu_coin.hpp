@@ -15,6 +15,7 @@
 #include <boost/circular_buffer.hpp>
 
 #include <ed25519-donna/ed25519.h>
+#include <cryptopp/sha3.h>
 
 #include <leveldb/db.h>
 
@@ -984,10 +985,9 @@ namespace mu_coin {
 	class work
 	{
 	public:
-		work (size_t, uint64_t, uint64_t);
+		work (size_t);
 		mu_coin::uint256_union perform (mu_coin::uint256_union const &);
-		uint64_t spacing;
-		uint64_t iterations;
+		CryptoPP::SHA3 hash;
 		std::vector <mu_coin::uint256_union> data;
 	};
     class client : public std::enable_shared_from_this <mu_coin::client>
