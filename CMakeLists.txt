@@ -31,7 +31,8 @@ add_library (blake2
     blake2/blake2-config.h
     blake2/blake2-impl.h
     blake2/blake2.h
-    blake2/blake2b.c)
+    blake2/blake2b.c
+    )
 
 add_library (mu_coin
 	mu_coin/mu_coin.hpp
@@ -39,7 +40,8 @@ add_library (mu_coin
     ed25519-donna/ed25519-hash-custom.h
     ed25519-donna/ed25519-randombytes-custom.h
     ed25519-donna/ed25519.h
-    ed25519-donna/ed25519.cpp)
+    ed25519-donna/ed25519.cpp
+    )
 
 add_executable (mu_coin_test 
 	mu_coin_test/entry.cpp
@@ -48,7 +50,9 @@ add_executable (mu_coin_test
     mu_coin_test/db_test.cpp
     mu_coin_test/test_network.cpp
     mu_coin_test/wallet_test.cpp
-    mu_coin_test/work.cpp)
+    mu_coin_test/work.cpp
+    mu_coin_test/daemon.cpp
+    )
     
 add_executable (mu_coin_qt_test
     mu_coin_qt_test/qt.cpp)
@@ -67,6 +71,8 @@ add_executable (mu_coin_qt_system
     mu_coin_qt_system/entry.cpp)
 
 set_target_properties (mu_coin mu_coin_test mu_coin_qt_test mu_coin_cli mu_coin_qt mu_coin_qt_client mu_coin_qt_system PROPERTIES COMPILE_FLAGS "-std=c++11 ${PLATFORM_DEFINES} -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+
+set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "-std=c99")
     
 if (WIN32)
     set (PLATFORM_LIBS ws2_32 mswsock)
