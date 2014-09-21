@@ -986,9 +986,10 @@ namespace mu_coin {
 	{
 	public:
 		work (size_t);
-		mu_coin::uint256_union perform (mu_coin::uint256_union const &);
-		CryptoPP::SHA3 hash;
-		std::vector <mu_coin::uint256_union> data;
+        void clear ();
+		mu_coin::uint256_union perform (mu_coin::uint256_union const &, uint64_t);
+        std::unique_ptr <mu_coin::uint256_union []> data;
+        size_t size;
 	};
     class client : public std::enable_shared_from_this <mu_coin::client>
     {
