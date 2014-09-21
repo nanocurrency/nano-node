@@ -29,7 +29,7 @@ TEST (work, small)
     ASSERT_FALSE (output.is_zero ());
 }
 
-TEST (work, full_verify)
+TEST (work, DISABLED_full_verify)
 {
     mu_coin::work work (32 * 1024);
     auto begin (std::chrono::high_resolution_clock::now ());

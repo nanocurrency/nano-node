@@ -589,6 +589,8 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) const override;
         bool deserialize (mu_coin::stream &);
         void serialize (mu_coin::stream &) override;
+        bool operator == (mu_coin::publish_req const &) const;
+        mu_coin::uint256_union work;
         std::unique_ptr <mu_coin::block> block;
     };
     class confirm_req : public message
@@ -598,6 +600,7 @@ namespace mu_coin {
         void serialize (mu_coin::stream &) override;
         void visit (mu_coin::message_visitor &) const override;
         bool operator == (mu_coin::confirm_req const &) const;
+        mu_coin::uint256_union work;
         std::unique_ptr <mu_coin::block> block;
     };
     class confirm_ack : public message
@@ -608,6 +611,7 @@ namespace mu_coin {
         void visit (mu_coin::message_visitor &) const override;
         bool operator == (mu_coin::confirm_ack const &) const;
         mu_coin::vote vote;
+        mu_coin::uint256_union work;
     };
     class confirm_unk : public message
     {

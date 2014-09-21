@@ -1378,18 +1378,25 @@ block (std::move (block_a))
 
 bool mu_coin::publish_req::deserialize (mu_coin::stream & stream_a)
 {
-    auto result (false);
     mu_coin::message_type type;
-    result = read (stream_a, type);
+    auto result (read (stream_a, type));
     assert (!result);
-    block = mu_coin::deserialize_block (stream_a);
-    result = block == nullptr;
+    if (!result)
+    {
+        result = read (stream_a, work);
+        if (!result)
+        {
+            block = mu_coin::deserialize_block (stream_a);
+            result = block == nullptr;
+        }
+    }
     return result;
 }
 
 void mu_coin::publish_req::serialize (mu_coin::stream & stream_a)
 {
     write (stream_a, mu_coin::message_type::publish_req);
+    write (stream_a, work);
     mu_coin::serialize_block (stream_a, *block);
 }
 
@@ -2604,8 +2611,12 @@ bool mu_coin::confirm_req::deserialize (mu_coin::stream & stream_a)
     mu_coin::message_type type;
     read (stream_a, type);
     assert (type == mu_coin::message_type::confirm_req);
-    block = mu_coin::deserialize_block (stream_a);
-    auto result (block == nullptr);
+    auto result (read (stream_a, work));
+    if (!result)
+    {
+        block = mu_coin::deserialize_block (stream_a);
+        result = block == nullptr;
+    }
     return result;
 }
 
@@ -2632,6 +2643,7 @@ void mu_coin::confirm_req::serialize (mu_coin::stream & stream_a)
 {
     assert (block != nullptr);
     write (stream_a, mu_coin::message_type::confirm_req);
+    write (stream_a, work);
     mu_coin::serialize_block (stream_a, *block);
 }
 
@@ -5305,4 +5317,14 @@ mu_coin::uint256_union mu_coin::work::perform (mu_coin::uint256_union const & in
         }
     }
 	return value;
+}
+
+bool mu_coin::confirm_req::operator == (mu_coin::confirm_req const & other_a) const
+{
+    return work == other_a.work && *block == *other_a.block;
+}
+
+bool mu_coin::publish_req::operator == (mu_coin::publish_req const & other_a) const
+{
+    return work == other_a.work && *block == *other_a.block;
 }

@@ -220,7 +220,33 @@ TEST (network, publish_req)
     mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
     auto error (req2.deserialize (stream2));
     ASSERT_FALSE (error);
+    ASSERT_EQ (req, req2);
     ASSERT_EQ (*req.block, *req2.block);
+    ASSERT_EQ (req.work, req2.work);
+}
+
+TEST (network, confirm_req)
+{
+    auto block (std::unique_ptr <mu_coin::send_block> (new mu_coin::send_block));
+    mu_coin::keypair key1;
+    mu_coin::keypair key2;
+    block->hashables.previous.clear ();
+    block->hashables.balance = 200;
+    block->hashables.destination = key2.pub;
+    mu_coin::confirm_req req;
+    req.block = std::move (block);
+    std::vector <uint8_t> bytes;
+    {
+        mu_coin::vectorstream stream (bytes);
+        req.serialize (stream);
+    }
+    mu_coin::confirm_req req2;
+    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
+    auto error (req2.deserialize (stream2));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (req, req2);
+    ASSERT_EQ (*req.block, *req2.block);
+    ASSERT_EQ (req.work, req2.work);
 }
 
 TEST (network, send_discarded_publish)
