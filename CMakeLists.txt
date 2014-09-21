@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.8.11)
 project (mu_coin)
 
 if (WIN32)
-    set (PLATFORM_DEFINES -D_WIN32_WINNT=0x0501 -DWINVER=0x0501)
+    set (PLATFORM_DEFINES "-D_WIN32_WINNT=0x0501 -DWINVER=0x0501")
 else (WIN32)
     set (PLATFORM_DEFINES)
 endif (WIN32)
@@ -62,7 +62,7 @@ add_executable (mu_coin_qt_client
 add_executable (mu_coin_qt_system
     mu_coin_qt_system/entry.cpp)
 
-set_target_properties (mu_coin mu_coin_test mu_coin_qt_test mu_coin_cli mu_coin_qt mu_coin_qt_client mu_coin_qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 ${PLATFORM_DEFINES} -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (mu_coin mu_coin_test mu_coin_qt_test mu_coin_cli mu_coin_qt mu_coin_qt_client mu_coin_qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 -Werror=switch ${PLATFORM_DEFINES} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 
 if (WIN32)
     set (PLATFORM_LIBS ws2_32 mswsock)
