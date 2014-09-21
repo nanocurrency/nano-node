@@ -70,7 +70,7 @@ add_executable (mu_coin_qt_client
 add_executable (mu_coin_qt_system
     mu_coin_qt_system/entry.cpp)
 
-set_target_properties (mu_coin mu_coin_test mu_coin_qt_test mu_coin_cli mu_coin_qt mu_coin_qt_client mu_coin_qt_system PROPERTIES COMPILE_FLAGS "-std=c++11 ${PLATFORM_DEFINES} -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (mu_coin mu_coin_test mu_coin_qt_test mu_coin_cli mu_coin_qt mu_coin_qt_client mu_coin_qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 ${PLATFORM_DEFINES} -Werror=switch -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 
 set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "-std=c99")
     
