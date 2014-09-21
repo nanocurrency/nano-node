@@ -5,11 +5,6 @@
 #include <ed25519-donna/ed25519.h>
 #include <cryptopp/osrng.h>
 
-extern "C"
-{
-#include <blake2/blake2.h>
-}
-
 #include <unordered_set>
 #include <memory>
 #include <sstream>
@@ -5279,44 +5274,6 @@ mu_coin::uint256_union mu_coin::wallet::hash_password (std::string const & passw
     mu_coin::uint256_union result;
     hash.Final (result.bytes.data ());
     return result;
-}
-
-mu_coin::work::work (size_t size_a) :
-data (new mu_coin::uint256_union [size_a]),
-size (size_a)
-{
-    clear ();
-}
-
-void mu_coin::work::clear ()
-{
-    mu_coin::uint256_union zero;
-    zero.clear ();
-    std::fill_n (data.get (), size, zero);
-}
-
-mu_coin::uint256_union mu_coin::work::perform (mu_coin::uint256_union const & initial_a, uint64_t iterations_a)
-{
-    auto value (initial_a);
-    auto half (size >> 1);
-    auto mask (size - 1);
-    mu_coin::uint256_union temp;
-    for (uint64_t i (0); i != iterations_a; ++i)
-    {
-        auto index (value.qwords [0] & mask);
-        temp = value ^ data [index];
-        auto error (blake2 (value.bytes.data (), temp.bytes.data (), nullptr, sizeof (value), sizeof (value), 0));
-        assert (error == 0);
-        for (auto i (data.get () + index), j (index < half ? data.get () + index + half : data.get () + size); i != j; ++i)
-        {
-            *i ^= value;
-        }
-        for (auto i (data.get ()), j (index < half ? data.get () : data.get () + half - (size - index)); i != j; ++i)
-        {
-            *i ^= value;
-        }
-    }
-	return value;
 }
 
 bool mu_coin::confirm_req::operator == (mu_coin::confirm_req const & other_a) const

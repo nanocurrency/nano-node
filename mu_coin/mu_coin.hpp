@@ -986,15 +986,6 @@ namespace mu_coin {
         void dump_cerr ();
         boost::circular_buffer <std::pair <std::chrono::system_clock::time_point, std::string>> items;
     };
-	class work
-	{
-	public:
-		work (size_t);
-        void clear ();
-		mu_coin::uint256_union perform (mu_coin::uint256_union const &, uint64_t);
-        std::unique_ptr <mu_coin::uint256_union []> data;
-        size_t size;
-	};
     class client : public std::enable_shared_from_this <mu_coin::client>
     {
     public:
