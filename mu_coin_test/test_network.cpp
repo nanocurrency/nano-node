@@ -4,6 +4,33 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+TEST (network, tcp_connection)
+{
+    boost::asio::io_service service;
+    boost::asio::ip::tcp::acceptor acceptor (service);
+    boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), 24000);
+    acceptor.open (endpoint.protocol ());
+    acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+    acceptor.bind (endpoint);
+    acceptor.listen ();
+    boost::asio::ip::tcp::socket incoming (service);
+    auto done1 (false);
+    std::string message1;
+    acceptor.async_accept (incoming, 
+	[&done1, &message1] (boost::system::error_code const & ec_a) { message1 = ec_a.message (); if (ec_a) std::cerr << message1; done1 = true;});
+    boost::asio::ip::tcp::socket connector (service);
+    auto done2 (false);
+    std::string message2;
+    connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000), 
+	[&done2, &message2] (boost::system::error_code const & ec_a) { message2 = ec_a.message (); if (ec_a) std::cerr << message2; done2 = true;});
+    while (!done1 || !done2)
+    {
+        service.poll_one ();
+    }
+    ASSERT_EQ (0, message1.size ());
+    ASSERT_EQ (0, message2.size ());
+}
+
 TEST (network, construction)
 {
     mu_coin::system system (1, 24000, 25000, 1);
