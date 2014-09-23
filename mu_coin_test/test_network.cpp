@@ -17,12 +17,28 @@ TEST (network, tcp_connection)
     auto done1 (false);
     std::string message1;
     acceptor.async_accept (incoming, 
-	[&done1, &message1] (boost::system::error_code const & ec_a) { message1 = ec_a.message (); if (ec_a) std::cerr << message1; done1 = true;});
+       [&done1, &message1] (boost::system::error_code const & ec_a)
+       {
+           if (ec_a)
+           {
+               message1 = ec_a.message ();
+               std::cerr << message1;
+           }
+           done1 = true;}
+       );
     boost::asio::ip::tcp::socket connector (service);
     auto done2 (false);
     std::string message2;
     connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000), 
-	[&done2, &message2] (boost::system::error_code const & ec_a) { message2 = ec_a.message (); if (ec_a) std::cerr << message2; done2 = true;});
+        [&done2, &message2] (boost::system::error_code const & ec_a)
+        {
+            if (ec_a)
+            {
+                message2 = ec_a.message ();
+                std::cerr << message2;
+            }
+            done2 = true;
+        });
     while (!done1 || !done2)
     {
         service.poll_one ();
