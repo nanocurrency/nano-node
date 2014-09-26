@@ -6,7 +6,7 @@ namespace mu_coin_daemon
     class daemon
     {
     public:
-        daemon (std::string const &);
+        daemon ();
         void run ();
         std::string path;
     };

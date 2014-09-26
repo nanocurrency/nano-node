@@ -27,8 +27,7 @@ int main (int argc, char * const * argv)
     }
     else
     {
-        auto path (argv [0]);
-        mu_coin_daemon::daemon daemon (path);
+        mu_coin_daemon::daemon daemon;
         daemon.run ();
     }
     return result;

@@ -47,14 +47,13 @@ bool mu_coin_daemon::daemon_config::deserialize (std::istream & input_a)
     return result;
 }
 
-mu_coin_daemon::daemon::daemon (std::string const & path_a) :
-path (path_a)
+mu_coin_daemon::daemon::daemon ()
 {
 }
 
 void mu_coin_daemon::daemon::run ()
 {
-    auto working (boost::filesystem::system_complete (path).parent_path ());
+    auto working (boost::filesystem::current_path ());
     auto config_error (false);
     mu_coin_daemon::daemon_config config;
     auto config_path ((working / "config.json").string ());
