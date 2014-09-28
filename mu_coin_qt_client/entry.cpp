@@ -10,6 +10,9 @@ int main (int argc, char ** argv)
     mu_coin::processor_service processor;
     auto client (std::make_shared <mu_coin::client> (service, pool, 24000, 25000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, mu_coin::genesis_address));
     client->start ();
+    boost::system::error_code ec;
+    client->network.send_keepalive (mu_coin::endpoint (boost::asio::ip::address::from_string ("192.230.132.114", ec), 24000));
+    assert (!ec);
     std::unique_ptr <mu_coin_qt::client> gui (new mu_coin_qt::client (application, *client));
 	gui->client_window->show ();
     std::thread network_thread ([&service] ()
