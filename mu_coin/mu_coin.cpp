@@ -5027,7 +5027,7 @@ public:
 		client.network.merge_peers (req_bytes, message_a.peers);
 		if (network_keepalive_logging ())
 		{
-			client.log.add (boost::str (boost::format ("Sending keepalive ack to %2%") % sender));
+			client.log.add (boost::str (boost::format ("Sending keepalive ack to %1%") % sender));
 		}
 		auto & client_l (client);
 		client.network.send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)

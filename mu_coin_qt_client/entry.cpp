@@ -9,6 +9,7 @@ int main (int argc, char ** argv)
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     mu_coin::processor_service processor;
     auto client (std::make_shared <mu_coin::client> (service, pool, 24000, 25000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, mu_coin::genesis_address));
+    client->start ();
     std::unique_ptr <mu_coin_qt::client> gui (new mu_coin_qt::client (application, *client));
 	gui->client_window->show ();
     std::thread network_thread ([&service] ()
