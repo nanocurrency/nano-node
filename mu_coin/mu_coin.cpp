@@ -2,8 +2,11 @@
 
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
-#include <ed25519-donna/ed25519.h>
 #include <cryptopp/osrng.h>
+
+#include <ed25519-donna/ed25519.h>
+
+#include <miniupnpc/miniupnpc.h>
 
 #include <unordered_set>
 #include <memory>
