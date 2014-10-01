@@ -96,8 +96,8 @@ namespace mu_coin_qt {
         
         QWidget * ledger_window;
         QVBoxLayout * ledger_layout;
-        QStringListModel * ledger_model;
-        QListView * ledger_view;
+        QStandardItemModel * ledger_model;
+        QTableView * ledger_view;
         QPushButton * ledger_refresh;
         QPushButton * ledger_back;
         

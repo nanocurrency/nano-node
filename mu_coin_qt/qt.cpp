@@ -50,8 +50,8 @@ wallet_add_key_button (new QPushButton ("Add key")),
 wallet_back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
-ledger_model (new QStringListModel),
-ledger_view (new QListView),
+ledger_model (new QStandardItemModel),
+ledger_view (new QTableView),
 ledger_refresh (new QPushButton ("Refresh")),
 ledger_back (new QPushButton ("Back")),
 log_window (new QWidget),
@@ -90,8 +90,14 @@ peers_back (new QPushButton ("Back"))
     wallet_layout->addWidget (wallet_back);
     wallet_layout->setContentsMargins (0, 0, 0, 0);
     wallet_window->setLayout (wallet_layout);
-    
-    ledger_view->setModel (ledger_model);
+	
+	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
+	ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
+	ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
+	ledger_view->setModel (ledger_model);
+	ledger_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
+	ledger_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
+	ledger_view->horizontalHeader ()->setSectionResizeMode (2, QHeaderView::ResizeMode::Stretch);
     ledger_layout->addWidget (ledger_view);
     ledger_layout->addWidget (ledger_refresh);
     ledger_layout->addWidget (ledger_back);
@@ -378,23 +384,19 @@ void mu_coin_qt::client::refresh_peers ()
 
 void mu_coin_qt::client::refresh_ledger ()
 {
-    QStringList accounts;
+	ledger_model->removeRows (0, ledger_model->rowCount ());
     for (auto i (client_m.ledger.store.latest_begin()), j (client_m.ledger.store.latest_end ()); i != j; ++i)
-    {
-        std::string line;
+	{
+		QList <QStandardItem *> items;
         std::string account;
         i->first.encode_base58check (account);
-        line += account;
-        line += " : ";
-        line += std::to_string (client_m.scale_down (client_m.ledger.balance (i->second.hash)));
-        line += " : ";
+		items.push_back (new QStandardItem (QString (account.c_str ())));
+		items.push_back (new QStandardItem (QString (std::to_string (client_m.scale_down (client_m.ledger.balance (i->second.hash))).c_str ())));
         std::string block_hash;
         i->second.hash.encode_hex (block_hash);
-        line += block_hash;
-        QString qline (line.c_str ());
-        accounts << qline;
+		items.push_back (new QStandardItem (QString (block_hash.c_str ())));
+		ledger_model->appendRow (items);
     }
-    ledger_model->setStringList (accounts);
 }
 
 void mu_coin_qt::client::refresh_wallet ()
