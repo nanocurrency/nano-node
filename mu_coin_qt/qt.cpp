@@ -401,7 +401,6 @@ void mu_coin_qt::client::refresh_ledger ()
 
 void mu_coin_qt::client::refresh_wallet ()
 {
-    QStringList keys;
     mu_coin::uint256_t balance;
 	wallet_model->removeRows (0, wallet_model->rowCount ());
     for (auto i (client_m.wallet.begin ()), j (client_m.wallet.end ()); i != j; ++i)
@@ -412,6 +411,7 @@ void mu_coin_qt::client::refresh_wallet ()
         key.encode_base58check (account);
 		items.push_back (new QStandardItem (QString (account.c_str ())));
         auto account_balance (client_m.ledger.account_balance (key));
+		balance += account_balance;
 		auto balance (std::to_string (client_m.scale_down (account_balance)));
 		items.push_back (new QStandardItem (balance.c_str ()));
 		wallet_model->appendRow (items);

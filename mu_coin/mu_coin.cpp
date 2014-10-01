@@ -5308,7 +5308,7 @@ void mu_coin::processor::find_network ()
     {
         if (!ec)
         {
-            while (values != boost::asio::ip::udp::resolver::iterator ())
+			for (; values != boost::asio::ip::udp::resolver::iterator (); ++values)
             {
                 client_l->network.send_keepalive (*values);
             }
