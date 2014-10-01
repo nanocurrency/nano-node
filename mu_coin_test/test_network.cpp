@@ -1030,3 +1030,14 @@ TEST (client, multi_account_send_atomicness)
     system.clients [0]->transactions.send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2);
     system.clients [0]->transactions.send (key1.pub, std::numeric_limits<mu_coin::uint256_t>::max () / 2 + std::numeric_limits<mu_coin::uint256_t>::max () / 4);
 }
+
+TEST (client, scaling)
+{
+    mu_coin::system system (1, 24000, 25000, 1);
+    auto max (std::numeric_limits <mu_coin::uint256_t>::max ());
+    auto down (system.clients [0]->scale_down (max));
+    auto up1 (system.clients [0]->scale_up (down));
+    auto up2 (system.clients [0]->scale_up (down - 1));
+    ASSERT_LT (up2, up1);
+    ASSERT_EQ (up1 - up2, system.clients [0]->scale);
+}

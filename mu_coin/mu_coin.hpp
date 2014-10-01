@@ -999,6 +999,8 @@ namespace mu_coin {
         std::shared_ptr <mu_coin::client> shared ();
         bool is_representative ();
 		void representative_vote (mu_coin::votes &, mu_coin::block const &);
+        uint64_t scale_down (mu_coin::uint256_t const &);
+        mu_coin::uint256_t scale_up (uint64_t);
         mu_coin::log log;
         mu_coin::address representative;
         mu_coin::block_store store;
@@ -1013,6 +1015,7 @@ namespace mu_coin {
         mu_coin::transactions transactions;
         mu_coin::peer_container peers;
         mu_coin::processor_service & service;
+        mu_coin::uint256_t scale;
     };
     class system
     {

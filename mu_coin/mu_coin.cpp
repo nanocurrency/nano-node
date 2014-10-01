@@ -6,8 +6,6 @@
 
 #include <ed25519-donna/ed25519.h>
 
-#include <miniupnpc/miniupnpc.h>
-
 #include <unordered_set>
 #include <memory>
 #include <sstream>
@@ -1719,7 +1717,8 @@ rpc (service_a, pool_a, command_port_a, *this),
 processor (*this),
 transactions (ledger, wallet, processor),
 peers (network.endpoint ()),
-service (processor_a)
+service (processor_a),
+scale ("100000000000000000000000000000000000000000000000000000000000000000") // 10 ^ 65
 {
     if (client_lifetime_tracing ())
     {
@@ -5287,4 +5286,14 @@ bool mu_coin::confirm_req::operator == (mu_coin::confirm_req const & other_a) co
 bool mu_coin::publish_req::operator == (mu_coin::publish_req const & other_a) const
 {
     return work == other_a.work && *block == *other_a.block;
+}
+
+uint64_t mu_coin::client::scale_down (mu_coin::uint256_t const & amount_a)
+{
+    return (amount_a / scale).convert_to <uint64_t> ();
+}
+
+mu_coin::uint256_t mu_coin::client::scale_up (uint64_t amount_a)
+{
+    return scale * amount_a;
 }

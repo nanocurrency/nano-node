@@ -27,9 +27,6 @@ include_directories (${CPPNETLIB_INCLUDE_DIRS})
 find_package (LevelDB REQUIRED)
 include_directories (${LevelDB_INCLUDE_PATH})
 
-find_package (Miniupnpc REQUIRED)
-include_directories (${MINIUPNP_INCLUDE_DIR})
-
 add_library (mu_coin
 	mu_coin/mu_coin.hpp
 	mu_coin/mu_coin.cpp
@@ -39,7 +36,8 @@ add_library (mu_coin
     ed25519-donna/ed25519.cpp
     )
 
-add_executable (mu_coin_test 
+add_executable (mu_coin_test
+    mu_coin_test/client.cpp
 	mu_coin_test/entry.cpp
 	mu_coin_test/ledger.cpp
 	mu_coin_test/block.cpp
@@ -75,7 +73,7 @@ else (WIN32)
     set (PLATFORM_LIBS)
 endif (WIN32)
 
-target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${MINIUPNP_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
 target_link_libraries (mu_coin_cli mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
