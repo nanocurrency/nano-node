@@ -121,6 +121,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     entry_window_layout->addWidget (show_peers);
     entry_window_layout->addWidget (show_log);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
+    entry_window_layout->setSpacing (5);
     entry_window->setLayout (entry_window_layout);
     
     main_stack->addWidget (entry_window);
@@ -128,7 +129,9 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     client_layout->addWidget (balance_label);
     client_layout->addWidget (main_stack);
     client_layout->setSpacing (0);
+    client_layout->setContentsMargins (5, 5, 5, 5);
     client_window->setLayout (client_layout);
+    client_window->resize (320, 480);
     
     settings_layout->addWidget (settings_port_label);
     settings_layout->addWidget (settings_connect_label);
@@ -264,34 +267,43 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     {
         QString coins_text (send_count->text ());
         std::string coins_text_narrow (coins_text.toLocal8Bit ());
-        mu_coin::uint256_union coins;
-        auto parse_error (coins.decode_dec (coins_text_narrow));
-        if (!parse_error)
+        try
         {
-            QPalette palette;
-            palette.setColor (QPalette::Text, Qt::black);
-            send_count->setPalette (palette);
-            QString address_text (send_address->text ());
-            std::string address_text_narrow (address_text.toLocal8Bit ());
-            mu_coin::address address;
-            parse_error = address.decode_base58check (address_text_narrow);
-            if (!parse_error)
+            auto scaled (std::stoull (coins_text_narrow));
+            mu_coin::uint256_t coins (client_m.scale_up (scaled));
+            if (coins / client_m.scale == scaled)
             {
-                auto send_error (client_m.send (address, coins.number ()));
-                if (!send_error)
+                QPalette palette;
+                palette.setColor (QPalette::Text, Qt::black);
+                send_count->setPalette (palette);
+                QString address_text (send_address->text ());
+                std::string address_text_narrow (address_text.toLocal8Bit ());
+                mu_coin::address address;
+                auto parse_error (address.decode_base58check (address_text_narrow));
+                if (!parse_error)
                 {
-                    QPalette palette;
-                    palette.setColor (QPalette::Text, Qt::black);
-                    send_address->setPalette (palette);
-                    send_count->clear ();
-                    send_address->clear ();
-                    refresh_wallet ();
+                    auto send_error (client_m.send (address, coins));
+                    if (!send_error)
+                    {
+                        QPalette palette;
+                        palette.setColor (QPalette::Text, Qt::black);
+                        send_address->setPalette (palette);
+                        send_count->clear ();
+                        send_address->clear ();
+                        refresh_wallet ();
+                    }
+                    else
+                    {
+                        QPalette palette;
+                        palette.setColor (QPalette::Text, Qt::red);
+                        send_count->setPalette (palette);
+                    }
                 }
                 else
                 {
                     QPalette palette;
                     palette.setColor (QPalette::Text, Qt::red);
-                    send_count->setPalette (palette);
+                    send_address->setPalette (palette);
                 }
             }
             else
@@ -301,7 +313,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
                 send_address->setPalette (palette);
             }
         }
-        else
+        catch (...)
         {
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::red);
@@ -393,7 +405,7 @@ void mu_coin_qt::client::refresh_ledger ()
         i->first.encode_base58check (account);
         line += account;
         line += " : ";
-        line += client_m.ledger.balance (i->second.hash).convert_to <std::string> ();
+        line += std::to_string (client_m.scale_down (client_m.ledger.balance (i->second.hash)));
         line += " : ";
         std::string block_hash;
         i->second.hash.encode_hex (block_hash);
@@ -416,11 +428,11 @@ void mu_coin_qt::client::refresh_wallet ()
         std::string string;
         key.encode_base58check (string);
         string += " : ";
-        string += account_balance.str ();
+        string += std::to_string (client_m.scale_down (account_balance));
         QString qstring (string.c_str ());
         keys << qstring;
     }
-    balance_label->setText (QString ((std::string ("Balance: ") + balance.str ()).c_str ()));
+    balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (client_m.scale_down (balance))).c_str ()));
     wallet_model->setStringList (keys);
 }
 

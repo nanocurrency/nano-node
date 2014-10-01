@@ -5297,3 +5297,25 @@ mu_coin::uint256_t mu_coin::client::scale_up (uint64_t amount_a)
 {
     return scale * amount_a;
 }
+
+void mu_coin::processor::find_network ()
+{
+    auto resolver (std::make_shared <boost::asio::ip::udp::resolver> (client.network.service));
+    auto client_l (client.shared ());
+    resolver->async_resolve (boost::asio::ip::udp::resolver::query ("raiblocks.net", "24000"),
+                             [client_l, resolver]
+                             (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator values)
+    {
+        if (!ec)
+        {
+            while (values != boost::asio::ip::udp::resolver::iterator ())
+            {
+                client_l->network.send_keepalive (*values);
+            }
+        }
+        else
+        {
+            client_l->log.add (boost::str (boost::format ("Unable to resolve raiblocks.net")));
+        }
+    });
+}
