@@ -86,9 +86,8 @@ namespace mu_coin_qt {
         
         QWidget * wallet_window;
         QVBoxLayout * wallet_layout;
-        QStringListModel * wallet_model;
-        QModelIndex wallet_model_selection;
-        QListView * wallet_view;
+        QStandardItemModel * wallet_model;
+        QTableView * wallet_view;
         QPushButton * wallet_refresh;
         QPushButton * wallet_add_account;
         QLineEdit * wallet_key_line;
@@ -115,10 +114,7 @@ namespace mu_coin_qt {
         QListView * peers_view;
         QPushButton * peers_refresh;
         QPushButton * peers_back;
-        
-        QMenu * wallet_account_menu;
-        QAction * wallet_account_copy;
-        QAction * wallet_account_cancel;
+		
         void pop_main_stack ();
         void push_main_stack (QWidget *);
     private:

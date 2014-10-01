@@ -41,8 +41,8 @@ send_coins_send (new QPushButton ("Send")),
 send_coins_back (new QPushButton ("Back")),
 wallet_window (new QWidget),
 wallet_layout (new QVBoxLayout),
-wallet_model (new QStringListModel),
-wallet_view (new QListView),
+wallet_model (new QStandardItemModel),
+wallet_view (new QTableView),
 wallet_refresh (new QPushButton ("Refresh")),
 wallet_add_account (new QPushButton ("Add account")),
 wallet_key_line (new QLineEdit),
@@ -65,10 +65,7 @@ peers_layout (new QVBoxLayout),
 peers_model (new QStringListModel),
 peers_view (new QListView),
 peers_refresh (new QPushButton ("Refresh")),
-peers_back (new QPushButton ("Back")),
-wallet_account_menu (new QMenu),
-wallet_account_copy (new QAction ("Copy", wallet_account_menu)),
-wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
+peers_back (new QPushButton ("Back"))
 {
     send_coins_layout->addWidget (send_address_label);
     send_coins_layout->addWidget (send_address);
@@ -78,8 +75,12 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     send_coins_layout->addWidget (send_coins_back);
     send_coins_layout->setContentsMargins (0, 0, 0, 0);
     send_coins_window->setLayout (send_coins_layout);
-    
+	
+	wallet_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
+	wallet_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
     wallet_view->setModel (wallet_model);
+	wallet_view->horizontalHeader()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
+	wallet_view->horizontalHeader()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
     wallet_view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
     wallet_layout->addWidget (wallet_view);
     wallet_layout->addWidget (wallet_refresh);
@@ -89,9 +90,6 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     wallet_layout->addWidget (wallet_back);
     wallet_layout->setContentsMargins (0, 0, 0, 0);
     wallet_window->setLayout (wallet_layout);
-    
-    wallet_account_menu->addAction (wallet_account_copy);
-    wallet_account_menu->addAction (wallet_account_cancel);
     
     ledger_view->setModel (ledger_model);
     ledger_layout->addWidget (ledger_view);
@@ -129,7 +127,7 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
     client_layout->addWidget (balance_label);
     client_layout->addWidget (main_stack);
     client_layout->setSpacing (0);
-    client_layout->setContentsMargins (5, 5, 5, 5);
+    client_layout->setContentsMargins (0, 0, 0, 0);
     client_window->setLayout (client_layout);
     client_window->resize (320, 480);
     
@@ -320,23 +318,6 @@ wallet_account_cancel (new QAction ("Cancel", wallet_account_menu))
             send_count->setPalette (palette);
         }
     });
-    QObject::connect (wallet_view, &QListView::pressed, [this] (QModelIndex const & index)
-    {
-        wallet_model_selection = index;
-    });
-    QObject::connect (wallet_account_copy, &QAction::triggered, [this] (bool)
-    {
-        auto & value (wallet_model->stringList ().at (wallet_model_selection.row ()));
-        application.clipboard ()->setText (value);
-    });
-    QObject::connect (wallet_account_cancel, &QAction::triggered, [this] (bool)
-    {
-        wallet_account_menu->hide ();
-    });
-    QObject::connect (wallet_view, &QListView::customContextMenuRequested, [this] (QPoint const & pos)
-    {
-        wallet_account_menu->popup (wallet_view->viewport ()->mapToGlobal (pos));
-    });
     QObject::connect (send_coins_back, &QPushButton::released, [this] ()
     {
         pop_main_stack ();
@@ -420,20 +401,20 @@ void mu_coin_qt::client::refresh_wallet ()
 {
     QStringList keys;
     mu_coin::uint256_t balance;
+	wallet_model->removeRows (0, wallet_model->rowCount ());
     for (auto i (client_m.wallet.begin ()), j (client_m.wallet.end ()); i != j; ++i)
     {
+		QList <QStandardItem *> items;
+        std::string account;
         mu_coin::public_key key (i->first);
+        key.encode_base58check (account);
+		items.push_back (new QStandardItem (QString (account.c_str ())));
         auto account_balance (client_m.ledger.account_balance (key));
-        balance += account_balance;
-        std::string string;
-        key.encode_base58check (string);
-        string += " : ";
-        string += std::to_string (client_m.scale_down (account_balance));
-        QString qstring (string.c_str ());
-        keys << qstring;
+		auto balance (std::to_string (client_m.scale_down (account_balance)));
+		items.push_back (new QStandardItem (balance.c_str ()));
+		wallet_model->appendRow (items);
     }
     balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (client_m.scale_down (balance))).c_str ()));
-    wallet_model->setStringList (keys);
 }
 
 mu_coin_qt::client::~client ()
