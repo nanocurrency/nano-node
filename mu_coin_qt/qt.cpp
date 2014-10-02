@@ -79,8 +79,9 @@ peers_back (new QPushButton ("Back"))
 	wallet_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
 	wallet_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
     wallet_view->setModel (wallet_model);
-	wallet_view->horizontalHeader()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
-	wallet_view->horizontalHeader()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
+	wallet_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
+	wallet_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
+    wallet_view->verticalHeader ()->hide ();
     wallet_view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
     wallet_layout->addWidget (wallet_view);
     wallet_layout->addWidget (wallet_refresh);
@@ -98,6 +99,7 @@ peers_back (new QPushButton ("Back"))
 	ledger_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
 	ledger_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
 	ledger_view->horizontalHeader ()->setSectionResizeMode (2, QHeaderView::ResizeMode::Stretch);
+    ledger_view->verticalHeader ()->hide ();
     ledger_layout->addWidget (ledger_view);
     ledger_layout->addWidget (ledger_refresh);
     ledger_layout->addWidget (ledger_back);
