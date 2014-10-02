@@ -106,3 +106,26 @@ TEST (client, enter_password)
     ASSERT_EQ ("Password: Valid", client.enter_password.valid->text ());
     ASSERT_EQ ("", client.enter_password.password->text ());
 }
+
+TEST (client, send)
+{
+    mu_coin::system system (1, 24000, 25000, 2);
+    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
+    mu_coin::keypair key1;
+    std::string account;
+    key1.pub.encode_base58check (account);
+    system.clients [1]->wallet.insert (key1.prv);
+    int argc (0);
+    QApplication application (argc, nullptr);
+    mu_coin_qt::client client (application, *system.clients [0]);
+    QTest::mouseClick (client.send_coins, Qt::LeftButton);
+    QTest::keyClicks (client.send_address, account.c_str ());
+    QTest::keyClicks (client.send_count, "2");
+    QTest::mouseClick (client.send_coins_send, Qt::LeftButton);
+    while (client.client_m.ledger.account_balance (key1.pub).is_zero ())
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+    }
+    ASSERT_EQ (2 * client.client_m.scale, client.client_m.ledger.account_balance (key1.pub));
+}

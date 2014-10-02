@@ -107,6 +107,7 @@ namespace mu_coin {
         bool operator == (mu_coin::uint512_union const &) const;
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
+        mu_coin::uint512_union salsa20 ();
         std::array <uint8_t, 64> bytes;
         std::array <uint64_t, 8> qwords;
         std::array <uint256_union, 2> uint256s;
