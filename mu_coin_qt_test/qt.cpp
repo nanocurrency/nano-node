@@ -127,5 +127,12 @@ TEST (client, send)
         system.service->poll_one ();
         system.processor.poll_one ();
     }
-    ASSERT_EQ (2 * client.client_m.scale, client.client_m.ledger.account_balance (key1.pub));
+	ASSERT_EQ (2 * client.client_m.scale, client.client_m.ledger.account_balance (key1.pub));
+	QTest::mouseClick (client.send_coins_back, Qt::LeftButton);
+	QTest::mouseClick (client.show_ledger, Qt::LeftButton);
+	QTest::mouseClick (client.ledger_refresh, Qt::LeftButton);
+	ASSERT_EQ (2, client.ledger_model->rowCount ());
+	ASSERT_EQ (3, client.ledger_model->columnCount ());
+	auto item (client.ledger_model->itemFromIndex (client.ledger_model->index (1, 1)));
+	ASSERT_EQ ("2", item->text ().toStdString ());
 }
