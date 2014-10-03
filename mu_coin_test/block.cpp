@@ -525,3 +525,26 @@ TEST (salsa20_8, one)
     auto result (value.salsa20_8 ());
     ASSERT_NE (value, result);
 }
+
+TEST (work, one)
+{
+    mu_coin::work work (1024);
+    mu_coin::uint256_union seed;
+    ed25519_randombytes_unsafe (seed.bytes.data (), sizeof (seed));
+    mu_coin::uint256_union nonce;
+    ed25519_randombytes_unsafe (nonce.bytes.data (), sizeof (nonce));
+    auto value (work.generate (seed, nonce, 1024));
+}
+
+TEST (work, DISABLED_many)
+{
+    mu_coin::work work (1024 * 1024);
+    for (auto i (0), n (10000); i != n; ++i)
+    {
+        mu_coin::uint256_union seed;
+        ed25519_randombytes_unsafe (seed.bytes.data (), sizeof (seed));
+        mu_coin::uint256_union nonce;
+        ed25519_randombytes_unsafe (nonce.bytes.data (), sizeof (nonce));
+        auto value (work.generate (seed, nonce, 1024 * 1024));
+    }
+}

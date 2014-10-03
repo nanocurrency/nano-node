@@ -5364,3 +5364,43 @@ bool mu_coin::uint512_union::operator != (mu_coin::uint512_union const & other_a
 {
     return ! (*this == other_a);
 }
+
+mu_coin::work::work (size_t entries_a)
+{
+    entries.resize (entries_a);
+}
+
+mu_coin::uint512_union & mu_coin::uint512_union::operator ^= (mu_coin::uint512_union const & other_a)
+{
+    uint256s [0] ^= other_a.uint256s [0];
+    uint256s [1] ^= other_a.uint256s [1];
+    return *this;
+}
+
+mu_coin::uint256_union mu_coin::work::generate (mu_coin::uint256_union const & seed, mu_coin::uint256_union const & nonce, uint32_t repetitions_a)
+{
+    auto mask (entries.size () - 1);
+    for (auto & i: entries)
+    {
+        i.clear ();
+    }
+    mu_coin::uint512_union value;
+    value.uint256s [0] = seed;
+    value.uint256s [1] = nonce;
+    for (uint32_t i (0); i < repetitions_a; ++i)
+    {
+        auto index (value.qwords [0] & mask);
+        auto & entry (entries [index]);
+        value ^= entry;
+        value = value.salsa20_8 ();
+        entry = value;
+    }
+    CryptoPP::SHA3 hash (32);
+    for (auto & i: entries)
+    {
+        hash.Update (i.bytes.data (), i.bytes.size ());
+    }
+    mu_coin::uint256_union result;
+    hash.Final (result.bytes.data ());
+    return result;
+}

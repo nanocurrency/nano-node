@@ -106,6 +106,7 @@ namespace mu_coin {
         uint512_union (mu_coin::uint512_t const &);
         bool operator == (mu_coin::uint512_union const &) const;
         bool operator != (mu_coin::uint512_union const &) const;
+        mu_coin::uint512_union & operator ^= (mu_coin::uint512_union const &);
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
         mu_coin::uint512_union salsa20_8 ();
@@ -1037,5 +1038,12 @@ namespace mu_coin {
         boost::shared_ptr <boost::network::utils::thread_pool> pool;
         mu_coin::processor_service processor;
         std::vector <std::shared_ptr <mu_coin::client>> clients;
+    };
+    class work
+    {
+    public:
+        work (size_t);
+        mu_coin::uint256_union generate (mu_coin::uint256_union const &, mu_coin::uint256_union const &, uint32_t);
+        std::vector <mu_coin::uint512_union> entries;
     };
 }
