@@ -6,9 +6,8 @@ int main (int argc, char ** argv)
 {
     QApplication application (argc, argv);
     auto service (boost::make_shared <boost::asio::io_service> ());
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     mu_coin::processor_service processor;
-    auto client (std::make_shared <mu_coin::client> (service, pool, 24000, 25000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, mu_coin::genesis_address));
+    auto client (std::make_shared <mu_coin::client> (service, 24000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, mu_coin::genesis_address));
     client->start ();
     boost::system::error_code ec;
     std::vector <std::pair <std::string, std::string>> well_known;

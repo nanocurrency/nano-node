@@ -77,8 +77,9 @@ void mu_coin_daemon::daemon::run ()
         auto service (boost::make_shared <boost::asio::io_service> ());
         auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
         mu_coin::processor_service processor;
-        auto client (std::make_shared <mu_coin::client> (service, pool, config.peering_port, config.rpc_port,  working / "data", processor, mu_coin::genesis_address));
-        client->start ();
+        auto client (std::make_shared <mu_coin::client> (service, config.peering_port,  working / "data", processor, mu_coin::genesis_address));
+		client->start ();
+		mu_coin::rpc rpc (service, pool, config.rpc_port, *client, std::unordered_set <mu_coin::uint256_union> ());
         std::thread network_thread ([&service] ()
             {
                 try

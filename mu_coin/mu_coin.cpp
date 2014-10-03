@@ -1705,7 +1705,7 @@ bool mu_coin::operation::operator > (mu_coin::operation const & other_a) const
     return wakeup > other_a.wakeup;
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, boost::filesystem::path const & data_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
 representative (representative_a),
 store (data_path_a),
 ledger (store),
@@ -1713,7 +1713,6 @@ conflicts (*this),
 wallet (data_path_a),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
-rpc (service_a, pool_a, command_port_a, *this),
 processor (*this),
 transactions (ledger, wallet, processor),
 peers (network.endpoint ()),
@@ -1731,8 +1730,8 @@ scale ("100000000000000000000000000000000000000000000000000000000000000000") // 
     }
 }
 
-mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, uint16_t command_port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
-client (service_a, pool_a, port_a, command_port_a, boost::filesystem::unique_path (), processor_a, representative_a)
+mu_coin::client::client (boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, mu_coin::processor_service & processor_a, mu_coin::address const & representative_a) :
+client (service_a, port_a, boost::filesystem::unique_path (), processor_a, representative_a)
 {
 }
 
@@ -2472,14 +2471,13 @@ bool mu_coin::client::send (mu_coin::public_key const & address, mu_coin::uint25
     return transactions.send (address, coins);
 }
 
-mu_coin::system::system (size_t threads_a, uint16_t port_a, uint16_t command_port_a, size_t count_a) :
-service (new boost::asio::io_service),
-pool (new boost::network::utils::thread_pool (threads_a))
+mu_coin::system::system (uint16_t port_a, size_t count_a) :
+service (new boost::asio::io_service)
 {
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        auto client (std::make_shared <mu_coin::client> (service, pool, port_a + i, command_port_a + i, processor, mu_coin::genesis_address));
+        auto client (std::make_shared <mu_coin::client> (service, port_a + i, processor, mu_coin::genesis_address));
         client->start ();
         clients.push_back (client);
     }
@@ -2644,9 +2642,10 @@ void mu_coin::confirm_req::serialize (mu_coin::stream & stream_a)
     mu_coin::serialize_block (stream_a, *block);
 }
 
-mu_coin::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, mu_coin::client & client_a) :
+mu_coin::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, mu_coin::client & client_a, std::unordered_set <mu_coin::uint256_union> const & api_keys_a) :
 server (decltype (server)::options (*this).address ("0.0.0.0").port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
-client (client_a)
+client (client_a),
+api_keys (api_keys_a)
 {
 }
 
@@ -3318,7 +3317,6 @@ void mu_coin::bulk_req::serialize (mu_coin::stream & stream_a)
 
 void mu_coin::client::start ()
 {
-    rpc.start ();
     network.receive ();
     processor.ongoing_keepalive ();
     bootstrap.start ();
@@ -3326,7 +3324,6 @@ void mu_coin::client::start ()
 
 void mu_coin::client::stop ()
 {
-    rpc.stop ();
     network.stop ();
     bootstrap.stop ();
     processor.stop ();

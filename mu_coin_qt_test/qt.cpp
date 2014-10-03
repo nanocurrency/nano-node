@@ -6,7 +6,7 @@
 
 TEST (client, construction)
 {
-    mu_coin::system system (1, 24000, 25000, 1);
+    mu_coin::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
     mu_coin_qt::client client (application, *system.clients [0]);
@@ -14,7 +14,7 @@ TEST (client, construction)
 
 TEST (client, main)
 {
-    mu_coin::system system (1, 24000, 25000, 1);
+    mu_coin::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
     mu_coin_qt::client client (application, *system.clients [0]);
@@ -51,7 +51,7 @@ TEST (client, main)
 
 TEST (client, password_change)
 {
-    mu_coin::system system (1, 24000, 25000, 1);
+    mu_coin::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
     mu_coin_qt::client client (application, *system.clients [0]);
@@ -68,7 +68,7 @@ TEST (client, password_change)
 
 TEST (client, password_nochange)
 {
-    mu_coin::system system (1, 24000, 25000, 1);
+    mu_coin::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
     mu_coin_qt::client client (application, *system.clients [0]);
@@ -85,7 +85,7 @@ TEST (client, password_nochange)
 
 TEST (client, enter_password)
 {
-    mu_coin::system system (1, 24000, 25000, 1);
+    mu_coin::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
     mu_coin_qt::client client (application, *system.clients [0]);
@@ -109,7 +109,7 @@ TEST (client, enter_password)
 
 TEST (client, send)
 {
-    mu_coin::system system (1, 24000, 25000, 2);
+    mu_coin::system system (24000, 2);
     system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
     mu_coin::keypair key1;
     std::string account;

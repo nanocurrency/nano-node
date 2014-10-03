@@ -20,7 +20,7 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("debug_activity"))
     {
-        mu_coin::system system (1, 24000, 25000, 1);
+        mu_coin::system system (24000, 1);
         system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
         size_t count (10000);
         system.generate_mass_activity (count, *system.clients [0]);

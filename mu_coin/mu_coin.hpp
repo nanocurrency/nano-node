@@ -936,7 +936,7 @@ namespace mu_coin {
     class rpc
     {
     public:
-        rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, mu_coin::client &);
+		rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, mu_coin::client &, std::unordered_set <mu_coin::uint256_union> const &);
         void start ();
         void stop ();
         boost::network::http::server <mu_coin::rpc> server;
@@ -944,6 +944,7 @@ namespace mu_coin {
         void log (const char *) {}
         mu_coin::client & client;
         bool on;
+		std::unordered_set <mu_coin::uint256_union> api_keys;
     };
     class peer_container
     {
@@ -994,8 +995,8 @@ namespace mu_coin {
     class client : public std::enable_shared_from_this <mu_coin::client>
     {
     public:
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &);
-        client (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, uint16_t, mu_coin::processor_service &, mu_coin::address const &);
+        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &);
+        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, mu_coin::processor_service &, mu_coin::address const &);
         ~client ();
         bool send (mu_coin::public_key const &, mu_coin::uint256_t const &);
         mu_coin::uint256_t balance ();
@@ -1015,7 +1016,6 @@ namespace mu_coin {
         mu_coin::wallet wallet;
         mu_coin::network network;
         mu_coin::bootstrap_receiver bootstrap;
-        mu_coin::rpc rpc;
         mu_coin::processor processor;
         mu_coin::transactions transactions;
         mu_coin::peer_container peers;
@@ -1025,7 +1025,7 @@ namespace mu_coin {
     class system
     {
     public:
-        system (size_t, uint16_t, uint16_t, size_t);
+        system (uint16_t, size_t);
         ~system ();
         void generate_activity (mu_coin::client &);
         void generate_mass_activity (uint32_t, mu_coin::client &);
@@ -1035,7 +1035,6 @@ namespace mu_coin {
         void generate_send_new (mu_coin::client &);
         void generate_send_existing (mu_coin::client &);
         boost::shared_ptr <boost::asio::io_service> service;
-        boost::shared_ptr <boost::network::utils::thread_pool> pool;
         mu_coin::processor_service processor;
         std::vector <std::shared_ptr <mu_coin::client>> clients;
     };

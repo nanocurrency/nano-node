@@ -6,7 +6,7 @@ int main (int argc, char ** argv)
 {
     QApplication application (argc, argv);
     static int count (16);
-    mu_coin::system system (1, 24000, 25000, count);
+    mu_coin::system system (24000, count);
     std::unique_ptr <QTabWidget> client_tabs (new QTabWidget);
     std::vector <std::unique_ptr <mu_coin_qt::client>> guis;
     for (auto i (0); i < count; ++i)
