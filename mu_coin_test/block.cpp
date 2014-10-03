@@ -516,3 +516,12 @@ TEST (keepalive_ack, serialization)
 	ASSERT_FALSE (request2.deserialize (buffer));
 	ASSERT_EQ (request1, request2);
 }
+
+TEST (salsa20_8, one)
+{
+    mu_coin::uint512_union value;
+    value.clear ();
+    value.bytes [0] = 1;
+    auto result (value.salsa20_8 ());
+    ASSERT_NE (value, result);
+}

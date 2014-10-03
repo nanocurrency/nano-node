@@ -105,10 +105,12 @@ namespace mu_coin {
         uint512_union () = default;
         uint512_union (mu_coin::uint512_t const &);
         bool operator == (mu_coin::uint512_union const &) const;
+        bool operator != (mu_coin::uint512_union const &) const;
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
-        mu_coin::uint512_union salsa20 ();
+        mu_coin::uint512_union salsa20_8 ();
         std::array <uint8_t, 64> bytes;
+        std::array <uint32_t, 16> dwords;
         std::array <uint64_t, 8> qwords;
         std::array <uint256_union, 2> uint256s;
         void clear ();
