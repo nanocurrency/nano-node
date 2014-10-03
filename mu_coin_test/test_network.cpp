@@ -989,6 +989,7 @@ TEST (bulk, offline_send)
         system.service->run_one ();
         system.processor.poll_one ();
     } while (!finished || client1->ledger.account_balance (key2.pub) != 100);
+	client1->stop ();
 }
 
 TEST (client, auto_bootstrap)
