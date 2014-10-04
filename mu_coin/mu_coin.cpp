@@ -5381,10 +5381,10 @@ bool mu_coin::uint512_union::operator != (mu_coin::uint512_union const & other_a
 }
 
 mu_coin::work::work () :
-threshold_requirement ("ffff000000000000000000000000000000000000000000000000000000000000"),
-entry_requirement (32 * 1024),
-iteration_requirement (4 * 1024)
+entry_requirement (1024),
+iteration_requirement (1024)
 {
+	threshold_requirement.decode_hex ("f000000000000000000000000000000000000000000000000000000000000000");
     entries.resize (entry_requirement);
 }
 
