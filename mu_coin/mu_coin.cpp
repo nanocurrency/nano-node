@@ -55,7 +55,6 @@ std::chrono::seconds constexpr mu_coin::processor::cutoff;
 mu_coin::keypair mu_coin::test_genesis_key ("E49C03BB7404C10B388AE56322217306B57F3DCBB3A5F060A2F420AD7AA3F034");
 mu_coin::address mu_coin::genesis_address (mu_coin::test_genesis_key.pub);
 
-
 mu_coin::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
 {
     boost::multiprecision::uint256_t number_l (number_a);
@@ -2685,7 +2684,6 @@ void mu_coin::rpc::operator () (boost::network::http::server <mu_coin::rpc>::req
             auto decode_error (key.decode_hex (key_text));
             if (!decode_error)
             {
-                auto size (api_keys.size ());
                 if (api_keys.find (key) != api_keys.end ())
                 {
                     std::string action (request_l.get <std::string> ("action"));
@@ -5382,9 +5380,12 @@ bool mu_coin::uint512_union::operator != (mu_coin::uint512_union const & other_a
     return ! (*this == other_a);
 }
 
-mu_coin::work::work (size_t entries_a)
+mu_coin::work::work () :
+threshold_requirement ("ffff000000000000000000000000000000000000000000000000000000000000"),
+entry_requirement (32 * 1024),
+iteration_requirement (4 * 1024)
 {
-    entries.resize (entries_a);
+    entries.resize (entry_requirement);
 }
 
 mu_coin::uint512_union & mu_coin::uint512_union::operator ^= (mu_coin::uint512_union const & other_a)
@@ -5394,7 +5395,7 @@ mu_coin::uint512_union & mu_coin::uint512_union::operator ^= (mu_coin::uint512_u
     return *this;
 }
 
-mu_coin::uint256_union mu_coin::work::generate (mu_coin::uint256_union const & seed, mu_coin::uint256_union const & nonce, uint32_t repetitions_a)
+mu_coin::uint256_union mu_coin::work::generate (mu_coin::uint256_union const & seed, mu_coin::uint256_union const & nonce)
 {
     auto mask (entries.size () - 1);
     for (auto & i: entries)
@@ -5404,7 +5405,7 @@ mu_coin::uint256_union mu_coin::work::generate (mu_coin::uint256_union const & s
     mu_coin::uint512_union value;
     value.uint256s [0] = seed;
     value.uint256s [1] = nonce;
-    for (uint32_t i (0); i < repetitions_a; ++i)
+    for (uint32_t i (0); i < iteration_requirement; ++i)
     {
         auto index (value.qwords [0] & mask);
         auto & entry (entries [index]);
@@ -5420,4 +5421,22 @@ mu_coin::uint256_union mu_coin::work::generate (mu_coin::uint256_union const & s
     mu_coin::uint256_union result;
     hash.Final (result.bytes.data ());
     return result;
+}
+
+mu_coin::uint256_union mu_coin::work::create (mu_coin::uint256_union const & seed)
+{
+    mu_coin::uint256_union result;
+    mu_coin::uint256_union value;
+    do
+    {
+        ed25519_randombytes_unsafe (result.bytes.data (), sizeof (result));
+        value = generate (seed, result);
+    } while (value < threshold_requirement);
+    return result;
+}
+
+bool mu_coin::work::validate (mu_coin::uint256_union const & seed, mu_coin::uint256_union const & nonce)
+{
+    auto value (generate (seed, nonce));
+    return value < threshold_requirement;
 }

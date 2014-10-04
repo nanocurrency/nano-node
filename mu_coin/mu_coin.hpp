@@ -1041,8 +1041,13 @@ namespace mu_coin {
     class work
     {
     public:
-        work (size_t);
-        mu_coin::uint256_union generate (mu_coin::uint256_union const &, mu_coin::uint256_union const &, uint32_t);
+        work ();
+        mu_coin::uint256_union generate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
+        mu_coin::uint256_union create (mu_coin::uint256_union const &);
+        bool validate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
+        mu_coin::uint256_union const threshold_requirement;
+        size_t const entry_requirement;
+        uint32_t const iteration_requirement;
         std::vector <mu_coin::uint512_union> entries;
     };
 }

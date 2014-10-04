@@ -528,23 +528,22 @@ TEST (salsa20_8, one)
 
 TEST (work, one)
 {
-    mu_coin::work work (1024);
+    mu_coin::work work;
     mu_coin::uint256_union seed;
     ed25519_randombytes_unsafe (seed.bytes.data (), sizeof (seed));
     mu_coin::uint256_union nonce;
     ed25519_randombytes_unsafe (nonce.bytes.data (), sizeof (nonce));
-    auto value (work.generate (seed, nonce, 1024));
+    auto value (work.generate (seed, nonce));
 }
 
-TEST (work, DISABLED_many)
+TEST (work, create)
 {
-    mu_coin::work work (1024 * 1024);
-    for (auto i (0), n (10000); i != n; ++i)
-    {
-        mu_coin::uint256_union seed;
-        ed25519_randombytes_unsafe (seed.bytes.data (), sizeof (seed));
-        mu_coin::uint256_union nonce;
-        ed25519_randombytes_unsafe (nonce.bytes.data (), sizeof (nonce));
-        auto value (work.generate (seed, nonce, 1024 * 1024));
-    }
+    mu_coin::uint256_union source;
+    mu_coin::work work;
+    EXPECT_TRUE (work.validate (source, source));
+    auto begin (std::chrono::high_resolution_clock::now ());
+    auto value (work.create (source));
+    auto end (std::chrono::high_resolution_clock::now ());
+    std::cerr << boost::str (boost::format ("Time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count ());
+    EXPECT_FALSE (work.validate (source, value));
 }
