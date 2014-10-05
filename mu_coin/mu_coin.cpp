@@ -1098,6 +1098,7 @@ confirm_unk_count (0),
 bad_sender_count (0),
 unknown_count (0),
 error_count (0),
+insufficient_work_count (0),
 on (true)
 {
 }

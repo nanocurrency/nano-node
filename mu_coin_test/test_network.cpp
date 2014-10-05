@@ -355,6 +355,30 @@ TEST (network, send_valid_publish)
     ASSERT_EQ (50, system.clients [1]->ledger.account_balance (mu_coin::test_genesis_key.pub));
 }
 
+TEST (network, send_insufficient_work)
+{
+    mu_coin::system system (24000, 2);
+    std::unique_ptr <mu_coin::send_block> block (new mu_coin::send_block);
+    block->hashables.previous.clear ();
+    block->hashables.balance = 20;
+    mu_coin::sign_message (mu_coin::test_genesis_key.prv, mu_coin::test_genesis_key.pub, block->hash (), block->signature);
+    mu_coin::publish_req publish;
+    publish.block = std::move (block);
+    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+    {
+        mu_coin::vectorstream stream (*bytes);
+        publish.serialize (stream);
+    }
+    auto client (system.clients [1]->shared ());
+    system.clients [0]->network.send_buffer (bytes->data (), bytes->size (), system.clients [1]->network.endpoint (), [bytes, client] (boost::system::error_code const & ec, size_t size) {});
+    ASSERT_EQ (0, system.clients [0]->network.insufficient_work_count);
+    while (system.clients [1]->network.insufficient_work_count == 0)
+    {
+        system.service->run_one ();
+    }
+    ASSERT_EQ (1, system.clients [1]->network.insufficient_work_count);
+}
+
 TEST (receivable_processor, confirm_insufficient_pos)
 {
     mu_coin::system system (24000, 1);
