@@ -47,6 +47,14 @@ namespace
     {
         return false;
     }
+    bool constexpr insufficient_work_logging ()
+    {
+        return network_logging () && true;
+    }
+    bool constexpr log_to_cerr ()
+    {
+        return true;
+    }
 }
 
 CryptoPP::AutoSeededRandomPool random_pool;
@@ -1143,6 +1151,8 @@ void mu_coin::network::publish_block (boost::asio::ip::udp::endpoint const & end
         client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
     }
     mu_coin::publish_req message (std::move (block));
+    mu_coin::work work;
+    message.work = work.create (message.block->hash ());
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         mu_coin::vectorstream stream (*bytes);
@@ -1165,6 +1175,8 @@ void mu_coin::network::send_confirm_req (boost::asio::ip::udp::endpoint const & 
 {
     mu_coin::confirm_req message;
 	message.block = block.clone ();
+    mu_coin::work work;
+    message.work = work.create (message.block->hash ());
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         mu_coin::vectorstream stream (*bytes);
@@ -1248,8 +1260,19 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         receive ();
                         if (!error)
                         {
-                            ++publish_req_count;
-							client.processor.process_message (incoming, sender, known_peer);
+                            if (!work.validate (incoming.block->hash (), incoming.work))
+                            {
+                                ++publish_req_count;
+                                client.processor.process_message (incoming, sender, known_peer);
+                            }
+                            else
+                            {
+                                ++insufficient_work_count;
+                                if (insufficient_work_logging ())
+                                {
+                                    client.log.add ("Insufficient work for publish_req");
+                                }
+                            }
                         }
                         else
                         {
@@ -1265,8 +1288,19 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         receive ();
                         if (!error)
                         {
-							++confirm_req_count;
-							client.processor.process_message (incoming, sender, known_peer);
+                            if (!work.validate (incoming.block->hash (), incoming.work))
+                            {
+                                ++confirm_req_count;
+                                client.processor.process_message (incoming, sender, known_peer);
+                            }
+                            else
+                            {
+                                ++insufficient_work_count;
+                                if (insufficient_work_logging ())
+                                {
+                                    client.log.add ("Insufficient work for confirm_req");
+                                }
+                            }
                         }
 						else
 						{
@@ -4214,6 +4248,10 @@ mu_coin::block_hash mu_coin::change_block::source () const
 
 void mu_coin::log::add (std::string const & string_a)
 {
+    if (log_to_cerr ())
+    {
+        std::cerr << string_a << std::endl;
+    }
     items.push_back (std::make_pair (std::chrono::system_clock::now (), string_a));
 }
 
