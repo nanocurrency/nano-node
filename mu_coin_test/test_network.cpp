@@ -302,9 +302,7 @@ TEST (network, send_discarded_publish)
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (mu_coin::test_genesis_key.pub));
     while (system.clients [1]->network.publish_req_count == 0)
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (mu_coin::test_genesis_key.pub));
@@ -323,38 +321,10 @@ TEST (network, send_invalid_publish)
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (mu_coin::test_genesis_key.pub));
     while (system.clients [1]->network.publish_req_count == 0)
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (mu_coin::test_genesis_key.pub));
-}
-
-TEST (network, send_insufficient_work)
-{
-	mu_coin::system system (24000, 2);
-	system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
-	mu_coin::keypair key2;
-	system.clients [1]->wallet.insert (key2.prv);
-	mu_coin::send_block block2;
-	mu_coin::frontier frontier1;
-	ASSERT_FALSE (system.clients [0]->store.latest_get (mu_coin::test_genesis_key.pub, frontier1));
-	block2.hashables.previous = frontier1.hash;
-	block2.hashables.balance = 50;
-	block2.hashables.destination = key2.pub;
-	auto hash2 (block2.hash ());
-	mu_coin::sign_message (mu_coin::test_genesis_key.prv, mu_coin::test_genesis_key.pub, hash2, block2.signature);
-	mu_coin::frontier frontier2;
-	ASSERT_FALSE (system.clients [1]->store.latest_get (mu_coin::test_genesis_key.pub, frontier2));
-	system.clients [0]->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
-	ASSERT_EQ (0, system.clients [1]->network.insufficient_work_count);
-	while (system.clients [1]->network.insufficient_work_count == 0)
-	{
-		auto amount (0);
-		amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
-	}
 }
 
 TEST (network, send_valid_publish)
@@ -376,9 +346,7 @@ TEST (network, send_valid_publish)
     system.clients [0]->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (block2)), system.clients [0]->network.endpoint ());
     while (system.clients [1]->network.publish_req_count == 0)
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
     mu_coin::frontier frontier3;
     ASSERT_FALSE (system.clients [1]->store.latest_get (mu_coin::test_genesis_key.pub, frontier3));
@@ -452,9 +420,7 @@ TEST (receivable_processor, send_with_receive)
     system.clients [1]->conflicts.start (*block1, true);
     while (system.clients [0]->network.publish_req_count != 1)
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
     ASSERT_EQ (amount - 100, system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
     ASSERT_EQ (100, system.clients [0]->ledger.account_balance (key2.pub));
@@ -471,10 +437,8 @@ TEST (client, send_self)
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     }
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
 }
@@ -488,12 +452,10 @@ TEST (client, send_single)
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <mu_coin::uint256_t>::max () - 1000, system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
-	while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
+    while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     }
 }
 
@@ -508,10 +470,8 @@ TEST (client, send_single_observing_peer)
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <mu_coin::client> const & client_a) {return client_a->ledger.account_balance (key2.pub).is_zero();}))
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     }
 }
 
@@ -526,10 +486,8 @@ TEST (client, send_single_many_peers)
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <mu_coin::client> const & client_a) {return client_a->ledger.account_balance (key2.pub).is_zero();}))
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     }
 }
 
@@ -686,10 +644,8 @@ TEST (network, receive_weight_change)
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 2));
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <mu_coin::client> const & client_a) {return client_a->ledger.weight (key2.pub) != 2;}))
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     }
 }
 
@@ -794,9 +750,7 @@ TEST (bootstrap_processor, process_none)
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
     while (!done)
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
 }
 
@@ -828,9 +782,7 @@ TEST (bootstrap_processor, process_one)
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
     while (!done)
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
     auto hash3 (client1->ledger.latest (mu_coin::test_genesis_key.pub));
     ASSERT_EQ (hash1, hash3);
@@ -853,9 +805,7 @@ TEST (bootstrap_processor, process_two)
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
     while (!done)
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
     auto hash4 (client1->ledger.latest (mu_coin::test_genesis_key.pub));
     ASSERT_EQ (hash3, hash4);
@@ -870,10 +820,8 @@ TEST (bootstrap_processor, process_new)
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     }
     auto balance1 (system.clients [0]->ledger.account_balance (mu_coin::test_genesis_key.pub));
     auto balance2 (system.clients [0]->ledger.account_balance (key2.pub));
@@ -997,9 +945,7 @@ TEST (client, send_out_of_order)
     system.clients [0]->processor.process_receive_republish (std::unique_ptr <mu_coin::block> (new mu_coin::send_block (send1)), mu_coin::endpoint {});
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <mu_coin::client> const & client_a) {return client_a->ledger.account_balance (mu_coin::test_genesis_key.pub) != std::numeric_limits <mu_coin::uint256_t>::max () - 2000;}))
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     }
 }
 
@@ -1086,9 +1032,7 @@ TEST (bulk, genesis)
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
     do
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
     } while (!finished);
     ASSERT_EQ (system.clients [0]->ledger.latest (mu_coin::test_genesis_key.pub), client1->ledger.latest (mu_coin::test_genesis_key.pub));
 }
@@ -1102,10 +1046,8 @@ TEST (bulk, offline_send)
     client1->start ();
     do
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     } while (system.clients [0]->peers.empty () || client1->peers.empty ());
     mu_coin::keypair key2;
     client1->wallet.insert (key2.prv);
@@ -1115,10 +1057,8 @@ TEST (bulk, offline_send)
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
     do
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->run_one ();
+        system.processor.poll_one ();
     } while (!finished || client1->ledger.account_balance (key2.pub) != 100);
 	client1->stop ();
 }
@@ -1137,10 +1077,8 @@ TEST (client, auto_bootstrap)
     client1->start ();
     do
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     } while (client1->ledger.account_balance (key2.pub) != 100);
 }
 
@@ -1158,10 +1096,8 @@ TEST (client, auto_bootstrap_reverse)
     client1->start ();
     do
     {
-		auto amount (0);
-        amount += system.service->poll_one ();
-        amount += system.processor.poll_one ();
-		ASSERT_NE (0, amount);
+        system.service->poll_one ();
+        system.processor.poll_one ();
     } while (client1->ledger.account_balance (key2.pub) != 100);
 }
 

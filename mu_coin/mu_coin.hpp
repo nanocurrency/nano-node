@@ -834,19 +834,7 @@ namespace mu_coin {
         std::array <uint8_t, 4000> receive_buffer;
         std::unique_ptr <mu_coin::frontier_req> request;
         std::shared_ptr <mu_coin::bootstrap_initiator> connection;
-	};
-	class work
-	{
-	public:
-		work ();
-		mu_coin::uint256_union generate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
-		mu_coin::uint256_union create (mu_coin::uint256_union const &);
-		bool validate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
-		mu_coin::uint256_union threshold_requirement;
-		size_t const entry_requirement;
-		uint32_t const iteration_requirement;
-		std::vector <mu_coin::uint512_union> entries;
-	};
+    };
     class network
     {
     public:
@@ -864,7 +852,6 @@ namespace mu_coin {
         void send_complete (boost::system::error_code const &, size_t);
         mu_coin::endpoint endpoint ();
         mu_coin::endpoint remote;
-		mu_coin::work work;
         std::array <uint8_t, 512> buffer;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
@@ -880,7 +867,6 @@ namespace mu_coin {
         uint64_t bad_sender_count;
         uint64_t unknown_count;
         uint64_t error_count;
-		uint64_t insufficient_work_count;
         bool on;
     };
     class bootstrap_receiver
@@ -1051,5 +1037,17 @@ namespace mu_coin {
         boost::shared_ptr <boost::asio::io_service> service;
         mu_coin::processor_service processor;
         std::vector <std::shared_ptr <mu_coin::client>> clients;
+    };
+    class work
+    {
+    public:
+        work ();
+        mu_coin::uint256_union generate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
+        mu_coin::uint256_union create (mu_coin::uint256_union const &);
+        bool validate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
+        mu_coin::uint256_union threshold_requirement;
+        size_t const entry_requirement;
+        uint32_t const iteration_requirement;
+        std::vector <mu_coin::uint512_union> entries;
     };
 }

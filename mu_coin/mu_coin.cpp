@@ -1090,7 +1090,6 @@ confirm_unk_count (0),
 bad_sender_count (0),
 unknown_count (0),
 error_count (0),
-insufficient_work_count (0),
 on (true)
 {
 }
@@ -1249,17 +1248,8 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         receive ();
                         if (!error)
                         {
-							auto root (client.store.root (*incoming.block));
-							error = work.validate (root, incoming.work);
-							if (!error)
-							{
-								++publish_req_count;
-								client.processor.process_message (incoming, sender, known_peer);
-							}
-							else
-							{
-								++insufficient_work_count;
-							}
+                            ++publish_req_count;
+							client.processor.process_message (incoming, sender, known_peer);
                         }
                         else
                         {
@@ -1274,18 +1264,9 @@ void mu_coin::network::receive_action (boost::system::error_code const & error, 
                         auto error (incoming.deserialize (stream));
                         receive ();
                         if (!error)
-						{
-							auto root (client.store.root (*incoming.block));
-							error = work.validate (root, incoming.work);
-							if (!error)
-							{
-								++confirm_req_count;
-								client.processor.process_message (incoming, sender, known_peer);
-							}
-							else
-							{
-								++insufficient_work_count;
-							}
+                        {
+							++confirm_req_count;
+							client.processor.process_message (incoming, sender, known_peer);
                         }
 						else
 						{
