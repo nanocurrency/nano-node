@@ -3,11 +3,11 @@
 
 TEST (ed25519, signing)
 {
-    mu_coin::uint256_union prv;
-    mu_coin::uint256_union pub;
+    rai::uint256_union prv;
+    rai::uint256_union pub;
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-    mu_coin::uint256_union message;
-    mu_coin::uint512_union signature;
+    rai::uint256_union message;
+    rai::uint512_union signature;
     ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
     auto valid1 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
     ASSERT_EQ (0, valid1);
@@ -19,67 +19,67 @@ TEST (ed25519, signing)
 TEST (transaction_block, big_endian_union_constructor)
 {
     boost::multiprecision::uint256_t value1 (1);
-    mu_coin::uint256_union bytes1 (value1);
+    rai::uint256_union bytes1 (value1);
     ASSERT_EQ (1, bytes1.bytes [31]);
     boost::multiprecision::uint512_t value2 (1);
-    mu_coin::uint512_union bytes2 (value2);
+    rai::uint512_union bytes2 (value2);
     ASSERT_EQ (1, bytes2.bytes [63]);
 }
 
 TEST (transaction_block, big_endian_union_function)
 {
-    mu_coin::uint256_union bytes1;
+    rai::uint256_union bytes1;
     bytes1.clear ();
     bytes1.bytes [31] = 1;
-    ASSERT_EQ (mu_coin::uint256_t (1), bytes1.number ());
-    mu_coin::uint512_union bytes2;
+    ASSERT_EQ (rai::uint256_t (1), bytes1.number ());
+    rai::uint512_union bytes2;
     bytes2.clear ();
     bytes2.bytes [63] = 1;
-    ASSERT_EQ (mu_coin::uint512_t (1), bytes2.number ());
+    ASSERT_EQ (rai::uint512_t (1), bytes2.number ());
 }
 
 TEST (transaction_block, empty)
 {
-    mu_coin::keypair key1;
-    mu_coin::send_block block;
+    rai::keypair key1;
+    rai::send_block block;
     block.hashables.previous.clear ();
     block.hashables.balance = 13;
-    mu_coin::uint256_union hash (block.hash ());
-    mu_coin::sign_message (key1.prv, key1.pub, hash, block.signature);
-    ASSERT_FALSE (mu_coin::validate_message (key1.pub, hash, block.signature));
+    rai::uint256_union hash (block.hash ());
+    rai::sign_message (key1.prv, key1.pub, hash, block.signature);
+    ASSERT_FALSE (rai::validate_message (key1.pub, hash, block.signature));
     block.signature.bytes [32] ^= 0x1;
-    ASSERT_TRUE (mu_coin::validate_message (key1.pub, hash, block.signature));
+    ASSERT_TRUE (rai::validate_message (key1.pub, hash, block.signature));
 }
 
 TEST (send_block, empty_send_serialize)
 {
-    mu_coin::send_block block1;
+    rai::send_block block1;
     std::vector <uint8_t> bytes;
     {
-        mu_coin::vectorstream stream1 (bytes);
+        rai::vectorstream stream1 (bytes);
         block1.serialize (stream1);
     }
     auto data (bytes.data ());
     auto size (bytes.size ());
     ASSERT_NE (nullptr, data);
     ASSERT_NE (0, size);
-    mu_coin::bufferstream stream2 (data, size);
-    mu_coin::send_block block2;
+    rai::bufferstream stream2 (data, size);
+    rai::send_block block2;
     block2.deserialize (stream2);
     ASSERT_EQ (block1, block2);
 }
 
 TEST (send_block, receive_serialize)
 {
-    mu_coin::receive_block block1;
-    mu_coin::keypair key1;
+    rai::receive_block block1;
+    rai::keypair key1;
     std::vector <uint8_t> bytes;
     {
-        mu_coin::vectorstream stream1 (bytes);
+        rai::vectorstream stream1 (bytes);
         block1.serialize (stream1);
     }
-    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
-    mu_coin::receive_block block2;
+    rai::bufferstream stream2 (bytes.data (), bytes.size ());
+    rai::receive_block block2;
     auto error (block2.deserialize (stream2));
     ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
@@ -87,10 +87,10 @@ TEST (send_block, receive_serialize)
 
 TEST (uint256_union, parse_zero)
 {
-    mu_coin::uint256_union input (mu_coin::uint256_t (0));
+    rai::uint256_union input (rai::uint256_t (0));
     std::string text;
     input.encode_hex (text);
-    mu_coin::uint256_union output;
+    rai::uint256_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
@@ -100,7 +100,7 @@ TEST (uint256_union, parse_zero)
 TEST (uint256_union, parse_zero_short)
 {
     std::string text ("0");
-    mu_coin::uint256_union output;
+    rai::uint256_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_TRUE (output.number ().is_zero ());
@@ -108,10 +108,10 @@ TEST (uint256_union, parse_zero_short)
 
 TEST (uint256_union, parse_one)
 {
-    mu_coin::uint256_union input (mu_coin::uint256_t (1));
+    rai::uint256_union input (rai::uint256_t (1));
     std::string text;
     input.encode_hex (text);
-    mu_coin::uint256_union output;
+    rai::uint256_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
@@ -120,56 +120,56 @@ TEST (uint256_union, parse_one)
 
 TEST (uint256_union, parse_error_symbol)
 {
-    mu_coin::uint256_union input (mu_coin::uint256_t (1000));
+    rai::uint256_union input (rai::uint256_t (1000));
     std::string text;
     input.encode_hex (text);
     text [5] = '!';
-    mu_coin::uint256_union output;
+    rai::uint256_union output;
     auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, max_hex)
 {
-    mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
+    rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
     std::string text;
     input.encode_hex (text);
-    mu_coin::uint256_union output;
+    rai::uint256_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
-    ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+    ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint256_union, max_dec)
 {
-    mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
+    rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
     std::string text;
     input.encode_dec (text);
-    mu_coin::uint256_union output;
+    rai::uint256_union output;
     auto error (output.decode_dec (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
-    ASSERT_EQ (mu_coin::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+    ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint256_union, parse_error_overflow)
 {
-    mu_coin::uint256_union input (std::numeric_limits <mu_coin::uint256_t>::max ());
+    rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
     std::string text;
     input.encode_hex (text);
     text.push_back (0);
-    mu_coin::uint256_union output;
+    rai::uint256_union output;
     auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
 TEST (uint512_union, parse_zero)
 {
-    mu_coin::uint512_union input (mu_coin::uint512_t (0));
+    rai::uint512_union input (rai::uint512_t (0));
     std::string text;
     input.encode_hex (text);
-    mu_coin::uint512_union output;
+    rai::uint512_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
@@ -179,7 +179,7 @@ TEST (uint512_union, parse_zero)
 TEST (uint512_union, parse_zero_short)
 {
     std::string text ("0");
-    mu_coin::uint512_union output;
+    rai::uint512_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_TRUE (output.number ().is_zero ());
@@ -187,10 +187,10 @@ TEST (uint512_union, parse_zero_short)
 
 TEST (uint512_union, parse_one)
 {
-    mu_coin::uint512_union input (mu_coin::uint512_t (1));
+    rai::uint512_union input (rai::uint512_t (1));
     std::string text;
     input.encode_hex (text);
-    mu_coin::uint512_union output;
+    rai::uint512_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
@@ -199,96 +199,96 @@ TEST (uint512_union, parse_one)
 
 TEST (uint512_union, parse_error_symbol)
 {
-    mu_coin::uint512_union input (mu_coin::uint512_t (1000));
+    rai::uint512_union input (rai::uint512_t (1000));
     std::string text;
     input.encode_hex (text);
     text [5] = '!';
-    mu_coin::uint512_union output;
+    rai::uint512_union output;
     auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
 TEST (uint512_union, max)
 {
-    mu_coin::uint512_union input (std::numeric_limits <mu_coin::uint512_t>::max ());
+    rai::uint512_union input (std::numeric_limits <rai::uint512_t>::max ());
     std::string text;
     input.encode_hex (text);
-    mu_coin::uint512_union output;
+    rai::uint512_union output;
     auto error (output.decode_hex (text));
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
-    ASSERT_EQ (mu_coin::uint512_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+    ASSERT_EQ (rai::uint512_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint512_union, parse_error_overflow)
 {
-    mu_coin::uint512_union input (std::numeric_limits <mu_coin::uint512_t>::max ());
+    rai::uint512_union input (std::numeric_limits <rai::uint512_t>::max ());
     std::string text;
     input.encode_hex (text);
     text.push_back (0);
-    mu_coin::uint512_union output;
+    rai::uint512_union output;
     auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
 
 TEST (send_block, deserialize)
 {
-    mu_coin::send_block block1;
+    rai::send_block block1;
     std::vector <uint8_t> bytes;
     {
-        mu_coin::vectorstream stream1 (bytes);
-        mu_coin::serialize_block (stream1, block1);
+        rai::vectorstream stream1 (bytes);
+        rai::serialize_block (stream1, block1);
     }
-    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
-    auto block2 (mu_coin::deserialize_block (stream2));
+    rai::bufferstream stream2 (bytes.data (), bytes.size ());
+    auto block2 (rai::deserialize_block (stream2));
     ASSERT_NE (nullptr, block2);
     ASSERT_EQ (block1, *block2);
 }
 
 TEST (receive_block, deserialize)
 {
-    mu_coin::receive_block block1;
+    rai::receive_block block1;
     block1.hashables.previous = 2;
     block1.hashables.source = 4;
     std::vector <uint8_t> bytes;
     {
-        mu_coin::vectorstream stream1 (bytes);
-        mu_coin::serialize_block (stream1, block1);
+        rai::vectorstream stream1 (bytes);
+        rai::serialize_block (stream1, block1);
     }
-    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
-    auto block2 (mu_coin::deserialize_block (stream2));
+    rai::bufferstream stream2 (bytes.data (), bytes.size ());
+    auto block2 (rai::deserialize_block (stream2));
     ASSERT_NE (nullptr, block2);
     ASSERT_EQ (block1, *block2);
 }
 
 TEST (send_block, copy)
 {
-    mu_coin::send_block block1;
-    mu_coin::send_block block2 (block1);
+    rai::send_block block1;
+    rai::send_block block2 (block1);
     ASSERT_EQ (block1, block2);
 }
 
 TEST (confirm_ack, serialization)
 {
-    mu_coin::confirm_ack con1;
-    mu_coin::keypair key1;
+    rai::confirm_ack con1;
+    rai::keypair key1;
     con1.vote.address = key1.pub;
-    con1.vote.block = std::unique_ptr <mu_coin::block> (new mu_coin::send_block);
-    mu_coin::sign_message (key1.prv, key1.pub, con1.vote.block->hash (), con1.vote.signature);
+    con1.vote.block = std::unique_ptr <rai::block> (new rai::send_block);
+    rai::sign_message (key1.prv, key1.pub, con1.vote.block->hash (), con1.vote.signature);
     std::vector <uint8_t> bytes;
     {
-        mu_coin::vectorstream stream1 (bytes);
+        rai::vectorstream stream1 (bytes);
         con1.serialize (stream1);
     }
-    mu_coin::bufferstream stream2 (bytes.data (), bytes.size ());
-    mu_coin::confirm_ack con2;
+    rai::bufferstream stream2 (bytes.data (), bytes.size ());
+    rai::confirm_ack con2;
     con2.deserialize (stream2);
     ASSERT_EQ (con1, con2);
 }
 
 TEST (block_store, empty_blocks)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
+    rai::block_store store (rai::block_store_temp);
     auto begin (store.blocks_begin ());
     auto end (store.blocks_end ());
     ASSERT_EQ (end, begin);
@@ -296,7 +296,7 @@ TEST (block_store, empty_blocks)
 
 TEST (block_store, empty_accounts)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
+    rai::block_store store (rai::block_store_temp);
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_EQ (end, begin);
@@ -304,8 +304,8 @@ TEST (block_store, empty_accounts)
 
 TEST (block_store, one_block)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::send_block block1;
+    rai::block_store store (rai::block_store_temp);
+    rai::send_block block1;
     store.block_put (block1.hash (), block1);
     auto begin (store.blocks_begin ());
     auto end (store.blocks_end ());
@@ -320,20 +320,20 @@ TEST (block_store, one_block)
 
 TEST (block_store, frontier_retrieval)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::address address1;
-    mu_coin::frontier frontier1;
+    rai::block_store store (rai::block_store_temp);
+    rai::address address1;
+    rai::frontier frontier1;
     store.latest_put (address1, frontier1);
-    mu_coin::frontier frontier2;
+    rai::frontier frontier2;
     store.latest_get (address1, frontier2);
     ASSERT_EQ (frontier1, frontier2);
 }
 
 TEST (block_store, one_account)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::address address;
-    mu_coin::block_hash hash;
+    rai::block_store store (rai::block_store_temp);
+    rai::address address;
+    rai::block_hash hash;
     store.latest_put (address, {hash, address, 42, 100});
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
@@ -348,16 +348,16 @@ TEST (block_store, one_account)
 
 TEST (block_store, two_block)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::send_block block1;
+    rai::block_store store (rai::block_store_temp);
+    rai::send_block block1;
     block1.hashables.destination = 1;
     block1.hashables.balance = 2;
-    std::vector <mu_coin::block_hash> hashes;
-    std::vector <mu_coin::send_block> blocks;
+    std::vector <rai::block_hash> hashes;
+    std::vector <rai::send_block> blocks;
     hashes.push_back (block1.hash ());
     blocks.push_back (block1);
     store.block_put (hashes [0], block1);
-    mu_coin::send_block block2;
+    rai::send_block block2;
     block2.hashables.destination = 3;
     block2.hashables.balance = 4;
     hashes.push_back (block2.hash ());
@@ -382,11 +382,11 @@ TEST (block_store, two_block)
 
 TEST (block_store, two_account)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::address address1 (1);
-    mu_coin::block_hash hash1 (2);
-    mu_coin::address address2 (3);
-    mu_coin::block_hash hash2 (4);
+    rai::block_store store (rai::block_store_temp);
+    rai::address address1 (1);
+    rai::block_hash hash1 (2);
+    rai::address address2 (3);
+    rai::block_hash hash2 (4);
     store.latest_put (address1, {hash1, address1, 42, 100});
     store.latest_put (address2, {hash2, address2, 84, 200});
     auto begin (store.latest_begin ());
@@ -408,11 +408,11 @@ TEST (block_store, two_account)
 
 TEST (block_store, latest_find)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::address address1 (1);
-    mu_coin::block_hash hash1 (2);
-    mu_coin::address address2 (3);
-    mu_coin::block_hash hash2 (4);
+    rai::block_store store (rai::block_store_temp);
+    rai::address address1 (1);
+    rai::block_hash hash1 (2);
+    rai::address address2 (3);
+    rai::block_hash hash2 (4);
     store.latest_put (address1, {hash1, address1, 100});
     store.latest_put (address2, {hash2, address2, 200});
     auto first (store.latest_begin ());
@@ -428,16 +428,16 @@ TEST (block_store, latest_find)
 
 TEST (gap_cache, add_new)
 {
-    mu_coin::gap_cache cache;
-    mu_coin::send_block block1;
-    cache.add (mu_coin::send_block (block1), block1.previous ());
+    rai::gap_cache cache;
+    rai::send_block block1;
+    cache.add (rai::send_block (block1), block1.previous ());
     ASSERT_NE (cache.blocks.end (), cache.blocks.find (block1.previous ()));
 }
 
 TEST (gap_cache, add_existing)
 {
-    mu_coin::gap_cache cache;
-    mu_coin::send_block block1;
+    rai::gap_cache cache;
+    rai::send_block block1;
     auto previous (block1.previous ());
     cache.add (block1, previous);
     auto existing1 (cache.blocks.find (previous));
@@ -453,19 +453,19 @@ TEST (gap_cache, add_existing)
 
 TEST (gap_cache, comparison)
 {
-    mu_coin::gap_cache cache;
-    mu_coin::send_block block1;
+    rai::gap_cache cache;
+    rai::send_block block1;
     block1.hashables.previous.clear ();
     auto previous1 (block1.previous ());
-    cache.add (mu_coin::send_block (block1), previous1);
+    cache.add (rai::send_block (block1), previous1);
     auto existing1 (cache.blocks.find (previous1));
     ASSERT_NE (cache.blocks.end (), existing1);
     auto arrival (existing1->arrival);
     while (std::chrono::system_clock::now () == arrival);
-    mu_coin::send_block block3;
+    rai::send_block block3;
     block3.hashables.previous = 42;
     auto previous2 (block3.previous ());
-    cache.add (mu_coin::send_block (block3), previous2);
+    cache.add (rai::send_block (block3), previous2);
     ASSERT_EQ (2, cache.blocks.size ());
     auto existing2 (cache.blocks.find (previous2));
     ASSERT_NE (cache.blocks.end (), existing2);
@@ -475,51 +475,51 @@ TEST (gap_cache, comparison)
 
 TEST (gap_cache, limit)
 {
-    mu_coin::gap_cache cache;
+    rai::gap_cache cache;
     for (auto i (0); i < cache.max * 2; ++i)
     {
-        mu_coin::send_block block1;
+        rai::send_block block1;
         block1.hashables.previous = i;
         auto previous (block1.previous ());
-        cache.add (mu_coin::send_block (block1), previous);
+        cache.add (rai::send_block (block1), previous);
     }
     ASSERT_EQ (cache.max, cache.blocks.size ());
 }
 
 TEST (frontier_req, serialization)
 {
-    mu_coin::frontier_req request1;
+    rai::frontier_req request1;
     request1.start = 1;
     request1.age = 2;
     request1.count = 3;
     std::vector <uint8_t> bytes;
     {
-        mu_coin::vectorstream stream (bytes);
+        rai::vectorstream stream (bytes);
         request1.serialize (stream);
     }
-    mu_coin::bufferstream buffer (bytes.data (), bytes.size ());
-    mu_coin::frontier_req request2;
+    rai::bufferstream buffer (bytes.data (), bytes.size ());
+    rai::frontier_req request2;
     ASSERT_FALSE (request2.deserialize (buffer));
     ASSERT_EQ (request1, request2);
 }
 
 TEST (keepalive_ack, serialization)
 {
-	mu_coin::keepalive_ack request1;
+	rai::keepalive_ack request1;
 	std::vector <uint8_t> bytes;
 	{
-		mu_coin::vectorstream stream (bytes);
+		rai::vectorstream stream (bytes);
 		request1.serialize (stream);
 	}
-	mu_coin::keepalive_ack request2;
-	mu_coin::bufferstream buffer (bytes.data (), bytes.size ());
+	rai::keepalive_ack request2;
+	rai::bufferstream buffer (bytes.data (), bytes.size ());
 	ASSERT_FALSE (request2.deserialize (buffer));
 	ASSERT_EQ (request1, request2);
 }
 
 TEST (salsa20_8, one)
 {
-    mu_coin::uint512_union value;
+    rai::uint512_union value;
     value.clear ();
     value.bytes [0] = 1;
     auto result (value.salsa20_8 ());
@@ -528,18 +528,18 @@ TEST (salsa20_8, one)
 
 TEST (work, one)
 {
-    mu_coin::work work;
-    mu_coin::uint256_union seed;
+    rai::work work;
+    rai::uint256_union seed;
     ed25519_randombytes_unsafe (seed.bytes.data (), sizeof (seed));
-    mu_coin::uint256_union nonce;
+    rai::uint256_union nonce;
     ed25519_randombytes_unsafe (nonce.bytes.data (), sizeof (nonce));
     auto value (work.generate (seed, nonce));
 }
 
 TEST (work, create)
 {
-    mu_coin::uint256_union source;
-    mu_coin::work work;
+    rai::uint256_union source;
+    rai::work work;
     EXPECT_TRUE (work.validate (source, source));
     auto begin (std::chrono::high_resolution_clock::now ());
     auto value (work.create (source));

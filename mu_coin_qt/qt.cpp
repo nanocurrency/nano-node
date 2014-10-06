@@ -4,7 +4,7 @@
 
 #include <sstream>
 
-mu_coin_qt::client::client (QApplication & application_a, mu_coin::client & client_a) :
+rai_qt::client::client (QApplication & application_a, rai::client & client_a) :
 client_m (client_a),
 password_change (*this),
 enter_password (*this),
@@ -177,7 +177,7 @@ peers_back (new QPushButton ("Back"))
     {
         QString key_text_wide (wallet_key_line->text ());
         std::string key_text (key_text_wide.toLocal8Bit ());
-        mu_coin::private_key key;
+        rai::private_key key;
         if (!key.decode_hex (key_text))
         {
             QPalette palette;
@@ -198,8 +198,8 @@ peers_back (new QPushButton ("Back"))
     {
         QString address_text_wide (settings_connect_line->text ());
         std::string address_text (address_text_wide.toLocal8Bit ());
-        mu_coin::tcp_endpoint endpoint;
-        if (!mu_coin::parse_tcp_endpoint (address_text, endpoint))
+        rai::tcp_endpoint endpoint;
+        if (!rai::parse_tcp_endpoint (address_text, endpoint))
         {
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
@@ -221,8 +221,8 @@ peers_back (new QPushButton ("Back"))
     {
         QString address_text_wide (settings_connect_line->text ());
         std::string address_text (address_text_wide.toLocal8Bit ());
-        mu_coin::endpoint endpoint;
-        if (!mu_coin::parse_endpoint (address_text, endpoint))
+        rai::endpoint endpoint;
+        if (!rai::parse_endpoint (address_text, endpoint))
         {
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
@@ -276,7 +276,7 @@ peers_back (new QPushButton ("Back"))
         try
         {
             auto scaled (std::stoull (coins_text_narrow));
-            mu_coin::uint256_t coins (client_m.scale_up (scaled));
+            rai::uint256_t coins (client_m.scale_up (scaled));
             if (coins / client_m.scale == scaled)
             {
                 QPalette palette;
@@ -284,7 +284,7 @@ peers_back (new QPushButton ("Back"))
                 send_count->setPalette (palette);
                 QString address_text (send_address->text ());
                 std::string address_text_narrow (address_text.toLocal8Bit ());
-                mu_coin::address address;
+                rai::address address;
                 auto parse_error (address.decode_base58check (address_text_narrow));
                 if (!parse_error)
                 {
@@ -344,7 +344,7 @@ peers_back (new QPushButton ("Back"))
     });
     QObject::connect (wallet_add_account, &QPushButton::released, [this] ()
     {
-        mu_coin::keypair key;
+        rai::keypair key;
         client_m.wallet.insert (key.prv);
         refresh_wallet ();
     });
@@ -352,7 +352,7 @@ peers_back (new QPushButton ("Back"))
     refresh_ledger ();
 }
 
-void mu_coin_qt::client::refresh_log ()
+void rai_qt::client::refresh_log ()
 {
     QStringList log;
     for (auto i: client_m.log.items)
@@ -365,7 +365,7 @@ void mu_coin_qt::client::refresh_log ()
     log_model->setStringList (log);
 }
 
-void mu_coin_qt::client::refresh_peers ()
+void rai_qt::client::refresh_peers ()
 {
     QStringList peers;
     for (auto i: client_m.peers.list ())
@@ -384,7 +384,7 @@ void mu_coin_qt::client::refresh_peers ()
     peers_model->setStringList (peers);
 }
 
-void mu_coin_qt::client::refresh_ledger ()
+void rai_qt::client::refresh_ledger ()
 {
 	ledger_model->removeRows (0, ledger_model->rowCount ());
     for (auto i (client_m.ledger.store.latest_begin()), j (client_m.ledger.store.latest_end ()); i != j; ++i)
@@ -401,15 +401,15 @@ void mu_coin_qt::client::refresh_ledger ()
     }
 }
 
-void mu_coin_qt::client::refresh_wallet ()
+void rai_qt::client::refresh_wallet ()
 {
-    mu_coin::uint256_t balance;
+    rai::uint256_t balance;
 	wallet_model->removeRows (0, wallet_model->rowCount ());
     for (auto i (client_m.wallet.begin ()), j (client_m.wallet.end ()); i != j; ++i)
     {
 		QList <QStandardItem *> items;
         std::string account;
-        mu_coin::public_key key (i->first);
+        rai::public_key key (i->first);
         key.encode_base58check (account);
 		items.push_back (new QStandardItem (QString (account.c_str ())));
         auto account_balance (client_m.ledger.account_balance (key));
@@ -421,22 +421,22 @@ void mu_coin_qt::client::refresh_wallet ()
     balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (client_m.scale_down (balance))).c_str ()));
 }
 
-mu_coin_qt::client::~client ()
+rai_qt::client::~client ()
 {
 }
 
-void mu_coin_qt::client::push_main_stack (QWidget * widget_a)
+void rai_qt::client::push_main_stack (QWidget * widget_a)
 {
     main_stack->addWidget (widget_a);
     main_stack->setCurrentIndex (main_stack->count () - 1);
 }
 
-void mu_coin_qt::client::pop_main_stack ()
+void rai_qt::client::pop_main_stack ()
 {
     main_stack->removeWidget (main_stack->currentWidget ());
 }
 
-void mu_coin_qt::password_change::clear ()
+void rai_qt::password_change::clear ()
 {
     password_label->setStyleSheet ("QLabel { color: black }");
     password->clear ();
@@ -444,7 +444,7 @@ void mu_coin_qt::password_change::clear ()
     retype->clear ();
 }
 
-mu_coin_qt::password_change::password_change (mu_coin_qt::client & client_a) :
+rai_qt::password_change::password_change (rai_qt::client & client_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 password_label (new QLabel ("New password:")),
@@ -488,7 +488,7 @@ client (client_a)
     });
 }
 
-mu_coin_qt::enter_password::enter_password (mu_coin_qt::client & client_a) :
+rai_qt::enter_password::enter_password (rai_qt::client & client_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 valid (new QLabel),
@@ -522,13 +522,13 @@ client (client_a)
     });
 }
 
-void mu_coin_qt::enter_password::activate ()
+void rai_qt::enter_password::activate ()
 {
     client.push_main_stack (window);
     update_label ();
 }
 
-void mu_coin_qt::enter_password::update_label ()
+void rai_qt::enter_password::update_label ()
 {
     if (client.client_m.wallet.valid_password ())
     {

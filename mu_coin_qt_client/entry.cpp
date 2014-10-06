@@ -6,15 +6,15 @@ int main (int argc, char ** argv)
 {
     QApplication application (argc, argv);
     auto service (boost::make_shared <boost::asio::io_service> ());
-    mu_coin::processor_service processor;
-    auto client (std::make_shared <mu_coin::client> (service, 24000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, mu_coin::genesis_address));
+    rai::processor_service processor;
+    auto client (std::make_shared <rai::client> (service, 24000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, rai::genesis_address));
     client->start ();
     boost::system::error_code ec;
     std::vector <std::pair <std::string, std::string>> well_known;
     well_known.push_back (std::make_pair ("raiblocks.net", "24000"));
     client->processor.find_network (well_known);
     assert (!ec);
-    std::unique_ptr <mu_coin_qt::client> gui (new mu_coin_qt::client (application, *client));
+    std::unique_ptr <rai_qt::client> gui (new rai_qt::client (application, *client));
 	gui->client_window->show ();
     std::thread network_thread ([&service] ()
     {

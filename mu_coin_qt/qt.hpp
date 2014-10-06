@@ -7,12 +7,12 @@
 #include <QtGui>
 #include <QtWidgets>
 
-namespace mu_coin_qt {
+namespace rai_qt {
     class client;
     class password_change
     {
     public:
-        password_change (mu_coin_qt::client &);
+        password_change (rai_qt::client &);
         void clear ();
         QWidget * window;
         QVBoxLayout * layout;
@@ -22,12 +22,12 @@ namespace mu_coin_qt {
         QLineEdit * retype;
         QPushButton * change;
         QPushButton * back;
-        mu_coin_qt::client & client;
+        rai_qt::client & client;
     };
     class enter_password
     {
     public:
-        enter_password (mu_coin_qt::client &);
+        enter_password (rai_qt::client &);
         void activate ();
         void update_label ();
         QWidget * window;
@@ -37,16 +37,16 @@ namespace mu_coin_qt {
         QPushButton * unlock;
         QPushButton * lock;
         QPushButton * back;
-        mu_coin_qt::client & client;
+        rai_qt::client & client;
     };
     class client
     {
     public:
-        client (QApplication &, mu_coin::client &);
+        client (QApplication &, rai::client &);
         ~client ();
-        mu_coin::client & client_m;
-        mu_coin_qt::password_change password_change;
-        mu_coin_qt::enter_password enter_password;
+        rai::client & client_m;
+        rai_qt::password_change password_change;
+        rai_qt::enter_password enter_password;
         
         QApplication & application;
         QStackedWidget * main_stack;

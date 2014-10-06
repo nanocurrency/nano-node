@@ -3,16 +3,16 @@
 
 TEST (block_store, construction)
 {
-    mu_coin::block_store db (mu_coin::block_store_temp);
+    rai::block_store db (rai::block_store_temp);
     auto now (db.now ());
     ASSERT_GT (now, 1408074640);
 }
 
 TEST (block_store, add_item)
 {
-    mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::send_block block;
-    mu_coin::uint256_union hash1 (block.hash ());
+    rai::block_store db (rai::block_store_temp);
+    rai::send_block block;
+    rai::uint256_union hash1 (block.hash ());
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
     ASSERT_FALSE (db.block_exists (hash1));
@@ -28,11 +28,11 @@ TEST (block_store, add_item)
 
 TEST (block_store, add_nonempty_block)
 {
-    mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::keypair key1;
-    mu_coin::send_block block;
-    mu_coin::uint256_union hash1 (block.hash ());
-    mu_coin::sign_message (key1.prv, key1.pub, hash1, block.signature);
+    rai::block_store db (rai::block_store_temp);
+    rai::keypair key1;
+    rai::send_block block;
+    rai::uint256_union hash1 (block.hash ());
+    rai::sign_message (key1.prv, key1.pub, hash1, block.signature);
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
     db.block_put (hash1, block);
@@ -43,18 +43,18 @@ TEST (block_store, add_nonempty_block)
 
 TEST (block_store, add_two_items)
 {
-    mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::keypair key1;
-    mu_coin::send_block block;
+    rai::block_store db (rai::block_store_temp);
+    rai::keypair key1;
+    rai::send_block block;
     block.hashables.balance = 1;
-    mu_coin::uint256_union hash1 (block.hash ());
-    mu_coin::sign_message (key1.prv, key1.pub, hash1, block.signature);
+    rai::uint256_union hash1 (block.hash ());
+    rai::sign_message (key1.prv, key1.pub, hash1, block.signature);
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
-    mu_coin::send_block block2;
+    rai::send_block block2;
     block2.hashables.balance = 3;
-    mu_coin::uint256_union hash2 (block2.hash ());
-    mu_coin::sign_message (key1.prv, key1.pub, hash2, block2.signature);
+    rai::uint256_union hash2 (block2.hash ());
+    rai::sign_message (key1.prv, key1.pub, hash2, block2.signature);
     auto latest2 (db.block_get (hash2));
     ASSERT_EQ (nullptr, latest2);
     db.block_put (hash1, block);
@@ -70,11 +70,11 @@ TEST (block_store, add_two_items)
 
 TEST (block_store, add_receive)
 {
-    mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::keypair key1;
-    mu_coin::keypair key2;
-    mu_coin::receive_block block;
-    mu_coin::block_hash hash1 (block.hash ());
+    rai::block_store db (rai::block_store_temp);
+    rai::keypair key1;
+    rai::keypair key2;
+    rai::receive_block block;
+    rai::block_hash hash1 (block.hash ());
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
     db.block_put (hash1, block);
@@ -85,18 +85,18 @@ TEST (block_store, add_receive)
 
 TEST (block_store, add_pending)
 {
-    mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::keypair key1;
-    mu_coin::block_hash hash1;
-    mu_coin::address sender1;
-    mu_coin::uint256_union amount1;
-    mu_coin::address destination1;
+    rai::block_store db (rai::block_store_temp);
+    rai::keypair key1;
+    rai::block_hash hash1;
+    rai::address sender1;
+    rai::uint256_union amount1;
+    rai::address destination1;
     auto pending1 (db.pending_get (hash1, sender1, amount1, destination1));
     ASSERT_TRUE (pending1);
     db.pending_put (hash1, sender1, amount1, destination1);
-    mu_coin::address sender2;
-    mu_coin::uint256_union amount2;
-    mu_coin::address destination2;
+    rai::address sender2;
+    rai::uint256_union amount2;
+    rai::address destination2;
     auto pending2 (db.pending_get (hash1, sender2, amount2, destination2));
     ASSERT_EQ (sender1, sender2);
     ASSERT_EQ (amount1, amount2);
@@ -109,22 +109,22 @@ TEST (block_store, add_pending)
 
 TEST (block_store, add_genesis)
 {
-    mu_coin::block_store db (mu_coin::block_store_temp);
-    mu_coin::genesis genesis;
+    rai::block_store db (rai::block_store_temp);
+    rai::genesis genesis;
     genesis.initialize (db);
-    mu_coin::frontier frontier;
-    ASSERT_FALSE (db.latest_get (mu_coin::genesis_address, frontier));
+    rai::frontier frontier;
+    ASSERT_FALSE (db.latest_get (rai::genesis_address, frontier));
     auto block1 (db.block_get (frontier.hash));
     ASSERT_NE (nullptr, block1);
-    auto receive1 (dynamic_cast <mu_coin::open_block *> (block1.get ()));
+    auto receive1 (dynamic_cast <rai::open_block *> (block1.get ()));
     ASSERT_NE (nullptr, receive1);
     ASSERT_LE (frontier.time, db.now ());
 }
 
 TEST (representation, changes)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::keypair key1;
+    rai::block_store store (rai::block_store_temp);
+    rai::keypair key1;
     ASSERT_EQ (0, store.representation_get (key1.pub));
     store.representation_put (key1.pub, 1);
     ASSERT_EQ (1, store.representation_get (key1.pub));
@@ -134,13 +134,13 @@ TEST (representation, changes)
 
 TEST (fork, adding_checking)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::keypair key1;
-    mu_coin::change_block block1;
+    rai::block_store store (rai::block_store_temp);
+    rai::keypair key1;
+    rai::change_block block1;
     block1.hashables.representative = key1.pub;
     ASSERT_EQ (nullptr, store.fork_get (block1.hash ()));
-    mu_coin::keypair key2;
-    mu_coin::change_block block2;
+    rai::keypair key2;
+    rai::change_block block2;
     store.fork_put (block1.hash (), block2);
     auto block3 (store.fork_get (block1.hash ()));
     ASSERT_EQ (block2, *block3);
@@ -148,8 +148,8 @@ TEST (fork, adding_checking)
 
 TEST (bootstrap, simple)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::send_block block1;
+    rai::block_store store (rai::block_store_temp);
+    rai::send_block block1;
     auto block2 (store.bootstrap_get (block1.previous ()));
     ASSERT_EQ (nullptr, block2);
     store.bootstrap_put (block1.previous (), block1);
@@ -163,15 +163,15 @@ TEST (bootstrap, simple)
 
 TEST (checksum, simple)
 {
-    mu_coin::block_store store (mu_coin::block_store_temp);
-    mu_coin::block_hash hash0;
+    rai::block_store store (rai::block_store_temp);
+    rai::block_hash hash0;
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash0));
-    mu_coin::block_hash hash1;
+    rai::block_hash hash1;
     store.checksum_put (0x100, 0x10, hash1);
-    mu_coin::block_hash hash2;
+    rai::block_hash hash2;
     ASSERT_FALSE (store.checksum_get (0x100, 0x10, hash2));
     ASSERT_EQ (hash1, hash2);
     store.checksum_del (0x100, 0x10);
-    mu_coin::block_hash hash3;
+    rai::block_hash hash3;
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash3));
 }

@@ -5,13 +5,13 @@
 #include <fstream>
 #include <thread>
 
-mu_coin_daemon::daemon_config::daemon_config () :
+rai_daemon::daemon_config::daemon_config () :
 peering_port (24000),
 rpc_port (25000)
 {
 }
 
-void mu_coin_daemon::daemon_config::serialize (std::ostream & output_a)
+void rai_daemon::daemon_config::serialize (std::ostream & output_a)
 {
     boost::property_tree::ptree tree;
     tree.put ("peering_port", std::to_string (peering_port));
@@ -19,7 +19,7 @@ void mu_coin_daemon::daemon_config::serialize (std::ostream & output_a)
     boost::property_tree::write_json (output_a, tree);
 }
 
-bool mu_coin_daemon::daemon_config::deserialize (std::istream & input_a)
+bool rai_daemon::daemon_config::deserialize (std::istream & input_a)
 {
     auto result (false);
     boost::property_tree::ptree tree;
@@ -47,15 +47,15 @@ bool mu_coin_daemon::daemon_config::deserialize (std::istream & input_a)
     return result;
 }
 
-mu_coin_daemon::daemon::daemon ()
+rai_daemon::daemon::daemon ()
 {
 }
 
-void mu_coin_daemon::daemon::run ()
+void rai_daemon::daemon::run ()
 {
     auto working (boost::filesystem::current_path ());
     auto config_error (false);
-    mu_coin_daemon::daemon_config config;
+    rai_daemon::daemon_config config;
     auto config_path ((working / "config.json").string ());
     std::ifstream config_file;
     config_file.open (config_path);
@@ -76,10 +76,10 @@ void mu_coin_daemon::daemon::run ()
     {
         auto service (boost::make_shared <boost::asio::io_service> ());
         auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-        mu_coin::processor_service processor;
-        auto client (std::make_shared <mu_coin::client> (service, config.peering_port,  working / "data", processor, mu_coin::genesis_address));
+        rai::processor_service processor;
+        auto client (std::make_shared <rai::client> (service, config.peering_port,  working / "data", processor, rai::genesis_address));
 		client->start ();
-		mu_coin::rpc rpc (service, pool, config.rpc_port, *client, std::unordered_set <mu_coin::uint256_union> ());
+		rai::rpc rpc (service, pool, config.rpc_port, *client, std::unordered_set <rai::uint256_union> ());
         std::thread network_thread ([&service] ()
             {
                 try

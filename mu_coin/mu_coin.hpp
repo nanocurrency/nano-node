@@ -32,18 +32,18 @@ namespace CryptoPP
 }
 
 std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
-namespace mu_coin {
+namespace rai {
     using stream = std::basic_streambuf <uint8_t>;
     using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
     using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_insert_device <std::vector <uint8_t>>>;
     template <typename T>
-    bool read (mu_coin::stream & stream_a, T & value)
+    bool read (rai::stream & stream_a, T & value)
     {
         auto amount_read (stream_a.sgetn (reinterpret_cast <uint8_t *> (&value), sizeof (value)));
         return amount_read != sizeof (value);
     }
     template <typename T>
-    void write (mu_coin::stream & stream_a, T const & value)
+    void write (rai::stream & stream_a, T const & value)
     {
         auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
         assert (amount_written == sizeof (value));
@@ -55,8 +55,8 @@ namespace mu_coin {
     {
     public:
         uint128_union () = default;
-        uint128_union (mu_coin::uint128_union const &) = default;
-        uint128_union (mu_coin::uint128_t const &);
+        uint128_union (rai::uint128_union const &) = default;
+        uint128_union (rai::uint128_t const &);
         std::array <uint8_t, 16> bytes;
         std::array <uint64_t, 2> qwords;
     };
@@ -64,24 +64,24 @@ namespace mu_coin {
     {
         uint256_union () = default;
         uint256_union (uint64_t);
-        uint256_union (mu_coin::uint256_t const &);
+        uint256_union (rai::uint256_t const &);
         uint256_union (std::string const &);
-        uint256_union (mu_coin::uint256_union const &, mu_coin::uint256_union const &, uint128_union const &);
+        uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
         uint256_union prv (uint256_union const &, uint128_union const &) const;
         uint256_union & operator = (leveldb::Slice const &);
-        uint256_union & operator ^= (mu_coin::uint256_union const &);
-        uint256_union operator ^ (mu_coin::uint256_union const &) const;
-        bool operator == (mu_coin::uint256_union const &) const;
-        bool operator != (mu_coin::uint256_union const &) const;
-        bool operator < (mu_coin::uint256_union const &) const;
+        uint256_union & operator ^= (rai::uint256_union const &);
+        uint256_union operator ^ (rai::uint256_union const &) const;
+        bool operator == (rai::uint256_union const &) const;
+        bool operator != (rai::uint256_union const &) const;
+        bool operator < (rai::uint256_union const &) const;
         void encode_hex (std::string &) const;
         bool decode_hex (std::string const &);
         void encode_dec (std::string &) const;
         bool decode_dec (std::string const &);
         void encode_base58check (std::string &) const;
         bool decode_base58check (std::string const &);
-        void serialize (mu_coin::stream &) const;
-        bool deserialize (mu_coin::stream &);
+        void serialize (rai::stream &) const;
+        bool deserialize (rai::stream &);
         std::array <uint8_t, 32> bytes;
         std::array <char, 32> chars;
         std::array <uint64_t, 4> qwords;
@@ -89,7 +89,7 @@ namespace mu_coin {
         void clear ();
         bool is_zero () const;
         std::string to_string () const;
-        mu_coin::uint256_t number () const;
+        rai::uint256_t number () const;
     };
     using block_hash = uint256_union;
     using identifier = uint256_union;
@@ -103,13 +103,13 @@ namespace mu_coin {
     union uint512_union
     {
         uint512_union () = default;
-        uint512_union (mu_coin::uint512_t const &);
-        bool operator == (mu_coin::uint512_union const &) const;
-        bool operator != (mu_coin::uint512_union const &) const;
-        mu_coin::uint512_union & operator ^= (mu_coin::uint512_union const &);
+        uint512_union (rai::uint512_t const &);
+        bool operator == (rai::uint512_union const &) const;
+        bool operator != (rai::uint512_union const &) const;
+        rai::uint512_union & operator ^= (rai::uint512_union const &);
         void encode_hex (std::string &);
         bool decode_hex (std::string const &);
-        mu_coin::uint512_union salsa20_8 ();
+        rai::uint512_union salsa20_8 ();
         std::array <uint8_t, 64> bytes;
         std::array <uint32_t, 16> dwords;
         std::array <uint64_t, 8> qwords;
@@ -120,25 +120,25 @@ namespace mu_coin {
     using signature = uint512_union;
     using endpoint = boost::asio::ip::udp::endpoint;
     using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-    bool parse_endpoint (std::string const &, mu_coin::endpoint &);
-    bool parse_tcp_endpoint (std::string const &, mu_coin::tcp_endpoint &);
-	bool reserved_address (mu_coin::endpoint const &);
+    bool parse_endpoint (std::string const &, rai::endpoint &);
+    bool parse_tcp_endpoint (std::string const &, rai::tcp_endpoint &);
+	bool reserved_address (rai::endpoint const &);
 }
 
 namespace std
 {
     template <>
-    struct hash <mu_coin::uint256_union>
+    struct hash <rai::uint256_union>
     {
-        size_t operator () (mu_coin::uint256_union const & data_a) const
+        size_t operator () (rai::uint256_union const & data_a) const
         {
             return *reinterpret_cast <size_t const *> (data_a.bytes.data ());
         }
     };
     template <>
-    struct hash <mu_coin::uint256_t>
+    struct hash <rai::uint256_t>
     {
-        size_t operator () (mu_coin::uint256_t const & number_a) const
+        size_t operator () (rai::uint256_t const & number_a) const
         {
             return number_a.convert_to <size_t> ();
         }
@@ -150,7 +150,7 @@ namespace std
     template <>
     struct endpoint_hash <4>
     {
-        size_t operator () (mu_coin::endpoint const & endpoint_a) const
+        size_t operator () (rai::endpoint const & endpoint_a) const
         {
             auto result (endpoint_a.address ().to_v4 ().to_ulong () ^ endpoint_a.port ());
             return result;
@@ -159,16 +159,16 @@ namespace std
     template <>
     struct endpoint_hash <8>
     {
-        size_t operator () (mu_coin::endpoint const & endpoint_a) const
+        size_t operator () (rai::endpoint const & endpoint_a) const
         {
             auto result ((endpoint_a.address ().to_v4 ().to_ulong () << 2) | endpoint_a.port ());
             return result;
         }
     };
     template <>
-    struct hash <mu_coin::endpoint>
+    struct hash <rai::endpoint>
     {
-        size_t operator () (mu_coin::endpoint const & endpoint_a) const
+        size_t operator () (rai::endpoint const & endpoint_a) const
         {
             endpoint_hash <sizeof (size_t)> ehash;
             return ehash (endpoint_a);
@@ -178,26 +178,26 @@ namespace std
 namespace boost
 {
     template <>
-    struct hash <mu_coin::endpoint>
+    struct hash <rai::endpoint>
     {
-        size_t operator () (mu_coin::endpoint const & endpoint_a) const
+        size_t operator () (rai::endpoint const & endpoint_a) const
         {
-            std::hash <mu_coin::endpoint> hash;
+            std::hash <rai::endpoint> hash;
             return hash (endpoint_a);
         }
     };
     template <>
-    struct hash <mu_coin::uint256_union>
+    struct hash <rai::uint256_union>
     {
-        size_t operator () (mu_coin::uint256_union const & value_a) const
+        size_t operator () (rai::uint256_union const & value_a) const
         {
-            std::hash <mu_coin::uint256_union> hash;
+            std::hash <rai::uint256_union> hash;
             return hash (value_a);
         }
     };
 }
 
-namespace mu_coin {
+namespace rai {
     class block_visitor;
     enum class block_type : uint8_t
     {
@@ -211,70 +211,70 @@ namespace mu_coin {
     class block
     {
     public:
-        mu_coin::uint256_union hash () const;
+        rai::uint256_union hash () const;
         virtual void hash (CryptoPP::SHA3 &) const = 0;
-        virtual mu_coin::block_hash previous () const = 0;
-        virtual mu_coin::block_hash source () const = 0;
-        virtual void serialize (mu_coin::stream &) const = 0;
-        virtual void visit (mu_coin::block_visitor &) const = 0;
-        virtual bool operator == (mu_coin::block const &) const = 0;
-        virtual std::unique_ptr <mu_coin::block> clone () const = 0;
-        virtual mu_coin::block_type type () const = 0;
+        virtual rai::block_hash previous () const = 0;
+        virtual rai::block_hash source () const = 0;
+        virtual void serialize (rai::stream &) const = 0;
+        virtual void visit (rai::block_visitor &) const = 0;
+        virtual bool operator == (rai::block const &) const = 0;
+        virtual std::unique_ptr <rai::block> clone () const = 0;
+        virtual rai::block_type type () const = 0;
     };
-    std::unique_ptr <mu_coin::block> deserialize_block (mu_coin::stream &);
-    void serialize_block (mu_coin::stream &, mu_coin::block const &);
-    void sign_message (mu_coin::private_key const &, mu_coin::public_key const &, mu_coin::uint256_union const &, mu_coin::uint512_union &);
-    bool validate_message (mu_coin::public_key const &, mu_coin::uint256_union const &, mu_coin::uint512_union const &);
+    std::unique_ptr <rai::block> deserialize_block (rai::stream &);
+    void serialize_block (rai::stream &, rai::block const &);
+    void sign_message (rai::private_key const &, rai::public_key const &, rai::uint256_union const &, rai::uint512_union &);
+    bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
     class send_hashables
     {
     public:
         void hash (CryptoPP::SHA3 &) const;
-        mu_coin::address destination;
-        mu_coin::block_hash previous;
-        mu_coin::uint256_union balance;
+        rai::address destination;
+        rai::block_hash previous;
+        rai::uint256_union balance;
     };
-    class send_block : public mu_coin::block
+    class send_block : public rai::block
     {
     public:
         send_block () = default;
         send_block (send_block const &);
-        using mu_coin::block::hash;
+        using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
-        mu_coin::block_hash previous () const override;
-        mu_coin::block_hash source () const override;
-        void serialize (mu_coin::stream &) const override;
-        bool deserialize (mu_coin::stream &);
-        void visit (mu_coin::block_visitor &) const override;
-        std::unique_ptr <mu_coin::block> clone () const override;
-        mu_coin::block_type type () const override;
-        bool operator == (mu_coin::block const &) const override;
-        bool operator == (mu_coin::send_block const &) const;
+        rai::block_hash previous () const override;
+        rai::block_hash source () const override;
+        void serialize (rai::stream &) const override;
+        bool deserialize (rai::stream &);
+        void visit (rai::block_visitor &) const override;
+        std::unique_ptr <rai::block> clone () const override;
+        rai::block_type type () const override;
+        bool operator == (rai::block const &) const override;
+        bool operator == (rai::send_block const &) const;
         send_hashables hashables;
-        mu_coin::signature signature;
+        rai::signature signature;
     };
     class receive_hashables
     {
     public:
         void hash (CryptoPP::SHA3 &) const;
-        mu_coin::block_hash previous;
-        mu_coin::block_hash source;
+        rai::block_hash previous;
+        rai::block_hash source;
     };
-    class receive_block : public mu_coin::block
+    class receive_block : public rai::block
     {
     public:
-        using mu_coin::block::hash;
+        using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
-        mu_coin::block_hash previous () const override;
-        mu_coin::block_hash source () const override;
-        void serialize (mu_coin::stream &) const override;
-        bool deserialize (mu_coin::stream &);
-        void visit (mu_coin::block_visitor &) const override;
-        std::unique_ptr <mu_coin::block> clone () const override;
-        mu_coin::block_type type () const override;
-        void sign (mu_coin::private_key const &, mu_coin::public_key const &, mu_coin::uint256_union const &);
-        bool validate (mu_coin::public_key const &, mu_coin::uint256_t const &) const;
-        bool operator == (mu_coin::block const &) const override;
-        bool operator == (mu_coin::receive_block const &) const;
+        rai::block_hash previous () const override;
+        rai::block_hash source () const override;
+        void serialize (rai::stream &) const override;
+        bool deserialize (rai::stream &);
+        void visit (rai::block_visitor &) const override;
+        std::unique_ptr <rai::block> clone () const override;
+        rai::block_type type () const override;
+        void sign (rai::private_key const &, rai::public_key const &, rai::uint256_union const &);
+        bool validate (rai::public_key const &, rai::uint256_t const &) const;
+        bool operator == (rai::block const &) const override;
+        bool operator == (rai::receive_block const &) const;
         receive_hashables hashables;
         uint512_union signature;
     };
@@ -282,57 +282,57 @@ namespace mu_coin {
     {
     public:
         void hash (CryptoPP::SHA3 &) const;
-        mu_coin::address representative;
-        mu_coin::block_hash source;
+        rai::address representative;
+        rai::block_hash source;
     };
-    class open_block : public mu_coin::block
+    class open_block : public rai::block
     {
     public:
-        using mu_coin::block::hash;
+        using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
-        mu_coin::block_hash previous () const override;
-        mu_coin::block_hash source () const override;
-        void serialize (mu_coin::stream &) const override;
-        bool deserialize (mu_coin::stream &);
-        void visit (mu_coin::block_visitor &) const override;
-        std::unique_ptr <mu_coin::block> clone () const override;
-        mu_coin::block_type type () const override;
-        bool operator == (mu_coin::block const &) const override;
-        bool operator == (mu_coin::open_block const &) const;
-        mu_coin::open_hashables hashables;
-        mu_coin::uint512_union signature;
+        rai::block_hash previous () const override;
+        rai::block_hash source () const override;
+        void serialize (rai::stream &) const override;
+        bool deserialize (rai::stream &);
+        void visit (rai::block_visitor &) const override;
+        std::unique_ptr <rai::block> clone () const override;
+        rai::block_type type () const override;
+        bool operator == (rai::block const &) const override;
+        bool operator == (rai::open_block const &) const;
+        rai::open_hashables hashables;
+        rai::uint512_union signature;
     };
     class change_hashables
     {
     public:
         void hash (CryptoPP::SHA3 &) const;
-        mu_coin::address representative;
-        mu_coin::block_hash previous;
+        rai::address representative;
+        rai::block_hash previous;
     };
-    class change_block : public mu_coin::block
+    class change_block : public rai::block
     {
     public:
-        using mu_coin::block::hash;
+        using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
-        mu_coin::block_hash previous () const override;
-        mu_coin::block_hash source () const override;
-        void serialize (mu_coin::stream &) const override;
-        bool deserialize (mu_coin::stream &);
-        void visit (mu_coin::block_visitor &) const override;
-        std::unique_ptr <mu_coin::block> clone () const override;
-        mu_coin::block_type type () const override;
-        bool operator == (mu_coin::block const &) const override;
-        bool operator == (mu_coin::change_block const &) const;
-        mu_coin::change_hashables hashables;
-        mu_coin::uint512_union signature;
+        rai::block_hash previous () const override;
+        rai::block_hash source () const override;
+        void serialize (rai::stream &) const override;
+        bool deserialize (rai::stream &);
+        void visit (rai::block_visitor &) const override;
+        std::unique_ptr <rai::block> clone () const override;
+        rai::block_type type () const override;
+        bool operator == (rai::block const &) const override;
+        bool operator == (rai::change_block const &) const;
+        rai::change_hashables hashables;
+        rai::uint512_union signature;
     };
     class block_visitor
     {
     public:
-        virtual void send_block (mu_coin::send_block const &) = 0;
-        virtual void receive_block (mu_coin::receive_block const &) = 0;
-        virtual void open_block (mu_coin::open_block const &) = 0;
-        virtual void change_block (mu_coin::change_block const &) = 0;
+        virtual void send_block (rai::send_block const &) = 0;
+        virtual void receive_block (rai::receive_block const &) = 0;
+        virtual void open_block (rai::open_block const &) = 0;
+        virtual void change_block (rai::change_block const &) = 0;
     };
     struct block_store_temp_t
     {
@@ -340,57 +340,57 @@ namespace mu_coin {
     class frontier
     {
     public:
-        void serialize (mu_coin::stream &) const;
-        bool deserialize (mu_coin::stream &);
-        bool operator == (mu_coin::frontier const &) const;
-        mu_coin::uint256_union hash;
-        mu_coin::address representative;
-        mu_coin::uint256_union balance;
+        void serialize (rai::stream &) const;
+        bool deserialize (rai::stream &);
+        bool operator == (rai::frontier const &) const;
+        rai::uint256_union hash;
+        rai::address representative;
+        rai::uint256_union balance;
         uint64_t time;
     };
     class account_entry
     {
     public:
         account_entry * operator -> ();
-        mu_coin::address first;
-        mu_coin::frontier second;
+        rai::address first;
+        rai::frontier second;
     };
     class account_iterator
     {
     public:
         account_iterator (leveldb::DB &);
         account_iterator (leveldb::DB &, std::nullptr_t);
-        account_iterator (leveldb::DB &, mu_coin::address const &);
-        account_iterator (mu_coin::account_iterator &&) = default;
+        account_iterator (leveldb::DB &, rai::address const &);
+        account_iterator (rai::account_iterator &&) = default;
         account_iterator & operator ++ ();
-        account_iterator & operator = (mu_coin::account_iterator &&) = default;
+        account_iterator & operator = (rai::account_iterator &&) = default;
         account_entry & operator -> ();
-        bool operator == (mu_coin::account_iterator const &) const;
-        bool operator != (mu_coin::account_iterator const &) const;
+        bool operator == (rai::account_iterator const &) const;
+        bool operator != (rai::account_iterator const &) const;
         void set_current ();
         std::unique_ptr <leveldb::Iterator> iterator;
-        mu_coin::account_entry current;
+        rai::account_entry current;
     };
     class block_entry
     {
     public:
         block_entry * operator -> ();
-        mu_coin::block_hash first;
-        std::unique_ptr <mu_coin::block> second;
+        rai::block_hash first;
+        std::unique_ptr <rai::block> second;
     };
     class block_iterator
     {
     public:
         block_iterator (leveldb::DB &);
         block_iterator (leveldb::DB &, std::nullptr_t);
-        block_iterator (mu_coin::block_iterator &&) = default;
+        block_iterator (rai::block_iterator &&) = default;
         block_iterator & operator ++ ();
         block_entry & operator -> ();
-        bool operator == (mu_coin::block_iterator const &) const;
-        bool operator != (mu_coin::block_iterator const &) const;
+        bool operator == (rai::block_iterator const &) const;
+        bool operator != (rai::block_iterator const &) const;
         void set_current ();
         std::unique_ptr <leveldb::Iterator> iterator;
-        mu_coin::block_entry current;
+        rai::block_entry current;
     };
     extern block_store_temp_t block_store_temp;
     class block_store
@@ -401,39 +401,39 @@ namespace mu_coin {
         
         uint64_t now ();
         
-        mu_coin::block_hash root (mu_coin::block const &);
-        void block_put (mu_coin::block_hash const &, mu_coin::block const &);
-        std::unique_ptr <mu_coin::block> block_get (mu_coin::block_hash const &);
-		void block_del (mu_coin::block_hash const &);
-        bool block_exists (mu_coin::block_hash const &);
+        rai::block_hash root (rai::block const &);
+        void block_put (rai::block_hash const &, rai::block const &);
+        std::unique_ptr <rai::block> block_get (rai::block_hash const &);
+		void block_del (rai::block_hash const &);
+        bool block_exists (rai::block_hash const &);
         block_iterator blocks_begin ();
         block_iterator blocks_end ();
         
-        void latest_put (mu_coin::address const &, mu_coin::frontier const &);
-        bool latest_get (mu_coin::address const &, mu_coin::frontier &);
-		void latest_del (mu_coin::address const &);
-        bool latest_exists (mu_coin::address const &);
-        account_iterator latest_begin (mu_coin::address const &);
+        void latest_put (rai::address const &, rai::frontier const &);
+        bool latest_get (rai::address const &, rai::frontier &);
+		void latest_del (rai::address const &);
+        bool latest_exists (rai::address const &);
+        account_iterator latest_begin (rai::address const &);
         account_iterator latest_begin ();
         account_iterator latest_end ();
         
-        void pending_put (mu_coin::block_hash const &, mu_coin::address const &, mu_coin::uint256_union const &, mu_coin::address const &);
-        void pending_del (mu_coin::identifier const &);
-        bool pending_get (mu_coin::identifier const &, mu_coin::address &, mu_coin::uint256_union &, mu_coin::address &);
-        bool pending_exists (mu_coin::block_hash const &);
+        void pending_put (rai::block_hash const &, rai::address const &, rai::uint256_union const &, rai::address const &);
+        void pending_del (rai::identifier const &);
+        bool pending_get (rai::identifier const &, rai::address &, rai::uint256_union &, rai::address &);
+        bool pending_exists (rai::block_hash const &);
         
-        mu_coin::uint256_t representation_get (mu_coin::address const &);
-        void representation_put (mu_coin::address const &, mu_coin::uint256_t const &);
+        rai::uint256_t representation_get (rai::address const &);
+        void representation_put (rai::address const &, rai::uint256_t const &);
         
-        void fork_put (mu_coin::block_hash const &, mu_coin::block const &);
-        std::unique_ptr <mu_coin::block> fork_get (mu_coin::block_hash const &);
+        void fork_put (rai::block_hash const &, rai::block const &);
+        std::unique_ptr <rai::block> fork_get (rai::block_hash const &);
         
-        void bootstrap_put (mu_coin::block_hash const &, mu_coin::block const &);
-        std::unique_ptr <mu_coin::block> bootstrap_get (mu_coin::block_hash const &);
-        void bootstrap_del (mu_coin::block_hash const &);
+        void bootstrap_put (rai::block_hash const &, rai::block const &);
+        std::unique_ptr <rai::block> bootstrap_get (rai::block_hash const &);
+        void bootstrap_del (rai::block_hash const &);
         
-        void checksum_put (uint64_t, uint8_t, mu_coin::checksum const &);
-        bool checksum_get (uint64_t, uint8_t, mu_coin::checksum &);
+        void checksum_put (uint64_t, uint8_t, rai::checksum const &);
+        bool checksum_get (uint64_t, uint8_t, rai::checksum &);
         void checksum_del (uint64_t, uint8_t);
         
     private:
@@ -469,35 +469,35 @@ namespace mu_coin {
     class ledger
     {
     public:
-        ledger (mu_coin::block_store &);
-		mu_coin::address account (mu_coin::block_hash const &);
-		mu_coin::uint256_t amount (mu_coin::block_hash const &);
-        mu_coin::uint256_t balance (mu_coin::block_hash const &);
-		mu_coin::uint256_t account_balance (mu_coin::address const &);
-        mu_coin::uint256_t weight (mu_coin::address const &);
-		std::unique_ptr <mu_coin::block> successor (mu_coin::block_hash const &);
-		mu_coin::block_hash latest (mu_coin::address const &);
-        mu_coin::address representative (mu_coin::block_hash const &);
-        mu_coin::address representative_calculated (mu_coin::block_hash const &);
-        mu_coin::address representative_cached (mu_coin::block_hash const &);
-        mu_coin::uint256_t supply ();
-        mu_coin::process_result process (mu_coin::block const &);
-        void rollback (mu_coin::block_hash const &);
-        void change_latest (mu_coin::address const &, mu_coin::block_hash const &, mu_coin::address const &, mu_coin::uint256_union const &);
-		void move_representation (mu_coin::address const &, mu_coin::address const &, mu_coin::uint256_t const &);
-        void checksum_update (mu_coin::block_hash const &);
-        mu_coin::checksum checksum (mu_coin::address const &, mu_coin::address const &);
-        mu_coin::block_store & store;
+        ledger (rai::block_store &);
+		rai::address account (rai::block_hash const &);
+		rai::uint256_t amount (rai::block_hash const &);
+        rai::uint256_t balance (rai::block_hash const &);
+		rai::uint256_t account_balance (rai::address const &);
+        rai::uint256_t weight (rai::address const &);
+		std::unique_ptr <rai::block> successor (rai::block_hash const &);
+		rai::block_hash latest (rai::address const &);
+        rai::address representative (rai::block_hash const &);
+        rai::address representative_calculated (rai::block_hash const &);
+        rai::address representative_cached (rai::block_hash const &);
+        rai::uint256_t supply ();
+        rai::process_result process (rai::block const &);
+        void rollback (rai::block_hash const &);
+        void change_latest (rai::address const &, rai::block_hash const &, rai::address const &, rai::uint256_union const &);
+		void move_representation (rai::address const &, rai::address const &, rai::uint256_t const &);
+        void checksum_update (rai::block_hash const &);
+        rai::checksum checksum (rai::address const &, rai::address const &);
+        rai::block_store & store;
     };
     class client;
     class vote
     {
     public:
-        mu_coin::uint256_union hash () const;
-        mu_coin::address address;
-        mu_coin::signature signature;
+        rai::uint256_union hash () const;
+        rai::address address;
+        rai::signature signature;
         uint64_t sequence;
-        std::unique_ptr <mu_coin::block> block;
+        std::unique_ptr <rai::block> block;
     };
     class destructable
     {
@@ -506,36 +506,36 @@ namespace mu_coin {
         ~destructable ();
         std::function <void ()> operation;
     };
-    class votes : public std::enable_shared_from_this <mu_coin::votes>
+    class votes : public std::enable_shared_from_this <rai::votes>
     {
     public:
-        votes (std::shared_ptr <mu_coin::client>, mu_coin::block const &);
+        votes (std::shared_ptr <rai::client>, rai::block const &);
         void start ();
-        void vote (mu_coin::vote const &);
-        void start_request (mu_coin::block const &);
+        void vote (rai::vote const &);
+        void start_request (rai::block const &);
         void announce_vote ();
-        void timeout_action (std::shared_ptr <mu_coin::destructable>);
-        std::pair <std::unique_ptr <mu_coin::block>, mu_coin::uint256_t> winner ();
-        mu_coin::uint256_t uncontested_threshold ();
-        mu_coin::uint256_t contested_threshold ();
-        mu_coin::uint256_t flip_threshold ();
-        std::shared_ptr <mu_coin::client> client;
-        mu_coin::block_hash const root;
-		std::unique_ptr <mu_coin::block> last_winner;
+        void timeout_action (std::shared_ptr <rai::destructable>);
+        std::pair <std::unique_ptr <rai::block>, rai::uint256_t> winner ();
+        rai::uint256_t uncontested_threshold ();
+        rai::uint256_t contested_threshold ();
+        rai::uint256_t flip_threshold ();
+        std::shared_ptr <rai::client> client;
+        rai::block_hash const root;
+		std::unique_ptr <rai::block> last_winner;
         uint64_t sequence;
         bool confirmed;
 		std::chrono::system_clock::time_point last_vote;
-        std::unordered_map <mu_coin::address, std::pair <uint64_t, std::unique_ptr <mu_coin::block>>> rep_votes;
+        std::unordered_map <rai::address, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
     };
     class conflicts
     {
     public:
-		conflicts (mu_coin::client &);
-        void start (mu_coin::block const &, bool);
-		void update (mu_coin::vote const &);
-        void stop (mu_coin::block_hash const &);
-        std::unordered_map <mu_coin::block_hash, std::shared_ptr <mu_coin::votes>> roots;
-		mu_coin::client & client;
+		conflicts (rai::client &);
+        void start (rai::block const &, bool);
+		void update (rai::vote const &);
+        void stop (rai::block_hash const &);
+        std::unordered_map <rai::block_hash, std::shared_ptr <rai::votes>> roots;
+		rai::client & client;
         std::mutex mutex;
     };
     class keypair
@@ -543,8 +543,8 @@ namespace mu_coin {
     public:
         keypair ();
         keypair (std::string const &);
-        mu_coin::public_key pub;
-        mu_coin::private_key prv;
+        rai::public_key pub;
+        rai::private_key prv;
     };
     enum class message_type : uint8_t
     {
@@ -564,146 +564,146 @@ namespace mu_coin {
     {
     public:
         virtual ~message () = default;
-        virtual void serialize (mu_coin::stream &) = 0;
-        virtual void visit (mu_coin::message_visitor &) const = 0;
+        virtual void serialize (rai::stream &) = 0;
+        virtual void visit (rai::message_visitor &) const = 0;
     };
     class keepalive_req : public message
     {
     public:
-        void visit (mu_coin::message_visitor &) const override;
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-		std::array <mu_coin::endpoint, 24> peers;
+        void visit (rai::message_visitor &) const override;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+		std::array <rai::endpoint, 24> peers;
     };
     class keepalive_ack : public message
     {
     public:
-        void visit (mu_coin::message_visitor &) const override;
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-		bool operator == (mu_coin::keepalive_ack const &) const;
-		std::array <mu_coin::endpoint, 24> peers;
-		mu_coin::uint256_union checksum;
+        void visit (rai::message_visitor &) const override;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+		bool operator == (rai::keepalive_ack const &) const;
+		std::array <rai::endpoint, 24> peers;
+		rai::uint256_union checksum;
     };
     class publish_req : public message
     {
     public:
         publish_req () = default;
-        publish_req (std::unique_ptr <mu_coin::block>);
-        void visit (mu_coin::message_visitor &) const override;
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-        bool operator == (mu_coin::publish_req const &) const;
-        mu_coin::uint256_union work;
-        std::unique_ptr <mu_coin::block> block;
+        publish_req (std::unique_ptr <rai::block>);
+        void visit (rai::message_visitor &) const override;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+        bool operator == (rai::publish_req const &) const;
+        rai::uint256_union work;
+        std::unique_ptr <rai::block> block;
     };
     class confirm_req : public message
     {
     public:
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) const override;
-        bool operator == (mu_coin::confirm_req const &) const;
-        mu_coin::uint256_union work;
-        std::unique_ptr <mu_coin::block> block;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+        void visit (rai::message_visitor &) const override;
+        bool operator == (rai::confirm_req const &) const;
+        rai::uint256_union work;
+        std::unique_ptr <rai::block> block;
     };
     class confirm_ack : public message
     {
     public:
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) const override;
-        bool operator == (mu_coin::confirm_ack const &) const;
-        mu_coin::vote vote;
-        mu_coin::uint256_union work;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+        void visit (rai::message_visitor &) const override;
+        bool operator == (rai::confirm_ack const &) const;
+        rai::vote vote;
+        rai::uint256_union work;
     };
     class confirm_unk : public message
     {
     public:
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) const override;
-		mu_coin::uint256_union hash () const;
-        mu_coin::address rep_hint;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+        void visit (rai::message_visitor &) const override;
+		rai::uint256_union hash () const;
+        rai::address rep_hint;
     };
     class frontier_req : public message
     {
     public:
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) const override;
-        bool operator == (mu_coin::frontier_req const &) const;
-        mu_coin::address start;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+        void visit (rai::message_visitor &) const override;
+        bool operator == (rai::frontier_req const &) const;
+        rai::address start;
         uint32_t age;
         uint32_t count;
     };
     class bulk_req : public message
     {
     public:
-        bool deserialize (mu_coin::stream &);
-        void serialize (mu_coin::stream &) override;
-        void visit (mu_coin::message_visitor &) const override;
-        mu_coin::uint256_union start;
-        mu_coin::block_hash end;
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+        void visit (rai::message_visitor &) const override;
+        rai::uint256_union start;
+        rai::block_hash end;
         uint32_t count;
     };
     class message_visitor
     {
     public:
-        virtual void keepalive_req (mu_coin::keepalive_req const &) = 0;
-        virtual void keepalive_ack (mu_coin::keepalive_ack const &) = 0;
-        virtual void publish_req (mu_coin::publish_req const &) = 0;
-        virtual void confirm_req (mu_coin::confirm_req const &) = 0;
-        virtual void confirm_ack (mu_coin::confirm_ack const &) = 0;
-        virtual void confirm_unk (mu_coin::confirm_unk const &) = 0;
-        virtual void bulk_req (mu_coin::bulk_req const &) = 0;
-        virtual void frontier_req (mu_coin::frontier_req const &) = 0;
+        virtual void keepalive_req (rai::keepalive_req const &) = 0;
+        virtual void keepalive_ack (rai::keepalive_ack const &) = 0;
+        virtual void publish_req (rai::publish_req const &) = 0;
+        virtual void confirm_req (rai::confirm_req const &) = 0;
+        virtual void confirm_ack (rai::confirm_ack const &) = 0;
+        virtual void confirm_unk (rai::confirm_unk const &) = 0;
+        virtual void bulk_req (rai::bulk_req const &) = 0;
+        virtual void frontier_req (rai::frontier_req const &) = 0;
     };
     class key_entry
     {
     public:
-        mu_coin::key_entry * operator -> ();
-        mu_coin::public_key first;
-        mu_coin::private_key second;
+        rai::key_entry * operator -> ();
+        rai::public_key first;
+        rai::private_key second;
     };
     class key_iterator
     {
     public:
         key_iterator (leveldb::DB *); // Begin iterator
         key_iterator (leveldb::DB *, std::nullptr_t); // End iterator
-        key_iterator (leveldb::DB *, mu_coin::uint256_union const &);
-        key_iterator (mu_coin::key_iterator &&) = default;
+        key_iterator (leveldb::DB *, rai::uint256_union const &);
+        key_iterator (rai::key_iterator &&) = default;
         void set_current ();
         key_iterator & operator ++ ();
-        mu_coin::key_entry & operator -> ();
-        bool operator == (mu_coin::key_iterator const &) const;
-        bool operator != (mu_coin::key_iterator const &) const;
-        mu_coin::key_entry current;
+        rai::key_entry & operator -> ();
+        bool operator == (rai::key_iterator const &) const;
+        bool operator != (rai::key_iterator const &) const;
+        rai::key_entry current;
         std::unique_ptr <leveldb::Iterator> iterator;
     };
     class wallet
     {
     public:
         wallet (boost::filesystem::path const &);
-        mu_coin::uint256_union check ();
-		bool rekey (mu_coin::uint256_union const &);
-        mu_coin::uint256_union wallet_key ();
-        void insert (mu_coin::private_key const &);
-        bool fetch (mu_coin::public_key const &, mu_coin::private_key &);
-        bool generate_send (mu_coin::ledger &, mu_coin::public_key const &, mu_coin::uint256_t const &, std::vector <std::unique_ptr <mu_coin::send_block>> &);
+        rai::uint256_union check ();
+		bool rekey (rai::uint256_union const &);
+        rai::uint256_union wallet_key ();
+        void insert (rai::private_key const &);
+        bool fetch (rai::public_key const &, rai::private_key &);
+        bool generate_send (rai::ledger &, rai::public_key const &, rai::uint256_t const &, std::vector <std::unique_ptr <rai::send_block>> &);
 		bool valid_password ();
-        key_iterator find (mu_coin::uint256_union const &);
+        key_iterator find (rai::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
-        mu_coin::uint256_union hash_password (std::string const &);
-        mu_coin::uint256_union password;
+        rai::uint256_union hash_password (std::string const &);
+        rai::uint256_union password;
     private:
         leveldb::DB * handle;
     };
     class operation
     {
     public:
-        bool operator > (mu_coin::operation const &) const;
+        bool operator > (rai::operation const &) const;
         std::chrono::system_clock::time_point wakeup;
         std::function <void ()> function;
     };
@@ -727,7 +727,7 @@ namespace mu_coin {
     class peer_information
     {
     public:
-        mu_coin::endpoint endpoint;
+        rai::endpoint endpoint;
         std::chrono::system_clock::time_point last_contact;
         std::chrono::system_clock::time_point last_attempt;
     };
@@ -735,75 +735,75 @@ namespace mu_coin {
     {
     public:
         std::chrono::system_clock::time_point arrival;
-        mu_coin::block_hash hash;
-        std::unique_ptr <mu_coin::block> block;
+        rai::block_hash hash;
+        std::unique_ptr <rai::block> block;
     };
     class gap_cache
     {
     public:
         gap_cache ();
-        void add (mu_coin::block const &, mu_coin::block_hash);
-        std::unique_ptr <mu_coin::block> get (mu_coin::block_hash const &);
+        void add (rai::block const &, rai::block_hash);
+        std::unique_ptr <rai::block> get (rai::block_hash const &);
         boost::multi_index_container
         <
             gap_information,
             boost::multi_index::indexed_by
             <
-                boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, mu_coin::block_hash, &gap_information::hash>>,
+                boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>,
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>
             >
         > blocks;
         size_t const max;
     };
-    using session = std::function <void (mu_coin::confirm_ack const &, mu_coin::endpoint const &)>;
+    using session = std::function <void (rai::confirm_ack const &, rai::endpoint const &)>;
     class processor
     {
     public:
-        processor (mu_coin::client &);
+        processor (rai::client &);
         void stop ();
         void find_network (std::vector <std::pair <std::string, std::string>> const &);
-        void bootstrap (mu_coin::tcp_endpoint const &, std::function <void ()> const &);
-        mu_coin::process_result process_receive (mu_coin::block const &);
-        void process_receive_republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-        void republish (std::unique_ptr <mu_coin::block>, mu_coin::endpoint const &);
-		void process_message (mu_coin::message &, mu_coin::endpoint const &, bool);
-		void process_unknown (mu_coin::vectorstream &);
-        void process_confirmation (mu_coin::block const &, mu_coin::endpoint const &);
-        void process_confirmed (mu_coin::block const &);
+        void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const &);
+        rai::process_result process_receive (rai::block const &);
+        void process_receive_republish (std::unique_ptr <rai::block>, rai::endpoint const &);
+        void republish (std::unique_ptr <rai::block>, rai::endpoint const &);
+		void process_message (rai::message &, rai::endpoint const &, bool);
+		void process_unknown (rai::vectorstream &);
+        void process_confirmation (rai::block const &, rai::endpoint const &);
+        void process_confirmed (rai::block const &);
         void ongoing_keepalive ();
-        mu_coin::client & client;
+        rai::client & client;
         static std::chrono::seconds constexpr period = std::chrono::seconds (10);
         static std::chrono::seconds constexpr cutoff = period * 5;
     };
     class transactions
     {
     public:
-        transactions (mu_coin::ledger &, mu_coin::wallet &, mu_coin::processor &);
-        bool receive (mu_coin::send_block const &, mu_coin::private_key const &, mu_coin::address const &);
-        bool send (mu_coin::address const &, mu_coin::uint256_t const &);
-        void vote (mu_coin::vote const &);
-		bool rekey (mu_coin::uint256_union const &);
+        transactions (rai::ledger &, rai::wallet &, rai::processor &);
+        bool receive (rai::send_block const &, rai::private_key const &, rai::address const &);
+        bool send (rai::address const &, rai::uint256_t const &);
+        void vote (rai::vote const &);
+		bool rekey (rai::uint256_union const &);
         std::mutex mutex;
-        mu_coin::ledger & ledger;
-        mu_coin::wallet & wallet;
-		mu_coin::processor & processor;
+        rai::ledger & ledger;
+        rai::wallet & wallet;
+		rai::processor & processor;
     };
     class bootstrap_initiator : public std::enable_shared_from_this <bootstrap_initiator>
     {
     public:
-        bootstrap_initiator (std::shared_ptr <mu_coin::client>, std::function <void ()> const &);
+        bootstrap_initiator (std::shared_ptr <rai::client>, std::function <void ()> const &);
         ~bootstrap_initiator ();
-        void run (mu_coin::tcp_endpoint const &);
+        void run (rai::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
         void send_frontier_request ();
         void sent_request (boost::system::error_code const &, size_t);
         void run_receiver ();
         void finish_request ();
-        void add_and_send (std::unique_ptr <mu_coin::message>);
-        void add_request (std::unique_ptr <mu_coin::message>);
-        std::queue <std::unique_ptr <mu_coin::message>> requests;
+        void add_and_send (std::unique_ptr <rai::message>);
+        void add_request (std::unique_ptr <rai::message>);
+        std::queue <std::unique_ptr <rai::message>> requests;
         std::vector <uint8_t> send_buffer;
-        std::shared_ptr <mu_coin::client> client;
+        std::shared_ptr <rai::client> client;
         boost::asio::ip::tcp::socket socket;
         std::function <void ()> complete_action;
         std::mutex mutex;
@@ -812,64 +812,64 @@ namespace mu_coin {
     class bulk_req_initiator : public std::enable_shared_from_this <bulk_req_initiator>
     {
     public:
-        bulk_req_initiator (std::shared_ptr <mu_coin::bootstrap_initiator> const &, std::unique_ptr <mu_coin::bulk_req>);
+        bulk_req_initiator (std::shared_ptr <rai::bootstrap_initiator> const &, std::unique_ptr <rai::bulk_req>);
         ~bulk_req_initiator ();
         void receive_block ();
         void received_type (boost::system::error_code const &, size_t);
         void received_block (boost::system::error_code const &, size_t);
-        bool process_block (mu_coin::block const &);
+        bool process_block (rai::block const &);
         bool process_end ();
         std::array <uint8_t, 4000> receive_buffer;
-        std::unique_ptr <mu_coin::bulk_req> request;
-        mu_coin::block_hash expecting;
-        std::shared_ptr <mu_coin::bootstrap_initiator> connection;
+        std::unique_ptr <rai::bulk_req> request;
+        rai::block_hash expecting;
+        std::shared_ptr <rai::bootstrap_initiator> connection;
     };
     class frontier_req_initiator : public std::enable_shared_from_this <frontier_req_initiator>
     {
     public:
-        frontier_req_initiator (std::shared_ptr <mu_coin::bootstrap_initiator> const &, std::unique_ptr <mu_coin::frontier_req>);
+        frontier_req_initiator (std::shared_ptr <rai::bootstrap_initiator> const &, std::unique_ptr <rai::frontier_req>);
         ~frontier_req_initiator ();
         void receive_frontier ();
         void received_frontier (boost::system::error_code const &, size_t);
         std::array <uint8_t, 4000> receive_buffer;
-        std::unique_ptr <mu_coin::frontier_req> request;
-        std::shared_ptr <mu_coin::bootstrap_initiator> connection;
+        std::unique_ptr <rai::frontier_req> request;
+        std::shared_ptr <rai::bootstrap_initiator> connection;
     };
     class work
     {
     public:
         work ();
-        mu_coin::uint256_union generate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
-        mu_coin::uint256_union create (mu_coin::uint256_union const &);
-        bool validate (mu_coin::uint256_union const &, mu_coin::uint256_union const &);
-        mu_coin::uint256_union threshold_requirement;
+        rai::uint256_union generate (rai::uint256_union const &, rai::uint256_union const &);
+        rai::uint256_union create (rai::uint256_union const &);
+        bool validate (rai::uint256_union const &, rai::uint256_union const &);
+        rai::uint256_union threshold_requirement;
         size_t const entry_requirement;
         uint32_t const iteration_requirement;
-        std::vector <mu_coin::uint512_union> entries;
+        std::vector <rai::uint512_union> entries;
     };
     class network
     {
     public:
-        network (boost::asio::io_service &, uint16_t, mu_coin::client &);
+        network (boost::asio::io_service &, uint16_t, rai::client &);
         void receive ();
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
         void rpc_action (boost::system::error_code const &, size_t);
-        void publish_block (mu_coin::endpoint const &, std::unique_ptr <mu_coin::block>);
-        void confirm_block (std::unique_ptr <mu_coin::block>, uint64_t);
-        void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <mu_coin::endpoint, 24> const &);
-        void send_keepalive (mu_coin::endpoint const &);
-        void send_confirm_req (mu_coin::endpoint const &, mu_coin::block const &);
-        void send_buffer (uint8_t const *, size_t, mu_coin::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
+        void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
+        void confirm_block (std::unique_ptr <rai::block>, uint64_t);
+        void merge_peers (std::shared_ptr <std::vector <uint8_t>> const &, std::array <rai::endpoint, 24> const &);
+        void send_keepalive (rai::endpoint const &);
+        void send_confirm_req (rai::endpoint const &, rai::block const &);
+        void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
-        mu_coin::endpoint endpoint ();
-        mu_coin::endpoint remote;
+        rai::endpoint endpoint ();
+        rai::endpoint remote;
         std::array <uint8_t, 512> buffer;
-        mu_coin::work work;
+        rai::work work;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
-        mu_coin::client & client;
-        std::queue <std::tuple <uint8_t const *, size_t, mu_coin::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
+        rai::client & client;
+        std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
         std::mutex mutex;
         uint64_t keepalive_req_count;
         uint64_t keepalive_ack_count;
@@ -886,117 +886,117 @@ namespace mu_coin {
     class bootstrap_receiver
     {
     public:
-        bootstrap_receiver (boost::asio::io_service &, uint16_t, mu_coin::client &);
+        bootstrap_receiver (boost::asio::io_service &, uint16_t, rai::client &);
         void start ();
         void stop ();
         void accept_connection ();
         void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
-        mu_coin::tcp_endpoint endpoint ();
+        rai::tcp_endpoint endpoint ();
         boost::asio::ip::tcp::acceptor acceptor;
-        mu_coin::tcp_endpoint local;
+        rai::tcp_endpoint local;
         boost::asio::io_service & service;
-        mu_coin::client & client;
+        rai::client & client;
         bool on;
     };
     class bootstrap_connection : public std::enable_shared_from_this <bootstrap_connection>
     {
     public:
-        bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <mu_coin::client>);
+        bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <rai::client>);
         ~bootstrap_connection ();
         void receive ();
         void receive_type_action (boost::system::error_code const &, size_t);
         void receive_bulk_req_action (boost::system::error_code const &, size_t);
 		void receive_frontier_req_action (boost::system::error_code const &, size_t);
-		void add_request (std::unique_ptr <mu_coin::message>);
+		void add_request (std::unique_ptr <rai::message>);
 		void finish_request ();
 		void run_next ();
         std::array <uint8_t, 128> receive_buffer;
         std::shared_ptr <boost::asio::ip::tcp::socket> socket;
-        std::shared_ptr <mu_coin::client> client;
+        std::shared_ptr <rai::client> client;
         std::mutex mutex;
-        std::queue <std::unique_ptr <mu_coin::message>> requests;
+        std::queue <std::unique_ptr <rai::message>> requests;
     };
     class bulk_req_response : public std::enable_shared_from_this <bulk_req_response>
     {
     public:
-        bulk_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &, std::unique_ptr <mu_coin::bulk_req>);
+        bulk_req_response (std::shared_ptr <rai::bootstrap_connection> const &, std::unique_ptr <rai::bulk_req>);
         void set_current_end ();
-        std::unique_ptr <mu_coin::block> get_next ();
+        std::unique_ptr <rai::block> get_next ();
         void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
         void send_finished ();
         void no_block_sent (boost::system::error_code const &, size_t);
-        std::shared_ptr <mu_coin::bootstrap_connection> connection;
-        std::unique_ptr <mu_coin::bulk_req> request;
+        std::shared_ptr <rai::bootstrap_connection> connection;
+        std::unique_ptr <rai::bulk_req> request;
         std::vector <uint8_t> send_buffer;
-        mu_coin::block_hash current;
+        rai::block_hash current;
     };
     class frontier_req_response : public std::enable_shared_from_this <frontier_req_response>
     {
     public:
-        frontier_req_response (std::shared_ptr <mu_coin::bootstrap_connection> const &, std::unique_ptr <mu_coin::frontier_req>);
+        frontier_req_response (std::shared_ptr <rai::bootstrap_connection> const &, std::unique_ptr <rai::frontier_req>);
         void skip_old ();
 		void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
         void send_finished ();
         void no_block_sent (boost::system::error_code const &, size_t);
-        std::pair <mu_coin::uint256_union, mu_coin::uint256_union> get_next ();
+        std::pair <rai::uint256_union, rai::uint256_union> get_next ();
 		account_iterator iterator;
-        std::shared_ptr <mu_coin::bootstrap_connection> connection;
-        std::unique_ptr <mu_coin::frontier_req> request;
+        std::shared_ptr <rai::bootstrap_connection> connection;
+        std::unique_ptr <rai::frontier_req> request;
         std::vector <uint8_t> send_buffer;
         size_t count;
     };
     class rpc
     {
     public:
-		rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, mu_coin::client &, std::unordered_set <mu_coin::uint256_union> const &);
+		rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, rai::client &, std::unordered_set <rai::uint256_union> const &);
         void start ();
         void stop ();
-        boost::network::http::server <mu_coin::rpc> server;
-        void operator () (boost::network::http::server <mu_coin::rpc>::request const &, boost::network::http::server <mu_coin::rpc>::response &);
+        boost::network::http::server <rai::rpc> server;
+        void operator () (boost::network::http::server <rai::rpc>::request const &, boost::network::http::server <rai::rpc>::response &);
         void log (const char *) {}
-        mu_coin::client & client;
+        rai::client & client;
         bool on;
-		std::unordered_set <mu_coin::uint256_union> api_keys;
+		std::unordered_set <rai::uint256_union> api_keys;
     };
     class peer_container
     {
     public:
-		peer_container (mu_coin::endpoint const &);
-        bool known_peer (mu_coin::endpoint const &);
-        void incoming_from_peer (mu_coin::endpoint const &);
-		bool contacting_peer (mu_coin::endpoint const &);
-		void random_fill (std::array <mu_coin::endpoint, 24> &);
+		peer_container (rai::endpoint const &);
+        bool known_peer (rai::endpoint const &);
+        void incoming_from_peer (rai::endpoint const &);
+		bool contacting_peer (rai::endpoint const &);
+		void random_fill (std::array <rai::endpoint, 24> &);
         std::vector <peer_information> list ();
         void refresh_action ();
         void queue_next_refresh ();
-        std::vector <mu_coin::peer_information> purge_list (std::chrono::system_clock::time_point const &);
+        std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
         size_t size ();
         bool empty ();
         std::mutex mutex;
-		mu_coin::endpoint self;
+		rai::endpoint self;
         boost::multi_index_container
         <peer_information,
             boost::multi_index::indexed_by
             <
-                boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, mu_coin::endpoint, &peer_information::endpoint>>,
+                boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, rai::endpoint, &peer_information::endpoint>>,
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
                 boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
             >
         > peers;
     };
-    extern mu_coin::keypair test_genesis_key;
-    extern mu_coin::address genesis_address;
+    extern rai::keypair test_genesis_key;
+    extern rai::address genesis_address;
     class genesis
     {
     public:
         explicit genesis ();
-        void initialize (mu_coin::block_store &) const;
-        mu_coin::block_hash hash () const;
-        mu_coin::send_block send1;
-        mu_coin::send_block send2;
-        mu_coin::open_block open;
+        void initialize (rai::block_store &) const;
+        rai::block_hash hash () const;
+        rai::send_block send1;
+        rai::send_block send2;
+        rai::open_block open;
     };
     class log
     {
@@ -1006,50 +1006,50 @@ namespace mu_coin {
         void dump_cerr ();
         boost::circular_buffer <std::pair <std::chrono::system_clock::time_point, std::string>> items;
     };
-    class client : public std::enable_shared_from_this <mu_coin::client>
+    class client : public std::enable_shared_from_this <rai::client>
     {
     public:
-        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, mu_coin::processor_service &, mu_coin::address const &);
-        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, mu_coin::processor_service &, mu_coin::address const &);
+        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::address const &);
+        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::address const &);
         ~client ();
-        bool send (mu_coin::public_key const &, mu_coin::uint256_t const &);
-        mu_coin::uint256_t balance ();
+        bool send (rai::public_key const &, rai::uint256_t const &);
+        rai::uint256_t balance ();
         void start ();
         void stop ();
-        std::shared_ptr <mu_coin::client> shared ();
+        std::shared_ptr <rai::client> shared ();
         bool is_representative ();
-		void representative_vote (mu_coin::votes &, mu_coin::block const &);
-        uint64_t scale_down (mu_coin::uint256_t const &);
-        mu_coin::uint256_t scale_up (uint64_t);
-        mu_coin::log log;
-        mu_coin::address representative;
-        mu_coin::block_store store;
-        mu_coin::gap_cache gap_cache;
-        mu_coin::ledger ledger;
-        mu_coin::conflicts conflicts;
-        mu_coin::wallet wallet;
-        mu_coin::network network;
-        mu_coin::bootstrap_receiver bootstrap;
-        mu_coin::processor processor;
-        mu_coin::transactions transactions;
-        mu_coin::peer_container peers;
-        mu_coin::processor_service & service;
-        mu_coin::uint256_t scale;
+		void representative_vote (rai::votes &, rai::block const &);
+        uint64_t scale_down (rai::uint256_t const &);
+        rai::uint256_t scale_up (uint64_t);
+        rai::log log;
+        rai::address representative;
+        rai::block_store store;
+        rai::gap_cache gap_cache;
+        rai::ledger ledger;
+        rai::conflicts conflicts;
+        rai::wallet wallet;
+        rai::network network;
+        rai::bootstrap_receiver bootstrap;
+        rai::processor processor;
+        rai::transactions transactions;
+        rai::peer_container peers;
+        rai::processor_service & service;
+        rai::uint256_t scale;
     };
     class system
     {
     public:
         system (uint16_t, size_t);
         ~system ();
-        void generate_activity (mu_coin::client &);
-        void generate_mass_activity (uint32_t, mu_coin::client &);
+        void generate_activity (rai::client &);
+        void generate_mass_activity (uint32_t, rai::client &);
         void generate_usage_traffic (uint32_t, uint32_t, size_t);
         void generate_usage_traffic (uint32_t, uint32_t);
-        mu_coin::uint256_t get_random_amount (mu_coin::client &);
-        void generate_send_new (mu_coin::client &);
-        void generate_send_existing (mu_coin::client &);
+        rai::uint256_t get_random_amount (rai::client &);
+        void generate_send_new (rai::client &);
+        void generate_send_existing (rai::client &);
         boost::shared_ptr <boost::asio::io_service> service;
-        mu_coin::processor_service processor;
-        std::vector <std::shared_ptr <mu_coin::client>> clients;
+        rai::processor_service processor;
+        std::vector <std::shared_ptr <rai::client>> clients;
     };
 }

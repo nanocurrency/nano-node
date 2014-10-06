@@ -1,7 +1,7 @@
 #include <mu_coin/mu_coin.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-namespace mu_coin_daemon
+namespace rai_daemon
 {
     class daemon
     {

@@ -6,18 +6,18 @@
 
 TEST (client, construction)
 {
-    mu_coin::system system (24000, 1);
+    rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    mu_coin_qt::client client (application, *system.clients [0]);
+    rai_qt::client client (application, *system.clients [0]);
 }
 
 TEST (client, main)
 {
-    mu_coin::system system (24000, 1);
+    rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    mu_coin_qt::client client (application, *system.clients [0]);
+    rai_qt::client client (application, *system.clients [0]);
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.send_coins, Qt::LeftButton);
     ASSERT_EQ (client.send_coins_window, client.main_stack->currentWidget ());
@@ -51,10 +51,10 @@ TEST (client, main)
 
 TEST (client, password_change)
 {
-    mu_coin::system system (24000, 1);
+    rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    mu_coin_qt::client client (application, *system.clients [0]);
+    rai_qt::client client (application, *system.clients [0]);
     QTest::mouseClick (client.settings, Qt::LeftButton);
     QTest::mouseClick (client.settings_change_password_button, Qt::LeftButton);
     ASSERT_NE (client.client_m.wallet.hash_password ("1"), client.client_m.wallet.password);
@@ -68,10 +68,10 @@ TEST (client, password_change)
 
 TEST (client, password_nochange)
 {
-    mu_coin::system system (24000, 1);
+    rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    mu_coin_qt::client client (application, *system.clients [0]);
+    rai_qt::client client (application, *system.clients [0]);
     QTest::mouseClick (client.settings, Qt::LeftButton);
     QTest::mouseClick (client.settings_change_password_button, Qt::LeftButton);
     ASSERT_EQ (client.client_m.wallet.hash_password (""), client.client_m.wallet.password);
@@ -85,10 +85,10 @@ TEST (client, password_nochange)
 
 TEST (client, enter_password)
 {
-    mu_coin::system system (24000, 1);
+    rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    mu_coin_qt::client client (application, *system.clients [0]);
+    rai_qt::client client (application, *system.clients [0]);
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.valid));
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.password));
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.unlock));
@@ -109,15 +109,15 @@ TEST (client, enter_password)
 
 TEST (client, send)
 {
-    mu_coin::system system (24000, 2);
-    system.clients [0]->wallet.insert (mu_coin::test_genesis_key.prv);
-    mu_coin::keypair key1;
+    rai::system system (24000, 2);
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    rai::keypair key1;
     std::string account;
     key1.pub.encode_base58check (account);
     system.clients [1]->wallet.insert (key1.prv);
     int argc (0);
     QApplication application (argc, nullptr);
-    mu_coin_qt::client client (application, *system.clients [0]);
+    rai_qt::client client (application, *system.clients [0]);
     QTest::mouseClick (client.send_coins, Qt::LeftButton);
     QTest::keyClicks (client.send_address, account.c_str ());
     QTest::keyClicks (client.send_count, "2");
