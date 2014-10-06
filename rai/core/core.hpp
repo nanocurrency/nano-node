@@ -63,10 +63,11 @@ namespace rai {
     union uint256_union
     {
         uint256_union () = default;
+        uint256_union (std::string const &);
         uint256_union (uint64_t);
         uint256_union (rai::uint256_t const &);
-        uint256_union (std::string const &);
         uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
+        void digest_password (std::string const &);
         uint256_union prv (uint256_union const &, uint128_union const &) const;
         uint256_union & operator = (leveldb::Slice const &);
         uint256_union & operator ^= (rai::uint256_union const &);
@@ -987,6 +988,8 @@ namespace rai {
         > peers;
     };
     extern rai::keypair test_genesis_key;
+    extern rai::address rai_test_address;
+    extern rai::address rai_live_address;
     extern rai::address genesis_address;
     class genesis
     {
