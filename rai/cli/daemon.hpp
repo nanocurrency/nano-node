@@ -1,4 +1,4 @@
-#include <rai/core/mu_coin.hpp>
+#include <rai/core/core.hpp>
 #include <boost/property_tree/ptree.hpp>
 
 namespace rai_daemon

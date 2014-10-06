@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/core/mu_coin.hpp>
+#include <rai/core/core.hpp>
 
 #include <boost/thread.hpp>
 
@@ -68,21 +68,21 @@ namespace rai_qt {
         
         QWidget * entry_window;
         QVBoxLayout * entry_window_layout;
-        QPushButton * send_coins;
+        QPushButton * send_blocks;
         QPushButton * show_wallet;
         QPushButton * settings;
         QPushButton * show_ledger;
         QPushButton * show_peers;
         QPushButton * show_log;
         
-        QWidget * send_coins_window;
-        QVBoxLayout * send_coins_layout;
+        QWidget * send_blocks_window;
+        QVBoxLayout * send_blocks_layout;
         QLabel * send_address_label;
         QLineEdit * send_address;
         QLabel * send_count_label;
         QLineEdit * send_count;
-        QPushButton * send_coins_send;
-        QPushButton * send_coins_back;
+        QPushButton * send_blocks_send;
+        QPushButton * send_blocks_back;
         
         QWidget * wallet_window;
         QVBoxLayout * wallet_layout;

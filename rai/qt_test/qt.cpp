@@ -19,9 +19,9 @@ TEST (client, main)
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.send_coins, Qt::LeftButton);
-    ASSERT_EQ (client.send_coins_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.send_coins_back, Qt::LeftButton);
+    QTest::mouseClick (client.send_blocks, Qt::LeftButton);
+    ASSERT_EQ (client.send_blocks_window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.send_blocks_back, Qt::LeftButton);
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.show_wallet, Qt::LeftButton);
     ASSERT_EQ (client.wallet_window, client.main_stack->currentWidget ());
@@ -118,17 +118,17 @@ TEST (client, send)
     int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
-    QTest::mouseClick (client.send_coins, Qt::LeftButton);
+    QTest::mouseClick (client.send_blocks, Qt::LeftButton);
     QTest::keyClicks (client.send_address, account.c_str ());
     QTest::keyClicks (client.send_count, "2");
-    QTest::mouseClick (client.send_coins_send, Qt::LeftButton);
+    QTest::mouseClick (client.send_blocks_send, Qt::LeftButton);
     while (client.client_m.ledger.account_balance (key1.pub).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
     }
 	ASSERT_EQ (2 * client.client_m.scale, client.client_m.ledger.account_balance (key1.pub));
-	QTest::mouseClick (client.send_coins_back, Qt::LeftButton);
+	QTest::mouseClick (client.send_blocks_back, Qt::LeftButton);
 	QTest::mouseClick (client.show_ledger, Qt::LeftButton);
 	QTest::mouseClick (client.ledger_refresh, Qt::LeftButton);
 	ASSERT_EQ (2, client.ledger_model->rowCount ());

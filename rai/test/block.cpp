@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <rai/core/mu_coin.hpp>
+#include <rai/core/core.hpp>
 
 TEST (ed25519, signing)
 {

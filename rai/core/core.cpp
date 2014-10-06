@@ -1,4 +1,4 @@
-#include <rai/core/mu_coin.hpp>
+#include <rai/core/core.hpp>
 
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
@@ -1587,10 +1587,10 @@ bool rai::key_iterator::operator != (rai::key_iterator const & other_a) const
     return !(*this == other_a);
 }
 
-bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint256_t const & coins, std::vector <std::unique_ptr <rai::send_block>> & blocks)
+bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint256_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
 {
     bool result (false);
-    rai::uint256_t remaining (coins);
+    rai::uint256_t remaining (amount_a);
     for (auto i (begin ()), j (end ()); i != j && !result && !remaining.is_zero (); ++i)
     {
         auto account (i->first);
@@ -2500,9 +2500,9 @@ void balance_visitor::compute (rai::block_hash const & block_hash)
     block->visit (*this);
 }
 
-bool rai::client::send (rai::public_key const & address, rai::uint256_t const & coins)
+bool rai::client::send (rai::public_key const & address, rai::uint256_t const & amount_a)
 {
-    return transactions.send (address, coins);
+    return transactions.send (address, amount_a);
 }
 
 rai::system::system (uint16_t port_a, size_t count_a) :
@@ -4847,11 +4847,11 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
     return result;
 }
 
-bool rai::transactions::send (rai::address const & address_a, rai::uint256_t const & coins_a)
+bool rai::transactions::send (rai::address const & address_a, rai::uint256_t const & amount_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::send_block>> blocks;
-    auto result (wallet.generate_send (ledger, address_a, coins_a, blocks));
+    auto result (wallet.generate_send (ledger, address_a, amount_a, blocks));
     if (!result)
     {
         for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)

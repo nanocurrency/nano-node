@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.8.11)
-project (mu_coin)
+project (rai)
 
 if (WIN32)
     set (PLATFORM_DEFINES "-D_WIN32_WINNT=0x0501 -DWINVER=0x0501")
@@ -28,8 +28,8 @@ find_package (LevelDB REQUIRED)
 include_directories (${LevelDB_INCLUDE_PATH})
 
 add_library (core
-	rai/core/mu_coin.hpp
-	rai/core/mu_coin.cpp
+	rai/core/core.hpp
+	rai/core/core.cpp
     ed25519-donna/ed25519-hash-custom.h
     ed25519-donna/ed25519-randombytes-custom.h
     ed25519-donna/ed25519.h

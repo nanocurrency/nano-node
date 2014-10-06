@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <rai/core/mu_coin.hpp>
+#include <rai/core/core.hpp>
 
 TEST (wallet, no_key)
 {

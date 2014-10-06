@@ -25,20 +25,20 @@ client_layout (new QVBoxLayout),
 balance_label (new QLabel),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
-send_coins (new QPushButton ("Send")),
+send_blocks (new QPushButton ("Send")),
 show_wallet (new QPushButton ("Wallet")),
 settings (new QPushButton ("Settings")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
 show_log (new QPushButton ("Log")),
-send_coins_window (new QWidget),
-send_coins_layout (new QVBoxLayout),
+send_blocks_window (new QWidget),
+send_blocks_layout (new QVBoxLayout),
 send_address_label (new QLabel ("Address:")),
 send_address (new QLineEdit),
 send_count_label (new QLabel ("Coins:")),
 send_count (new QLineEdit),
-send_coins_send (new QPushButton ("Send")),
-send_coins_back (new QPushButton ("Back")),
+send_blocks_send (new QPushButton ("Send")),
+send_blocks_back (new QPushButton ("Back")),
 wallet_window (new QWidget),
 wallet_layout (new QVBoxLayout),
 wallet_model (new QStandardItemModel),
@@ -67,14 +67,14 @@ peers_view (new QListView),
 peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back"))
 {
-    send_coins_layout->addWidget (send_address_label);
-    send_coins_layout->addWidget (send_address);
-    send_coins_layout->addWidget (send_count_label);
-    send_coins_layout->addWidget (send_count);
-    send_coins_layout->addWidget (send_coins_send);
-    send_coins_layout->addWidget (send_coins_back);
-    send_coins_layout->setContentsMargins (0, 0, 0, 0);
-    send_coins_window->setLayout (send_coins_layout);
+    send_blocks_layout->addWidget (send_address_label);
+    send_blocks_layout->addWidget (send_address);
+    send_blocks_layout->addWidget (send_count_label);
+    send_blocks_layout->addWidget (send_count);
+    send_blocks_layout->addWidget (send_blocks_send);
+    send_blocks_layout->addWidget (send_blocks_back);
+    send_blocks_layout->setContentsMargins (0, 0, 0, 0);
+    send_blocks_window->setLayout (send_blocks_layout);
 	
 	wallet_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
 	wallet_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
@@ -120,7 +120,7 @@ peers_back (new QPushButton ("Back"))
     peers_layout->setContentsMargins (0, 0, 0, 0);
     peers_window->setLayout (peers_layout);
     
-    entry_window_layout->addWidget (send_coins);
+    entry_window_layout->addWidget (send_blocks);
     entry_window_layout->addWidget (show_wallet);
     entry_window_layout->addWidget (settings);
     entry_window_layout->addWidget (show_ledger);
@@ -269,7 +269,7 @@ peers_back (new QPushButton ("Back"))
     {
         pop_main_stack ();
     });
-    QObject::connect (send_coins_send, &QPushButton::released, [this] ()
+    QObject::connect (send_blocks_send, &QPushButton::released, [this] ()
     {
         QString coins_text (send_count->text ());
         std::string coins_text_narrow (coins_text.toLocal8Bit ());
@@ -326,13 +326,13 @@ peers_back (new QPushButton ("Back"))
             send_count->setPalette (palette);
         }
     });
-    QObject::connect (send_coins_back, &QPushButton::released, [this] ()
+    QObject::connect (send_blocks_back, &QPushButton::released, [this] ()
     {
         pop_main_stack ();
     });
-    QObject::connect (send_coins, &QPushButton::released, [this] ()
+    QObject::connect (send_blocks, &QPushButton::released, [this] ()
     {
-        push_main_stack (send_coins_window);
+        push_main_stack (send_blocks_window);
     });
     QObject::connect (settings_enter_password_button, &QPushButton::released, [this] ()
     {
