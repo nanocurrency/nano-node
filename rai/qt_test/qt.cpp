@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <mu_coin_qt/qt.hpp>
+#include <rai/qt/qt.hpp>
 #include <thread>
 #include <QTest>
 

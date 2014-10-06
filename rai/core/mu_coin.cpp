@@ -1,4 +1,4 @@
-#include <mu_coin/mu_coin.hpp>
+#include <rai/core/mu_coin.hpp>
 
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>

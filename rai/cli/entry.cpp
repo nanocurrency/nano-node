@@ -1,5 +1,5 @@
-#include <mu_coin/mu_coin.hpp>
-#include <mu_coin_cli/daemon.hpp>
+#include <rai/core/mu_coin.hpp>
+#include <rai/cli/daemon.hpp>
 
 #include <boost/program_options.hpp>
 

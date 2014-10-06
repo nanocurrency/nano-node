@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <mu_coin/mu_coin.hpp>
+#include <rai/core/mu_coin.hpp>
 
 TEST (block_store, construction)
 {

@@ -27,45 +27,45 @@ include_directories (${CPPNETLIB_INCLUDE_DIRS})
 find_package (LevelDB REQUIRED)
 include_directories (${LevelDB_INCLUDE_PATH})
 
-add_library (mu_coin
-	mu_coin/mu_coin.hpp
-	mu_coin/mu_coin.cpp
+add_library (core
+	rai/core/mu_coin.hpp
+	rai/core/mu_coin.cpp
     ed25519-donna/ed25519-hash-custom.h
     ed25519-donna/ed25519-randombytes-custom.h
     ed25519-donna/ed25519.h
     ed25519-donna/ed25519.cpp
     )
 
-add_executable (mu_coin_test
-    mu_coin_test/client.cpp
-	mu_coin_test/entry.cpp
-	mu_coin_test/ledger.cpp
-	mu_coin_test/block.cpp
-    mu_coin_test/db_test.cpp
-    mu_coin_test/test_network.cpp
-    mu_coin_test/wallet_test.cpp
-    mu_coin_test/daemon.cpp
+add_executable (test
+    rai/test/client.cpp
+	rai/test/entry.cpp
+	rai/test/ledger.cpp
+	rai/test/block.cpp
+    rai/test/db_test.cpp
+    rai/test/test_network.cpp
+    rai/test/wallet_test.cpp
+    rai/test/daemon.cpp
     )
     
-add_executable (mu_coin_qt_test
-    mu_coin_qt_test/qt.cpp)
+add_executable (qt_test
+    rai/qt_test/qt.cpp)
     
-add_executable (mu_coin_cli
-    mu_coin_cli/daemon.cpp
-    mu_coin_cli/daemon.hpp
-    mu_coin_cli/entry.cpp)
+add_executable (cli
+    rai/cli/daemon.cpp
+    rai/cli/daemon.hpp
+    rai/cli/entry.cpp)
     
-add_library (mu_coin_qt
-    mu_coin_qt/qt.cpp
-    mu_coin_qt/qt.hpp)
+add_library (qt
+    rai/qt/qt.cpp
+    rai/qt/qt.hpp)
     
-add_executable (mu_coin_qt_client
-    mu_coin_qt_client/entry.cpp)
+add_executable (qt_client
+    rai/qt_client/entry.cpp)
     
-add_executable (mu_coin_qt_system
-    mu_coin_qt_system/entry.cpp)
+add_executable (qt_system
+    rai/qt_system/entry.cpp)
 
-set_target_properties (mu_coin mu_coin_test mu_coin_qt_test mu_coin_cli mu_coin_qt mu_coin_qt_client mu_coin_qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 -Werror=switch ${PLATFORM_DEFINES} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (core test qt_test cli qt qt_client qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 -Werror=switch ${PLATFORM_DEFINES} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 
 if (WIN32)
     set (PLATFORM_LIBS ws2_32 mswsock)
@@ -73,12 +73,12 @@ else (WIN32)
     set (PLATFORM_LIBS)
 endif (WIN32)
 
-target_link_libraries (mu_coin_test mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+target_link_libraries (test core ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_cli mu_coin ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+target_link_libraries (cli core ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_qt_test mu_coin mu_coin_qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+target_link_libraries (qt_test core qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_qt_client mu_coin mu_coin_qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+target_link_libraries (qt_client core qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
-target_link_libraries (mu_coin_qt_system mu_coin mu_coin_qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+target_link_libraries (qt_system core qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})

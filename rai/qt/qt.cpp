@@ -1,4 +1,4 @@
-#include <mu_coin_qt/qt.hpp>
+#include <rai/qt/qt.hpp>
 
 #include <cryptopp/sha3.h>
 
