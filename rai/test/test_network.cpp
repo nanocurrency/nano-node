@@ -3,6 +3,7 @@
 #include <rai/core/core.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/asio/ssl.hpp>
 
 TEST (network, tcp_connection)
 {
@@ -1144,4 +1145,21 @@ TEST (client, scaling)
     auto up2 (system.clients [0]->scale_up (down - 1));
     ASSERT_LT (up2, up1);
     ASSERT_EQ (up1 - up2, system.clients [0]->scale);
+}
+
+TEST (ssl, connection)
+{
+    boost::asio::io_service service;
+    boost::asio::ssl::context server_context (service, boost::asio::ssl::context::tlsv1_server);
+    boost::asio::ssl::stream <boost::asio::ip::tcp::socket> server_socket (service, server_context);
+    boost::asio::ip::tcp::acceptor acceptor (service, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v4 (), 24000));
+    acceptor.async_accept (server_socket.lowest_layer (), [&socket] (boost::system::error_code const & ec)
+    {
+        ASSERT_FALSE (ec);
+        socket.async_handshake (boost::asio::ssl::stream_base::server, [] (boost::system::error_code const & ec)
+        {
+            ASSERT_FALSE (ec);
+        });
+    });
+    boost::asio::ssl::stream <boost::asio::ip::tcp::socket> client_socket (service, client_context);
 }
