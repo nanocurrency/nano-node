@@ -4,6 +4,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/asio/ssl.hpp>
+#include <openssl/rsa.h>
 
 TEST (network, tcp_connection)
 {
@@ -1149,17 +1150,60 @@ TEST (client, scaling)
 
 TEST (ssl, connection)
 {
+	BIGNUM e;
+	BN_init (&e);
+	BN_set_word (&e, 65537);
+	auto rsa (RSA_new ());
+	ASSERT_NE (nullptr, rsa);
+	ASSERT_NE (0, RSA_generate_key_ex (rsa, 512, &e, nullptr));
     boost::asio::io_service service;
     boost::asio::ssl::context server_context (service, boost::asio::ssl::context::tlsv1_server);
-    boost::asio::ssl::stream <boost::asio::ip::tcp::socket> server_socket (service, server_context);
-    boost::asio::ip::tcp::acceptor acceptor (service, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v4 (), 24000));
-    acceptor.async_accept (server_socket.lowest_layer (), [&socket] (boost::system::error_code const & ec)
+	server_context.set_options (boost::asio::ssl::context::no_sslv2 | boost::asio::ssl::context::no_sslv3);
+	boost::asio::ssl::stream <boost::asio::ip::tcp::socket> server_socket (service, server_context);
+	boost::asio::ip::tcp::acceptor acceptor (service, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), 24000));
+	auto server_connect (false);
+	auto client_connect (false);
+    acceptor.async_accept (server_socket.lowest_layer (), [&server_socket, &server_connect] (boost::system::error_code const & ec)
     {
+		if (ec)
+		{
+			std::cerr << ec.message () << std::endl;
+		}
         ASSERT_FALSE (ec);
-        socket.async_handshake (boost::asio::ssl::stream_base::server, [] (boost::system::error_code const & ec)
+        server_socket.async_handshake (boost::asio::ssl::stream_base::server, [&server_connect] (boost::system::error_code const & ec)
         {
+			if (ec)
+			{
+				std::cerr << ec.message () << std::endl;
+			}
             ASSERT_FALSE (ec);
+			server_connect = true;
         });
-    });
+	});
+	boost::asio::ssl::context client_context (service, boost::asio::ssl::context::tlsv1_client);
+	client_context.set_options (boost::asio::ssl::context::no_sslv2 | boost::asio::ssl::context::no_sslv3);
     boost::asio::ssl::stream <boost::asio::ip::tcp::socket> client_socket (service, client_context);
+	client_socket.lowest_layer ().async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000), [&client_socket, &client_connect] (boost::system::error_code const & ec)
+	{
+		if (ec)
+		{
+			std::cerr << ec.message () << std::endl;
+		}
+		ASSERT_FALSE (ec);
+		client_socket.async_handshake (boost::asio::ssl::stream_base::client, [&client_connect] (boost::system::error_code const & ec)
+		{
+			if (ec)
+			{
+				std::cerr << ec.message () << std::endl;
+			}
+			ASSERT_FALSE (ec);
+			client_connect = true;
+		});
+	});
+	while (!client_connect || !server_connect)
+	{
+		auto amount (0);
+		amount += service.run_one ();
+		ASSERT_NE (0, amount);
+	}
 }
