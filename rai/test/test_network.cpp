@@ -5,6 +5,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <botan/tls_client.h>
 #include <botan/tls_server.h>
+#include <botan/auto_rng.h>
 
 TEST (network, tcp_connection)
 {
@@ -1154,5 +1155,24 @@ TEST (ssl, connection)
 	boost::asio::ip::tcp::socket server_socket (service);
 	boost::asio::ip::tcp::acceptor acceptor (service, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), 24000));
 	boost::asio::ip::tcp::socket client_socket (service);
-	
+	Botan::TLS::Session_Manager_Noop sessions;
+	Botan::Credentials_Manager manager;
+	Botan::TLS::Policy policy;
+	Botan::AutoSeeded_RNG rng;
+	Botan::TLS::Client client ([] (uint8_t const *, size_t) {},
+							   [] (uint8_t const *, size_t) {},
+							   [] (Botan::TLS::Alert, uint8_t const *, size_t) {},
+							   [] (Botan::TLS::Session const &) {return false;},
+							   sessions,
+							   manager,
+							   policy,
+							   rng);
+	Botan::TLS::Server server ([] (uint8_t const *, size_t) {},
+							   [] (uint8_t const *, size_t) {},
+							   [] (Botan::TLS::Alert, uint8_t const *, size_t) {},
+							   [] (Botan::TLS::Session const &) {return false;},
+								sessions,
+								manager,
+								policy,
+							   rng);
 }
