@@ -1153,26 +1153,87 @@ TEST (ssl, connection)
 {
     boost::asio::io_service service;
 	boost::asio::ip::tcp::socket server_socket (service);
+	auto accepted (false);
 	boost::asio::ip::tcp::acceptor acceptor (service, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), 24000));
-	boost::asio::ip::tcp::socket client_socket (service);
+	acceptor.async_accept (server_socket,
+	[&accepted]
+	(boost::system::error_code const &)
+	{
+		accepted = true;
+	});
 	Botan::TLS::Session_Manager_Noop sessions;
 	Botan::Credentials_Manager manager;
 	Botan::TLS::Policy policy;
 	Botan::AutoSeeded_RNG rng;
-	Botan::TLS::Client client ([] (uint8_t const *, size_t) {},
-							   [] (uint8_t const *, size_t) {},
-							   [] (Botan::TLS::Alert, uint8_t const *, size_t) {},
-							   [] (Botan::TLS::Session const &) {return false;},
-							   sessions,
-							   manager,
-							   policy,
-							   rng);
-	Botan::TLS::Server server ([] (uint8_t const *, size_t) {},
-							   [] (uint8_t const *, size_t) {},
-							   [] (Botan::TLS::Alert, uint8_t const *, size_t) {},
-							   [] (Botan::TLS::Session const &) {return false;},
-								sessions,
-								manager,
-								policy,
-							   rng);
+	std::vector <uint8_t> server_output;
+	std::vector <uint8_t> server_alert;
+	auto server_connected (false);
+	Botan::TLS::Server server (
+	[&server_socket]
+	(uint8_t const * data_a, size_t size_a)
+	{
+		server_socket.send (boost::asio::buffer (data_a, size_a));
+	},
+	[&server_output]
+	(uint8_t const * data_a, size_t size_a)
+	{
+		server_output.insert (server_output.end (), data_a, data_a + size_a);
+	},
+	[&server_alert]
+	(Botan::TLS::Alert, uint8_t const * data_a, size_t size_a)
+	{
+		server_alert.insert (server_alert.end (), data_a, data_a + size_a);
+	},
+	[&server_connected]
+	(Botan::TLS::Session const & session)
+	{
+		server_connected = true;
+		return false;
+	},
+	sessions,
+	manager,
+	policy,
+	rng);
+	boost::asio::ip::tcp::socket client_socket (service);
+	std::vector <uint8_t> client_output;
+	std::vector <uint8_t> client_alert;
+	auto client_connected (false);
+	Botan::TLS::Client client (
+	[&client_socket]
+	(uint8_t const * data_a, size_t size_a)
+	{
+		client_socket.send (boost::asio::buffer (data_a, size_a));
+	},
+	[&client_output]
+	(uint8_t const * data_a, size_t size_a)
+	{
+		client_output.insert (client_output.end (), data_a, data_a + size_a);
+	},
+	[&client_alert]
+	(Botan::TLS::Alert, uint8_t const * data_a, size_t size_a)
+	{
+		client_alert.insert (client_alert.end (), data_a, data_a + size_a);
+	},
+	[&client_connected]
+	(Botan::TLS::Session const & session)
+	{
+		client_connected = true;
+		return false;
+	},
+	sessions,
+	manager,
+	policy,
+	rng);
+	auto raw_connected (false);
+	client_socket.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000),
+	[&raw_connected]
+	(boost::system::error_code const &)
+	{
+		raw_connected = true;
+	});
+	while (!raw_connected || !accepted)
+	{
+		service.poll_one ();
+	}
+	
 }
