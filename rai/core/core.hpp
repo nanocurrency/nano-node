@@ -26,10 +26,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#include <botan/tls_client.h>
-#include <botan/tls_server.h>
-#include <botan/auto_rng.h>
-
 namespace CryptoPP
 {
     class SHA3;
@@ -1058,21 +1054,5 @@ namespace rai {
         boost::shared_ptr <boost::asio::io_service> service;
         rai::processor_service processor;
         std::vector <std::shared_ptr <rai::client>> clients;
-	};
-	class tls_client
-	{
-	public:
-		tls_client (boost::asio::io_service &, Botan::TLS::Session_Manager_Noop &, Botan::Credentials_Manager &, Botan::TLS::Policy &,Botan::AutoSeeded_RNG &, rai::tcp_endpoint const &);
-		void async_write (uint8_t *, size_t);
-		void async_read ();
-		boost::asio::ip::tcp::socket raw_socket;
-		Botan::TLS::Client secure_socket;
-	};
-	class tls_server
-	{
-	public:
-		tls_server (boost::asio::io_service &, Botan::TLS::Session_Manager_Noop &, Botan::Credentials_Manager &, Botan::TLS::Policy &,Botan::AutoSeeded_RNG &, uint16_t);
-		boost::asio::ip::tcp::socket raw_socket;
-		Botan::TLS::Server secure_socket;
-	};
+    };
 }

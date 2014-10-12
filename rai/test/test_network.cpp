@@ -3,9 +3,8 @@
 #include <rai/core/core.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <botan/tls_client.h>
-#include <botan/tls_server.h>
-#include <botan/auto_rng.h>
+#include <boost/asio/ssl.hpp>
+#include <openssl/rsa.h>
 
 TEST (network, tcp_connection)
 {
@@ -1151,89 +1150,81 @@ TEST (client, scaling)
 
 TEST (ssl, connection)
 {
+	/*unsigned long e = RSA_F4;
+	auto rsa (RSA_generate_key (4096, e, nullptr, nullptr));
+	ASSERT_NE (nullptr, rsa);*/
     boost::asio::io_service service;
-	boost::asio::ip::tcp::socket server_socket (service);
-	auto accepted (false);
+    boost::asio::ssl::context server_context (service, boost::asio::ssl::context::sslv23);
+	server_context.set_options (boost::asio::ssl::context::default_workarounds
+								| boost::asio::ssl::context::no_sslv2
+								| boost::asio::ssl::context::single_dh_use);
+	server_context.use_certificate_chain_file ("/Users/colinlemahieu/certs/server.crt");
+	server_context.use_private_key_file ("/Users/colinlemahieu/certs/server.key", boost::asio::ssl::context::pem);
+	server_context.use_tmp_dh_file ("/Users/colinlemahieu/certs/dh512.pem");
+	server_context.set_verify_mode(boost::asio::ssl::context::verify_fail_if_no_peer_cert | boost::asio::ssl::context::verify_peer);
+	server_context.load_verify_file("/Users/colinlemahieu/client_certs/server.crt");
+	//server_context.set_verify_mode (boost::asio::ssl::verify_none);
+	boost::asio::ssl::stream <boost::asio::ip::tcp::socket> server_socket (service, server_context);
+	/*server_socket.set_verify_callback (
+									   []
+									   (bool preverified, boost::asio::ssl::verify_context & ctx)
+	{return true;});*/
 	boost::asio::ip::tcp::acceptor acceptor (service, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), 24000));
-	acceptor.async_accept (server_socket,
-	[&accepted]
-	(boost::system::error_code const &)
-	{
-		accepted = true;
+	auto server_connect (false);
+	auto client_connect (false);
+    acceptor.async_accept (server_socket.lowest_layer (), [&server_socket, &server_connect] (boost::system::error_code const & ec)
+    {
+		if (ec)
+		{
+			std::cerr << ec.message () << std::endl;
+		}
+        ASSERT_FALSE (ec);
+        server_socket.async_handshake (boost::asio::ssl::stream_base::server, [&server_connect] (boost::system::error_code const & ec)
+        {
+			if (ec)
+			{
+				std::cerr << ec.message () << std::endl;
+			}
+            ASSERT_FALSE (ec);
+			server_connect = true;
+        });
 	});
-	Botan::TLS::Session_Manager_Noop sessions;
-	Botan::Credentials_Manager manager;
-	Botan::TLS::Policy policy;
-	Botan::AutoSeeded_RNG rng;
-	std::vector <uint8_t> server_output;
-	std::vector <uint8_t> server_alert;
-	auto server_connected (false);
-	Botan::TLS::Server server (
-	[&server_socket]
-	(uint8_t const * data_a, size_t size_a)
+	boost::asio::ssl::context client_context (service, boost::asio::ssl::context::sslv23);
+	client_context.set_options (boost::asio::ssl::context::default_workarounds
+								| boost::asio::ssl::context::no_sslv2
+								| boost::asio::ssl::context::single_dh_use);
+	client_context.set_verify_mode(boost::asio::ssl::context::verify_peer | boost::asio::ssl::context::verify_fail_if_no_peer_cert);
+	client_context.load_verify_file ("/Users/colinlemahieu/certs/server.crt");
+	client_context.use_certificate_chain_file ("/Users/colinlemahieu/client_certs/server.crt");
+	client_context.use_private_key_file ("/Users/colinlemahieu/client_certs/server.key", boost::asio::ssl::context::pem);
+	client_context.use_tmp_dh_file ("/Users/colinlemahieu/client_certs/dh512.pem");
+	//client_context.set_verify_mode (boost::asio::ssl::verify_none);
+	boost::asio::ssl::stream <boost::asio::ip::tcp::socket> client_socket (service, client_context);
+	/*client_socket.set_verify_callback (
+									   []
+									   (bool preverified, boost::asio::ssl::verify_context & ctx)
+	{return true;});*/
+	client_socket.lowest_layer ().async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000), [&client_socket, &client_connect] (boost::system::error_code const & ec)
 	{
-		server_socket.send (boost::asio::buffer (data_a, size_a));
-	},
-	[&server_output]
-	(uint8_t const * data_a, size_t size_a)
-	{
-		server_output.insert (server_output.end (), data_a, data_a + size_a);
-	},
-	[&server_alert]
-	(Botan::TLS::Alert, uint8_t const * data_a, size_t size_a)
-	{
-		server_alert.insert (server_alert.end (), data_a, data_a + size_a);
-	},
-	[&server_connected]
-	(Botan::TLS::Session const & session)
-	{
-		server_connected = true;
-		return false;
-	},
-	sessions,
-	manager,
-	policy,
-	rng);
-	boost::asio::ip::tcp::socket client_socket (service);
-	std::vector <uint8_t> client_output;
-	std::vector <uint8_t> client_alert;
-	auto client_connected (false);
-	Botan::TLS::Client client (
-	[&client_socket]
-	(uint8_t const * data_a, size_t size_a)
-	{
-		client_socket.send (boost::asio::buffer (data_a, size_a));
-	},
-	[&client_output]
-	(uint8_t const * data_a, size_t size_a)
-	{
-		client_output.insert (client_output.end (), data_a, data_a + size_a);
-	},
-	[&client_alert]
-	(Botan::TLS::Alert, uint8_t const * data_a, size_t size_a)
-	{
-		client_alert.insert (client_alert.end (), data_a, data_a + size_a);
-	},
-	[&client_connected]
-	(Botan::TLS::Session const & session)
-	{
-		client_connected = true;
-		return false;
-	},
-	sessions,
-	manager,
-	policy,
-	rng);
-	auto raw_connected (false);
-	client_socket.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000),
-	[&raw_connected]
-	(boost::system::error_code const &)
-	{
-		raw_connected = true;
+		if (ec)
+		{
+			std::cerr << ec.message () << std::endl;
+		}
+		ASSERT_FALSE (ec);
+		client_socket.async_handshake (boost::asio::ssl::stream_base::client, [&client_connect] (boost::system::error_code const & ec)
+		{
+			if (ec)
+			{
+				std::cerr << ec.message () << std::endl;
+			}
+			ASSERT_FALSE (ec);
+			client_connect = true;
+		});
 	});
-	while (!raw_connected || !accepted)
+	while (!client_connect || !server_connect)
 	{
-		service.poll_one ();
+		auto amount (0);
+		amount += service.run_one ();
+		ASSERT_NE (0, amount);
 	}
-	
 }
