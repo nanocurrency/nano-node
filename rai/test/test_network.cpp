@@ -1154,13 +1154,12 @@ TEST (ssl, connection)
 	auto rsa (RSA_generate_key (4096, e, nullptr, nullptr));
 	ASSERT_NE (nullptr, rsa);*/
     boost::asio::io_service service;
-    boost::asio::ssl::context server_context (service, boost::asio::ssl::context::sslv23);
-	server_context.set_options (boost::asio::ssl::context::default_workarounds
-								| boost::asio::ssl::context::no_sslv2
+	boost::asio::ssl::context server_context (service, boost::asio::ssl::context::tlsv12);
+	server_context.set_options (boost::asio::ssl::context::no_sslv2
+								| boost::asio::ssl::context::no_sslv3
 								| boost::asio::ssl::context::single_dh_use);
 	server_context.use_certificate_chain_file ("/Users/colinlemahieu/certs/server.crt");
 	server_context.use_private_key_file ("/Users/colinlemahieu/certs/server.key", boost::asio::ssl::context::pem);
-	server_context.use_tmp_dh_file ("/Users/colinlemahieu/certs/dh512.pem");
 	server_context.set_verify_mode(boost::asio::ssl::context::verify_fail_if_no_peer_cert | boost::asio::ssl::context::verify_peer);
 	server_context.load_verify_file("/Users/colinlemahieu/client_certs/server.crt");
 	//server_context.set_verify_mode (boost::asio::ssl::verify_none);
@@ -1189,15 +1188,14 @@ TEST (ssl, connection)
 			server_connect = true;
         });
 	});
-	boost::asio::ssl::context client_context (service, boost::asio::ssl::context::sslv23);
-	client_context.set_options (boost::asio::ssl::context::default_workarounds
-								| boost::asio::ssl::context::no_sslv2
+	boost::asio::ssl::context client_context (service, boost::asio::ssl::context::tlsv12);
+	client_context.set_options (boost::asio::ssl::context::no_sslv2
+								| boost::asio::ssl::context::no_sslv3
 								| boost::asio::ssl::context::single_dh_use);
 	client_context.set_verify_mode(boost::asio::ssl::context::verify_peer | boost::asio::ssl::context::verify_fail_if_no_peer_cert);
 	client_context.load_verify_file ("/Users/colinlemahieu/certs/server.crt");
 	client_context.use_certificate_chain_file ("/Users/colinlemahieu/client_certs/server.crt");
 	client_context.use_private_key_file ("/Users/colinlemahieu/client_certs/server.key", boost::asio::ssl::context::pem);
-	client_context.use_tmp_dh_file ("/Users/colinlemahieu/client_certs/dh512.pem");
 	//client_context.set_verify_mode (boost::asio::ssl::verify_none);
 	boost::asio::ssl::stream <boost::asio::ip::tcp::socket> client_socket (service, client_context);
 	/*client_socket.set_verify_callback (
