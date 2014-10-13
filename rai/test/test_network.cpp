@@ -3,8 +3,6 @@
 #include <rai/core/core.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/asio/ssl.hpp>
-#include <openssl/rsa.h>
 
 TEST (network, tcp_connection)
 {
@@ -1146,80 +1144,4 @@ TEST (client, scaling)
     auto up2 (system.clients [0]->scale_up (down - 1));
     ASSERT_LT (up2, up1);
     ASSERT_EQ (up1 - up2, system.clients [0]->scale);
-}
-
-TEST (ssl, connection)
-{
-	unsigned long e = RSA_F4;
-	auto rsa1 (RSA_generate_key (1024, e, nullptr, nullptr));
-	ASSERT_NE (nullptr, rsa1);
-	auto mem (BIO_new (BIO_s_mem ()));
-	std::array <uint8_t, 32> password1;
-	auto result (PEM_write_bio_RSAPrivateKey (mem, rsa1, EVP_aes_256_ecb (), password1.data (), password1.size (), nullptr, nullptr));
-	ASSERT_EQ (0, result);
-	char * data1;
-	auto size1 (BIO_get_mem_data (mem, &data1));
-	ASSERT_NE (0, size1);
-	ASSERT_NE (nullptr, data1);
-	boost::asio::io_service service;
-	boost::asio::ssl::context server_context (service, boost::asio::ssl::context::tlsv12);
-	server_context.set_options (boost::asio::ssl::context::no_sslv2
-								| boost::asio::ssl::context::no_sslv3
-								| boost::asio::ssl::context::single_dh_use);
-	server_context.set_verify_mode (boost::asio::ssl::context::verify_none);
-	server_context.use_certificate_chain_file ("/Users/colinlemahieu/certs/server.crt");
-	server_context.use_private_key (boost::asio::const_buffer (data1, size1), boost::asio::ssl::context::pem);
-	//server_context.use_private_key_file ("/Users/colinlemahieu/certs/server.key", boost::asio::ssl::context::pem);
-	boost::asio::ssl::stream <boost::asio::ip::tcp::socket> server_socket (service, server_context);
-	boost::asio::ip::tcp::acceptor acceptor (service, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), 24000));
-	auto server_connect (false);
-	auto client_connect (false);
-    acceptor.async_accept (server_socket.lowest_layer (), [&server_socket, &server_connect] (boost::system::error_code const & ec)
-    {
-		if (ec)
-		{
-			std::cerr << ec.message () << std::endl;
-		}
-        ASSERT_FALSE (ec);
-        server_socket.async_handshake (boost::asio::ssl::stream_base::server, [&server_connect] (boost::system::error_code const & ec)
-        {
-			if (ec)
-			{
-				std::cerr << ec.message () << std::endl;
-			}
-            ASSERT_FALSE (ec);
-			server_connect = true;
-        });
-	});
-	boost::asio::ssl::context client_context (service, boost::asio::ssl::context::tlsv12);
-	client_context.set_options (boost::asio::ssl::context::no_sslv2
-								| boost::asio::ssl::context::no_sslv3
-								| boost::asio::ssl::context::single_dh_use);
-	client_context.set_verify_mode (boost::asio::ssl::context::verify_none);
-	client_context.use_certificate_chain_file ("/Users/colinlemahieu/client_certs/server.crt");
-	client_context.use_private_key_file ("/Users/colinlemahieu/client_certs/server.key", boost::asio::ssl::context::pem);
-	boost::asio::ssl::stream <boost::asio::ip::tcp::socket> client_socket (service, client_context);
-	client_socket.lowest_layer ().async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000), [&client_socket, &client_connect] (boost::system::error_code const & ec)
-	{
-		if (ec)
-		{
-			std::cerr << ec.message () << std::endl;
-		}
-		ASSERT_FALSE (ec);
-		client_socket.async_handshake (boost::asio::ssl::stream_base::client, [&client_connect] (boost::system::error_code const & ec)
-		{
-			if (ec)
-			{
-				std::cerr << ec.message () << std::endl;
-			}
-			ASSERT_FALSE (ec);
-			client_connect = true;
-		});
-	});
-	while (!client_connect || !server_connect)
-	{
-		auto amount (0);
-		amount += service.run_one ();
-		ASSERT_NE (0, amount);
-	}
 }
