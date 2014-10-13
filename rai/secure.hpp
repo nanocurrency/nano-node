@@ -6,9 +6,25 @@
 
 #include <leveldb/db.h>
 
+#include <ed25519-donna/ed25519.h>
+
+#include <unordered_map>
+
 namespace rai
 {
 	using stream = std::basic_streambuf <uint8_t>;
+	template <typename T>
+	bool read (rai::stream & stream_a, T & value)
+	{
+		auto amount_read (stream_a.sgetn (reinterpret_cast <uint8_t *> (&value), sizeof (value)));
+		return amount_read != sizeof (value);
+	}
+	template <typename T>
+	void write (rai::stream & stream_a, T const & value)
+	{
+		auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
+		assert (amount_written == sizeof (value));
+	}
 	using uint128_t = boost::multiprecision::uint128_t;
 	using uint256_t = boost::multiprecision::uint256_t;
 	using uint512_t = boost::multiprecision::uint512_t;
@@ -80,6 +96,14 @@ namespace rai
 		boost::multiprecision::uint512_t number ();
 	};
 	using signature = uint512_union;
+	class keypair
+	{
+	public:
+		keypair ();
+		keypair (std::string const &);
+		rai::public_key pub;
+		rai::private_key prv;
+	};
 }
 namespace std
 {
@@ -404,5 +428,27 @@ namespace rai
 		void checksum_update (rai::block_hash const &);
 		rai::checksum checksum (rai::address const &, rai::address const &);
 		rai::block_store & store;
+	};
+	class vote
+	{
+	public:
+		rai::uint256_union hash () const;
+		rai::address address;
+		rai::signature signature;
+		uint64_t sequence;
+		std::unique_ptr <rai::block> block;
+	};
+	class votes
+	{
+	public:
+		votes (rai::ledger &, rai::block const &);
+		void vote (rai::vote const &);
+		std::pair <std::unique_ptr <rai::block>, rai::uint256_t> winner ();
+		rai::uint256_t flip_threshold ();
+		rai::ledger & ledger;
+		rai::block_hash const root;
+		std::unique_ptr <rai::block> last_winner;
+		uint64_t sequence;
+		std::unordered_map <rai::address, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
 	};
 }

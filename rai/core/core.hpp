@@ -14,9 +14,6 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/circular_buffer.hpp>
 
-#include <ed25519-donna/ed25519.h>
-
-#include <unordered_map>
 #include <unordered_set>
 #include <memory>
 #include <queue>
@@ -32,18 +29,6 @@ std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_poin
 namespace rai {
     using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
     using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_insert_device <std::vector <uint8_t>>>;
-    template <typename T>
-    bool read (rai::stream & stream_a, T & value)
-    {
-        auto amount_read (stream_a.sgetn (reinterpret_cast <uint8_t *> (&value), sizeof (value)));
-        return amount_read != sizeof (value);
-    }
-    template <typename T>
-    void write (rai::stream & stream_a, T const & value)
-    {
-        auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
-        assert (amount_written == sizeof (value));
-    }
     using endpoint = boost::asio::ip::udp::endpoint;
     using tcp_endpoint = boost::asio::ip::tcp::endpoint;
     bool parse_endpoint (std::string const &, rai::endpoint &);
@@ -100,34 +85,12 @@ namespace boost
 
 namespace rai {
     class client;
-    class vote
-    {
-    public:
-        rai::uint256_union hash () const;
-        rai::address address;
-        rai::signature signature;
-        uint64_t sequence;
-        std::unique_ptr <rai::block> block;
-    };
     class destructable
     {
     public:
         destructable (std::function <void ()>);
         ~destructable ();
         std::function <void ()> operation;
-    };
-    class votes
-    {
-    public:
-		votes (rai::ledger &, rai::block const &);
-		void vote (rai::vote const &);
-        std::pair <std::unique_ptr <rai::block>, rai::uint256_t> winner ();
-        rai::uint256_t flip_threshold ();
-		rai::ledger & ledger;
-        rai::block_hash const root;
-		std::unique_ptr <rai::block> last_winner;
-        uint64_t sequence;
-        std::unordered_map <rai::address, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
     };
 	class election : public std::enable_shared_from_this <rai::election>
 	{
@@ -155,14 +118,6 @@ namespace rai {
         std::unordered_map <rai::block_hash, std::shared_ptr <rai::election>> roots;
 		rai::client & client;
         std::mutex mutex;
-    };
-    class keypair
-    {
-    public:
-        keypair ();
-        keypair (std::string const &);
-        rai::public_key pub;
-        rai::private_key prv;
     };
     enum class message_type : uint8_t
     {
