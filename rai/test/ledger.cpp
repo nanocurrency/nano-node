@@ -836,13 +836,13 @@ TEST (votes, add_unsigned)
     client1.conflicts.start (send1, false);
     auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
     ASSERT_NE (nullptr, votes1);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.address = key1.pub;
     votes1->vote (vote1);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 }
 
 TEST (votes, add_one)
@@ -859,18 +859,18 @@ TEST (votes, add_one)
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
     auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.address = rai::test_genesis_key.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
-    ASSERT_EQ (2, votes1->rep_votes.size ());
-    auto existing1 (votes1->rep_votes.find (rai::test_genesis_key.pub));
-    ASSERT_NE (votes1->rep_votes.end (), existing1);
+    ASSERT_EQ (2, votes1->votes.rep_votes.size ());
+    auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
+    ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
     ASSERT_EQ (send1, *existing1->second.second);
-    auto winner (votes1->winner ());
+    auto winner (votes1->votes.winner ());
     ASSERT_EQ (send1, *winner.first);
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), winner.second);
 }
@@ -907,12 +907,12 @@ TEST (votes, add_two)
     vote2.block = send2.clone ();
     rai::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
     votes1->vote (vote2);
-    ASSERT_EQ (3, votes1->rep_votes.size ());
-    ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (rai::test_genesis_key.pub));
-    ASSERT_EQ (send1, *votes1->rep_votes [rai::test_genesis_key.pub].second);
-    ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (key2.pub));
-    ASSERT_EQ (send2, *votes1->rep_votes [key2.pub].second);
-    auto winner (votes1->winner ());
+    ASSERT_EQ (3, votes1->votes.rep_votes.size ());
+    ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
+    ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
+    ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (key2.pub));
+    ASSERT_EQ (send2, *votes1->votes.rep_votes [key2.pub].second);
+    auto winner (votes1->votes.winner ());
     ASSERT_EQ (send1, *winner.first);
 }
 
@@ -948,10 +948,10 @@ TEST (votes, add_existing)
     vote2.block = send2.clone ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote2.hash (), vote2.signature);
     votes1->vote (vote2);
-    ASSERT_EQ (2, votes1->rep_votes.size ());
-    ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (rai::test_genesis_key.pub));
-    ASSERT_EQ (send2, *votes1->rep_votes [rai::test_genesis_key.pub].second);
-    auto winner (votes1->winner ());
+    ASSERT_EQ (2, votes1->votes.rep_votes.size ());
+    ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
+    ASSERT_EQ (send2, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
+    auto winner (votes1->votes.winner ());
     ASSERT_EQ (send2, *winner.first);
 }
 
@@ -987,10 +987,10 @@ TEST (votes, add_old)
     vote2.block = send2.clone ();
     rai::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
     votes1->vote (vote2);
-    ASSERT_EQ (2, votes1->rep_votes.size ());
-    ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (rai::test_genesis_key.pub));
-    ASSERT_EQ (send1, *votes1->rep_votes [rai::test_genesis_key.pub].second);
-    auto winner (votes1->winner ());
+    ASSERT_EQ (2, votes1->votes.rep_votes.size ());
+    ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
+    ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
+    auto winner (votes1->votes.winner ());
     ASSERT_EQ (send1, *winner.first);
 }
 
@@ -1014,7 +1014,7 @@ TEST (conflicts, start_stop)
     ASSERT_NE (client1.conflicts.roots.end (), existing1);
     auto votes1 (existing1->second);
     ASSERT_NE (nullptr, votes1);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     client1.conflicts.stop (root1);
     ASSERT_EQ (0, client1.conflicts.roots.size ());
 }
@@ -1049,8 +1049,8 @@ TEST (conflicts, add_existing)
     ASSERT_EQ (1, client1.conflicts.roots.size ());
     auto votes1 (client1.conflicts.roots [client1.store.root (send2)]);
     ASSERT_NE (nullptr, votes1);
-    ASSERT_EQ (2, votes1->rep_votes.size ());
-    ASSERT_NE (votes1->rep_votes.end (), votes1->rep_votes.find (key2.pub));
+    ASSERT_EQ (2, votes1->votes.rep_votes.size ());
+    ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (key2.pub));
 }
 
 TEST (conflicts, add_two)
@@ -1124,17 +1124,17 @@ TEST (fork, publish)
         ASSERT_NE (client1.conflicts.roots.end (), conflict1);
         auto votes1 (conflict1->second);
         ASSERT_NE (nullptr, votes1);
-        ASSERT_EQ (1, votes1->rep_votes.size ());
-        while (votes1->rep_votes.size () == 1)
+        ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+        while (votes1->votes.rep_votes.size () == 1)
         {
             system.service->poll_one ();
             system.processor.poll_one ();
         }
-        ASSERT_EQ (2, votes1->rep_votes.size ());
-        auto existing1 (votes1->rep_votes.find (rai::test_genesis_key.pub));
-        ASSERT_NE (votes1->rep_votes.end (), existing1);
+        ASSERT_EQ (2, votes1->votes.rep_votes.size ());
+        auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
+        ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
         ASSERT_EQ (*publish1.block, *existing1->second.second);
-        auto winner (votes1->winner ());
+        auto winner (votes1->votes.winner ());
         ASSERT_EQ (*publish1.block, *winner.first);
         ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), winner.second);
     }
@@ -1177,15 +1177,15 @@ TEST (fork, keep)
     ASSERT_NE (client2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
-    while (votes1->rep_votes.size () == 1)
+    while (votes1->votes.rep_votes.size () == 1)
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();
 	}
-    auto winner (votes1->winner ());
+    auto winner (votes1->votes.winner ());
     ASSERT_EQ (*publish1.block, *winner.first);
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), winner.second);
 	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
@@ -1228,15 +1228,15 @@ TEST (fork, flip)
     ASSERT_NE (client2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
     ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
-    while (votes1->rep_votes.size () == 1)
+    while (votes1->votes.rep_votes.size () == 1)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
     }
-    auto winner (votes1->winner ());
+    auto winner (votes1->votes.winner ());
     ASSERT_EQ (*publish1.block, *winner.first);
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), winner.second);
     ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
@@ -1289,16 +1289,16 @@ TEST (fork, multi_flip)
     ASSERT_NE (client2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
-    ASSERT_EQ (1, votes1->rep_votes.size ());
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
     ASSERT_TRUE (client2.store.block_exists (publish3.block->hash ()));
-    while (votes1->rep_votes.size () == 1)
+    while (votes1->votes.rep_votes.size () == 1)
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();
 	}
-    auto winner (votes1->winner ());
+    auto winner (votes1->votes.winner ());
     ASSERT_EQ (*publish1.block, *winner.first);
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), winner.second);
 	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));

@@ -116,27 +116,35 @@ namespace rai {
         ~destructable ();
         std::function <void ()> operation;
     };
-    class votes : public std::enable_shared_from_this <rai::votes>
+    class votes
     {
     public:
-        votes (std::shared_ptr <rai::client>, rai::block const &);
-        void start ();
-        void vote (rai::vote const &);
-        void start_request (rai::block const &);
-        void announce_vote ();
-        void timeout_action (std::shared_ptr <rai::destructable>);
+		votes (rai::ledger &, rai::block const &);
+		void vote (rai::vote const &);
         std::pair <std::unique_ptr <rai::block>, rai::uint256_t> winner ();
-        rai::uint256_t uncontested_threshold ();
-        rai::uint256_t contested_threshold ();
         rai::uint256_t flip_threshold ();
-        std::shared_ptr <rai::client> client;
+		rai::ledger & ledger;
         rai::block_hash const root;
 		std::unique_ptr <rai::block> last_winner;
         uint64_t sequence;
-        bool confirmed;
-		std::chrono::system_clock::time_point last_vote;
         std::unordered_map <rai::address, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
     };
+	class election : public std::enable_shared_from_this <rai::election>
+	{
+	public:
+		election (std::shared_ptr <rai::client>, rai::block const &);
+        void start ();
+        void vote (rai::vote const &);
+        void announce_vote ();
+        void timeout_action (std::shared_ptr <rai::destructable>);
+		void start_request (rai::block const &);
+		rai::uint256_t uncontested_threshold ();
+		rai::uint256_t contested_threshold ();
+		rai::votes votes;
+        std::shared_ptr <rai::client> client;
+		std::chrono::system_clock::time_point last_vote;
+		bool confirmed;
+	};
     class conflicts
     {
     public:
@@ -144,7 +152,7 @@ namespace rai {
         void start (rai::block const &, bool);
 		void update (rai::vote const &);
         void stop (rai::block_hash const &);
-        std::unordered_map <rai::block_hash, std::shared_ptr <rai::votes>> roots;
+        std::unordered_map <rai::block_hash, std::shared_ptr <rai::election>> roots;
 		rai::client & client;
         std::mutex mutex;
     };
@@ -630,7 +638,7 @@ namespace rai {
         void stop ();
         std::shared_ptr <rai::client> shared ();
         bool is_representative ();
-		void representative_vote (rai::votes &, rai::block const &);
+		void representative_vote (rai::election &, rai::block const &);
         uint64_t scale_down (rai::uint256_t const &);
         rai::uint256_t scale_up (uint64_t);
         rai::log log;

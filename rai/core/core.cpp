@@ -1912,7 +1912,7 @@ std::unique_ptr <rai::block> rai::gap_cache::get (rai::block_hash const & hash_a
     return result;
 }
 
-void rai::votes::start_request (rai::block const & block_a)
+void rai::election::start_request (rai::block const & block_a)
 {
     auto list (client->peers.list ());
     for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
@@ -1921,11 +1921,11 @@ void rai::votes::start_request (rai::block const & block_a)
     }
 }
 
-void rai::votes::announce_vote ()
+void rai::election::announce_vote ()
 {
-    auto winner_l (winner ());
+    auto winner_l (votes.winner ());
 	assert (winner_l.first != nullptr);
-    client->network.confirm_block (std::move (winner_l.first), sequence);
+    client->network.confirm_block (std::move (winner_l.first), votes.sequence);
     auto now (std::chrono::system_clock::now ());
     if (now - last_vote < std::chrono::seconds (15))
     {
@@ -4874,6 +4874,31 @@ bool rai::frontier::operator == (rai::frontier const & other_a) const
     return hash == other_a.hash && representative == other_a.representative && balance == other_a.balance && time == other_a.time;
 }
 
+void rai::election::vote (rai::vote const & vote_a)
+{
+	votes.vote (vote_a);
+	if (!confirmed)
+	{
+		auto winner_l (votes.winner ());
+		if (votes.rep_votes.size () == 1)
+		{
+			if (winner_l.second > uncontested_threshold ())
+			{
+				confirmed = true;
+				client->processor.process_confirmed (*votes.last_winner);
+			}
+		}
+		else
+		{
+			if (winner_l.second > contested_threshold ())
+			{
+				confirmed = true;
+				client->processor.process_confirmed (*votes.last_winner);
+			}
+		}
+	}
+}
+
 void rai::votes::vote (rai::vote const & vote_a)
 {
     if (!rai::validate_message (vote_a.address, vote_a.hash (), vote_a.signature))
@@ -4896,28 +4921,9 @@ void rai::votes::vote (rai::vote const & vote_a)
         {
             if (!(*winner_l.first == *last_winner))
             {
-                client->ledger.rollback (last_winner->hash ());
-                client->processor.process_receive (*winner_l.first);
+                ledger.rollback (last_winner->hash ());
+                ledger.process (*winner_l.first);
                 last_winner = std::move (winner_l.first);
-            }
-        }
-        if (!confirmed)
-        {
-            if (rep_votes.size () == 1)
-            {
-                if (winner_l.second > uncontested_threshold ())
-                {
-                    confirmed = true;
-                    client->processor.process_confirmed (*last_winner);
-                }
-            }
-            else
-            {
-                if (winner_l.second > contested_threshold ())
-                {
-                    confirmed = true;
-                    client->processor.process_confirmed (*last_winner);
-                }
             }
         }
     }
@@ -4935,7 +4941,7 @@ std::pair <std::unique_ptr <rai::block>, rai::uint256_t> rai::votes::winner ()
             totals.insert (std::make_pair (hash, std::make_pair (i.second.second->clone (), 0)));
             existing = totals.find (hash);
         }
-        auto weight (client->ledger.weight (i.first));
+        auto weight (ledger.weight (i.first));
         existing->second.second += weight;
     }
     std::pair <std::unique_ptr <rai::block>, rai::uint256_t> winner_l;
@@ -4950,13 +4956,20 @@ std::pair <std::unique_ptr <rai::block>, rai::uint256_t> rai::votes::winner ()
     return winner_l;
 }
 
-rai::votes::votes (std::shared_ptr <rai::client> client_a, rai::block const & block_a) :
-client (client_a),
-root (client_a->store.root (block_a)),
+rai::votes::votes (rai::ledger & ledger_a, rai::block const & block_a) :
+ledger (ledger_a),
+root (ledger.store.root (block_a)),
 last_winner (block_a.clone ()),
-sequence (0),
-confirmed (false),
-last_vote (std::chrono::system_clock::now ())
+sequence (0)
+{
+	
+}
+
+rai::election::election (std::shared_ptr <rai::client> client_a, rai::block const & block_a) :
+votes (client_a->ledger, block_a),
+client (client_a),
+last_vote (std::chrono::system_clock::now ()),
+confirmed (false)
 {
     assert (client_a->store.block_exists (block_a.hash ()));
     rai::keypair anonymous;
@@ -4968,15 +4981,15 @@ last_vote (std::chrono::system_clock::now ())
     vote (vote_l);
 }
 
-void rai::votes::start ()
+void rai::election::start ()
 {
-	client->representative_vote (*this, *last_winner);
+	client->representative_vote (*this, *votes.last_winner);
     if (client->is_representative ())
     {
         announce_vote ();
     }
     auto client_l (client);
-    auto root_l (root);
+    auto root_l (votes.root);
     auto destructable (std::make_shared <rai::destructable> ([client_l, root_l] () {client_l->conflicts.stop (root_l);}));
     timeout_action (destructable);
 }
@@ -4991,7 +5004,7 @@ rai::destructable::~destructable ()
     operation ();
 }
 
-void rai::votes::timeout_action (std::shared_ptr <rai::destructable> destructable_a)
+void rai::election::timeout_action (std::shared_ptr <rai::destructable> destructable_a)
 {
     auto now (std::chrono::system_clock::now ());
     if (now - last_vote < std::chrono::seconds (15))
@@ -5001,19 +5014,19 @@ void rai::votes::timeout_action (std::shared_ptr <rai::destructable> destructabl
     }
 }
 
-rai::uint256_t rai::votes::uncontested_threshold ()
+rai::uint256_t rai::election::uncontested_threshold ()
 {
     return client->ledger.supply () / 2;
 }
 
-rai::uint256_t rai::votes::contested_threshold ()
+rai::uint256_t rai::election::contested_threshold ()
 {
     return (client->ledger.supply () / 16) * 15;
 }
 
 rai::uint256_t rai::votes::flip_threshold ()
 {
-    return client->ledger.supply () / 2;
+    return ledger.supply () / 2;
 }
 
 void rai::conflicts::start (rai::block const & block_a, bool request_a)
@@ -5023,12 +5036,12 @@ void rai::conflicts::start (rai::block const & block_a, bool request_a)
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
-        auto votes (std::make_shared <rai::votes> (client.shared (), block_a));
-		client.service.add (std::chrono::system_clock::now (), [votes] () {votes->start ();});
-        roots.insert (std::make_pair (root, votes));
+        auto election (std::make_shared <rai::election> (client.shared (), block_a));
+		client.service.add (std::chrono::system_clock::now (), [election] () {election->start ();});
+        roots.insert (std::make_pair (root, election));
         if (request_a)
         {
-            votes->start_request (block_a);
+            election->start_request (block_a);
         }
     }
 }
@@ -5253,7 +5266,7 @@ bool rai::client::is_representative ()
     return wallet.find (representative) != wallet.end ();
 }
 
-void rai::client::representative_vote (rai::votes & votes_a, rai::block const & block_a)
+void rai::client::representative_vote (rai::election & election_a, rai::block const & block_a)
 {
 	if (is_representative ())
 	{
@@ -5265,7 +5278,7 @@ void rai::client::representative_vote (rai::votes & votes_a, rai::block const & 
 		wallet.fetch (representative, prv);
         rai::sign_message (prv, representative, vote_l.hash (), vote_l.signature);
         prv.clear ();
-        votes_a.vote (vote_l);
+        election_a.vote (vote_l);
 	}
 }
 
