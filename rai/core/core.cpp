@@ -74,229 +74,6 @@ void hash_number (CryptoPP::SHA3 & hash_a, boost::multiprecision::uint256_t cons
     hash_a.Update (bytes.bytes.data (), sizeof (bytes));
 }
 
-namespace {
-class ledger_processor : public rai::block_visitor
-{
-public:
-    ledger_processor (rai::ledger &);
-    void send_block (rai::send_block const &) override;
-    void receive_block (rai::receive_block const &) override;
-    void open_block (rai::open_block const &) override;
-    void change_block (rai::change_block const &) override;
-    rai::ledger & ledger;
-    rai::process_result result;
-};
-
-class amount_visitor : public rai::block_visitor
-{
-public:
-    amount_visitor (rai::block_store &);
-    void compute (rai::block_hash const &);
-    void send_block (rai::send_block const &) override;
-    void receive_block (rai::receive_block const &) override;
-    void open_block (rai::open_block const &) override;
-    void change_block (rai::change_block const &) override;
-    void from_send (rai::block_hash const &);
-    rai::block_store & store;
-    rai::uint256_t result;
-};
-
-class balance_visitor : public rai::block_visitor
-{
-public:
-    balance_visitor (rai::block_store &);
-    void compute (rai::block_hash const &);
-    void send_block (rai::send_block const &) override;
-    void receive_block (rai::receive_block const &) override;
-    void open_block (rai::open_block const &) override;
-    void change_block (rai::change_block const &) override;
-    rai::block_store & store;
-    rai::uint256_t result;
-};
-
-class account_visitor : public rai::block_visitor
-{
-public:
-    account_visitor (rai::block_store & store_a) :
-    store (store_a)
-    {
-    }
-    void compute (rai::block_hash const & hash_block)
-    {
-        auto block (store.block_get (hash_block));
-        assert (block != nullptr);
-        block->visit (*this);
-    }
-    void send_block (rai::send_block const & block_a) override
-    {
-        account_visitor prev (store);
-        prev.compute (block_a.hashables.previous);
-        result = prev.result;
-    }
-    void receive_block (rai::receive_block const & block_a) override
-    {
-        from_previous (block_a.hashables.source);
-    }
-    void open_block (rai::open_block const & block_a) override
-    {
-        from_previous (block_a.hashables.source);
-    }
-    void change_block (rai::change_block const & block_a) override
-    {
-        account_visitor prev (store);
-        prev.compute (block_a.hashables.previous);
-        result = prev.result;
-    }
-    void from_previous (rai::block_hash const & hash_a)
-    {
-        auto block (store.block_get (hash_a));
-        assert (block != nullptr);
-        assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-        auto send (static_cast <rai::send_block *> (block.get ()));
-        result = send->hashables.destination;
-    }
-    rai::block_store & store;
-    rai::address result;
-};
-
-amount_visitor::amount_visitor (rai::block_store & store_a) :
-store (store_a)
-{
-}
-
-void amount_visitor::send_block (rai::send_block const & block_a)
-{
-    balance_visitor prev (store);
-    prev.compute (block_a.hashables.previous);
-    result = prev.result - block_a.hashables.balance.number ();
-}
-
-void amount_visitor::receive_block (rai::receive_block const & block_a)
-{
-    from_send (block_a.hashables.source);
-}
-
-void amount_visitor::open_block (rai::open_block const & block_a)
-{
-    from_send (block_a.hashables.source);
-}
-
-void amount_visitor::change_block (rai::change_block const & block_a)
-{
-    
-}
-
-void amount_visitor::from_send (rai::block_hash const & hash_a)
-{
-    balance_visitor source (store);
-    source.compute (hash_a);
-    auto source_block (store.block_get (hash_a));
-    assert (source_block != nullptr);
-    balance_visitor source_prev (store);
-    source_prev.compute (source_block->previous ());
-}
-
-balance_visitor::balance_visitor (rai::block_store & store_a):
-store (store_a),
-result (0)
-{
-}
-
-void balance_visitor::send_block (rai::send_block const & block_a)
-{
-    result = block_a.hashables.balance.number ();
-}
-
-void balance_visitor::receive_block (rai::receive_block const & block_a)
-{
-    balance_visitor prev (store);
-    prev.compute (block_a.hashables.previous);
-    amount_visitor source (store);
-    source.compute (block_a.hashables.source);
-    result = prev.result + source.result;
-}
-
-void balance_visitor::open_block (rai::open_block const & block_a)
-{
-    amount_visitor source (store);
-    source.compute (block_a.hashables.source);
-    result = source.result;
-}
-
-void balance_visitor::change_block (rai::change_block const & block_a)
-{
-    balance_visitor prev (store);
-    prev.compute (block_a.hashables.previous);
-    result = prev.result;
-}
-}
-
-namespace
-{
-    class representative_visitor : public rai::block_visitor
-    {
-    public:
-        representative_visitor (rai::block_store & store_a) :
-        store (store_a)
-        {
-        }
-        void compute (rai::block_hash const & hash_a)
-        {
-            auto block (store.block_get (hash_a));
-            assert (block != nullptr);
-            block->visit (*this);
-        }
-        void send_block (rai::send_block const & block_a) override
-        {
-            representative_visitor visitor (store);
-            visitor.compute (block_a.previous ());
-            result = visitor.result;
-        }
-        void receive_block (rai::receive_block const & block_a) override
-        {
-            representative_visitor visitor (store);
-            visitor.compute (block_a.previous ());
-            result = visitor.result;
-        }
-        void open_block (rai::open_block const & block_a) override
-        {
-            result = block_a.hashables.representative;
-        }
-        void change_block (rai::change_block const & block_a) override
-        {
-            result = block_a.hashables.representative;
-        }
-        rai::block_store & store;
-        rai::address result;
-    };
-}
-
-bool rai::receive_block::validate (rai::public_key const & key, rai::uint256_t const & hash) const
-{
-    return validate_message (key, hash, signature);
-}
-
-bool rai::receive_block::operator == (rai::block const & other_a) const
-{
-    auto other_l (dynamic_cast <rai::receive_block const *> (&other_a));
-    auto result (other_l != nullptr);
-    if (result)
-    {
-        result = *this == *other_l;
-    }
-    return result;
-}
-
-std::unique_ptr <rai::block> rai::receive_block::clone () const
-{
-    return std::unique_ptr <rai::block> (new rai::receive_block (*this));
-}
-
-rai::block_type rai::receive_block::type () const
-{
-    return rai::block_type::receive;
-}
-
 rai::genesis::genesis ()
 {
     send1.hashables.destination.clear ();
@@ -1138,6 +915,31 @@ std::unique_ptr <rai::block> rai::gap_cache::get (rai::block_hash const & hash_a
     return result;
 }
 
+void rai::election::vote (rai::vote const & vote_a)
+{
+    votes.vote (vote_a);
+    if (!confirmed)
+    {
+        auto winner_l (votes.winner ());
+        if (votes.rep_votes.size () == 1)
+        {
+            if (winner_l.second > uncontested_threshold ())
+            {
+                confirmed = true;
+                client->processor.process_confirmed (*votes.last_winner);
+            }
+        }
+        else
+        {
+            if (winner_l.second > contested_threshold ())
+            {
+                confirmed = true;
+                client->processor.process_confirmed (*votes.last_winner);
+            }
+        }
+    }
+}
+
 void rai::election::start_request (rai::block const & block_a)
 {
     auto list (client->peers.list ());
@@ -1487,25 +1289,6 @@ size_t rai::processor_service::size ()
 {
     std::lock_guard <std::mutex> lock (mutex);
     return operations.size ();
-}
-
-rai::block_hash rai::receive_block::previous () const
-{
-    return hashables.previous;
-}
-
-void amount_visitor::compute (rai::block_hash const & block_hash)
-{
-    auto block (store.block_get (block_hash));
-    assert (block != nullptr);
-    block->visit (*this);
-}
-
-void balance_visitor::compute (rai::block_hash const & block_hash)
-{
-    auto block (store.block_get (block_hash));
-    assert (block != nullptr);
-    block->visit (*this);
 }
 
 bool rai::client::send (rai::public_key const & address, rai::uint256_t const & amount_a)
@@ -1970,22 +1753,6 @@ bool rai::block_store::latest_exists (rai::address const & address_a)
     return result;
 }
 
-rai::uint256_union rai::vote::hash () const
-{
-	rai::uint256_union result;
-    CryptoPP::SHA3 hash (32);
-    hash.Update (block->hash ().bytes.data (), sizeof (result.bytes));
-    union {
-        uint64_t qword;
-        std::array <uint8_t, 8> bytes;
-    };
-    qword = sequence;
-    //std::reverse (bytes.begin (), bytes.end ());
-    hash.Update (bytes.data (), sizeof (bytes));
-    hash.Final (result.bytes.data ());
-	return result;
-}
-
 namespace
 {
 bool parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
@@ -2327,9 +2094,8 @@ void rai::bulk_req_response::set_current_end ()
         {
             if (!request->end.is_zero ())
             {
-                account_visitor visitor (connection->client->store);
-                visitor.compute (request->end);
-                if (visitor.result == request->start)
+                auto account (connection->client->ledger.account (request->end));
+                if (account == request->start)
                 {
                     current = frontier.hash;
                 }
@@ -2918,11 +2684,6 @@ self (self_a)
 {
 }
 
-rai::block_hash rai::receive_block::source () const
-{
-    return hashables.source;
-}
-
 void rai::log::add (std::string const & string_a)
 {
     if (log_to_cerr ())
@@ -3477,31 +3238,6 @@ bool rai::transactions::send (rai::address const & address_a, rai::uint256_t con
     return result;
 }
 
-void rai::election::vote (rai::vote const & vote_a)
-{
-	votes.vote (vote_a);
-	if (!confirmed)
-	{
-		auto winner_l (votes.winner ());
-		if (votes.rep_votes.size () == 1)
-		{
-			if (winner_l.second > uncontested_threshold ())
-			{
-				confirmed = true;
-				client->processor.process_confirmed (*votes.last_winner);
-			}
-		}
-		else
-		{
-			if (winner_l.second > contested_threshold ())
-			{
-				confirmed = true;
-				client->processor.process_confirmed (*votes.last_winner);
-			}
-		}
-	}
-}
-
 rai::election::election (std::shared_ptr <rai::client> client_a, rai::block const & block_a) :
 votes (client_a->ledger, block_a),
 client (client_a),
@@ -3559,11 +3295,6 @@ rai::uint256_t rai::election::uncontested_threshold ()
 rai::uint256_t rai::election::contested_threshold ()
 {
     return (client->ledger.supply () / 16) * 15;
-}
-
-rai::uint256_t rai::votes::flip_threshold ()
-{
-    return ledger.supply () / 2;
 }
 
 void rai::conflicts::start (rai::block const & block_a, bool request_a)

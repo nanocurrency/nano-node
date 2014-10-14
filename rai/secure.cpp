@@ -218,6 +218,42 @@ void rai::receive_block::hash (CryptoPP::SHA3 & hash_a) const
 	hashables.hash (hash_a);
 }
 
+bool rai::receive_block::validate (rai::public_key const & key, rai::uint256_t const & hash) const
+{
+    return validate_message (key, hash, signature);
+}
+
+bool rai::receive_block::operator == (rai::block const & other_a) const
+{
+    auto other_l (dynamic_cast <rai::receive_block const *> (&other_a));
+    auto result (other_l != nullptr);
+    if (result)
+    {
+        result = *this == *other_l;
+    }
+    return result;
+}
+
+rai::block_hash rai::receive_block::previous () const
+{
+    return hashables.previous;
+}
+
+rai::block_hash rai::receive_block::source () const
+{
+    return hashables.source;
+}
+
+std::unique_ptr <rai::block> rai::receive_block::clone () const
+{
+    return std::unique_ptr <rai::block> (new rai::receive_block (*this));
+}
+
+rai::block_type rai::receive_block::type () const
+{
+    return rai::block_type::receive;
+}
+
 void rai::receive_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
 	hash_a.Update (source.bytes.data (), sizeof (source.bytes));
@@ -1804,4 +1840,25 @@ ledger_processor::ledger_processor (rai::ledger & ledger_a) :
 ledger (ledger_a),
 result (rai::process_result::progress)
 {
+}
+
+rai::uint256_union rai::vote::hash () const
+{
+    rai::uint256_union result;
+    CryptoPP::SHA3 hash (32);
+    hash.Update (block->hash ().bytes.data (), sizeof (result.bytes));
+    union {
+        uint64_t qword;
+        std::array <uint8_t, 8> bytes;
+    };
+    qword = sequence;
+    //std::reverse (bytes.begin (), bytes.end ());
+    hash.Update (bytes.data (), sizeof (bytes));
+    hash.Final (result.bytes.data ());
+    return result;
+}
+
+rai::uint256_t rai::votes::flip_threshold ()
+{
+    return ledger.supply () / 2;
 }
