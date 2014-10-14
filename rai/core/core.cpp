@@ -109,7 +109,7 @@ on (true)
 void rai::network::receive ()
 {
     std::unique_lock <std::mutex> lock (mutex);
-    socket.async_receive_from (boost::asio::buffer (buffer), remote,
+    socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote,
         [this] (boost::system::error_code const & error, size_t size_a)
         {
             receive_action (error, size_a);
