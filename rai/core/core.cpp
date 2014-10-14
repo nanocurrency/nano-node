@@ -1493,91 +1493,72 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             boost::property_tree::ptree request_l;
             std::stringstream istream (request.body);
             boost::property_tree::read_json (istream, request_l);
-            std::string key_text (request_l.get <std::string> ("key"));
-            rai::uint256_union key;
-            auto decode_error (key.decode_hex (key_text));
-            if (!decode_error)
+            std::string action (request_l.get <std::string> ("action"));
+            if (action == "account_balance")
             {
-                if (api_keys.find (key) != api_keys.end ())
+                std::string account_text (request_l.get <std::string> ("account"));
+                rai::uint256_union account;
+                auto error (account.decode_hex (account_text));
+                if (!error)
                 {
-                    std::string action (request_l.get <std::string> ("action"));
-                    if (action == "account_balance")
-                    {
-                        std::string account_text (request_l.get <std::string> ("account"));
-                        rai::uint256_union account;
-                        auto error (account.decode_hex (account_text));
-                        if (!error)
-                        {
-                            auto balance (client.ledger.account_balance (account));
-                            boost::property_tree::ptree response_l;
-                            response_l.put ("balance", balance.convert_to <std::string> ());
-                            set_response (response, response_l);
-                        }
-                        else
-                        {
-                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                            response.content = "Bad account number";
-                        }
-                    }
-                    else if (action == "wallet_create")
-                    {
-                        rai::keypair new_key;
-                        client.wallet.insert (new_key.prv);
-                        boost::property_tree::ptree response_l;
-                        std::string account;
-                        new_key.pub.encode_hex (account);
-                        response_l.put ("account", account);
-                        set_response (response, response_l);
-                    }
-                    else if (action == "wallet_contains")
-                    {
-                        std::string account_text (request_l.get <std::string> ("account"));
-                        rai::uint256_union account;
-                        auto error (account.decode_hex (account_text));
-                        if (!error)
-                        {
-                            auto exists (client.wallet.find (account) != client.wallet.end ());
-                            boost::property_tree::ptree response_l;
-                            response_l.put ("exists", exists ? "1" : "0");
-                            set_response (response, response_l);
-                        }
-                        else
-                        {
-                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                            response.content = "Bad account number";
-                        }
-                    }
-                    else if (action == "wallet_list")
-                    {
-                        boost::property_tree::ptree response_l;
-                        boost::property_tree::ptree accounts;
-                        for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
-                        {
-                            std::string account;
-                            i->first.encode_hex (account);
-                            boost::property_tree::ptree entry;
-                            entry.put ("", account);
-                            accounts.push_back (std::make_pair ("", entry));
-                        }
-                        response_l.add_child ("accounts", accounts);
-                        set_response (response, response_l);
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Unknown command";
-                    }
+                    auto balance (client.ledger.account_balance (account));
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("balance", balance.convert_to <std::string> ());
+                    set_response (response, response_l);
                 }
                 else
                 {
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::unauthorized);
-                    response.content = "API key is not authorized";
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
                 }
+            }
+            else if (action == "wallet_create")
+            {
+                rai::keypair new_key;
+                client.wallet.insert (new_key.prv);
+                boost::property_tree::ptree response_l;
+                std::string account;
+                new_key.pub.encode_hex (account);
+                response_l.put ("account", account);
+                set_response (response, response_l);
+            }
+            else if (action == "wallet_contains")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+                rai::uint256_union account;
+                auto error (account.decode_hex (account_text));
+                if (!error)
+                {
+                    auto exists (client.wallet.find (account) != client.wallet.end ());
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("exists", exists ? "1" : "0");
+                    set_response (response, response_l);
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
+            else if (action == "wallet_list")
+            {
+                boost::property_tree::ptree response_l;
+                boost::property_tree::ptree accounts;
+                for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
+                {
+                    std::string account;
+                    i->first.encode_hex (account);
+                    boost::property_tree::ptree entry;
+                    entry.put ("", account);
+                    accounts.push_back (std::make_pair ("", entry));
+                }
+                response_l.add_child ("accounts", accounts);
+                set_response (response, response_l);
             }
             else
             {
-                response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::unauthorized);
-                response.content = "No API key given";
+                response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                response.content = "Unknown command";
             }
         }
         catch (std::runtime_error const &)

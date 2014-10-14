@@ -515,65 +515,6 @@ TEST (client, send_single_many_peers)
     }
 }
 
-TEST (rpc, no_api_key)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    std::unordered_set <rai::uint256_union> keys;
-    keys.insert (1);
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
-    boost::network::http::server <rai::rpc>::request request;
-    boost::network::http::server <rai::rpc>::response response;
-    request.method = "POST";
-    boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "wallet_create");
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, request_tree);
-    request.body = ostream.str ();
-    rpc (request, response);
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.status);
-}
-
-TEST (rpc, bad_api_key)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    std::unordered_set <rai::uint256_union> keys;
-    keys.insert (1);
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
-    boost::network::http::server <rai::rpc>::request request;
-    boost::network::http::server <rai::rpc>::response response;
-    request.method = "POST";
-    boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "wallet_create");
-    request_tree.put ("key", "2");
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, request_tree);
-    request.body = ostream.str ();
-    rpc (request, response);
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::unauthorized, response.status);
-}
-
-TEST (rpc, bad_api_key_parse)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    std::unordered_set <rai::uint256_union> keys;
-    keys.insert (1);
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
-    boost::network::http::server <rai::rpc>::request request;
-    boost::network::http::server <rai::rpc>::response response;
-    request.method = "POST";
-    boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "wallet_create");
-    request_tree.put ("key", "z");
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, request_tree);
-    request.body = ostream.str ();
-    rpc (request, response);
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::unauthorized, response.status);
-}
-
 TEST (rpc, account_create)
 {
     rai::system system (24000, 1);
@@ -586,7 +527,6 @@ TEST (rpc, account_create)
     request.method = "POST";
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "wallet_create");
-    request_tree.put ("key", "1");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
@@ -616,7 +556,6 @@ TEST (rpc, account_balance)
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "account_balance");
     request_tree.put ("account", account);
-    request_tree.put ("key", "1");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
@@ -645,7 +584,6 @@ TEST (rpc, wallet_contents)
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "wallet_contains");
     request_tree.put ("account", account);
-    request_tree.put ("key", "1");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
@@ -690,7 +628,6 @@ TEST (rpc, wallet_list)
     request.method = "POST";
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "wallet_list");
-    request_tree.put ("key", "1");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
