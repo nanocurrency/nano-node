@@ -3,6 +3,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include <cryptopp/osrng.h>
 #include <cryptopp/sha3.h>
 
 #include <leveldb/db.h>
@@ -13,6 +14,7 @@
 
 namespace rai
 {
+    extern CryptoPP::AutoSeededRandomPool random_pool;
     using stream = std::basic_streambuf <uint8_t>;
     using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
     using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_insert_device <std::vector <uint8_t>>>;
@@ -453,5 +455,19 @@ namespace rai
 		std::unique_ptr <rai::block> last_winner;
 		uint64_t sequence;
 		std::unordered_map <rai::address, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
-	};
+    };
+    extern rai::keypair test_genesis_key;
+    extern rai::address rai_test_address;
+    extern rai::address rai_live_address;
+    extern rai::address genesis_address;
+    class genesis
+    {
+    public:
+        explicit genesis ();
+        void initialize (rai::block_store &) const;
+        rai::block_hash hash () const;
+        rai::send_block send1;
+        rai::send_block send2;
+        rai::open_block open;
+    };
 }

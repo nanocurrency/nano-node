@@ -1,7 +1,5 @@
 #include <rai/core/core.hpp>
 
-#include <cryptopp/osrng.h>
-
 #include <ed25519-donna/ed25519.h>
 
 #include <unordered_set>
@@ -55,18 +53,8 @@ namespace
     }
 }
 
-CryptoPP::AutoSeededRandomPool random_pool;
 std::chrono::seconds constexpr rai::processor::period;
 std::chrono::seconds constexpr rai::processor::cutoff;
-namespace {
-    std::string rai_test_private_key = "E49C03BB7404C10B388AE56322217306B57F3DCBB3A5F060A2F420AD7AA3F034";
-    std::string rai_test_public_key = "1149338F7D0DA66D7ED0DAA4F1F72431831B3D06AFC704F3224D68B317CC41B2";
-    std::string rai_live_public_key = "0";
-}
-rai::keypair rai::test_genesis_key (rai_test_private_key);
-rai::address rai::rai_test_address (rai_test_public_key);
-rai::address rai::rai_live_address (rai_live_public_key);
-rai::address rai::genesis_address (GENESIS_KEY);
 
 void hash_number (CryptoPP::SHA3 & hash_a, boost::multiprecision::uint256_t const & number_a)
 {

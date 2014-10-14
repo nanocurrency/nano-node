@@ -556,20 +556,6 @@ namespace rai {
             >
         > peers;
     };
-    extern rai::keypair test_genesis_key;
-    extern rai::address rai_test_address;
-    extern rai::address rai_live_address;
-    extern rai::address genesis_address;
-    class genesis
-    {
-    public:
-        explicit genesis ();
-        void initialize (rai::block_store &) const;
-        rai::block_hash hash () const;
-        rai::send_block send1;
-        rai::send_block send2;
-        rai::open_block open;
-    };
     class log
     {
     public:
