@@ -623,7 +623,7 @@ TEST (rpc, wallet_doesnt_contain)
     ASSERT_EQ ("0", exists_text);
 }
 
-TEST (rpc, DISABLED_validate_account)
+TEST (rpc, validate_account)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -651,7 +651,7 @@ TEST (rpc, DISABLED_validate_account)
     ASSERT_EQ ("1", exists_text);
 }
 
-TEST (rpc, DISABLED_validate_account_invalid)
+TEST (rpc, validate_account_invalid)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -660,6 +660,7 @@ TEST (rpc, DISABLED_validate_account_invalid)
     rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
+    account [0] ^= 0x1;
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;

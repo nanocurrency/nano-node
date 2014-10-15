@@ -1555,6 +1555,15 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 response_l.add_child ("accounts", accounts);
                 set_response (response, response_l);
             }
+            else if (action == "validate_account")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+                rai::uint256_union account;
+                boost::property_tree::ptree response_l;
+                auto error (account.decode_base58check (account_text));
+                response_l.put ("valid", error ? "0" : "1");
+                set_response (response, response_l);
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
