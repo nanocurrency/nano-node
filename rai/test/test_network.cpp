@@ -537,7 +537,7 @@ TEST (rpc, account_create)
     boost::property_tree::read_json (istream, response_tree);
     auto account_text (response_tree.get <std::string> ("account"));
     rai::uint256_union account;
-    ASSERT_FALSE (account.decode_hex (account_text));
+    ASSERT_FALSE (account.decode_base58check (account_text));
     ASSERT_NE (system.clients [0]->wallet.end (), system.clients [0]->wallet.find (account));
 }
 
@@ -549,7 +549,7 @@ TEST (rpc, account_balance)
     keys.insert (1);
     rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
     std::string account;
-    rai::test_genesis_key.pub.encode_hex (account);
+    rai::test_genesis_key.pub.encode_base58check (account);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -568,7 +568,7 @@ TEST (rpc, account_balance)
     ASSERT_EQ ("115792089237316195423570985008687907853269984665640564039457584007913129639935", balance_text);
 }
 
-TEST (rpc, wallet_contents)
+TEST (rpc, wallet_contains)
 {
 	rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -576,7 +576,7 @@ TEST (rpc, wallet_contents)
     keys.insert (1);
     rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
     std::string account;
-    rai::test_genesis_key.pub.encode_hex (account);
+    rai::test_genesis_key.pub.encode_base58check (account);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
@@ -594,6 +594,89 @@ TEST (rpc, wallet_contents)
     boost::property_tree::read_json (istream, response_tree);
     std::string exists_text (response_tree.get <std::string> ("exists"));
     ASSERT_EQ ("1", exists_text);
+}
+
+TEST (rpc, wallet_doesnt_contain)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    std::unordered_set <rai::uint256_union> keys;
+    keys.insert (1);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
+    std::string account;
+    rai::test_genesis_key.pub.encode_base58check (account);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "wallet_contains");
+    request_tree.put ("account", account);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string exists_text (response_tree.get <std::string> ("exists"));
+    ASSERT_EQ ("0", exists_text);
+}
+
+TEST (rpc, DISABLED_validate_account)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    std::unordered_set <rai::uint256_union> keys;
+    keys.insert (1);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
+    std::string account;
+    rai::test_genesis_key.pub.encode_base58check (account);
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "validate_account");
+    request_tree.put ("account", account);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string exists_text (response_tree.get <std::string> ("valid"));
+    ASSERT_EQ ("1", exists_text);
+}
+
+TEST (rpc, DISABLED_validate_account_invalid)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    std::unordered_set <rai::uint256_union> keys;
+    keys.insert (1);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
+    std::string account;
+    rai::test_genesis_key.pub.encode_base58check (account);
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "validate_account");
+    request_tree.put ("account", account);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string exists_text (response_tree.get <std::string> ("valid"));
+    ASSERT_EQ ("0", exists_text);
 }
 
 TEST (network, receive_weight_change)
@@ -619,7 +702,7 @@ TEST (rpc, wallet_list)
     keys.insert (1);
     rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
     std::string account;
-    rai::test_genesis_key.pub.encode_hex (account);
+    rai::test_genesis_key.pub.encode_base58check (account);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     rai::keypair key2;
     system.clients [0]->wallet.insert (key2.prv);
@@ -642,7 +725,7 @@ TEST (rpc, wallet_list)
     {
         auto account (i->second.get <std::string> (""));
         rai::uint256_union number;
-        ASSERT_FALSE (number.decode_hex (account));
+        ASSERT_FALSE (number.decode_base58check (account));
         accounts.push_back (number);
     }
     ASSERT_EQ (2, accounts.size ());

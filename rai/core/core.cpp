@@ -1498,7 +1498,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             {
                 std::string account_text (request_l.get <std::string> ("account"));
                 rai::uint256_union account;
-                auto error (account.decode_hex (account_text));
+                auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
                     auto balance (client.ledger.account_balance (account));
@@ -1518,7 +1518,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 client.wallet.insert (new_key.prv);
                 boost::property_tree::ptree response_l;
                 std::string account;
-                new_key.pub.encode_hex (account);
+                new_key.pub.encode_base58check (account);
                 response_l.put ("account", account);
                 set_response (response, response_l);
             }
@@ -1526,7 +1526,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             {
                 std::string account_text (request_l.get <std::string> ("account"));
                 rai::uint256_union account;
-                auto error (account.decode_hex (account_text));
+                auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
                     auto exists (client.wallet.find (account) != client.wallet.end ());
@@ -1547,7 +1547,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
                 {
                     std::string account;
-                    i->first.encode_hex (account);
+                    i->first.encode_base58check (account);
                     boost::property_tree::ptree entry;
                     entry.put ("", account);
                     accounts.push_back (std::make_pair ("", entry));
