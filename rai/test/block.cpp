@@ -542,10 +542,11 @@ TEST (work, create)
 {
     rai::uint256_union source;
     rai::work work;
-    EXPECT_TRUE (work.validate (source, source));
-    auto begin (std::chrono::high_resolution_clock::now ());
+    auto begin1 (std::chrono::high_resolution_clock::now ());
     auto value (work.create (source));
-    auto end (std::chrono::high_resolution_clock::now ());
-    std::cerr << boost::str (boost::format ("Time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count ());
+    auto end1 (std::chrono::high_resolution_clock::now ());
     EXPECT_FALSE (work.validate (source, value));
+    auto end2 (std::chrono::high_resolution_clock::now ());
+    std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
+
 }

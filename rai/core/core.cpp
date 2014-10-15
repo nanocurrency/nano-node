@@ -3644,10 +3644,11 @@ public:
 }
 
 rai::work::work () :
-entry_requirement (1024),
-iteration_requirement (1024)
+entry_requirement (128 * 1024),
+iteration_requirement (512)
 {
-	threshold_requirement.decode_hex ("f000000000000000000000000000000000000000000000000000000000000000");
+    //threshold_requirement.decode_hex ("ff00000000000000000000000000000000000000000000000000000000000000");
+    threshold_requirement.decode_hex ("8000000000000000000000000000000000000000000000000000000000000000");
     entries.resize (entry_requirement);
 }
 
@@ -3686,11 +3687,15 @@ rai::uint256_union rai::work::generate (rai::uint256_union const & seed, rai::ui
 
 rai::uint256_union rai::work::create (rai::uint256_union const & seed)
 {
+    xorshift1024star rng;
     rai::uint256_union result;
     rai::uint256_union value;
     do
     {
-        ed25519_randombytes_unsafe (result.bytes.data (), sizeof (result));
+        for (auto i (0); i < result.qwords.size (); ++i)
+        {
+            result.qwords [0] = rng.next ();
+        }
         value = generate (seed, result);
     } while (value < threshold_requirement);
     return result;
