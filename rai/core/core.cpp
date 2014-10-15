@@ -3390,7 +3390,7 @@ public:
 	{
 		if (network_message_logging ())
 		{
-			client.log.add (boost::str (boost::format ("Received publish req rom %1%") % sender));
+			client.log.add (boost::str (boost::format ("Received publish req from %1%") % sender));
 		}
 		client.processor.process_receive_republish (message_a.block->clone (), sender);
 	}
@@ -3657,7 +3657,8 @@ entry_requirement (128 * 1024),
 iteration_requirement (512)
 {
     //threshold_requirement.decode_hex ("ff00000000000000000000000000000000000000000000000000000000000000");
-    threshold_requirement.decode_hex ("8000000000000000000000000000000000000000000000000000000000000000");
+    auto error (threshold_requirement.decode_hex ("8000000000000000000000000000000000000000000000000000000000000000"));
+    assert (!error);
     entries.resize (entry_requirement);
 }
 
@@ -3697,6 +3698,7 @@ rai::uint256_union rai::work::generate (rai::uint256_union const & seed, rai::ui
 rai::uint256_union rai::work::create (rai::uint256_union const & seed)
 {
     xorshift1024star rng;
+    rng.s [0] = 1; // No seed here, we're not securing anything, s just can't be 0 per the spec
     rai::uint256_union result;
     rai::uint256_union value;
     do

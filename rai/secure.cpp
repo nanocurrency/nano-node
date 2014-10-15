@@ -79,7 +79,7 @@ sequence (0)
 
 rai::keypair::keypair ()
 {
-	ed25519_randombytes_unsafe (prv.bytes.data (), sizeof (prv.bytes));
+    random_pool.GenerateBlock (prv.bytes.data (), prv.bytes.size ());
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
