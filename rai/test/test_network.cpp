@@ -680,6 +680,68 @@ TEST (rpc, validate_account_invalid)
     ASSERT_EQ ("0", exists_text);
 }
 
+TEST (rpc, send)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    std::unordered_set <rai::uint256_union> keys;
+    keys.insert (1);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
+    std::string account;
+    rai::test_genesis_key.pub.encode_base58check (account);
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    rai::keypair key1;
+    system.clients [0]->wallet.insert (key1.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "send");
+    request_tree.put ("account", account);
+    request_tree.put ("amount", "100");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string exists_text (response_tree.get <std::string> ("sent"));
+    ASSERT_EQ ("1", exists_text);
+}
+
+TEST (rpc, send_fail)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    std::unordered_set <rai::uint256_union> keys;
+    keys.insert (1);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
+    std::string account;
+    rai::test_genesis_key.pub.encode_base58check (account);
+    //system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    rai::keypair key1;
+    system.clients [0]->wallet.insert (key1.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "send");
+    request_tree.put ("account", account);
+    request_tree.put ("amount", "100");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string exists_text (response_tree.get <std::string> ("sent"));
+    ASSERT_EQ ("0", exists_text);
+}
+
 TEST (network, receive_weight_change)
 {
     rai::system system (24000, 2);
