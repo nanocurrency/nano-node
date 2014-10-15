@@ -9,6 +9,7 @@ int main (int argc, char * const * argv)
     description.add_options ()
         ("help", "Print out options")
         ("debug_activity", "Generates fake debug activity")
+        ("profile_work", "Profile the work function")
         ("generate_key", "Generates a random keypair");
     boost::program_options::variables_map vm;
     boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
@@ -30,6 +31,21 @@ int main (int argc, char * const * argv)
     {
         rai::keypair pair;
         std::cout << "Private: " << pair.prv.to_string () << " Public: " << pair.pub.to_string () << std::endl;
+    }
+    else if (vm.count ("profile_work"))
+    {
+        rai::uint256_union source;
+        rai::work work;
+        for (auto i: work.entries)
+        {
+            i = 0;
+        }
+        auto begin1 (std::chrono::high_resolution_clock::now ());
+        auto value (work.create (source));
+        auto end1 (std::chrono::high_resolution_clock::now ());
+        (void)work.validate (source, value);
+        auto end2 (std::chrono::high_resolution_clock::now ());
+        std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
     }
     else
     {
