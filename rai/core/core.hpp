@@ -415,7 +415,7 @@ namespace rai {
         rai::uint256_union threshold_requirement;
         size_t const entry_requirement;
         uint32_t const iteration_requirement;
-        std::vector <rai::uint512_union> entries;
+        std::vector <uint64_t> entries;
     };
     class network
     {

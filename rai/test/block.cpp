@@ -533,7 +533,9 @@ TEST (work, one)
     ed25519_randombytes_unsafe (seed.bytes.data (), sizeof (seed));
     rai::uint256_union nonce;
     ed25519_randombytes_unsafe (nonce.bytes.data (), sizeof (nonce));
-    auto value (work.generate (seed, nonce));
+    auto value1 (work.generate (seed, nonce));
+	auto value2 (work.generate (seed, nonce));
+	ASSERT_EQ (value1, value2);
 }
 
 TEST (work, create)

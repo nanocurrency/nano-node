@@ -3617,6 +3617,32 @@ void rai::processor::find_network (std::vector <std::pair <std::string, std::str
     }
 }
 
+namespace
+{
+class xorshift1024star
+{
+public:
+	xorshift1024star ():
+	p (0)
+	{
+	}
+	std::array <uint64_t, 16> s;
+	unsigned p;
+	uint64_t next ()
+	{
+		auto p_l (p);
+		auto pn ((p_l + 1) & 15);
+		p = pn;
+		uint64_t s0 = s[ p_l ];
+		uint64_t s1 = s[ pn ];
+		s1 ^= s1 << 31; // a
+		s1 ^= s1 >> 11; // b
+		s0 ^= s0 >> 30; // c
+		return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
+	}
+};
+}
+
 rai::work::work () :
 entry_requirement (1024),
 iteration_requirement (1024)
@@ -3628,25 +3654,30 @@ iteration_requirement (1024)
 rai::uint256_union rai::work::generate (rai::uint256_union const & seed, rai::uint256_union const & nonce)
 {
     auto mask (entries.size () - 1);
-    for (auto & i: entries)
+	xorshift1024star rng;
+	for (auto i (0), j (0); i < 16; ++i, j += 2)
+	{
+		rng.s [i] =
+			(static_cast <uint64_t> (seed.bytes [j + 0]) << 0x00) |
+			(static_cast <uint64_t> (nonce.bytes [j + 0]) << 0x08) |
+			(static_cast <uint64_t> (seed.bytes [j + 1]) << 0x20) |
+			(static_cast <uint64_t> (nonce.bytes [j + 1]) << 0x28);
+	}
+	for (auto i (entries.begin ()), n (entries.end ()); i != n; ++i)
     {
-        i.clear ();
+		*i = rng.next ();
     }
-    rai::uint512_union value;
-    value.uint256s [0] = seed;
-    value.uint256s [1] = nonce;
-    for (uint32_t i (0); i < iteration_requirement; ++i)
-    {
-        auto index (value.qwords [0] & mask);
-        auto & entry (entries [index]);
-        value ^= entry;
-        value = value.salsa20_8 ();
-        entry = value;
-    }
+	for (auto i (0u), n (iteration_requirement); i != n; ++i)
+	{
+		auto next (rng.next ());
+		auto index (next & mask);
+		entries [index] = next;
+	}
     CryptoPP::SHA3 hash (32);
     for (auto & i: entries)
     {
-        hash.Update (i.bytes.data (), i.bytes.size ());
+		auto address (&i);
+        hash.Update (reinterpret_cast <uint8_t *> (address), sizeof (uint64_t));
     }
     rai::uint256_union result;
     hash.Final (result.bytes.data ());
