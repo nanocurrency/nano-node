@@ -79,8 +79,8 @@ void rai_daemon::daemon::run ()
         rai::processor_service processor;
         auto client (std::make_shared <rai::client> (service, config.peering_port,  working / "data", processor, rai::genesis_address));
 		client->start ();
-		rai::rpc rpc (service, pool, config.rpc_port, *client, std::unordered_set <rai::uint256_union> ());
-	rpc.start ();
+		rai::rpc rpc (service, pool, config.rpc_port, *client);
+        rpc.start ();
         std::thread network_thread ([&service] ()
             {
                 try
