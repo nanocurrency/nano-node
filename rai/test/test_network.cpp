@@ -707,8 +707,8 @@ TEST (rpc, send)
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
-    std::string exists_text (response_tree.get <std::string> ("sent"));
-    ASSERT_EQ ("1", exists_text);
+    std::string sent_text (response_tree.get <std::string> ("sent"));
+    ASSERT_EQ ("1", sent_text);
 }
 
 TEST (rpc, send_fail)
@@ -738,8 +738,39 @@ TEST (rpc, send_fail)
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
-    std::string exists_text (response_tree.get <std::string> ("sent"));
-    ASSERT_EQ ("0", exists_text);
+    std::string sent_text (response_tree.get <std::string> ("sent"));
+    ASSERT_EQ ("0", sent_text);
+}
+
+TEST (rpc, wallet_add)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    std::unordered_set <rai::uint256_union> keys;
+    keys.insert (1);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], keys);
+    rai::keypair key1;
+    std::string key_text;
+    key1.prv.encode_hex (key_text);
+    system.clients [0]->wallet.insert (key1.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "wallet_add");
+    request_tree.put ("key", key_text);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string account_text1 (response_tree.get <std::string> ("account"));
+    std::string account_text2;
+    key1.pub.encode_base58check (account_text2);
+    ASSERT_EQ (account_text1, account_text2);
 }
 
 TEST (network, receive_weight_change)

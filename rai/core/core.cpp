@@ -447,15 +447,20 @@ password (hash_password (""))
     auto wallet_password_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet_password_key.chars.data (), wallet_password_key.chars.size ()), &wallet_password_value));
     if (wallet_password_status.IsNotFound ())
     {
-        rai::uint256_union zero;
-        zero.clear ();
+        // The wallet is empty meaning we just created it, initialize it.
+        // Wallet key is a fixed random key that encrypts all entries
         rai::uint256_union wallet_key;
         random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
+        // Wallet key is encrypted by the user's password
         rai::uint256_union encrypted (wallet_key, password, password.owords [0]);
+        rai::uint256_union zero;
+        zero.clear ();
+        // Wallet key is stored in entry 0
         auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
         assert (status1.ok ());
         rai::uint256_union one (1);
         rai::uint256_union check (zero, wallet_key, wallet_key.owords [0]);
+        // Check key is stored in entry 1
         auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
         assert (status2.ok ());
     }
@@ -1554,6 +1559,28 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 }
                 response_l.add_child ("accounts", accounts);
                 set_response (response, response_l);
+            }
+            else if (action == "wallet_add")
+            {
+                std::string key_text (request_l.get <std::string> ("key"));
+                rai::private_key key;
+                auto error (key.decode_hex (key_text));
+                if (!error)
+                {
+                    client.wallet.insert (key);
+                    rai::public_key pub;
+                    ed25519_publickey (key.bytes.data (), pub.bytes.data ());
+                    std::string account;
+                    pub.encode_base58check (account);
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("account", account);
+                    set_response (response, response_l);
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad private key";
+                }
             }
             else if (action == "validate_account")
             {
