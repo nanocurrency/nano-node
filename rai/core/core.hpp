@@ -520,7 +520,7 @@ namespace rai {
     class rpc
     {
     public:
-		rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, rai::client &, std::unordered_set <rai::uint256_union> const &);
+		rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, rai::client &);
         void start ();
         void stop ();
         boost::network::http::server <rai::rpc> server;
@@ -528,7 +528,6 @@ namespace rai {
         void log (const char *) {}
         rai::client & client;
         bool on;
-		std::unordered_set <rai::uint256_union> api_keys;
     };
     class peer_container
     {

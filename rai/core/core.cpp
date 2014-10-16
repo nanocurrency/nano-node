@@ -1460,10 +1460,9 @@ void rai::confirm_req::serialize (rai::stream & stream_a)
     rai::serialize_block (stream_a, *block);
 }
 
-rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, rai::client & client_a, std::unordered_set <rai::uint256_union> const & api_keys_a) :
+rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, rai::client & client_a) :
 server (decltype (server)::options (*this).address ("0.0.0.0").port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
-client (client_a),
-api_keys (api_keys_a)
+client (client_a)
 {
 }
 
