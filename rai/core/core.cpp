@@ -434,8 +434,9 @@ void rai::publish_req::serialize (rai::stream & stream_a)
 }
 
 rai::wallet::wallet (boost::filesystem::path const & path_a) :
-password (hash_password (""))
+password (hash_password (""), 1024)
 {
+    auto password_l (password.value ());
     boost::filesystem::create_directories (path_a);
     leveldb::Options options;
     options.create_if_missing = true;
@@ -452,7 +453,7 @@ password (hash_password (""))
         rai::uint256_union wallet_key;
         random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
         // Wallet key is encrypted by the user's password
-        rai::uint256_union encrypted (wallet_key, password, password.owords [0]);
+        rai::uint256_union encrypted (wallet_key, password_l, password_l.owords [0]);
         rai::uint256_union zero;
         zero.clear ();
         // Wallet key is stored in entry 0
@@ -464,6 +465,7 @@ password (hash_password (""))
         auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
         assert (status2.ok ());
     }
+    password_l.clear ();
 }
 
 void rai::wallet::insert (rai::private_key const & prv)
@@ -3588,7 +3590,10 @@ rai::uint256_union rai::wallet::wallet_key ()
     assert (encrypted_wallet_key.size () == sizeof (rai::uint256_union));
     rai::uint256_union encrypted_key;
     std::copy (encrypted_wallet_key.begin (), encrypted_wallet_key.end (), encrypted_key.chars.begin ());
-    return encrypted_key.prv (password, password.owords [0]);
+    auto password_l (password.value ());
+    auto result (encrypted_key.prv (password_l, password_l.owords [0]));
+    password_l.clear ();
+    return result;
 }
 
 bool rai::wallet::valid_password ()
@@ -3613,7 +3618,9 @@ bool rai::wallet::rekey (rai::uint256_union const & password_a)
 	if (valid_password ())
     {
         auto wallet_key_l (wallet_key ());
-        password = password_a;
+        auto password_l (password.value ());
+        (*password.values [0]) ^= password_l;
+        (*password.values [0]) ^= password_a;
         rai::uint256_union zero;
         zero.clear ();
         rai::uint256_union encrypted (wallet_key_l, password_a, password_a.owords [0]);
@@ -3771,4 +3778,28 @@ bool rai::work::validate (rai::uint256_union const & seed, rai::uint256_union co
 {
     auto value (generate (seed, nonce));
     return value < threshold_requirement;
+}
+
+rai::fan::fan (rai::uint256_union const & key, size_t count_a)
+{
+    std::unique_ptr <rai::uint256_union> first (new rai::uint256_union (key));
+    for (auto i (0); i != count_a; ++i)
+    {
+        std::unique_ptr <rai::uint256_union> entry (new rai::uint256_union);
+        random_pool.GenerateBlock (entry->bytes.data (), entry->bytes.size ());
+        *first ^= *entry;
+        values.push_back (std::move (entry));
+    }
+    values.push_back (std::move (first));
+}
+
+rai::uint256_union rai::fan::value ()
+{
+    rai::uint256_union result;
+    result.clear ();
+    for (auto & i: values)
+    {
+        result ^= *i;
+    }
+    return result;
 }

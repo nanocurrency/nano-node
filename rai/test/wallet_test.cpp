@@ -21,7 +21,7 @@ TEST (wallet, retrieval)
     ASSERT_FALSE (wallet.fetch (key1.pub, prv1));
     ASSERT_TRUE (wallet.valid_password ());
     ASSERT_EQ (key1.prv, prv1);
-    wallet.password.bytes [16] ^= 1;
+    wallet.password.values [0]->bytes [16] ^= 1;
     rai::private_key prv2;
     ASSERT_TRUE (wallet.fetch (key1.pub, prv2));
     ASSERT_FALSE (wallet.valid_password ());
@@ -204,14 +204,14 @@ TEST (wallet, rekey)
     rai::uint256_union prv1;
     wallet.fetch (key1.pub, prv1);
     ASSERT_EQ (key1.prv, prv1);
-    auto password1 (wallet.password);
+    auto password1 (wallet.password.value ());
     password1.bytes [16] ^= 1;
     ASSERT_FALSE (wallet.rekey (password1));
-    ASSERT_EQ (password1, wallet.password);
+    ASSERT_EQ (password1, wallet.password.value ());
     rai::uint256_union prv2;
     wallet.fetch (key1.pub, prv2);
     ASSERT_EQ (key1.prv, prv2);
-    wallet.password = 2;
+    *wallet.password.values [0] = 2;
     ASSERT_TRUE (wallet.rekey (password1));
 }
 
@@ -256,4 +256,16 @@ TEST (wallet, hash_password)
     ASSERT_EQ (hash1, hash2);
     auto hash3 (wallet.hash_password ("a"));
     ASSERT_NE (hash1, hash3);
+}
+
+TEST (fan, reconstitute)
+{
+    rai::uint256_union value0;
+    rai::fan fan (value0, 1024);
+    for (auto & i: fan.values)
+    {
+        ASSERT_NE (value0, *i);
+    }
+    auto value1 (fan.value ());
+    ASSERT_EQ (value0, value1);
 }

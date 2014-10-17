@@ -251,6 +251,14 @@ namespace rai {
         rai::key_entry current;
         std::unique_ptr <leveldb::Iterator> iterator;
     };
+    // The fan spreads a key out over the heap to decrease the likelyhood of it being recovered by memory inspection
+    class fan
+    {
+    public:
+        fan (rai::uint256_union const &, size_t);
+        rai::uint256_union value ();
+        std::vector <std::unique_ptr <rai::uint256_union>> values;
+    };
     class wallet
     {
     public:
@@ -266,7 +274,7 @@ namespace rai {
         key_iterator begin ();
         key_iterator end ();
         rai::uint256_union hash_password (std::string const &);
-        rai::uint256_union password;
+        rai::fan password;
     private:
         leveldb::DB * handle;
     };
