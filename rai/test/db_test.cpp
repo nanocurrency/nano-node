@@ -3,16 +3,18 @@
 
 TEST (block_store, construction)
 {
-    rai::block_store db;
-    ASSERT_TRUE (db.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     auto now (db.now ());
     ASSERT_GT (now, 1408074640);
 }
 
 TEST (block_store, add_item)
 {
-    rai::block_store db;
-    ASSERT_TRUE (db.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::send_block block;
     rai::uint256_union hash1 (block.hash ());
     auto latest1 (db.block_get (hash1));
@@ -30,8 +32,9 @@ TEST (block_store, add_item)
 
 TEST (block_store, add_nonempty_block)
 {
-    rai::block_store db;
-    ASSERT_TRUE (db.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     rai::send_block block;
     rai::uint256_union hash1 (block.hash ());
@@ -46,8 +49,9 @@ TEST (block_store, add_nonempty_block)
 
 TEST (block_store, add_two_items)
 {
-    rai::block_store db;
-    ASSERT_TRUE (db.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     rai::send_block block;
     block.hashables.balance = 1;
@@ -74,8 +78,9 @@ TEST (block_store, add_two_items)
 
 TEST (block_store, add_receive)
 {
-    rai::block_store db;
-    ASSERT_TRUE (db.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     rai::keypair key2;
     rai::receive_block block;
@@ -90,8 +95,9 @@ TEST (block_store, add_receive)
 
 TEST (block_store, add_pending)
 {
-    rai::block_store db;
-    ASSERT_TRUE (db.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     rai::block_hash hash1;
     rai::address sender1;
@@ -115,8 +121,9 @@ TEST (block_store, add_pending)
 
 TEST (block_store, add_genesis)
 {
-    rai::block_store db;
-    ASSERT_TRUE (db.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::genesis genesis;
     genesis.initialize (db);
     rai::frontier frontier;
@@ -130,8 +137,9 @@ TEST (block_store, add_genesis)
 
 TEST (representation, changes)
 {
-    rai::block_store store;
-    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     ASSERT_EQ (0, store.representation_get (key1.pub));
     store.representation_put (key1.pub, 1);
@@ -142,8 +150,9 @@ TEST (representation, changes)
 
 TEST (fork, adding_checking)
 {
-    rai::block_store store;
-    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     rai::change_block block1;
     block1.hashables.representative = key1.pub;
@@ -157,8 +166,9 @@ TEST (fork, adding_checking)
 
 TEST (bootstrap, simple)
 {
-    rai::block_store store;
-    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::send_block block1;
     auto block2 (store.bootstrap_get (block1.previous ()));
     ASSERT_EQ (nullptr, block2);
@@ -173,8 +183,9 @@ TEST (bootstrap, simple)
 
 TEST (checksum, simple)
 {
-    rai::block_store store;
-    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
     rai::block_hash hash0;
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash0));
     rai::block_hash hash1;

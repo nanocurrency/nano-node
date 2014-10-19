@@ -1050,13 +1050,12 @@ bool rai::block_iterator::operator != (rai::block_iterator const & other_a) cons
 
 rai::block_store_temp_t rai::block_store_temp;
 
-leveldb::Status rai::block_store::init (block_store_temp_t const &)
+rai::block_store::block_store (leveldb::Status & result, block_store_temp_t const &) :
+block_store (result, boost::filesystem::unique_path ())
 {
-    auto result (init (boost::filesystem::unique_path ()));
-    return result;
 }
 
-leveldb::Status rai::block_store::init (boost::filesystem::path const & path_a)
+rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path const & path_a)
 {
     leveldb::DB * db;
     boost::system::error_code code;
@@ -1096,44 +1095,43 @@ leveldb::Status rai::block_store::init (boost::filesystem::path const & path_a)
                                 }
                                 else
                                 {
-                                    return status7;
+                                    init_a = status7;
                                 }
                             }
                             else
                             {
-                                return status6;
+                                init_a = status6;
                             }
                         }
                         else
                         {
-                            return status5;
+                            init_a = status5;
                         }
                     }
                     else
                     {
-                        return status4;
+                        init_a = status4;
                     }
                 }
                 else
                 {
-                    return status3;
+                    init_a = status3;
                 }
             }
             else
             {
-                return status2;
+                init_a = status2;
             }
         }
         else
         {
-            return status1;
+            init_a = status1;
         }
     }
     else
     {
-        return leveldb::Status::IOError ("Unable to create directories");
+        init_a = leveldb::Status::IOError ("Unable to create directories");
     }
-    return leveldb::Status::OK ();
 }
 
 void rai::block_store::block_put (rai::block_hash const & hash_a, rai::block const & block_a)

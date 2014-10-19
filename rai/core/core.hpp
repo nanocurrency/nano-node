@@ -263,8 +263,7 @@ namespace rai {
     class wallet
     {
     public:
-        wallet ();
-        bool init (boost::filesystem::path const &);
+        wallet (bool &, boost::filesystem::path const &);
         rai::uint256_union check ();
 		bool rekey (rai::uint256_union const &);
         rai::uint256_union wallet_key ();
@@ -573,11 +572,19 @@ namespace rai {
         void dump_cerr ();
         boost::circular_buffer <std::pair <std::chrono::system_clock::time_point, std::string>> items;
     };
+    class client_init
+    {
+    public:
+        client_init ();
+        bool error ();
+        leveldb::Status block_store_init;
+        bool wallet_init;
+    };
     class client : public std::enable_shared_from_this <rai::client>
     {
     public:
-        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::address const &);
-        client (boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::address const &);
+        client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::address const &);
+        client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::address const &);
         ~client ();
         bool send (rai::public_key const &, rai::uint256_t const &);
         rai::uint256_t balance ();

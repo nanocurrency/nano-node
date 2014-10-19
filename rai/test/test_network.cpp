@@ -228,7 +228,9 @@ TEST (network, multi_keepalive)
     rai::system system (24000, 1);
     auto list1 (system.clients [0]->peers.list ());
     ASSERT_EQ (0, list1.size ());
-    rai::client client1 (system.service, 24001, system.processor, rai::test_genesis_key.pub);
+    rai::client_init init1;
+    rai::client client1 (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub);
+    ASSERT_FALSE (init1.error ());
     client1.start ();
     client1.network.send_keepalive (system.clients [0]->network.endpoint ());
     ASSERT_EQ (0, client1.peers.size ());
@@ -236,7 +238,9 @@ TEST (network, multi_keepalive)
     {
         system.service->run_one ();
     }
-    rai::client client2 (system.service, 24002, system.processor, rai::test_genesis_key.pub);
+    rai::client_init init2;
+    rai::client client2 (init2, system.service, 24002, system.processor, rai::test_genesis_key.pub);
+    ASSERT_FALSE (init2.error ());
     client2.start ();
     client2.network.send_keepalive (system.clients [0]->network.endpoint ());
     while (client1.peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2.peers.size () != 2)
@@ -862,7 +866,9 @@ TEST (parse_endpoint, no_colon)
 TEST (bootstrap_processor, process_none)
 {
     rai::system system (24000, 1);
-    auto client1 (std::make_shared <rai::client> (system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
     auto done (false);
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
     while (!done)
@@ -891,7 +897,8 @@ TEST (bootstrap_processor, process_one)
     rai::system system (24000, 1);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (rai::test_genesis_key.pub, 100));
-    auto client1 (std::make_shared <rai::client> (system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     auto hash1 (system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     auto hash2 (client1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
@@ -917,7 +924,9 @@ TEST (bootstrap_processor, process_two)
     ASSERT_NE (hash1, hash2);
     ASSERT_NE (hash1, hash3);
     ASSERT_NE (hash2, hash3);
-    auto client1 (std::make_shared <rai::client> (system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
     auto done (false);
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
     while (!done)
@@ -942,7 +951,9 @@ TEST (bootstrap_processor, process_new)
     }
     auto balance1 (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     auto balance2 (system.clients [0]->ledger.account_balance (key2.pub));
-    auto client1 (std::make_shared <rai::client> (system.service, 24002, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24002, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [] () {});
     while (client1->ledger.account_balance (key2.pub) != balance2)
     {
@@ -1134,7 +1145,9 @@ TEST (bulk, genesis)
 {
     rai::system system (24000, 1);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
-    auto client1 (std::make_shared <rai::client> (system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
     rai::frontier frontier1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::frontier frontier2;
@@ -1158,7 +1171,9 @@ TEST (bulk, offline_send)
 {
     rai::system system (24000, 1);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
-    auto client1 (std::make_shared <rai::client> (system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
     client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
     do
@@ -1185,7 +1200,9 @@ TEST (client, auto_bootstrap)
     rai::system system (24000, 1);
     system.clients [0]->peers.incoming_from_peer (system.clients [0]->network.endpoint ());
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
-    auto client1 (std::make_shared <rai::client> (system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
     client1->peers.incoming_from_peer (client1->network.endpoint ());
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
@@ -1204,7 +1221,9 @@ TEST (client, auto_bootstrap_reverse)
     rai::system system (24000, 1);
     system.clients [0]->peers.incoming_from_peer (system.clients [0]->network.endpoint ());
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
-    auto client1 (std::make_shared <rai::client> (system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
     client1->peers.incoming_from_peer (client1->network.endpoint ());
     rai::keypair key2;
     client1->wallet.insert (key2.prv);

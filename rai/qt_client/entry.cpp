@@ -7,7 +7,9 @@ int main (int argc, char ** argv)
     QApplication application (argc, argv);
     auto service (boost::make_shared <boost::asio::io_service> ());
     rai::processor_service processor;
-    auto client (std::make_shared <rai::client> (service, 24000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, rai::genesis_address));
+    rai::client_init init;
+    auto client (std::make_shared <rai::client> (init, service, 24000, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, rai::genesis_address));
+    assert (!init.error ());
     client->start ();
     boost::system::error_code ec;
     std::vector <std::pair <std::string, std::string>> well_known;

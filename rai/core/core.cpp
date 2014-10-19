@@ -433,12 +433,8 @@ void rai::publish_req::serialize (rai::stream & stream_a)
     rai::serialize_block (stream_a, *block);
 }
 
-rai::wallet::wallet () :
+rai::wallet::wallet (bool & init_a, boost::filesystem::path const & path_a) :
 password (hash_password (""), 1024)
-{
-}
-
-bool rai::wallet::init (boost::filesystem::path const & path_a)
 {
     auto password_l (password.value ());
     boost::filesystem::create_directories (path_a);
@@ -470,7 +466,7 @@ bool rai::wallet::init (boost::filesystem::path const & path_a)
         assert (status2.ok ());
     }
     password_l.clear ();
-    return false;
+    init_a = false;
 }
 
 void rai::wallet::insert (rai::private_key const & prv)
@@ -749,10 +745,22 @@ bool rai::operation::operator > (rai::operation const & other_a) const
     return wakeup > other_a.wakeup;
 }
 
-rai::client::client (boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, rai::processor_service & processor_a, rai::address const & representative_a) :
+rai::client_init::client_init () :
+wallet_init (false)
+{
+}
+
+bool rai::client_init::error ()
+{
+    return !block_store_init.ok () || wallet_init;
+}
+
+rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, rai::processor_service & processor_a, rai::address const & representative_a) :
 representative (representative_a),
+store (init_a.block_store_init, data_path_a),
 ledger (store),
 conflicts (*this),
+wallet (init_a.wallet_init, data_path_a),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
@@ -761,8 +769,6 @@ peers (network.endpoint ()),
 service (processor_a),
 scale ("100000000000000000000000000000000000000000000000000000000000000000") // 10 ^ 65
 {
-    store.init (data_path_a);
-    wallet.init (data_path_a);
     if (client_lifetime_tracing ())
     {
         std::cerr << "Constructing client\n";
@@ -774,8 +780,8 @@ scale ("100000000000000000000000000000000000000000000000000000000000000000") // 
     }
 }
 
-rai::client::client (boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a, rai::address const & representative_a) :
-client (service_a, port_a, boost::filesystem::unique_path (), processor_a, representative_a)
+rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a, rai::address const & representative_a) :
+client (init_a, service_a, port_a, boost::filesystem::unique_path (), processor_a, representative_a)
 {
 }
 
@@ -1302,7 +1308,9 @@ service (new boost::asio::io_service)
     clients.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        auto client (std::make_shared <rai::client> (service, port_a + i, processor, rai::genesis_address));
+        rai::client_init init;
+        auto client (std::make_shared <rai::client> (init, service, port_a + i, processor, rai::genesis_address));
+        assert (!init.error ());
         client->start ();
         clients.push_back (client);
     }

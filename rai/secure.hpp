@@ -341,8 +341,8 @@ namespace rai
 	class block_store
 	{
 	public:
-        leveldb::Status init (block_store_temp_t const &);
-        leveldb::Status init (boost::filesystem::path const &);
+        block_store (leveldb::Status &, block_store_temp_t const &);
+        block_store (leveldb::Status &, boost::filesystem::path const &);
 		uint64_t now ();
 		
 		rai::block_hash root (rai::block const &);
