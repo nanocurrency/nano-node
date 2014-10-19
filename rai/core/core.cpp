@@ -433,8 +433,12 @@ void rai::publish_req::serialize (rai::stream & stream_a)
     rai::serialize_block (stream_a, *block);
 }
 
-rai::wallet::wallet (boost::filesystem::path const & path_a) :
+rai::wallet::wallet () :
 password (hash_password (""), 1024)
+{
+}
+
+bool rai::wallet::init (boost::filesystem::path const & path_a)
 {
     auto password_l (password.value ());
     boost::filesystem::create_directories (path_a);
@@ -466,6 +470,7 @@ password (hash_password (""), 1024)
         assert (status2.ok ());
     }
     password_l.clear ();
+    return false;
 }
 
 void rai::wallet::insert (rai::private_key const & prv)
@@ -748,7 +753,6 @@ rai::client::client (boost::shared_ptr <boost::asio::io_service> service_a, uint
 representative (representative_a),
 ledger (store),
 conflicts (*this),
-wallet (data_path_a),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
@@ -758,6 +762,7 @@ service (processor_a),
 scale ("100000000000000000000000000000000000000000000000000000000000000000") // 10 ^ 65
 {
     store.init (data_path_a);
+    wallet.init (data_path_a);
     if (client_lifetime_tracing ())
     {
         std::cerr << "Constructing client\n";

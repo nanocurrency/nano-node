@@ -263,7 +263,8 @@ namespace rai {
     class wallet
     {
     public:
-        wallet (boost::filesystem::path const &);
+        wallet ();
+        bool init (boost::filesystem::path const &);
         rai::uint256_union check ();
 		bool rekey (rai::uint256_union const &);
         rai::uint256_union wallet_key ();

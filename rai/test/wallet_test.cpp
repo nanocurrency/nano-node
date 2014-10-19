@@ -4,7 +4,8 @@
 
 TEST (wallet, no_key)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::keypair key1;
     rai::private_key prv1;
     ASSERT_TRUE (wallet.fetch (key1.pub, prv1));
@@ -13,7 +14,8 @@ TEST (wallet, no_key)
 
 TEST (wallet, retrieval)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::keypair key1;
     ASSERT_TRUE (wallet.valid_password ());
     wallet.insert (key1.prv);
@@ -29,7 +31,8 @@ TEST (wallet, retrieval)
 
 TEST (wallet, empty_iteration)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     auto i (wallet.begin ());
     auto j (wallet.end ());
     ASSERT_EQ (i, j);
@@ -37,7 +40,8 @@ TEST (wallet, empty_iteration)
 
 TEST (wallet, one_item_iteration)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::keypair key1;
     wallet.insert (key1.prv);
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
@@ -49,7 +53,8 @@ TEST (wallet, one_item_iteration)
 
 TEST (wallet, two_item_iteration)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::keypair key1;
     rai::keypair key2;
     wallet.insert (key1.prv);
@@ -71,7 +76,8 @@ TEST (wallet, two_item_iteration)
 
 TEST (wallet, insufficient_spend)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::block_store store;
     ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
@@ -82,7 +88,8 @@ TEST (wallet, insufficient_spend)
 
 TEST (wallet, one_spend)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     wallet.insert (rai::test_genesis_key.prv);
     rai::block_store store;
     ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
@@ -132,7 +139,8 @@ TEST (wallet, DISABLED_two_spend)
 
 TEST (wallet, partial_spend)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     wallet.insert (rai::test_genesis_key.prv);
     rai::block_store store;
     ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
@@ -153,7 +161,8 @@ TEST (wallet, partial_spend)
 
 TEST (wallet, spend_no_previous)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     for (auto i (0); i < 50; ++i)
     {
         rai::keypair key;
@@ -184,14 +193,16 @@ TEST (wallet, spend_no_previous)
 
 TEST (wallet, find_none)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::uint256_union account;
     ASSERT_EQ (wallet.end (), wallet.find (account));
 }
 
 TEST (wallet, find_existing)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::keypair key1;
     wallet.insert (key1.prv);
     auto existing (wallet.find (key1.pub));
@@ -202,7 +213,8 @@ TEST (wallet, find_existing)
 
 TEST (wallet, rekey)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     rai::keypair key1;
     wallet.insert (key1.prv);
     rai::uint256_union prv1;
@@ -254,7 +266,8 @@ TEST (base58, encode_fail)
 
 TEST (wallet, hash_password)
 {
-    rai::wallet wallet (boost::filesystem::unique_path ());
+    rai::wallet wallet;
+    ASSERT_FALSE (wallet.init (boost::filesystem::unique_path ()));
     auto hash1 (wallet.hash_password (""));
     auto hash2 (wallet.hash_password (""));
     ASSERT_EQ (hash1, hash2);
