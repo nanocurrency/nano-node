@@ -50,6 +50,7 @@ add_executable (test
     rai/test/test_network.cpp
     rai/test/wallet_test.cpp
     rai/test/daemon.cpp
+    rai/test/uint256_union.cpp
     )
     
 add_executable (qt_test

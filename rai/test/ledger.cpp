@@ -57,19 +57,6 @@ TEST (system, system_genesis)
     }
 }
 
-TEST (uint256_union, key_encryption)
-{
-    rai::keypair key1;
-    rai::uint256_union secret_key;
-    secret_key.bytes.fill (0);
-    rai::uint256_union encrypted (key1.prv, secret_key, key1.pub.owords [0]);
-    rai::private_key key4 (encrypted.prv (secret_key, key1.pub.owords [0]));
-    ASSERT_EQ (key1.prv, key4);
-    rai::public_key pub;
-    ed25519_publickey (key4.bytes.data (), pub.bytes.data ());
-    ASSERT_EQ (key1.pub, pub);
-}
-
 TEST (ledger, process_send)
 {
     leveldb::Status init;

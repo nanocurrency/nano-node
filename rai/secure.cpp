@@ -124,18 +124,18 @@ bool rai::uint256_union::deserialize (rai::stream & stream_a)
 	return read (stream_a, bytes);
 }
 
-rai::uint256_union::uint256_union (rai::private_key const & prv, uint256_union const & key, uint128_union const & iv)
+rai::uint256_union::uint256_union (rai::private_key const & prv, rai::secret_key const & key, uint128_union const & iv)
 {
 	rai::uint256_union exponent (prv);
 	CryptoPP::AES::Encryption alg (key.bytes.data (), sizeof (key.bytes));
-	CryptoPP::CBC_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
+    CryptoPP::CTR_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
 	enc.ProcessData (bytes.data (), exponent.bytes.data (), sizeof (exponent.bytes));
 }
 
 rai::private_key rai::uint256_union::prv (rai::secret_key const & key_a, uint128_union const & iv) const
 {
-	CryptoPP::AES::Decryption alg (key_a.bytes.data (), sizeof (key_a.bytes));
-	CryptoPP::CBC_Mode_ExternalCipher::Decryption dec (alg, iv.bytes.data ());
+	CryptoPP::AES::Encryption alg (key_a.bytes.data (), sizeof (key_a.bytes));
+	CryptoPP::CTR_Mode_ExternalCipher::Decryption dec (alg, iv.bytes.data ());
 	rai::private_key result;
 	dec.ProcessData (result.bytes.data (), bytes.data (), sizeof (bytes));
 	return result;
