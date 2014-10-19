@@ -1491,9 +1491,10 @@ void rai::confirm_req::serialize (rai::stream & stream_a)
     rai::serialize_block (stream_a, *block);
 }
 
-rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, rai::client & client_a) :
+rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, rai::client & client_a, bool enable_control_a) :
 server (decltype (server)::options (*this).address ("0.0.0.0").port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
-client (client_a)
+client (client_a),
+enable_control (enable_control_a)
 {
 }
 
@@ -1549,13 +1550,21 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "wallet_create")
             {
-                rai::keypair new_key;
-                client.wallet.insert (new_key.prv);
-                boost::property_tree::ptree response_l;
-                std::string account;
-                new_key.pub.encode_base58check (account);
-                response_l.put ("account", account);
-                set_response (response, response_l);
+                if (enable_control)
+                {
+                    rai::keypair new_key;
+                    client.wallet.insert (new_key.prv);
+                    boost::property_tree::ptree response_l;
+                    std::string account;
+                    new_key.pub.encode_base58check (account);
+                    response_l.put ("account", account);
+                    set_response (response, response_l);
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "RPC control is disabled";
+                }
             }
             else if (action == "wallet_contains")
             {
@@ -1592,24 +1601,32 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "wallet_add")
             {
-                std::string key_text (request_l.get <std::string> ("key"));
-                rai::private_key key;
-                auto error (key.decode_hex (key_text));
-                if (!error)
+                if (enable_control)
                 {
-                    client.wallet.insert (key);
-                    rai::public_key pub;
-                    ed25519_publickey (key.bytes.data (), pub.bytes.data ());
-                    std::string account;
-                    pub.encode_base58check (account);
-                    boost::property_tree::ptree response_l;
-                    response_l.put ("account", account);
-                    set_response (response, response_l);
+                    std::string key_text (request_l.get <std::string> ("key"));
+                    rai::private_key key;
+                    auto error (key.decode_hex (key_text));
+                    if (!error)
+                    {
+                        client.wallet.insert (key);
+                        rai::public_key pub;
+                        ed25519_publickey (key.bytes.data (), pub.bytes.data ());
+                        std::string account;
+                        pub.encode_base58check (account);
+                        boost::property_tree::ptree response_l;
+                        response_l.put ("account", account);
+                        set_response (response, response_l);
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Bad private key";
+                    }
                 }
                 else
                 {
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad private key";
+                    response.content = "RPC control is disabled";
                 }
             }
             else if (action == "validate_account")
@@ -1623,31 +1640,39 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "send")
             {
-                std::string account_text (request_l.get <std::string> ("account"));
-                rai::uint256_union account;
-                auto error (account.decode_base58check (account_text));
-                if (!error)
+                if (enable_control)
                 {
-                    std::string amount_text (request_l.get <std::string> ("amount"));
-                    rai::uint256_union amount;
-                    auto error (amount.decode_hex (amount_text));
+                    std::string account_text (request_l.get <std::string> ("account"));
+                    rai::uint256_union account;
+                    auto error (account.decode_base58check (account_text));
                     if (!error)
                     {
-                        auto error (client.send (account, amount.number ()));
-                        boost::property_tree::ptree response_l;
-                        response_l.put ("sent", error ? "0" : "1");
-                        set_response (response, response_l);
+                        std::string amount_text (request_l.get <std::string> ("amount"));
+                        rai::uint256_union amount;
+                        auto error (amount.decode_hex (amount_text));
+                        if (!error)
+                        {
+                            auto error (client.send (account, amount.number ()));
+                            boost::property_tree::ptree response_l;
+                            response_l.put ("sent", error ? "0" : "1");
+                            set_response (response, response_l);
+                        }
+                        else
+                        {
+                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                            response.content = "Bad amount format";
+                        }
                     }
                     else
                     {
                         response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Bad amount format";
+                        response.content = "Bad account number";
                     }
                 }
                 else
                 {
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
+                    response.content = "RPC control is disabled";
                 }
             }
             else

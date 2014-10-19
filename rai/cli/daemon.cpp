@@ -16,6 +16,8 @@ void rai_daemon::daemon_config::serialize (std::ostream & output_a)
     boost::property_tree::ptree tree;
     tree.put ("peering_port", std::to_string (peering_port));
     tree.put ("rpc_port", std::to_string (rpc_port));
+    tree.put ("rpc_enable", false);
+    tree.put ("rpc_enable_control", false);
     boost::property_tree::write_json (output_a, tree);
 }
 
@@ -28,6 +30,8 @@ bool rai_daemon::daemon_config::deserialize (std::istream & input_a)
         boost::property_tree::read_json (input_a, tree);
         auto peering_port_l (tree.get <std::string> ("peering_port"));
         auto rpc_port_l (tree.get <std::string> ("rpc_port"));
+        auto rpc_enable_l (tree.get <bool> ("rpc_enable"));
+        auto rpc_allow_control (tree.get <bool> ("rpc_enable_control"));
         try
         {
             peering_port = std::stoul (peering_port_l);
@@ -81,8 +85,11 @@ void rai_daemon::daemon::run ()
         auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, rai::genesis_address));
         assert (!init.error ());
 		client->start ();
-		rai::rpc rpc (service, pool, config.rpc_port, *client);
-        rpc.start ();
+		rai::rpc rpc (service, pool, config.rpc_port, *client, config.rpc_enable_control);
+        if (config.rpc_enable)
+        {
+            rpc.start ();
+        }
         std::thread network_thread ([&service] ()
             {
                 try

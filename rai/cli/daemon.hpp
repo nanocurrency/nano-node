@@ -17,6 +17,8 @@ namespace rai_daemon
         bool deserialize (std::istream &);
         void serialize (std::ostream &);
         uint16_t peering_port;
+        bool rpc_enable;
         uint16_t rpc_port;
+        bool rpc_allow_control;
     };
 }

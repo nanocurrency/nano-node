@@ -460,7 +460,7 @@ TEST (rpc, account_create)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -484,7 +484,7 @@ TEST (rpc, account_balance)
 {
 	rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     boost::network::http::server <rai::rpc>::request request;
@@ -509,7 +509,7 @@ TEST (rpc, wallet_contains)
 {
 	rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
@@ -535,7 +535,7 @@ TEST (rpc, wallet_doesnt_contain)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     boost::network::http::server <rai::rpc>::request request;
@@ -560,7 +560,7 @@ TEST (rpc, validate_account)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
@@ -586,7 +586,7 @@ TEST (rpc, validate_account_invalid)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     account [0] ^= 0x1;
@@ -613,7 +613,7 @@ TEST (rpc, send)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
@@ -642,7 +642,7 @@ TEST (rpc, send_fail)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     rai::keypair key1;
@@ -670,7 +670,7 @@ TEST (rpc, wallet_add)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     rai::keypair key1;
     std::string key_text;
     key1.prv.encode_hex (key_text);
@@ -714,7 +714,7 @@ TEST (rpc, wallet_list)
 {
 	rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, 25000, *system.clients [0]);
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);

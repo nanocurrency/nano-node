@@ -62,7 +62,7 @@ TEST (client, send_single_observing_peer)
     }
 }
 
-TEST (client, send_single_many_peers)
+TEST (client, DISABLED_send_single_many_peers)
 {
     rai::system system (24000, 10);
     rai::keypair key2;
