@@ -460,9 +460,8 @@ public:
 }
 
 rai::wallet::wallet (bool & init_a, boost::filesystem::path const & path_a) :
-password (derive_key (""), 1024)
+password (0, 1024)
 {
-    auto password_l (password.value ());
     boost::system::error_code code;
     boost::filesystem::create_directories (path_a, code);
     if (!code)
@@ -482,6 +481,11 @@ password (derive_key (""), 1024)
                 // Wallet key is a fixed random key that encrypts all entries
                 rai::uint256_union salt_l;
                 random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
+                rai::uint256_union two (2);
+                auto status3 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (two.chars.data (), two.chars.size ()), leveldb::Slice (salt_l.chars.data (), salt_l.chars.size ())));
+                assert (status3.ok ());
+                auto password_l (derive_key (""));
+                password.value_set (password_l);
                 rai::uint256_union wallet_key;
                 random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
                 // Wallet key is encrypted by the user's password
@@ -496,12 +500,9 @@ password (derive_key (""), 1024)
                 // Check key is stored in entry 1
                 auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
                 assert (status2.ok ());
-                rai::uint256_union two (2);
-                auto status3 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (two.chars.data (), two.chars.size ()), leveldb::Slice (salt_l.chars.data (), salt_l.chars.size ())));
-                assert (status3.ok ());
                 wallet_key.clear ();
+                password_l.clear ();
             }
-            password_l.clear ();
         }
         else
         {
@@ -3735,13 +3736,25 @@ bool rai::wallet::rekey (std::string const & password_a)
     return result;
 }
 
+namespace
+{
+class kdf
+{
+public:
+    kdf (std::string const & password_a, rai::uint256_union const & salt_a)
+    {
+        CryptoPP::SHA3 hash (key.bytes.size ());
+        hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+        hash.Final (key.bytes.data ());
+    }
+    rai::uint256_union key;
+};
+}
+
 rai::uint256_union rai::wallet::derive_key (std::string const & password_a)
 {
-    CryptoPP::SHA3 hash (32);
-    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-    rai::uint256_union result;
-    hash.Final (result.bytes.data ());
-    return result;
+    kdf key (password_a, salt ());
+    return key.key;
 }
 
 bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
