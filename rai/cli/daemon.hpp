@@ -19,6 +19,6 @@ namespace rai_daemon
         uint16_t peering_port;
         bool rpc_enable;
         uint16_t rpc_port;
-        bool rpc_allow_control;
+        bool rpc_enable_control;
     };
 }

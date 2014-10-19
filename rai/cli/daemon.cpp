@@ -30,8 +30,8 @@ bool rai_daemon::daemon_config::deserialize (std::istream & input_a)
         boost::property_tree::read_json (input_a, tree);
         auto peering_port_l (tree.get <std::string> ("peering_port"));
         auto rpc_port_l (tree.get <std::string> ("rpc_port"));
-        auto rpc_enable_l (tree.get <bool> ("rpc_enable"));
-        auto rpc_allow_control (tree.get <bool> ("rpc_enable_control"));
+        rpc_enable = tree.get <bool> ("rpc_enable");
+        rpc_enable_control = tree.get <bool> ("rpc_enable_control");
         try
         {
             peering_port = std::stoul (peering_port_l);
