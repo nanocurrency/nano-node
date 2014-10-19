@@ -7,12 +7,24 @@
 #include <atomic>
 #include <condition_variable>
 
+TEST (ledger, store_error)
+{
+    leveldb::Status init;
+    rai::block_store store (init, boost::filesystem::path {});
+    ASSERT_FALSE (init.ok ());
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_TRUE (init1);
+}
+
 TEST (ledger, empty)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::address address;
     auto balance (ledger.account_balance (address));
     ASSERT_TRUE (balance.is_zero ());
@@ -23,7 +35,9 @@ TEST (ledger, genesis_balance)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     auto balance (ledger.account_balance (rai::genesis_address));
@@ -61,7 +75,9 @@ TEST (ledger, process_send)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -138,7 +154,9 @@ TEST (ledger, process_receive)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -194,7 +212,9 @@ TEST (ledger, rollback_receiver)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -239,7 +259,9 @@ TEST (ledger, rollback_representation)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::keypair key5;
@@ -298,7 +320,9 @@ TEST (ledger, process_duplicate)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -325,7 +349,9 @@ TEST (processor_service, bad_send_signature)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -346,7 +372,9 @@ TEST (processor_service, bad_receive_signature)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -444,7 +472,9 @@ TEST (ledger, representative_genesis)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     ASSERT_EQ (rai::test_genesis_key.pub, ledger.representative (ledger.latest (rai::test_genesis_key.pub)));
@@ -455,7 +485,9 @@ TEST (ledger, weight)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), ledger.weight (rai::test_genesis_key.pub));
@@ -466,7 +498,9 @@ TEST (ledger, representative_change)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::keypair key2;
     rai::genesis genesis;
     genesis.initialize (store);
@@ -497,7 +531,9 @@ TEST (ledger, send_fork)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::keypair key2;
     rai::keypair key3;
     rai::genesis genesis;
@@ -523,7 +559,9 @@ TEST (ledger, receive_fork)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::keypair key2;
     rai::keypair key3;
     rai::genesis genesis;
@@ -566,7 +604,9 @@ TEST (ledger, checksum_single)
     ASSERT_TRUE (init.ok ());
     rai::genesis genesis;
     genesis.initialize (store);
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     store.checksum_put (0, 0, genesis.hash ());
 	ASSERT_EQ (genesis.hash (), ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
     rai::change_block block1;
@@ -586,7 +626,9 @@ TEST (ledger, checksum_two)
     ASSERT_TRUE (init.ok ());
     rai::genesis genesis;
     genesis.initialize (store);
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     store.checksum_put (0, 0, genesis.hash ());
 	rai::keypair key2;
     rai::send_block block1;
@@ -608,7 +650,9 @@ TEST (ledger, DISABLED_checksum_range)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
     ASSERT_TRUE (check1.is_zero ());
     rai::block_hash hash1 (42);
@@ -710,7 +754,9 @@ TEST (ledger, representation)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), store.representation_get (rai::test_genesis_key.pub));
@@ -812,7 +858,9 @@ TEST (ledger, double_open)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::keypair key2;
@@ -839,7 +887,9 @@ TEST (ledegr, double_receive)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::keypair key2;

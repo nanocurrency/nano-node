@@ -752,13 +752,13 @@ wallet_init (false)
 
 bool rai::client_init::error ()
 {
-    return !block_store_init.ok () || wallet_init;
+    return !block_store_init.ok () || wallet_init || ledger_init;
 }
 
 rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, rai::processor_service & processor_a, rai::address const & representative_a) :
 representative (representative_a),
 store (init_a.block_store_init, data_path_a),
-ledger (store),
+ledger (init_a.ledger_init, init_a.block_store_init, store),
 conflicts (*this),
 wallet (init_a.wallet_init, data_path_a),
 network (*service_a, port_a, *this),

@@ -87,7 +87,9 @@ TEST (wallet, insufficient_spend)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init2;
+    rai::ledger ledger (init2, init, store);
+    ASSERT_FALSE (init2);
     rai::keypair key1;
     std::vector <std::unique_ptr <rai::send_block>> blocks;
     ASSERT_TRUE (wallet.generate_send (ledger, key1.pub, 500, blocks));
@@ -102,7 +104,9 @@ TEST (wallet, one_spend)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init2;
+    rai::ledger ledger (init2, init, store);
+    ASSERT_FALSE (init2);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -155,7 +159,9 @@ TEST (wallet, partial_spend)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init2;
+    rai::ledger ledger (init2, init, store);
+    ASSERT_FALSE (init2);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -184,7 +190,9 @@ TEST (wallet, spend_no_previous)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::ledger ledger (store);
+    bool init2;
+    rai::ledger ledger (init2, init, store);
+    ASSERT_FALSE (init2);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;

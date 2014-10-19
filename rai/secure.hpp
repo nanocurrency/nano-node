@@ -413,8 +413,7 @@ namespace rai
 	class ledger
 	{
 	public:
-		ledger (rai::block_store &);
-        void init ();
+        ledger (bool &, leveldb::Status const &, rai::block_store &);
 		rai::address account (rai::block_hash const &);
 		rai::uint256_t amount (rai::block_hash const &);
 		rai::uint256_t balance (rai::block_hash const &);

@@ -90,14 +90,18 @@ rai::keypair::keypair (std::string const & prv_a)
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
-rai::ledger::ledger (rai::block_store & store_a) :
+rai::ledger::ledger (bool & init_a, leveldb::Status const & store_init_a, rai::block_store & store_a) :
 store (store_a)
 {
-}
-
-void rai::ledger::init ()
-{
-	store.checksum_put (0, 0, 0);
+    if (store_init_a.ok ())
+    {
+        store.checksum_put (0, 0, 0);
+        init_a = false;
+    }
+    else
+    {
+        init_a = true;
+    }
 }
 
 bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const
