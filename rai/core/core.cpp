@@ -433,6 +433,32 @@ void rai::publish_req::serialize (rai::stream & stream_a)
     rai::serialize_block (stream_a, *block);
 }
 
+namespace
+{
+class xorshift1024star
+{
+public:
+    xorshift1024star ():
+    p (0)
+    {
+    }
+    std::array <uint64_t, 16> s;
+    unsigned p;
+    uint64_t next ()
+    {
+        auto p_l (p);
+        auto pn ((p_l + 1) & 15);
+        p = pn;
+        uint64_t s0 = s[ p_l ];
+        uint64_t s1 = s[ pn ];
+        s1 ^= s1 << 31; // a
+        s1 ^= s1 >> 11; // b
+        s0 ^= s0 >> 30; // c
+        return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
+    }
+};
+}
+
 rai::wallet::wallet (bool & init_a, boost::filesystem::path const & path_a) :
 password (hash_password (""), 1024)
 {
@@ -454,20 +480,26 @@ password (hash_password (""), 1024)
             {
                 // The wallet is empty meaning we just created it, initialize it.
                 // Wallet key is a fixed random key that encrypts all entries
+                rai::uint256_union salt_l;
+                random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
                 rai::uint256_union wallet_key;
                 random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
                 // Wallet key is encrypted by the user's password
-                rai::uint256_union encrypted (wallet_key, password_l, password_l.owords [0]);
+                rai::uint256_union encrypted (wallet_key, password_l, salt_l.owords [0]);
                 rai::uint256_union zero;
                 zero.clear ();
                 // Wallet key is stored in entry 0
                 auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
                 assert (status1.ok ());
                 rai::uint256_union one (1);
-                rai::uint256_union check (zero, wallet_key, wallet_key.owords [0]);
+                rai::uint256_union check (zero, wallet_key, salt_l.owords [0]);
                 // Check key is stored in entry 1
                 auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
                 assert (status2.ok ());
+                rai::uint256_union two (2);
+                auto status3 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (two.chars.data (), two.chars.size ()), leveldb::Slice (salt_l.chars.data (), salt_l.chars.size ())));
+                assert (status3.ok ());
+                wallet_key.clear ();
             }
             password_l.clear ();
         }
@@ -486,7 +518,7 @@ void rai::wallet::insert (rai::private_key const & prv)
 {
     rai::public_key pub;
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-    rai::uint256_union encrypted (prv, wallet_key (), pub.owords [0]);
+    rai::uint256_union encrypted (prv, wallet_key (), salt ().owords [0]);
     auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (pub.chars.data (), pub.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
     assert (status.ok ());
 }
@@ -502,7 +534,7 @@ bool rai::wallet::fetch (rai::public_key const & pub, rai::private_key & prv)
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
         auto result2 (read (stream, encrypted.bytes));
         assert (!result2);
-        prv = encrypted.prv (wallet_key (), pub.owords [0]);
+        prv = encrypted.prv (wallet_key (), salt ().owords [0]);
         rai::public_key compare;
         ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
         if (!(pub == compare))
@@ -567,9 +599,11 @@ rai::key_iterator rai::wallet::begin ()
 {
     rai::key_iterator result (handle);
     assert (result != end ());
-    ++result;
+    ++result; // 0 -> Wallet key
     assert (result != end ());
-    ++result;
+    ++result; // 1 -> test key
+    assert (result != end ());
+    ++result; // 2 -> salt
     return result;
 }
 
@@ -3634,6 +3668,18 @@ rai::uint256_union rai::wallet::check ()
     return result;
 }
 
+rai::uint256_union rai::wallet::salt ()
+{
+    rai::uint256_union two (2);
+    std::string salt_string;
+    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (two.chars.data (), two.chars.size ()), &salt_string));
+    assert (status.ok ());
+    rai::uint256_union result;
+    assert (salt_string.size () == result.chars.size ());
+    std::copy (salt_string.data (), salt_string.data () + salt_string.size (), result.chars.data ());
+    return result;
+}
+
 rai::uint256_union rai::wallet::wallet_key ()
 {
     rai::uint256_union zero;
@@ -3645,7 +3691,7 @@ rai::uint256_union rai::wallet::wallet_key ()
     rai::uint256_union encrypted_key;
     std::copy (encrypted_wallet_key.begin (), encrypted_wallet_key.end (), encrypted_key.chars.begin ());
     auto password_l (password.value ());
-    auto result (encrypted_key.prv (password_l, password_l.owords [0]));
+    auto result (encrypted_key.prv (password_l, salt ().owords [0]));
     password_l.clear ();
     return result;
 }
@@ -3655,7 +3701,7 @@ bool rai::wallet::valid_password ()
     rai::uint256_union zero;
     zero.clear ();
     auto wallet_key_l (wallet_key ());
-    rai::uint256_union check_l (zero, wallet_key_l, wallet_key_l.owords [0]);
+    rai::uint256_union check_l (zero, wallet_key_l, salt ().owords [0]);
     wallet_key_l.clear ();
     return check () == check_l;
 }
@@ -3677,7 +3723,7 @@ bool rai::wallet::rekey (rai::uint256_union const & password_a)
         (*password.values [0]) ^= password_a;
         rai::uint256_union zero;
         zero.clear ();
-        rai::uint256_union encrypted (wallet_key_l, password_a, password_a.owords [0]);
+        rai::uint256_union encrypted (wallet_key_l, password_a, salt ().owords [0]);
         auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
         assert (status1.ok ());
     }
@@ -3740,32 +3786,6 @@ void rai::processor::find_network (std::vector <std::pair <std::string, std::str
             }
         });
     }
-}
-
-namespace
-{
-class xorshift1024star
-{
-public:
-	xorshift1024star ():
-	p (0)
-	{
-	}
-	std::array <uint64_t, 16> s;
-	unsigned p;
-	uint64_t next ()
-	{
-		auto p_l (p);
-		auto pn ((p_l + 1) & 15);
-		p = pn;
-		uint64_t s0 = s[ p_l ];
-		uint64_t s1 = s[ pn ];
-		s1 ^= s1 << 31; // a
-		s1 ^= s1 >> 11; // b
-		s0 ^= s0 >> 30; // c
-		return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
-	}
-};
 }
 
 rai::work::work () :

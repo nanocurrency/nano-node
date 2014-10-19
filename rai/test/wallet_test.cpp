@@ -52,7 +52,7 @@ TEST (wallet, one_item_iteration)
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         ASSERT_EQ (key1.pub, i->first);
-        ASSERT_EQ (key1.prv, i->second.prv (wallet.wallet_key (), i->first.owords [0]));
+        ASSERT_EQ (key1.prv, i->second.prv (wallet.wallet_key (), wallet.salt ().owords [0]));
     }
 }
 
@@ -70,7 +70,7 @@ TEST (wallet, two_item_iteration)
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
         keys1.push_back (i->first);
-        keys2.push_back (i->second.prv (wallet.wallet_key (), i->first.owords [0]));
+        keys2.push_back (i->second.prv (wallet.wallet_key (), wallet.salt ().owords [0]));
     }
     ASSERT_EQ (2, keys1.size ());
     ASSERT_EQ (2, keys2.size ());

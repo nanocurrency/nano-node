@@ -267,6 +267,7 @@ namespace rai {
         rai::uint256_union check ();
 		bool rekey (rai::uint256_union const &);
         rai::uint256_union wallet_key ();
+        rai::uint256_union salt ();
         void insert (rai::private_key const &);
         bool fetch (rai::public_key const &, rai::private_key &);
         bool generate_send (rai::ledger &, rai::public_key const &, rai::uint256_t const &, std::vector <std::unique_ptr <rai::send_block>> &);
