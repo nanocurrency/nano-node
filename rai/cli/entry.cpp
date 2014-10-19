@@ -95,7 +95,7 @@ void fill_zero (void * data)
 {
     for (auto i (reinterpret_cast <__m128i *> (data)), n (reinterpret_cast <__m128i *> (data) + 512 * 1024); i != n; ++i)
     {
-        _mm_store_si128 (i, _mm_setzero_pd ());
+        _mm_store_si128 (i, _mm_setzero_si128 ());
     }
 }
 
