@@ -662,13 +662,6 @@ TEST (ledger, DISABLED_checksum_range)
     ASSERT_EQ (hash1, check3);
 }
 
-TEST (client, balance)
-{
-    rai::system system (24000, 1);
-    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
-    ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), system.clients [0]->balance ());
-}
-
 TEST (system, generate_send_existing)
 {
     rai::system system (24000, 1);
