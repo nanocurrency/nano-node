@@ -239,21 +239,20 @@ TEST (wallet, rekey)
 {
     bool init;
     rai::wallet wallet (init, boost::filesystem::unique_path ());
+    ASSERT_EQ (wallet.password.value (), wallet.derive_key (""));
     ASSERT_FALSE (init);
     rai::keypair key1;
     wallet.insert (key1.prv);
     rai::uint256_union prv1;
     wallet.fetch (key1.pub, prv1);
     ASSERT_EQ (key1.prv, prv1);
-    auto password1 (wallet.password.value ());
-    password1.bytes [16] ^= 1;
-    ASSERT_FALSE (wallet.rekey (password1));
-    ASSERT_EQ (password1, wallet.password.value ());
+    ASSERT_FALSE (wallet.rekey ("1"));
+    ASSERT_EQ (wallet.derive_key ("1"), wallet.password.value ());
     rai::uint256_union prv2;
     wallet.fetch (key1.pub, prv2);
     ASSERT_EQ (key1.prv, prv2);
     *wallet.password.values [0] = 2;
-    ASSERT_TRUE (wallet.rekey (password1));
+    ASSERT_TRUE (wallet.rekey ("2"));
 }
 
 TEST (base58, encode_zero)
@@ -294,10 +293,10 @@ TEST (wallet, hash_password)
     bool init;
     rai::wallet wallet (init, boost::filesystem::unique_path ());
     ASSERT_FALSE (init);
-    auto hash1 (wallet.hash_password (""));
-    auto hash2 (wallet.hash_password (""));
+    auto hash1 (wallet.derive_key (""));
+    auto hash2 (wallet.derive_key (""));
     ASSERT_EQ (hash1, hash2);
-    auto hash3 (wallet.hash_password ("a"));
+    auto hash3 (wallet.derive_key ("a"));
     ASSERT_NE (hash1, hash3);
 }
 

@@ -460,7 +460,7 @@ public:
 }
 
 rai::wallet::wallet (bool & init_a, boost::filesystem::path const & path_a) :
-password (hash_password (""), 1024)
+password (derive_key (""), 1024)
 {
     auto password_l (password.value ());
     boost::system::error_code code;
@@ -3706,24 +3706,25 @@ bool rai::wallet::valid_password ()
     return check () == check_l;
 }
 
-bool rai::transactions::rekey (rai::uint256_union const & password_a)
+bool rai::transactions::rekey (std::string const & password_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
     return wallet.rekey (password_a);
 }
 
-bool rai::wallet::rekey (rai::uint256_union const & password_a)
+bool rai::wallet::rekey (std::string const & password_a)
 {
     bool result (false);
 	if (valid_password ())
     {
+        auto password_new (derive_key (password_a));
         auto wallet_key_l (wallet_key ());
         auto password_l (password.value ());
         (*password.values [0]) ^= password_l;
-        (*password.values [0]) ^= password_a;
+        (*password.values [0]) ^= password_new;
         rai::uint256_union zero;
         zero.clear ();
-        rai::uint256_union encrypted (wallet_key_l, password_a, salt ().owords [0]);
+        rai::uint256_union encrypted (wallet_key_l, password_new, salt ().owords [0]);
         auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
         assert (status1.ok ());
     }
@@ -3734,7 +3735,7 @@ bool rai::wallet::rekey (rai::uint256_union const & password_a)
     return result;
 }
 
-rai::uint256_union rai::wallet::hash_password (std::string const & password_a)
+rai::uint256_union rai::wallet::derive_key (std::string const & password_a)
 {
     CryptoPP::SHA3 hash (32);
     hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());

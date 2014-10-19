@@ -471,7 +471,7 @@ client (client_a)
         {
             if (password->text () == retype->text ())
             {
-                client.client_m.transactions.rekey (client.client_m.wallet.hash_password (std::string (password->text ().toLocal8Bit ())));
+                client.client_m.transactions.rekey (std::string (password->text ().toLocal8Bit ()));
                 clear ();
             }
             else
@@ -512,7 +512,7 @@ client (client_a)
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-        client.client_m.wallet.password.value_set (client.client_m.wallet.hash_password (std::string (password->text ().toLocal8Bit ())));
+        client.client_m.wallet.password.value_set (client.client_m.wallet.derive_key (std::string (password->text ().toLocal8Bit ())));
         update_label ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()

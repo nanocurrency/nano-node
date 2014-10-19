@@ -265,7 +265,7 @@ namespace rai {
     public:
         wallet (bool &, boost::filesystem::path const &);
         rai::uint256_union check ();
-		bool rekey (rai::uint256_union const &);
+        bool rekey (std::string const &);
         rai::uint256_union wallet_key ();
         rai::uint256_union salt ();
         void insert (rai::private_key const &);
@@ -275,7 +275,7 @@ namespace rai {
         key_iterator find (rai::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
-        rai::uint256_union hash_password (std::string const &);
+        rai::uint256_union derive_key (std::string const &);
         rai::fan password;
     private:
         leveldb::DB * handle;
@@ -362,7 +362,7 @@ namespace rai {
         bool receive (rai::send_block const &, rai::private_key const &, rai::address const &);
         bool send (rai::address const &, rai::uint256_t const &);
         void vote (rai::vote const &);
-		bool rekey (rai::uint256_union const &);
+        bool rekey (std::string const &);
         std::mutex mutex;
         rai::ledger & ledger;
         rai::wallet & wallet;
