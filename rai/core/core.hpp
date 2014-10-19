@@ -521,8 +521,8 @@ namespace rai {
         void send_finished ();
         void no_block_sent (boost::system::error_code const &, size_t);
         std::pair <rai::uint256_union, rai::uint256_union> get_next ();
-		account_iterator iterator;
         std::shared_ptr <rai::bootstrap_connection> connection;
+		account_iterator iterator;
         std::unique_ptr <rai::frontier_req> request;
         std::vector <uint8_t> send_buffer;
         size_t count;

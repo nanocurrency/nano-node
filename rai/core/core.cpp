@@ -3741,11 +3741,37 @@ namespace
 class kdf
 {
 public:
+    //size_t const entry_count = 8 * 1024 * 1024;
+    size_t const entry_count = 8 * 1024;
     kdf (std::string const & password_a, rai::uint256_union const & salt_a)
     {
-        CryptoPP::SHA3 hash (key.bytes.size ());
-        hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-        hash.Final (key.bytes.data ());
+        auto entries (entry_count);
+        std::unique_ptr <uint64_t []> allocation (new uint64_t [entries] ());
+        xorshift1024star rng;
+        rng.s.fill (0);
+        rai::uint256_union password_l;
+        CryptoPP::SHA3 hash1 (password_l.bytes.size ());
+        hash1.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+        hash1.Final (password_l.bytes.data ());
+        rng.s [0] = password_l.qwords [0];
+        rng.s [1] = password_l.qwords [1];
+        rng.s [2] = password_l.qwords [2];
+        rng.s [3] = password_l.qwords [3];
+        rng.s [4] = salt_a.qwords [0];
+        rng.s [5] = salt_a.qwords [1];
+        rng.s [6] = salt_a.qwords [2];
+        rng.s [7] = salt_a.qwords [3];
+        size_t mask (entries - 1);
+        auto previous (rng.next ());
+        for (auto i (0u); i != entry_count; ++i)
+        {
+            auto next (rng.next ());
+            allocation [static_cast <size_t> (previous & mask)] = next;
+            previous = next;
+        }
+        CryptoPP::SHA3 hash2 (key.bytes.size ());
+        hash2.Update (reinterpret_cast <uint8_t const *> (allocation.get ()), entries * sizeof (uint64_t));
+        hash2.Final (key.bytes.data ());
     }
     rai::uint256_union key;
 };

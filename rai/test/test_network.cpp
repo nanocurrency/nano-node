@@ -991,6 +991,24 @@ TEST (bulk_connection, get_next_on_open)
     ASSERT_EQ (request->current, request->request->end);
 }
 
+TEST (frontier_req_response, destruction)
+{
+    {
+        std::shared_ptr <rai::frontier_req_response> hold;
+        {
+            rai::system system (24000, 1);
+            auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+            std::unique_ptr <rai::frontier_req> req (new rai::frontier_req);
+            req->start.clear ();
+            req->age = std::numeric_limits <decltype (req->age)>::max ();
+            req->count = std::numeric_limits <decltype (req->count)>::max ();
+            connection->requests.push (std::unique_ptr <rai::message> {});
+            hold = std::make_shared <rai::frontier_req_response> (connection, std::move (req));
+        }
+    }
+    ASSERT_TRUE (true);
+}
+
 TEST (frontier_req, begin)
 {
     rai::system system (24000, 1);
