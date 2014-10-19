@@ -9,7 +9,8 @@
 
 TEST (ledger, empty)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::address address;
     auto balance (ledger.account_balance (address));
@@ -18,7 +19,8 @@ TEST (ledger, empty)
 
 TEST (ledger, genesis_balance)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -54,7 +56,8 @@ TEST (uint256_union, key_encryption)
 
 TEST (ledger, process_send)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -129,7 +132,8 @@ TEST (ledger, process_send)
 
 TEST (ledger, process_receive)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -183,7 +187,8 @@ TEST (ledger, process_receive)
 
 TEST (ledger, rollback_receiver)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -226,7 +231,8 @@ TEST (ledger, rollback_receiver)
 
 TEST (ledger, rollback_representation)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -283,7 +289,8 @@ TEST (ledger, rollback_representation)
 
 TEST (ledger, process_duplicate)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -308,7 +315,8 @@ TEST (ledger, process_duplicate)
 
 TEST (processor_service, bad_send_signature)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -327,7 +335,8 @@ TEST (processor_service, bad_send_signature)
 
 TEST (processor_service, bad_receive_signature)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -423,7 +432,8 @@ TEST (processor_service, top_execution)
 
 TEST (ledger, representative_genesis)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -432,7 +442,8 @@ TEST (ledger, representative_genesis)
 
 TEST (ledger, weight)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -441,7 +452,8 @@ TEST (ledger, weight)
 
 TEST (ledger, representative_change)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::keypair key2;
     rai::genesis genesis;
@@ -470,7 +482,8 @@ TEST (ledger, representative_change)
 
 TEST (ledger, send_fork)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::keypair key2;
     rai::keypair key3;
@@ -494,7 +507,8 @@ TEST (ledger, send_fork)
 
 TEST (ledger, receive_fork)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::keypair key2;
     rai::keypair key3;
@@ -533,7 +547,8 @@ TEST (ledger, receive_fork)
 
 TEST (ledger, checksum_single)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::genesis genesis;
     genesis.initialize (store);
     rai::ledger ledger (store);
@@ -551,7 +566,8 @@ TEST (ledger, checksum_single)
 
 TEST (ledger, checksum_two)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::genesis genesis;
     genesis.initialize (store);
     rai::ledger ledger (store);
@@ -573,7 +589,8 @@ TEST (ledger, checksum_two)
 
 TEST (ledger, DISABLED_checksum_range)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
     ASSERT_TRUE (check1.is_zero ());
@@ -673,7 +690,8 @@ TEST (system, DISABLED_generate_mass_activity_long)
 
 TEST (ledger, representation)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -773,7 +791,8 @@ TEST (ledger, representation)
 
 TEST (ledger, double_open)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -798,7 +817,8 @@ TEST (ledger, double_open)
 
 TEST (ledegr, double_receive)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);

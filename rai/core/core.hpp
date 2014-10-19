@@ -257,6 +257,7 @@ namespace rai {
     public:
         fan (rai::uint256_union const &, size_t);
         rai::uint256_union value ();
+        void value_set (rai::uint256_union const &);
         std::vector <std::unique_ptr <rai::uint256_union>> values;
     };
     class wallet

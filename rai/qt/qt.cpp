@@ -512,12 +512,14 @@ client (client_a)
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-        client.client_m.wallet.password = client.client_m.wallet.hash_password (std::string (password->text ().toLocal8Bit ()));
+        client.client_m.wallet.password.value_set (client.client_m.wallet.hash_password (std::string (password->text ().toLocal8Bit ())));
         update_label ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
     {
-        client.client_m.wallet.password.clear ();
+        rai::uint256_union empty;
+        empty.clear ();
+        client.client_m.wallet.password.value_set (empty);
         update_label ();
     });
 }

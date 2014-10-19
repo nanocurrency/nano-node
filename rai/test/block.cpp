@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <rai/core/core.hpp>
+#include <fstream>
 
 TEST (ed25519, signing)
 {
@@ -288,7 +289,8 @@ TEST (confirm_ack, serialization)
 
 TEST (block_store, empty_blocks)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     auto begin (store.blocks_begin ());
     auto end (store.blocks_end ());
     ASSERT_EQ (end, begin);
@@ -296,7 +298,8 @@ TEST (block_store, empty_blocks)
 
 TEST (block_store, empty_accounts)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_EQ (end, begin);
@@ -304,7 +307,8 @@ TEST (block_store, empty_accounts)
 
 TEST (block_store, one_block)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::send_block block1;
     store.block_put (block1.hash (), block1);
     auto begin (store.blocks_begin ());
@@ -320,7 +324,8 @@ TEST (block_store, one_block)
 
 TEST (block_store, frontier_retrieval)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());;
     rai::address address1;
     rai::frontier frontier1;
     store.latest_put (address1, frontier1);
@@ -331,7 +336,8 @@ TEST (block_store, frontier_retrieval)
 
 TEST (block_store, one_account)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::address address;
     rai::block_hash hash;
     store.latest_put (address, {hash, address, 42, 100});
@@ -348,7 +354,8 @@ TEST (block_store, one_account)
 
 TEST (block_store, two_block)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::send_block block1;
     block1.hashables.destination = 1;
     block1.hashables.balance = 2;
@@ -382,7 +389,8 @@ TEST (block_store, two_block)
 
 TEST (block_store, two_account)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::address address1 (1);
     rai::block_hash hash1 (2);
     rai::address address2 (3);
@@ -408,7 +416,8 @@ TEST (block_store, two_account)
 
 TEST (block_store, latest_find)
 {
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::address address1 (1);
     rai::block_hash hash1 (2);
     rai::address address2 (3);
@@ -424,6 +433,23 @@ TEST (block_store, latest_find)
     ASSERT_EQ (second, find2);
     auto find3 (store.latest_begin (2));
     ASSERT_EQ (second, find3);
+}
+
+TEST (block_store, bad_path)
+{
+    rai::block_store store;
+    ASSERT_FALSE (store.init (boost::filesystem::path {}).ok ());
+}
+
+TEST (block_store, already_open)
+{
+    auto path (boost::filesystem::unique_path ());
+    boost::filesystem::create_directories (path);
+    std::ofstream file;
+    file.open ((path / "addresses.ldb").string ().c_str ());
+    ASSERT_TRUE (file.is_open ());
+    rai::block_store store;
+    ASSERT_FALSE (store.init (path).ok ());
 }
 
 TEST (gap_cache, add_new)

@@ -341,9 +341,8 @@ namespace rai
 	class block_store
 	{
 	public:
-		block_store (block_store_temp_t const &);
-		block_store (boost::filesystem::path const &);
-		
+        leveldb::Status init (block_store_temp_t const &);
+        leveldb::Status init (boost::filesystem::path const &);
 		uint64_t now ();
 		
 		rai::block_hash root (rai::block const &);
@@ -415,6 +414,7 @@ namespace rai
 	{
 	public:
 		ledger (rai::block_store &);
+        void init ();
 		rai::address account (rai::block_hash const &);
 		rai::uint256_t amount (rai::block_hash const &);
 		rai::uint256_t balance (rai::block_hash const &);

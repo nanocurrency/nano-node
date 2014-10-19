@@ -72,7 +72,8 @@ TEST (wallet, two_item_iteration)
 TEST (wallet, insufficient_spend)
 {
     rai::wallet wallet (boost::filesystem::unique_path ());
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::keypair key1;
     std::vector <std::unique_ptr <rai::send_block>> blocks;
@@ -83,7 +84,8 @@ TEST (wallet, one_spend)
 {
     rai::wallet wallet (boost::filesystem::unique_path ());
     wallet.insert (rai::test_genesis_key.prv);
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -132,7 +134,8 @@ TEST (wallet, partial_spend)
 {
     rai::wallet wallet (boost::filesystem::unique_path ());
     wallet.insert (rai::test_genesis_key.prv);
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -157,7 +160,8 @@ TEST (wallet, spend_no_previous)
         wallet.insert (key.prv);
     }
     wallet.insert (rai::test_genesis_key.prv);
-    rai::block_store store (rai::block_store_temp);
+    rai::block_store store;
+    ASSERT_TRUE (store.init (rai::block_store_temp).ok ());
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
@@ -268,4 +272,15 @@ TEST (fan, reconstitute)
     }
     auto value1 (fan.value ());
     ASSERT_EQ (value0, value1);
+}
+
+TEST (fan, change)
+{
+    rai::uint256_union value0;
+    rai::uint256_union value1;
+    ASSERT_NE (value0, value1);
+    rai::fan fan (value0, 1024);
+    ASSERT_EQ (value0, fan.value ());
+    fan.value_set (value1);
+    ASSERT_EQ (value1, fan.value ());
 }

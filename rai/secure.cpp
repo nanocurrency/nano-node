@@ -93,6 +93,10 @@ rai::keypair::keypair (std::string const & prv_a)
 rai::ledger::ledger (rai::block_store & store_a) :
 store (store_a)
 {
+}
+
+void rai::ledger::init ()
+{
 	store.checksum_put (0, 0, 0);
 }
 
@@ -1046,38 +1050,90 @@ bool rai::block_iterator::operator != (rai::block_iterator const & other_a) cons
 
 rai::block_store_temp_t rai::block_store_temp;
 
-rai::block_store::block_store (block_store_temp_t const &) :
-block_store (boost::filesystem::unique_path ())
+leveldb::Status rai::block_store::init (block_store_temp_t const &)
 {
+    auto result (init (boost::filesystem::unique_path ()));
+    return result;
 }
 
-rai::block_store::block_store (boost::filesystem::path const & path_a)
+leveldb::Status rai::block_store::init (boost::filesystem::path const & path_a)
 {
     leveldb::DB * db;
-    boost::filesystem::create_directories (path_a);
-    leveldb::Options options;
-    options.create_if_missing = true;
-    auto status1 (leveldb::DB::Open (options, (path_a / "addresses.ldb").string (), &db));
-    addresses.reset (db);
-    assert (status1.ok ());
-    auto status2 (leveldb::DB::Open (options, (path_a / "blocks.ldb").string (), &db));
-    blocks.reset (db);
-    assert (status2.ok ());
-    auto status3 (leveldb::DB::Open (options, (path_a / "pending.ldb").string (), &db));
-    pending.reset (db);
-    assert (status3.ok ());
-    auto status4 (leveldb::DB::Open (options, (path_a / "representation.ldb").string (), &db));
-    representation.reset (db);
-    assert (status4.ok ());
-    auto status5 (leveldb::DB::Open (options, (path_a / "forks.ldb").string (), &db));
-    forks.reset (db);
-    assert (status5.ok ());
-    auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").string (), &db));
-    bootstrap.reset (db);
-    assert (status6.ok ());
-    auto status8 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
-    checksum.reset (db);
-    assert (status8.ok ());
+    boost::system::error_code code;
+    boost::filesystem::create_directories (path_a, code);
+    if (!code)
+    {
+        leveldb::Options options;
+        options.create_if_missing = true;
+        auto status1 (leveldb::DB::Open (options, (path_a / "addresses.ldb").string (), &db));
+        if (status1.ok ())
+        {
+            addresses.reset (db);
+            auto status2 (leveldb::DB::Open (options, (path_a / "blocks.ldb").string (), &db));
+            if (status2.ok ())
+            {
+                blocks.reset (db);
+                auto status3 (leveldb::DB::Open (options, (path_a / "pending.ldb").string (), &db));
+                if (status3.ok ())
+                {
+                    pending.reset (db);
+                    auto status4 (leveldb::DB::Open (options, (path_a / "representation.ldb").string (), &db));
+                    if (status4.ok ())
+                    {
+                        representation.reset (db);
+                        auto status5 (leveldb::DB::Open (options, (path_a / "forks.ldb").string (), &db));
+                        if (status5.ok ())
+                        {
+                            forks.reset (db);
+                            auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").string (), &db));
+                            if (status6.ok ())
+                            {
+                                bootstrap.reset (db);
+                                auto status7 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
+                                if (status7.ok ())
+                                {
+                                    checksum.reset (db);
+                                }
+                                else
+                                {
+                                    return status7;
+                                }
+                            }
+                            else
+                            {
+                                return status6;
+                            }
+                        }
+                        else
+                        {
+                            return status5;
+                        }
+                    }
+                    else
+                    {
+                        return status4;
+                    }
+                }
+                else
+                {
+                    return status3;
+                }
+            }
+            else
+            {
+                return status2;
+            }
+        }
+        else
+        {
+            return status1;
+        }
+    }
+    else
+    {
+        return leveldb::Status::IOError ("Unable to create directories");
+    }
+    return leveldb::Status::OK ();
 }
 
 void rai::block_store::block_put (rai::block_hash const & hash_a, rai::block const & block_a)

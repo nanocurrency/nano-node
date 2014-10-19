@@ -746,7 +746,6 @@ bool rai::operation::operator > (rai::operation const & other_a) const
 
 rai::client::client (boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, rai::processor_service & processor_a, rai::address const & representative_a) :
 representative (representative_a),
-store (data_path_a),
 ledger (store),
 conflicts (*this),
 wallet (data_path_a),
@@ -758,6 +757,7 @@ peers (network.endpoint ()),
 service (processor_a),
 scale ("100000000000000000000000000000000000000000000000000000000000000000") // 10 ^ 65
 {
+    store.init (data_path_a);
     if (client_lifetime_tracing ())
     {
         std::cerr << "Constructing client\n";
@@ -3802,4 +3802,11 @@ rai::uint256_union rai::fan::value ()
         result ^= *i;
     }
     return result;
+}
+
+void rai::fan::value_set (rai::uint256_union const & value_a)
+{
+    auto value_l (value ());
+    *(values [0]) ^= value_l;
+    *(values [0]) ^= value_a;
 }
