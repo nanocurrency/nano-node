@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <rai/core/core.hpp>
+#include <fstream>
 
 TEST (wallet, no_key)
 {
@@ -321,4 +322,23 @@ TEST (fan, change)
     ASSERT_EQ (value0, fan.value ());
     fan.value_set (value1);
     ASSERT_EQ (value1, fan.value ());
+}
+
+TEST (wallet, bad_path)
+{
+    bool init;
+    rai::wallet store (init, boost::filesystem::path {});
+    ASSERT_TRUE (init);
+}
+
+TEST (wallet, already_open)
+{
+    auto path (boost::filesystem::unique_path ());
+    boost::filesystem::create_directories (path);
+    std::ofstream file;
+    file.open ((path / "wallet.ldb").string ().c_str ());
+    ASSERT_TRUE (file.is_open ());
+    bool init;
+    rai::wallet store (init, path);
+    ASSERT_TRUE (init);
 }

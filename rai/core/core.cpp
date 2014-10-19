@@ -437,36 +437,49 @@ rai::wallet::wallet (bool & init_a, boost::filesystem::path const & path_a) :
 password (hash_password (""), 1024)
 {
     auto password_l (password.value ());
-    boost::filesystem::create_directories (path_a);
-    leveldb::Options options;
-    options.create_if_missing = true;
-    auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &handle));
-    assert (status.ok ());
-    rai::uint256_union wallet_password_key;
-    wallet_password_key.clear ();
-    std::string wallet_password_value;
-    auto wallet_password_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet_password_key.chars.data (), wallet_password_key.chars.size ()), &wallet_password_value));
-    if (wallet_password_status.IsNotFound ())
+    boost::system::error_code code;
+    boost::filesystem::create_directories (path_a, code);
+    if (!code)
     {
-        // The wallet is empty meaning we just created it, initialize it.
-        // Wallet key is a fixed random key that encrypts all entries
-        rai::uint256_union wallet_key;
-        random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-        // Wallet key is encrypted by the user's password
-        rai::uint256_union encrypted (wallet_key, password_l, password_l.owords [0]);
-        rai::uint256_union zero;
-        zero.clear ();
-        // Wallet key is stored in entry 0
-        auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
-        assert (status1.ok ());
-        rai::uint256_union one (1);
-        rai::uint256_union check (zero, wallet_key, wallet_key.owords [0]);
-        // Check key is stored in entry 1
-        auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
-        assert (status2.ok ());
+        leveldb::Options options;
+        options.create_if_missing = true;
+        auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &handle));
+        if (status.ok ())
+        {
+            rai::uint256_union wallet_password_key;
+            wallet_password_key.clear ();
+            std::string wallet_password_value;
+            auto wallet_password_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet_password_key.chars.data (), wallet_password_key.chars.size ()), &wallet_password_value));
+            if (wallet_password_status.IsNotFound ())
+            {
+                // The wallet is empty meaning we just created it, initialize it.
+                // Wallet key is a fixed random key that encrypts all entries
+                rai::uint256_union wallet_key;
+                random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
+                // Wallet key is encrypted by the user's password
+                rai::uint256_union encrypted (wallet_key, password_l, password_l.owords [0]);
+                rai::uint256_union zero;
+                zero.clear ();
+                // Wallet key is stored in entry 0
+                auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (zero.chars.data (), zero.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
+                assert (status1.ok ());
+                rai::uint256_union one (1);
+                rai::uint256_union check (zero, wallet_key, wallet_key.owords [0]);
+                // Check key is stored in entry 1
+                auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (one.chars.data (), one.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
+                assert (status2.ok ());
+            }
+            password_l.clear ();
+        }
+        else
+        {
+            init_a = true;
+        }
     }
-    password_l.clear ();
-    init_a = false;
+    else
+    {
+        init_a = true;
+    }
 }
 
 void rai::wallet::insert (rai::private_key const & prv)
@@ -769,14 +782,17 @@ peers (network.endpoint ()),
 service (processor_a),
 scale ("100000000000000000000000000000000000000000000000000000000000000000") // 10 ^ 65
 {
-    if (client_lifetime_tracing ())
+    if (!init_a.error ())
     {
-        std::cerr << "Constructing client\n";
-    }
-    if (store.latest_begin () == store.latest_end ())
-    {
-        rai::genesis genesis;
-        genesis.initialize (store);
+        if (client_lifetime_tracing ())
+        {
+            std::cerr << "Constructing client\n";
+        }
+        if (store.latest_begin () == store.latest_end ())
+        {
+            rai::genesis genesis;
+            genesis.initialize (store);
+        }
     }
 }
 
