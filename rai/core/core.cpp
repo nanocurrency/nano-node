@@ -3741,8 +3741,9 @@ namespace
 class kdf
 {
 public:
-    //size_t const entry_count = 8 * 1024 * 1024;
-    size_t const entry_count = 8 * 1024;
+    size_t static constexpr rai_full_work = 8 * 1024 * 1024;
+    size_t static constexpr rai_test_work = 8 * 1024;
+    size_t static constexpr entry_count = WORK_FACTOR;
     kdf (std::string const & password_a, rai::uint256_union const & salt_a)
     {
         auto entries (entry_count);

@@ -71,10 +71,13 @@ add_executable (qt_client
 add_executable (qt_system
     rai/qt_system/entry.cpp)
 
-SET (GENESIS_KEY rai_test_key CACHE STRING "Select whether the genesis address is the test or live address")
+SET (GENESIS_KEY rai_test_address CACHE STRING "Select whether the genesis address is the test or live address")
 set_property (CACHE GENESIS_KEY PROPERTY STRINGS rai_test_address rai_live_address)
 
-set_target_properties (secure core test qt_test cli qt qt_client qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 -Werror=switch ${PLATFORM_DEFINES} -DGENESIS_KEY=${GENESIS_KEY} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+SET (WORK_FACTOR rai_test_work CACHE STRING "Selects whether full or test work is performed")
+set_property (CACHE WORK_FACTOR PROPERTY STRINGS rai_test_work rai_full_work)
+
+set_target_properties (secure core test qt_test cli qt qt_client qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 -Werror=switch ${PLATFORM_DEFINES} -DGENESIS_KEY=${GENESIS_KEY} -DWORK_FACTOR=${WORK_FACTOR} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 
 if (WIN32)
     set (PLATFORM_LIBS ws2_32 mswsock)
