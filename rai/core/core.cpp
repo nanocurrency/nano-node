@@ -3876,6 +3876,7 @@ rai::uint256_union rai::work::generate (rai::uint256_union const & seed, rai::ui
 rai::uint256_union rai::work::create (rai::uint256_union const & seed)
 {
     xorshift1024star rng;
+    rng.s.fill (0);
     rng.s [0] = 1; // No seed here, we're not securing anything, s just can't be 0 per the spec
     rai::uint256_union result;
     rai::uint256_union value;
