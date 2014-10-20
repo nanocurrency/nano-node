@@ -104,3 +104,25 @@ TEST (uint256_union, parse_error_overflow)
     auto error (output.decode_hex (text));
     ASSERT_TRUE (error);
 }
+
+TEST (uint256_union, big_endian_union_constructor)
+{
+	boost::multiprecision::uint256_t value1 (1);
+	rai::uint256_union bytes1 (value1);
+	ASSERT_EQ (1, bytes1.bytes [0]);
+	boost::multiprecision::uint512_t value2 (1);
+	rai::uint512_union bytes2 (value2);
+	ASSERT_EQ (1, bytes2.bytes [0]);
+}
+
+TEST (uint256_union, big_endian_union_function)
+{
+	rai::uint256_union bytes1;
+	bytes1.clear ();
+	bytes1.bytes [0] = 1;
+	ASSERT_EQ (rai::uint256_t (1), bytes1.number ());
+	rai::uint512_union bytes2;
+	bytes2.clear ();
+	bytes2.bytes [0] = 1;
+	ASSERT_EQ (rai::uint512_t (1), bytes2.number ());
+}

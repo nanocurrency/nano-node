@@ -338,7 +338,6 @@ void rai::uint256_union::clear ()
 rai::uint256_t rai::uint256_union::number () const
 {
     rai::uint256_union temp (*this);
-    std::reverse (&temp.bytes [0], &temp.bytes [32]);
     boost::multiprecision::uint256_t result (temp.qwords [3]);
     result <<= 64;
     result |= temp.qwords [2];
@@ -483,7 +482,6 @@ rai::uint256_union::uint256_union (boost::multiprecision::uint256_t const & numb
     qwords [2] = number_l.convert_to <uint64_t> ();
     number_l >>= 64;
     qwords [3] = number_l.convert_to <uint64_t> ();
-    std::reverse (&bytes [0], &bytes [32]);
 }
 
 rai::uint256_union & rai::uint256_union::operator = (leveldb::Slice const & slice_a)
@@ -513,7 +511,6 @@ rai::uint512_union::uint512_union (boost::multiprecision::uint512_t const & numb
     qwords [6] = number_l.convert_to <uint64_t> ();
     number_l >>= 64;
     qwords [7] = number_l.convert_to <uint64_t> ();
-    std::reverse (&bytes [0], &bytes [64]);
 }
 
 void rai::uint512_union::clear ()
@@ -524,7 +521,6 @@ void rai::uint512_union::clear ()
 boost::multiprecision::uint512_t rai::uint512_union::number ()
 {
     rai::uint512_union temp (*this);
-    std::reverse (&temp.bytes [0], &temp.bytes [64]);
     boost::multiprecision::uint512_t result (temp.qwords [7]);
     result <<= 64;
     result |= temp.qwords [6];
@@ -1924,8 +1920,8 @@ rai::uint256_t rai::votes::flip_threshold ()
 }
 
 namespace {
-    std::string rai_test_private_key = "E49C03BB7404C10B388AE56322217306B57F3DCBB3A5F060A2F420AD7AA3F034";
-    std::string rai_test_public_key = "1149338F7D0DA66D7ED0DAA4F1F72431831B3D06AFC704F3224D68B317CC41B2"; // U63Kt2zHcikQvirWSSNKZHbfVZsPY68A65zyD1NtQoE5HsWZTf
+	std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
+	std::string rai_test_public_key = "B241CC17B3684D22F304C7AF063D1B833124F7F1A4DAD07E6DA60D7D8F334911"; // U63Kt2zHcikQvirWSSNKZHbfVZsPY68A65zyD1NtQoE5HsWZTf
     std::string rai_live_public_key = "0";
 }
 rai::keypair rai::test_genesis_key (rai_test_private_key);
