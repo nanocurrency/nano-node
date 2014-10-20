@@ -475,7 +475,7 @@ TEST (work, one)
 
 TEST (work, create)
 {
-    rai::uint256_union source;
+    rai::uint256_union source (1);
     rai::work work;
     auto begin1 (std::chrono::high_resolution_clock::now ());
     auto value (work.create (source));
