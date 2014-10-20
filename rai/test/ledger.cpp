@@ -1398,7 +1398,7 @@ TEST (ledger, fail_change_old)
     ASSERT_EQ (rai::process_result::old, result2);
 }
 
-TEST (ledger, fail_change_gap)
+TEST (ledger, fail_change_gap_previous)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
@@ -1457,6 +1457,124 @@ TEST (ledger, fail_change_fork)
     rai::keypair key2;
     block2.hashables.representative = key2.pub;
     block2.hashables.previous = genesis.hash ();
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block2.hash (), block2.signature);
+    auto result2 (ledger.process (block2));
+    ASSERT_EQ (rai::process_result::fork, result2);
+}
+
+TEST (ledger, fail_send_old)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
+    rai::genesis genesis;
+    genesis.initialize (store);
+    rai::send_block block;
+    rai::keypair key1;
+    block.hashables.destination = key1.pub;
+    block.hashables.previous = genesis.hash ();
+    block.hashables.balance = 1;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block.hash (), block.signature);
+    auto result1 (ledger.process (block));
+    ASSERT_EQ (rai::process_result::progress, result1);
+    auto result2 (ledger.process (block));
+    ASSERT_EQ (rai::process_result::old, result2);
+}
+
+TEST (ledger, fail_send_gap_previous)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
+    rai::genesis genesis;
+    genesis.initialize (store);
+    rai::send_block block;
+    rai::keypair key1;
+    block.hashables.destination = key1.pub;
+    block.hashables.previous = 1;
+    block.hashables.balance = 1;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block.hash (), block.signature);
+    auto result1 (ledger.process (block));
+    ASSERT_EQ (rai::process_result::gap_previous, result1);
+}
+
+TEST (ledger, fail_send_bad_signature)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
+    rai::genesis genesis;
+    genesis.initialize (store);
+    rai::send_block block;
+    rai::keypair key1;
+    block.hashables.destination = key1.pub;
+    block.hashables.previous = genesis.hash ();
+    block.hashables.balance = 1;
+    block.signature.clear ();
+    auto result1 (ledger.process (block));
+    ASSERT_EQ (rai::process_result::bad_signature, result1);
+}
+
+TEST (ledger, fail_send_overspend)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
+    rai::genesis genesis;
+    genesis.initialize (store);
+    rai::send_block block1;
+    rai::keypair key1;
+    block1.hashables.destination = key1.pub;
+    block1.hashables.previous = genesis.hash ();
+    block1.hashables.balance = 1;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
+    auto result1 (ledger.process (block1));
+    ASSERT_EQ (rai::process_result::progress, result1);
+    rai::send_block block2;
+    rai::keypair key2;
+    block2.hashables.destination = key2.pub;
+    block2.hashables.previous = block1.hash ();
+    block2.hashables.balance = 2;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block2.hash (), block2.signature);
+    auto result2 (ledger.process (block2));
+    ASSERT_EQ (rai::process_result::overspend, result2);
+}
+
+TEST (ledger, fail_send_fork)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
+    rai::genesis genesis;
+    genesis.initialize (store);
+    rai::send_block block1;
+    rai::keypair key1;
+    block1.hashables.destination = key1.pub;
+    block1.hashables.previous = genesis.hash ();
+    block1.hashables.balance = 1;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
+    auto result1 (ledger.process (block1));
+    ASSERT_EQ (rai::process_result::progress, result1);
+    rai::send_block block2;
+    rai::keypair key2;
+    block2.hashables.destination = key2.pub;
+    block2.hashables.previous = genesis.hash ();
+    block2.hashables.balance = 1;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block2.hash (), block2.signature);
     auto result2 (ledger.process (block2));
     ASSERT_EQ (rai::process_result::fork, result2);
