@@ -2541,7 +2541,7 @@ bool rai::bulk_req_initiator::process_end ()
     bool result;
     if (expecting == request->end)
     {
-        rai::process_result processing;
+        rai::process_result processing (rai::process_result::progress);
         std::unique_ptr <rai::block> block;
         do
         {
