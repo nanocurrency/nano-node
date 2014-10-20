@@ -3886,14 +3886,15 @@ rai::uint256_union rai::work::create (rai::uint256_union const & seed)
     rng.s [0] = 1; // No seed here, we're not securing anything, s just can't be 0 per the spec
     rai::uint256_union result;
     rai::uint256_union value;
-    do
+    value.clear ();
+    while (value < threshold_requirement)
     {
         for (auto i (0); i < result.qwords.size (); ++i)
         {
             result.qwords [0] = rng.next ();
         }
         value = generate (seed, result);
-    } while (value < threshold_requirement);
+    }
     return result;
 }
 

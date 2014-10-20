@@ -324,6 +324,7 @@ TEST (ledger, process_duplicate)
     ASSERT_EQ (rai::process_result::progress, ledger.process (send));
     ASSERT_EQ (rai::process_result::old, ledger.process (send));
     rai::open_block open;
+    open.hashables.representative.clear ();
     open.hashables.source = hash1;
     rai::block_hash hash2 (open.hash ());
     rai::sign_message(key2.prv, key2.pub, hash2, open.signature);
