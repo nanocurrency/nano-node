@@ -5,7 +5,8 @@ TEST (client, block_store_path_failure)
 {
     rai::client_init init;
     rai::processor_service processor;
-    rai::client client (init, boost::make_shared <boost::asio::io_service> (), 0, boost::filesystem::path {}, processor, rai::address {});
+    auto service (boost::make_shared <boost::asio::io_service> ());
+    rai::client client (init, service, 0, boost::filesystem::path {}, processor, rai::address {});
 }
 
 TEST (client, balance)

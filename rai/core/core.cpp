@@ -3843,14 +3843,15 @@ rai::uint256_union rai::work::generate (rai::uint256_union const & seed, rai::ui
 {
     auto mask (entries.size () - 1);
 	xorshift1024star rng;
-	for (auto i (0), j (0); i < 16; ++i, j += 2)
-	{
-		rng.s [i] =
-			(static_cast <uint64_t> (seed.bytes [j + 0]) << 0x00) |
-			(static_cast <uint64_t> (nonce.bytes [j + 0]) << 0x08) |
-			(static_cast <uint64_t> (seed.bytes [j + 1]) << 0x20) |
-			(static_cast <uint64_t> (nonce.bytes [j + 1]) << 0x28);
-	}
+    rng.s.fill (0);
+    rng.s [0] = seed.qwords [0];
+    rng.s [1] = seed.qwords [1];
+    rng.s [2] = seed.qwords [2];
+    rng.s [3] = seed.qwords [3];
+    rng.s [4] = nonce.qwords [0];
+    rng.s [5] = nonce.qwords [1];
+    rng.s [6] = nonce.qwords [2];
+    rng.s [7] = nonce.qwords [3];
 	for (auto i (entries.begin ()), n (entries.end ()); i != n; ++i)
     {
 		*i = rng.next ();
