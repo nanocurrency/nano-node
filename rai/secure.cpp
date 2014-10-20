@@ -1845,7 +1845,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                         }
                         else
                         {
-                            result = ledger.store.block_get (frontier.hash) ? rai::process_result::fork_previous : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
+                            result = ledger.store.block_exists (block_a.hashables.previous) ? rai::process_result::fork_previous : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
                         }
                     }
                 }
