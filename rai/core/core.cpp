@@ -3839,11 +3839,11 @@ void rai::processor::find_network (std::vector <std::pair <std::string, std::str
 }
 
 rai::work::work () :
-entry_requirement (128 * 1024),
-iteration_requirement (512)
+entry_requirement (8 * 1024),
+iteration_requirement (8 * 1024)
 {
-    //threshold_requirement.decode_hex ("ff00000000000000000000000000000000000000000000000000000000000000");
-    auto error (threshold_requirement.decode_hex ("8000000000000000000000000000000000000000000000000000000000000000"));
+    auto error (threshold_requirement.decode_hex ("ff00000000000000000000000000000000000000000000000000000000000000"));
+    //auto error (threshold_requirement.decode_hex ("8000000000000000000000000000000000000000000000000000000000000000"));
     assert (!error);
     entries.resize (entry_requirement);
 }
@@ -3886,15 +3886,14 @@ rai::uint256_union rai::work::create (rai::uint256_union const & seed)
     rng.s [0] = 1; // No seed here, we're not securing anything, s just can't be 0 per the spec
     rai::uint256_union result;
     rai::uint256_union value;
-    value.clear ();
-    while (value < threshold_requirement)
+    do
     {
         for (auto i (0); i < result.qwords.size (); ++i)
         {
-            result.qwords [0] = rng.next ();
+            result.qwords [i] = rng.next ();
         }
         value = generate (seed, result);
-    }
+    } while (value < threshold_requirement);
     return result;
 }
 
