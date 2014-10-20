@@ -1685,7 +1685,7 @@ TEST (ledger, fail_bad_signature)
     ASSERT_EQ (rai::process_result::bad_signature, result2);
 }
 
-TEST (ledger, fail_fork)
+TEST (ledger, fail_fork_previous)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
@@ -1703,10 +1703,23 @@ TEST (ledger, fail_fork)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
     auto result1 (ledger.process (block1));
     ASSERT_EQ (rai::process_result::progress, result1);
-    rai::open_block block2;
-    block2.hashables.representative.clear ();
-    block2.hashables.source = block1.hash ();
-    block2.signature.clear ();
+    rai::send_block block2;
+    block2.hashables.destination = key1.pub;
+    block2.hashables.previous = block1.hash ();
+    block2.hashables.balance.clear ();
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block2.hash (), block2.signature);
     auto result2 (ledger.process (block2));
-    ASSERT_EQ (rai::process_result::bad_signature, result2);
+    ASSERT_EQ (rai::process_result::progress, result2);
+    rai::open_block block3;
+    block3.hashables.representative.clear ();
+    block3.hashables.source = block1.hash ();
+    rai::sign_message (key1.prv, key1.pub, block3.hash (), block3.signature);
+    auto result3 (ledger.process (block3));
+    ASSERT_EQ (rai::process_result::progress, result3);
+    rai::open_block block4;
+    block4.hashables.representative.clear ();
+    block4.hashables.source = block2.hash ();
+    rai::sign_message (key1.prv, key1.pub, block4.hash (), block4.signature);
+    auto result4 (ledger.process (block4));
+    ASSERT_EQ (rai::process_result::fork_previous, result4);
 }
