@@ -3857,7 +3857,6 @@ rai::uint256_union rai::work::generate (rai::uint256_union const & seed, rai::ui
 	{
 		auto next (rng.next ());
 		auto index (next & mask);
-        std::cout << index << std::endl;
 		entries [index] = next;
 	}
     CryptoPP::SHA3 hash (32);
