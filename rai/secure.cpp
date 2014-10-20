@@ -95,7 +95,6 @@ store (store_a)
 {
     if (store_init_a.ok ())
     {
-        store.checksum_put (0, 0, 0);
         init_a = false;
     }
     else
@@ -1092,6 +1091,7 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
                                 if (status7.ok ())
                                 {
                                     checksum.reset (db);
+                                    checksum_put (0, 0, 0);
                                 }
                                 else
                                 {

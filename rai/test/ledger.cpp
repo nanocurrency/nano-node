@@ -48,6 +48,35 @@ TEST (ledger, genesis_balance)
     ASSERT_LT (store.now () - frontier.time, 10);
 }
 
+TEST (ledger, checksum_persistence)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::uint256_union checksum1;
+    rai::uint256_union max;
+    max.qwords [0] = 0;
+    max.qwords [0] = ~max.qwords [0];
+    max.qwords [1] = 0;
+    max.qwords [1] = ~max.qwords [1];
+    max.qwords [2] = 0;
+    max.qwords [2] = ~max.qwords [2];
+    max.qwords [3] = 0;
+    max.qwords [3] = ~max.qwords [3];
+    {
+        bool init1;
+        rai::ledger ledger (init1, init, store);
+        ASSERT_FALSE (init1);
+        rai::genesis genesis;
+        genesis.initialize (store);
+        checksum1 = ledger.checksum (0, max);
+    }
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
+    ASSERT_EQ (checksum1, ledger.checksum (0, max));
+}
+
 TEST (system, system_genesis)
 {
     rai::system system (24000, 2);
