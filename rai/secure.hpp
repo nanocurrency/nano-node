@@ -405,7 +405,8 @@ namespace rai
 		old, // Already seen and was valid
 		overspend, // Malicious attempt to overspend
 		overreceive, // Malicious attempt to receive twice
-		fork, // Malicious fork of existing block
+		fork_previous, // Malicious fork based on previous
+        fork_source, // Malicious fork based on source
 		gap_previous, // Block marked as previous isn't in store
 		gap_source, // Block marked as source isn't in store
 		not_receive_from_send // Receive does not have a send source

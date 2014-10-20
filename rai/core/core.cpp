@@ -1228,11 +1228,20 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             }
             break;
         }
-        case rai::process_result::fork:
+        case rai::process_result::fork_source:
         {
             if (ledger_logging ())
             {
-                client.log.add (boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ()));
+                client.log.add (boost::str (boost::format ("Fork source for: %1%") % block_a.hash ().to_string ()));
+            }
+            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), false);
+            break;
+        }
+        case rai::process_result::fork_previous:
+        {
+            if (ledger_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Fork previous for: %1%") % block_a.hash ().to_string ()));
             }
             client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), false);
             break;
