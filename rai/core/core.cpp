@@ -3852,14 +3852,12 @@ rai::uint256_union rai::work::generate (rai::uint256_union const & seed, rai::ui
     rng.s [5] = nonce.qwords [1];
     rng.s [6] = nonce.qwords [2];
     rng.s [7] = nonce.qwords [3];
-	for (auto i (entries.begin ()), n (entries.end ()); i != n; ++i)
-    {
-		*i = rng.next ();
-    }
+    std::fill (entries.begin (), entries.end (), 0);
 	for (auto i (0u), n (iteration_requirement); i != n; ++i)
 	{
 		auto next (rng.next ());
 		auto index (next & mask);
+        std::cout << index << std::endl;
 		entries [index] = next;
 	}
     CryptoPP::SHA3 hash (32);
