@@ -134,7 +134,7 @@ int main (int argc, char * const * argv)
     {
         rai::uint256_union source;
         rai::work work;
-        for (auto i: work.entries)
+        for (auto & i: work.entries)
         {
             i = 0;
         }
