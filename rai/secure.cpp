@@ -1921,7 +1921,7 @@ rai::uint256_t rai::votes::flip_threshold ()
 
 namespace {
 	std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
-	std::string rai_test_public_key = "B241CC17B3684D22F304C7AF063D1B833124F7F1A4DAD07E6DA60D7D8F334911"; // U63Kt2zHcikQvirWSSNKZHbfVZsPY68A65zyD1NtQoE5HsWZTf
+	std::string rai_test_public_key = "B241CC17B3684D22F304C7AF063D1B833124F7F1A4DAD07E6DA60D7D8F334911"; // U63Kt3B7yp2iQB4GsVWriGv34kk2qwhT7acKvn8yWZGdNVesJ8
     std::string rai_live_public_key = "0";
 }
 rai::keypair rai::test_genesis_key (rai_test_private_key);
