@@ -353,7 +353,7 @@ namespace rai {
         void process_confirmed (rai::block const &);
         void ongoing_keepalive ();
         rai::client & client;
-        static std::chrono::seconds constexpr period = std::chrono::seconds (10);
+        static std::chrono::seconds constexpr period = std::chrono::seconds (300);
         static std::chrono::seconds constexpr cutoff = period * 5;
     };
     class transactions
