@@ -684,8 +684,8 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
             }
             case rai::block_type::change:
             {
-                std::unique_ptr <rai::change_block> obj (new rai::change_block);
-                auto error (obj->deserialize (stream_a));
+                bool error;
+                std::unique_ptr <rai::change_block> obj (new rai::change_block (error, stream_a));
                 if (!error)
                 {
                     result = std::move (obj);
@@ -816,10 +816,40 @@ rai::block_hash rai::open_block::source () const
     return hashables.source;
 }
 
+rai::change_hashables::change_hashables (rai::address const & representative_a, rai::block_hash const & previous_a) :
+representative (representative_a),
+previous (previous_a)
+{
+}
+
+rai::change_hashables::change_hashables (bool & error_a, rai::stream & stream_a)
+{
+    error_a = rai::read (stream_a, representative);
+    if (!error_a)
+    {
+        error_a = rai::read (stream_a, previous);
+    }
+}
+
 void rai::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
     hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
     hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
+}
+
+rai::change_block::change_block (rai::address const & representative_a, rai::block_hash const & previous_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
+hashables (representative_a, previous_a)
+{
+    rai::sign_message (prv_a, pub_a, hash (), signature);
+}
+
+rai::change_block::change_block (bool & error_a, rai::stream & stream_a) :
+hashables (error_a, stream_a)
+{
+    if (!error_a)
+    {
+        error_a = rai::read (stream_a, signature);
+    }
 }
 
 void rai::change_block::hash (CryptoPP::SHA3 & hash_a) const

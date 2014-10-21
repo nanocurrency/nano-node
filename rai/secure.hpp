@@ -250,13 +250,17 @@ namespace rai
 	class change_hashables
 	{
 	public:
+        change_hashables (rai::address const &, rai::block_hash const &);
+        change_hashables (bool &, rai::stream &);
 		void hash (CryptoPP::SHA3 &) const;
 		rai::address representative;
 		rai::block_hash previous;
 	};
 	class change_block : public rai::block
 	{
-	public:
+    public:
+        change_block (rai::address const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &);
+        change_block (bool &, rai::stream &);
 		using rai::block::hash;
 		void hash (CryptoPP::SHA3 &) const override;
 		rai::block_hash previous () const override;

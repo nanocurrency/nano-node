@@ -281,16 +281,10 @@ TEST (ledger, rollback_representation)
     rai::genesis genesis;
     genesis.initialize (store);
     rai::keypair key5;
-    rai::change_block change1;
-    change1.hashables.previous = genesis.hash ();
-    change1.hashables.representative = key5.pub;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, change1.hash (), change1.signature);
+    rai::change_block change1 (key5.pub, genesis.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     ASSERT_EQ (rai::process_result::progress, ledger.process (change1));
     rai::keypair key3;
-    rai::change_block change2;
-    change2.hashables.previous = change1.hash ();
-    change2.hashables.representative = key3.pub;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, change2.hash (), change2.signature);
+    rai::change_block change2 (key3.pub, change1.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     ASSERT_EQ (rai::process_result::progress, ledger.process (change2));
     rai::send_block send1;
     rai::keypair key2;
@@ -525,10 +519,7 @@ TEST (ledger, representative_change)
     ASSERT_EQ (0, ledger.weight (key2.pub));
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
-    rai::change_block block;
-    block.hashables.representative = key2.pub;
-    block.hashables.previous = frontier1.hash;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block.hash (), block.signature);
+    rai::change_block block (key2.pub, frontier1.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block));
     ASSERT_EQ (0, ledger.weight (rai::test_genesis_key.pub));
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), ledger.weight (key2.pub));
@@ -596,10 +587,7 @@ TEST (ledger, receive_fork)
     block2.hashables.source = block.hash ();
     rai::sign_message(key2.prv, key2.pub, block2.hash (), block2.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block2));
-    rai::change_block block3;
-    block3.hashables.representative = key3.pub;
-    block3.hashables.previous = block2.hash ();
-    rai::sign_message (key2.prv, key2.pub, block3.hash (), block3.signature);
+    rai::change_block block3 (key3.pub, block2.hash (), key2.prv, key2.pub);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block3));
     rai::send_block block4;
     block4.hashables.destination = key2.pub;
@@ -626,9 +614,7 @@ TEST (ledger, checksum_single)
     ASSERT_FALSE (init1);
     store.checksum_put (0, 0, genesis.hash ());
 	ASSERT_EQ (genesis.hash (), ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
-    rai::change_block block1;
-    block1.hashables.previous = ledger.latest (rai::test_genesis_key.pub);
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
+    rai::change_block block1 (rai::address (0), ledger.latest (rai::test_genesis_key.pub), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
 	ASSERT_EQ (genesis.hash (), check1);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -805,10 +791,7 @@ TEST (ledger, representation)
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (200, store.representation_get (key3.pub));
     rai::keypair key4;
-    rai::change_block block5;
-    block5.hashables.previous = block4.hash ();
-    block5.hashables.representative = key4.pub;
-    rai::sign_message (key2.prv, key2.pub, block5.hash (), block5.signature);
+    rai::change_block block5 (key4.pub, block4.hash (), key2.prv, key2.pub);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block5));
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max () - 200, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
@@ -1417,11 +1400,8 @@ TEST (ledger, fail_change_old)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    rai::change_block block;
     rai::keypair key1;
-    block.hashables.representative = key1.pub;
-    block.hashables.previous = genesis.hash ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block.hash (), block.signature);
+    rai::change_block block (key1.pub, genesis.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     auto result1 (ledger.process (block));
     ASSERT_EQ (rai::process_result::progress, result1);
     auto result2 (ledger.process (block));
@@ -1438,11 +1418,8 @@ TEST (ledger, fail_change_gap_previous)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    rai::change_block block;
     rai::keypair key1;
-    block.hashables.representative = key1.pub;
-    block.hashables.previous = 1;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block.hash (), block.signature);
+    rai::change_block block (key1.pub, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     auto result1 (ledger.process (block));
     ASSERT_EQ (rai::process_result::gap_previous, result1);
 }
@@ -1457,11 +1434,8 @@ TEST (ledger, fail_change_bad_signature)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    rai::change_block block;
     rai::keypair key1;
-    block.hashables.representative = key1.pub;
-    block.hashables.previous = genesis.hash ();
-    block.signature.clear ();
+    rai::change_block block (key1.pub, genesis.hash (), rai::private_key (0), rai::public_key (0));
     auto result1 (ledger.process (block));
     ASSERT_EQ (rai::process_result::bad_signature, result1);
 }
@@ -1476,18 +1450,12 @@ TEST (ledger, fail_change_fork)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    rai::change_block block1;
     rai::keypair key1;
-    block1.hashables.representative = key1.pub;
-    block1.hashables.previous = genesis.hash ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
+    rai::change_block block1 (key1.pub, genesis.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     auto result1 (ledger.process (block1));
     ASSERT_EQ (rai::process_result::progress, result1);
-    rai::change_block block2;
     rai::keypair key2;
-    block2.hashables.representative = key2.pub;
-    block2.hashables.previous = genesis.hash ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block2.hash (), block2.signature);
+    rai::change_block block2 (key2.pub, genesis.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     auto result2 (ledger.process (block2));
     ASSERT_EQ (rai::process_result::fork_previous, result2);
 }
