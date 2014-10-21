@@ -91,6 +91,7 @@ void rai::genesis::initialize (rai::block_store & store_a) const
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::any (), port)),
 service (service_a),
+resolver (service_a),
 client (client_a),
 keepalive_req_count (0),
 keepalive_ack_count (0),
@@ -120,6 +121,7 @@ void rai::network::stop ()
 {
     on = false;
     socket.close ();
+    resolver.cancel ();
 }
 
 void rai::network::send_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
@@ -2001,6 +2003,27 @@ void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_
 {
     auto processor (std::make_shared <rai::bootstrap_initiator> (client.shared (), complete_action_a));
     processor->run (endpoint_a);
+}
+
+void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_a)
+{
+    auto client_l (client.shared ());
+    client.service.add (std::chrono::system_clock::now (), [client_l, peers_a] ()
+    {
+        for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
+        {
+            client_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, "25000"), [client_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
+            {
+                if (!ec)
+                {
+                    for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator {}); i != n; ++i)
+                    {
+                        client_l->network.send_keepalive (i->endpoint ());
+                    }
+                }
+            });
+        }
+    });
 }
 
 rai::bootstrap_receiver::bootstrap_receiver (boost::asio::io_service & service_a, uint16_t port_a, rai::client & client_a) :

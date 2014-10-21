@@ -7,23 +7,34 @@
 
 rai_daemon::daemon_config::daemon_config () :
 peering_port (24000),
-rpc_port (25000)
+rpc_enable (false),
+rpc_port (25000),
+rpc_enable_control (false)
 {
+    bootstrap_peers.push_back ("rai.raiblocks.net");
 }
 
 void rai_daemon::daemon_config::serialize (std::ostream & output_a)
 {
     boost::property_tree::ptree tree;
     tree.put ("peering_port", std::to_string (peering_port));
+    boost::property_tree::ptree bootstrap_peers_l;
+    for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
+    {
+        boost::property_tree::ptree entry;
+        entry.put ("", *i);
+        bootstrap_peers_l.push_back (std::make_pair ("", entry));
+    }
+    tree.add_child ("bootstrap_peers", bootstrap_peers_l);
     tree.put ("rpc_port", std::to_string (rpc_port));
-    tree.put ("rpc_enable", false);
-    tree.put ("rpc_enable_control", false);
+    tree.put ("rpc_enable", rpc_enable);
+    tree.put ("rpc_enable_control", rpc_enable_control);
     boost::property_tree::write_json (output_a, tree);
 }
 
-bool rai_daemon::daemon_config::deserialize (std::istream & input_a)
+rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a)
 {
-    auto result (false);
+    error_a = false;
     boost::property_tree::ptree tree;
     try
     {
@@ -32,23 +43,28 @@ bool rai_daemon::daemon_config::deserialize (std::istream & input_a)
         auto rpc_port_l (tree.get <std::string> ("rpc_port"));
         rpc_enable = tree.get <bool> ("rpc_enable");
         rpc_enable_control = tree.get <bool> ("rpc_enable_control");
+        auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
+        for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
+        {
+            auto bootstrap_peer (i->second.get <std::string> (""));
+            bootstrap_peers.push_back (bootstrap_peer);
+        }
         try
         {
             peering_port = std::stoul (peering_port_l);
             rpc_port = std::stoul (rpc_port_l);
-            result = peering_port > std::numeric_limits <uint16_t>::max () || rpc_port > std::numeric_limits <uint16_t>::max ();
+            error_a = peering_port > std::numeric_limits <uint16_t>::max () || rpc_port > std::numeric_limits <uint16_t>::max ();
         }
         catch (std::logic_error const &)
         {
-            result = true;
+            error_a = true;
         }
     }
     catch (std::runtime_error const &)
     {
         std::cout << "Error parsing config file" << std::endl;
-        result = true;
+        error_a = true;
     }
-    return result;
 }
 
 rai_daemon::daemon::daemon ()
@@ -65,7 +81,7 @@ void rai_daemon::daemon::run ()
     config_file.open (config_path);
     if (!config_file.fail ())
     {
-        config_error = config.deserialize (config_file);
+        config = rai_daemon::daemon_config (config_error, config_file);
     }
     else
     {

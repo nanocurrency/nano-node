@@ -343,6 +343,7 @@ namespace rai {
         void stop ();
         void find_network (std::vector <std::pair <std::string, std::string>> const &);
         void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const &);
+        void connect_bootstrap (std::vector <std::string> const &);
         rai::process_result process_receive (rai::block const &);
         void process_receive_republish (std::unique_ptr <rai::block>, rai::endpoint const &);
         void republish (std::unique_ptr <rai::block>, rai::endpoint const &);
@@ -448,6 +449,7 @@ namespace rai {
         rai::work work;
         boost::asio::ip::udp::socket socket;
         boost::asio::io_service & service;
+        boost::asio::ip::udp::resolver resolver;
         rai::client & client;
         std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
         std::mutex mutex;
