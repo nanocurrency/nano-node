@@ -359,15 +359,13 @@ namespace rai {
     class transactions
     {
     public:
-        transactions (rai::ledger &, rai::wallet &, rai::processor &);
+        transactions (rai::client &);
         bool receive (rai::send_block const &, rai::private_key const &, rai::address const &);
         bool send (rai::address const &, rai::uint256_t const &);
         void vote (rai::vote const &);
         bool rekey (std::string const &);
         std::mutex mutex;
-        rai::ledger & ledger;
-        rai::wallet & wallet;
-		rai::processor & processor;
+        rai::client & client;
     };
     class bootstrap_initiator : public std::enable_shared_from_this <bootstrap_initiator>
     {

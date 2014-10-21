@@ -37,7 +37,7 @@ namespace
     }
     bool constexpr network_keepalive_logging ()
     {
-        return network_logging () && false;
+        return network_logging () && true;
     }
     bool constexpr client_lifetime_tracing ()
     {
@@ -814,7 +814,7 @@ wallet (init_a.wallet_init, data_path_a),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
-transactions (ledger, wallet, processor),
+transactions (*this),
 peers (network.endpoint ()),
 service (processor_a),
 scale ("100000000000000000000000000000000000000000000000000000000000000000") // 10 ^ 65
@@ -3341,10 +3341,8 @@ rai::uint256_t rai::client::balance ()
     return result;
 }
 
-rai::transactions::transactions (rai::ledger & ledger_a, rai::wallet & wallet_a, rai::processor & processor_a) :
-ledger (ledger_a),
-wallet (wallet_a),
-processor (processor_a)
+rai::transactions::transactions (rai::client & client_a) :
+client (client_a)
 {
 }
 
@@ -3353,17 +3351,17 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
     std::lock_guard <std::mutex> lock (mutex);
     auto hash (send_a.hash ());
     bool result;
-    if (ledger.store.pending_exists (hash))
+    if (client.ledger.store.pending_exists (hash))
     {
         rai::frontier frontier;
-        auto new_address (ledger.store.latest_get (send_a.hashables.destination, frontier));
+        auto new_address (client.ledger.store.latest_get (send_a.hashables.destination, frontier));
         if (new_address)
         {
             auto open (new rai::open_block);
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
             rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
-            processor.process_receive_republish (std::unique_ptr <rai::block> (open), rai::endpoint {});
+            client.processor.process_receive_republish (std::unique_ptr <rai::block> (open), rai::endpoint {});
         }
         else
         {
@@ -3371,7 +3369,7 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
             receive->hashables.previous = frontier.hash;
             receive->hashables.source = hash;
             rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
-            processor.process_receive_republish (std::unique_ptr <rai::block> (receive), rai::endpoint {});
+            client.processor.process_receive_republish (std::unique_ptr <rai::block> (receive), rai::endpoint {});
         }
         result = false;
     }
@@ -3387,13 +3385,21 @@ bool rai::transactions::send (rai::address const & address_a, rai::uint256_t con
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::send_block>> blocks;
-    auto result (wallet.generate_send (ledger, address_a, amount_a, blocks));
+    auto result (!client.wallet.valid_password ());
     if (!result)
     {
-        for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+        result = client.wallet.generate_send (client.ledger, address_a, amount_a, blocks);
+        if (!result)
         {
-            processor.process_receive_republish (std::move (*i), rai::endpoint {});
+            for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+            {
+                client.processor.process_receive_republish (std::move (*i), rai::endpoint {});
+            }
         }
+    }
+    else
+    {
+        client.log.add ("Wallet key is invalid");
     }
     return result;
 }
@@ -3746,7 +3752,7 @@ bool rai::wallet::valid_password ()
 bool rai::transactions::rekey (std::string const & password_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-    return wallet.rekey (password_a);
+    return client.wallet.rekey (password_a);
 }
 
 bool rai::wallet::rekey (std::string const & password_a)

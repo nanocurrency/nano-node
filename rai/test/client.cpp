@@ -16,6 +16,15 @@ TEST (client, balance)
     ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max (), system.clients [0]->balance ());
 }
 
+TEST (client, send_unkeyed)
+{
+    rai::system system (24000, 1);
+    rai::keypair key2;
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    system.clients [0]->wallet.password.value_set (rai::uint256_union (0));
+    ASSERT_TRUE (system.clients [0]->transactions.send (key2.pub, 1000));
+}
+
 TEST (client, send_self)
 {
     rai::system system (24000, 1);
