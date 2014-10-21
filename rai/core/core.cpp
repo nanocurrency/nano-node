@@ -1436,7 +1436,7 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
     auto & client_l (client);
     if (network_message_logging ())
     {
-        client_l.log.add (boost::str (boost::format ("Sending confirmation response to: %1%") % sender));
+        client_l.log.add (boost::str (boost::format ("Sending confirm ack to: %1%") % sender));
     }
     client.network.send_buffer (bytes->data (), bytes->size (), sender, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
         {
@@ -1444,7 +1444,7 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
             {
                 if (ec)
                 {
-                    client_l.log.add (boost::str (boost::format ("Error sending confirmation response: %1%") % ec.message ()));
+                    client_l.log.add (boost::str (boost::format ("Error sending confirm ack: %1%") % ec.message ()));
                 }
             }
         });
