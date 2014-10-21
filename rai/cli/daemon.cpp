@@ -99,36 +99,43 @@ void rai_daemon::daemon::run ()
         rai::processor_service processor;
         rai::client_init init;
         auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, rai::genesis_address));
-        assert (!init.error ());
-		client->start ();
-		rai::rpc rpc (service, pool, config.rpc_port, *client, config.rpc_enable_control);
-        if (config.rpc_enable)
+        if (!init.error ())
         {
-            rpc.start ();
+            client->processor.connect_bootstrap (config.bootstrap_peers);
+            client->start ();
+            rai::rpc rpc (service, pool, config.rpc_port, *client, config.rpc_enable_control);
+            if (config.rpc_enable)
+            {
+                rpc.start ();
+            }
+            std::thread network_thread ([&service] ()
+                {
+                    try
+                    {
+                        service->run ();
+                    }
+                    catch (...)
+                    {
+                        assert (false);
+                    }
+                });
+            std::thread processor_thread ([&processor] ()
+                {
+                    try
+                    {
+                        processor.run ();
+                    }
+                    catch (...)
+                    {
+                        assert (false);
+                    }
+                });
+            network_thread.join ();
+            processor_thread.join ();
         }
-        std::thread network_thread ([&service] ()
-            {
-                try
-                {
-                    service->run ();
-                }
-                catch (...)
-                {
-                    assert (false);
-                }
-            });
-        std::thread processor_thread ([&processor] ()
-            {
-                try
-                {
-                    processor.run ();
-                }
-                catch (...)
-                {
-                    assert (false);
-                }
-            });
-        network_thread.join ();
-        processor_thread.join ();
+        else
+        {
+            std::cerr << "Error initializing client\n";
+        }
     }
 }

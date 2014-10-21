@@ -1434,6 +1434,10 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
 		}
 	}
     auto & client_l (client);
+    if (network_message_logging ())
+    {
+        client_l.log.add (boost::str (boost::format ("Sending confirmation response to: %1%") % sender));
+    }
     client.network.send_buffer (bytes->data (), bytes->size (), sender, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
         {
             if (network_logging ())
@@ -2012,7 +2016,7 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
     {
         for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
         {
-            client_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, "25000"), [client_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
+            client_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, "24000"), [client_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
             {
                 if (!ec)
                 {
@@ -3834,31 +3838,6 @@ uint64_t rai::client::scale_down (rai::uint256_t const & amount_a)
 rai::uint256_t rai::client::scale_up (uint64_t amount_a)
 {
     return scale * amount_a;
-}
-
-void rai::processor::find_network (std::vector <std::pair <std::string, std::string>> const & well_known_peers_a)
-{
-    auto resolver (std::make_shared <boost::asio::ip::udp::resolver> (client.network.service));
-    auto client_l (client.shared ());
-    for (auto & i: well_known_peers_a)
-    {
-        resolver->async_resolve (boost::asio::ip::udp::resolver::query (i.first, i.second),
-                                 [client_l, resolver]
-                                 (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator values)
-        {
-            if (!ec)
-            {
-                for (; values != boost::asio::ip::udp::resolver::iterator (); ++values)
-                {
-                    client_l->network.send_keepalive (*values);
-                }
-            }
-            else
-            {
-                client_l->log.add (boost::str (boost::format ("Unable to resolve raiblocks.net")));
-            }
-        });
-    }
 }
 
 rai::work::work () :
