@@ -51,7 +51,6 @@ add_executable (test
     rai/test/wallet_test.cpp
     rai/test/daemon.cpp
     rai/test/uint256_union.cpp
-    rai/test/bulk_req_initiator.cpp
     )
     
 add_executable (qt_test

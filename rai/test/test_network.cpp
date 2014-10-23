@@ -846,7 +846,7 @@ TEST (bootstrap_processor, process_one)
     {
         system.service->poll_one ();
         ++iterations;
-        ASSERT_LT (iterations, 20);
+        ASSERT_LT (iterations, 200);
     }
     auto hash3 (client1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (hash1, hash3);
@@ -874,7 +874,7 @@ TEST (bootstrap_processor, process_two)
     {
         system.service->run_one ();
         ++iterations;
-        ASSERT_LT (iterations, 20);
+        ASSERT_LT (iterations, 200);
     }
     auto hash4 (client1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (hash3, hash4);
@@ -893,7 +893,7 @@ TEST (bootstrap_processor, process_new)
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations1;
-        ASSERT_LT (iterations1, 20);
+        ASSERT_LT (iterations1, 200);
     }
     auto balance1 (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     auto balance2 (system.clients [0]->ledger.account_balance (key2.pub));
@@ -904,10 +904,10 @@ TEST (bootstrap_processor, process_new)
     auto iterations2 (0);
     while (client1->ledger.account_balance (key2.pub) != balance2)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations2;
-        ASSERT_LT (iterations2, 20);
+        ASSERT_LT (iterations2, 200);
     }
     ASSERT_EQ (balance1, client1->ledger.account_balance (rai::test_genesis_key.pub));
 }

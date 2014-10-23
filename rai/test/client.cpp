@@ -87,7 +87,7 @@ TEST (client, send_single_many_peers)
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations;
-        ASSERT_LT (iterations, 200);
+        ASSERT_LT (iterations, 2000);
     }
 }
 
@@ -158,7 +158,7 @@ TEST (client, auto_bootstrap_reverse)
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations;
-        ASSERT_LT (iterations, 20);
+        ASSERT_LT (iterations, 200);
     } while (client1->ledger.account_balance (key2.pub) != 100);
 }
 

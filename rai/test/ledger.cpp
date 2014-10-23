@@ -676,7 +676,7 @@ TEST (system, generate_send_existing)
     ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     ASSERT_NE (frontier1.hash, frontier2.hash);
     auto iterations1 (0);
-    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) == std::numeric_limits <rai::uint256_t>::max ())
+    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) == std::numeric_limits <rai::uint128_t>::max ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -684,7 +684,7 @@ TEST (system, generate_send_existing)
         ASSERT_LT (iterations1, 20);
     }
     auto iterations2 (0);
-    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) != std::numeric_limits <rai::uint256_t>::max ())
+    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) != std::numeric_limits <rai::uint128_t>::max ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
