@@ -46,11 +46,12 @@ add_executable (test
 	rai/test/entry.cpp
 	rai/test/ledger.cpp
 	rai/test/block.cpp
-    rai/test/db_test.cpp
+    rai/test/block_store.cpp
     rai/test/test_network.cpp
     rai/test/wallet_test.cpp
     rai/test/daemon.cpp
     rai/test/uint256_union.cpp
+    rai/test/bulk_req_initiator.cpp
     )
     
 add_executable (qt_test

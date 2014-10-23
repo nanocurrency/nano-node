@@ -423,7 +423,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 
 TEST (receivable_processor, send_with_receive)
 {
-    auto amount (std::numeric_limits <rai::uint256_t>::max ());
+    auto amount (std::numeric_limits <rai::uint128_t>::max ());
     rai::system system (24000, 2);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     rai::keypair key2;
@@ -502,7 +502,7 @@ TEST (rpc, account_balance)
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
     std::string balance_text (response_tree.get <std::string> ("balance"));
-    ASSERT_EQ ("115792089237316195423570985008687907853269984665640564039457584007913129639935", balance_text);
+    ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
 }
 
 TEST (rpc, wallet_contains)
@@ -841,9 +841,12 @@ TEST (bootstrap_processor, process_one)
     ASSERT_NE (hash1, hash2);
     auto done (false);
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
+    auto iterations (0);
     while (!done)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 20);
     }
     auto hash3 (client1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (hash1, hash3);
@@ -866,9 +869,12 @@ TEST (bootstrap_processor, process_two)
     ASSERT_FALSE (init1.error ());
     auto done (false);
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
+    auto iterations (0);
     while (!done)
     {
         system.service->run_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 20);
     }
     auto hash4 (client1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (hash3, hash4);
@@ -881,10 +887,13 @@ TEST (bootstrap_processor, process_new)
     rai::keypair key2;
     system.clients [1]->wallet.insert (key2.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
+    auto iterations1 (0);
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 20);
     }
     auto balance1 (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     auto balance2 (system.clients [0]->ledger.account_balance (key2.pub));
@@ -892,10 +901,13 @@ TEST (bootstrap_processor, process_new)
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24002, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init1.error ());
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [] () {});
+    auto iterations2 (0);
     while (client1->ledger.account_balance (key2.pub) != balance2)
     {
         system.service->run_one ();
         system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 20);
     }
     ASSERT_EQ (balance1, client1->ledger.account_balance (rai::test_genesis_key.pub));
 }
@@ -1092,9 +1104,12 @@ TEST (bulk, genesis)
     ASSERT_NE (frontier1.hash, frontier3.hash);
     bool finished (false);
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
+    auto iterations (0);
     do
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     } while (!finished);
     ASSERT_EQ (system.clients [0]->ledger.latest (rai::test_genesis_key.pub), client1->ledger.latest (rai::test_genesis_key.pub));
 }

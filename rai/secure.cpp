@@ -103,6 +103,69 @@ store (store_a)
     }
 }
 
+rai::uint128_union::uint128_union (uint64_t value_a)
+{
+    qwords [0] = value_a;
+    qwords [1] = 0;
+}
+
+rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
+{
+    boost::multiprecision::uint256_t number_l (value_a);
+    qwords [0] = number_l.convert_to <uint64_t> ();
+    number_l >>= 64;
+    qwords [1] = number_l.convert_to <uint64_t> ();
+    number_l >>= 64;
+}
+
+bool rai::uint128_union::operator == (rai::uint128_union const & other_a) const
+{
+    return qwords [0] == other_a.qwords [0] && qwords [1] == other_a.qwords [1];
+}
+
+rai::uint128_t rai::uint128_union::number () const
+{
+    boost::multiprecision::uint128_t result (qwords [1]);
+    result <<= 64;
+    result |= qwords [0];
+    return result;
+}
+
+void rai::uint128_union::encode_hex (std::string & text) const
+{
+    assert (text.empty ());
+    std::stringstream stream;
+    stream << std::hex << std::noshowbase << std::setw (32) << std::setfill ('0');
+    stream << number ();
+    text = stream.str ();
+}
+
+bool rai::uint128_union::decode_hex (std::string const & text)
+{
+    auto result (text.size () > 32);
+    if (!result)
+    {
+        std::stringstream stream (text);
+        stream << std::hex << std::noshowbase;
+        rai::uint128_t number_l;
+        try
+        {
+            stream >> number_l;
+            *this = number_l;
+        }
+        catch (std::runtime_error &)
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
+void rai::uint128_union::clear ()
+{
+    qwords.fill (0);
+}
+
 bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const
 {
 	return bytes == other_a.bytes;
@@ -111,16 +174,6 @@ bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const
 bool rai::uint512_union::operator == (rai::uint512_union const & other_a) const
 {
 	return bytes == other_a.bytes;
-}
-
-void rai::uint256_union::serialize (rai::stream & stream_a) const
-{
-	write (stream_a, bytes);
-}
-
-bool rai::uint256_union::deserialize (rai::stream & stream_a)
-{
-	return read (stream_a, bytes);
 }
 
 rai::uint256_union::uint256_union (rai::private_key const & prv, rai::secret_key const & key, uint128_union const & iv)
@@ -331,19 +384,18 @@ rai::uint256_union::uint256_union (std::string const & hex_a)
 
 void rai::uint256_union::clear ()
 {
-    bytes.fill (0);
+    qwords.fill (0);
 }
 
 rai::uint256_t rai::uint256_union::number () const
 {
-    rai::uint256_union temp (*this);
-    boost::multiprecision::uint256_t result (temp.qwords [3]);
+    boost::multiprecision::uint256_t result (qwords [3]);
     result <<= 64;
-    result |= temp.qwords [2];
+    result |= qwords [2];
     result <<= 64;
-    result |= temp.qwords [1];
+    result |= qwords [1];
     result <<= 64;
-    result |= temp.qwords [0];
+    result |= qwords [0];
     return result;
 }
 
@@ -409,7 +461,8 @@ bool rai::uint256_union::decode_dec (std::string const & text)
 
 rai::uint256_union::uint256_union (uint64_t value)
 {
-    *this = rai::uint256_t (value);
+    qwords.fill (0);
+    qwords [0] = value;
 }
 
 bool rai::uint256_union::operator != (rai::uint256_union const & other_a) const
@@ -471,7 +524,7 @@ bool rai::uint256_union::decode_base58check (std::string const & source_a)
     return result;
 }
 
-rai::uint256_union::uint256_union (boost::multiprecision::uint256_t const & number_a)
+rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
 {
     boost::multiprecision::uint256_t number_l (number_a);
     qwords [0] = number_l.convert_to <uint64_t> ();
@@ -487,7 +540,7 @@ rai::uint256_union & rai::uint256_union::operator = (leveldb::Slice const & slic
 {
     assert (slice_a.size () == 32);
     rai::bufferstream stream (reinterpret_cast <uint8_t const *> (slice_a.data ()), slice_a.size ());
-    auto error (deserialize (stream));
+    auto error (rai::read (stream, *this));
     assert (!error);
     return *this;
 }
@@ -519,22 +572,21 @@ void rai::uint512_union::clear ()
 
 boost::multiprecision::uint512_t rai::uint512_union::number ()
 {
-    rai::uint512_union temp (*this);
-    boost::multiprecision::uint512_t result (temp.qwords [7]);
+    boost::multiprecision::uint512_t result (qwords [7]);
     result <<= 64;
-    result |= temp.qwords [6];
+    result |= qwords [6];
     result <<= 64;
-    result |= temp.qwords [5];
+    result |= qwords [5];
     result <<= 64;
-    result |= temp.qwords [4];
+    result |= qwords [4];
     result <<= 64;
-    result |= temp.qwords [3];
+    result |= qwords [3];
     result <<= 64;
-    result |= temp.qwords [2];
+    result |= qwords [2];
     result <<= 64;
-    result |= temp.qwords [1];
+    result |= qwords [1];
     result <<= 64;
-    result |= temp.qwords [0];
+    result |= qwords [0];
     return result;
 }
 
@@ -1220,14 +1272,14 @@ void rai::block_store::latest_put (rai::address const & address_a, rai::frontier
     assert (status.ok ());
 }
 
-void rai::block_store::pending_put (rai::identifier const & identifier_a, rai::address const & source_a, rai::uint256_union const & amount_a, rai::address const & destination_a)
+void rai::block_store::pending_put (rai::identifier const & identifier_a, rai::address const & source_a, rai::amount const & amount_a, rai::address const & destination_a)
 {
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
-        source_a.serialize (stream);
-        amount_a.serialize (stream);
-        destination_a.serialize (stream);
+        rai::write (stream, source_a);
+        rai::write (stream, amount_a);
+        rai::write (stream, destination_a);
     }
     auto status (pending->Put (leveldb::WriteOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
     assert (status.ok ());
@@ -1255,7 +1307,7 @@ bool rai::block_store::pending_exists (rai::address const & address_a)
     return result;
 }
 
-bool rai::block_store::pending_get (rai::identifier const & identifier_a, rai::address & source_a, rai::uint256_union & amount_a, rai::address & destination_a)
+bool rai::block_store::pending_get (rai::identifier const & identifier_a, rai::address & source_a, rai::amount & amount_a, rai::address & destination_a)
 {
     std::string value;
     auto status (pending->Get (leveldb::ReadOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), &value));
@@ -1270,11 +1322,11 @@ bool rai::block_store::pending_get (rai::identifier const & identifier_a, rai::a
         result = false;
         assert (value.size () == sizeof (source_a.bytes) + sizeof (amount_a.bytes) + sizeof (destination_a.bytes));
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        auto error1 (source_a.deserialize (stream));
+        auto error1 (rai::read (stream, source_a));
         assert (!error1);
-        auto error2 (amount_a.deserialize (stream));
+        auto error2 (rai::read (stream, amount_a));
         assert (!error2);
-        auto error3 (destination_a.deserialize (stream));
+        auto error3 (rai::read (stream, destination_a));
         assert (!error3);
     }
     return result;
@@ -1368,7 +1420,7 @@ namespace {
         void change_block (rai::change_block const &) override;
         void from_send (rai::block_hash const &);
         rai::block_store & store;
-        rai::uint256_t result;
+        rai::uint128_t result;
     };
     
     class balance_visitor : public rai::block_visitor
@@ -1381,7 +1433,7 @@ namespace {
         void open_block (rai::open_block const &) override;
         void change_block (rai::change_block const &) override;
         rai::block_store & store;
-        rai::uint256_t result;
+        rai::uint128_t result;
     };
     
     class account_visitor : public rai::block_visitor
@@ -1554,7 +1606,7 @@ namespace
         {
             auto hash (block_a.hash ());
             rai::address sender;
-            rai::uint256_union amount;
+            rai::amount amount;
             rai::address destination;
             while (ledger.store.pending_get (hash, sender, amount, destination))
             {
@@ -1616,16 +1668,16 @@ void balance_visitor::compute (rai::block_hash const & block_hash)
     block->visit (*this);
 }
 
-rai::uint256_t rai::ledger::balance (rai::block_hash const & hash_a)
+rai::uint128_t rai::ledger::balance (rai::block_hash const & hash_a)
 {
     balance_visitor visitor (store);
     visitor.compute (hash_a);
     return visitor.result;
 }
 
-rai::uint256_t rai::ledger::account_balance (rai::address const & address_a)
+rai::uint128_t rai::ledger::account_balance (rai::address const & address_a)
 {
-    rai::uint256_t result (0);
+    rai::uint128_t result (0);
     rai::frontier frontier;
     auto none (store.latest_get (address_a, frontier));
     if (!none)
@@ -1642,9 +1694,9 @@ rai::process_result rai::ledger::process (rai::block const & block_a)
     return processor.result;
 }
 
-rai::uint256_t rai::ledger::supply ()
+rai::uint128_t rai::ledger::supply ()
 {
-    return std::numeric_limits <rai::uint256_t>::max ();
+    return std::numeric_limits <rai::uint128_t>::max ();
 }
 
 rai::address rai::ledger::representative (rai::block_hash const & hash_a)
@@ -1666,7 +1718,7 @@ rai::address rai::ledger::representative_cached (rai::block_hash const & hash_a)
     assert (false);
 }
 
-rai::uint256_t rai::ledger::weight (rai::address const & address_a)
+rai::uint128_t rai::ledger::weight (rai::address const & address_a)
 {
     return store.representation_get (address_a);
 }
@@ -1693,14 +1745,14 @@ rai::address rai::ledger::account (rai::block_hash const & hash_a)
     return account.result;
 }
 
-rai::uint256_t rai::ledger::amount (rai::block_hash const & hash_a)
+rai::uint128_t rai::ledger::amount (rai::block_hash const & hash_a)
 {
     amount_visitor amount (store);
     amount.compute (hash_a);
     return amount.result;
 }
 
-void rai::ledger::move_representation (rai::address const & source_a, rai::address const & destination_a, rai::uint256_t const & amount_a)
+void rai::ledger::move_representation (rai::address const & source_a, rai::address const & destination_a, rai::uint128_t const & amount_a)
 {
     auto source_previous (store.representation_get (source_a));
     assert (source_previous >= amount_a);
@@ -1734,7 +1786,7 @@ void rai::ledger::checksum_update (rai::block_hash const & hash_a)
     store.checksum_put (0, 0, value);
 }
 
-void rai::ledger::change_latest (rai::address const & address_a, rai::block_hash const & hash_a, rai::address const & representative_a, rai::uint256_union const & balance_a)
+void rai::ledger::change_latest (rai::address const & address_a, rai::block_hash const & hash_a, rai::address const & representative_a, rai::amount const & balance_a)
 {
     rai::frontier frontier;
     auto exists (!store.latest_get (address_a, frontier));
@@ -1850,7 +1902,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
         if (result == rai::process_result::progress)
         {
             rai::address source_account;
-            rai::uint256_union amount;
+            rai::amount amount;
             rai::address destination_account;
             result = ledger.store.pending_get (block_a.hashables.source, source_account, amount, destination_account) ? rai::process_result::overreceive : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
@@ -1896,7 +1948,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
         if (result == rai::process_result::progress)
         {
             rai::address source_account;
-            rai::uint256_union amount;
+            rai::amount amount;
             rai::address destination_account;
             result = ledger.store.pending_get (block_a.hashables.source, source_account, amount, destination_account) ? rai::process_result::fork_source : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)

@@ -270,7 +270,7 @@ namespace rai {
         rai::uint256_union salt ();
         void insert (rai::private_key const &);
         bool fetch (rai::public_key const &, rai::private_key &);
-        bool generate_send (rai::ledger &, rai::public_key const &, rai::uint256_t const &, std::vector <std::unique_ptr <rai::send_block>> &);
+        bool generate_send (rai::ledger &, rai::public_key const &, rai::uint128_t const &, std::vector <std::unique_ptr <rai::send_block>> &);
 		bool valid_password ();
         key_iterator find (rai::uint256_union const &);
         key_iterator begin ();
@@ -361,7 +361,7 @@ namespace rai {
     public:
         transactions (rai::client &);
         bool receive (rai::send_block const &, rai::private_key const &, rai::address const &);
-        bool send (rai::address const &, rai::uint256_t const &);
+        bool send (rai::address const &, rai::uint128_t const &);
         void vote (rai::vote const &);
         bool rekey (std::string const &);
         std::mutex mutex;
@@ -589,7 +589,7 @@ namespace rai {
         client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::address const &);
         client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::address const &);
         ~client ();
-        bool send (rai::public_key const &, rai::uint256_t const &);
+        bool send (rai::public_key const &, rai::uint128_t const &);
         rai::uint256_t balance ();
         void start ();
         void stop ();
@@ -622,7 +622,7 @@ namespace rai {
         void generate_mass_activity (uint32_t, rai::client &);
         void generate_usage_traffic (uint32_t, uint32_t, size_t);
         void generate_usage_traffic (uint32_t, uint32_t);
-        rai::uint256_t get_random_amount (rai::client &);
+        rai::uint128_t get_random_amount (rai::client &);
         void generate_send_new (rai::client &);
         void generate_send_existing (rai::client &);
         boost::shared_ptr <boost::asio::io_service> service;

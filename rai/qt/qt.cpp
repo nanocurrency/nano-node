@@ -276,7 +276,7 @@ peers_back (new QPushButton ("Back"))
         try
         {
             auto scaled (std::stoull (coins_text_narrow));
-            rai::uint256_t coins (client_m.scale_up (scaled));
+            rai::uint128_t coins (client_m.scale_up (scaled));
             if (coins / client_m.scale == scaled)
             {
                 QPalette palette;

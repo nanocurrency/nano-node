@@ -101,13 +101,13 @@ TEST (block_store, add_pending)
     rai::keypair key1;
     rai::block_hash hash1;
     rai::address sender1;
-    rai::uint256_union amount1;
+    rai::amount amount1;
     rai::address destination1;
     auto pending1 (db.pending_get (hash1, sender1, amount1, destination1));
     ASSERT_TRUE (pending1);
     db.pending_put (hash1, sender1, amount1, destination1);
     rai::address sender2;
-    rai::uint256_union amount2;
+    rai::amount amount2;
     rai::address destination2;
     auto pending2 (db.pending_get (hash1, sender2, amount2, destination2));
     ASSERT_EQ (sender1, sender2);

@@ -49,7 +49,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -65,7 +65,7 @@ void hash_number (CryptoPP::SHA3 & hash_a, boost::multiprecision::uint256_t cons
 rai::genesis::genesis ()
 {
     send1.hashables.destination.clear ();
-    send1.hashables.balance = std::numeric_limits <rai::uint256_t>::max ();
+    send1.hashables.balance = std::numeric_limits <rai::uint128_t>::max ();
     send1.hashables.previous.clear ();
     send1.signature.clear ();
     send2.hashables.destination = genesis_address;
@@ -648,10 +648,10 @@ bool rai::key_iterator::operator != (rai::key_iterator const & other_a) const
     return !(*this == other_a);
 }
 
-bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint256_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
+bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint128_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
 {
     bool result (false);
-    rai::uint256_t remaining (amount_a);
+    rai::uint128_t remaining (amount_a);
     for (auto i (begin ()), j (end ()); i != j && !result && !remaining.is_zero (); ++i)
     {
         auto account (i->first);
@@ -1359,7 +1359,7 @@ size_t rai::processor_service::size ()
     return operations.size ();
 }
 
-bool rai::client::send (rai::public_key const & address, rai::uint256_t const & amount_a)
+bool rai::client::send (rai::public_key const & address, rai::uint128_t const & amount_a)
 {
     return transactions.send (address, amount_a);
 }
@@ -1698,7 +1698,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     if (!error)
                     {
                         std::string amount_text (request_l.get <std::string> ("amount"));
-                        rai::uint256_union amount;
+                        rai::amount amount;
                         auto error (amount.decode_hex (amount_text));
                         if (!error)
                         {
@@ -1744,17 +1744,17 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
     }
 }
 
-rai::uint256_t rai::block_store::representation_get (rai::address const & address_a)
+rai::uint128_t rai::block_store::representation_get (rai::address const & address_a)
 {
     std::string value;
     auto status (representation->Get (leveldb::ReadOptions (), leveldb::Slice (address_a.chars.data (), address_a.chars.size ()), &value));
     assert (status.ok () || status.IsNotFound ());
-    rai::uint256_t result;
+    rai::uint128_t result;
     if (status.ok ())
     {
-        rai::uint256_union rep;
+        rai::uint128_union rep;
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        auto error (rep.deserialize (stream));
+        auto error (rai::read (stream, rep));
         assert (!error);
         result = rep.number ();
     }
@@ -1765,9 +1765,9 @@ rai::uint256_t rai::block_store::representation_get (rai::address const & addres
     return result;
 }
 
-void rai::block_store::representation_put (rai::address const & address_a, rai::uint256_t const & representation_a)
+void rai::block_store::representation_put (rai::address const & address_a, rai::uint128_t const & representation_a)
 {
-    rai::uint256_union rep (representation_a);
+    rai::uint128_union rep (representation_a);
     auto status (representation->Put (leveldb::WriteOptions (), leveldb::Slice (address_a.chars.data (), address_a.chars.size ()), leveldb::Slice (rep.chars.data (), rep.chars.size ())));
     assert (status.ok ());
 }
@@ -1816,7 +1816,7 @@ public:
     {
 		auto hash (block_a.hash ());
         rai::address sender;
-        rai::uint256_union amount;
+        rai::amount amount;
         rai::address destination;
 		while (ledger.store.pending_get (hash, sender, amount, destination))
 		{
@@ -3118,11 +3118,11 @@ void rai::frontier_req_initiator::received_frontier (boost::system::error_code c
         assert (size_a == sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
         rai::address address;
         rai::bufferstream address_stream (receive_buffer.data (), sizeof (rai::uint256_union));
-        auto error1 (address.deserialize (address_stream));
+        auto error1 (rai::read (address_stream, address));
         assert (!error1);
         rai::block_hash latest;
         rai::bufferstream latest_stream (receive_buffer.data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
-        auto error2 (latest.deserialize (latest_stream));
+        auto error2 (rai::read (latest_stream, latest));
         assert (!error2);
         if (!address.is_zero ())
         {
@@ -3182,7 +3182,7 @@ bool rai::block_store::checksum_get (uint64_t prefix, uint8_t mask, rai::uint256
     {
         result = false;
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        auto error (hash_a.deserialize (stream));
+        auto error (rai::read (stream, hash_a));
         assert (!error);
     }
     else
@@ -3282,13 +3282,13 @@ void rai::system::generate_activity (rai::client & client_a)
     } while (polled != 0);
 }
 
-rai::uint256_t rai::system::get_random_amount (rai::client & client_a)
+rai::uint128_t rai::system::get_random_amount (rai::client & client_a)
 {
-    rai::uint512_t balance (client_a.balance ());
+    rai::uint256_t balance (client_a.balance ());
     std::string balance_text (balance.convert_to <std::string> ());
-    rai::uint256_union random_amount;
+    rai::uint128_union random_amount;
     random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
-    auto result (((rai::uint512_t {random_amount.number ()} * balance) / rai::uint512_t {std::numeric_limits <rai::uint256_t>::max ()}).convert_to <rai::uint256_t> ());
+    auto result (((rai::uint256_t {random_amount.number ()} * balance) / rai::uint256_t {std::numeric_limits <rai::uint128_t>::max ()}).convert_to <rai::uint128_t> ());
     std::string text (result.convert_to <std::string> ());
     return result;
 }
@@ -3381,7 +3381,7 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
     return result;
 }
 
-bool rai::transactions::send (rai::address const & address_a, rai::uint256_t const & amount_a)
+bool rai::transactions::send (rai::address const & address_a, rai::uint128_t const & amount_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::send_block>> blocks;

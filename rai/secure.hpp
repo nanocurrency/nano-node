@@ -37,11 +37,19 @@ namespace rai
 	{
 	public:
 		uint128_union () = default;
+        uint128_union (uint64_t);
 		uint128_union (rai::uint128_union const &) = default;
 		uint128_union (rai::uint128_t const &);
+        bool operator == (rai::uint128_union const &) const;
+        void encode_hex (std::string &) const;
+        bool decode_hex (std::string const &);
+        rai::uint128_t number () const;
+        void clear ();
 		std::array <uint8_t, 16> bytes;
+        std::array <char, 16> chars;
 		std::array <uint64_t, 2> qwords;
 	};
+	using amount = uint128_union;
 	union uint256_union
 	{
 		uint256_union () = default;
@@ -63,8 +71,6 @@ namespace rai
 		bool decode_dec (std::string const &);
 		void encode_base58check (std::string &) const;
 		bool decode_base58check (std::string const &);
-		void serialize (rai::stream &) const;
-		bool deserialize (rai::stream &);
 		std::array <uint8_t, 32> bytes;
 		std::array <char, 32> chars;
 		std::array <uint64_t, 4> qwords;
@@ -78,7 +84,6 @@ namespace rai
 	using identifier = uint256_union;
 	using address = uint256_union;
 	using balance = uint256_union;
-	using amount = uint256_union;
 	using public_key = uint256_union;
 	using private_key = uint256_union;
 	using secret_key = uint256_union;
@@ -176,7 +181,7 @@ namespace rai
 		void hash (CryptoPP::SHA3 &) const;
 		rai::address destination;
 		rai::block_hash previous;
-		rai::uint256_union balance;
+		rai::amount balance;
 	};
 	class send_block : public rai::block
 	{
@@ -294,7 +299,7 @@ namespace rai
 		bool operator == (rai::frontier const &) const;
 		rai::uint256_union hash;
 		rai::address representative;
-		rai::uint256_union balance;
+		rai::uint128_union balance;
 		uint64_t time;
 	};
 	class account_entry
@@ -365,13 +370,13 @@ namespace rai
 		account_iterator latest_begin ();
 		account_iterator latest_end ();
 		
-		void pending_put (rai::block_hash const &, rai::address const &, rai::uint256_union const &, rai::address const &);
+		void pending_put (rai::block_hash const &, rai::address const &, rai::amount const &, rai::address const &);
 		void pending_del (rai::identifier const &);
-		bool pending_get (rai::identifier const &, rai::address &, rai::uint256_union &, rai::address &);
+		bool pending_get (rai::identifier const &, rai::address &, rai::amount &, rai::address &);
 		bool pending_exists (rai::block_hash const &);
 		
-		rai::uint256_t representation_get (rai::address const &);
-		void representation_put (rai::address const &, rai::uint256_t const &);
+		rai::uint128_t representation_get (rai::address const &);
+		void representation_put (rai::address const &, rai::uint128_t const &);
 		
 		void fork_put (rai::block_hash const &, rai::block const &);
 		std::unique_ptr <rai::block> fork_get (rai::block_hash const &);
@@ -420,20 +425,20 @@ namespace rai
 	public:
         ledger (bool &, leveldb::Status const &, rai::block_store &);
 		rai::address account (rai::block_hash const &);
-		rai::uint256_t amount (rai::block_hash const &);
-		rai::uint256_t balance (rai::block_hash const &);
-		rai::uint256_t account_balance (rai::address const &);
-		rai::uint256_t weight (rai::address const &);
+		rai::uint128_t amount (rai::block_hash const &);
+		rai::uint128_t balance (rai::block_hash const &);
+		rai::uint128_t account_balance (rai::address const &);
+		rai::uint128_t weight (rai::address const &);
 		std::unique_ptr <rai::block> successor (rai::block_hash const &);
 		rai::block_hash latest (rai::address const &);
 		rai::address representative (rai::block_hash const &);
 		rai::address representative_calculated (rai::block_hash const &);
 		rai::address representative_cached (rai::block_hash const &);
-		rai::uint256_t supply ();
+		rai::uint128_t supply ();
 		rai::process_result process (rai::block const &);
 		void rollback (rai::block_hash const &);
-		void change_latest (rai::address const &, rai::block_hash const &, rai::address const &, rai::uint256_union const &);
-		void move_representation (rai::address const &, rai::address const &, rai::uint256_t const &);
+		void change_latest (rai::address const &, rai::block_hash const &, rai::address const &, rai::uint128_union const &);
+		void move_representation (rai::address const &, rai::address const &, rai::uint128_t const &);
 		void checksum_update (rai::block_hash const &);
 		rai::checksum checksum (rai::address const &, rai::address const &);
 		rai::block_store & store;

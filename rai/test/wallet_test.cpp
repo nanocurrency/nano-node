@@ -114,7 +114,7 @@ TEST (wallet, one_spend)
     store.latest_get (rai::test_genesis_key.pub, frontier1);
     rai::keypair key2;
     std::vector <std::unique_ptr <rai::send_block>> blocks;
-    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, std::numeric_limits <rai::uint256_t>::max (), blocks));
+    ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, std::numeric_limits <rai::uint128_t>::max (), blocks));
     ASSERT_EQ (1, blocks.size ());
     auto & send (*blocks [0]);
     ASSERT_EQ (frontier1.hash, send.hashables.previous);
@@ -172,7 +172,7 @@ TEST (wallet, partial_spend)
     ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, blocks));
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (frontier1.hash, blocks [0]->hashables.previous);
-    ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max () - 500, blocks [0]->hashables.balance.number ());
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, blocks [0]->hashables.balance.number ());
     ASSERT_FALSE (rai::validate_message (rai::test_genesis_key.pub, blocks [0]->hash (), blocks [0]->signature));
     ASSERT_EQ (key2.pub, blocks [0]->hashables.destination);
 }
@@ -208,7 +208,7 @@ TEST (wallet, spend_no_previous)
     ASSERT_FALSE (wallet.generate_send (ledger, key2.pub, 500, blocks));
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (frontier1.hash, blocks [0]->hashables.previous);
-    ASSERT_EQ (std::numeric_limits <rai::uint256_t>::max () - 500, blocks [0]->hashables.balance.number ());
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, blocks [0]->hashables.balance.number ());
     ASSERT_FALSE (rai::validate_message (rai::test_genesis_key.pub, blocks [0]->hash (), blocks [0]->signature));
     ASSERT_EQ (key2.pub, blocks [0]->hashables.destination);
 }
