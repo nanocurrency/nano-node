@@ -403,7 +403,7 @@ void rai_qt::client::refresh_ledger ()
 
 void rai_qt::client::refresh_wallet ()
 {
-    rai::uint256_t balance;
+    rai::uint128_t balance;
 	wallet_model->removeRows (0, wallet_model->rowCount ());
     for (auto i (client_m.wallet.begin ()), j (client_m.wallet.end ()); i != j; ++i)
     {

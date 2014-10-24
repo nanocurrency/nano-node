@@ -175,10 +175,22 @@ TEST (client, multi_account_send_atomicness)
 TEST (client, scaling)
 {
     rai::system system (24000, 1);
-    auto max (std::numeric_limits <rai::uint256_t>::max ());
+    auto max (std::numeric_limits <rai::uint128_t>::max ());
     auto down (system.clients [0]->scale_down (max));
     auto up1 (system.clients [0]->scale_up (down));
     auto up2 (system.clients [0]->scale_up (down - 1));
     ASSERT_LT (up2, up1);
     ASSERT_EQ (up1 - up2, system.clients [0]->scale);
+}
+
+TEST (client, receive_gap)
+{
+    rai::system system (24000, 1);
+    auto & client (*system.clients [0]);
+    ASSERT_EQ (0, client.gap_cache.blocks.size ());
+    rai::send_block block;
+    rai::confirm_req message;
+    message.block = block.clone ();
+    client.processor.process_message (message, rai::endpoint {}, false);
+    ASSERT_EQ (1, client.gap_cache.blocks.size ());
 }

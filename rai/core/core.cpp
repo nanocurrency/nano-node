@@ -817,7 +817,8 @@ processor (*this),
 transactions (*this),
 peers (network.endpoint ()),
 service (processor_a),
-scale ("100000000000000000000000000000000000000000000000000000000000000000") // 10 ^ 65
+//scale ("1000000000000000000000000000") // 10 ^ 27
+scale ("1")
 {
     if (!init_a.error ())
     {
@@ -3588,19 +3589,10 @@ public:
 		{
 			client.log.add (boost::str (boost::format ("Received confirm req from %1%") % sender));
 		}
-		auto result (client.ledger.process (*message_a.block));
-		switch (result)
-		{
-			case rai::process_result::old:
-			case rai::process_result::progress:
-			{
-				client.processor.process_confirmation (*message_a.block, sender);
-				break;
-			}
-			default:
-			{
-				assert (false);
-			}
+        client.processor.process_receive_republish (message_a.block->clone (), sender);
+        if (client.store.block_exists (message_a.block->hash ()))
+        {
+            client.processor.process_confirmation (*message_a.block, sender);
 		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
@@ -3836,12 +3828,12 @@ bool rai::publish_req::operator == (rai::publish_req const & other_a) const
     return work == other_a.work && *block == *other_a.block;
 }
 
-uint64_t rai::client::scale_down (rai::uint256_t const & amount_a)
+uint64_t rai::client::scale_down (rai::uint128_t const & amount_a)
 {
     return (amount_a / scale).convert_to <uint64_t> ();
 }
 
-rai::uint256_t rai::client::scale_up (uint64_t amount_a)
+rai::uint128_t rai::client::scale_up (uint64_t amount_a)
 {
     return scale * amount_a;
 }
