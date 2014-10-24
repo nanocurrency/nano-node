@@ -277,6 +277,13 @@ namespace rai {
         key_iterator end ();
         rai::uint256_union derive_key (std::string const &);
         rai::fan password;
+        static rai::uint256_union const version_1;
+        static rai::uint256_union const version_current;
+        static rai::uint256_union const version_special;
+        static rai::uint256_union const wallet_key_special;
+        static rai::uint256_union const salt_special;
+        static rai::uint256_union const check_special;
+        static int const special_count;
     private:
         leveldb::DB * handle;
     };
