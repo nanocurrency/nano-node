@@ -2,9 +2,15 @@ cmake_minimum_required (VERSION 2.8.11)
 project (rai)
 
 if (WIN32)
-    set (PLATFORM_DEFINES "-D_WIN32_WINNT=0x0501 -DWINVER=0x0501")
+    set (PLATFORM_COMPILE_FLAGS "-D_WIN32_WINNT=0x0501 -DWINVER=0x0501")
 else (WIN32)
-    set (PLATFORM_DEFINES)
+    set (PLATFORM_COMPILE_FLAGS -fPIC)
+endif (WIN32)
+
+if (WIN32)
+	set (PLATFORM_GUI_EXE_LINK_FLAGS "-mwindows")
+else (WIN32)
+	set (PLATFORM_GUI_EXE_LINK_FLAGS "")
 endif (WIN32)
 
 include_directories (${CMAKE_SOURCE_DIR})
@@ -77,7 +83,8 @@ set_property (CACHE GENESIS_KEY PROPERTY STRINGS rai_test_address rai_live_addre
 SET (WORK_FACTOR rai_test_work CACHE STRING "Selects whether full or test work is performed")
 set_property (CACHE WORK_FACTOR PROPERTY STRINGS rai_test_work rai_full_work)
 
-set_target_properties (secure core test qt_test cli qt qt_client qt_system PROPERTIES COMPILE_FLAGS "-fPIC -std=c++11 -Werror=switch ${PLATFORM_DEFINES} -DQT_NO_KEYWORDS -DGENESIS_KEY=${GENESIS_KEY} -DWORK_FACTOR=${WORK_FACTOR} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (secure core test qt_test cli qt qt_client qt_system PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DGENESIS_KEY=${GENESIS_KEY} -DWORK_FACTOR=${WORK_FACTOR} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (qt_client qt_test PROPERTIES LINK_FLAGS "${PLATFORM_GUI_EXE_LINK_FLAGS}")
 
 if (WIN32)
     set (PLATFORM_LIBS ws2_32 mswsock)
