@@ -1,2 +1,2 @@
-mu_coin
+RaiBlocks
 ======
