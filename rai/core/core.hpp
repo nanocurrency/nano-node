@@ -603,8 +603,6 @@ namespace rai {
         std::shared_ptr <rai::client> shared ();
         bool is_representative ();
 		void representative_vote (rai::election &, rai::block const &);
-        uint64_t scale_down (rai::uint128_t const &);
-        rai::uint128_t scale_up (uint64_t);
         rai::log log;
         rai::address representative;
         rai::block_store store;
@@ -618,7 +616,6 @@ namespace rai {
         rai::transactions transactions;
         rai::peer_container peers;
         rai::processor_service & service;
-        rai::uint128_t scale;
     };
     class system
     {

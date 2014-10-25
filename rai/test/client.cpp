@@ -172,26 +172,6 @@ TEST (client, multi_account_send_atomicness)
     system.clients [0]->transactions.send (key1.pub, std::numeric_limits<rai::uint128_t>::max () / 2 + std::numeric_limits<rai::uint128_t>::max () / 4);
 }
 
-TEST (client, scaling)
-{
-    rai::system system (24000, 1);
-    auto max (std::numeric_limits <rai::uint128_t>::max ());
-    auto down (system.clients [0]->scale_down (max));
-    auto up1 (system.clients [0]->scale_up (down));
-    auto up2 (system.clients [0]->scale_up (down - 1));
-    ASSERT_LT (up2, up1);
-    ASSERT_EQ (up1 - up2, system.clients [0]->scale);
-}
-
-TEST (client, scale_num)
-{
-    rai::system system (24000, 1);
-    rai::uint128_t num ("100000000000000000000000000000000000000");
-    auto down (system.clients [0]->scale_down (num));
-    auto up (system.clients [0]->scale_up (down));
-    ASSERT_EQ (num, up);
-}
-
 TEST (client, receive_gap)
 {
     rai::system system (24000, 1);

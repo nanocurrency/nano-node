@@ -127,7 +127,7 @@ TEST (client, send)
         system.service->poll_one ();
         system.processor.poll_one ();
     }
-	ASSERT_EQ (2 * client.client_m.scale, client.client_m.ledger.account_balance (key1.pub));
+	ASSERT_EQ (2 * client.scale, client.client_m.ledger.account_balance (key1.pub));
 	QTest::mouseClick (client.send_blocks_back, Qt::LeftButton);
 	QTest::mouseClick (client.show_ledger, Qt::LeftButton);
 	QTest::mouseClick (client.ledger_refresh, Qt::LeftButton);
@@ -135,4 +135,30 @@ TEST (client, send)
 	ASSERT_EQ (3, client.ledger_model->columnCount ());
 	auto item (client.ledger_model->itemFromIndex (client.ledger_model->index (1, 1)));
 	ASSERT_EQ ("2", item->text ().toStdString ());
+}
+
+TEST (client, scaling)
+{
+    rai::system system (24000, 1);
+    int argc (0);
+    QApplication application (argc, nullptr);
+    rai_qt::client client (application, *system.clients [0]);
+    auto max (std::numeric_limits <rai::uint128_t>::max ());
+    auto down (client.scale_down (max));
+    auto up1 (client.scale_up (down));
+    auto up2 (client.scale_up (down - 1));
+    ASSERT_LT (up2, up1);
+    ASSERT_EQ (up1 - up2, client.scale);
+}
+
+TEST (client, scale_num)
+{
+    rai::system system (24000, 1);
+    int argc (0);
+    QApplication application (argc, nullptr);
+    rai_qt::client client (application, *system.clients [0]);
+    rai::uint128_t num ("100000000000000000000000000000000000000");
+    auto down (client.scale_down (num));
+    auto up (client.scale_up (down));
+    ASSERT_EQ (num, up);
 }

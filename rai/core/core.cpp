@@ -822,8 +822,7 @@ bootstrap (*service_a, port_a, *this),
 processor (*this),
 transactions (*this),
 peers (network.endpoint ()),
-service (processor_a),
-scale ("100000000000000000000")
+service (processor_a)
 {
     if (!init_a.error ())
     {
@@ -3826,16 +3825,6 @@ bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
 bool rai::publish_req::operator == (rai::publish_req const & other_a) const
 {
     return work == other_a.work && *block == *other_a.block;
-}
-
-uint64_t rai::client::scale_down (rai::uint128_t const & amount_a)
-{
-    return (amount_a / scale).convert_to <uint64_t> ();
-}
-
-rai::uint128_t rai::client::scale_up (uint64_t amount_a)
-{
-    return scale * amount_a;
 }
 
 rai::work::work () :
