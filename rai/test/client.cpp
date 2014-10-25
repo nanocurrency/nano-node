@@ -186,7 +186,7 @@ TEST (client, scaling)
 TEST (client, scale_num)
 {
     rai::system system (24000, 1);
-    rai::uint128_t num ("0xf0000000000000000000000000000000");
+    rai::uint128_t num ("100000000000000000000000000000000000000");
     auto down (system.clients [0]->scale_down (num));
     auto up (system.clients [0]->scale_up (down));
     ASSERT_EQ (num, up);

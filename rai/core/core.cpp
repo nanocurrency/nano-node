@@ -823,8 +823,7 @@ processor (*this),
 transactions (*this),
 peers (network.endpoint ()),
 service (processor_a),
-//scale ("1000000000000000000000000000") // 10 ^ 27
-scale ("1")
+scale ("100000000000000000000")
 {
     if (!init_a.error ())
     {
