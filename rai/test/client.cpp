@@ -183,6 +183,15 @@ TEST (client, scaling)
     ASSERT_EQ (up1 - up2, system.clients [0]->scale);
 }
 
+TEST (client, scale_num)
+{
+    rai::system system (24000, 1);
+    rai::uint128_t num ("0xf0000000000000000000000000000000");
+    auto down (system.clients [0]->scale_down (num));
+    auto up (system.clients [0]->scale_up (down));
+    ASSERT_EQ (num, up);
+}
+
 TEST (client, receive_gap)
 {
     rai::system system (24000, 1);
