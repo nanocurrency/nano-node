@@ -23,10 +23,6 @@ TEST (client, main)
     ASSERT_EQ (client.send_blocks_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.send_blocks_back, Qt::LeftButton);
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.show_wallet, Qt::LeftButton);
-    ASSERT_EQ (client.wallet_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.wallet_back, Qt::LeftButton);
-    ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.settings, Qt::LeftButton);
     ASSERT_EQ (client.settings_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.settings_change_password_button, Qt::LeftButton);
@@ -35,17 +31,21 @@ TEST (client, main)
     ASSERT_EQ (client.settings_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.settings_back, Qt::LeftButton);
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.show_ledger, Qt::LeftButton);
-    ASSERT_EQ (client.ledger_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.ledger_back, Qt::LeftButton);
-    ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.show_peers, Qt::LeftButton);
-    ASSERT_EQ (client.peers_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.peers_back, Qt::LeftButton);
-    ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.show_log, Qt::LeftButton);
-    ASSERT_EQ (client.log_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.log_back, Qt::LeftButton);
+    QTest::mouseClick (client.show_advanced, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.advanced.show_ledger, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.ledger_window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.advanced.ledger_back, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.advanced.show_peers, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.peers_window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.advanced.peers_back, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.advanced.show_log, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.log_window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.advanced.log_back, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
+    QTest::mouseClick (client.advanced.back, Qt::LeftButton);
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
 }
 
@@ -127,13 +127,14 @@ TEST (client, send)
         system.service->poll_one ();
         system.processor.poll_one ();
     }
-	ASSERT_EQ (2 * client.scale, client.client_m.ledger.account_balance (key1.pub));
+	ASSERT_EQ (2 * client.advanced.scale, client.client_m.ledger.account_balance (key1.pub));
 	QTest::mouseClick (client.send_blocks_back, Qt::LeftButton);
-	QTest::mouseClick (client.show_ledger, Qt::LeftButton);
-	QTest::mouseClick (client.ledger_refresh, Qt::LeftButton);
-	ASSERT_EQ (2, client.ledger_model->rowCount ());
-	ASSERT_EQ (3, client.ledger_model->columnCount ());
-	auto item (client.ledger_model->itemFromIndex (client.ledger_model->index (1, 1)));
+    QTest::mouseClick (client.show_advanced, Qt::LeftButton);
+	QTest::mouseClick (client.advanced.show_ledger, Qt::LeftButton);
+	QTest::mouseClick (client.advanced.ledger_refresh, Qt::LeftButton);
+	ASSERT_EQ (2, client.advanced.ledger_model->rowCount ());
+	ASSERT_EQ (3, client.advanced.ledger_model->columnCount ());
+	auto item (client.advanced.ledger_model->itemFromIndex (client.advanced.ledger_model->index (1, 1)));
 	ASSERT_EQ ("2", item->text ().toStdString ());
 }
 
@@ -144,11 +145,11 @@ TEST (client, scaling)
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
     auto max (std::numeric_limits <rai::uint128_t>::max ());
-    auto down (client.scale_down (max));
-    auto up1 (client.scale_up (down));
-    auto up2 (client.scale_up (down - 1));
+    auto down (client.advanced.scale_down (max));
+    auto up1 (client.advanced.scale_up (down));
+    auto up2 (client.advanced.scale_up (down - 1));
     ASSERT_LT (up2, up1);
-    ASSERT_EQ (up1 - up2, client.scale);
+    ASSERT_EQ (up1 - up2, client.advanced.scale);
 }
 
 TEST (client, scale_num)
@@ -158,7 +159,7 @@ TEST (client, scale_num)
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
     rai::uint128_t num ("100000000000000000000000000000000000000");
-    auto down (client.scale_down (num));
-    auto up (client.scale_up (down));
+    auto down (client.advanced.scale_down (num));
+    auto up (client.advanced.scale_up (down));
     ASSERT_EQ (num, up);
 }

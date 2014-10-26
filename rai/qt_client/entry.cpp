@@ -89,6 +89,10 @@ int main (int argc, char ** argv)
         rai::processor_service processor;
         rai::client_init init;
         auto client (std::make_shared <rai::client> (init, service, config.peering_port, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, rai::genesis_address));
+        QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+        {
+            client->stop ();
+        });
         if (!init.error ())
         {
             client->processor.connect_bootstrap (config.bootstrap_peers);
@@ -116,11 +120,6 @@ int main (int argc, char ** argv)
                 {
                     assert (false);
                 }
-            });
-            QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-            {
-                client->stop ();
-                processor.stop ();
             });
             int result;
             try
