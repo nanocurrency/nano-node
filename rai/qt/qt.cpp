@@ -8,6 +8,7 @@ rai_qt::client::client (QApplication & application_a, rai::client & client_a) :
 client_m (client_a),
 password_change (*this),
 enter_password (*this),
+advanced (*this),
 application (application_a),
 main_stack (new QStackedWidget),
 settings_window (new QWidget),
@@ -26,16 +27,14 @@ balance_label (new QLabel),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
 send_blocks (new QPushButton ("Send")),
-show_wallet (new QPushButton ("Wallet")),
+show_wallet (new QPushButton ("Accounts")),
 settings (new QPushButton ("Settings")),
-show_ledger (new QPushButton ("Ledger")),
-show_peers (new QPushButton ("Peers")),
-show_log (new QPushButton ("Log")),
+show_advanced (new QPushButton ("Advanced")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
-send_address_label (new QLabel ("Address:")),
+send_address_label (new QLabel ("Destination account:")),
 send_address (new QLineEdit),
-send_count_label (new QLabel ("Coins:")),
+send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back")),
@@ -44,29 +43,10 @@ wallet_layout (new QVBoxLayout),
 wallet_model (new QStandardItemModel),
 wallet_view (new QTableView),
 wallet_refresh (new QPushButton ("Refresh")),
-wallet_add_account (new QPushButton ("Add account")),
+wallet_add_account (new QPushButton ("Create account")),
 wallet_key_line (new QLineEdit),
 wallet_add_key_button (new QPushButton ("Add key")),
-wallet_back (new QPushButton ("Back")),
-ledger_window (new QWidget),
-ledger_layout (new QVBoxLayout),
-ledger_model (new QStandardItemModel),
-ledger_view (new QTableView),
-ledger_refresh (new QPushButton ("Refresh")),
-ledger_back (new QPushButton ("Back")),
-log_window (new QWidget),
-log_layout (new QVBoxLayout),
-log_model (new QStringListModel),
-log_view (new QListView),
-log_refresh (new QPushButton ("Refresh")),
-log_back (new QPushButton ("Back")),
-peers_window (new QWidget),
-peers_layout (new QVBoxLayout),
-peers_model (new QStringListModel),
-peers_view (new QListView),
-peers_refresh (new QPushButton ("Refresh")),
-peers_back (new QPushButton ("Back")),
-scale ("100000000000000000000")
+wallet_back (new QPushButton ("Back"))
 {
     send_blocks_layout->addWidget (send_address_label);
     send_blocks_layout->addWidget (send_address);
@@ -92,41 +72,11 @@ scale ("100000000000000000000")
     wallet_layout->addWidget (wallet_back);
     wallet_layout->setContentsMargins (0, 0, 0, 0);
     wallet_window->setLayout (wallet_layout);
-	
-	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
-	ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
-	ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
-	ledger_view->setModel (ledger_model);
-	ledger_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
-	ledger_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
-	ledger_view->horizontalHeader ()->setSectionResizeMode (2, QHeaderView::ResizeMode::Stretch);
-    ledger_view->verticalHeader ()->hide ();
-    ledger_layout->addWidget (ledger_view);
-    ledger_layout->addWidget (ledger_refresh);
-    ledger_layout->addWidget (ledger_back);
-    ledger_layout->setContentsMargins (0, 0, 0, 0);
-    ledger_window->setLayout (ledger_layout);
-    
-    log_view->setModel (log_model);
-    log_layout->addWidget (log_view);
-    log_layout->addWidget (log_refresh);
-    log_layout->addWidget (log_back);
-    log_layout->setContentsMargins (0, 0, 0, 0);
-    log_window->setLayout (log_layout);
-    
-    peers_view->setModel (peers_model);
-    peers_layout->addWidget (peers_view);
-    peers_layout->addWidget (peers_refresh);
-    peers_layout->addWidget (peers_back);
-    peers_layout->setContentsMargins (0, 0, 0, 0);
-    peers_window->setLayout (peers_layout);
     
     entry_window_layout->addWidget (send_blocks);
     entry_window_layout->addWidget (show_wallet);
     entry_window_layout->addWidget (settings);
-    entry_window_layout->addWidget (show_ledger);
-    entry_window_layout->addWidget (show_peers);
-    entry_window_layout->addWidget (show_log);
+    entry_window_layout->addWidget (show_advanced);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window_layout->setSpacing (5);
     entry_window->setLayout (entry_window_layout);
@@ -150,30 +100,6 @@ scale ("100000000000000000000")
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
     
-    QObject::connect (log_refresh, &QPushButton::released, [this] ()
-    {
-        refresh_log ();
-    });
-    QObject::connect (log_back, &QPushButton::released, [this] ()
-    {
-        pop_main_stack ();
-    });
-    QObject::connect (show_log, &QPushButton::released, [this] ()
-    {
-        push_main_stack (log_window);
-    });
-    QObject::connect (show_peers, &QPushButton::released, [this] ()
-    {
-        push_main_stack (peers_window);
-    });
-    QObject::connect (peers_back, &QPushButton::released, [this] ()
-    {
-        pop_main_stack ();
-    });
-    QObject::connect (peers_refresh, &QPushButton::released, [this] ()
-    {
-        refresh_peers ();
-    });
     QObject::connect (wallet_add_key_button, &QPushButton::released, [this] ()
     {
         QString key_text_wide (wallet_key_line->text ());
@@ -238,18 +164,6 @@ scale ("100000000000000000000")
             settings_connect_line->setPalette (palette);
         }
     });
-    QObject::connect (show_ledger, &QPushButton::released, [this] ()
-    {
-        push_main_stack (ledger_window);
-    });
-    QObject::connect (ledger_refresh, &QPushButton::released, [this] ()
-    {
-        refresh_ledger ();
-    });
-    QObject::connect (ledger_back, &QPushButton::released, [this] ()
-    {
-        pop_main_stack ();
-    });
     QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
     {
         refresh_wallet ();
@@ -261,6 +175,10 @@ scale ("100000000000000000000")
     QObject::connect (settings, &QPushButton::released, [this] ()
     {
         push_main_stack (settings_window);
+    });
+    QObject::connect (show_advanced, &QPushButton::released, [this] ()
+    {
+        push_main_stack (advanced.window);
     });
     QObject::connect (show_wallet, &QPushButton::released, [this] ()
     {
@@ -277,8 +195,8 @@ scale ("100000000000000000000")
         try
         {
             auto scaled (std::stoull (coins_text_narrow));
-            rai::uint128_t coins (scale_up (scaled));
-            if (coins / scale == scaled)
+            rai::uint128_t coins (advanced.scale_up (scaled));
+            if (coins / advanced.scale == scaled)
             {
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
@@ -350,56 +268,6 @@ scale ("100000000000000000000")
         refresh_wallet ();
     });
     refresh_wallet ();
-    refresh_ledger ();
-}
-
-void rai_qt::client::refresh_log ()
-{
-    QStringList log;
-    for (auto i: client_m.log.items)
-    {
-        std::stringstream entry;
-        entry << i.first << ' ' << i.second << std::endl;
-        QString qentry (entry.str ().c_str ());
-        log << qentry;
-    }
-    log_model->setStringList (log);
-}
-
-void rai_qt::client::refresh_peers ()
-{
-    QStringList peers;
-    for (auto i: client_m.peers.list ())
-    {
-        std::stringstream endpoint;
-        endpoint << i.endpoint.address ().to_string ();
-        endpoint << ':';
-        endpoint << i.endpoint.port ();
-        endpoint << ' ';
-        endpoint << i.last_contact;
-        endpoint << ' ';
-        endpoint << i.last_attempt;
-        QString qendpoint (endpoint.str().c_str ());
-        peers << qendpoint;
-    }
-    peers_model->setStringList (peers);
-}
-
-void rai_qt::client::refresh_ledger ()
-{
-	ledger_model->removeRows (0, ledger_model->rowCount ());
-    for (auto i (client_m.ledger.store.latest_begin()), j (client_m.ledger.store.latest_end ()); i != j; ++i)
-	{
-		QList <QStandardItem *> items;
-        std::string account;
-        i->first.encode_base58check (account);
-		items.push_back (new QStandardItem (QString (account.c_str ())));
-		items.push_back (new QStandardItem (QString (std::to_string (scale_down (client_m.ledger.balance (i->second.hash))).c_str ())));
-        std::string block_hash;
-        i->second.hash.encode_hex (block_hash);
-		items.push_back (new QStandardItem (QString (block_hash.c_str ())));
-		ledger_model->appendRow (items);
-    }
 }
 
 void rai_qt::client::refresh_wallet ()
@@ -415,11 +283,11 @@ void rai_qt::client::refresh_wallet ()
 		items.push_back (new QStandardItem (QString (account.c_str ())));
         auto account_balance (client_m.ledger.account_balance (key));
 		balance += account_balance;
-		auto balance (std::to_string (scale_down (account_balance)));
+		auto balance (std::to_string (advanced.scale_down (account_balance)));
 		items.push_back (new QStandardItem (balance.c_str ()));
 		wallet_model->appendRow (items);
     }
-    balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (scale_down (balance))).c_str ()));
+    balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (advanced.scale_down (balance))).c_str ()));
 }
 
 rai_qt::client::~client ()
@@ -546,12 +414,166 @@ void rai_qt::enter_password::update_label ()
     }
 }
 
-uint64_t rai_qt::client::scale_down (rai::uint128_t const & amount_a)
+rai_qt::advanced_actions::advanced_actions (rai_qt::client & client_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+show_ledger (new QPushButton ("Ledger")),
+show_peers (new QPushButton ("Peers")),
+show_log (new QPushButton ("Log")),
+back (new QPushButton ("Back")),
+ledger_window (new QWidget),
+ledger_layout (new QVBoxLayout),
+ledger_model (new QStandardItemModel),
+ledger_view (new QTableView),
+ledger_refresh (new QPushButton ("Refresh")),
+ledger_back (new QPushButton ("Back")),
+log_window (new QWidget),
+log_layout (new QVBoxLayout),
+log_model (new QStringListModel),
+log_view (new QListView),
+log_refresh (new QPushButton ("Refresh")),
+log_back (new QPushButton ("Back")),
+peers_window (new QWidget),
+peers_layout (new QVBoxLayout),
+peers_model (new QStringListModel),
+peers_view (new QListView),
+peers_refresh (new QPushButton ("Refresh")),
+peers_back (new QPushButton ("Back")),
+scale ("100000000000000000000"),
+client (client_a)
+{
+    
+    ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
+    ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
+    ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
+    ledger_view->setModel (ledger_model);
+    ledger_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
+    ledger_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
+    ledger_view->horizontalHeader ()->setSectionResizeMode (2, QHeaderView::ResizeMode::Stretch);
+    ledger_view->verticalHeader ()->hide ();
+    ledger_layout->addWidget (ledger_view);
+    ledger_layout->addWidget (ledger_refresh);
+    ledger_layout->addWidget (ledger_back);
+    ledger_layout->setContentsMargins (0, 0, 0, 0);
+    ledger_window->setLayout (ledger_layout);
+    
+    log_view->setModel (log_model);
+    log_layout->addWidget (log_view);
+    log_layout->addWidget (log_refresh);
+    log_layout->addWidget (log_back);
+    log_layout->setContentsMargins (0, 0, 0, 0);
+    log_window->setLayout (log_layout);
+    
+    peers_view->setModel (peers_model);
+    peers_layout->addWidget (peers_view);
+    peers_layout->addWidget (peers_refresh);
+    peers_layout->addWidget (peers_back);
+    peers_layout->setContentsMargins (0, 0, 0, 0);
+    peers_window->setLayout (peers_layout);
+    
+    layout->addWidget (show_ledger);
+    layout->addWidget (show_peers);
+    layout->addWidget (show_log);
+    layout->addWidget (back);
+    window->setLayout (layout);
+    QObject::connect (show_log, &QPushButton::released, [this] ()
+    {
+        client.push_main_stack (log_window);
+    });
+    QObject::connect (show_peers, &QPushButton::released, [this] ()
+    {
+        client.push_main_stack (peers_window);
+    });
+    QObject::connect (show_ledger, &QPushButton::released, [this] ()
+    {
+        client.push_main_stack (ledger_window);
+    });
+    QObject::connect (back, &QPushButton::released, [this] ()
+    {
+        client.pop_main_stack ();
+    });
+    QObject::connect (log_refresh, &QPushButton::released, [this] ()
+    {
+        refresh_log ();
+    });
+    QObject::connect (log_back, &QPushButton::released, [this] ()
+    {
+        client.pop_main_stack ();
+    });
+    QObject::connect (peers_back, &QPushButton::released, [this] ()
+    {
+        client.pop_main_stack ();
+    });
+    QObject::connect (peers_refresh, &QPushButton::released, [this] ()
+    {
+        refresh_peers ();
+    });
+    QObject::connect (ledger_refresh, &QPushButton::released, [this] ()
+    {
+        refresh_ledger ();
+    });
+    QObject::connect (ledger_back, &QPushButton::released, [this] ()
+    {
+        client.pop_main_stack ();
+    });
+    refresh_ledger ();
+}
+
+void rai_qt::advanced_actions::refresh_log ()
+{
+    QStringList log;
+    for (auto i: client.client_m.log.items)
+    {
+        std::stringstream entry;
+        entry << i.first << ' ' << i.second << std::endl;
+        QString qentry (entry.str ().c_str ());
+        log << qentry;
+    }
+    log_model->setStringList (log);
+}
+
+void rai_qt::advanced_actions::refresh_peers ()
+{
+    QStringList peers;
+    for (auto i: client.client_m.peers.list ())
+    {
+        std::stringstream endpoint;
+        endpoint << i.endpoint.address ().to_string ();
+        endpoint << ':';
+        endpoint << i.endpoint.port ();
+        endpoint << ' ';
+        endpoint << i.last_contact;
+        endpoint << ' ';
+        endpoint << i.last_attempt;
+        QString qendpoint (endpoint.str().c_str ());
+        peers << qendpoint;
+    }
+    peers_model->setStringList (peers);
+}
+
+void rai_qt::advanced_actions::refresh_ledger ()
+{
+    ledger_model->removeRows (0, ledger_model->rowCount ());
+    for (auto i (client.client_m.ledger.store.latest_begin()), j (client.client_m.ledger.store.latest_end ()); i != j; ++i)
+    {
+        QList <QStandardItem *> items;
+        std::string account;
+        i->first.encode_base58check (account);
+        items.push_back (new QStandardItem (QString (account.c_str ())));
+        items.push_back (new QStandardItem (QString (std::to_string (scale_down (client.client_m.ledger.balance (i->second.hash))).c_str ())));
+        std::string block_hash;
+        i->second.hash.encode_hex (block_hash);
+        items.push_back (new QStandardItem (QString (block_hash.c_str ())));
+        ledger_model->appendRow (items);
+    }
+}
+
+uint64_t rai_qt::advanced_actions::scale_down (rai::uint128_t const & amount_a)
 {
     return (amount_a / scale).convert_to <uint64_t> ();
 }
 
-rai::uint128_t rai_qt::client::scale_up (uint64_t amount_a)
+rai::uint128_t rai_qt::advanced_actions::scale_up (uint64_t amount_a)
 {
     return scale * amount_a;
 }

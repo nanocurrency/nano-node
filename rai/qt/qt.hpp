@@ -39,6 +39,48 @@ namespace rai_qt {
         QPushButton * back;
         rai_qt::client & client;
     };
+    class advanced_actions
+    {
+    public:
+        advanced_actions (rai_qt::client &);
+        QWidget * window;
+        QVBoxLayout * layout;
+        QPushButton * show_ledger;
+        QPushButton * show_peers;
+        QPushButton * show_log;
+        QPushButton * back;
+        
+        QWidget * ledger_window;
+        QVBoxLayout * ledger_layout;
+        QStandardItemModel * ledger_model;
+        QTableView * ledger_view;
+        QPushButton * ledger_refresh;
+        QPushButton * ledger_back;
+        
+        QWidget * log_window;
+        QVBoxLayout * log_layout;
+        QStringListModel * log_model;
+        QListView * log_view;
+        QPushButton * log_refresh;
+        QPushButton * log_back;
+        
+        QWidget * peers_window;
+        QVBoxLayout * peers_layout;
+        QStringListModel * peers_model;
+        QListView * peers_view;
+        QPushButton * peers_refresh;
+        QPushButton * peers_back;
+        
+        rai::uint128_t const scale;
+        uint64_t scale_down (rai::uint128_t const &);
+        rai::uint128_t scale_up (uint64_t);
+        
+        rai_qt::client & client;
+    private:
+        void refresh_ledger ();
+        void refresh_peers ();
+        void refresh_log ();
+    };
     class client
     {
     public:
@@ -47,6 +89,7 @@ namespace rai_qt {
         rai::client & client_m;
         rai_qt::password_change password_change;
         rai_qt::enter_password enter_password;
+        rai_qt::advanced_actions advanced;
         
         QApplication & application;
         QStackedWidget * main_stack;
@@ -71,9 +114,7 @@ namespace rai_qt {
         QPushButton * send_blocks;
         QPushButton * show_wallet;
         QPushButton * settings;
-        QPushButton * show_ledger;
-        QPushButton * show_peers;
-        QPushButton * show_log;
+        QPushButton * show_advanced;
         
         QWidget * send_blocks_window;
         QVBoxLayout * send_blocks_layout;
@@ -93,37 +134,10 @@ namespace rai_qt {
         QLineEdit * wallet_key_line;
         QPushButton * wallet_add_key_button;
         QPushButton * wallet_back;
-        
-        QWidget * ledger_window;
-        QVBoxLayout * ledger_layout;
-        QStandardItemModel * ledger_model;
-        QTableView * ledger_view;
-        QPushButton * ledger_refresh;
-        QPushButton * ledger_back;
-        
-        QWidget * log_window;
-        QVBoxLayout * log_layout;
-        QStringListModel * log_model;
-        QListView * log_view;
-        QPushButton * log_refresh;
-        QPushButton * log_back;
-        
-        QWidget * peers_window;
-        QVBoxLayout * peers_layout;
-        QStringListModel * peers_model;
-        QListView * peers_view;
-        QPushButton * peers_refresh;
-        QPushButton * peers_back;
 		
         void pop_main_stack ();
         void push_main_stack (QWidget *);
-        rai::uint128_t const scale;
-        uint64_t scale_down (rai::uint128_t const &);
-        rai::uint128_t scale_up (uint64_t);
     private:
         void refresh_wallet ();
-        void refresh_ledger ();
-        void refresh_peers ();
-        void refresh_log ();
     };
 }
