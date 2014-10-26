@@ -1684,6 +1684,21 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "RPC control is disabled";
                 }
             }
+            else if (action == "wallet_key_valid")
+            {
+                if (enable_control)
+                {
+                    auto valid (client.wallet.valid_password ());
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("valid", valid ? "1" : "0");
+                    set_response (response, response_l);
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "RPC control is disabled";
+                }
+            }
             else if (action == "validate_account")
             {
                 std::string account_text (request_l.get <std::string> ("account"));
@@ -1704,7 +1719,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     {
                         std::string amount_text (request_l.get <std::string> ("amount"));
                         rai::amount amount;
-                        auto error (amount.decode_hex (amount_text));
+                        auto error (amount.decode_dec (amount_text));
                         if (!error)
                         {
                             auto error (client.send (account, amount.number ()));

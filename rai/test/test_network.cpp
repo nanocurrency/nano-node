@@ -749,6 +749,31 @@ TEST (rpc, wallet_list)
     }
 }
 
+TEST (rpc, wallet_key_valid)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, 25000, *system.clients [0], true);
+    std::string account;
+    rai::test_genesis_key.pub.encode_base58check (account);
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "wallet_key_valid");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string exists_text (response_tree.get <std::string> ("valid"));
+    ASSERT_EQ ("1", exists_text);
+}
+
 TEST (parse_endpoint, valid)
 {
     std::string string ("127.0.0.1:24000");

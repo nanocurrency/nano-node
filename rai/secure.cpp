@@ -161,6 +161,36 @@ bool rai::uint128_union::decode_hex (std::string const & text)
     return result;
 }
 
+void rai::uint128_union::encode_dec (std::string & text) const
+{
+    assert (text.empty ());
+    std::stringstream stream;
+    stream << std::dec << std::noshowbase;
+    stream << number ();
+    text = stream.str ();
+}
+
+bool rai::uint128_union::decode_dec (std::string const & text)
+{
+    auto result (text.size () > 39);
+    if (!result)
+    {
+        std::stringstream stream (text);
+        stream << std::dec << std::noshowbase;
+        rai::uint128_t number_l;
+        try
+        {
+            stream >> number_l;
+            *this = number_l;
+        }
+        catch (std::runtime_error &)
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
 void rai::uint128_union::clear ()
 {
     qwords.fill (0);

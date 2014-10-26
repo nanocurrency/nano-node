@@ -43,6 +43,8 @@ namespace rai
         bool operator == (rai::uint128_union const &) const;
         void encode_hex (std::string &) const;
         bool decode_hex (std::string const &);
+        void encode_dec (std::string &) const;
+        bool decode_dec (std::string const &);
         rai::uint128_t number () const;
         void clear ();
 		std::array <uint8_t, 16> bytes;
