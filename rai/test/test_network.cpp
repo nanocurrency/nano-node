@@ -257,13 +257,13 @@ TEST (network, publish_req)
     block->hashables.previous.clear ();
     block->hashables.balance = 200;
     block->hashables.destination = key2.pub;
-    rai::publish_req req (std::move (block));
+    rai::publish req (std::move (block));
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream (bytes);
         req.serialize (stream);
     }
-    rai::publish_req req2;
+    rai::publish req2;
     rai::bufferstream stream2 (bytes.data (), bytes.size ());
     auto error (req2.deserialize (stream2));
     ASSERT_FALSE (error);
@@ -366,7 +366,7 @@ TEST (network, send_insufficient_work)
     block->hashables.previous.clear ();
     block->hashables.balance = 20;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
-    rai::publish_req publish;
+    rai::publish publish;
     publish.block = std::move (block);
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {

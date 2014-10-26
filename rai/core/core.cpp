@@ -156,7 +156,7 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
     {
         client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
     }
-    rai::publish_req message (std::move (block));
+    rai::publish message (std::move (block));
     rai::work work;
     message.work = work.create (message.block->hash ());
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -258,9 +258,9 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 						}
                         break;
                     }
-                    case rai::message_type::publish_req:
+                    case rai::message_type::publish:
                     {
-                        rai::publish_req incoming;
+                        rai::publish incoming;
                         rai::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
                         receive ();
@@ -276,7 +276,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                                 ++insufficient_work_count;
                                 if (insufficient_work_logging ())
                                 {
-                                    client.log.add ("Insufficient work for publish_req");
+                                    client.log.add ("Insufficient work for publish");
                                 }
                             }
                         }
@@ -406,12 +406,12 @@ void rai::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> const & 
     }
 }
 
-rai::publish_req::publish_req (std::unique_ptr <rai::block> block_a) :
+rai::publish::publish (std::unique_ptr <rai::block> block_a) :
 block (std::move (block_a))
 {
 }
 
-bool rai::publish_req::deserialize (rai::stream & stream_a)
+bool rai::publish::deserialize (rai::stream & stream_a)
 {
     rai::message_type type;
     auto result (read (stream_a, type));
@@ -428,9 +428,9 @@ bool rai::publish_req::deserialize (rai::stream & stream_a)
     return result;
 }
 
-void rai::publish_req::serialize (rai::stream & stream_a)
+void rai::publish::serialize (rai::stream & stream_a)
 {
-    write (stream_a, rai::message_type::publish_req);
+    write (stream_a, rai::message_type::publish);
     write (stream_a, work);
     rai::serialize_block (stream_a, *block);
 }
@@ -1305,9 +1305,9 @@ void rai::keepalive_ack::visit (rai::message_visitor & visitor_a) const
     visitor_a.keepalive_ack (*this);
 }
 
-void rai::publish_req::visit (rai::message_visitor & visitor_a) const
+void rai::publish::visit (rai::message_visitor & visitor_a) const
 {
-    visitor_a.publish_req (*this);
+    visitor_a.publish (*this);
 }
 
 void rai::keepalive_ack::serialize (rai::stream & stream_a)
@@ -2229,7 +2229,7 @@ public:
     {
         assert (false);
     }
-    void publish_req (rai::publish_req const &)
+    void publish (rai::publish const &)
     {
         assert (false);
     }
@@ -2399,7 +2399,7 @@ public:
     {
         assert (false);
     }
-    void publish_req (rai::publish_req const &)
+    void publish (rai::publish const &)
     {
         assert (false);
     }
@@ -3602,7 +3602,7 @@ public:
 										});
 		}
 	}
-	void publish_req (rai::publish_req const & message_a) override
+	void publish (rai::publish const & message_a) override
 	{
 		if (network_message_logging ())
 		{
@@ -3845,7 +3845,7 @@ bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
     return work == other_a.work && *block == *other_a.block;
 }
 
-bool rai::publish_req::operator == (rai::publish_req const & other_a) const
+bool rai::publish::operator == (rai::publish const & other_a) const
 {
     return work == other_a.work && *block == *other_a.block;
 }

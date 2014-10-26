@@ -1195,7 +1195,7 @@ TEST (fork, publish)
         send1->hashables.balance.clear ();
         send1->hashables.destination = key1.pub;
         rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
-        rai::publish_req publish1;
+        rai::publish publish1;
         publish1.block = std::move (send1);
         rai::keypair key2;
         std::unique_ptr <rai::send_block> send2 (new rai::send_block);
@@ -1203,7 +1203,7 @@ TEST (fork, publish)
         send2->hashables.balance.clear ();
         send2->hashables.destination = key2.pub;
         rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
-        rai::publish_req publish2;
+        rai::publish publish2;
         publish2.block = std::move (send2);
         client1.processor.process_message (publish1, rai::endpoint {}, true);
         ASSERT_EQ (0, client1.conflicts.roots.size ());
@@ -1244,7 +1244,7 @@ TEST (fork, keep)
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
-    rai::publish_req publish1;
+    rai::publish publish1;
     publish1.block = std::move (send1);
     rai::keypair key2;
     std::unique_ptr <rai::send_block> send2 (new rai::send_block);
@@ -1252,7 +1252,7 @@ TEST (fork, keep)
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
-    rai::publish_req publish2;
+    rai::publish publish2;
     publish2.block = std::move (send2);
     client1.processor.process_message (publish1, rai::endpoint {}, true);
 	client2.processor.process_message (publish1, rai::endpoint {}, true);
@@ -1295,7 +1295,7 @@ TEST (fork, flip)
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
-    rai::publish_req publish1;
+    rai::publish publish1;
     publish1.block = std::move (send1);
     rai::keypair key2;
     std::unique_ptr <rai::send_block> send2 (new rai::send_block);
@@ -1303,7 +1303,7 @@ TEST (fork, flip)
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
-    rai::publish_req publish2;
+    rai::publish publish2;
     publish2.block = std::move (send2);
     client1.processor.process_message (publish1, rai::endpoint {}, true);
     client2.processor.process_message (publish2, rai::endpoint {}, true);
@@ -1347,7 +1347,7 @@ TEST (fork, multi_flip)
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
-    rai::publish_req publish1;
+    rai::publish publish1;
     publish1.block = std::move (send1);
     rai::keypair key2;
     std::unique_ptr <rai::send_block> send2 (new rai::send_block);
@@ -1355,14 +1355,14 @@ TEST (fork, multi_flip)
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
-    rai::publish_req publish2;
+    rai::publish publish2;
     publish2.block = std::move (send2);
     std::unique_ptr <rai::send_block> send3 (new rai::send_block);
     send3->hashables.previous = publish2.block->hash ();
     send3->hashables.balance.clear ();
     send3->hashables.destination = key2.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send3->hash (), send3->signature);
-    rai::publish_req publish3;
+    rai::publish publish3;
     publish3.block = std::move (send3);
     client1.processor.process_message (publish1, rai::endpoint {}, true);
 	client2.processor.process_message (publish2, rai::endpoint {}, true);

@@ -373,8 +373,8 @@ namespace rai
 		account_iterator latest_end ();
 		
 		void pending_put (rai::block_hash const &, rai::address const &, rai::amount const &, rai::address const &);
-		void pending_del (rai::identifier const &);
-		bool pending_get (rai::identifier const &, rai::address &, rai::amount &, rai::address &);
+		void pending_del (rai::block_hash const &);
+		bool pending_get (rai::block_hash const &, rai::address &, rai::amount &, rai::address &);
 		bool pending_exists (rai::block_hash const &);
 		
 		rai::uint128_t representation_get (rai::address const &);

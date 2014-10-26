@@ -1063,7 +1063,7 @@ void rai::account_iterator::set_current ()
         auto slice (iterator->value ());
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (slice.data ()), slice.size ());
         auto error (current.second.deserialize (stream));
-        assert (!error);
+        assert (!error); // {TODO} Corrupt db
     }
     else
     {

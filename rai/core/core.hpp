@@ -122,7 +122,7 @@ namespace rai {
         not_a_type,
         keepalive_req,
         keepalive_ack,
-        publish_req,
+        publish,
         confirm_req,
         confirm_ack,
         confirm_unk,
@@ -155,15 +155,15 @@ namespace rai {
 		std::array <rai::endpoint, 24> peers;
 		rai::uint256_union checksum;
     };
-    class publish_req : public message
+    class publish : public message
     {
     public:
-        publish_req () = default;
-        publish_req (std::unique_ptr <rai::block>);
+        publish () = default;
+        publish (std::unique_ptr <rai::block>);
         void visit (rai::message_visitor &) const override;
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
-        bool operator == (rai::publish_req const &) const;
+        bool operator == (rai::publish const &) const;
         rai::uint256_union work;
         std::unique_ptr <rai::block> block;
     };
@@ -222,7 +222,7 @@ namespace rai {
     public:
         virtual void keepalive_req (rai::keepalive_req const &) = 0;
         virtual void keepalive_ack (rai::keepalive_ack const &) = 0;
-        virtual void publish_req (rai::publish_req const &) = 0;
+        virtual void publish (rai::publish const &) = 0;
         virtual void confirm_req (rai::confirm_req const &) = 0;
         virtual void confirm_ack (rai::confirm_ack const &) = 0;
         virtual void confirm_unk (rai::confirm_unk const &) = 0;
