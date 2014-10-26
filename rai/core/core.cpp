@@ -779,8 +779,11 @@ size_t rai::processor_service::poll ()
 void rai::processor_service::add (std::chrono::system_clock::time_point const & wakeup_a, std::function <void ()> const & operation)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    operations.push (rai::operation ({wakeup_a, operation}));
-    condition.notify_all ();
+    if (!done)
+    {
+        operations.push (rai::operation ({wakeup_a, operation}));
+        condition.notify_all ();
+    }
 }
 
 rai::processor_service::processor_service () :
@@ -792,6 +795,10 @@ void rai::processor_service::stop ()
 {
     std::lock_guard <std::mutex> lock (mutex);
     done = true;
+    while (!operations.empty ())
+    {
+        operations.pop ();
+    }
     condition.notify_all ();
 }
 

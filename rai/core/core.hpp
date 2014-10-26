@@ -305,7 +305,6 @@ namespace rai {
         void stop ();
         bool stopped ();
         size_t size ();
-    private:
         bool done;
         std::mutex mutex;
         std::condition_variable condition;

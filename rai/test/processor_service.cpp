@@ -128,7 +128,14 @@ TEST (processor_service, top_execution)
     ASSERT_EQ (1, value);
 }
 
-TEST (processor_service, add_stopped)
+TEST (processor_service, stopping)
 {
-    
+    rai::processor_service service;
+    ASSERT_EQ (0, service.operations.size ());
+    service.add (std::chrono::system_clock::now (), [] () {});
+    ASSERT_EQ (1, service.operations.size ());
+    service.stop ();
+    ASSERT_EQ (0, service.operations.size ());
+    service.add (std::chrono::system_clock::now (), [] () {});
+    ASSERT_EQ (0, service.operations.size ());
 }
