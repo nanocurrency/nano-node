@@ -330,6 +330,13 @@ TEST (wallet, bad_path)
     ASSERT_TRUE (init);
 }
 
+TEST (wallet, correct)
+{
+    bool init (true);
+    rai::wallet store (init, boost::filesystem::unique_path ());
+    ASSERT_FALSE (init);
+}
+
 TEST (wallet, already_open)
 {
     auto path (boost::filesystem::unique_path ());
@@ -340,4 +347,21 @@ TEST (wallet, already_open)
     bool init;
     rai::wallet store (init, path);
     ASSERT_TRUE (init);
+}
+
+TEST (wallet, repoen_default_password)
+{
+    auto path (boost::filesystem::unique_path ());
+    {
+        bool init;
+        rai::wallet wallet (init, path);
+        ASSERT_FALSE (init);
+        ASSERT_TRUE (wallet.valid_password ());
+    }
+    {
+        bool init;
+        rai::wallet wallet (init, path);
+        ASSERT_FALSE (init);
+        ASSERT_TRUE (wallet.valid_password ());
+    }
 }

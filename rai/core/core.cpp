@@ -478,7 +478,9 @@ password (0, 1024)
     {
         leveldb::Options options;
         options.create_if_missing = true;
-        auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &handle));
+        leveldb::DB * db (nullptr);
+        auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &db));
+        handle.reset (db);
         if (status.ok ())
         {
             rai::uint256_union wallet_password_key;
@@ -512,6 +514,12 @@ password (0, 1024)
                 wallet_key.clear ();
                 password_l.clear ();
             }
+            else
+            {
+                auto password_l (derive_key (""));
+                password.value_set (password_l);
+            }
+            init_a = false;
         }
         else
         {
@@ -607,7 +615,7 @@ rai::key_entry & rai::key_iterator::operator -> ()
 
 rai::key_iterator rai::wallet::begin ()
 {
-    rai::key_iterator result (handle);
+    rai::key_iterator result (handle.get ());
     for (auto i (0); i < special_count; ++i)
     {
         assert (result != end ());
@@ -618,8 +626,8 @@ rai::key_iterator rai::wallet::begin ()
 
 rai::key_iterator rai::wallet::find (rai::uint256_union const & key)
 {
-    rai::key_iterator result (handle, key);
-    rai::key_iterator end (handle, nullptr);
+    rai::key_iterator result (handle.get (), key);
+    rai::key_iterator end (handle.get (), nullptr);
     if (result != end)
     {
         if (result.current.first == key)
@@ -639,7 +647,7 @@ rai::key_iterator rai::wallet::find (rai::uint256_union const & key)
 
 rai::key_iterator rai::wallet::end ()
 {
-    return rai::key_iterator (handle, nullptr);
+    return rai::key_iterator (handle.get (), nullptr);
 }
 
 bool rai::key_iterator::operator == (rai::key_iterator const & other_a) const

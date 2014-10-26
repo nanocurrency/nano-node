@@ -285,7 +285,7 @@ namespace rai {
         static rai::uint256_union const check_special;
         static int const special_count;
     private:
-        leveldb::DB * handle;
+        std::unique_ptr <leveldb::DB> handle;
     };
     class operation
     {
