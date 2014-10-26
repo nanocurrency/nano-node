@@ -27,7 +27,6 @@ balance_label (new QLabel),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
 send_blocks (new QPushButton ("Send")),
-show_wallet (new QPushButton ("Accounts")),
 settings (new QPushButton ("Settings")),
 show_advanced (new QPushButton ("Advanced")),
 send_blocks_window (new QWidget),
@@ -38,13 +37,10 @@ send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back")),
-wallet_window (new QWidget),
-wallet_layout (new QVBoxLayout),
 wallet_model (new QStandardItemModel),
 wallet_view (new QTableView),
 wallet_refresh (new QPushButton ("Refresh")),
-wallet_add_account (new QPushButton ("Create account")),
-wallet_back (new QPushButton ("Back"))
+wallet_add_account (new QPushButton ("Create account"))
 {
     send_blocks_layout->addWidget (send_address_label);
     send_blocks_layout->addWidget (send_address);
@@ -62,15 +58,11 @@ wallet_back (new QPushButton ("Back"))
 	wallet_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
     wallet_view->verticalHeader ()->hide ();
     wallet_view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
-    wallet_layout->addWidget (wallet_view);
-    wallet_layout->addWidget (wallet_refresh);
-    wallet_layout->addWidget (wallet_add_account);
-    wallet_layout->addWidget (wallet_back);
-    wallet_layout->setContentsMargins (0, 0, 0, 0);
-    wallet_window->setLayout (wallet_layout);
     
+    entry_window_layout->addWidget (wallet_view);
+    entry_window_layout->addWidget (wallet_refresh);
+    entry_window_layout->addWidget (wallet_add_account);
     entry_window_layout->addWidget (send_blocks);
-    entry_window_layout->addWidget (show_wallet);
     entry_window_layout->addWidget (settings);
     entry_window_layout->addWidget (show_advanced);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
@@ -154,14 +146,6 @@ wallet_back (new QPushButton ("Back"))
     QObject::connect (show_advanced, &QPushButton::released, [this] ()
     {
         push_main_stack (advanced.window);
-    });
-    QObject::connect (show_wallet, &QPushButton::released, [this] ()
-    {
-        push_main_stack (wallet_window);
-    });
-    QObject::connect (wallet_back, &QPushButton::released, [this] ()
-    {
-        pop_main_stack ();
     });
     QObject::connect (send_blocks_send, &QPushButton::released, [this] ()
     {
