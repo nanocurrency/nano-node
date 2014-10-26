@@ -2,6 +2,14 @@
 
 #include <rai/secure.hpp>
 
+TEST (uint128_union, decode_dec)
+{
+    rai::uint128_union value;
+    std::string text ("16");
+    ASSERT_FALSE (value.decode_dec (text));
+    ASSERT_EQ (16, value.qwords [0]);
+}
+
 TEST (uint256_union, key_encryption)
 {
     rai::keypair key1;
@@ -80,6 +88,14 @@ TEST (uint256_union, max_hex)
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+}
+
+TEST (uint256_union, decode_dec)
+{
+    rai::uint256_union value;
+    std::string text ("16");
+    ASSERT_FALSE (value.decode_dec (text));
+    ASSERT_EQ (16, value.qwords [0]);
 }
 
 TEST (uint256_union, max_dec)
