@@ -48,6 +48,9 @@ namespace rai_qt {
         QPushButton * show_ledger;
         QPushButton * show_peers;
         QPushButton * show_log;
+        QLabel * wallet_key_text;
+        QLineEdit * wallet_key_line;
+        QPushButton * wallet_add_key_button;
         QPushButton * back;
         
         QWidget * ledger_window;
@@ -131,13 +134,10 @@ namespace rai_qt {
         QTableView * wallet_view;
         QPushButton * wallet_refresh;
         QPushButton * wallet_add_account;
-        QLineEdit * wallet_key_line;
-        QPushButton * wallet_add_key_button;
         QPushButton * wallet_back;
 		
         void pop_main_stack ();
         void push_main_stack (QWidget *);
-    private:
         void refresh_wallet ();
     };
 }

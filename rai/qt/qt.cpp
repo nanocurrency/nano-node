@@ -44,8 +44,6 @@ wallet_model (new QStandardItemModel),
 wallet_view (new QTableView),
 wallet_refresh (new QPushButton ("Refresh")),
 wallet_add_account (new QPushButton ("Create account")),
-wallet_key_line (new QLineEdit),
-wallet_add_key_button (new QPushButton ("Add key")),
 wallet_back (new QPushButton ("Back"))
 {
     send_blocks_layout->addWidget (send_address_label);
@@ -67,8 +65,6 @@ wallet_back (new QPushButton ("Back"))
     wallet_layout->addWidget (wallet_view);
     wallet_layout->addWidget (wallet_refresh);
     wallet_layout->addWidget (wallet_add_account);
-    wallet_layout->addWidget (wallet_key_line);
-    wallet_layout->addWidget (wallet_add_key_button);
     wallet_layout->addWidget (wallet_back);
     wallet_layout->setContentsMargins (0, 0, 0, 0);
     wallet_window->setLayout (wallet_layout);
@@ -100,27 +96,6 @@ wallet_back (new QPushButton ("Back"))
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
     
-    QObject::connect (wallet_add_key_button, &QPushButton::released, [this] ()
-    {
-        QString key_text_wide (wallet_key_line->text ());
-        std::string key_text (key_text_wide.toLocal8Bit ());
-        rai::private_key key;
-        if (!key.decode_hex (key_text))
-        {
-            QPalette palette;
-            palette.setColor (QPalette::Text, Qt::black);
-            wallet_key_line->setPalette (palette);
-            wallet_key_line->clear ();
-            client_m.wallet.insert (key);
-            refresh_wallet ();
-        }
-        else
-        {
-            QPalette palette;
-            palette.setColor (QPalette::Text, Qt::red);
-            wallet_key_line->setPalette (palette);
-        }
-    });
     QObject::connect (settings_bootstrap_button, &QPushButton::released, [this] ()
     {
         QString address_text_wide (settings_connect_line->text ());
@@ -420,6 +395,9 @@ layout (new QVBoxLayout),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
 show_log (new QPushButton ("Log")),
+wallet_key_text (new QLabel ("Account key:")),
+wallet_key_line (new QLineEdit),
+wallet_add_key_button (new QPushButton ("Add account key")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -474,6 +452,9 @@ client (client_a)
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
     layout->addWidget (show_log);
+    layout->addWidget (wallet_key_text);
+    layout->addWidget (wallet_key_line);
+    layout->addWidget (wallet_add_key_button);
     layout->addWidget (back);
     window->setLayout (layout);
     QObject::connect (show_log, &QPushButton::released, [this] ()
@@ -515,6 +496,27 @@ client (client_a)
     QObject::connect (ledger_back, &QPushButton::released, [this] ()
     {
         client.pop_main_stack ();
+    });
+    QObject::connect (wallet_add_key_button, &QPushButton::released, [this] ()
+    {
+      QString key_text_wide (wallet_key_line->text ());
+      std::string key_text (key_text_wide.toLocal8Bit ());
+      rai::private_key key;
+      if (!key.decode_hex (key_text))
+      {
+          QPalette palette;
+          palette.setColor (QPalette::Text, Qt::black);
+          wallet_key_line->setPalette (palette);
+          wallet_key_line->clear ();
+          client.client_m.wallet.insert (key);
+          client.refresh_wallet ();
+      }
+      else
+      {
+          QPalette palette;
+          palette.setColor (QPalette::Text, Qt::red);
+          wallet_key_line->setPalette (palette);
+      }
     });
     refresh_ledger ();
 }
