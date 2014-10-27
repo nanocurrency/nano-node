@@ -51,11 +51,11 @@ wallet_add_account (new QPushButton ("Create account"))
     send_blocks_layout->setContentsMargins (0, 0, 0, 0);
     send_blocks_window->setLayout (send_blocks_layout);
 	
-	wallet_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
-	wallet_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
+	wallet_model->setHorizontalHeaderItem (0, new QStandardItem ("Balance"));
+	wallet_model->setHorizontalHeaderItem (1, new QStandardItem ("Account"));
     wallet_view->setModel (wallet_model);
-	wallet_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
-	wallet_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
+	wallet_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::ResizeToContents);
+	wallet_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::Stretch);
     wallet_view->verticalHeader ()->hide ();
     wallet_view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
     
@@ -238,12 +238,12 @@ void rai_qt::client::refresh_wallet ()
 		QList <QStandardItem *> items;
         std::string account;
         rai::public_key key (i->first);
-        key.encode_base58check (account);
-		items.push_back (new QStandardItem (QString (account.c_str ())));
         auto account_balance (client_m.ledger.account_balance (key));
 		balance += account_balance;
 		auto balance (std::to_string (advanced.scale_down (account_balance)));
 		items.push_back (new QStandardItem (balance.c_str ()));
+        key.encode_base58check (account);
+		items.push_back (new QStandardItem (QString (account.c_str ())));
 		wallet_model->appendRow (items);
     }
     balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (advanced.scale_down (balance))).c_str ()));
