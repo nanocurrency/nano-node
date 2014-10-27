@@ -55,7 +55,7 @@ add_executable (test
 	rai/test/entry.cpp
 	rai/test/ledger.cpp
     rai/test/processor_service.cpp
-    rai/test/test_network.cpp
+    rai/test/network.cpp
     rai/test/uint256_union.cpp
     rai/test/wallet_test.cpp
     )
