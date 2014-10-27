@@ -3624,6 +3624,17 @@ public:
 			rai::vectorstream stream (*ack_bytes);
 			ack_message.serialize (stream);
 		}
+		auto & client_l (client);
+		client.network.send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
+		{
+			if (network_logging ())
+			{
+				if (error)
+				{
+					client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
+				}
+			}
+		});
 		rai::keepalive_req req_message;
 		req_message.peers = ack_message.peers;
 		std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
@@ -3636,17 +3647,6 @@ public:
 		{
 			client.log.add (boost::str (boost::format ("Sending keepalive ack to %1%") % sender));
 		}
-		auto & client_l (client);
-		client.network.send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
-		{
-			if (network_logging ())
-			{
-				if (error)
-				{
-					client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
-				}
-			}
-		});
 	}
 	void keepalive_ack (rai::keepalive_ack const & message_a) override
 	{
