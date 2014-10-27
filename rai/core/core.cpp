@@ -219,6 +219,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                 {
                     send_keepalive (sender);
                 }
+                client.peers.incoming_from_peer (sender);
                 rai::bufferstream type_stream (buffer.data (), size_a);
                 rai::message_type type;
                 read (type_stream, type);
@@ -3655,8 +3656,7 @@ public:
 			client.log.add (boost::str (boost::format ("Received keepalive ack from %1%") % sender));
 		}
 		client.network.merge_peers (message_a.peers);
-		client.peers.incoming_from_peer (sender);
-		if (!known_peer && message_a.checksum != client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()))
+		if (message_a.checksum != client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()))
 		{
 			client.processor.bootstrap (rai::tcp_endpoint (sender.address (), sender.port ()),
 										[] ()
