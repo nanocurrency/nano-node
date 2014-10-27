@@ -370,33 +370,11 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 
 void rai::network::merge_peers (std::array <rai::endpoint, 24> const & peers_a)
 {
-    rai::keepalive_req req_message;
-    client.peers.random_fill (req_message.peers);
-    std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
-    {
-        rai::vectorstream stream (*req_bytes);
-        req_message.serialize (stream);
-    }
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
     {
         if (!client.peers.contacting_peer (*i) && *i != endpoint ())
         {
-            if (network_keepalive_logging ())
-            {
-                client.log.add (boost::str (boost::format ("Sending keepalive req to %1%") % i));
-            }
-            auto client_l (client.shared ());
-            auto endpoint (*i);
-            send_buffer (req_bytes->data (), req_bytes->size (), endpoint, [req_bytes, client_l] (boost::system::error_code const & error, size_t size_a)
-                {
-                    if (network_logging ())
-                    {
-                        if (error)
-                        {
-                            client_l->log.add (boost::str (boost::format ("Error sending keepalive request: %1%") % error.message ()));
-                        }
-                    }
-                });
+            send_keepalive (*i);
         }
         else
         {
