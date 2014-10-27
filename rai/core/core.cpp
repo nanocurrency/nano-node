@@ -164,14 +164,14 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
         rai::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    auto & client_l (client);
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
+    auto client_l (client.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    client_l.log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
+                    client_l->log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
                 }
             }
         });
@@ -192,14 +192,14 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
     {
         client.log.add (boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a));
     }
-    auto & client_l (client);
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t size)
+    auto client_l (client.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    client_l.log.add (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
+                    client_l->log.add (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
                 }
             }
         });
@@ -384,15 +384,15 @@ void rai::network::merge_peers (std::array <rai::endpoint, 24> const & peers_a)
             {
                 client.log.add (boost::str (boost::format ("Sending keepalive req to %1%") % i));
             }
-            auto & client_l (client);
+            auto client_l (client.shared ());
             auto endpoint (*i);
-            send_buffer (req_bytes->data (), req_bytes->size (), endpoint, [req_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
+            send_buffer (req_bytes->data (), req_bytes->size (), endpoint, [req_bytes, client_l] (boost::system::error_code const & error, size_t size_a)
                 {
                     if (network_logging ())
                     {
                         if (error)
                         {
-                            client_l.log.add (boost::str (boost::format ("Error sending keepalive request: %1%") % error.message ()));
+                            client_l->log.add (boost::str (boost::format ("Error sending keepalive request: %1%") % error.message ()));
                         }
                     }
                 });
@@ -1064,17 +1064,17 @@ void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, uint64_t
         rai::vectorstream stream (*bytes);
         confirm.serialize (stream);
     }
-    auto & client_l (client);
+    auto client_l (client.shared ());
     auto list (client.peers.list ());
     for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
     {
-        client.network.send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
+        client.network.send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, client_l] (boost::system::error_code const & ec, size_t size_a)
             {
                 if (network_logging ())
                 {
                     if (ec)
                     {
-                        client_l.log.add (boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ()));
+                        client_l->log.add (boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ()));
                     }
                 }
             });
@@ -1460,18 +1460,18 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
 			}
 		}
 	}
-    auto & client_l (client);
+    auto client_l (client.shared ());
     if (network_message_logging ())
     {
-        client_l.log.add (boost::str (boost::format ("Sending confirm ack to: %1%") % sender));
+        client_l->log.add (boost::str (boost::format ("Sending confirm ack to: %1%") % sender));
     }
-    client.network.send_buffer (bytes->data (), bytes->size (), sender, [bytes, &client_l] (boost::system::error_code const & ec, size_t size_a)
+    client.network.send_buffer (bytes->data (), bytes->size (), sender, [bytes, client_l] (boost::system::error_code const & ec, size_t size_a)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    client_l.log.add (boost::str (boost::format ("Error sending confirm ack: %1%") % ec.message ()));
+                    client_l->log.add (boost::str (boost::format ("Error sending confirm ack: %1%") % ec.message ()));
                 }
             }
         });
@@ -3631,14 +3631,14 @@ public:
 			rai::vectorstream stream (*ack_bytes);
 			ack_message.serialize (stream);
 		}
-		auto & client_l (client);
-		client.network.send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
+		auto client_l (client.shared ());
+		client.network.send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, client_l] (boost::system::error_code const & error, size_t size_a)
 		{
 			if (network_logging ())
 			{
 				if (error)
 				{
-					client_l.log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
+					client_l->log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
 				}
 			}
 		});

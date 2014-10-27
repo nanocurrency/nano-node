@@ -146,6 +146,7 @@ TEST (client, auto_bootstrap)
         ++iterations;
         ASSERT_LT (iterations, 200);
     } while (client1->ledger.account_balance (key2.pub) != 100);
+    client1->stop ();
 }
 
 TEST (client, auto_bootstrap_reverse)
@@ -170,6 +171,7 @@ TEST (client, auto_bootstrap_reverse)
         ++iterations;
         ASSERT_LT (iterations, 200);
     } while (client1->ledger.account_balance (key2.pub) != 100);
+    client1->stop ();
 }
 
 TEST (client, multi_account_send_atomicness)
