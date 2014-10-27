@@ -192,6 +192,6 @@ TEST (client, receive_gap)
     rai::send_block block;
     rai::confirm_req message;
     message.block = block.clone ();
-    client.processor.process_message (message, rai::endpoint {}, false);
+    client.processor.process_message (message, rai::endpoint {});
     ASSERT_EQ (1, client.gap_cache.blocks.size ());
 }

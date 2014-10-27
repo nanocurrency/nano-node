@@ -353,7 +353,7 @@ namespace rai {
         rai::process_result process_receive (rai::block const &);
         void process_receive_republish (std::unique_ptr <rai::block>, rai::endpoint const &);
         void republish (std::unique_ptr <rai::block>, rai::endpoint const &);
-		void process_message (rai::message &, rai::endpoint const &, bool);
+		void process_message (rai::message &, rai::endpoint const &);
 		void process_unknown (rai::vectorstream &);
         void process_confirmation (rai::block const &, rai::endpoint const &);
         void process_confirmed (rai::block const &);

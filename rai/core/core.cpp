@@ -49,7 +49,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -234,7 +234,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         if (!error)
                         {
 							++keepalive_req_count;
-							client.processor.process_message (incoming, sender, known_peer);
+							client.processor.process_message (incoming, sender);
                         }
 						else
 						{
@@ -251,7 +251,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         if (!error)
                         {
                             ++keepalive_ack_count;
-							client.processor.process_message (incoming, sender, known_peer);
+							client.processor.process_message (incoming, sender);
                         }
 						else
 						{
@@ -270,7 +270,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                             if (!work.validate (incoming.block->hash (), incoming.work))
                             {
                                 ++publish_req_count;
-                                client.processor.process_message (incoming, sender, known_peer);
+                                client.processor.process_message (incoming, sender);
                             }
                             else
                             {
@@ -298,7 +298,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                             if (!work.validate (incoming.block->hash (), incoming.work))
                             {
                                 ++confirm_req_count;
-                                client.processor.process_message (incoming, sender, known_peer);
+                                client.processor.process_message (incoming, sender);
                             }
                             else
                             {
@@ -324,7 +324,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         if (!error)
                         {
 							++confirm_ack_count;
-							client.processor.process_message (incoming, sender, known_peer);
+							client.processor.process_message (incoming, sender);
                         }
 						else
 						{
@@ -3590,10 +3590,9 @@ namespace
 class network_message_visitor : public rai::message_visitor
 {
 public:
-	network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a, bool known_peer_a) :
+	network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
 	client (client_a),
-	sender (sender_a),
-	known_peer (known_peer_a)
+	sender (sender_a)
 	{
 	}
 	void keepalive_req (rai::keepalive_req const & message_a) override
@@ -3685,13 +3684,12 @@ public:
 	}
 	rai::client & client;
 	rai::endpoint sender;
-	bool known_peer;
 };
 }
 
-void rai::processor::process_message (rai::message & message_a, rai::endpoint const & endpoint_a, bool known_peer_a)
+void rai::processor::process_message (rai::message & message_a, rai::endpoint const & endpoint_a)
 {
-	network_message_visitor visitor (client, endpoint_a, known_peer_a);
+	network_message_visitor visitor (client, endpoint_a);
 	message_a.visit (visitor);
 }
 
