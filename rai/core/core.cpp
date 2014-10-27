@@ -367,8 +367,15 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     }
 }
 
-void rai::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> const & bytes_a, std::array <rai::endpoint, 24> const & peers_a)
+void rai::network::merge_peers (std::array <rai::endpoint, 24> const & peers_a)
 {
+    rai::keepalive_req req_message;
+    client.peers.random_fill (req_message.peers);
+    std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
+    {
+        rai::vectorstream stream (*req_bytes);
+        req_message.serialize (stream);
+    }
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
     {
         if (!client.peers.contacting_peer (*i) && *i != endpoint ())
@@ -379,7 +386,7 @@ void rai::network::merge_peers (std::shared_ptr <std::vector <uint8_t>> const & 
             }
             auto & client_l (client);
             auto endpoint (*i);
-            send_buffer (bytes_a->data (), bytes_a->size (), endpoint, [bytes_a, &client_l] (boost::system::error_code const & error, size_t size_a)
+            send_buffer (req_bytes->data (), req_bytes->size (), endpoint, [req_bytes, &client_l] (boost::system::error_code const & error, size_t size_a)
                 {
                     if (network_logging ())
                     {
@@ -3635,14 +3642,7 @@ public:
 				}
 			}
 		});
-		rai::keepalive_req req_message;
-		req_message.peers = ack_message.peers;
-		std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
-		{
-			rai::vectorstream stream (*req_bytes);
-			req_message.serialize (stream);
-		}
-		client.network.merge_peers (req_bytes, message_a.peers);
+		client.network.merge_peers (message_a.peers);
 		if (network_keepalive_logging ())
 		{
 			client.log.add (boost::str (boost::format ("Sending keepalive ack to %1%") % sender));
@@ -3654,14 +3654,7 @@ public:
 		{
 			client.log.add (boost::str (boost::format ("Received keepalive ack from %1%") % sender));
 		}
-		rai::keepalive_req req_message;
-		client.peers.random_fill (req_message.peers);
-		std::shared_ptr <std::vector <uint8_t>> req_bytes (new std::vector <uint8_t>);
-		{
-			rai::vectorstream stream (*req_bytes);
-			req_message.serialize (stream);
-		}
-		client.network.merge_peers (req_bytes, message_a.peers);
+		client.network.merge_peers (message_a.peers);
 		client.peers.incoming_from_peer (sender);
 		if (!known_peer && message_a.checksum != client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()))
 		{
