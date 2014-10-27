@@ -135,16 +135,16 @@ void rai::network::send_keepalive (boost::asio::ip::udp::endpoint const & endpoi
     }
     if (network_keepalive_logging ())
     {
-        client.log.add (boost::str (boost::format ("Kepalive req sent to %1%") % endpoint_a));
+        client.log.add (boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint ()% endpoint_a));
     }
-    auto & client_l (client);
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, &client_l] (boost::system::error_code const & ec, size_t)
+    auto client_l (client.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l, endpoint_a] (boost::system::error_code const & ec, size_t)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    client_l.log.add (boost::str (boost::format ("Error sending keepalive: %1%") % ec.message ()));
+                    client_l->log.add (boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_a % ec.message ()));
                 }
             }
         });

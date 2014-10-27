@@ -122,24 +122,26 @@ TEST (network, multi_keepalive)
     auto list1 (system.clients [0]->peers.list ());
     ASSERT_EQ (0, list1.size ());
     rai::client_init init1;
-    rai::client client1 (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub);
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init1.error ());
-    client1.start ();
-    client1.network.send_keepalive (system.clients [0]->network.endpoint ());
-    ASSERT_EQ (0, client1.peers.size ());
-    while (client1.peers.size () != 1 || system.clients [0]->peers.size () != 1)
+    client1->start ();
+    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
+    ASSERT_EQ (0, client1->peers.size ());
+    while (client1->peers.size () != 1 || system.clients [0]->peers.size () != 1)
     {
         system.service->run_one ();
     }
     rai::client_init init2;
-    rai::client client2 (init2, system.service, 24002, system.processor, rai::test_genesis_key.pub);
+    auto client2 (std::make_shared <rai::client> (init2, system.service, 24002, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init2.error ());
-    client2.start ();
-    client2.network.send_keepalive (system.clients [0]->network.endpoint ());
-    while (client1.peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2.peers.size () != 2)
+    client2->start ();
+    client2->network.send_keepalive (system.clients [0]->network.endpoint ());
+    while (client1->peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2->peers.size () != 2)
     {
         system.service->run_one ();
     }
+    client1->stop ();
+    client2->stop ();
 }
 
 TEST (network, publish_req)
@@ -730,6 +732,7 @@ TEST (bootstrap_processor, process_none)
     {
         system.service->run_one ();
     }
+    client1->stop ();
 }
 
 TEST (bootstrap_processor, process_incomplete)
@@ -768,6 +771,7 @@ TEST (bootstrap_processor, process_one)
     }
     auto hash3 (client1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (hash1, hash3);
+    client1->stop ();
 }
 
 TEST (bootstrap_processor, process_two)
@@ -796,6 +800,7 @@ TEST (bootstrap_processor, process_two)
     }
     auto hash4 (client1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (hash3, hash4);
+    client1->stop ();
 }
 
 TEST (bootstrap_processor, process_new)
@@ -828,6 +833,7 @@ TEST (bootstrap_processor, process_new)
         ASSERT_LT (iterations2, 200);
     }
     ASSERT_EQ (balance1, client1->ledger.account_balance (rai::test_genesis_key.pub));
+    client1->stop ();
 }
 
 TEST (bulk_req, no_address)
@@ -1030,6 +1036,7 @@ TEST (bulk, genesis)
         ASSERT_LT (iterations, 200);
     } while (!finished);
     ASSERT_EQ (system.clients [0]->ledger.latest (rai::test_genesis_key.pub), client1->ledger.latest (rai::test_genesis_key.pub));
+    client1->stop ();
 }
 
 TEST (bulk, offline_send)
