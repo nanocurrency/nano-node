@@ -1,6 +1,15 @@
 #include <gtest/gtest.h>
 #include <rai/core/core.hpp>
 
+TEST (client, stop)
+{
+    rai::system system (24000, 1);
+    system.clients [0]->stop ();
+    system.processor.run ();
+    system.service->run ();
+    ASSERT_TRUE (true);
+}
+
 TEST (client, block_store_path_failure)
 {
     rai::client_init init;

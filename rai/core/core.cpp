@@ -2035,7 +2035,7 @@ void rai::client::stop ()
 {
     network.stop ();
     bootstrap.stop ();
-    processor.stop ();
+    service.stop ();
 }
 
 void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & complete_action_a)
