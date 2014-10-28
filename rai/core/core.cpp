@@ -221,11 +221,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
             if (size_a >= sizeof (rai::message_type))
             {
                 auto sender (remote);
-                auto known_peer (client.peers.known_peer (sender));
-                if (!known_peer)
-                {
-                    maintain_keepalive (sender);
-                }
+                maintain_keepalive (sender);
                 client.peers.incoming_from_peer (sender);
                 rai::bufferstream type_stream (buffer.data (), size_a);
                 rai::message_type type;
