@@ -136,7 +136,7 @@ TEST (client, auto_bootstrap)
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
-    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
+    client1->network.maintain_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
     auto iterations (0);
     do
@@ -161,7 +161,7 @@ TEST (client, auto_bootstrap_reverse)
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
-    system.clients [0]->network.send_keepalive (client1->network.endpoint ());
+    system.clients [0]->network.maintain_keepalive (client1->network.endpoint ());
     client1->start ();
     auto iterations (0);
     do

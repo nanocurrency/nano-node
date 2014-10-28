@@ -101,7 +101,7 @@ TEST (network, send_keepalive)
     auto list1 (system.clients [0]->peers.list ());
     ASSERT_EQ (1, list1.size ());
     while (list1 [0].last_contact == std::chrono::system_clock::now ());
-    system.clients [0]->network.send_keepalive (system.clients [1]->network.endpoint ());
+    system.clients [0]->network.maintain_keepalive (system.clients [1]->network.endpoint ());
     auto initial (system.clients [0]->network.keepalive_ack_count);
     while (system.clients [0]->network.keepalive_ack_count == initial)
     {
@@ -125,9 +125,11 @@ TEST (network, multi_keepalive)
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init1.error ());
     client1->start ();
-    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     ASSERT_EQ (0, client1->peers.size ());
-    while (client1->peers.size () != 1 || system.clients [0]->peers.size () != 1)
+    client1->network.maintain_keepalive (system.clients [0]->network.endpoint ());
+    ASSERT_EQ (1, client1->peers.size ());
+    ASSERT_EQ (0, system.clients [0]->peers.size ());
+    while (system.clients [0]->peers.size () != 1)
     {
         system.service->run_one ();
     }
@@ -135,7 +137,7 @@ TEST (network, multi_keepalive)
     auto client2 (std::make_shared <rai::client> (init2, system.service, 24002, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init2.error ());
     client2->start ();
-    client2->network.send_keepalive (system.clients [0]->network.endpoint ());
+    client2->network.maintain_keepalive (system.clients [0]->network.endpoint ());
     while (client1->peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2->peers.size () != 2)
     {
         system.service->run_one ();
@@ -1046,7 +1048,7 @@ TEST (bulk, offline_send)
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init1.error ());
-    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
+    client1->network.maintain_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
     do
     {

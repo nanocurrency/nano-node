@@ -443,7 +443,7 @@ namespace rai {
         void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
         void confirm_block (std::unique_ptr <rai::block>, uint64_t);
         void merge_peers (std::array <rai::endpoint, 24> const &);
-        void send_keepalive (rai::endpoint const &);
+        void maintain_keepalive (rai::endpoint const &);
         void send_confirm_req (rai::endpoint const &, rai::block const &);
         void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
