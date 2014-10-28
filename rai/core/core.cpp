@@ -93,8 +93,7 @@ socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::
 service (service_a),
 resolver (service_a),
 client (client_a),
-keepalive_req_count (0),
-keepalive_ack_count (0),
+keepalive_count (0),
 publish_req_count (0),
 confirm_req_count (0),
 confirm_ack_count (0),
@@ -128,8 +127,9 @@ void rai::network::maintain_keepalive (boost::asio::ip::udp::endpoint const & en
 {
     if (!client.peers.contacting_peer (endpoint_a) && endpoint_a != endpoint ())
     {
-        rai::keepalive_req message;
+        rai::keepalive message;
         client.peers.random_fill (message.peers);
+        message.checksum = client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ());
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
         {
             rai::vectorstream stream (*bytes);
@@ -228,32 +228,15 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                 read (type_stream, type);
                 switch (type)
                 {
-                    case rai::message_type::keepalive_req:
+                    case rai::message_type::keepalive:
                     {
-                        rai::keepalive_req incoming;
+                        rai::keepalive incoming;
                         rai::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
                         receive ();
                         if (!error)
                         {
-							++keepalive_req_count;
-							client.processor.process_message (incoming, sender);
-                        }
-						else
-						{
-							++error_count;
-						}
-                        break;
-                    }
-                    case rai::message_type::keepalive_ack:
-                    {
-                        rai::keepalive_ack incoming;
-                        rai::bufferstream stream (buffer.data (), size_a);
-                        auto error (incoming.deserialize (stream));
-                        receive ();
-                        if (!error)
-                        {
-                            ++keepalive_ack_count;
+                            ++keepalive_count;
 							client.processor.process_message (incoming, sender);
                         }
 						else
@@ -1291,14 +1274,9 @@ std::vector <rai::peer_information> rai::peer_container::list ()
     return result;
 }
 
-void rai::keepalive_req::visit (rai::message_visitor & visitor_a) const
+void rai::keepalive::visit (rai::message_visitor & visitor_a) const
 {
-    visitor_a.keepalive_req (*this);
-}
-
-void rai::keepalive_ack::visit (rai::message_visitor & visitor_a) const
-{
-    visitor_a.keepalive_ack (*this);
+    visitor_a.keepalive (*this);
 }
 
 void rai::publish::visit (rai::message_visitor & visitor_a) const
@@ -1306,9 +1284,9 @@ void rai::publish::visit (rai::message_visitor & visitor_a) const
     visitor_a.publish (*this);
 }
 
-void rai::keepalive_ack::serialize (rai::stream & stream_a)
+void rai::keepalive::serialize (rai::stream & stream_a)
 {
-    write (stream_a, rai::message_type::keepalive_ack);
+    write (stream_a, rai::message_type::keepalive);
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
         uint32_t address (i->address ().to_v4 ().to_ulong ());
@@ -1318,11 +1296,11 @@ void rai::keepalive_ack::serialize (rai::stream & stream_a)
 	write (stream_a, checksum);
 }
 
-bool rai::keepalive_ack::deserialize (rai::stream & stream_a)
+bool rai::keepalive::deserialize (rai::stream & stream_a)
 {
     rai::message_type type;
     auto result (read (stream_a, type));
-    assert (type == rai::message_type::keepalive_ack);
+    assert (type == rai::message_type::keepalive);
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
         uint32_t address;
@@ -1332,33 +1310,6 @@ bool rai::keepalive_ack::deserialize (rai::stream & stream_a)
         *i = rai::endpoint (boost::asio::ip::address_v4 (address), port);
     }
 	read (stream_a, checksum);
-    return result;
-}
-
-void rai::keepalive_req::serialize (rai::stream & stream_a)
-{
-    write (stream_a, rai::message_type::keepalive_req);
-    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-    {
-        uint32_t address (i->address ().to_v4 ().to_ulong ());
-        write (stream_a, address);
-        write (stream_a, i->port ());
-    }
-}
-
-bool rai::keepalive_req::deserialize (rai::stream & stream_a)
-{
-    rai::message_type type;
-    auto result (read (stream_a, type));
-    assert (type == rai::message_type::keepalive_req);
-    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-    {
-        uint32_t address;
-        uint16_t port;
-        read (stream_a, address);
-        read (stream_a, port);
-        *i = rai::endpoint (boost::asio::ip::address_v4 (address), port);
-    }
     return result;
 }
 
@@ -2237,36 +2188,32 @@ public:
     connection (connection_a)
     {
     }
-    void keepalive_req (rai::keepalive_req const &)
+    void keepalive (rai::keepalive const &) override
     {
         assert (false);
     }
-    void keepalive_ack (rai::keepalive_ack const &)
+    void publish (rai::publish const &) override
     {
         assert (false);
     }
-    void publish (rai::publish const &)
+    void confirm_req (rai::confirm_req const &) override
     {
         assert (false);
     }
-    void confirm_req (rai::confirm_req const &)
+    void confirm_ack (rai::confirm_ack const &) override
     {
         assert (false);
     }
-    void confirm_ack (rai::confirm_ack const &)
+    void confirm_unk (rai::confirm_unk const &) override
     {
         assert (false);
     }
-    void confirm_unk (rai::confirm_unk const &)
-    {
-        assert (false);
-    }
-    void bulk_req (rai::bulk_req const &)
+    void bulk_req (rai::bulk_req const &) override
     {
         auto response (std::make_shared <rai::bulk_req_response> (connection, std::unique_ptr <rai::bulk_req> (static_cast <rai::bulk_req *> (connection->requests.front ().release ()))));
         response->send_next ();
     }
-    void frontier_req (rai::frontier_req const &)
+    void frontier_req (rai::frontier_req const &) override
     {
         auto response (std::make_shared <rai::frontier_req_response> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
         response->send_next ();
@@ -2413,36 +2360,32 @@ public:
     connection (connection_a)
     {
     }
-    void keepalive_req (rai::keepalive_req const &)
+    void keepalive (rai::keepalive const &) override
     {
         assert (false);
     }
-    void keepalive_ack (rai::keepalive_ack const &)
+    void publish (rai::publish const &) override
     {
         assert (false);
     }
-    void publish (rai::publish const &)
+    void confirm_req (rai::confirm_req const &) override
     {
         assert (false);
     }
-    void confirm_req (rai::confirm_req const &)
+    void confirm_ack (rai::confirm_ack const &) override
     {
         assert (false);
     }
-    void confirm_ack (rai::confirm_ack const &)
+    void confirm_unk (rai::confirm_unk const &) override
     {
         assert (false);
     }
-    void confirm_unk (rai::confirm_unk const &)
-    {
-        assert (false);
-    }
-    void bulk_req (rai::bulk_req const &)
+    void bulk_req (rai::bulk_req const &) override
     {
         auto response (std::make_shared <rai::bulk_req_initiator> (connection, std::unique_ptr <rai::bulk_req> (static_cast <rai::bulk_req *> (connection->requests.front ().release ()))));
         response->receive_block ();
     }
-    void frontier_req (rai::frontier_req const &)
+    void frontier_req (rai::frontier_req const &) override
     {
         auto response (std::make_shared <rai::frontier_req_initiator> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
         response->receive_frontier ();
@@ -3285,7 +3228,7 @@ void rai::block_store::checksum_del (uint64_t prefix, uint8_t mask)
     checksum->Delete (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)));
 }
 
-bool rai::keepalive_ack::operator == (rai::keepalive_ack const & other_a) const
+bool rai::keepalive::operator == (rai::keepalive const & other_a) const
 {
 	return (peers == other_a.peers) && (checksum == other_a.checksum);
 }
@@ -3598,42 +3541,11 @@ public:
 	sender (sender_a)
 	{
 	}
-	void keepalive_req (rai::keepalive_req const & message_a) override
+	void keepalive (rai::keepalive const & message_a) override
 	{
 		if (network_keepalive_logging ())
 		{
-			client.log.add (boost::str (boost::format ("Received keepalive req from %1%") % sender));
-		}
-		rai::keepalive_ack ack_message;
-		client.peers.random_fill (ack_message.peers);
-		ack_message.checksum = client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ());
-		std::shared_ptr <std::vector <uint8_t>> ack_bytes (new std::vector <uint8_t>);
-		{
-			rai::vectorstream stream (*ack_bytes);
-			ack_message.serialize (stream);
-		}
-		auto client_l (client.shared ());
-		client.network.send_buffer (ack_bytes->data (), ack_bytes->size (), sender, [ack_bytes, client_l] (boost::system::error_code const & error, size_t size_a)
-		{
-			if (network_logging ())
-			{
-				if (error)
-				{
-					client_l->log.add (boost::str (boost::format ("Error sending keepalive ack: %1%") % error.message ()));
-				}
-			}
-		});
-		client.network.merge_peers (message_a.peers);
-		if (network_keepalive_logging ())
-		{
-			client.log.add (boost::str (boost::format ("Sending keepalive ack to %1%") % sender));
-		}
-	}
-	void keepalive_ack (rai::keepalive_ack const & message_a) override
-	{
-		if (network_keepalive_logging ())
-		{
-			client.log.add (boost::str (boost::format ("Received keepalive ack from %1%") % sender));
+			client.log.add (boost::str (boost::format ("Received keepalive from %1%") % sender));
 		}
 		client.network.merge_peers (message_a.peers);
 		if (message_a.checksum != client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()))

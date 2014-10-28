@@ -440,13 +440,13 @@ TEST (frontier_req, serialization)
 
 TEST (keepalive_ack, serialization)
 {
-	rai::keepalive_ack request1;
+	rai::keepalive request1;
 	std::vector <uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
 		request1.serialize (stream);
 	}
-	rai::keepalive_ack request2;
+	rai::keepalive request2;
 	rai::bufferstream buffer (bytes.data (), bytes.size ());
 	ASSERT_FALSE (request2.deserialize (buffer));
 	ASSERT_EQ (request1, request2);

@@ -120,8 +120,7 @@ namespace rai {
     {
         invalid,
         not_a_type,
-        keepalive_req,
-        keepalive_ack,
+        keepalive,
         publish,
         confirm_req,
         confirm_ack,
@@ -137,21 +136,13 @@ namespace rai {
         virtual void serialize (rai::stream &) = 0;
         virtual void visit (rai::message_visitor &) const = 0;
     };
-    class keepalive_req : public message
+    class keepalive : public message
     {
     public:
         void visit (rai::message_visitor &) const override;
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
-		std::array <rai::endpoint, 24> peers;
-    };
-    class keepalive_ack : public message
-    {
-    public:
-        void visit (rai::message_visitor &) const override;
-        bool deserialize (rai::stream &);
-        void serialize (rai::stream &) override;
-		bool operator == (rai::keepalive_ack const &) const;
+		bool operator == (rai::keepalive const &) const;
 		std::array <rai::endpoint, 24> peers;
 		rai::uint256_union checksum;
     };
@@ -220,8 +211,7 @@ namespace rai {
     class message_visitor
     {
     public:
-        virtual void keepalive_req (rai::keepalive_req const &) = 0;
-        virtual void keepalive_ack (rai::keepalive_ack const &) = 0;
+        virtual void keepalive (rai::keepalive const &) = 0;
         virtual void publish (rai::publish const &) = 0;
         virtual void confirm_req (rai::confirm_req const &) = 0;
         virtual void confirm_ack (rai::confirm_ack const &) = 0;
@@ -457,8 +447,7 @@ namespace rai {
         rai::client & client;
         std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
         std::mutex mutex;
-        uint64_t keepalive_req_count;
-        uint64_t keepalive_ack_count;
+        uint64_t keepalive_count;
         uint64_t publish_req_count;
         uint64_t confirm_req_count;
         uint64_t confirm_ack_count;

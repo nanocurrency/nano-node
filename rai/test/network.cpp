@@ -63,33 +63,18 @@ TEST (network, self_discard)
 	ASSERT_EQ (1, system.clients [0]->network.bad_sender_count);
 }
 
-TEST (keepalive_req, deserialize)
-{
-    rai::keepalive_req message1;
-    rai::endpoint endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000);
-    message1.peers [0] = endpoint;
-    std::vector <uint8_t> bytes;
-    {
-        rai::vectorstream stream (bytes);
-        message1.serialize (stream);
-    }
-    rai::keepalive_req message2;
-    rai::bufferstream stream (bytes.data (), bytes.size ());
-    ASSERT_FALSE (message2.deserialize (stream));
-    ASSERT_EQ (message1.peers, message2.peers);
-}
-
 TEST (keepalive_ack, deserialize)
 {
-    rai::keepalive_ack message1;
+    rai::keepalive message1;
     rai::endpoint endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000);
     message1.peers [0] = endpoint;
+    message1.checksum = 1;
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream (bytes);
         message1.serialize (stream);
     }
-    rai::keepalive_ack message2;
+    rai::keepalive message2;
     rai::bufferstream stream (bytes.data (), bytes.size ());
     ASSERT_FALSE (message2.deserialize (stream));
     ASSERT_EQ (message1.peers, message2.peers);
@@ -97,22 +82,23 @@ TEST (keepalive_ack, deserialize)
 
 TEST (network, send_keepalive)
 {
-    rai::system system (24000, 2);
+    rai::system system (24000, 1);
     auto list1 (system.clients [0]->peers.list ());
-    ASSERT_EQ (1, list1.size ());
-    while (list1 [0].last_contact == std::chrono::system_clock::now ());
-    system.clients [0]->network.maintain_keepalive (system.clients [1]->network.endpoint ());
-    auto initial (system.clients [0]->network.keepalive_ack_count);
-    while (system.clients [0]->network.keepalive_ack_count == initial)
+    ASSERT_EQ (0, list1.size ());
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    client1->start ();
+    system.clients [0]->network.maintain_keepalive (client1->network.endpoint ());
+    auto initial (system.clients [0]->network.keepalive_count);
+    while (system.clients [0]->network.keepalive_count == initial)
     {
         system.service->run_one ();
     }
     auto peers1 (system.clients [0]->peers.list ());
-    auto peers2 (system.clients [1]->peers.list ());
+    auto peers2 (client1->peers.list ());
     ASSERT_EQ (1, peers1.size ());
     ASSERT_EQ (1, peers2.size ());
-    ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&system] (rai::peer_information const & information_a) {return information_a.endpoint == system.clients [1]->network.endpoint ();}));
-    ASSERT_GT (peers1 [0].last_contact, list1 [0].last_contact);
+    ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&client1] (rai::peer_information const & information_a) {return information_a.endpoint == client1->network.endpoint ();}));
     ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (rai::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
 }
 
