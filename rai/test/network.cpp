@@ -63,11 +63,10 @@ TEST (network, self_discard)
 	ASSERT_EQ (1, system.clients [0]->network.bad_sender_count);
 }
 
-TEST (keepalive_ack, deserialize)
+TEST (keepalive, deserialize)
 {
     rai::keepalive message1;
-    rai::endpoint endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000);
-    message1.peers [0] = endpoint;
+    message1.peers [0] = rai::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000);
     message1.checksum = 1;
     std::vector <uint8_t> bytes;
     {
@@ -1053,4 +1052,36 @@ TEST (bulk, offline_send)
         system.processor.poll_one ();
     } while (!finished || client1->ledger.account_balance (key2.pub) != 100);
 	client1->stop ();
+}
+
+TEST (network, ipv6)
+{
+    boost::asio::ip::address_v6 address (boost::asio::ip::address_v6::from_string ("::ffff:127.0.0.1"));
+    ASSERT_TRUE (address.is_v4_mapped ());
+    boost::asio::ip::udp::endpoint endpoint1 (address, 16384);
+    std::vector <uint8_t> bytes1;
+    {
+        rai::vectorstream stream (bytes1);
+        rai::write (stream, address.to_bytes ());
+    }
+    ASSERT_EQ (16, bytes1.size ());
+    for (auto i (bytes1.begin ()), n (bytes1.begin () + 10); i != n; ++i)
+    {
+        ASSERT_EQ (0, *i);
+    }
+    ASSERT_EQ (0xff, bytes1 [10]);
+    ASSERT_EQ (0xff, bytes1 [11]);
+    std::array <uint8_t, 16> bytes2;
+    rai::bufferstream stream (bytes1.data (), bytes1.size ());
+    rai::read (stream, bytes2);
+    boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
+    ASSERT_EQ (endpoint1, endpoint2);
+}
+
+TEST (network, ipv6_from_ipv4)
+{
+    boost::asio::ip::udp::endpoint endpoint1 (boost::asio::ip::address_v4::loopback(), 16000);
+    ASSERT_TRUE (endpoint1.address ().is_v4 ());
+    boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v6::v4_mapped (endpoint1.address ().to_v4 ()), 16000);
+    ASSERT_TRUE (endpoint2.address ().is_v6 ());
 }

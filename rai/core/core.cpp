@@ -1289,6 +1289,7 @@ void rai::keepalive::serialize (rai::stream & stream_a)
     write (stream_a, rai::message_type::keepalive);
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
+        assert (i->address ().is_v4 ());
         uint32_t address (i->address ().to_v4 ().to_ulong ());
         write (stream_a, address);
         write (stream_a, i->port ());
