@@ -150,7 +150,7 @@ namespace rai {
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
 		bool operator == (rai::keepalive const &) const;
-		std::array <rai::endpoint, 24> peers;
+		std::array <rai::endpoint, 8> peers;
 		rai::uint256_union checksum;
     };
     class publish : public message
@@ -439,7 +439,7 @@ namespace rai {
         void rpc_action (boost::system::error_code const &, size_t);
         void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
         void confirm_block (std::unique_ptr <rai::block>, uint64_t);
-        void merge_peers (std::array <rai::endpoint, 24> const &);
+        void merge_peers (std::array <rai::endpoint, 8> const &);
         void maintain_keepalive (rai::endpoint const &);
         void send_confirm_req (rai::endpoint const &, rai::block const &);
         void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
@@ -549,7 +549,7 @@ namespace rai {
         bool known_peer (rai::endpoint const &);
         void incoming_from_peer (rai::endpoint const &);
 		bool contacting_peer (rai::endpoint const &);
-		void random_fill (std::array <rai::endpoint, 24> &);
+		void random_fill (std::array <rai::endpoint, 8> &);
         std::vector <peer_information> list ();
         void refresh_action ();
         void queue_next_refresh ();

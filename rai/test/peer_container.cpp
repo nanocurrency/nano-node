@@ -74,7 +74,7 @@ TEST (peer_container, split)
 TEST (peer_container, fill_random_clear)
 {
     rai::peer_container peers (rai::endpoint {});
-    std::array <rai::endpoint, 24> target;
+    std::array <rai::endpoint, 8> target;
     std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
     peers.random_fill (target);
     ASSERT_TRUE (std::all_of (target.begin (), target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
@@ -87,7 +87,7 @@ TEST (peer_container, fill_random_full)
     {
         peers.incoming_from_peer (rai::endpoint (boost::asio::ip::address_v6::loopback (), i));
     }
-    std::array <rai::endpoint, 24> target;
+    std::array <rai::endpoint, 8> target;
     std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
     peers.random_fill (target);
     ASSERT_TRUE (std::none_of (target.begin (), target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
@@ -96,14 +96,15 @@ TEST (peer_container, fill_random_full)
 TEST (peer_container, fill_random_part)
 {
     rai::peer_container peers (rai::endpoint {});
-    for (auto i (0); i < 16; ++i)
+    std::array <rai::endpoint, 8> target;
+    auto half (target.size () / 2);
+    for (auto i (0); i < half; ++i)
     {
         peers.incoming_from_peer (rai::endpoint (boost::asio::ip::address_v6::loopback (), i + 1));
     }
-    std::array <rai::endpoint, 24> target;
     std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
     peers.random_fill (target);
-    ASSERT_TRUE (std::none_of (target.begin (), target.begin () + 16, [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
-    ASSERT_TRUE (std::none_of (target.begin (), target.begin () + 16, [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
-    ASSERT_TRUE (std::all_of (target.begin () + 16, target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
+    ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
+    ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
+    ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }

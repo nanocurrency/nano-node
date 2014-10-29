@@ -49,7 +49,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return true;
+        return false;
     }
 }
 
@@ -354,9 +354,9 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     }
 }
 
-void rai::network::merge_peers (std::array <rai::endpoint, 24> const & peers_a)
+void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
 {
-    for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i) // Amplify attack, send to the same IP many times
+    for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
     {
         if (*i != endpoint ())
         {
@@ -370,7 +370,7 @@ void rai::network::merge_peers (std::array <rai::endpoint, 24> const & peers_a)
                 {
                     if (i->address ().to_v4 ().to_ulong () != 0 || i->port () != 0)
                     {
-                        client.log.add (boost::str (boost::format ("Keepalive req contained reserved address")));
+                        client.log.add (boost::str (boost::format ("Keepalive contained reserved address")));
                     }
                 }
             }
@@ -2763,7 +2763,7 @@ rai::bootstrap_connection::~bootstrap_connection ()
     }
 }
 
-void rai::peer_container::random_fill (std::array <rai::endpoint, 24> & target_a)
+void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
 {
     auto peers (list ());
     while (peers.size () > target_a.size ())
