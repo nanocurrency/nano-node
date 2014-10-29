@@ -150,6 +150,9 @@ namespace rai {
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
 		bool operator == (rai::keepalive const &) const;
+        uint8_t version_running;
+        uint8_t version_supported;
+        std::bitset <16> features;
 		std::array <rai::endpoint, 8> peers;
 		rai::uint256_union checksum;
     };

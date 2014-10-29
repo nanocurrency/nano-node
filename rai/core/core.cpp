@@ -125,35 +125,44 @@ void rai::network::stop ()
 
 void rai::network::maintain_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
 {
-    if (endpoint_a != rai::endpoint (boost::asio::ip::address_v6::any (), 0) && !client.peers.contacting_peer (endpoint_a))
+    auto endpoint_l (endpoint_a);
+    if (endpoint_l.address ().is_v4 ())
     {
-        rai::keepalive message;
-        client.peers.random_fill (message.peers);
-        message.checksum = client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ());
-        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
-        {
-            rai::vectorstream stream (*bytes);
-            message.serialize (stream);
-        }
-        if (network_keepalive_logging ())
-        {
-            client.log.add (boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint ()% endpoint_a));
-        }
-        auto client_l (client.shared ());
-        send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l, endpoint_a] (boost::system::error_code const & ec, size_t)
-        {
-            if (network_logging ())
-            {
-                if (ec)
-                {
-                    client_l->log.add (boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_a % ec.message ()));
-                }
-            }
-        });
+        endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
     }
-    else
+    assert (endpoint_l.address ().is_v6 ());
+    if (endpoint_l != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
     {
-        // Skipping due to keepalive limiting
+        if (!client.peers.contacting_peer (endpoint_l))
+        {
+            rai::keepalive message;
+            client.peers.random_fill (message.peers);
+            message.checksum = client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ());
+            std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+            {
+                rai::vectorstream stream (*bytes);
+                message.serialize (stream);
+            }
+            if (network_keepalive_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_l));
+            }
+            auto client_l (client.shared ());
+            send_buffer (bytes->data (), bytes->size (), endpoint_l, [bytes, client_l, endpoint_l] (boost::system::error_code const & ec, size_t)
+            {
+                if (network_logging ())
+                {
+                    if (ec)
+                    {
+                        client_l->log.add (boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_l % ec.message ()));
+                    }
+                }
+            });
+        }
+        else
+        {
+            // Skipping due to keepalive limiting
+        }
     }
 }
 

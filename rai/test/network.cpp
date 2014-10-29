@@ -103,6 +103,22 @@ TEST (network, send_keepalive)
     ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (rai::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
 }
 
+TEST (network, keepalive_ipv4)
+{
+    rai::system system (24000, 1);
+    auto list1 (system.clients [0]->peers.list ());
+    ASSERT_EQ (0, list1.size ());
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    client1->start ();
+    system.clients [0]->network.maintain_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+    auto initial (system.clients [0]->network.keepalive_count);
+    while (system.clients [0]->network.keepalive_count == initial)
+    {
+        system.service->run_one ();
+    }
+}
+
 TEST (network, multi_keepalive)
 {
     rai::system system (24000, 1);
