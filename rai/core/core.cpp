@@ -49,7 +49,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -89,7 +89,7 @@ void rai::genesis::initialize (rai::block_store & store_a) const
 }
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
-socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v4::any (), port)),
+socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
 resolver (service_a),
 client (client_a),
@@ -125,7 +125,7 @@ void rai::network::stop ()
 
 void rai::network::maintain_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
 {
-    if (!client.peers.contacting_peer (endpoint_a) && endpoint_a != endpoint ())
+    if (endpoint_a != rai::endpoint (boost::asio::ip::address_v6::any (), 0) && !client.peers.contacting_peer (endpoint_a))
     {
         rai::keepalive message;
         client.peers.random_fill (message.peers);
@@ -1274,14 +1274,23 @@ std::vector <rai::peer_information> rai::peer_container::list ()
     return result;
 }
 
-void rai::keepalive::visit (rai::message_visitor & visitor_a) const
-{
-    visitor_a.keepalive (*this);
-}
-
 void rai::publish::visit (rai::message_visitor & visitor_a) const
 {
     visitor_a.publish (*this);
+}
+
+rai::keepalive::keepalive ()
+{
+    boost::asio::ip::udp::endpoint endpoint (boost::asio::ip::address_v6 {}, 0);
+    for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
+    {
+        *i = endpoint;
+    }
+}
+
+void rai::keepalive::visit (rai::message_visitor & visitor_a) const
+{
+    visitor_a.keepalive (*this);
 }
 
 void rai::keepalive::serialize (rai::stream & stream_a)
@@ -1289,9 +1298,9 @@ void rai::keepalive::serialize (rai::stream & stream_a)
     write (stream_a, rai::message_type::keepalive);
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
-        assert (i->address ().is_v4 ());
-        uint32_t address (i->address ().to_v4 ().to_ulong ());
-        write (stream_a, address);
+        assert (i->address ().is_v6 ());
+        auto bytes (i->address ().to_v6 ().to_bytes ());
+        write (stream_a, bytes);
         write (stream_a, i->port ());
     }
 	write (stream_a, checksum);
@@ -1304,11 +1313,11 @@ bool rai::keepalive::deserialize (rai::stream & stream_a)
     assert (type == rai::message_type::keepalive);
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
-        uint32_t address;
+        std::array <uint8_t, 16> address;
         uint16_t port;
         read (stream_a, address);
         read (stream_a, port);
-        *i = rai::endpoint (boost::asio::ip::address_v4 (address), port);
+        *i = rai::endpoint (boost::asio::ip::address_v6 (address), port);
     }
 	read (stream_a, checksum);
     return result;
@@ -2008,7 +2017,7 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
 
 rai::bootstrap_receiver::bootstrap_receiver (boost::asio::io_service & service_a, uint16_t port_a, rai::client & client_a) :
 acceptor (service_a),
-local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::any (), port_a)),
+local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 service (service_a),
 client (client_a)
 {
@@ -2729,12 +2738,12 @@ void rai::block_store::bootstrap_del (rai::block_hash const & hash_a)
 
 rai::endpoint rai::network::endpoint ()
 {
-    return rai::endpoint (boost::asio::ip::address_v4::loopback (), socket.local_endpoint ().port ());
+    return rai::endpoint (boost::asio::ip::address_v6::loopback (), socket.local_endpoint ().port ());
 }
 
 boost::asio::ip::tcp::endpoint rai::bootstrap_receiver::endpoint ()
 {
-    return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), local.port ());
+    return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
 }
 
 rai::bootstrap_initiator::~bootstrap_initiator ()
@@ -2766,9 +2775,12 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 24> & target_a
     auto k (target_a.begin ());
     for (auto i (peers.begin ()), j (peers.begin () + std::min (peers.size (), target_a.size ())); i != j; ++i, ++k)
     {
+        assert (i->endpoint.address ().is_v6 ());
         *k = i->endpoint;
     }
-    std::fill (target_a.begin () + std::min (peers.size (), target_a.size ()), target_a.end (), rai::endpoint ());
+    auto endpoint (rai::endpoint (boost::asio::ip::address_v6 {}, 0));
+    assert (endpoint.address ().is_v6 ());
+    std::fill (target_a.begin () + std::min (peers.size (), target_a.size ()), target_a.end (), endpoint);
 }
 
 void rai::processor::ongoing_keepalive ()
@@ -2823,31 +2835,39 @@ bool rai::peer_container::contacting_peer (rai::endpoint const & endpoint_a)
 	return result;
 }
 
+namespace {
+boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
+{
+    return boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (address_a));
+}
+}
+
 bool rai::reserved_address (rai::endpoint const & endpoint_a)
 {
-	auto bytes (endpoint_a.address ().to_v4().to_ulong ());
+    assert (endpoint_a.address ().is_v6 ());
+	auto bytes (endpoint_a.address ().to_v6 ());
 	auto result (false);
-	if (bytes <= 0x00ffffffu)
+	if (bytes >= mapped_from_v4_bytes (0x00000000ul) && bytes <= mapped_from_v4_bytes (0x00fffffful)) // Broadcast RFC1700
 	{
 		result = true;
 	}
-	else if (bytes >= 0xc0000200ul && bytes <= 0xc00002fful)
+	else if (bytes >= mapped_from_v4_bytes (0xc0000200ul) && bytes <= mapped_from_v4_bytes (0xc00002fful)) // TEST-NET RFC5737
 	{
 		result = true;
 	}
-	else if (bytes >= 0xc6336400ul && bytes <= 0xc63364fful)
+	else if (bytes >= mapped_from_v4_bytes (0xc6336400ul) && bytes <= mapped_from_v4_bytes (0xc63364fful)) // TEST-NET-2 RFC5737
 	{
 		result = true;
 	}
-	else if (bytes >= 0xcb007100ul && bytes <= 0xcb0071fful)
+	else if (bytes >= mapped_from_v4_bytes (0xcb007100ul) && bytes <= mapped_from_v4_bytes (0xcb0071fful)) // TEST-NET-3 RFC5737
 	{
 		result = true;
 	}
-	else if (bytes >= 0xe9fc0000ul && bytes <= 0xe9fc00fful)
+	else if (bytes >= mapped_from_v4_bytes (0xe9fc0000ul) && bytes <= mapped_from_v4_bytes (0xe9fc00fful))
 	{
 		result = true;
 	}
-	else if (bytes >= 0xf0000000ul)
+	else if (bytes >= mapped_from_v4_bytes (0xf0000000ul)) // Reserver RFC6890
 	{
 		result = true;
 	}

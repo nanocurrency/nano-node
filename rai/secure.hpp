@@ -49,6 +49,7 @@ namespace rai
         void clear ();
 		std::array <uint8_t, 16> bytes;
         std::array <char, 16> chars;
+        std::array <uint32_t, 4> dwords;
 		std::array <uint64_t, 2> qwords;
 	};
 	using amount = uint128_union;

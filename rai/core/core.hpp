@@ -44,7 +44,10 @@ namespace std
     {
         size_t operator () (rai::endpoint const & endpoint_a) const
         {
-            auto result (endpoint_a.address ().to_v4 ().to_ulong () ^ endpoint_a.port ());
+            assert (endpoint_a.address ().is_v6 ());
+            rai::uint128_union address;
+            address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
+            auto result (address.dwords [0] ^ address.dwords [1] ^ address.dwords [2] ^ address.dwords [3] ^ endpoint_a.port ());
             return result;
         }
     };
@@ -53,7 +56,10 @@ namespace std
     {
         size_t operator () (rai::endpoint const & endpoint_a) const
         {
-            auto result ((endpoint_a.address ().to_v4 ().to_ulong () << 2) | endpoint_a.port ());
+            assert (endpoint_a.address ().is_v6 ());
+            rai::uint128_union address;
+            address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
+            auto result (address.qwords [0] ^ address.qwords [1] ^ endpoint_a.port ());
             return result;
         }
     };
@@ -139,6 +145,7 @@ namespace rai {
     class keepalive : public message
     {
     public:
+        keepalive ();
         void visit (rai::message_visitor &) const override;
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;

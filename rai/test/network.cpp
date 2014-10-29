@@ -66,7 +66,7 @@ TEST (network, self_discard)
 TEST (keepalive, deserialize)
 {
     rai::keepalive message1;
-    message1.peers [0] = rai::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000);
+    message1.peers [0] = rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
     message1.checksum = 1;
     std::vector <uint8_t> bytes;
     {
@@ -89,6 +89,8 @@ TEST (network, send_keepalive)
     client1->start ();
     system.clients [0]->network.maintain_keepalive (client1->network.endpoint ());
     auto initial (system.clients [0]->network.keepalive_count);
+    ASSERT_EQ (1, system.clients [0]->peers.list ().size ());
+    ASSERT_EQ (0, client1->peers.list ().size ());
     while (system.clients [0]->network.keepalive_count == initial)
     {
         system.service->run_one ();
