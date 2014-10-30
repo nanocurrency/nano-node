@@ -4,6 +4,41 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+TEST (publish, serialization)
+{
+    rai::publish publish;
+    publish.extensions = rai::message::ipv4_only;
+    std::vector <uint8_t> bytes;
+    {
+        rai::vectorstream stream (bytes);
+        publish.write_header (stream);
+    }
+    ASSERT_EQ (16, bytes.size ());
+    ASSERT_EQ (0xb5, bytes [0]);
+    ASSERT_EQ (0x52, bytes [1]);
+    ASSERT_EQ (0x41, bytes [2]);
+    ASSERT_EQ (0x73, bytes [3]);
+    ASSERT_EQ (0x01, bytes [4]);
+    ASSERT_EQ (0x01, bytes [5]);
+    ASSERT_EQ (0x01, bytes [6]);
+    ASSERT_EQ (static_cast <uint8_t> (rai::message_type::publish), bytes [7]);
+    ASSERT_EQ (0x01, bytes [8]);
+    for (auto i (bytes.begin () + 9), n (bytes.end ()); i != n; ++i)
+    {
+        ASSERT_EQ (0, *i);
+    }
+    rai::bufferstream stream (bytes.data (), bytes.size ());
+    uint8_t version_max;
+    uint8_t version_using;
+    uint8_t version_min;
+    rai::message_type type;
+    ASSERT_FALSE (rai::message::read_header (stream, version_max, version_using, version_min, type));
+    ASSERT_EQ (0x01, version_min);
+    ASSERT_EQ (0x01, version_using);
+    ASSERT_EQ (0x01, version_max);
+    ASSERT_EQ (rai::message_type::publish, type);
+}
+
 TEST (network, tcp_connection)
 {
     boost::asio::io_service service;
@@ -63,22 +98,6 @@ TEST (network, self_discard)
 	ASSERT_EQ (1, system.clients [0]->network.bad_sender_count);
 }
 
-TEST (keepalive, deserialize)
-{
-    rai::keepalive message1;
-    message1.peers [0] = rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
-    message1.checksum = 1;
-    std::vector <uint8_t> bytes;
-    {
-        rai::vectorstream stream (bytes);
-        message1.serialize (stream);
-    }
-    rai::keepalive message2;
-    rai::bufferstream stream (bytes.data (), bytes.size ());
-    ASSERT_FALSE (message2.deserialize (stream));
-    ASSERT_EQ (message1.peers, message2.peers);
-}
-
 TEST (network, send_keepalive)
 {
     rai::system system (24000, 1);
@@ -91,9 +110,12 @@ TEST (network, send_keepalive)
     auto initial (system.clients [0]->network.keepalive_count);
     ASSERT_EQ (1, system.clients [0]->peers.list ().size ());
     ASSERT_EQ (0, client1->peers.list ().size ());
+    auto iterations (0);
     while (system.clients [0]->network.keepalive_count == initial)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     auto peers1 (system.clients [0]->peers.list ());
     auto peers2 (client1->peers.list ());
@@ -113,9 +135,12 @@ TEST (network, keepalive_ipv4)
     client1->start ();
     system.clients [0]->network.maintain_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
     auto initial (system.clients [0]->network.keepalive_count);
+    auto iterations (0);
     while (system.clients [0]->network.keepalive_count == initial)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
 }
 
@@ -132,18 +157,24 @@ TEST (network, multi_keepalive)
     client1->network.maintain_keepalive (system.clients [0]->network.endpoint ());
     ASSERT_EQ (1, client1->peers.size ());
     ASSERT_EQ (0, system.clients [0]->peers.size ());
+    auto iterations1 (0);
     while (system.clients [0]->peers.size () != 1)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
     }
     rai::client_init init2;
     auto client2 (std::make_shared <rai::client> (init2, system.service, 24002, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init2.error ());
     client2->start ();
     client2->network.maintain_keepalive (system.clients [0]->network.endpoint ());
+    auto iterations2 (0);
     while (client1->peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2->peers.size () != 2)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
     }
     client1->stop ();
     client2->stop ();
@@ -204,9 +235,12 @@ TEST (network, send_discarded_publish)
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
+    auto iterations (0);
     while (system.clients [1]->network.publish_req_count == 0)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
@@ -223,9 +257,12 @@ TEST (network, send_invalid_publish)
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
+    auto iterations (0);
     while (system.clients [1]->network.publish_req_count == 0)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
@@ -248,9 +285,12 @@ TEST (network, send_valid_publish)
     rai::frontier frontier2;
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
+    auto iterations (0);
     while (system.clients [1]->network.publish_req_count == 0)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     rai::frontier frontier3;
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier3));
@@ -276,9 +316,12 @@ TEST (network, send_insufficient_work)
     auto client (system.clients [1]->shared ());
     system.clients [0]->network.send_buffer (bytes->data (), bytes->size (), system.clients [1]->network.endpoint (), [bytes, client] (boost::system::error_code const & ec, size_t size) {});
     ASSERT_EQ (0, system.clients [0]->network.insufficient_work_count);
+    auto iterations (0);
     while (system.clients [1]->network.insufficient_work_count == 0)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     ASSERT_EQ (1, system.clients [1]->network.insufficient_work_count);
 }

@@ -438,20 +438,6 @@ TEST (frontier_req, serialization)
     ASSERT_EQ (request1, request2);
 }
 
-TEST (keepalive_ack, serialization)
-{
-	rai::keepalive request1;
-	std::vector <uint8_t> bytes;
-	{
-		rai::vectorstream stream (bytes);
-		request1.serialize (stream);
-	}
-	rai::keepalive request2;
-	rai::bufferstream buffer (bytes.data (), bytes.size ());
-	ASSERT_FALSE (request2.deserialize (buffer));
-	ASSERT_EQ (request1, request2);
-}
-
 TEST (salsa20_8, one)
 {
     rai::uint512_union value;

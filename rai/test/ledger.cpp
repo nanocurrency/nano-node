@@ -1103,7 +1103,7 @@ TEST (fork, publish)
     ASSERT_TRUE (client0.expired ());
 }
 
-TEST (fork, keep)
+TEST (ledger, fork_keep)
 {
     rai::system system (24000, 2);
     auto & client1 (*system.clients [0]);
@@ -1142,10 +1142,13 @@ TEST (fork, keep)
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
+    auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
 	}
     auto winner (votes1->votes.winner ());
     ASSERT_EQ (*publish1.block, *winner.first);
@@ -1154,7 +1157,7 @@ TEST (fork, keep)
 	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
 }
 
-TEST (fork, flip)
+TEST (ledger, fork_flip)
 {
     rai::system system (24000, 2);
     auto & client1 (*system.clients [0]);
@@ -1193,10 +1196,13 @@ TEST (fork, flip)
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
     ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
+    auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     auto winner (votes1->votes.winner ());
     ASSERT_EQ (*publish1.block, *winner.first);
@@ -1206,7 +1212,7 @@ TEST (fork, flip)
     ASSERT_FALSE (client2.store.block_exists (publish2.block->hash ()));
 }
 
-TEST (fork, multi_flip)
+TEST (ledger, fork_multi_flip)
 {
     rai::system system (24000, 2);
     auto & client1 (*system.clients [0]);
@@ -1255,10 +1261,13 @@ TEST (fork, multi_flip)
 	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
     ASSERT_TRUE (client2.store.block_exists (publish3.block->hash ()));
+    auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
 	}
     auto winner (votes1->votes.winner ());
     ASSERT_EQ (*publish1.block, *winner.first);

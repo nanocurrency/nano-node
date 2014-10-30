@@ -42,10 +42,13 @@ TEST (client, send_self)
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     system.clients [0]->wallet.insert (key2.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
+    auto iterations (0);
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
 }
@@ -59,10 +62,13 @@ TEST (client, send_single)
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
+    auto iterations (0);
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
 }
 
@@ -75,10 +81,13 @@ TEST (client, send_single_observing_peer)
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
+    auto iterations (0);
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <rai::client> const & client_a) {return client_a->ledger.account_balance (key2.pub).is_zero();}))
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
 }
 

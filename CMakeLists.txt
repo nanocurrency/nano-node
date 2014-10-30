@@ -54,6 +54,7 @@ add_executable (test
     rai/test/daemon.cpp
 	rai/test/entry.cpp
 	rai/test/ledger.cpp
+    rai/test/message.cpp
     rai/test/processor_service.cpp
     rai/test/peer_container.cpp
     rai/test/network.cpp

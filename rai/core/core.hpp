@@ -138,9 +138,21 @@ namespace rai {
     class message
     {
     public:
+        message (rai::message_type);
         virtual ~message () = default;
+        void write_header (rai::stream &);
+        static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &);
         virtual void serialize (rai::stream &) = 0;
+        virtual bool deserialize (rai::stream &) = 0;
         virtual void visit (rai::message_visitor &) const = 0;
+        static uint32_t const magic_number = 0x734152b5u;
+        uint8_t version_max;
+        uint8_t version_using;
+        uint8_t version_min;
+        rai::message_type type;
+        std::bitset <64> extensions;
+        constexpr static std::bitset <64> const ipv4_only = std::bitset <64> (1);
+        constexpr static std::bitset <64> const bootstrap_receiver = std::bitset <64> (2);
     };
     class keepalive : public message
     {
@@ -156,7 +168,7 @@ namespace rai {
     class publish : public message
     {
     public:
-        publish () = default;
+        publish ();
         publish (std::unique_ptr <rai::block>);
         void visit (rai::message_visitor &) const override;
         bool deserialize (rai::stream &);
@@ -168,6 +180,7 @@ namespace rai {
     class confirm_req : public message
     {
     public:
+        confirm_req ();
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
@@ -178,6 +191,7 @@ namespace rai {
     class confirm_ack : public message
     {
     public:
+        confirm_ack ();
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
@@ -188,6 +202,7 @@ namespace rai {
     class confirm_unk : public message
     {
     public:
+        confirm_unk ();
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
@@ -197,6 +212,7 @@ namespace rai {
     class frontier_req : public message
     {
     public:
+        frontier_req ();
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
@@ -208,6 +224,7 @@ namespace rai {
     class bulk_req : public message
     {
     public:
+        bulk_req ();
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;

@@ -49,7 +49,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -227,14 +227,16 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     {
         if (!rai::reserved_address (remote) && remote != endpoint ())
         {
-            if (size_a >= sizeof (rai::message_type))
+            rai::bufferstream header_stream (buffer.data (), size_a);
+            uint8_t version_max;
+            uint8_t version_using;
+            uint8_t version_min;
+            rai::message_type type;
+            if (!rai::message::read_header (header_stream, version_max, version_using, version_min, type))
             {
                 auto sender (remote);
                 maintain_keepalive (sender);
                 client.peers.incoming_from_peer (sender);
-                rai::bufferstream type_stream (buffer.data (), size_a);
-                rai::message_type type;
-                read (type_stream, type);
                 switch (type)
                 {
                     case rai::message_type::keepalive:
@@ -344,6 +346,13 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                     }
                 }
             }
+            else
+            {
+                if (network_logging ())
+                {
+                    client.log.add ("Unable to parse message header");
+                }
+            }
         }
         else
         {
@@ -387,7 +396,13 @@ void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
     }
 }
 
+rai::publish::publish () :
+message (rai::message_type::publish)
+{
+}
+
 rai::publish::publish (std::unique_ptr <rai::block> block_a) :
+message (rai::message_type::publish),
 block (std::move (block_a))
 {
 }
@@ -1288,7 +1303,8 @@ void rai::publish::visit (rai::message_visitor & visitor_a) const
     visitor_a.publish (*this);
 }
 
-rai::keepalive::keepalive ()
+rai::keepalive::keepalive () :
+message (rai::message_type::keepalive)
 {
     boost::asio::ip::udp::endpoint endpoint (boost::asio::ip::address_v6 {}, 0);
     for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
@@ -1434,6 +1450,11 @@ rai::key_entry * rai::key_entry::operator -> ()
     return this;
 }
 
+rai::confirm_ack::confirm_ack () :
+message (rai::message_type::confirm_ack)
+{
+}
+
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 {
     rai::message_type type;
@@ -1479,6 +1500,11 @@ void rai::confirm_ack::visit (rai::message_visitor & visitor_a) const
     visitor_a.confirm_ack (*this);
 }
 
+rai::confirm_req::confirm_req () :
+message (rai::message_type::confirm_req)
+{
+}
+
 bool rai::confirm_req::deserialize (rai::stream & stream_a)
 {
     rai::message_type type;
@@ -1491,6 +1517,11 @@ bool rai::confirm_req::deserialize (rai::stream & stream_a)
         result = block == nullptr;
     }
     return result;
+}
+
+rai::confirm_unk::confirm_unk () :
+message (rai::message_type::confirm_unk)
+{
 }
 
 bool rai::confirm_unk::deserialize (rai::stream & stream_a)
@@ -1953,6 +1984,11 @@ bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & en
         endpoint_a = rai::tcp_endpoint (address, port);
     }
     return result;
+}
+
+rai::bulk_req::bulk_req () :
+message (rai::message_type::bulk_req)
+{
 }
 
 void rai::bulk_req::visit (rai::message_visitor & visitor_a) const
@@ -3092,6 +3128,11 @@ std::pair <rai::uint256_union, rai::uint256_union> rai::frontier_req_response::g
     return result;
 }
 
+rai::frontier_req::frontier_req () :
+message (rai::message_type::frontier_req)
+{
+}
+
 bool rai::frontier_req::deserialize (rai::stream & stream_a)
 {
     rai::message_type type;
@@ -3927,4 +3968,53 @@ void rai::fan::value_set (rai::uint256_union const & value_a)
     auto value_l (value ());
     *(values [0]) ^= value_l;
     *(values [0]) ^= value_a;
+}
+
+uint32_t const rai::message::magic_number;
+std::bitset <64> constexpr rai::message::ipv4_only;
+std::bitset <64> constexpr rai::message::bootstrap_receiver;
+
+rai::message::message (rai::message_type type_a) :
+version_max (0x01),
+version_using (0x01),
+version_min (0x01),
+type (type_a)
+{
+}
+
+void rai::message::write_header (rai::stream & stream_a)
+{
+    rai::write (stream_a, rai::message::magic_number);
+    rai::write (stream_a, version_max);
+    rai::write (stream_a, version_using);
+    rai::write (stream_a, version_min);
+    rai::write (stream_a, type);
+    rai::write (stream_a, extensions.to_ullong ());
+}
+
+bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a, uint8_t & version_using_a, uint8_t & version_min_a, rai::message_type & type_a)
+{
+    uint32_t magic_number_l;
+    auto result (rai::read (stream_a, magic_number_l));
+    if (!result)
+    {
+        result = magic_number_l != magic_number;
+        if (!result)
+        {
+            result = rai::read (stream_a, version_max_a);
+            if (!result)
+            {
+                result = rai::read (stream_a, version_using_a);
+                if (!result)
+                {
+                    result = rai::read (stream_a, version_min_a);
+                    if (!result)
+                    {
+                        result = rai::read (stream_a, type_a);
+                    }
+                }
+            }
+        }
+    }
+    return result;
 }
