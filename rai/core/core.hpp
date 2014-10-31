@@ -163,7 +163,6 @@ namespace rai {
         void serialize (rai::stream &) override;
 		bool operator == (rai::keepalive const &) const;
 		std::array <rai::endpoint, 8> peers;
-		rai::uint256_union checksum;
     };
     class publish : public message
     {

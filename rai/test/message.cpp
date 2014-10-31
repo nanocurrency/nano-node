@@ -19,7 +19,6 @@ TEST (message, keepalive_deserialize)
 {
     rai::keepalive message1;
     message1.peers [0] = rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
-    message1.checksum = 1;
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream (bytes);

@@ -137,7 +137,6 @@ void rai::network::maintain_keepalive (boost::asio::ip::udp::endpoint const & en
         {
             rai::keepalive message;
             client.peers.random_fill (message.peers);
-            message.checksum = client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ());
             std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
             {
                 rai::vectorstream stream (*bytes);
@@ -1334,7 +1333,6 @@ void rai::keepalive::serialize (rai::stream & stream_a)
         write (stream_a, bytes);
         write (stream_a, i->port ());
     }
-	write (stream_a, checksum);
 }
 
 bool rai::keepalive::deserialize (rai::stream & stream_a)
@@ -1355,7 +1353,6 @@ bool rai::keepalive::deserialize (rai::stream & stream_a)
         read (stream_a, port);
         *i = rai::endpoint (boost::asio::ip::address_v6 (address), port);
     }
-	read (stream_a, checksum);
     return result;
 }
 
@@ -3356,7 +3353,7 @@ void rai::block_store::checksum_del (uint64_t prefix, uint8_t mask)
 
 bool rai::keepalive::operator == (rai::keepalive const & other_a) const
 {
-	return (peers == other_a.peers) && (checksum == other_a.checksum);
+	return peers == other_a.peers;
 }
 
 bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
