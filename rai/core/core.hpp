@@ -141,7 +141,7 @@ namespace rai {
         message (rai::message_type);
         virtual ~message () = default;
         void write_header (rai::stream &);
-        static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &);
+		static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &, std::bitset <64> &);
         virtual void serialize (rai::stream &) = 0;
         virtual bool deserialize (rai::stream &) = 0;
         virtual void visit (rai::message_visitor &) const = 0;
@@ -503,7 +503,7 @@ namespace rai {
         bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <rai::client>);
         ~bootstrap_connection ();
         void receive ();
-        void receive_type_action (boost::system::error_code const &, size_t);
+        void receive_header_action (boost::system::error_code const &, size_t);
         void receive_bulk_req_action (boost::system::error_code const &, size_t);
 		void receive_frontier_req_action (boost::system::error_code const &, size_t);
 		void add_request (std::unique_ptr <rai::message>);

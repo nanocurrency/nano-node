@@ -28,9 +28,10 @@ TEST (message, keepalive_deserialize)
     uint8_t version_max;
     uint8_t version_using;
     uint8_t version_min;
-    rai::message_type type;
+	rai::message_type type;
+	std::bitset <64> extensions;
     rai::bufferstream header_stream (bytes.data (), bytes.size ());
-    ASSERT_FALSE (rai::message::read_header (header_stream, version_max, version_using, version_min, type));
+    ASSERT_FALSE (rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions));
     ASSERT_EQ (rai::message_type::keepalive, type);
     rai::keepalive message2;
     rai::bufferstream stream (bytes.data (), bytes.size ());

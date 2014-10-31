@@ -31,8 +31,9 @@ TEST (publish, serialization)
     uint8_t version_max;
     uint8_t version_using;
     uint8_t version_min;
-    rai::message_type type;
-    ASSERT_FALSE (rai::message::read_header (stream, version_max, version_using, version_min, type));
+	rai::message_type type;
+	std::bitset <64> extensions;
+    ASSERT_FALSE (rai::message::read_header (stream, version_max, version_using, version_min, type, extensions));
     ASSERT_EQ (0x01, version_min);
     ASSERT_EQ (0x01, version_using);
     ASSERT_EQ (0x01, version_max);
@@ -646,10 +647,13 @@ TEST (network, receive_weight_change)
     system.clients [1]->wallet.insert (key2.prv);
     system.clients [1]->representative = key2.pub;
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 2));
+	auto iterations (0);
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <rai::client> const & client_a) {return client_a->ledger.weight (key2.pub) != 2;}))
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
     }
 }
 
