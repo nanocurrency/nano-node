@@ -2858,19 +2858,23 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
     auto peers (list ());
     while (peers.size () > target_a.size ())
     {
-        auto index (random_pool.GenerateWord32 (0, peers.size ()));
+        auto index (random_pool.GenerateWord32 (0, peers.size () - 1));
+        assert (index < peers.size ());
+        assert (index >= 0);
         peers [index] = peers [peers.size () - 1];
         peers.pop_back ();
     }
-    auto k (target_a.begin ());
-    for (auto i (peers.begin ()), j (peers.begin () + std::min (peers.size (), target_a.size ())); i != j; ++i, ++k)
-    {
-        assert (i->endpoint.address ().is_v6 ());
-        *k = i->endpoint;
-    }
+    assert (peers.size () <= target_a.size ());
     auto endpoint (rai::endpoint (boost::asio::ip::address_v6 {}, 0));
     assert (endpoint.address ().is_v6 ());
-    std::fill (target_a.begin () + std::min (peers.size (), target_a.size ()), target_a.end (), endpoint);
+    std::fill (target_a.begin (), target_a.end (), endpoint);
+    auto j (target_a.begin ());
+    for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
+    {
+        assert (i->endpoint.address ().is_v6 ());
+        assert (j < target_a.end ());
+        *j = i->endpoint;
+    }
 }
 
 void rai::processor::ongoing_keepalive ()
@@ -3660,7 +3664,8 @@ class network_message_visitor : public rai::message_visitor
 public:
 	network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
 	client (client_a),
-	sender (sender_a)
+	sender (sender_a),
+    bootstrap_count (0)
 	{
 	}
 	void keepalive (rai::keepalive const & message_a) override
@@ -3670,12 +3675,13 @@ public:
 			client.log.add (boost::str (boost::format ("Received keepalive from %1%") % sender));
 		}
 		client.network.merge_peers (message_a.peers);
-		if (message_a.checksum != client.ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()))
-		{
+        if (bootstrap_count < 16)
+        {
 			client.processor.bootstrap (rai::tcp_endpoint (sender.address (), sender.port ()),
 										[] ()
 										{
 										});
+            ++bootstrap_count;
 		}
 	}
 	void publish (rai::publish const & message_a) override
@@ -3721,6 +3727,7 @@ public:
 	}
 	rai::client & client;
 	rai::endpoint sender;
+    int bootstrap_count;
 };
 }
 
