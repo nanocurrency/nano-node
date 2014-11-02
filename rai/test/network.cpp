@@ -195,7 +195,8 @@ TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block);
-    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
+    auto work (system.clients [1]->create_work (*block));
+    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block), work);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
@@ -217,7 +218,8 @@ TEST (network, send_invalid_publish)
     block->hashables.previous.clear ();
     block->hashables.balance = 20;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
-    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
+    auto work (system.clients [1]->create_work (*block));
+    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block), work);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));

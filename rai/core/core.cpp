@@ -165,15 +165,14 @@ void rai::network::maintain_keepalive (boost::asio::ip::udp::endpoint const & en
     }
 }
 
-void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <rai::block> block)
+void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <rai::block> block, rai::uint256_union const & work_a)
 {
     if (network_publish_logging ())
     {
         client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
     }
     rai::publish message (std::move (block));
-    rai::work work;
-    message.work = work.create (client.store.root (*message.block));
+    message.work = work_a;
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
@@ -879,11 +878,12 @@ namespace
 class publish_processor : public std::enable_shared_from_this <publish_processor>
 {
 public:
-    publish_processor (std::shared_ptr <rai::client> client_a, std::unique_ptr <rai::block> incoming_a, rai::endpoint const & sender_a) :
+    publish_processor (std::shared_ptr <rai::client> client_a, std::unique_ptr <rai::block> incoming_a, rai::uint256_union const & work_a, rai::endpoint const & sender_a) :
     client (client_a),
     incoming (std::move (incoming_a)),
     sender (sender_a),
-    attempts (0)
+    attempts (0),
+    work (work_a)
     {
     }
     void run ()
@@ -898,7 +898,7 @@ public:
         {
             if (i->endpoint != sender)
             {
-                client->network.publish_block (i->endpoint, incoming->clone ());
+                client->network.publish_block (i->endpoint, incoming->clone (), work);
             }
         }
         if (attempts < 0)
@@ -923,12 +923,13 @@ public:
     std::unique_ptr <rai::block> incoming;
     rai::endpoint sender;
     int attempts;
+    rai::uint256_union work;
 };
 }
 
-void rai::processor::republish (std::unique_ptr <rai::block> incoming_a, rai::endpoint const & sender_a)
+void rai::processor::republish (std::unique_ptr <rai::block> incoming_a, rai::uint256_union const & work_a, rai::endpoint const & sender_a)
 {
-    auto republisher (std::make_shared <publish_processor> (client.shared (), incoming_a->clone (), sender_a));
+    auto republisher (std::make_shared <publish_processor> (client.shared (), incoming_a->clone (), work_a, sender_a));
     republisher->run ();
 }
 
@@ -936,10 +937,11 @@ namespace {
 class republish_visitor : public rai::block_visitor
 {
 public:
-    republish_visitor (std::shared_ptr <rai::client> client_a, std::unique_ptr <rai::block> incoming_a, rai::endpoint const & sender_a) :
+    republish_visitor (std::shared_ptr <rai::client> client_a, std::unique_ptr <rai::block> incoming_a, rai::uint256_union const & work_a, rai::endpoint const & sender_a) :
     client (client_a),
     incoming (std::move (incoming_a)),
-    sender (sender_a)
+    sender (sender_a),
+    work (work_a)
     {
         assert (client_a->store.block_exists (incoming->hash ()));
     }
@@ -947,24 +949,25 @@ public:
     {
         if (client->wallet.find (block_a.hashables.destination) == client->wallet.end ())
         {
-            client->processor.republish (std::move (incoming), sender);
+            client->processor.republish (std::move (incoming), work, sender);
         }
     }
     void receive_block (rai::receive_block const & block_a)
     {
-        client->processor.republish (std::move (incoming), sender);
+        client->processor.republish (std::move (incoming), work, sender);
     }
     void open_block (rai::open_block const & block_a)
     {
-        client->processor.republish (std::move (incoming), sender);
+        client->processor.republish (std::move (incoming), work, sender);
     }
     void change_block (rai::change_block const & block_a)
     {
-        client->processor.republish (std::move (incoming), sender);
+        client->processor.republish (std::move (incoming), work, sender);
     }
     std::shared_ptr <rai::client> client;
     std::unique_ptr <rai::block> incoming;
     rai::endpoint sender;
+    rai::uint256_union work;
 };
 }
 
@@ -1093,7 +1096,8 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
         {
             case rai::process_result::progress:
             {
-                republish_visitor visitor (client.shared (), std::move (block), sender_a);
+                auto proof (work_a (*block));
+                republish_visitor visitor (client.shared (), std::move (block), proof, sender_a);
                 visitor.incoming->visit (visitor);
                 break;
             }

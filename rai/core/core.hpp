@@ -374,7 +374,7 @@ namespace rai {
         void connect_bootstrap (std::vector <std::string> const &);
         rai::process_result process_receive (rai::block const &, std::function <rai::uint256_union (rai::block const &)>);
         void process_receive_republish (std::unique_ptr <rai::block>, std::function <rai::uint256_union (rai::block const &)>, rai::endpoint const &);
-        void republish (std::unique_ptr <rai::block>, rai::endpoint const &);
+        void republish (std::unique_ptr <rai::block>, rai::uint256_union const &, rai::endpoint const &);
 		void process_message (rai::message &, rai::endpoint const &);
 		void process_unknown (rai::vectorstream &);
         void process_confirmation (rai::block const &, rai::uint256_union const &, rai::endpoint const &);
@@ -462,7 +462,7 @@ namespace rai {
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
         void rpc_action (boost::system::error_code const &, size_t);
-        void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
+        void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>, rai::uint256_union const &);
         void confirm_block (std::unique_ptr <rai::block>, rai::uint256_union const &, uint64_t);
         void merge_peers (std::array <rai::endpoint, 8> const &);
         void maintain_keepalive (rai::endpoint const &);
