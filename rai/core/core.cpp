@@ -1040,10 +1040,9 @@ void rai::election::announce_vote ()
 
 void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
 {
-    rai::confirm_ack confirm;
+    rai::confirm_ack confirm (std::move (block_a));
     confirm.vote.address = client.representative;
     confirm.vote.sequence = sequence_a;
-    confirm.vote.block = std::move (block_a);
     rai::private_key prv;
     auto error (client.wallet.fetch (client.representative, prv));
     assert (!error);
@@ -1417,9 +1416,8 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
                 rai::private_key prv;
                 auto error (client.wallet.fetch (client.representative, prv));
                 assert (!error);
-				rai::confirm_ack outgoing;
+				rai::confirm_ack outgoing (block_a.clone ());
 				outgoing.vote.address = client.representative;
-                outgoing.vote.block = block_a.clone ();
 				outgoing.vote.sequence = 0;
 				rai::sign_message (prv, client.representative, outgoing.vote.hash (), outgoing.vote.signature);
 				assert (!rai::validate_message (client.representative, outgoing.vote.hash (), outgoing.vote.signature));
@@ -1454,6 +1452,13 @@ message (rai::message_type::confirm_ack)
 {
 }
 
+rai::confirm_ack::confirm_ack (std::unique_ptr <rai::block> block_a) :
+message (rai::message_type::confirm_ack)
+{
+    block_type_set (block_a->type ());
+    vote.block = std::move (block_a);
+}
+
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 {
 	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
@@ -1470,7 +1475,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
                 result = read (stream_a, vote.sequence);
                 if (!result)
                 {
-                    vote.block = rai::deserialize_block (stream_a);
+                    vote.block = rai::deserialize_block (stream_a, block_type ());
                     result = vote.block == nullptr;
                 }
             }
@@ -1485,7 +1490,7 @@ void rai::confirm_ack::serialize (rai::stream & stream_a)
     write (stream_a, vote.address);
     write (stream_a, vote.signature);
     write (stream_a, vote.sequence);
-    rai::serialize_block (stream_a, *vote.block);
+    vote.block->serialize (stream_a);
 }
 
 bool rai::confirm_ack::operator == (rai::confirm_ack const & other_a) const

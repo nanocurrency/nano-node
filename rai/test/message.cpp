@@ -77,3 +77,20 @@ TEST (message, publish_serialization)
     ASSERT_EQ (0x01, version_max);
     ASSERT_EQ (rai::message_type::publish, type);
 }
+
+TEST (message, confirm_ack_serialization)
+{
+    rai::confirm_ack con1 (std::unique_ptr <rai::block> (new rai::send_block));
+    rai::keypair key1;
+    con1.vote.address = key1.pub;
+    rai::sign_message (key1.prv, key1.pub, con1.vote.block->hash (), con1.vote.signature);
+    std::vector <uint8_t> bytes;
+    {
+        rai::vectorstream stream1 (bytes);
+        con1.serialize (stream1);
+    }
+    rai::bufferstream stream2 (bytes.data (), bytes.size ());
+    rai::confirm_ack con2;
+    con2.deserialize (stream2);
+    ASSERT_EQ (con1, con2);
+}

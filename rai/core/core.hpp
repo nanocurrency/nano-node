@@ -198,6 +198,7 @@ namespace rai {
     {
     public:
         confirm_ack ();
+        confirm_ack (std::unique_ptr <rai::block>);
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
