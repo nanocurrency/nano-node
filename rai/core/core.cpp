@@ -319,8 +319,19 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         receive ();
                         if (!error)
                         {
-							++confirm_ack_count;
-							client.processor.process_message (incoming, sender);
+                            if (!work.validate (client.store.root (*incoming.vote.block), incoming.work))
+                            {
+                                ++confirm_ack_count;
+                                client.processor.process_message (incoming, sender);
+                            }
+                            else
+                            {
+                                ++insufficient_work_count;
+                                if (insufficient_work_logging ())
+                                {
+                                    client.log.add ("Insufficient work for confirm_ack");
+                                }
+                            }
                         }
 						else
 						{
@@ -1029,7 +1040,7 @@ void rai::election::announce_vote ()
 {
     auto winner_l (votes.winner ());
 	assert (winner_l.first != nullptr);
-    client->network.confirm_block (std::move (winner_l.first), votes.sequence);
+    client->network.confirm_block (std::move (winner_l.first), work, votes.sequence);
     auto now (std::chrono::system_clock::now ());
     if (now - last_vote < std::chrono::seconds (15))
     {
@@ -1038,11 +1049,12 @@ void rai::election::announce_vote ()
     }
 }
 
-void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
+void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, rai::uint256_union const & work_a, uint64_t sequence_a)
 {
     rai::confirm_ack confirm (std::move (block_a));
     confirm.vote.address = client.representative;
     confirm.vote.sequence = sequence_a;
+    confirm.work = work_a;
     rai::private_key prv;
     auto error (client.wallet.fetch (client.representative, prv));
     assert (!error);
@@ -1070,13 +1082,13 @@ void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, uint64_t
     }
 }
 
-void rai::processor::process_receive_republish (std::unique_ptr <rai::block> incoming, rai::endpoint const & sender_a)
+void rai::processor::process_receive_republish (std::unique_ptr <rai::block> incoming, std::function <rai::uint256_union (rai::block const &)> work_a, rai::endpoint const & sender_a)
 {
     std::unique_ptr <rai::block> block (std::move (incoming));
     do
     {
         auto hash (block->hash ());
-        auto process_result (process_receive (*block));
+        auto process_result (process_receive (*block, work_a));
         switch (process_result)
         {
             case rai::process_result::progress:
@@ -1100,9 +1112,10 @@ namespace
 class receivable_visitor : public rai::block_visitor
 {
 public:
-    receivable_visitor (rai::client & client_a, rai::block const & incoming_a) :
+    receivable_visitor (rai::client & client_a, rai::block const & incoming_a, rai::uint256_union const & work_a) :
     client (client_a),
-    incoming (incoming_a)
+    incoming (incoming_a),
+    work (work_a)
     {
     }
     void send_block (rai::send_block const & block_a) override
@@ -1111,7 +1124,7 @@ public:
         {
             auto root (incoming.previous ());
             assert (!root.is_zero ());
-            client.conflicts.start (block_a, true);
+            client.conflicts.start (block_a, work, true);
         }
     }
     void receive_block (rai::receive_block const &) override
@@ -1125,6 +1138,7 @@ public:
     }
     rai::client & client;
     rai::block const & incoming;
+    rai::uint256_union work;
 };
     
 class progress_log_visitor : public rai::block_visitor
@@ -1170,7 +1184,7 @@ public:
 };
 }
 
-rai::process_result rai::processor::process_receive (rai::block const & block_a)
+rai::process_result rai::processor::process_receive (rai::block const & block_a, std::function <rai::uint256_union (rai::block const &)> work_a)
 {
     auto result (client.ledger.process (block_a));
     switch (result)
@@ -1182,7 +1196,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
                 progress_log_visitor logger (client);
                 block_a.visit (logger);
             }
-            receivable_visitor visitor (client, block_a);
+            receivable_visitor visitor (client, block_a, work_a (block_a));
             block_a.visit (visitor);
             break;
         }
@@ -1252,7 +1266,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             {
                 client.log.add (boost::str (boost::format ("Fork source for: %1%") % block_a.hash ().to_string ()));
             }
-            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), false);
+            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), work_a (block_a), false);
             break;
         }
         case rai::process_result::fork_previous:
@@ -1261,7 +1275,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             {
                 client.log.add (boost::str (boost::format ("Fork previous for: %1%") % block_a.hash ().to_string ()));
             }
-            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), false);
+            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), work_a (block_a), false);
             break;
         }
     }
@@ -1395,7 +1409,7 @@ void rai::processor::process_unknown (rai::vectorstream & stream_a)
 	outgoing.serialize (stream_a);
 }
 
-void rai::processor::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
+void rai::processor::process_confirmation (rai::block const & block_a, rai::uint256_union const & work_a, rai::endpoint const & sender)
 {
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
 	{
@@ -1419,6 +1433,7 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
 				rai::confirm_ack outgoing (block_a.clone ());
 				outgoing.vote.address = client.representative;
 				outgoing.vote.sequence = 0;
+                outgoing.work = work_a;
 				rai::sign_message (prv, client.representative, outgoing.vote.hash (), outgoing.vote.signature);
 				assert (!rai::validate_message (client.representative, outgoing.vote.hash (), outgoing.vote.signature));
                 outgoing.serialize (stream);
@@ -1475,8 +1490,12 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
                 result = read (stream_a, vote.sequence);
                 if (!result)
                 {
-                    vote.block = rai::deserialize_block (stream_a, block_type ());
-                    result = vote.block == nullptr;
+                    result = read (stream_a, work);
+                    if (!result)
+                    {
+                        vote.block = rai::deserialize_block (stream_a, block_type ());
+                        result = vote.block == nullptr;
+                    }
                 }
             }
         }
@@ -1490,12 +1509,13 @@ void rai::confirm_ack::serialize (rai::stream & stream_a)
     write (stream_a, vote.address);
     write (stream_a, vote.signature);
     write (stream_a, vote.sequence);
+    write (stream_a, work);
     vote.block->serialize (stream_a);
 }
 
 bool rai::confirm_ack::operator == (rai::confirm_ack const & other_a) const
 {
-    auto result (vote.address == other_a.vote.address && *vote.block == *other_a.vote.block && vote.signature == other_a.vote.signature && vote.sequence == other_a.vote.sequence);
+    auto result (vote.address == other_a.vote.address && *vote.block == *other_a.vote.block && vote.signature == other_a.vote.signature && vote.sequence == other_a.vote.sequence && work == other_a.work);
     return result;
 }
 
@@ -2678,7 +2698,11 @@ bool rai::bulk_req_initiator::process_end ()
             block = connection->client->store.bootstrap_get (expecting);
             if (block != nullptr)
             {
-                processing = connection->client->processor.process_receive (*block);
+                auto connection_l (connection);
+                processing = connection->client->processor.process_receive (*block, [connection_l] (rai::block const & block_a)
+                {
+                    return connection_l->client->create_work (block_a);
+                });
                 expecting = block->hash ();
             }
         } while (block != nullptr && processing == rai::process_result::progress);
@@ -3341,6 +3365,14 @@ bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
     return existing != peers.end () && existing->last_contact > std::chrono::system_clock::now () - rai::processor::cutoff;
 }
 
+rai::uint256_union rai::client::create_work (rai::block const & block_a)
+{
+    auto root (store.root (block_a));
+    rai::work work;
+    auto proof (work.create (root));
+    return proof;
+}
+
 std::shared_ptr <rai::client> rai::client::shared ()
 {
     return shared_from_this ();
@@ -3485,13 +3517,14 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
     {
         rai::frontier frontier;
         auto new_address (client.ledger.store.latest_get (send_a.hashables.destination, frontier));
+        std::unique_ptr <rai::block> block;
         if (new_address)
         {
             auto open (new rai::open_block);
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
             rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
-            client.processor.process_receive_republish (std::unique_ptr <rai::block> (open), rai::endpoint {});
+            block.reset (open);
         }
         else
         {
@@ -3499,8 +3532,12 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
             receive->hashables.previous = frontier.hash;
             receive->hashables.source = hash;
             rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
-            client.processor.process_receive_republish (std::unique_ptr <rai::block> (receive), rai::endpoint {});
+            block.reset (receive);
         }
+        auto root (client.store.root (*block));
+        rai::work work;
+        auto proof (work.create (root));
+        client.processor.process_receive_republish (std::move (block), [proof] (rai::block const &) {return proof;}, rai::endpoint {});
         result = false;
     }
     else
@@ -3523,7 +3560,10 @@ bool rai::transactions::send (rai::address const & address_a, rai::uint128_t con
         {
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
             {
-                client.processor.process_receive_republish (std::move (*i), rai::endpoint {});
+                auto root (client.store.root (**i));
+                rai::work work;
+                auto proof (work.create (root));
+                client.processor.process_receive_republish (std::move (*i), [proof] (rai::block const &) {return proof;}, rai::endpoint {});
             }
         }
     }
@@ -3534,11 +3574,12 @@ bool rai::transactions::send (rai::address const & address_a, rai::uint128_t con
     return result;
 }
 
-rai::election::election (std::shared_ptr <rai::client> client_a, rai::block const & block_a) :
+rai::election::election (std::shared_ptr <rai::client> client_a, rai::block const & block_a, rai::uint256_union const & work_a) :
 votes (client_a->ledger, block_a),
 client (client_a),
 last_vote (std::chrono::system_clock::now ()),
-confirmed (false)
+confirmed (false),
+work (work_a)
 {
     assert (client_a->store.block_exists (block_a.hash ()));
     rai::keypair anonymous;
@@ -3593,14 +3634,14 @@ rai::uint256_t rai::election::contested_threshold ()
     return (client->ledger.supply () / 16) * 15;
 }
 
-void rai::conflicts::start (rai::block const & block_a, bool request_a)
+void rai::conflicts::start (rai::block const & block_a, rai::uint256_union const & work_a, bool request_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto root (client.store.root (block_a));
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
-        auto election (std::make_shared <rai::election> (client.shared (), block_a));
+        auto election (std::make_shared <rai::election> (client.shared (), block_a, work_a));
 		client.service.add (std::chrono::system_clock::now (), [election] () {election->start ();});
         roots.insert (std::make_pair (root, election));
         if (request_a)
@@ -3637,7 +3678,7 @@ namespace
 class network_message_visitor : public rai::message_visitor
 {
 public:
-	network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
+    network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
 	client (client_a),
 	sender (sender_a),
     bootstrap_count (0)
@@ -3665,7 +3706,8 @@ public:
 		{
 			client.log.add (boost::str (boost::format ("Received publish req from %1%") % sender));
 		}
-		client.processor.process_receive_republish (message_a.block->clone (), sender);
+        auto proof (message_a.work);
+		client.processor.process_receive_republish (message_a.block->clone (), [proof] (rai::block const &) {return proof;}, sender);
 	}
 	void confirm_req (rai::confirm_req const & message_a) override
 	{
@@ -3673,10 +3715,11 @@ public:
 		{
 			client.log.add (boost::str (boost::format ("Received confirm req from %1%") % sender));
 		}
-        client.processor.process_receive_republish (message_a.block->clone (), sender);
+        auto proof (message_a.work);
+        client.processor.process_receive_republish (message_a.block->clone (), [proof] (rai::block const &) {return proof;}, sender);
         if (client.store.block_exists (message_a.block->hash ()))
         {
-            client.processor.process_confirmation (*message_a.block, sender);
+            client.processor.process_confirmation (*message_a.block, proof, sender);
 		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
@@ -3685,7 +3728,8 @@ public:
 		{
 			client.log.add (boost::str (boost::format ("Received Confirm from %1%") % sender));
 		}
-        client.processor.process_receive_republish (message_a.vote.block->clone (), sender);
+        auto proof (message_a.work);
+        client.processor.process_receive_republish (message_a.vote.block->clone (), [proof] (rai::block const &) {return proof;}, sender);
         client.conflicts.update (message_a.vote);
 	}
 	void confirm_unk (rai::confirm_unk const &) override

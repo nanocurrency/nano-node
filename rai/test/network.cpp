@@ -248,7 +248,7 @@ TEST (network, send_valid_publish)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash2, block2.signature);
     rai::frontier frontier2;
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
-    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
+    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), [&system] (rai::block const & block_a) {return system.clients [0]->create_work (block_a);}, system.clients [0]->network.endpoint ());
     auto iterations (0);
     while (system.clients [1]->network.publish_req_count == 0)
     {
@@ -299,7 +299,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     block1.hashables.balance.clear ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (block1));
-    client1.conflicts.start (block1, true);
+    client1.conflicts.start (block1, client1.create_work (block1), true);
     rai::keypair key1;
     rai::confirm_ack con1;
     con1.vote.address = key1.pub;
@@ -318,7 +318,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     block1.hashables.balance.clear ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (block1));
-    client1.conflicts.start (block1, true);
+    client1.conflicts.start (block1, client1.create_work (block1), true);
     rai::keypair key1;
     rai::confirm_ack con1;
     con1.vote.address = key1.pub;
@@ -351,7 +351,7 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [1]->ledger.account_balance (key2.pub));
-    system.clients [1]->conflicts.start (*block1, true);
+    system.clients [1]->conflicts.start (*block1, system.clients [1]->create_work (*block1), true);
     while (system.clients [0]->network.publish_req_count != 1)
     {
         system.service->run_one ();
