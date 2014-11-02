@@ -103,7 +103,7 @@ namespace rai {
         void vote (rai::vote const &);
         void announce_vote ();
         void timeout_action (std::shared_ptr <rai::destructable>);
-		void start_request (rai::block const &);
+        void start_request (rai::block const &);
 		rai::uint256_t uncontested_threshold ();
 		rai::uint256_t contested_threshold ();
 		rai::votes votes;
@@ -466,7 +466,7 @@ namespace rai {
         void confirm_block (std::unique_ptr <rai::block>, rai::uint256_union const &, uint64_t);
         void merge_peers (std::array <rai::endpoint, 8> const &);
         void maintain_keepalive (rai::endpoint const &);
-        void send_confirm_req (rai::endpoint const &, rai::block const &);
+        void send_confirm_req (rai::endpoint const &, rai::block const &, rai::uint256_union const &);
         void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
         rai::endpoint endpoint ();

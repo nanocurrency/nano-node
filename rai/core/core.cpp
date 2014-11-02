@@ -191,11 +191,10 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
         });
 }
 
-void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, rai::block const & block)
+void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, rai::block const & block, rai::uint256_union const & work_a)
 {
     rai::confirm_req message (block.clone ());
-    rai::work work;
-    message.work = work.create (client.store.root (*message.block));
+    message.work = work_a;
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
@@ -1035,7 +1034,7 @@ void rai::election::start_request (rai::block const & block_a)
     auto list (client->peers.list ());
     for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
     {
-        client->network.send_confirm_req (i->endpoint, block_a);
+        client->network.send_confirm_req (i->endpoint, block_a, work);
     }
 }
 
@@ -1116,7 +1115,7 @@ namespace
 class receivable_visitor : public rai::block_visitor
 {
 public:
-    receivable_visitor (rai::client & client_a, rai::block const & incoming_a, rai::uint256_union const & work_a) :
+    receivable_visitor (rai::client & client_a, rai::block const & incoming_a, std::function <rai::uint256_union (rai::block const &)> work_a) :
     client (client_a),
     incoming (incoming_a),
     work (work_a)
@@ -1128,7 +1127,7 @@ public:
         {
             auto root (incoming.previous ());
             assert (!root.is_zero ());
-            client.conflicts.start (block_a, work, true);
+            client.conflicts.start (block_a, work (block_a), true);
         }
     }
     void receive_block (rai::receive_block const &) override
@@ -1142,7 +1141,7 @@ public:
     }
     rai::client & client;
     rai::block const & incoming;
-    rai::uint256_union work;
+    std::function <rai::uint256_union (rai::block const &)> work;
 };
     
 class progress_log_visitor : public rai::block_visitor
@@ -1200,7 +1199,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a,
                 progress_log_visitor logger (client);
                 block_a.visit (logger);
             }
-            receivable_visitor visitor (client, block_a, work_a (block_a));
+            receivable_visitor visitor (client, block_a, work_a);
             block_a.visit (visitor);
             break;
         }
@@ -3538,9 +3537,7 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
             rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
             block.reset (receive);
         }
-        auto root (client.store.root (*block));
-        rai::work work;
-        auto proof (work.create (root));
+        auto proof (client.create_work (*block));
         client.processor.process_receive_republish (std::move (block), [proof] (rai::block const &) {return proof;}, rai::endpoint {});
         result = false;
     }
@@ -3564,9 +3561,7 @@ bool rai::transactions::send (rai::address const & address_a, rai::uint128_t con
         {
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
             {
-                auto root (client.store.root (**i));
-                rai::work work;
-                auto proof (work.create (root));
+                auto proof (client.create_work (**i));
                 client.processor.process_receive_republish (std::move (*i), [proof] (rai::block const &) {return proof;}, rai::endpoint {});
             }
         }
