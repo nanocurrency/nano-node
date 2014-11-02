@@ -173,7 +173,7 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
     }
     rai::publish message (std::move (block));
     rai::work work;
-    message.work = work.create (message.block->hash ());
+    message.work = work.create (client.store.root (*message.block));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
@@ -196,7 +196,7 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
 {
     rai::confirm_req message (block.clone ());
     rai::work work;
-    message.work = work.create (message.block->hash ());
+    message.work = work.create (client.store.root (*message.block));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
@@ -263,7 +263,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         receive ();
                         if (!error)
                         {
-                            if (!work.validate (incoming.block->hash (), incoming.work))
+                            if (!work.validate (client.store.root (*incoming.block), incoming.work))
                             {
                                 ++publish_req_count;
                                 client.processor.process_message (incoming, sender);
@@ -291,7 +291,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         receive ();
                         if (!error)
                         {
-                            if (!work.validate (incoming.block->hash (), incoming.work))
+                            if (!work.validate (client.store.root (*incoming.block), incoming.work))
                             {
                                 ++confirm_req_count;
                                 client.processor.process_message (incoming, sender);
