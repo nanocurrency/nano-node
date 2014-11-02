@@ -175,9 +175,10 @@ namespace rai
 		virtual bool operator == (rai::block const &) const = 0;
 		virtual std::unique_ptr <rai::block> clone () const = 0;
 		virtual rai::block_type type () const = 0;
-	};
-	std::unique_ptr <rai::block> deserialize_block (rai::stream &);
-	void serialize_block (rai::stream &, rai::block const &);
+    };
+    std::unique_ptr <rai::block> deserialize_block (rai::stream &);
+    std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
+    void serialize_block (rai::stream &, rai::block const &);
 	class send_hashables
 	{
 	public:

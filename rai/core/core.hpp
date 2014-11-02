@@ -145,14 +145,20 @@ namespace rai {
         virtual void serialize (rai::stream &) = 0;
         virtual bool deserialize (rai::stream &) = 0;
         virtual void visit (rai::message_visitor &) const = 0;
-        static uint32_t const magic_number = 0x734152b5u;
+        rai::block_type block_type () const;
+        void block_type_set (rai::block_type);
+        bool ipv4_only ();
+        void ipv4_only_set (bool);
+        static uint32_t constexpr magic_number = 0x734152b5u;
         uint8_t version_max;
         uint8_t version_using;
         uint8_t version_min;
         rai::message_type type;
         std::bitset <64> extensions;
-        constexpr static std::bitset <64> const ipv4_only = std::bitset <64> (1);
-        constexpr static std::bitset <64> const bootstrap_receiver = std::bitset <64> (2);
+        static size_t constexpr test_network_position = 0;
+        static size_t constexpr ipv4_only_position = 1;
+        static size_t constexpr bootstrap_receiver_position = 2;
+        static std::bitset <64> constexpr block_type_mask = std::bitset <64> (0x0000000000000f00);
     };
     class keepalive : public message
     {
@@ -180,6 +186,7 @@ namespace rai {
     {
     public:
         confirm_req ();
+        confirm_req (std::unique_ptr <rai::block>);
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;

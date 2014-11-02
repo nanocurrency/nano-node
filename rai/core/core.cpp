@@ -194,8 +194,7 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
 
 void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, rai::block const & block)
 {
-    rai::confirm_req message;
-	message.block = block.clone ();
+    rai::confirm_req message (block.clone ());
     rai::work work;
     message.work = work.create (message.block->hash ());
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -405,15 +404,11 @@ rai::publish::publish (std::unique_ptr <rai::block> block_a) :
 message (rai::message_type::publish),
 block (std::move (block_a))
 {
+    block_type_set (block->type ());
 }
 
 bool rai::publish::deserialize (rai::stream & stream_a)
 {
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
     auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
     assert (!result);
 	assert (type == rai::message_type::publish);
@@ -422,7 +417,7 @@ bool rai::publish::deserialize (rai::stream & stream_a)
         result = read (stream_a, work);
         if (!result)
         {
-            block = rai::deserialize_block (stream_a);
+            block = rai::deserialize_block (stream_a, block_type ());
             result = block == nullptr;
         }
     }
@@ -431,9 +426,10 @@ bool rai::publish::deserialize (rai::stream & stream_a)
 
 void rai::publish::serialize (rai::stream & stream_a)
 {
+    assert (block != nullptr);
 	write_header (stream_a);
     write (stream_a, work);
-    rai::serialize_block (stream_a, *block);
+    block->serialize (stream_a);
 }
 
 namespace
@@ -1337,11 +1333,6 @@ void rai::keepalive::serialize (rai::stream & stream_a)
 
 bool rai::keepalive::deserialize (rai::stream & stream_a)
 {
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
 	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
 	assert (!result);
     assert (type == rai::message_type::keepalive);
@@ -1465,11 +1456,6 @@ message (rai::message_type::confirm_ack)
 
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 {
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
 	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
 	assert (!result);
     assert (type == rai::message_type::confirm_ack);
@@ -1518,13 +1504,15 @@ message (rai::message_type::confirm_req)
 {
 }
 
+rai::confirm_req::confirm_req (std::unique_ptr <rai::block> block_a) :
+message (rai::message_type::confirm_req),
+block (std::move (block_a))
+{
+    block_type_set (block->type ());
+}
+
 bool rai::confirm_req::deserialize (rai::stream & stream_a)
 {
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
 	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
 	assert (!result);
     assert (type == rai::message_type::confirm_req);
@@ -1533,7 +1521,7 @@ bool rai::confirm_req::deserialize (rai::stream & stream_a)
 		result = read (stream_a, work);
 		if (!result)
 		{
-			block = rai::deserialize_block (stream_a);
+			block = rai::deserialize_block (stream_a, block_type ());
 			result = block == nullptr;
 		}
     }
@@ -1547,11 +1535,6 @@ message (rai::message_type::confirm_unk)
 
 bool rai::confirm_unk::deserialize (rai::stream & stream_a)
 {
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
 	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
 	assert (!result);
     assert (type == rai::message_type::confirm_unk);
@@ -1577,7 +1560,7 @@ void rai::confirm_req::serialize (rai::stream & stream_a)
     assert (block != nullptr);
 	write_header (stream_a);
     write (stream_a, work);
-    rai::serialize_block (stream_a, *block);
+    block->serialize (stream_a);
 }
 
 rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, uint16_t port_a, rai::client & client_a, bool enable_control_a) :
@@ -2028,11 +2011,6 @@ void rai::bulk_req::visit (rai::message_visitor & visitor_a) const
 
 bool rai::bulk_req::deserialize (rai::stream & stream_a)
 {
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
 	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
 	assert (!result);
 	assert (rai::message_type::bulk_req == type);
@@ -3066,8 +3044,8 @@ request (std::move (request_a))
 }
 
 rai::frontier_req_response::frontier_req_response (std::shared_ptr <rai::bootstrap_connection> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
-iterator (connection_a->client->store.latest_begin (request_a->start)),
 connection (connection_a),
+iterator (connection_a->client->store.latest_begin (request_a->start)),
 request (std::move (request_a))
 {
     skip_old ();
@@ -3181,11 +3159,6 @@ message (rai::message_type::frontier_req)
 
 bool rai::frontier_req::deserialize (rai::stream & stream_a)
 {
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
 	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
 	assert (!result);
 	assert (rai::message_type::frontier_req == type);
@@ -4025,9 +3998,11 @@ void rai::fan::value_set (rai::uint256_union const & value_a)
     *(values [0]) ^= value_a;
 }
 
-uint32_t const rai::message::magic_number;
-std::bitset <64> constexpr rai::message::ipv4_only;
-std::bitset <64> constexpr rai::message::bootstrap_receiver;
+uint32_t constexpr rai::message::magic_number;
+size_t constexpr rai::message::test_network_position;
+size_t constexpr rai::message::ipv4_only_position;
+size_t constexpr rai::message::bootstrap_receiver_position;
+std::bitset <64> constexpr rai::message::block_type_mask;
 
 rai::message::message (rai::message_type type_a) :
 version_max (0x01),
@@ -4035,6 +4010,27 @@ version_using (0x01),
 version_min (0x01),
 type (type_a)
 {
+}
+
+rai::block_type rai::message::block_type () const
+{
+    return static_cast <rai::block_type> (((extensions & block_type_mask) >> 8).to_ullong ());
+}
+
+void rai::message::block_type_set (rai::block_type type_a)
+{
+    extensions &= ~rai::message::block_type_mask;
+    extensions |= std::bitset <64> (static_cast <unsigned long long> (type_a) << 8);
+}
+
+bool rai::message::ipv4_only ()
+{
+    return extensions.test (ipv4_only_position);
+}
+
+void rai::message::ipv4_only_set (bool value_a)
+{
+    extensions.set (ipv4_only_position, value_a);
 }
 
 void rai::message::write_header (rai::stream & stream_a)

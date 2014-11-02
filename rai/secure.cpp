@@ -725,6 +725,57 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
     block_a.serialize (stream_a);
 }
 
+std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a)
+{
+    std::unique_ptr <rai::block> result;
+    switch (type_a)
+    {
+        case rai::block_type::receive:
+        {
+            std::unique_ptr <rai::receive_block> obj (new rai::receive_block);
+            auto error (obj->deserialize (stream_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+            break;
+        }
+        case rai::block_type::send:
+        {
+            std::unique_ptr <rai::send_block> obj (new rai::send_block);
+            auto error (obj->deserialize (stream_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+            break;
+        }
+        case rai::block_type::open:
+        {
+            std::unique_ptr <rai::open_block> obj (new rai::open_block);
+            auto error (obj->deserialize (stream_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+            break;
+        }
+        case rai::block_type::change:
+        {
+            bool error;
+            std::unique_ptr <rai::change_block> obj (new rai::change_block (error, stream_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return result;
+}
+
 std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
 {
     rai::block_type type;
@@ -732,51 +783,7 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
     std::unique_ptr <rai::block> result;
     if (!error)
     {
-        switch (type)
-        {
-            case rai::block_type::receive:
-            {
-                std::unique_ptr <rai::receive_block> obj (new rai::receive_block);
-                auto error (obj->deserialize (stream_a));
-                if (!error)
-                {
-                    result = std::move (obj);
-                }
-                break;
-            }
-            case rai::block_type::send:
-            {
-                std::unique_ptr <rai::send_block> obj (new rai::send_block);
-                auto error (obj->deserialize (stream_a));
-                if (!error)
-                {
-                    result = std::move (obj);
-                }
-                break;
-            }
-            case rai::block_type::open:
-            {
-                std::unique_ptr <rai::open_block> obj (new rai::open_block);
-                auto error (obj->deserialize (stream_a));
-                if (!error)
-                {
-                    result = std::move (obj);
-                }
-                break;
-            }
-            case rai::block_type::change:
-            {
-                bool error;
-                std::unique_ptr <rai::change_block> obj (new rai::change_block (error, stream_a));
-                if (!error)
-                {
-                    result = std::move (obj);
-                }
-                break;
-            }
-            default:
-                break;
-        }
+         result = rai::deserialize_block (stream_a, type);
     }
     return result;
 }

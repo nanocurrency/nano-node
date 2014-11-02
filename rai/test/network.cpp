@@ -4,42 +4,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-TEST (publish, serialization)
-{
-    rai::publish publish;
-    publish.extensions = rai::message::ipv4_only;
-    std::vector <uint8_t> bytes;
-    {
-        rai::vectorstream stream (bytes);
-        publish.write_header (stream);
-    }
-    ASSERT_EQ (16, bytes.size ());
-    ASSERT_EQ (0xb5, bytes [0]);
-    ASSERT_EQ (0x52, bytes [1]);
-    ASSERT_EQ (0x41, bytes [2]);
-    ASSERT_EQ (0x73, bytes [3]);
-    ASSERT_EQ (0x01, bytes [4]);
-    ASSERT_EQ (0x01, bytes [5]);
-    ASSERT_EQ (0x01, bytes [6]);
-    ASSERT_EQ (static_cast <uint8_t> (rai::message_type::publish), bytes [7]);
-    ASSERT_EQ (0x01, bytes [8]);
-    for (auto i (bytes.begin () + 9), n (bytes.end ()); i != n; ++i)
-    {
-        ASSERT_EQ (0, *i);
-    }
-    rai::bufferstream stream (bytes.data (), bytes.size ());
-    uint8_t version_max;
-    uint8_t version_using;
-    uint8_t version_min;
-	rai::message_type type;
-	std::bitset <64> extensions;
-    ASSERT_FALSE (rai::message::read_header (stream, version_max, version_using, version_min, type, extensions));
-    ASSERT_EQ (0x01, version_min);
-    ASSERT_EQ (0x01, version_using);
-    ASSERT_EQ (0x01, version_max);
-    ASSERT_EQ (rai::message_type::publish, type);
-}
-
 TEST (network, tcp_connection)
 {
     boost::asio::io_service service;
@@ -212,8 +176,7 @@ TEST (network, confirm_req)
     block->hashables.previous.clear ();
     block->hashables.balance = 200;
     block->hashables.destination = key2.pub;
-    rai::confirm_req req;
-    req.block = std::move (block);
+    rai::confirm_req req (std::move (block));
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream (bytes);
@@ -307,8 +270,7 @@ TEST (network, send_insufficient_work)
     block->hashables.previous.clear ();
     block->hashables.balance = 20;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
-    rai::publish publish;
-    publish.block = std::move (block);
+    rai::publish publish (std::move (block));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
