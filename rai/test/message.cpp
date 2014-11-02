@@ -28,7 +28,7 @@ TEST (message, keepalive_deserialize)
     uint8_t version_using;
     uint8_t version_min;
 	rai::message_type type;
-	std::bitset <64> extensions;
+	std::bitset <16> extensions;
     rai::bufferstream header_stream (bytes.data (), bytes.size ());
     ASSERT_FALSE (rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions));
     ASSERT_EQ (rai::message_type::keepalive, type);
@@ -50,27 +50,21 @@ TEST (message, publish_serialization)
         rai::vectorstream stream (bytes);
         publish.write_header (stream);
     }
-    ASSERT_EQ (16, bytes.size ());
-    ASSERT_EQ (0xb5, bytes [0]);
-    ASSERT_EQ (0x52, bytes [1]);
-    ASSERT_EQ (0x41, bytes [2]);
-    ASSERT_EQ (0x73, bytes [3]);
+    ASSERT_EQ (8, bytes.size ());
+    ASSERT_EQ (0x52, bytes [0]);
+    ASSERT_EQ (0x41, bytes [1]);
+    ASSERT_EQ (0x01, bytes [2]);
+    ASSERT_EQ (0x01, bytes [3]);
     ASSERT_EQ (0x01, bytes [4]);
-    ASSERT_EQ (0x01, bytes [5]);
-    ASSERT_EQ (0x01, bytes [6]);
-    ASSERT_EQ (static_cast <uint8_t> (rai::message_type::publish), bytes [7]);
-    ASSERT_EQ (0x02, bytes [8]);
-    ASSERT_EQ (static_cast <uint8_t> (rai::block_type::send), bytes [9]);
-    for (auto i (bytes.begin () + 10), n (bytes.end ()); i != n; ++i)
-    {
-        ASSERT_EQ (0, *i);
-    }
+    ASSERT_EQ (static_cast <uint8_t> (rai::message_type::publish), bytes [5]);
+    ASSERT_EQ (0x02, bytes [6]);
+    ASSERT_EQ (static_cast <uint8_t> (rai::block_type::send), bytes [7]);
     rai::bufferstream stream (bytes.data (), bytes.size ());
     uint8_t version_max;
     uint8_t version_using;
     uint8_t version_min;
     rai::message_type type;
-    std::bitset <64> extensions;
+    std::bitset <16> extensions;
     ASSERT_FALSE (rai::message::read_header (stream, version_max, version_using, version_min, type, extensions));
     ASSERT_EQ (0x01, version_min);
     ASSERT_EQ (0x01, version_using);

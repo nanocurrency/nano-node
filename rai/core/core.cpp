@@ -230,7 +230,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
             uint8_t version_using;
             uint8_t version_min;
             rai::message_type type;
-			std::bitset <64> extensions;
+			std::bitset <16> extensions;
             if (!rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions))
             {
                 auto sender (remote);
@@ -2134,7 +2134,7 @@ client (client_a)
 void rai::bootstrap_connection::receive ()
 {
     auto this_l (shared_from_this ());
-    boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), 16), [this_l] (boost::system::error_code const & ec, size_t size_a)
+    boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), 8), [this_l] (boost::system::error_code const & ec, size_t size_a)
     {
         this_l->receive_header_action (ec, size_a);
     });
@@ -2144,13 +2144,13 @@ void rai::bootstrap_connection::receive_header_action (boost::system::error_code
 {
     if (!ec)
     {
-        assert (size_a == 16);
+        assert (size_a == 8);
 		rai::bufferstream type_stream (receive_buffer.data (), size_a);
 		uint8_t version_max;
 		uint8_t version_using;
 		uint8_t version_min;
 		rai::message_type type;
-		std::bitset <64> extensions;
+		std::bitset <16> extensions;
 		if (!rai::message::read_header (type_stream, version_max, version_using, version_min, type, extensions))
 		{
 			switch (type)
@@ -2158,7 +2158,7 @@ void rai::bootstrap_connection::receive_header_action (boost::system::error_code
 				case rai::message_type::bulk_req:
 				{
 					auto this_l (shared_from_this ());
-					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 16, sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l] (boost::system::error_code const & ec, size_t size_a)
 					{
 						this_l->receive_bulk_req_action (ec, size_a);
 					});
@@ -2167,7 +2167,7 @@ void rai::bootstrap_connection::receive_header_action (boost::system::error_code
 				case rai::message_type::frontier_req:
 				{
 					auto this_l (shared_from_this ());
-					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 16, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l] (boost::system::error_code const & ec, size_t size_a)
 					{
 						this_l->receive_frontier_req_action (ec, size_a);
 					});
@@ -2198,7 +2198,7 @@ void rai::bootstrap_connection::receive_bulk_req_action (boost::system::error_co
     if (!ec)
     {
         std::unique_ptr <rai::bulk_req> request (new rai::bulk_req);
-        rai::bufferstream stream (receive_buffer.data (), 16 + sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
+        rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
         auto error (request->deserialize (stream));
         if (!error)
         {
@@ -2217,7 +2217,7 @@ void rai::bootstrap_connection::receive_frontier_req_action (boost::system::erro
 	if (!ec)
 	{
 		std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
-		rai::bufferstream stream (receive_buffer.data (), 16 + sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
+		rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
 		auto error (request->deserialize (stream));
 		if (!error)
 		{
@@ -4003,11 +4003,11 @@ void rai::fan::value_set (rai::uint256_union const & value_a)
     *(values [0]) ^= value_a;
 }
 
-uint32_t constexpr rai::message::magic_number;
+std::array <uint8_t, 2> constexpr rai::message::magic_number;
 size_t constexpr rai::message::test_network_position;
 size_t constexpr rai::message::ipv4_only_position;
 size_t constexpr rai::message::bootstrap_receiver_position;
-std::bitset <64> constexpr rai::message::block_type_mask;
+std::bitset <16> constexpr rai::message::block_type_mask;
 
 rai::message::message (rai::message_type type_a) :
 version_max (0x01),
@@ -4025,7 +4025,7 @@ rai::block_type rai::message::block_type () const
 void rai::message::block_type_set (rai::block_type type_a)
 {
     extensions &= ~rai::message::block_type_mask;
-    extensions |= std::bitset <64> (static_cast <unsigned long long> (type_a) << 8);
+    extensions |= std::bitset <16> (static_cast <unsigned long long> (type_a) << 8);
 }
 
 bool rai::message::ipv4_only ()
@@ -4045,12 +4045,12 @@ void rai::message::write_header (rai::stream & stream_a)
     rai::write (stream_a, version_using);
     rai::write (stream_a, version_min);
     rai::write (stream_a, type);
-    rai::write (stream_a, extensions.to_ullong ());
+    rai::write (stream_a, static_cast <uint16_t> (extensions.to_ullong ()));
 }
 
-bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a, uint8_t & version_using_a, uint8_t & version_min_a, rai::message_type & type_a, std::bitset <64> & extensions_a)
+bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a, uint8_t & version_using_a, uint8_t & version_min_a, rai::message_type & type_a, std::bitset <16> & extensions_a)
 {
-    uint32_t magic_number_l;
+    std::array <uint8_t, 2> magic_number_l;
     auto result (rai::read (stream_a, magic_number_l));
     if (!result)
     {
@@ -4069,7 +4069,7 @@ bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a,
                         result = rai::read (stream_a, type_a);
 						if (!result)
 						{
-							uint64_t extensions_l;
+							uint16_t extensions_l;
 							result = rai::read (stream_a, extensions_l);
 							if (!result)
 							{

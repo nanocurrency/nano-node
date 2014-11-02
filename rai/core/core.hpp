@@ -141,7 +141,7 @@ namespace rai {
         message (rai::message_type);
         virtual ~message () = default;
         void write_header (rai::stream &);
-		static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &, std::bitset <64> &);
+		static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &, std::bitset <16> &);
         virtual void serialize (rai::stream &) = 0;
         virtual bool deserialize (rai::stream &) = 0;
         virtual void visit (rai::message_visitor &) const = 0;
@@ -149,16 +149,16 @@ namespace rai {
         void block_type_set (rai::block_type);
         bool ipv4_only ();
         void ipv4_only_set (bool);
-        static uint32_t constexpr magic_number = 0x734152b5u;
+        static std::array <uint8_t, 2> constexpr magic_number = {{'R', 'A'}};
         uint8_t version_max;
         uint8_t version_using;
         uint8_t version_min;
         rai::message_type type;
-        std::bitset <64> extensions;
+        std::bitset <16> extensions;
         static size_t constexpr test_network_position = 0;
         static size_t constexpr ipv4_only_position = 1;
         static size_t constexpr bootstrap_receiver_position = 2;
-        static std::bitset <64> constexpr block_type_mask = std::bitset <64> (0x0000000000000f00);
+        static std::bitset <16> constexpr block_type_mask = std::bitset <16> (0x0f00);
     };
     class keepalive : public message
     {
