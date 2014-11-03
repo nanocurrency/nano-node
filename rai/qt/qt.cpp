@@ -401,7 +401,7 @@ peers_model (new QStringListModel),
 peers_view (new QListView),
 peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
-scale ("100000000000000000000"),
+scale ("100000000000000000000"), // 10 ^ 20
 client (client_a)
 {
     

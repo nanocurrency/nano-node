@@ -3897,9 +3897,9 @@ namespace
 class kdf
 {
 public:
-    size_t static constexpr rai_full_work = 8 * 1024 * 1024;
-    size_t static constexpr rai_test_work = 8 * 1024;
-    size_t static constexpr entry_count = WORK_FACTOR;
+    size_t static constexpr kdf_full_work = 8 * 1024 * 1024;
+    size_t static constexpr kdf_test_work = 8 * 1024;
+    size_t static constexpr entry_count = KDF_WORK_FACTOR;
     kdf (std::string const & password_a, rai::uint256_union const & salt_a)
     {
         auto entries (entry_count);
@@ -3950,13 +3950,18 @@ bool rai::publish::operator == (rai::publish const & other_a) const
     return work == other_a.work && *block == *other_a.block;
 }
 
-rai::work::work () :
-entry_requirement (8 * 1024),
-iteration_requirement (8 * 1024)
+namespace
 {
-    auto error (threshold_requirement.decode_hex ("ff00000000000000000000000000000000000000000000000000000000000000"));
-    //auto error (threshold_requirement.decode_hex ("8000000000000000000000000000000000000000000000000000000000000000"));
-    assert (!error);
+size_t publish_test_work (1024);
+size_t publish_full_work (128 * 1024);
+size_t publish_work (PUBLISH_WORK_FACTOR);
+}
+
+rai::work::work () :
+threshold_requirement ("fe00000000000000000000000000000000000000000000000000000000000000"),
+entry_requirement (publish_work),
+iteration_requirement (publish_work)
+{
     entries.resize (entry_requirement);
 }
 

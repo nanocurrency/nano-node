@@ -141,7 +141,7 @@ int main (int argc, char * const * argv)
         auto begin1 (std::chrono::high_resolution_clock::now ());
         auto value (work.create (source));
         auto end1 (std::chrono::high_resolution_clock::now ());
-        (void)work.validate (source, value);
+        work.validate (source, value);
         auto end2 (std::chrono::high_resolution_clock::now ());
         std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
     }
