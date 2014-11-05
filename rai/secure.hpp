@@ -100,7 +100,6 @@ namespace rai
 		rai::uint512_union & operator ^= (rai::uint512_union const &);
 		void encode_hex (std::string &);
 		bool decode_hex (std::string const &);
-		rai::uint512_union salsa20_8 ();
 		std::array <uint8_t, 64> bytes;
 		std::array <uint32_t, 16> dwords;
 		std::array <uint64_t, 8> qwords;

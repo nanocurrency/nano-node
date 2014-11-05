@@ -13,7 +13,7 @@ namespace
 {
     bool constexpr ledger_logging ()
     {
-        return false;
+        return true;
     }
     bool constexpr ledger_duplicate_logging ()
     {

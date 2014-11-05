@@ -1073,7 +1073,7 @@ TEST (bulk, offline_send)
     client1->wallet.insert (key2.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
     ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
-    bool finished;
+    bool finished (false);
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
     do
     {

@@ -420,15 +420,6 @@ TEST (frontier_req, serialization)
     ASSERT_EQ (request1, request2);
 }
 
-TEST (salsa20_8, one)
-{
-    rai::uint512_union value;
-    value.clear ();
-    value.bytes [0] = 1;
-    auto result (value.salsa20_8 ());
-    ASSERT_NE (value, result);
-}
-
 TEST (work, one)
 {
     rai::work work;
