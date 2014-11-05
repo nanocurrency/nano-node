@@ -108,7 +108,7 @@ on (true)
 
 void rai::network::receive ()
 {
-    std::unique_lock <std::mutex> lock (mutex);
+    std::unique_lock <std::mutex> lock (socket_mutex);
     socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote,
         [this] (boost::system::error_code const & error, size_t size_a)
         {
@@ -3016,7 +3016,7 @@ std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::
 
 void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function <void (boost::system::error_code const &, size_t)> callback_a)
 {
-    std::unique_lock <std::mutex> lock (mutex);
+    std::unique_lock <std::mutex> lock (socket_mutex);
     auto do_send (sends.empty ());
     sends.push (std::make_tuple (data_a, size_a, endpoint_a, callback_a));
     if (do_send)
@@ -3040,7 +3040,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
     }
     std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>> self;
     {
-        std::unique_lock <std::mutex> lock (mutex);
+        std::unique_lock <std::mutex> lock (socket_mutex);
         assert (!sends.empty ());
         self = sends.front ();
         sends.pop ();
