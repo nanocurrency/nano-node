@@ -261,6 +261,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         receive ();
                         if (!error)
                         {
+                            std::lock_guard <std::mutex> lock (work_mutex);
                             if (!work.validate (client.store.root (*incoming.block), incoming.work))
                             {
                                 ++publish_req_count;
@@ -289,6 +290,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         receive ();
                         if (!error)
                         {
+                            std::lock_guard <std::mutex> lock (work_mutex);
                             if (!work.validate (client.store.root (*incoming.block), incoming.work))
                             {
                                 ++confirm_req_count;
@@ -317,6 +319,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                         receive ();
                         if (!error)
                         {
+                            std::lock_guard <std::mutex> lock (work_mutex);
                             if (!work.validate (client.store.root (*incoming.vote.block), incoming.work))
                             {
                                 ++confirm_ack_count;

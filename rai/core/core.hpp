@@ -473,12 +473,13 @@ namespace rai {
         rai::endpoint remote;
         std::array <uint8_t, 512> buffer;
         rai::work work;
+        std::mutex work_mutex;
         boost::asio::ip::udp::socket socket;
+        std::mutex socket_mutex;
         boost::asio::io_service & service;
         boost::asio::ip::udp::resolver resolver;
         rai::client & client;
         std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
-        std::mutex mutex;
         uint64_t keepalive_count;
         uint64_t publish_req_count;
         uint64_t confirm_req_count;
