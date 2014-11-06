@@ -63,7 +63,7 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
             error_a = true;
         }
         boost::system::error_code ec;
-        boost::asio::ip::address_v6::from_string (rpc_address_l, ec);
+        rpc_address = boost::asio::ip::address_v6::from_string (rpc_address_l, ec);
         if (ec)
         {
             error_a = true;
