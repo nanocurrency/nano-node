@@ -558,7 +558,7 @@ namespace rai {
     class rpc
     {
     public:
-		rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, uint16_t, rai::client &, bool);
+        rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, boost::asio::ip::address_v6 const &, uint16_t, rai::client &, bool);
         void start ();
         void stop ();
         boost::network::http::server <rai::rpc> server;

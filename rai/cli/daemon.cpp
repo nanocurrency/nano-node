@@ -8,6 +8,7 @@
 rai_daemon::daemon_config::daemon_config () :
 peering_port (24000),
 rpc_enable (false),
+rpc_address (boost::asio::ip::address_v6::loopback ()),
 rpc_port (25000),
 rpc_enable_control (false)
 {
@@ -26,6 +27,7 @@ void rai_daemon::daemon_config::serialize (std::ostream & output_a)
         bootstrap_peers_l.push_back (std::make_pair ("", entry));
     }
     tree.add_child ("bootstrap_peers", bootstrap_peers_l);
+    tree.put ("rpc_address", rpc_address.to_string ());
     tree.put ("rpc_port", std::to_string (rpc_port));
     tree.put ("rpc_enable", rpc_enable);
     tree.put ("rpc_enable_control", rpc_enable_control);
@@ -40,6 +42,7 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
     {
         boost::property_tree::read_json (input_a, tree);
         auto peering_port_l (tree.get <std::string> ("peering_port"));
+        auto rpc_address_l (tree.get <std::string> ("rpc_address"));
         auto rpc_port_l (tree.get <std::string> ("rpc_port"));
         rpc_enable = tree.get <bool> ("rpc_enable");
         rpc_enable_control = tree.get <bool> ("rpc_enable_control");
@@ -56,6 +59,12 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
             error_a = peering_port > std::numeric_limits <uint16_t>::max () || rpc_port > std::numeric_limits <uint16_t>::max ();
         }
         catch (std::logic_error const &)
+        {
+            error_a = true;
+        }
+        boost::system::error_code ec;
+        boost::asio::ip::address_v6::from_string (rpc_address_l, ec);
+        if (ec)
         {
             error_a = true;
         }
@@ -103,7 +112,7 @@ void rai_daemon::daemon::run ()
         {
             client->processor.connect_bootstrap (config.bootstrap_peers);
             client->start ();
-            rai::rpc rpc (service, pool, config.rpc_port, *client, config.rpc_enable_control);
+            rai::rpc rpc (service, pool, config.rpc_address, config.rpc_port, *client, config.rpc_enable_control);
             if (config.rpc_enable)
             {
                 rpc.start ();
