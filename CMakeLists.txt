@@ -171,6 +171,8 @@ elseif (WIN32)
 	install (FILES ${Qt5_bin_DIR}/Qt5Gui.dll DESTINATION .)
 	install (FILES ${Qt5_bin_DIR}/Qt5Widgets.dll DESTINATION .)
 	install (FILES ${Qt5_DIR}/../../../plugins/platforms/qwindows.dll DESTINATION platforms)
+else ()
+	install (TARGETS qt_client DESTINATION .)
 endif ()
 
 set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
