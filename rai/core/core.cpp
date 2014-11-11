@@ -2898,7 +2898,7 @@ void rai::processor::ongoing_keepalive ()
     auto peers (client.peers.purge_list (std::chrono::system_clock::now () - cutoff));
     for (auto i (peers.begin ()), j (peers.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
     {
-        client.network.refresh_keepalive (i->endpoint);
+        client.network.send_keepalive (i->endpoint);
     }
     client.service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
 }
