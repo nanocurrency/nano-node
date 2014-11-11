@@ -47,6 +47,10 @@ namespace
     {
         return network_logging () && true;
     }
+    bool constexpr log_rpc ()
+    {
+        return network_logging () && true;
+    }
     bool constexpr log_to_cerr ()
     {
         return false;
@@ -1639,6 +1643,10 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             std::stringstream istream (request.body);
             boost::property_tree::read_json (istream, request_l);
             std::string action (request_l.get <std::string> ("action"));
+            if (log_rpc ())
+            {
+                client.log.add (request.body);
+            }
             if (action == "account_balance_exact")
             {
                 std::string account_text (request_l.get <std::string> ("account"));

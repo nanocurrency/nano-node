@@ -587,11 +587,13 @@ TEST (rpc, send)
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "send");
     request_tree.put ("account", account);
-    request_tree.put ("amount", "100");
+    request_tree.put ("amount", "1");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
+    auto balance1 (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     rpc (request, response);
+    ASSERT_EQ (balance1 - rai::uint128_t ("100000000000000000000"), system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);
