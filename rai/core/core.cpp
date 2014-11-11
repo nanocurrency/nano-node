@@ -123,7 +123,7 @@ void rai::network::stop ()
     resolver.cancel ();
 }
 
-void rai::network::maintain_keepalive (boost::asio::ip::udp::endpoint const & endpoint_a)
+void rai::network::refresh_keepalive (rai::endpoint const & endpoint_a)
 {
     auto endpoint_l (endpoint_a);
     if (endpoint_l.address ().is_v4 ())
@@ -133,36 +133,42 @@ void rai::network::maintain_keepalive (boost::asio::ip::udp::endpoint const & en
     assert (endpoint_l.address ().is_v6 ());
     if (endpoint_l != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
     {
-        if (!client.peers.contacting_peer (endpoint_l))
+        if (!client.peers.insert_peer (endpoint_l))
         {
-            rai::keepalive message;
-            client.peers.random_fill (message.peers);
-            std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
-            {
-                rai::vectorstream stream (*bytes);
-                message.serialize (stream);
-            }
-            if (network_keepalive_logging ())
-            {
-                client.log.add (boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_l));
-            }
-            auto client_l (client.shared ());
-            send_buffer (bytes->data (), bytes->size (), endpoint_l, [bytes, client_l, endpoint_l] (boost::system::error_code const & ec, size_t)
-            {
-                if (network_logging ())
-                {
-                    if (ec)
-                    {
-                        client_l->log.add (boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_l % ec.message ()));
-                    }
-                }
-            });
+            send_keepalive (endpoint_l);
         }
         else
         {
             // Skipping due to keepalive limiting
         }
     }
+}
+
+void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
+{
+    assert (endpoint_a.address ().is_v6 ());
+    rai::keepalive message;
+    client.peers.random_fill (message.peers);
+    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+    {
+        rai::vectorstream stream (*bytes);
+        message.serialize (stream);
+    }
+    if (network_keepalive_logging ())
+    {
+        client.log.add (boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_a));
+    }
+    auto client_l (client.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l, endpoint_a] (boost::system::error_code const & ec, size_t)
+        {
+            if (network_logging ())
+            {
+                if (ec)
+                {
+                client_l->log.add (boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_a % ec.message ()));
+                }
+            }
+        });
 }
 
 void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoint_a, std::unique_ptr <rai::block> block, rai::uint256_union const & work_a)
@@ -232,7 +238,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
             if (!rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions))
             {
                 auto sender (remote);
-                maintain_keepalive (sender);
+                refresh_keepalive (sender);
                 client.peers.incoming_from_peer (sender);
                 switch (type)
                 {
@@ -389,7 +395,7 @@ void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
     {
         if (*i != endpoint ())
         {
-            maintain_keepalive (*i);
+            refresh_keepalive (*i);
         }
         else
         {
@@ -1393,7 +1399,7 @@ service (new boost::asio::io_service)
     {
         auto starting1 ((*i)->peers.size ());
         auto starting2 ((*j)->peers.size ());
-        (*j)->network.maintain_keepalive ((*i)->network.endpoint ());
+        (*j)->network.refresh_keepalive ((*i)->network.endpoint ());
         do {
             service->run_one ();
         } while ((*i)->peers.size () == starting1 || (*j)->peers.size () == starting2);
@@ -2097,7 +2103,7 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
                 {
                     for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator {}); i != n; ++i)
                     {
-                        client_l->network.maintain_keepalive (i->endpoint ());
+                        client_l->network.refresh_keepalive (i->endpoint ());
                     }
                 }
             });
@@ -2892,7 +2898,7 @@ void rai::processor::ongoing_keepalive ()
     auto peers (client.peers.purge_list (std::chrono::system_clock::now () - cutoff));
     for (auto i (peers.begin ()), j (peers.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
     {
-        client.network.maintain_keepalive (i->endpoint);
+        client.network.refresh_keepalive (i->endpoint);
     }
     client.service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
 }
@@ -2917,7 +2923,7 @@ bool rai::peer_container::empty ()
     return size () == 0;
 }
 
-bool rai::peer_container::contacting_peer (rai::endpoint const & endpoint_a)
+bool rai::peer_container::insert_peer (rai::endpoint const & endpoint_a)
 {
 	auto result (rai::reserved_address (endpoint_a));
 	if (!result)

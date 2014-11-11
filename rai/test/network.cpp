@@ -71,7 +71,7 @@ TEST (network, send_keepalive)
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     client1->start ();
-    system.clients [0]->network.maintain_keepalive (client1->network.endpoint ());
+    system.clients [0]->network.refresh_keepalive (client1->network.endpoint ());
     auto initial (system.clients [0]->network.keepalive_count);
     ASSERT_EQ (1, system.clients [0]->peers.list ().size ());
     ASSERT_EQ (0, client1->peers.list ().size ());
@@ -98,7 +98,7 @@ TEST (network, keepalive_ipv4)
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     client1->start ();
-    system.clients [0]->network.maintain_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+    system.clients [0]->network.refresh_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
     auto initial (system.clients [0]->network.keepalive_count);
     auto iterations (0);
     while (system.clients [0]->network.keepalive_count == initial)
@@ -119,7 +119,7 @@ TEST (network, multi_keepalive)
     ASSERT_FALSE (init1.error ());
     client1->start ();
     ASSERT_EQ (0, client1->peers.size ());
-    client1->network.maintain_keepalive (system.clients [0]->network.endpoint ());
+    client1->network.refresh_keepalive (system.clients [0]->network.endpoint ());
     ASSERT_EQ (1, client1->peers.size ());
     ASSERT_EQ (0, system.clients [0]->peers.size ());
     auto iterations1 (0);
@@ -133,7 +133,7 @@ TEST (network, multi_keepalive)
     auto client2 (std::make_shared <rai::client> (init2, system.service, 24002, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init2.error ());
     client2->start ();
-    client2->network.maintain_keepalive (system.clients [0]->network.endpoint ());
+    client2->network.refresh_keepalive (system.clients [0]->network.endpoint ());
     auto iterations2 (0);
     while (client1->peers.size () != 2 || system.clients [0]->peers.size () != 2 || client2->peers.size () != 2)
     {
@@ -1062,7 +1062,7 @@ TEST (bulk, offline_send)
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init1.error ());
-    client1->network.maintain_keepalive (system.clients [0]->network.endpoint ());
+    client1->network.refresh_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
     do
     {

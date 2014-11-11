@@ -465,7 +465,8 @@ namespace rai {
         void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>, rai::uint256_union const &);
         void confirm_block (std::unique_ptr <rai::block>, rai::uint256_union const &, uint64_t);
         void merge_peers (std::array <rai::endpoint, 8> const &);
-        void maintain_keepalive (rai::endpoint const &);
+        void refresh_keepalive (rai::endpoint const &);
+        void send_keepalive (rai::endpoint const &);
         void send_confirm_req (rai::endpoint const &, rai::block const &, rai::uint256_union const &);
         void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
@@ -574,7 +575,8 @@ namespace rai {
 		peer_container (rai::endpoint const &);
         bool known_peer (rai::endpoint const &);
         void incoming_from_peer (rai::endpoint const &);
-		bool contacting_peer (rai::endpoint const &);
+        // Returns true if peer was already known
+		bool insert_peer (rai::endpoint const &);
 		void random_fill (std::array <rai::endpoint, 8> &);
         std::vector <peer_information> list ();
         void refresh_action ();
