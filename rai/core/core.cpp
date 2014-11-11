@@ -1639,7 +1639,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             std::stringstream istream (request.body);
             boost::property_tree::read_json (istream, request_l);
             std::string action (request_l.get <std::string> ("action"));
-            if (action == "account_balance")
+            if (action == "account_balance_exact")
             {
                 std::string account_text (request_l.get <std::string> ("account"));
                 rai::uint256_union account;
@@ -1647,6 +1647,25 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 if (!error)
                 {
                     auto balance (client.ledger.account_balance (account));
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("balance", balance.convert_to <std::string> ());
+                    set_response (response, response_l);
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
+            else if (action == "account_balance")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+                rai::uint256_union account;
+                auto error (account.decode_base58check (account_text));
+                if (!error)
+                {
+                    auto balance (client.ledger.account_balance (account));
+                    balance /= rai::uint128_t ("100000000000000000000");
                     boost::property_tree::ptree response_l;
                     response_l.put ("balance", balance.convert_to <std::string> ());
                     set_response (response, response_l);
@@ -1762,7 +1781,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 response_l.put ("valid", error ? "0" : "1");
                 set_response (response, response_l);
             }
-            else if (action == "send")
+            else if (action == "send_exact")
             {
                 if (enable_control)
                 {
@@ -1777,6 +1796,44 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         if (!error)
                         {
                             auto error (client.send (account, amount.number ()));
+                            boost::property_tree::ptree response_l;
+                            response_l.put ("sent", error ? "0" : "1");
+                            set_response (response, response_l);
+                        }
+                        else
+                        {
+                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                            response.content = "Bad amount format";
+                        }
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Bad account number";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "RPC control is disabled";
+                }
+            }
+            else if (action == "send")
+            {
+                if (enable_control)
+                {
+                    std::string account_text (request_l.get <std::string> ("account"));
+                    rai::uint256_union account;
+                    auto error (account.decode_base58check (account_text));
+                    if (!error)
+                    {
+                        std::string amount_text (request_l.get <std::string> ("amount"));
+                        rai::amount amount_number;
+                        auto error (amount_number.decode_dec (amount_text));
+                        if (!error)
+                        {
+                            auto amount (amount_number.number () * rai::uint128_t ("100000000000000000000"));
+                            auto error (client.send (account, amount));
                             boost::property_tree::ptree response_l;
                             response_l.put ("sent", error ? "0" : "1");
                             set_response (response, response_l);
