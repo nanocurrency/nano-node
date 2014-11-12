@@ -121,7 +121,7 @@ wallet_add_account (new QPushButton ("Create account"))
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
             settings_connect_line->setPalette (palette);
-            client_m.network.refresh_keepalive (endpoint);
+            client_m.send_keepalive (endpoint);
             settings_connect_line->clear ();
         }
         else
