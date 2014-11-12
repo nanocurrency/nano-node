@@ -369,6 +369,7 @@ namespace rai {
     public:
         processor (rai::client &);
         void stop ();
+        void check_bootstrap (rai::endpoint const &);
         void find_network (std::vector <std::pair <std::string, std::string>> const &);
         void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const &);
         void connect_bootstrap (std::vector <std::string> const &);
@@ -380,9 +381,12 @@ namespace rai {
         void process_confirmation (rai::block const &, rai::uint256_union const &, rai::endpoint const &);
         void process_confirmed (rai::block const &);
         void ongoing_keepalive ();
+        std::unique_ptr <std::set <rai::endpoint>> bootstrapped;
         rai::client & client;
+        static size_t constexpr bootstrap_max = 16;
         static std::chrono::seconds constexpr period = std::chrono::seconds (60);
         static std::chrono::seconds constexpr cutoff = period * 5;
+        std::mutex mutex;
     };
     class transactions
     {

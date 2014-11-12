@@ -822,6 +822,7 @@ void rai::processor_service::stop ()
 }
 
 rai::processor::processor (rai::client & client_a) :
+bootstrapped (new std::set <rai::endpoint>),
 client (client_a)
 {
 }
@@ -1402,11 +1403,15 @@ service (new boost::asio::io_service)
     for (auto i (clients.begin ()), j (clients.begin () + 1), n (clients.end ()); j != n; ++i, ++j)
     {
         auto starting1 ((*i)->peers.size ());
+        auto new1 (starting1);
         auto starting2 ((*j)->peers.size ());
+        auto new2 (starting2);
         (*j)->network.refresh_keepalive ((*i)->network.endpoint ());
         do {
             service->run_one ();
-        } while ((*i)->peers.size () == starting1 || (*j)->peers.size () == starting2);
+            new1 = (*i)->peers.size ();
+            new2 = (*j)->peers.size ();
+        } while (new1 == starting1 || new2 == starting2);
     }
 }
 
@@ -2970,7 +2975,7 @@ void rai::processor::ongoing_keepalive ()
 
 std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono::system_clock::time_point const & cutoff)
 {
-    std::unique_lock <std::mutex> lock (mutex);
+    std::lock_guard <std::mutex> lock (mutex);
     auto pivot (peers.get <1> ().lower_bound (cutoff));
     std::vector <rai::peer_information> result (pivot, peers.get <1> ().end ());
     peers.get <1> ().erase (peers.get <1> ().begin (), pivot);
@@ -2979,7 +2984,7 @@ std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono
 
 size_t rai::peer_container::size ()
 {
-    std::unique_lock <std::mutex> lock (mutex);
+    std::lock_guard <std::mutex> lock (mutex);
     return peers.size ();
 }
 
@@ -2995,7 +3000,7 @@ bool rai::peer_container::insert_peer (rai::endpoint const & endpoint_a)
 	{
 		if (endpoint_a != self)
 		{
-			std::unique_lock <std::mutex> lock (mutex);
+			std::lock_guard <std::mutex> lock (mutex);
 			auto existing (peers.find (endpoint_a));
 			if (existing != peers.end ())
 			{
@@ -3753,8 +3758,7 @@ class network_message_visitor : public rai::message_visitor
 public:
     network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
 	client (client_a),
-	sender (sender_a),
-    bootstrap_count (0)
+	sender (sender_a)
 	{
 	}
 	void keepalive (rai::keepalive const & message_a) override
@@ -3764,14 +3768,7 @@ public:
 			client.log.add (boost::str (boost::format ("Received keepalive from %1%") % sender));
 		}
 		client.network.merge_peers (message_a.peers);
-        if (bootstrap_count < 16)
-        {
-			client.processor.bootstrap (rai::tcp_endpoint (sender.address (), sender.port ()),
-										[] ()
-										{
-										});
-            ++bootstrap_count;
-		}
+        client.processor.check_bootstrap (sender);
 	}
 	void publish (rai::publish const & message_a) override
 	{
@@ -3819,8 +3816,31 @@ public:
 	}
 	rai::client & client;
 	rai::endpoint sender;
-    int bootstrap_count;
 };
+}
+
+void rai::processor::check_bootstrap (rai::endpoint const & endpoint_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    if (bootstrapped != nullptr)
+    {
+        auto existing (bootstrapped->find (endpoint_a));
+        if (existing == bootstrapped->end ())
+        {
+            client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()),
+                [] ()
+                {
+                });
+            if (bootstrapped->size () + 1 >= bootstrap_max)
+            {
+                bootstrapped.reset ();
+            }
+            else
+            {
+                bootstrapped->insert (endpoint_a);
+            }
+        }
+    }
 }
 
 void rai::processor::process_message (rai::message & message_a, rai::endpoint const & endpoint_a)

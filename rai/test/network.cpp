@@ -1120,10 +1120,13 @@ TEST (bulk, offline_send)
     ASSERT_FALSE (init1.error ());
     client1->network.refresh_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
+    auto iterations (0);
     do
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     } while (system.clients [0]->peers.empty () || client1->peers.empty ());
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
