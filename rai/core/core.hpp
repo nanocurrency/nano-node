@@ -332,13 +332,6 @@ namespace rai {
         std::condition_variable condition;
         std::priority_queue <operation, std::vector <operation>, std::greater <operation>> operations;
     };
-    class peer_information
-    {
-    public:
-        rai::endpoint endpoint;
-        std::chrono::system_clock::time_point last_contact;
-        std::chrono::system_clock::time_point last_attempt;
-    };
     class gap_information
     {
     public:
@@ -369,6 +362,7 @@ namespace rai {
     public:
         processor (rai::client &);
         void stop ();
+        void contacted (rai::endpoint const &);
         void check_bootstrap (rai::endpoint const &);
         void find_network (std::vector <std::pair <std::string, std::string>> const &);
         void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const &);
@@ -469,7 +463,6 @@ namespace rai {
         void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>, rai::uint256_union const &);
         void confirm_block (std::unique_ptr <rai::block>, rai::uint256_union const &, uint64_t);
         void merge_peers (std::array <rai::endpoint, 8> const &);
-        void refresh_keepalive (rai::endpoint const &);
         void send_keepalive (rai::endpoint const &);
         void send_confirm_req (rai::endpoint const &, rai::block const &, rai::uint256_union const &);
         void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
@@ -573,12 +566,19 @@ namespace rai {
         bool on;
         bool enable_control;
     };
+    class peer_information
+    {
+    public:
+        rai::endpoint endpoint;
+        std::chrono::system_clock::time_point last_contact;
+        std::chrono::system_clock::time_point last_attempt;
+    };
     class peer_container
     {
     public:
 		peer_container (rai::endpoint const &);
+        bool not_a_peer (rai::endpoint const &);
         bool known_peer (rai::endpoint const &);
-        void incoming_from_peer (rai::endpoint const &);
         // Returns true if peer was already known
 		bool insert_peer (rai::endpoint const &);
 		void random_fill (std::array <rai::endpoint, 8> &);
@@ -624,6 +624,7 @@ namespace rai {
         client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::address const &);
         ~client ();
         bool send (rai::public_key const &, rai::uint128_t const &);
+        void send_keepalive (rai::endpoint const &);
         rai::uint256_t balance ();
         void start ();
         void stop ();

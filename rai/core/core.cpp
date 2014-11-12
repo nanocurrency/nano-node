@@ -127,27 +127,6 @@ void rai::network::stop ()
     resolver.cancel ();
 }
 
-void rai::network::refresh_keepalive (rai::endpoint const & endpoint_a)
-{
-    auto endpoint_l (endpoint_a);
-    if (endpoint_l.address ().is_v4 ())
-    {
-        endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
-    }
-    assert (endpoint_l.address ().is_v6 ());
-    if (endpoint_l != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
-    {
-        if (!client.peers.insert_peer (endpoint_l))
-        {
-            send_keepalive (endpoint_l);
-        }
-        else
-        {
-            // Skipping due to keepalive limiting
-        }
-    }
-}
-
 void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 {
     assert (endpoint_a.address ().is_v6 ());
@@ -169,7 +148,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
             {
                 if (ec)
                 {
-                client_l->log.add (boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_a % ec.message ()));
+                    client_l->log.add (boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_a % ec.message ()));
                 }
             }
         });
@@ -242,8 +221,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
             if (!rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions))
             {
                 auto sender (remote);
-                refresh_keepalive (sender);
-                client.peers.incoming_from_peer (sender);
+                client.processor.contacted (sender);
                 switch (type)
                 {
                     case rai::message_type::keepalive:
@@ -397,22 +375,9 @@ void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
 {
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
     {
-        if (*i != endpoint ())
+        if (!client.peers.insert_peer (*i))
         {
-            refresh_keepalive (*i);
-        }
-        else
-        {
-            if (network_logging ())
-            {
-                if (rai::reserved_address (*i))
-                {
-                    if (i->address ().to_v4 ().to_ulong () != 0 || i->port () != 0)
-                    {
-                        client.log.add (boost::str (boost::format ("Keepalive contained reserved address")));
-                    }
-                }
-            }
+            send_keepalive (*i);
         }
     }
 }
@@ -827,6 +792,25 @@ client (client_a)
 {
 }
 
+void rai::processor::contacted (rai::endpoint const & endpoint_a)
+{
+    auto endpoint_l (endpoint_a);
+    if (endpoint_l.address ().is_v4 ())
+    {
+        endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
+    }
+    assert (endpoint_l.address ().is_v6 ());
+    if (!client.peers.insert_peer (endpoint_l))
+    {
+        client.network.send_keepalive (endpoint_l);
+        check_bootstrap (endpoint_l);
+    }
+    else
+    {
+        // Skipping due to keepalive limiting
+    }
+}
+
 void rai::processor::stop ()
 {
 }
@@ -884,6 +868,17 @@ rai::client::~client ()
     {
         std::cerr << "Destructing client\n";
     }
+}
+
+void rai::client::send_keepalive (rai::endpoint const & endpoint_a)
+{
+    auto endpoint_l (endpoint_a);
+    if (endpoint_l.address ().is_v4 ())
+    {
+        endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
+    }
+    assert (endpoint_l.address ().is_v6 ());
+    network.send_keepalive (endpoint_l);
 }
 
 namespace
@@ -1299,24 +1294,6 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a,
     return result;
 }
 
-void rai::peer_container::incoming_from_peer (rai::endpoint const & endpoint_a)
-{
-	assert (!reserved_address (endpoint_a));
-	if (endpoint_a != self)
-	{
-		std::lock_guard <std::mutex> lock (mutex);
-		auto existing (peers.find (endpoint_a));
-		if (existing == peers.end ())
-		{
-			peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
-		}
-		else
-		{
-			peers.modify (existing, [] (rai::peer_information & info) {info.last_contact = std::chrono::system_clock::now (); info.last_attempt = std::chrono::system_clock::now ();});
-		}
-	}
-}
-
 std::vector <rai::peer_information> rai::peer_container::list ()
 {
     std::vector <rai::peer_information> result;
@@ -1406,7 +1383,7 @@ service (new boost::asio::io_service)
         auto new1 (starting1);
         auto starting2 ((*j)->peers.size ());
         auto new2 (starting2);
-        (*j)->network.refresh_keepalive ((*i)->network.endpoint ());
+        (*j)->network.send_keepalive ((*i)->network.endpoint ());
         do {
             service->run_one ();
             new1 = (*i)->peers.size ();
@@ -2173,7 +2150,7 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
                 {
                     for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator {}); i != n; ++i)
                     {
-                        client_l->network.refresh_keepalive (i->endpoint ());
+                        client_l->send_keepalive (i->endpoint ());
                     }
                 }
             });
@@ -2979,6 +2956,10 @@ std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono
     auto pivot (peers.get <1> ().lower_bound (cutoff));
     std::vector <rai::peer_information> result (pivot, peers.get <1> ().end ());
     peers.get <1> ().erase (peers.get <1> ().begin (), pivot);
+    for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
+    {
+        peers.modify (i, [] (rai::peer_information & info) {info.last_attempt = std::chrono::system_clock::now ();});
+    }
     return result;
 }
 
@@ -2993,24 +2974,40 @@ bool rai::peer_container::empty ()
     return size () == 0;
 }
 
+bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a)
+{
+    bool result (false);
+    if (endpoint_a.address ().to_v6 ().is_unspecified ())
+    {
+        result = true;
+    }
+    else if (rai::reserved_address (endpoint_a))
+    {
+        result = true;
+    }
+    else if (endpoint_a == self)
+    {
+        result = true;
+    }
+    return result;
+}
+
 bool rai::peer_container::insert_peer (rai::endpoint const & endpoint_a)
 {
-	auto result (rai::reserved_address (endpoint_a));
+	auto result (not_a_peer (endpoint_a));
 	if (!result)
 	{
-		if (endpoint_a != self)
-		{
-			std::lock_guard <std::mutex> lock (mutex);
-			auto existing (peers.find (endpoint_a));
-			if (existing != peers.end ())
-			{
-				result = true;
-			}
-			else
-			{
-				peers.insert ({endpoint_a, std::chrono::system_clock::time_point (), std::chrono::system_clock::now ()});
-			}
-		}
+        std::lock_guard <std::mutex> lock (mutex);
+        auto existing (peers.find (endpoint_a));
+        if (existing != peers.end ())
+        {
+            peers.modify (existing, [] (rai::peer_information & info) {info.last_contact = std::chrono::system_clock::now ();});
+            result = true;
+        }
+        else
+        {
+            peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
+        }
 	}
 	return result;
 }
@@ -3027,7 +3024,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
     assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
 	auto result (false);
-	if (bytes >= mapped_from_v4_bytes (0x00000000ul) && bytes <= mapped_from_v4_bytes (0x00fffffful)) // Broadcast RFC1700
+    if (bytes >= mapped_from_v4_bytes (0x00000000ul) && bytes <= mapped_from_v4_bytes (0x00fffffful)) // Broadcast RFC1700
 	{
 		result = true;
 	}
@@ -3047,7 +3044,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	{
 		result = true;
 	}
-	else if (bytes >= mapped_from_v4_bytes (0xf0000000ul)) // Reserver RFC6890
+	else if (bytes >= mapped_from_v4_bytes (0xf0000000ul)) // Reserved RFC6890
 	{
 		result = true;
 	}
@@ -3768,7 +3765,6 @@ public:
 			client.log.add (boost::str (boost::format ("Received keepalive from %1%") % sender));
 		}
 		client.network.merge_peers (message_a.peers);
-        client.processor.check_bootstrap (sender);
 	}
 	void publish (rai::publish const & message_a) override
 	{

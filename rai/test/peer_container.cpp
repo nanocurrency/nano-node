@@ -22,7 +22,7 @@ TEST (peer_container, no_self_incoming)
 {
     rai::endpoint self (boost::asio::ip::address_v6::loopback (), 10000);
     rai::peer_container peers (self);
-    peers.incoming_from_peer (self);
+    peers.insert_peer (self);
     ASSERT_TRUE (peers.peers.empty ());
 }
 
@@ -39,9 +39,10 @@ TEST (peer_container, old_known)
     rai::endpoint self (boost::asio::ip::address_v6::loopback (), 10000);
     rai::endpoint other (boost::asio::ip::address_v6::loopback (), 10001);
     rai::peer_container peers (self);
-    peers.insert_peer (other);
+    ASSERT_FALSE (peers.insert_peer (other));
+    peers.peers.modify (peers.peers.begin (), [] (rai::peer_information & info) {info.last_contact = std::chrono::system_clock::time_point {};});
     ASSERT_FALSE (peers.known_peer (other));
-    peers.incoming_from_peer (other);
+    ASSERT_TRUE (peers.insert_peer (other));
     ASSERT_TRUE (peers.known_peer (other));
 }
 
@@ -85,7 +86,7 @@ TEST (peer_container, fill_random_full)
     rai::peer_container peers (rai::endpoint {});
     for (auto i (0); i < 100; ++i)
     {
-        peers.incoming_from_peer (rai::endpoint (boost::asio::ip::address_v6::loopback (), i));
+        peers.insert_peer (rai::endpoint (boost::asio::ip::address_v6::loopback (), i));
     }
     std::array <rai::endpoint, 8> target;
     std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
@@ -100,7 +101,7 @@ TEST (peer_container, fill_random_part)
     auto half (target.size () / 2);
     for (auto i (0); i < half; ++i)
     {
-        peers.incoming_from_peer (rai::endpoint (boost::asio::ip::address_v6::loopback (), i + 1));
+        peers.insert_peer (rai::endpoint (boost::asio::ip::address_v6::loopback (), i + 1));
     }
     std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
     peers.random_fill (target);

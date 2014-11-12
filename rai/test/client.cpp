@@ -136,16 +136,14 @@ TEST (client, send_out_of_order)
 TEST (client, auto_bootstrap)
 {
     rai::system system (24000, 1);
-    system.clients [0]->peers.incoming_from_peer (system.clients [0]->network.endpoint ());
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init1.error ());
-    client1->peers.incoming_from_peer (client1->network.endpoint ());
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
-    client1->network.refresh_keepalive (system.clients [0]->network.endpoint ());
+    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
     ASSERT_NE (nullptr, client1->processor.bootstrapped);
     ASSERT_EQ (0, client1->processor.bootstrapped->size ());
@@ -181,7 +179,7 @@ TEST (client, bootstrap_end)
     {
         client1->processor.bootstrapped->insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 24002 + i));
     }
-    client1->network.refresh_keepalive (system.clients [0]->network.endpoint ());
+    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     auto iterations (0);
     do
     {
@@ -196,16 +194,14 @@ TEST (client, bootstrap_end)
 TEST (client, auto_bootstrap_reverse)
 {
     rai::system system (24000, 1);
-    system.clients [0]->peers.incoming_from_peer (system.clients [0]->network.endpoint ());
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
     ASSERT_FALSE (init1.error ());
-    client1->peers.incoming_from_peer (client1->network.endpoint ());
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 100));
-    system.clients [0]->network.refresh_keepalive (client1->network.endpoint ());
+    system.clients [0]->network.send_keepalive (client1->network.endpoint ());
     client1->start ();
     auto iterations (0);
     do
