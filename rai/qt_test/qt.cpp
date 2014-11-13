@@ -172,7 +172,10 @@ TEST (client, process_block)
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
     rai::keypair key1;
+    ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);
+    QTest::mouseClick (client.advanced.enter_block, Qt::LeftButton);
+    ASSERT_EQ (client.block_entry.window, client.main_stack->currentWidget ());
     rai::send_block send;
     send.hashables.destination = key1.pub;
     send.hashables.previous = system.clients [0]->ledger.latest (rai::genesis_address);
@@ -190,4 +193,6 @@ TEST (client, process_block)
     QTest::keyClicks (client.block_entry.block, block_json.c_str ());
     QTest::mouseClick (client.block_entry.process, Qt::LeftButton);
     ASSERT_EQ (send.hash (), system.clients [0]->ledger.latest (rai::genesis_address));
+    QTest::mouseClick(client.block_entry.back, Qt::LeftButton);
+    ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
 }

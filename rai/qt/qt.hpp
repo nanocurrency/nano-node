@@ -51,6 +51,7 @@ namespace rai_qt {
         QLabel * wallet_key_text;
         QLineEdit * wallet_key_line;
         QPushButton * wallet_add_key_button;
+        QPushButton * enter_block;
         QPushButton * back;
         
         QWidget * ledger_window;

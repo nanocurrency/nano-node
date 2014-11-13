@@ -385,6 +385,7 @@ show_log (new QPushButton ("Log")),
 wallet_key_text (new QLabel ("Account key:")),
 wallet_key_line (new QLineEdit),
 wallet_add_key_button (new QPushButton ("Add account key")),
+enter_block (new QPushButton ("Enter Block")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -442,6 +443,7 @@ client (client_a)
     layout->addWidget (wallet_key_text);
     layout->addWidget (wallet_key_line);
     layout->addWidget (wallet_add_key_button);
+    layout->addWidget (enter_block);
     layout->addWidget (back);
     window->setLayout (layout);
     QObject::connect (show_log, &QPushButton::released, [this] ()
@@ -505,6 +507,10 @@ client (client_a)
           wallet_key_line->setPalette (palette);
       }
     });
+    QObject::connect (enter_block, &QPushButton::released, [this] ()
+        {
+            client.push_main_stack (client.block_entry.window);
+        });
     refresh_ledger ();
 }
 
