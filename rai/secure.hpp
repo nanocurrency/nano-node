@@ -98,14 +98,14 @@ namespace rai
 		bool operator == (rai::uint512_union const &) const;
 		bool operator != (rai::uint512_union const &) const;
 		rai::uint512_union & operator ^= (rai::uint512_union const &);
-		void encode_hex (std::string &);
+		void encode_hex (std::string &) const;
 		bool decode_hex (std::string const &);
 		std::array <uint8_t, 64> bytes;
 		std::array <uint32_t, 16> dwords;
 		std::array <uint64_t, 8> qwords;
 		std::array <uint256_union, 2> uint256s;
 		void clear ();
-		boost::multiprecision::uint512_t number ();
+		boost::multiprecision::uint512_t number () const;
 	};
 	using signature = uint512_union;
 	class keypair
@@ -170,6 +170,7 @@ namespace rai
 		virtual rai::block_hash previous () const = 0;
 		virtual rai::block_hash source () const = 0;
 		virtual void serialize (rai::stream &) const = 0;
+        virtual void serialize_json (std::string &) const = 0;
 		virtual void visit (rai::block_visitor &) const = 0;
 		virtual bool operator == (rai::block const &) const = 0;
 		virtual std::unique_ptr <rai::block> clone () const = 0;
@@ -177,6 +178,7 @@ namespace rai
     };
     std::unique_ptr <rai::block> deserialize_block (rai::stream &);
     std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
+    std::unique_ptr <rai::block> deserialize_block_json (std::string const &);
     void serialize_block (rai::stream &, rai::block const &);
 	class send_hashables
 	{
@@ -194,9 +196,11 @@ namespace rai
 		using rai::block::hash;
 		void hash (CryptoPP::SHA3 &) const override;
 		rai::block_hash previous () const override;
-		rai::block_hash source () const override;
-		void serialize (rai::stream &) const override;
-		bool deserialize (rai::stream &);
+        rai::block_hash source () const override;
+        void serialize (rai::stream &) const override;
+        void serialize_json (std::string &) const;
+        bool deserialize (rai::stream &);
+        bool deserialize_json (std::string const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
@@ -219,8 +223,10 @@ namespace rai
 		void hash (CryptoPP::SHA3 &) const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
-		void serialize (rai::stream &) const override;
+        void serialize (rai::stream &) const override;
+        void serialize_json (std::string &) const override;
 		bool deserialize (rai::stream &);
+        bool deserialize_json (std::string const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
@@ -245,8 +251,10 @@ namespace rai
 		void hash (CryptoPP::SHA3 &) const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
-		void serialize (rai::stream &) const override;
-		bool deserialize (rai::stream &);
+        void serialize (rai::stream &) const override;
+        void serialize_json (std::string &) const override;
+        bool deserialize (rai::stream &);
+        bool deserialize_json (std::string const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
@@ -273,8 +281,10 @@ namespace rai
 		void hash (CryptoPP::SHA3 &) const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
-		void serialize (rai::stream &) const override;
-		bool deserialize (rai::stream &);
+        void serialize (rai::stream &) const override;
+        void serialize_json (std::string &) const override;
+        bool deserialize (rai::stream &);
+        bool deserialize_json (std::string const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;

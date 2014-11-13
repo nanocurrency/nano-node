@@ -30,7 +30,7 @@ TEST (transaction_block, empty)
     ASSERT_TRUE (rai::validate_message (key1.pub, hash, block.signature));
 }
 
-TEST (send_block, empty_send_serialize)
+TEST (block, send_serialize)
 {
     rai::send_block block1;
     std::vector <uint8_t> bytes;
@@ -44,11 +44,22 @@ TEST (send_block, empty_send_serialize)
     ASSERT_NE (0, size);
     rai::bufferstream stream2 (data, size);
     rai::send_block block2;
-    block2.deserialize (stream2);
+    ASSERT_FALSE (block2.deserialize (stream2));
     ASSERT_EQ (block1, block2);
 }
 
-TEST (send_block, receive_serialize)
+TEST (block, send_serialize_json)
+{
+    rai::send_block block1;
+    std::string string1;
+    block1.serialize_json (string1);
+    ASSERT_NE (0, string1.size ());
+    rai::send_block block2;
+    ASSERT_FALSE (block2.deserialize_json (string1));
+    ASSERT_EQ (block1, block2);
+}
+
+TEST (block, receive_serialize)
 {
     rai::receive_block block1;
     rai::keypair key1;
@@ -61,6 +72,39 @@ TEST (send_block, receive_serialize)
     rai::receive_block block2;
     auto error (block2.deserialize (stream2));
     ASSERT_FALSE (error);
+    ASSERT_EQ (block1, block2);
+}
+
+TEST (block, receive_serialize_json)
+{
+    rai::receive_block block1;
+    std::string string1;
+    block1.serialize_json (string1);
+    ASSERT_NE (0, string1.size ());
+    rai::receive_block block2;
+    ASSERT_FALSE (block2.deserialize_json (string1));
+    ASSERT_EQ (block1, block2);
+}
+
+TEST (block, open_serialize_json)
+{
+    rai::open_block block1;
+    std::string string1;
+    block1.serialize_json (string1);
+    ASSERT_NE (0, string1.size ());
+    rai::open_block block2;
+    ASSERT_FALSE (block2.deserialize_json (string1));
+    ASSERT_EQ (block1, block2);
+}
+
+TEST (block, change_serialize_json)
+{
+    rai::change_block block1 (rai::address (1), rai::block_hash (2), rai::private_key (3), rai::public_key (4));
+    std::string string1;
+    block1.serialize_json (string1);
+    ASSERT_NE (0, string1.size ());
+    rai::change_block block2 (5, 6, 7, 8);
+    ASSERT_FALSE (block2.deserialize_json (string1));
     ASSERT_EQ (block1, block2);
 }
 
