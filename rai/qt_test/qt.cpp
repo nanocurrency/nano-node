@@ -163,3 +163,31 @@ TEST (client, scale_num)
     auto up (client.advanced.scale_up (down));
     ASSERT_EQ (num, up);
 }
+
+
+TEST (client, process_block)
+{
+    rai::system system (24000, 1);
+    int argc (0);
+    QApplication application (argc, nullptr);
+    rai_qt::client client (application, *system.clients [0]);
+    rai::keypair key1;
+    QTest::mouseClick (client.show_advanced, Qt::LeftButton);
+    rai::send_block send;
+    send.hashables.destination = key1.pub;
+    send.hashables.previous = system.clients [0]->ledger.latest (rai::genesis_address);
+    send.hashables.balance = 0;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+    std::string destination;
+    send.hashables.destination.encode_hex (destination);
+    std::string previous;
+    send.hashables.previous.encode_hex (previous);
+    std::string balance;
+    send.hashables.balance.encode_hex (balance);
+    std::string signature;
+    send.signature.encode_hex (signature);
+    auto block_json (boost::str (boost::format ("{\"type\": \"send\", \"previous\": \"%1%\", \"balance\": \"%2%\", \"destination\": \"%3%\", \"signature\": \"%4%\"}") % previous % balance % destination % signature));
+    QTest::keyClicks (client.block_entry.block, block_json.c_str ());
+    QTest::mouseClick (client.block_entry.process, Qt::LeftButton);
+    ASSERT_EQ (send.hash (), system.clients [0]->ledger.latest (rai::genesis_address));
+}

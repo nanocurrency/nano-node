@@ -1,6 +1,5 @@
 #include <rai/secure.hpp>
 
-#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <cryptopp/aes.h>
@@ -291,19 +290,16 @@ bool rai::send_block::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-bool rai::send_block::deserialize_json (std::string const & string_a)
+bool rai::send_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
     auto result (false);
     try
     {
-        boost::property_tree::ptree tree;
-        std::stringstream istream (string_a);
-        boost::property_tree::read_json (istream, tree);
-        assert (tree.get <std::string> ("type") == "send");
-        auto previous_l (tree.get <std::string> ("previous"));
-        auto balance_l (tree.get <std::string> ("balance"));
-        auto destination_l (tree.get <std::string> ("destination"));
-        auto signature_l (tree.get <std::string> ("signature"));
+        assert (tree_a.get <std::string> ("type") == "send");
+        auto previous_l (tree_a.get <std::string> ("previous"));
+        auto balance_l (tree_a.get <std::string> ("balance"));
+        auto destination_l (tree_a.get <std::string> ("destination"));
+        auto signature_l (tree_a.get <std::string> ("signature"));
         result = hashables.previous.decode_hex (previous_l);
         if (!result)
         {
@@ -356,18 +352,15 @@ bool rai::receive_block::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-bool rai::receive_block::deserialize_json (std::string const & string_a)
+bool rai::receive_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
     auto result (false);
     try
     {
-        boost::property_tree::ptree tree;
-        std::stringstream istream (string_a);
-        boost::property_tree::read_json (istream, tree);
-        assert (tree.get <std::string> ("type") == "receive");
-        auto previous_l (tree.get <std::string> ("previous"));
-        auto source_l (tree.get <std::string> ("source"));
-        auto signature_l (tree.get <std::string> ("signature"));
+        assert (tree_a.get <std::string> ("type") == "receive");
+        auto previous_l (tree_a.get <std::string> ("previous"));
+        auto source_l (tree_a.get <std::string> ("source"));
+        auto signature_l (tree_a.get <std::string> ("signature"));
         result = hashables.previous.decode_hex (previous_l);
         if (!result)
         {
@@ -844,6 +837,55 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai
     return result;
 }
 
+std::unique_ptr <rai::block> rai::deserialize_block_json (boost::property_tree::ptree const & tree_a)
+{
+    std::unique_ptr <rai::block> result;
+    try
+    {
+        auto type (tree_a.get <std::string> ("type"));
+        if (type == "receive")
+        {
+            std::unique_ptr <rai::receive_block> obj (new rai::receive_block);
+            auto error (obj->deserialize_json (tree_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+        }
+        else if (type == "send")
+        {
+            std::unique_ptr <rai::send_block> obj (new rai::send_block);
+            auto error (obj->deserialize_json (tree_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+        }
+        else if (type == "open")
+        {
+            std::unique_ptr <rai::open_block> obj (new rai::open_block);
+            auto error (obj->deserialize_json (tree_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+        }
+        else if (type == "change")
+        {
+            bool error;
+            std::unique_ptr <rai::change_block> obj (new rai::change_block (error, tree_a));
+            if (!error)
+            {
+                result = std::move (obj);
+            }
+        }
+    }
+    catch (std::runtime_error const &)
+    {
+    }
+    return result;
+}
+
 std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
 {
     rai::block_type type;
@@ -955,18 +997,15 @@ bool rai::open_block::deserialize (rai::stream & stream_a)
     return result;
 }
 
-bool rai::open_block::deserialize_json (std::string const & string_a)
+bool rai::open_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
     auto result (false);
     try
     {
-        boost::property_tree::ptree tree;
-        std::stringstream istream (string_a);
-        boost::property_tree::read_json (istream, tree);
-        assert (tree.get <std::string> ("type") == "open");
-        auto representative_l (tree.get <std::string> ("representative"));
-        auto source_l (tree.get <std::string> ("source"));
-        auto signature_l (tree.get <std::string> ("signature"));
+        assert (tree_a.get <std::string> ("type") == "open");
+        auto representative_l (tree_a.get <std::string> ("representative"));
+        auto source_l (tree_a.get <std::string> ("source"));
+        auto signature_l (tree_a.get <std::string> ("signature"));
         result = hashables.representative.decode_hex (representative_l);
         if (!result)
         {
@@ -1035,6 +1074,24 @@ rai::change_hashables::change_hashables (bool & error_a, rai::stream & stream_a)
     }
 }
 
+rai::change_hashables::change_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+{
+    try
+    {
+        auto representative_l (tree_a.get <std::string> ("representative"));
+        auto previous_l (tree_a.get <std::string> ("previous"));
+        error_a = representative.decode_hex (representative_l);
+        if (!error_a)
+        {
+            error_a = previous.decode_hex (previous_l);
+        }
+    }
+    catch (std::runtime_error const &)
+    {
+        error_a = true;
+    }
+}
+
 void rai::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
     hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
@@ -1053,6 +1110,23 @@ hashables (error_a, stream_a)
     if (!error_a)
     {
         error_a = rai::read (stream_a, signature);
+    }
+}
+
+rai::change_block::change_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+hashables (error_a, tree_a)
+{
+    if (!error_a)
+    {
+        try
+        {
+            auto signature_l (tree_a.get <std::string> ("signature"));
+            error_a = signature.decode_hex (signature_l);
+        }
+        catch (std::runtime_error const &)
+        {
+            error_a = true;
+        }
     }
 }
 
@@ -1105,18 +1179,15 @@ bool rai::change_block::deserialize (rai::stream & stream_a)
     return result;
 }
 
-bool rai::change_block::deserialize_json (std::string const & string_a)
+bool rai::change_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
     auto result (false);
     try
     {
-        boost::property_tree::ptree tree;
-        std::stringstream istream (string_a);
-        boost::property_tree::read_json (istream, tree);
-        assert (tree.get <std::string> ("type") == "change");
-        auto representative_l (tree.get <std::string> ("representative"));
-        auto previous_l (tree.get <std::string> ("previous"));
-        auto signature_l (tree.get <std::string> ("signature"));
+        assert (tree_a.get <std::string> ("type") == "change");
+        auto representative_l (tree_a.get <std::string> ("representative"));
+        auto previous_l (tree_a.get <std::string> ("previous"));
+        auto signature_l (tree_a.get <std::string> ("signature"));
         result = hashables.representative.decode_hex (representative_l);
         if (!result)
         {

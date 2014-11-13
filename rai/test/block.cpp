@@ -2,6 +2,8 @@
 #include <rai/core/core.hpp>
 #include <fstream>
 
+#include <boost/property_tree/json_parser.hpp>
+
 TEST (ed25519, signing)
 {
     rai::uint256_union prv;
@@ -55,7 +57,10 @@ TEST (block, send_serialize_json)
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
     rai::send_block block2;
-    ASSERT_FALSE (block2.deserialize_json (string1));
+    boost::property_tree::ptree tree1;
+    std::stringstream istream (string1);
+    boost::property_tree::read_json (istream, tree1);
+    ASSERT_FALSE (block2.deserialize_json (tree1));
     ASSERT_EQ (block1, block2);
 }
 
@@ -82,7 +87,10 @@ TEST (block, receive_serialize_json)
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
     rai::receive_block block2;
-    ASSERT_FALSE (block2.deserialize_json (string1));
+    boost::property_tree::ptree tree1;
+    std::stringstream istream (string1);
+    boost::property_tree::read_json (istream, tree1);
+    ASSERT_FALSE (block2.deserialize_json (tree1));
     ASSERT_EQ (block1, block2);
 }
 
@@ -93,7 +101,10 @@ TEST (block, open_serialize_json)
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
     rai::open_block block2;
-    ASSERT_FALSE (block2.deserialize_json (string1));
+    boost::property_tree::ptree tree1;
+    std::stringstream istream (string1);
+    boost::property_tree::read_json (istream, tree1);
+    ASSERT_FALSE (block2.deserialize_json (tree1));
     ASSERT_EQ (block1, block2);
 }
 
@@ -103,8 +114,12 @@ TEST (block, change_serialize_json)
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
-    rai::change_block block2 (5, 6, 7, 8);
-    ASSERT_FALSE (block2.deserialize_json (string1));
+    boost::property_tree::ptree tree1;
+    std::stringstream istream (string1);
+    boost::property_tree::read_json (istream, tree1);
+    bool error;
+    rai::change_block block2 (error, tree1);
+    ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }
 

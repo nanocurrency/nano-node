@@ -1,6 +1,7 @@
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <cryptopp/osrng.h>
@@ -178,7 +179,7 @@ namespace rai
     };
     std::unique_ptr <rai::block> deserialize_block (rai::stream &);
     std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
-    std::unique_ptr <rai::block> deserialize_block_json (std::string const &);
+    std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
     void serialize_block (rai::stream &, rai::block const &);
 	class send_hashables
 	{
@@ -198,9 +199,9 @@ namespace rai
 		rai::block_hash previous () const override;
         rai::block_hash source () const override;
         void serialize (rai::stream &) const override;
-        void serialize_json (std::string &) const;
+        void serialize_json (std::string &) const override;
         bool deserialize (rai::stream &);
-        bool deserialize_json (std::string const &);
+        bool deserialize_json (boost::property_tree::ptree const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
@@ -226,7 +227,7 @@ namespace rai
         void serialize (rai::stream &) const override;
         void serialize_json (std::string &) const override;
 		bool deserialize (rai::stream &);
-        bool deserialize_json (std::string const &);
+        bool deserialize_json (boost::property_tree::ptree const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
@@ -254,7 +255,7 @@ namespace rai
         void serialize (rai::stream &) const override;
         void serialize_json (std::string &) const override;
         bool deserialize (rai::stream &);
-        bool deserialize_json (std::string const &);
+        bool deserialize_json (boost::property_tree::ptree const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
@@ -268,6 +269,7 @@ namespace rai
 	public:
         change_hashables (rai::address const &, rai::block_hash const &);
         change_hashables (bool &, rai::stream &);
+        change_hashables (bool &, boost::property_tree::ptree const &);
 		void hash (CryptoPP::SHA3 &) const;
 		rai::address representative;
 		rai::block_hash previous;
@@ -277,6 +279,7 @@ namespace rai
     public:
         change_block (rai::address const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &);
         change_block (bool &, rai::stream &);
+        change_block (bool &, boost::property_tree::ptree const &);
 		using rai::block::hash;
 		void hash (CryptoPP::SHA3 &) const override;
 		rai::block_hash previous () const override;
@@ -284,7 +287,7 @@ namespace rai
         void serialize (rai::stream &) const override;
         void serialize_json (std::string &) const override;
         bool deserialize (rai::stream &);
-        bool deserialize_json (std::string const &);
+        bool deserialize_json (boost::property_tree::ptree const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;

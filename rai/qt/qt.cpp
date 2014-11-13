@@ -1,5 +1,7 @@
 #include <rai/qt/qt.hpp>
 
+#include <boost/property_tree/json_parser.hpp>
+
 #include <cryptopp/sha3.h>
 
 #include <sstream>
@@ -9,6 +11,7 @@ client_m (client_a),
 password_change (*this),
 enter_password (*this),
 advanced (*this),
+block_entry (*this),
 application (application_a),
 main_stack (new QStackedWidget),
 settings_window (new QWidget),
@@ -562,4 +565,50 @@ uint64_t rai_qt::advanced_actions::scale_down (rai::uint128_t const & amount_a)
 rai::uint128_t rai_qt::advanced_actions::scale_up (uint64_t amount_a)
 {
     return scale * amount_a;
+}
+
+rai_qt::block_entry::block_entry (rai_qt::client & client_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+block (new QPlainTextEdit),
+status (new QLabel),
+process (new QPushButton),
+back (new QPushButton),
+client (client_a)
+{
+    layout->addWidget (block);
+    layout->addWidget (status);
+    layout->addWidget (process);
+    layout->addWidget (back);
+    window->setLayout (layout);
+    QObject::connect (process, &QPushButton::released, [this] ()
+        {
+            auto string (block->toPlainText ().toStdString ());
+            try
+            {
+                boost::property_tree::ptree tree;
+                std::stringstream istream (string);
+                boost::property_tree::read_json (istream, tree);
+                auto block_l (rai::deserialize_block_json (tree));
+                if (block_l != nullptr)
+                {
+                    auto proof (client.client_m.create_work (*block_l));
+                    client.client_m.processor.process_receive_republish (std::move (block_l), [proof] (rai::block const &) {return proof;}, rai::endpoint {});
+                }
+                else
+                {
+                    status->setStyleSheet ("QLabel { color: red }");
+                    status->setText ("Unable to parse block");
+                }
+            }
+            catch (std::runtime_error const &)
+            {
+                status->setStyleSheet ("QLabel { color: red }");
+                status->setText ("Unable to parse block");
+            }
+        });
+    QObject::connect (back, &QPushButton::released, [this] ()
+        {
+            client.pop_main_stack ();
+        });
 }

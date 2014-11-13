@@ -84,6 +84,18 @@ namespace rai_qt {
         void refresh_peers ();
         void refresh_log ();
     };
+    class block_entry
+    {
+    public:
+        block_entry (rai_qt::client &);
+        QWidget * window;
+        QVBoxLayout * layout;
+        QPlainTextEdit * block;
+        QLabel * status;
+        QPushButton * process;
+        QPushButton * back;
+        rai_qt::client & client;
+    };
     class client
     {
     public:
@@ -93,6 +105,7 @@ namespace rai_qt {
         rai_qt::password_change password_change;
         rai_qt::enter_password enter_password;
         rai_qt::advanced_actions advanced;
+        rai_qt::block_entry block_entry;
         
         QApplication & application;
         QStackedWidget * main_stack;
