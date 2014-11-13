@@ -171,6 +171,8 @@ TEST (client, process_block)
     int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
+    ASSERT_EQ ("Process", client.block_entry.process->text ());
+    ASSERT_EQ ("Back", client.block_entry.back->text ());
     rai::keypair key1;
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);

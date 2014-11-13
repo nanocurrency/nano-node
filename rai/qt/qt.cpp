@@ -578,8 +578,8 @@ window (new QWidget),
 layout (new QVBoxLayout),
 block (new QPlainTextEdit),
 status (new QLabel),
-process (new QPushButton),
-back (new QPushButton),
+process (new QPushButton ("Process")),
+back (new QPushButton ("Back")),
 client (client_a)
 {
     layout->addWidget (block);
