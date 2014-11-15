@@ -34,6 +34,9 @@ namespace rai
 	using uint128_t = boost::multiprecision::uint128_t;
 	using uint256_t = boost::multiprecision::uint256_t;
 	using uint512_t = boost::multiprecision::uint512_t;
+    rai::uint128_t const scale_64bit_base10 = rai::uint128_t ("100000000000000000000");
+    uint64_t scale_down (rai::uint128_t const &);
+    rai::uint128_t scale_up (uint64_t);
 	union uint128_union
 	{
 	public:

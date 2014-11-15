@@ -7,6 +7,16 @@
 
 CryptoPP::AutoSeededRandomPool rai::random_pool;
 
+uint64_t rai::scale_down (rai::uint128_t const & amount_a)
+{
+    return (amount_a / rai::scale_64bit_base10).convert_to <uint64_t> ();
+}
+
+rai::uint128_t rai::scale_up (uint64_t amount_a)
+{
+    return rai::scale_64bit_base10 * amount_a;
+}
+
 void rai::uint256_union::digest_password (std::string const & password_a)
 {
 	CryptoPP::SHA3 hash (32);

@@ -9,7 +9,7 @@ class qt_client_config
 {
 public:
     qt_client_config () :
-    peering_port (25000)
+    peering_port (24000)
     {
         bootstrap_peers.push_back ("rai.raiblocks.net");
     }
@@ -22,6 +22,7 @@ public:
             boost::property_tree::read_json (stream_a, tree);
             auto peering_port_l (tree.get <std::string> ("peering_port"));
             auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
+            bootstrap_peers.clear ();
             for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
             {
                 auto bootstrap_peer (i->second.get <std::string> (""));

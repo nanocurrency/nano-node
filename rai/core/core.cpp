@@ -53,7 +53,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -644,6 +644,13 @@ bool rai::key_iterator::operator == (rai::key_iterator const & other_a) const
 bool rai::key_iterator::operator != (rai::key_iterator const & other_a) const
 {
     return !(*this == other_a);
+}
+
+rai::key_iterator & rai::key_iterator::operator = (rai::key_iterator && other_a)
+{
+    iterator = std::move (other_a.iterator);
+    current = other_a.current;
+    return *this;
 }
 
 bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint128_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
@@ -1654,10 +1661,9 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto balance (client.ledger.account_balance (account));
-                    balance /= rai::uint128_t ("100000000000000000000");
+                    auto balance (rai::scale_down (client.ledger.account_balance (account)));
                     boost::property_tree::ptree response_l;
-                    response_l.put ("balance", balance.convert_to <std::string> ());
+                    response_l.put ("balance", std::to_string (balance));
                     set_response (response, response_l);
                 }
                 else
@@ -1818,17 +1824,16 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     if (!error)
                     {
                         std::string amount_text (request_l.get <std::string> ("amount"));
-                        rai::amount amount_number;
-                        auto error (amount_number.decode_dec (amount_text));
-                        if (!error)
+                        try
                         {
-                            auto amount (amount_number.number () * rai::uint128_t ("100000000000000000000"));
+                            uint64_t amount_number (std::stoull (amount_text));
+                            auto amount (rai::scale_up (amount_number));
                             auto error (client.send (account, amount));
                             boost::property_tree::ptree response_l;
                             response_l.put ("sent", error ? "0" : "1");
                             set_response (response, response_l);
                         }
-                        else
+                        catch (std::logic_error const &)
                         {
                             response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
                             response.content = "Bad amount format";

@@ -270,6 +270,7 @@ namespace rai {
         rai::key_entry & operator -> ();
         bool operator == (rai::key_iterator const &) const;
         bool operator != (rai::key_iterator const &) const;
+        key_iterator & operator = (rai::key_iterator &&);
         rai::key_entry current;
         std::unique_ptr <leveldb::Iterator> iterator;
     };

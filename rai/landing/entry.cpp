@@ -19,8 +19,10 @@ namespace landing
     public:
         config () :
         start (minutes_since_epoch ()),
-        last (start)
+        last (start),
+        peering_port (24000)
         {
+            bootstrap_peers.push_back ("rai.raiblocks.net");
         }
         config (bool & error_a, std::istream & stream_a)
         {
@@ -31,8 +33,15 @@ namespace landing
                 boost::property_tree::read_json (stream_a, tree);
                 auto start_l (tree.get <std::string> ("start"));
                 auto last_l (tree.get <std::string> ("last"));
-                auto peering_port_l (tree.get <std::string> ("peering_port_l"));
+                auto peering_port_l (tree.get <std::string> ("peering_port"));
                 auto distribution_account_l (tree.get <std::string> ("distribution_account"));
+                auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
+                bootstrap_peers.clear ();
+                for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
+                {
+                    auto bootstrap_peer (i->second.get <std::string> (""));
+                    bootstrap_peers.push_back (bootstrap_peer);
+                }
                 try
                 {
                     start = std::stoull (start_l);
@@ -60,40 +69,49 @@ namespace landing
             std::string check;
             distribution_account.encode_base58check (check);
             tree.put ("distribution_account", check);
+            boost::property_tree::ptree bootstrap_peers_l;
+            for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
+            {
+                boost::property_tree::ptree entry;
+                entry.put ("", *i);
+                bootstrap_peers_l.push_back (std::make_pair ("", entry));
+            }
+            tree.add_child ("bootstrap_peers", bootstrap_peers_l);
             boost::property_tree::write_json (stream_a, tree);
         }
+        std::vector <std::string> bootstrap_peers;
         rai::address distribution_account;
         uint64_t start;
         uint64_t last;
         uint16_t peering_port;
     };
-    rai::uint128_t distribution_amount (uint64_t interval)
+    uint64_t distribution_amount (uint64_t interval)
     {
         uint64_t minutes_per_year (60 * 24 * 365);
-        rai::uint128_t result;
+        uint64_t result;
         if (interval < minutes_per_year * 1)
         {
-            result = rai::uint128_t (3237084921241);
+            result = 3237084921241;
         }
         else if (interval < minutes_per_year * 2)
         {
-            result = rai::uint128_t (1618542460620);
+            result = 1618542460620;
         }
         else if (interval < minutes_per_year * 3)
         {
-            result = rai::uint128_t (809271230310);
+            result = 809271230310;
         }
         else if (interval < minutes_per_year * 4)
         {
-            result = rai::uint128_t (404635615155);
+            result = 404635615155;
         }
         else if (interval < minutes_per_year * 5)
         {
-            result = rai::uint128_t (404635615155);
+            result = 404635615155;
         }
         else
         {
-            result = rai::uint128_t (0);
+            result = 0;
         }
         return result;
     }
@@ -110,16 +128,23 @@ namespace landing
     void distribute (rai::client & client_a, rai::landing::config & config_a, boost::filesystem::path working_path_a)
     {
         auto now (rai::landing::minutes_since_epoch ());
-        while (config_a.last < now)
+        auto error (false);
+        while (!error && config_a.last < now)
         {
             ++config_a.last;
-            auto error (client_a.send (config_a.distribution_account, distribution_amount (config_a.last - config_a.start)));
-            if (error)
+            auto amount (distribution_amount (config_a.last - config_a.start));
+            error = client_a.send (config_a.distribution_account, rai::scale_up (amount));
+            if (!error)
             {
-                exit (-1);
+                std::cout << boost::str (boost::format ("Successfully distributed %1%\n") % amount);
+                write_config (working_path_a, config_a);
             }
-            write_config (working_path_a, config_a);
+            else
+            {
+                std::cout << "Error while sending distribution\n";
+            }
         }
+        std::cout << "Waiting for next distribution cycle\n";
         client_a.service.add (std::chrono::system_clock::now () + std::chrono::minutes (1), [&client_a, &config_a, working_path_a] () {rai::landing::distribute (client_a, config_a, working_path_a);});
     }
     rai::landing::config read_config (bool & config_error, boost::filesystem::path working_path_a)
@@ -152,10 +177,11 @@ int main ()
         rai::client_init init;
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
-        rai::client client (init, service, 24000, working, processor, rai::genesis_address);
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor, rai::genesis_address));
         if (!init.error ())
         {
-            client.start ();
+            client->processor.connect_bootstrap (config.bootstrap_peers);
+            client->start ();
             std::thread network_thread ([&service] ()
                 {
                     try
@@ -187,10 +213,23 @@ int main ()
             {
                 std::cout << boost::str (boost::format ("Distribution will begin in %1% minutes\n") % (config.last - now));
             }
+            auto wallet_entry (client->wallet.begin ());
+            if (wallet_entry == client->wallet.end ())
+            {
+                rai::keypair key;
+                client->wallet.insert (key.prv);
+                wallet_entry = client->wallet.begin ();
+            }
+            assert (wallet_entry != client->wallet.end ());
+            std::string landing_account;
+            wallet_entry->first.encode_base58check (landing_account);
+            ++wallet_entry;
+            assert (wallet_entry == client->wallet.end ());
+            std::cout << boost::str (boost::format ("Landing account: %1%\n") % landing_account);
             std::cout << "Type a line to start\n";
             std::string line;
             std::cin >> line;
-            rai::landing::distribute (client, config, working);
+            rai::landing::distribute (*client, config, working);
             network_thread.join ();
             processor_thread.join ();
         }

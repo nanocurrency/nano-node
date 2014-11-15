@@ -74,11 +74,7 @@ namespace rai_qt {
         QListView * peers_view;
         QPushButton * peers_refresh;
         QPushButton * peers_back;
-        
-        rai::uint128_t const scale;
-        uint64_t scale_down (rai::uint128_t const &);
-        rai::uint128_t scale_up (uint64_t);
-        
+                
         rai_qt::client & client;
     private:
         void refresh_ledger ();

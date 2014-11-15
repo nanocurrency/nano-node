@@ -235,3 +235,23 @@ TEST (client, receive_gap)
     client.processor.process_message (message, rai::endpoint {});
     ASSERT_EQ (1, client.gap_cache.blocks.size ());
 }
+
+TEST (client, scaling)
+{
+    rai::system system (24000, 1);
+    auto max (std::numeric_limits <rai::uint128_t>::max ());
+    auto down (rai::scale_down (max));
+    auto up1 (rai::scale_up (down));
+    auto up2 (rai::scale_up (down - 1));
+    ASSERT_LT (up2, up1);
+    ASSERT_EQ (up1 - up2, rai::scale_64bit_base10);
+}
+
+TEST (client, scale_num)
+{
+    rai::system system (24000, 1);
+    rai::uint128_t num ("60000000000000000000000000000000000000");
+    auto down (rai::scale_down (num));
+    auto up (rai::scale_up (down));
+    ASSERT_EQ (num, up);
+}

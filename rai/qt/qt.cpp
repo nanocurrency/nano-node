@@ -157,8 +157,8 @@ wallet_add_account (new QPushButton ("Create account"))
         try
         {
             auto scaled (std::stoull (coins_text_narrow));
-            rai::uint128_t coins (advanced.scale_up (scaled));
-            if (coins / advanced.scale == scaled)
+            rai::uint128_t coins (rai::scale_up (scaled));
+            if (rai::scale_down (coins) == scaled)
             {
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
@@ -243,13 +243,13 @@ void rai_qt::client::refresh_wallet ()
         rai::public_key key (i->first);
         auto account_balance (client_m.ledger.account_balance (key));
 		balance += account_balance;
-		auto balance (std::to_string (advanced.scale_down (account_balance)));
+        auto balance (std::to_string (rai::scale_down (account_balance)));
 		items.push_back (new QStandardItem (balance.c_str ()));
         key.encode_base58check (account);
 		items.push_back (new QStandardItem (QString (account.c_str ())));
 		wallet_model->appendRow (items);
     }
-    balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (advanced.scale_down (balance))).c_str ()));
+    balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (balance))).c_str ()));
 }
 
 rai_qt::client::~client ()
@@ -405,7 +405,6 @@ peers_model (new QStringListModel),
 peers_view (new QListView),
 peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
-scale ("100000000000000000000"), // 10 ^ 20
 client (client_a)
 {
     
@@ -555,22 +554,12 @@ void rai_qt::advanced_actions::refresh_ledger ()
         std::string account;
         i->first.encode_base58check (account);
         items.push_back (new QStandardItem (QString (account.c_str ())));
-        items.push_back (new QStandardItem (QString (std::to_string (scale_down (client.client_m.ledger.balance (i->second.hash))).c_str ())));
+        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (client.client_m.ledger.balance (i->second.hash))).c_str ())));
         std::string block_hash;
         i->second.hash.encode_hex (block_hash);
         items.push_back (new QStandardItem (QString (block_hash.c_str ())));
         ledger_model->appendRow (items);
     }
-}
-
-uint64_t rai_qt::advanced_actions::scale_down (rai::uint128_t const & amount_a)
-{
-    return (amount_a / scale).convert_to <uint64_t> ();
-}
-
-rai::uint128_t rai_qt::advanced_actions::scale_up (uint64_t amount_a)
-{
-    return scale * amount_a;
 }
 
 rai_qt::block_entry::block_entry (rai_qt::client & client_a) :
