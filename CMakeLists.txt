@@ -72,6 +72,9 @@ add_executable (cli
 add_library (qt
     rai/qt/qt.cpp
     rai/qt/qt.hpp)
+
+add_executable (landing
+    rai/landing/entry.cpp)
     
 add_executable (qt_client
     rai/qt_client/entry.cpp)
@@ -88,7 +91,7 @@ set_property (CACHE KDF_WORK_FACTOR PROPERTY STRINGS kdf_test_work kdf_full_work
 SET (PUBLISH_WORK_FACTOR publish_test_work CACHE STRING "Selects whether full or test publish work is performed")
 set_property (CACHE PUBLISH_WORK_FACTOR PROPERTY STRINGS publish_test_work publish_full_work)
 
-set_target_properties (secure core core_test qt_test cli qt qt_client qt_system PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DGENESIS_KEY=${GENESIS_KEY} -DKDF_WORK_FACTOR=${KDF_WORK_FACTOR} -DPUBLISH_WORK_FACTOR=${PUBLISH_WORK_FACTOR} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (secure core core_test qt_test cli qt qt_client qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DGENESIS_KEY=${GENESIS_KEY} -DKDF_WORK_FACTOR=${KDF_WORK_FACTOR} -DPUBLISH_WORK_FACTOR=${PUBLISH_WORK_FACTOR} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (qt_client qt_test PROPERTIES LINK_FLAGS "${PLATFORM_GUI_EXE_LINK_FLAGS}")
 
 if (WIN32)
@@ -100,6 +103,8 @@ endif (WIN32)
 target_link_libraries (core_test core secure ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
 target_link_libraries (cli core secure ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+
+target_link_libraries (landing core secure ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
 target_link_libraries (qt_test core secure qt ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 

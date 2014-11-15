@@ -71,7 +71,6 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
     }
     catch (std::runtime_error const &)
     {
-        std::cout << "Error parsing config file" << std::endl;
         error_a = true;
     }
 }
@@ -146,5 +145,9 @@ void rai_daemon::daemon::run ()
         {
             std::cerr << "Error initializing client\n";
         }
+    }
+    else
+    {
+        std::cerr << "Error loading configuration\n";
     }
 }
