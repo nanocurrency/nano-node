@@ -961,6 +961,7 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
 
 rai::send_block::send_block (send_block const & other_a) :
 hashables (other_a.hashables),
+work (other_a.work),
 signature (other_a.signature)
 {
 }
@@ -1170,8 +1171,9 @@ void rai::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
     hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
 }
 
-rai::change_block::change_block (rai::address const & representative_a, rai::block_hash const & previous_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
-hashables (representative_a, previous_a)
+rai::change_block::change_block (rai::address const & representative_a, rai::block_hash const & previous_a, uint64_t work_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
+hashables (representative_a, previous_a),
+work (work_a)
 {
     rai::sign_message (prv_a, pub_a, hash (), signature);
 }
@@ -1181,7 +1183,11 @@ hashables (error_a, stream_a)
 {
     if (!error_a)
     {
-        error_a = rai::read (stream_a, signature);
+        error_a = rai::read (stream_a, work);
+        if (!error_a)
+        {
+            error_a = rai::read (stream_a, signature);
+        }
     }
 }
 
@@ -1229,12 +1235,12 @@ void rai::change_block::serialize_json (std::string & string_a) const
 {
     boost::property_tree::ptree tree;
     tree.put ("type", "change");
-    std::string previous;
-    hashables.previous.encode_hex (previous);
-    tree.put ("previous", previous);
     std::string representative;
     hashables.representative.encode_hex (representative);
     tree.put ("representative", representative);
+    std::string previous;
+    hashables.previous.encode_hex (previous);
+    tree.put ("previous", previous);
     tree.put ("work", rai::to_string_hex (work));
     std::string signature_l;
     signature.encode_hex (signature_l);

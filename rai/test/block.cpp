@@ -110,7 +110,7 @@ TEST (block, open_serialize_json)
 
 TEST (block, change_serialize_json)
 {
-    rai::change_block block1 (rai::address (1), rai::block_hash (2), rai::private_key (3), rai::public_key (4));
+    rai::change_block block1 (rai::address (1), rai::block_hash (2), 0, rai::private_key (3), rai::public_key (4));
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
