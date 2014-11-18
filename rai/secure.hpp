@@ -31,6 +31,8 @@ namespace rai
 		auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
 		assert (amount_written == sizeof (value));
 	}
+    std::string to_string_hex (uint64_t);
+    bool from_string_hex (std::string const &, uint64_t &);
 	using uint128_t = boost::multiprecision::uint128_t;
 	using uint256_t = boost::multiprecision::uint256_t;
 	using uint512_t = boost::multiprecision::uint512_t;
@@ -211,6 +213,7 @@ namespace rai
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::send_block const &) const;
 		send_hashables hashables;
+        uint64_t work;
 		rai::signature signature;
 	};
 	class receive_hashables
@@ -238,7 +241,8 @@ namespace rai
 		bool validate (rai::public_key const &, rai::uint256_t const &) const;
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::receive_block const &) const;
-		receive_hashables hashables;
+        receive_hashables hashables;
+        uint64_t work;
 		uint512_union signature;
 	};
 	class open_hashables
@@ -264,7 +268,8 @@ namespace rai
 		rai::block_type type () const override;
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::open_block const &) const;
-		rai::open_hashables hashables;
+        rai::open_hashables hashables;
+        uint64_t work;
 		rai::uint512_union signature;
 	};
 	class change_hashables
@@ -296,7 +301,8 @@ namespace rai
 		rai::block_type type () const override;
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::change_block const &) const;
-		rai::change_hashables hashables;
+        rai::change_hashables hashables;
+        uint64_t work;
 		rai::uint512_union signature;
 	};
 	class block_visitor
