@@ -483,9 +483,9 @@ TEST (work, one)
 {
     rai::work work;
     rai::uint256_union seed;
-    ed25519_randombytes_unsafe (seed.bytes.data (), sizeof (seed));
-    rai::uint256_union nonce;
-    ed25519_randombytes_unsafe (nonce.bytes.data (), sizeof (nonce));
+    rai::random_pool.GenerateBlock (seed.bytes.data (), sizeof (seed));
+    uint64_t nonce;
+    rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (&nonce), sizeof (nonce));
     auto value1 (work.generate (seed, nonce));
 	auto value2 (work.generate (seed, nonce));
 	ASSERT_EQ (value1, value2);
