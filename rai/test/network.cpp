@@ -165,7 +165,6 @@ TEST (network, publish_req)
     ASSERT_FALSE (error);
     ASSERT_EQ (req, req2);
     ASSERT_EQ (*req.block, *req2.block);
-    ASSERT_EQ (req.work, req2.work);
 }
 
 TEST (network, confirm_req)
@@ -188,15 +187,14 @@ TEST (network, confirm_req)
     ASSERT_FALSE (error);
     ASSERT_EQ (req, req2);
     ASSERT_EQ (*req.block, *req2.block);
-    ASSERT_EQ (req.work, req2.work);
 }
 
 TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block);
-    auto work (system.clients [1]->create_work (*block));
-    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block), work);
+    block->work = system.clients [0]->ledger.create_work (*block);
+    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
@@ -217,9 +215,9 @@ TEST (network, send_invalid_publish)
     std::unique_ptr <rai::send_block> block (new rai::send_block);
     block->hashables.previous.clear ();
     block->hashables.balance = 20;
+    block->work = system.clients [0]->ledger.create_work (*block);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
-    auto work (system.clients [1]->create_work (*block));
-    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block), work);
+    system.clients [0]->network.publish_block (system.clients [1]->network.endpoint (), std::move (block));
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
@@ -246,11 +244,12 @@ TEST (network, send_valid_publish)
     block2.hashables.previous = frontier1.hash;
     block2.hashables.balance = 50;
     block2.hashables.destination = key2.pub;
+    block2.work = system.clients [0]->ledger.create_work (block2);
     auto hash2 (block2.hash ());
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash2, block2.signature);
     rai::frontier frontier2;
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
-    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), [&system] (rai::block const & block_a) {return system.clients [0]->create_work (block_a);}, system.clients [0]->network.endpoint ());
+    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
     auto iterations (0);
     while (system.clients [1]->network.publish_req_count == 0)
     {
@@ -301,7 +300,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     block1.hashables.balance.clear ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (block1));
-    client1.conflicts.start (block1, client1.create_work (block1), true);
+    client1.conflicts.start (block1, true);
     rai::keypair key1;
     rai::confirm_ack con1;
     con1.vote.address = key1.pub;
@@ -320,7 +319,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     block1.hashables.balance.clear ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (block1));
-    client1.conflicts.start (block1, client1.create_work (block1), true);
+    client1.conflicts.start (block1, true);
     rai::keypair key1;
     rai::confirm_ack con1;
     con1.vote.address = key1.pub;
@@ -342,6 +341,7 @@ TEST (receivable_processor, send_with_receive)
     block1->hashables.previous = frontier1.hash;
     block1->hashables.balance = amount - 100;
     block1->hashables.destination = key2.pub;
+    block1->work = system.clients [0]->ledger.create_work (*block1);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1->hash (), block1->signature);
     ASSERT_EQ (amount, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
@@ -353,10 +353,13 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [1]->ledger.account_balance (key2.pub));
-    system.clients [1]->conflicts.start (*block1, system.clients [1]->create_work (*block1), true);
+    system.clients [1]->conflicts.start (*block1, true);
+    auto iterations (0);
     while (system.clients [0]->network.publish_req_count != 1)
     {
-        system.service->run_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
     }
     ASSERT_EQ (amount - 100, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (100, system.clients [0]->ledger.account_balance (key2.pub));
@@ -1134,10 +1137,13 @@ TEST (bulk, offline_send)
     ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     bool finished (false);
     client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&finished] () {finished = true;});
+    auto iterations2 (0);
     do
     {
-        system.service->run_one ();
+        system.service->poll_one ();
         system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
     } while (!finished || client1->ledger.account_balance (key2.pub) != 100);
 	client1->stop ();
 }

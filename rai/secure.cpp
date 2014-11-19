@@ -275,6 +275,11 @@ void rai::send_block::hash (CryptoPP::SHA3 & hash_a) const
 	hashables.hash (hash_a);
 }
 
+uint64_t rai::send_block::block_work () const
+{
+    return work;
+}
+
 void rai::send_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
 	hash_a.Update (destination.bytes.data (), sizeof (destination.bytes));
@@ -468,6 +473,11 @@ void rai::receive_block::serialize_json (std::string & string_a) const
 void rai::receive_block::hash (CryptoPP::SHA3 & hash_a) const
 {
 	hashables.hash (hash_a);
+}
+
+uint64_t rai::receive_block::block_work () const
+{
+    return work;
 }
 
 bool rai::receive_block::validate (rai::public_key const & key, rai::uint256_t const & hash) const
@@ -1014,6 +1024,11 @@ void rai::open_block::hash (CryptoPP::SHA3 & hash_a) const
     hashables.hash (hash_a);
 }
 
+uint64_t rai::open_block::block_work () const
+{
+    return work;
+}
+
 rai::block_hash rai::open_block::previous () const
 {
     rai::block_hash result (0);
@@ -1216,6 +1231,11 @@ hashables (error_a, tree_a)
 void rai::change_block::hash (CryptoPP::SHA3 & hash_a) const
 {
     hashables.hash (hash_a);
+}
+
+uint64_t rai::change_block::block_work () const
+{
+    return work;
 }
 
 rai::block_hash rai::change_block::previous () const

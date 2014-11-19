@@ -173,6 +173,7 @@ namespace rai
 	public:
 		rai::uint256_union hash () const;
 		virtual void hash (CryptoPP::SHA3 &) const = 0;
+        virtual uint64_t block_work () const = 0;
 		virtual rai::block_hash previous () const = 0;
 		virtual rai::block_hash source () const = 0;
 		virtual void serialize (rai::stream &) const = 0;
@@ -200,7 +201,8 @@ namespace rai
 		send_block () = default;
 		send_block (send_block const &);
 		using rai::block::hash;
-		void hash (CryptoPP::SHA3 &) const override;
+        void hash (CryptoPP::SHA3 &) const override;
+        uint64_t block_work () const override;
 		rai::block_hash previous () const override;
         rai::block_hash source () const override;
         void serialize (rai::stream &) const override;
@@ -227,7 +229,8 @@ namespace rai
 	{
 	public:
 		using rai::block::hash;
-		void hash (CryptoPP::SHA3 &) const override;
+        void hash (CryptoPP::SHA3 &) const override;
+        uint64_t block_work () const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
         void serialize (rai::stream &) const override;
@@ -256,7 +259,8 @@ namespace rai
 	{
 	public:
 		using rai::block::hash;
-		void hash (CryptoPP::SHA3 &) const override;
+        void hash (CryptoPP::SHA3 &) const override;
+        uint64_t block_work () const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
         void serialize (rai::stream &) const override;
@@ -289,7 +293,8 @@ namespace rai
         change_block (bool &, rai::stream &);
         change_block (bool &, boost::property_tree::ptree const &);
 		using rai::block::hash;
-		void hash (CryptoPP::SHA3 &) const override;
+        void hash (CryptoPP::SHA3 &) const override;
+        uint64_t block_work () const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
         void serialize (rai::stream &) const override;
@@ -453,7 +458,8 @@ namespace rai
 		rai::uint128_t amount (rai::block_hash const &);
 		rai::uint128_t balance (rai::block_hash const &);
 		rai::uint128_t account_balance (rai::address const &);
-		rai::uint128_t weight (rai::address const &);
+        rai::uint128_t weight (rai::address const &);
+        uint64_t create_work (rai::block const &);
 		std::unique_ptr <rai::block> successor (rai::block_hash const &);
 		rai::block_hash latest (rai::address const &);
 		rai::address representative (rai::block_hash const &);

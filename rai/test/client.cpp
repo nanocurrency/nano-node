@@ -125,8 +125,8 @@ TEST (client, send_out_of_order)
     send2.hashables.destination = key2.pub;
     send2.hashables.previous = send1.hash ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2.hash (), send2.signature);
-    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)), [&system] (rai::block const & block_a) {return system.clients [0]->create_work (block_a);}, rai::endpoint {});
-    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)), [&system] (rai::block const & block_a) {return system.clients [0]->create_work (block_a);}, rai::endpoint {});
+    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)), rai::endpoint {});
+    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)), rai::endpoint {});
     while (std::any_of (system.clients.begin (), system.clients.end (), [&] (std::shared_ptr <rai::client> const & client_a) {return client_a->ledger.account_balance (rai::test_genesis_key.pub) != std::numeric_limits <rai::uint128_t>::max () - 2000;}))
     {
         system.service->run_one ();

@@ -98,7 +98,7 @@ namespace rai {
 	class election : public std::enable_shared_from_this <rai::election>
 	{
 	public:
-        election (std::shared_ptr <rai::client>, rai::block const &, uint64_t);
+        election (std::shared_ptr <rai::client>, rai::block const &);
         void start ();
         void vote (rai::vote const &);
         void announce_vote ();
@@ -110,13 +110,12 @@ namespace rai {
         std::shared_ptr <rai::client> client;
 		std::chrono::system_clock::time_point last_vote;
 		bool confirmed;
-        uint64_t work;
 	};
     class conflicts
     {
     public:
 		conflicts (rai::client &);
-        void start (rai::block const &, uint64_t, bool);
+        void start (rai::block const &, bool);
 		void update (rai::vote const &);
         void stop (rai::block_hash const &);
         std::unordered_map <rai::block_hash, std::shared_ptr <rai::election>> roots;
@@ -180,7 +179,6 @@ namespace rai {
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         bool operator == (rai::publish const &) const;
-        uint64_t work;
         std::unique_ptr <rai::block> block;
     };
     class confirm_req : public message
@@ -192,7 +190,6 @@ namespace rai {
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
         bool operator == (rai::confirm_req const &) const;
-        uint64_t work;
         std::unique_ptr <rai::block> block;
     };
     class confirm_ack : public message
@@ -205,7 +202,6 @@ namespace rai {
         void visit (rai::message_visitor &) const override;
         bool operator == (rai::confirm_ack const &) const;
         rai::vote vote;
-        uint64_t work;
     };
     class confirm_unk : public message
     {
@@ -368,12 +364,12 @@ namespace rai {
         void find_network (std::vector <std::pair <std::string, std::string>> const &);
         void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const &);
         void connect_bootstrap (std::vector <std::string> const &);
-        rai::process_result process_receive (rai::block const &, std::function <uint64_t (rai::block const &)>);
-        void process_receive_republish (std::unique_ptr <rai::block>, std::function <uint64_t (rai::block const &)>, rai::endpoint const &);
-        void republish (std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &);
+        rai::process_result process_receive (rai::block const &);
+        void process_receive_republish (std::unique_ptr <rai::block>, rai::endpoint const &);
+        void republish (std::unique_ptr <rai::block>, rai::endpoint const &);
 		void process_message (rai::message &, rai::endpoint const &);
 		void process_unknown (rai::vectorstream &);
-        void process_confirmation (rai::block const &, uint64_t, rai::endpoint const &);
+        void process_confirmation (rai::block const &, rai::endpoint const &);
         void process_confirmed (rai::block const &);
         void ongoing_keepalive ();
         std::unique_ptr <std::set <rai::endpoint>> bootstrapped;
@@ -461,11 +457,11 @@ namespace rai {
         void stop ();
         void receive_action (boost::system::error_code const &, size_t);
         void rpc_action (boost::system::error_code const &, size_t);
-        void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>, uint64_t);
-        void confirm_block (std::unique_ptr <rai::block>, uint64_t, uint64_t);
+        void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
+        void confirm_block (std::unique_ptr <rai::block>, uint64_t);
         void merge_peers (std::array <rai::endpoint, 8> const &);
         void send_keepalive (rai::endpoint const &);
-        void send_confirm_req (rai::endpoint const &, rai::block const &, uint64_t);
+        void send_confirm_req (rai::endpoint const &, rai::block const &);
         void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
         void send_complete (boost::system::error_code const &, size_t);
         rai::endpoint endpoint ();
@@ -632,7 +628,6 @@ namespace rai {
         std::shared_ptr <rai::client> shared ();
         bool is_representative ();
 		void representative_vote (rai::election &, rai::block const &);
-        uint64_t create_work (rai::block const &);
         rai::log log;
         rai::address representative;
         rai::block_store store;
