@@ -119,7 +119,7 @@ TEST (client, send)
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
     QTest::mouseClick (client.send_blocks, Qt::LeftButton);
-    QTest::keyClicks (client.send_address, account.c_str ());
+    QTest::keyClicks (client.send_account, account.c_str ());
     QTest::keyClicks (client.send_count, "2");
     QTest::mouseClick (client.send_blocks_send, Qt::LeftButton);
     while (client.client_m.ledger.account_balance (key1.pub).is_zero ())
@@ -154,8 +154,9 @@ TEST (client, process_block)
     ASSERT_EQ (client.block_entry.window, client.main_stack->currentWidget ());
     rai::send_block send;
     send.hashables.destination = key1.pub;
-    send.hashables.previous = system.clients [0]->ledger.latest (rai::genesis_address);
+    send.hashables.previous = system.clients [0]->ledger.latest (rai::genesis_account);
     send.hashables.balance = 0;
+    send.work = system.clients [0]->ledger.create_work (send);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
     std::string destination;
     send.hashables.destination.encode_hex (destination);
@@ -165,10 +166,10 @@ TEST (client, process_block)
     send.hashables.balance.encode_hex (balance);
     std::string signature;
     send.signature.encode_hex (signature);
-    auto block_json (boost::str (boost::format ("{\"type\": \"send\", \"previous\": \"%1%\", \"balance\": \"%2%\", \"destination\": \"%3%\", \"signature\": \"%4%\"}") % previous % balance % destination % signature));
+    auto block_json (boost::str (boost::format ("{\"type\": \"send\", \"previous\": \"%1%\", \"balance\": \"%2%\", \"destination\": \"%3%\", \"work\": \"%4%\", \"signature\": \"%5%\"}") % previous % balance % destination % rai::to_string_hex (send.work) % signature));
     QTest::keyClicks (client.block_entry.block, block_json.c_str ());
     QTest::mouseClick (client.block_entry.process, Qt::LeftButton);
-    ASSERT_EQ (send.hash (), system.clients [0]->ledger.latest (rai::genesis_address));
+    ASSERT_EQ (send.hash (), system.clients [0]->ledger.latest (rai::genesis_account));
     QTest::mouseClick(client.block_entry.back, Qt::LeftButton);
     ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
 }

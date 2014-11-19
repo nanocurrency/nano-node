@@ -34,8 +34,8 @@ settings (new QPushButton ("Settings")),
 show_advanced (new QPushButton ("Advanced")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
-send_address_label (new QLabel ("Destination account:")),
-send_address (new QLineEdit),
+send_account_label (new QLabel ("Destination account:")),
+send_account (new QLineEdit),
 send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
@@ -45,8 +45,8 @@ wallet_view (new QTableView),
 wallet_refresh (new QPushButton ("Refresh")),
 wallet_add_account (new QPushButton ("Create account"))
 {
-    send_blocks_layout->addWidget (send_address_label);
-    send_blocks_layout->addWidget (send_address);
+    send_blocks_layout->addWidget (send_account_label);
+    send_blocks_layout->addWidget (send_account);
     send_blocks_layout->addWidget (send_count_label);
     send_blocks_layout->addWidget (send_count);
     send_blocks_layout->addWidget (send_blocks_send);
@@ -93,10 +93,10 @@ wallet_add_account (new QPushButton ("Create account"))
     
     QObject::connect (settings_bootstrap_button, &QPushButton::released, [this] ()
     {
-        QString address_text_wide (settings_connect_line->text ());
-        std::string address_text (address_text_wide.toLocal8Bit ());
+        QString account_text_wide (settings_connect_line->text ());
+        std::string account_text (account_text_wide.toLocal8Bit ());
         rai::tcp_endpoint endpoint;
-        if (!rai::parse_tcp_endpoint (address_text, endpoint))
+        if (!rai::parse_tcp_endpoint (account_text, endpoint))
         {
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
@@ -116,10 +116,10 @@ wallet_add_account (new QPushButton ("Create account"))
     
     QObject::connect (settings_connect_button, &QPushButton::released, [this] ()
     {
-        QString address_text_wide (settings_connect_line->text ());
-        std::string address_text (address_text_wide.toLocal8Bit ());
+        QString account_text_wide (settings_connect_line->text ());
+        std::string account_text (account_text_wide.toLocal8Bit ());
         rai::endpoint endpoint;
-        if (!rai::parse_endpoint (address_text, endpoint))
+        if (!rai::parse_endpoint (account_text, endpoint))
         {
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
@@ -163,20 +163,20 @@ wallet_add_account (new QPushButton ("Create account"))
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
                 send_count->setPalette (palette);
-                QString address_text (send_address->text ());
-                std::string address_text_narrow (address_text.toLocal8Bit ());
-                rai::address address;
-                auto parse_error (address.decode_base58check (address_text_narrow));
+                QString account_text (send_account->text ());
+                std::string account_text_narrow (account_text.toLocal8Bit ());
+                rai::account account;
+                auto parse_error (account.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-                    auto send_error (client_m.send (address, coins));
+                    auto send_error (client_m.send (account, coins));
                     if (!send_error)
                     {
                         QPalette palette;
                         palette.setColor (QPalette::Text, Qt::black);
-                        send_address->setPalette (palette);
+                        send_account->setPalette (palette);
                         send_count->clear ();
-                        send_address->clear ();
+                        send_account->clear ();
                         refresh_wallet ();
                     }
                     else
@@ -190,14 +190,14 @@ wallet_add_account (new QPushButton ("Create account"))
                 {
                     QPalette palette;
                     palette.setColor (QPalette::Text, Qt::red);
-                    send_address->setPalette (palette);
+                    send_account->setPalette (palette);
                 }
             }
             else
             {
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::red);
-                send_address->setPalette (palette);
+                send_account->setPalette (palette);
             }
         }
         catch (...)
@@ -587,8 +587,7 @@ client (client_a)
                 auto block_l (rai::deserialize_block_json (tree));
                 if (block_l != nullptr)
                 {
-                    auto proof (client.client_m.create_work (*block_l));
-                    client.client_m.processor.process_receive_republish (std::move (block_l), [proof] (rai::block const &) {return proof;}, rai::endpoint {});
+                    client.client_m.processor.process_receive_republish (std::move (block_l), rai::endpoint {});
                 }
                 else
                 {

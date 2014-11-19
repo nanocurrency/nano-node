@@ -211,7 +211,7 @@ namespace rai {
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
 		rai::uint256_union hash () const;
-        rai::address rep_hint;
+        rai::account rep_hint;
     };
     class frontier_req : public message
     {
@@ -221,7 +221,7 @@ namespace rai {
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
         bool operator == (rai::frontier_req const &) const;
-        rai::address start;
+        rai::account start;
         uint32_t age;
         uint32_t count;
     };
@@ -383,8 +383,8 @@ namespace rai {
     {
     public:
         transactions (rai::client &);
-        bool receive (rai::send_block const &, rai::private_key const &, rai::address const &);
-        bool send (rai::address const &, rai::uint128_t const &);
+        bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
+        bool send (rai::account const &, rai::uint128_t const &);
         void vote (rai::vote const &);
         bool rekey (std::string const &);
         std::mutex mutex;
@@ -617,8 +617,8 @@ namespace rai {
     class client : public std::enable_shared_from_this <rai::client>
     {
     public:
-        client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::address const &);
-        client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::address const &);
+        client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::account const &);
+        client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::account const &);
         ~client ();
         bool send (rai::public_key const &, rai::uint128_t const &);
         void send_keepalive (rai::endpoint const &);
@@ -629,7 +629,7 @@ namespace rai {
         bool is_representative ();
 		void representative_vote (rai::election &, rai::block const &);
         rai::log log;
-        rai::address representative;
+        rai::account representative;
         rai::block_store store;
         rai::gap_cache gap_cache;
         rai::ledger ledger;

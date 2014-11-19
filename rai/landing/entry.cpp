@@ -80,7 +80,7 @@ namespace landing
             boost::property_tree::write_json (stream_a, tree);
         }
         std::vector <std::string> bootstrap_peers;
-        rai::address distribution_account;
+        rai::account distribution_account;
         uint64_t start;
         uint64_t last;
         uint16_t peering_port;
@@ -177,7 +177,7 @@ int main ()
         rai::client_init init;
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor, rai::genesis_address));
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor, rai::genesis_account));
         if (!init.error ())
         {
             client->processor.connect_bootstrap (config.bootstrap_peers);

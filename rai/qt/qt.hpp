@@ -130,8 +130,8 @@ namespace rai_qt {
         
         QWidget * send_blocks_window;
         QVBoxLayout * send_blocks_layout;
-        QLabel * send_address_label;
-        QLineEdit * send_address;
+        QLabel * send_account_label;
+        QLineEdit * send_account;
         QLabel * send_count_label;
         QLineEdit * send_count;
         QPushButton * send_blocks_send;

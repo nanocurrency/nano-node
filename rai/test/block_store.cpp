@@ -100,15 +100,15 @@ TEST (block_store, add_pending)
     ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     rai::block_hash hash1;
-    rai::address sender1;
+    rai::account sender1;
     rai::amount amount1;
-    rai::address destination1;
+    rai::account destination1;
     auto pending1 (db.pending_get (hash1, sender1, amount1, destination1));
     ASSERT_TRUE (pending1);
     db.pending_put (hash1, sender1, amount1, destination1);
-    rai::address sender2;
+    rai::account sender2;
     rai::amount amount2;
-    rai::address destination2;
+    rai::account destination2;
     auto pending2 (db.pending_get (hash1, sender2, amount2, destination2));
     ASSERT_EQ (sender1, sender2);
     ASSERT_EQ (amount1, amount2);
@@ -127,7 +127,7 @@ TEST (block_store, add_genesis)
     rai::genesis genesis;
     genesis.initialize (db);
     rai::frontier frontier;
-    ASSERT_FALSE (db.latest_get (rai::genesis_address, frontier));
+    ASSERT_FALSE (db.latest_get (rai::genesis_account, frontier));
     auto block1 (db.block_get (frontier.hash));
     ASSERT_NE (nullptr, block1);
     auto receive1 (dynamic_cast <rai::open_block *> (block1.get ()));

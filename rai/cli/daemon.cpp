@@ -106,7 +106,7 @@ void rai_daemon::daemon::run ()
         auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
         rai::processor_service processor;
         rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, rai::genesis_address));
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, rai::genesis_account));
         if (!init.error ())
         {
             client->processor.connect_bootstrap (config.bootstrap_peers);

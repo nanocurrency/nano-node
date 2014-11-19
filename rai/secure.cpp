@@ -56,12 +56,12 @@ void rai::uint256_union::digest_password (std::string const & password_a)
 
 void rai::votes::vote (rai::vote const & vote_a)
 {
-	if (!rai::validate_message (vote_a.address, vote_a.hash (), vote_a.signature))
+	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
 	{
-		auto existing (rep_votes.find (vote_a.address));
+		auto existing (rep_votes.find (vote_a.account));
 		if (existing == rep_votes.end ())
 		{
-			rep_votes.insert (std::make_pair (vote_a.address, std::make_pair (vote_a.sequence, vote_a.block->clone ())));
+			rep_votes.insert (std::make_pair (vote_a.account, std::make_pair (vote_a.sequence, vote_a.block->clone ())));
 		}
 		else
 		{
@@ -1147,7 +1147,7 @@ rai::block_hash rai::open_block::source () const
     return hashables.source;
 }
 
-rai::change_hashables::change_hashables (rai::address const & representative_a, rai::block_hash const & previous_a) :
+rai::change_hashables::change_hashables (rai::account const & representative_a, rai::block_hash const & previous_a) :
 representative (representative_a),
 previous (previous_a)
 {
@@ -1186,7 +1186,7 @@ void rai::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
     hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
 }
 
-rai::change_block::change_block (rai::address const & representative_a, rai::block_hash const & previous_a, uint64_t work_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
+rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, uint64_t work_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
 hashables (representative_a, previous_a),
 work (work_a)
 {
@@ -1447,10 +1447,10 @@ bool rai::account_iterator::operator != (rai::account_iterator const & other_a) 
     return !(*this == other_a);
 }
 
-rai::account_iterator::account_iterator (leveldb::DB & db_a, rai::address const & address_a) :
+rai::account_iterator::account_iterator (leveldb::DB & db_a, rai::account const & account_a) :
 iterator (db_a.NewIterator (leveldb::ReadOptions ()))
 {
-    iterator->Seek (leveldb::Slice (address_a.chars.data (), address_a.chars.size ()));
+    iterator->Seek (leveldb::Slice (account_a.chars.data (), account_a.chars.size ()));
     set_current ();
 }
 
@@ -1529,10 +1529,10 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
     {
         leveldb::Options options;
         options.create_if_missing = true;
-        auto status1 (leveldb::DB::Open (options, (path_a / "addresses.ldb").string (), &db));
+        auto status1 (leveldb::DB::Open (options, (path_a / "accounts.ldb").string (), &db));
         if (status1.ok ())
         {
-            addresses.reset (db);
+            accounts.reset (db);
             auto status2 (leveldb::DB::Open (options, (path_a / "blocks.ldb").string (), &db));
             if (status2.ok ())
             {
@@ -1626,10 +1626,10 @@ std::unique_ptr <rai::block> rai::block_store::block_get (rai::block_hash const 
     return result;
 }
 
-bool rai::block_store::latest_get (rai::address const & address_a, rai::frontier & frontier_a)
+bool rai::block_store::latest_get (rai::account const & account_a, rai::frontier & frontier_a)
 {
     std::string value;
-    auto status (addresses->Get (leveldb::ReadOptions (), leveldb::Slice (address_a.chars.data (), address_a.chars.size ()), &value));
+    auto status (accounts->Get (leveldb::ReadOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), &value));
     assert (status.ok () || status.IsNotFound ());
     bool result;
     if (status.IsNotFound ())
@@ -1645,18 +1645,18 @@ bool rai::block_store::latest_get (rai::address const & address_a, rai::frontier
     return result;
 }
 
-void rai::block_store::latest_put (rai::address const & address_a, rai::frontier const & frontier_a)
+void rai::block_store::latest_put (rai::account const & account_a, rai::frontier const & frontier_a)
 {
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
         frontier_a.serialize (stream);
     }
-    auto status (addresses->Put (leveldb::WriteOptions (), leveldb::Slice (address_a.chars.data (), address_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
+    auto status (accounts->Put (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
     assert (status.ok ());
 }
 
-void rai::block_store::pending_put (rai::identifier const & identifier_a, rai::address const & source_a, rai::amount const & amount_a, rai::address const & destination_a)
+void rai::block_store::pending_put (rai::block_hash const & hash_a, rai::account const & source_a, rai::amount const & amount_a, rai::account const & destination_a)
 {
     std::vector <uint8_t> vector;
     {
@@ -1665,20 +1665,20 @@ void rai::block_store::pending_put (rai::identifier const & identifier_a, rai::a
         rai::write (stream, amount_a);
         rai::write (stream, destination_a);
     }
-    auto status (pending->Put (leveldb::WriteOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
+    auto status (pending->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
     assert (status.ok ());
 }
 
-void rai::block_store::pending_del (rai::identifier const & identifier_a)
+void rai::block_store::pending_del (rai::block_hash const & hash_a)
 {
-    auto status (pending->Delete (leveldb::WriteOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ())));
+    auto status (pending->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
     assert (status.ok ());
 }
 
-bool rai::block_store::pending_exists (rai::address const & address_a)
+bool rai::block_store::pending_exists (rai::block_hash const & hash_a)
 {
     std::unique_ptr <leveldb::Iterator> iterator (pending->NewIterator (leveldb::ReadOptions {}));
-    iterator->Seek (leveldb::Slice (address_a.chars.data (), address_a.chars.size ()));
+    iterator->Seek (leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
     bool result;
     if (iterator->Valid ())
     {
@@ -1691,10 +1691,10 @@ bool rai::block_store::pending_exists (rai::address const & address_a)
     return result;
 }
 
-bool rai::block_store::pending_get (rai::identifier const & identifier_a, rai::address & source_a, rai::amount & amount_a, rai::address & destination_a)
+bool rai::block_store::pending_get (rai::block_hash const & hash_a, rai::account & source_a, rai::amount & amount_a, rai::account & destination_a)
 {
     std::string value;
-    auto status (pending->Get (leveldb::ReadOptions (), leveldb::Slice (identifier_a.chars.data (), identifier_a.chars.size ()), &value));
+    auto status (pending->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
     assert (status.ok () || status.IsNotFound ());
     bool result;
     if (status.IsNotFound ())
@@ -1770,13 +1770,13 @@ rai::block_iterator rai::block_store::blocks_end ()
 
 rai::account_iterator rai::block_store::latest_begin ()
 {
-    rai::account_iterator result (*addresses);
+    rai::account_iterator result (*accounts);
     return result;
 }
 
 rai::account_iterator rai::block_store::latest_end ()
 {
-    rai::account_iterator result (*addresses, nullptr);
+    rai::account_iterator result (*accounts, nullptr);
     return result;
 }
 
@@ -1862,7 +1862,7 @@ namespace {
             result = send->hashables.destination;
         }
         rai::block_store & store;
-        rai::address result;
+        rai::account result;
     };
     
     amount_visitor::amount_visitor (rai::block_store & store_a) :
@@ -1973,7 +1973,7 @@ namespace
             result = block_a.hashables.representative;
         }
         rai::block_store & store;
-        rai::address result;
+        rai::account result;
     };
 }
 
@@ -1989,9 +1989,9 @@ namespace
         void send_block (rai::send_block const & block_a) override
         {
             auto hash (block_a.hash ());
-            rai::address sender;
+            rai::account sender;
             rai::amount amount;
-            rai::address destination;
+            rai::account destination;
             while (ledger.store.pending_get (hash, sender, amount, destination))
             {
                 ledger.rollback (ledger.latest (block_a.hashables.destination));
@@ -2007,22 +2007,22 @@ namespace
             auto hash (block_a.hash ());
             auto representative (ledger.representative (block_a.hashables.source));
             auto amount (ledger.amount (block_a.hashables.source));
-            auto destination_address (ledger.account (hash));
+            auto destination_account (ledger.account (hash));
             ledger.move_representation (ledger.representative (hash), representative, amount);
-            ledger.change_latest (destination_address, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
+            ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
             ledger.store.block_del (hash);
-            ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_address);
+            ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_account);
         }
         void open_block (rai::open_block const & block_a) override
         {
             auto hash (block_a.hash ());
             auto representative (ledger.representative (block_a.hashables.source));
             auto amount (ledger.amount (block_a.hashables.source));
-            auto destination_address (ledger.account (hash));
+            auto destination_account (ledger.account (hash));
             ledger.move_representation (ledger.representative (hash), representative, amount);
-            ledger.change_latest (destination_address, 0, representative, 0);
+            ledger.change_latest (destination_account, 0, representative, 0);
             ledger.store.block_del (hash);
-            ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_address);
+            ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_account);
         }
         void change_block (rai::change_block const & block_a) override
         {
@@ -2059,11 +2059,11 @@ rai::uint128_t rai::ledger::balance (rai::block_hash const & hash_a)
     return visitor.result;
 }
 
-rai::uint128_t rai::ledger::account_balance (rai::address const & address_a)
+rai::uint128_t rai::ledger::account_balance (rai::account const & account_a)
 {
     rai::uint128_t result (0);
     rai::frontier frontier;
-    auto none (store.latest_get (address_a, frontier));
+    auto none (store.latest_get (account_a, frontier));
     if (!none)
     {
         result = frontier.balance.number ();
@@ -2083,28 +2083,28 @@ rai::uint128_t rai::ledger::supply ()
     return std::numeric_limits <rai::uint128_t>::max ();
 }
 
-rai::address rai::ledger::representative (rai::block_hash const & hash_a)
+rai::account rai::ledger::representative (rai::block_hash const & hash_a)
 {
     auto result (representative_calculated (hash_a));
     //assert (result == representative_cached (hash_a));
     return result;
 }
 
-rai::address rai::ledger::representative_calculated (rai::block_hash const & hash_a)
+rai::account rai::ledger::representative_calculated (rai::block_hash const & hash_a)
 {
     representative_visitor visitor (store);
     visitor.compute (hash_a);
     return visitor.result;
 }
 
-rai::address rai::ledger::representative_cached (rai::block_hash const & hash_a)
+rai::account rai::ledger::representative_cached (rai::block_hash const & hash_a)
 {
     assert (false);
 }
 
-rai::uint128_t rai::ledger::weight (rai::address const & address_a)
+rai::uint128_t rai::ledger::weight (rai::account const & account_a)
 {
-    return store.representation_get (address_a);
+    return store.representation_get (account_a);
 }
 
 void rai::ledger::rollback (rai::block_hash const & frontier_a)
@@ -2122,7 +2122,7 @@ void rai::ledger::rollback (rai::block_hash const & frontier_a)
     } while (frontier.hash != frontier_a);
 }
 
-rai::address rai::ledger::account (rai::block_hash const & hash_a)
+rai::account rai::ledger::account (rai::block_hash const & hash_a)
 {
     account_visitor account (store);
     account.compute (hash_a);
@@ -2136,7 +2136,7 @@ rai::uint128_t rai::ledger::amount (rai::block_hash const & hash_a)
     return amount.result;
 }
 
-void rai::ledger::move_representation (rai::address const & source_a, rai::address const & destination_a, rai::uint128_t const & amount_a)
+void rai::ledger::move_representation (rai::account const & source_a, rai::account const & destination_a, rai::uint128_t const & amount_a)
 {
     auto source_previous (store.representation_get (source_a));
     assert (source_previous >= amount_a);
@@ -2145,15 +2145,15 @@ void rai::ledger::move_representation (rai::address const & source_a, rai::addre
     store.representation_put (destination_a, destination_previous + amount_a);
 }
 
-rai::block_hash rai::ledger::latest (rai::address const & address_a)
+rai::block_hash rai::ledger::latest (rai::account const & account_a)
 {
     rai::frontier frontier;
-    auto latest_error (store.latest_get (address_a, frontier));
+    auto latest_error (store.latest_get (account_a, frontier));
     assert (!latest_error);
     return frontier.hash;
 }
 
-rai::checksum rai::ledger::checksum (rai::address const & begin_a, rai::address const & end_a)
+rai::checksum rai::ledger::checksum (rai::account const & begin_a, rai::account const & end_a)
 {
     rai::checksum result;
     auto error (store.checksum_get (0, 0, result));
@@ -2170,10 +2170,10 @@ void rai::ledger::checksum_update (rai::block_hash const & hash_a)
     store.checksum_put (0, 0, value);
 }
 
-void rai::ledger::change_latest (rai::address const & address_a, rai::block_hash const & hash_a, rai::address const & representative_a, rai::amount const & balance_a)
+void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a)
 {
     rai::frontier frontier;
-    auto exists (!store.latest_get (address_a, frontier));
+    auto exists (!store.latest_get (account_a, frontier));
     if (exists)
     {
         checksum_update (frontier.hash);
@@ -2184,12 +2184,12 @@ void rai::ledger::change_latest (rai::address const & address_a, rai::block_hash
         frontier.representative = representative_a;
         frontier.balance = balance_a;
         frontier.time = store.now ();
-        store.latest_put (address_a, frontier);
+        store.latest_put (account_a, frontier);
         checksum_update (hash_a);
     }
     else
     {
-        store.latest_del (address_a);
+        store.latest_del (account_a);
     }
 }
 
@@ -2285,9 +2285,9 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
         result = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
         if (result == rai::process_result::progress)
         {
-            rai::address source_account;
+            rai::account source_account;
             rai::amount amount;
-            rai::address destination_account;
+            rai::account destination_account;
             result = ledger.store.pending_get (block_a.hashables.source, source_account, amount, destination_account) ? rai::process_result::overreceive : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
             {
@@ -2295,7 +2295,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                 if (result == rai::process_result::progress)
                 {
                     rai::frontier frontier;
-                    result = ledger.store.latest_get (destination_account, frontier) ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for address at all (Harmless)
+                    result = ledger.store.latest_get (destination_account, frontier) ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for account at all (Harmless)
                     if (result == rai::process_result::progress)
                     {
                         result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
@@ -2331,9 +2331,9 @@ void ledger_processor::open_block (rai::open_block const & block_a)
         result = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
         if (result == rai::process_result::progress)
         {
-            rai::address source_account;
+            rai::account source_account;
             rai::amount amount;
-            rai::address destination_account;
+            rai::account destination_account;
             result = ledger.store.pending_get (block_a.hashables.source, source_account, amount, destination_account) ? rai::process_result::fork_source : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
             {
@@ -2391,6 +2391,6 @@ namespace {
     std::string rai_live_public_key = "0";
 }
 rai::keypair rai::test_genesis_key (rai_test_private_key);
-rai::address rai::rai_test_address (rai_test_public_key);
-rai::address rai::rai_live_address (rai_live_public_key);
-rai::address rai::genesis_address (GENESIS_KEY);
+rai::account rai::rai_test_account (rai_test_public_key);
+rai::account rai::rai_live_account (rai_live_public_key);
+rai::account rai::genesis_account (GENESIS_KEY);

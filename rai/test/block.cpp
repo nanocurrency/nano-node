@@ -110,7 +110,7 @@ TEST (block, open_serialize_json)
 
 TEST (block, change_serialize_json)
 {
-    rai::change_block block1 (rai::address (1), rai::block_hash (2), 0, rai::private_key (3), rai::public_key (4));
+    rai::change_block block1 (rai::account (1), rai::block_hash (2), 0, rai::private_key (3), rai::public_key (4));
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
@@ -270,11 +270,11 @@ TEST (block_store, frontier_retrieval)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());;
-    rai::address address1;
+    rai::account account1;
     rai::frontier frontier1;
-    store.latest_put (address1, frontier1);
+    store.latest_put (account1, frontier1);
     rai::frontier frontier2;
-    store.latest_get (address1, frontier2);
+    store.latest_get (account1, frontier2);
     ASSERT_EQ (frontier1, frontier2);
 }
 
@@ -283,13 +283,13 @@ TEST (block_store, one_account)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::address address;
+    rai::account account;
     rai::block_hash hash;
-    store.latest_put (address, {hash, address, 42, 100});
+    store.latest_put (account, {hash, account, 42, 100});
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
-    ASSERT_EQ (address, begin->first);
+    ASSERT_EQ (account, begin->first);
     ASSERT_EQ (hash, begin->second.hash);
     ASSERT_EQ (42, begin->second.balance.number ());
     ASSERT_EQ (100, begin->second.time);
@@ -338,22 +338,22 @@ TEST (block_store, two_account)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::address address1 (1);
+    rai::account account1 (1);
     rai::block_hash hash1 (2);
-    rai::address address2 (3);
+    rai::account account2 (3);
     rai::block_hash hash2 (4);
-    store.latest_put (address1, {hash1, address1, 42, 100});
-    store.latest_put (address2, {hash2, address2, 84, 200});
+    store.latest_put (account1, {hash1, account1, 42, 100});
+    store.latest_put (account2, {hash2, account2, 84, 200});
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
-    ASSERT_EQ (address1, begin->first);
+    ASSERT_EQ (account1, begin->first);
     ASSERT_EQ (hash1, begin->second.hash);
     ASSERT_EQ (42, begin->second.balance.number ());
     ASSERT_EQ (100, begin->second.time);
     ++begin;
     ASSERT_NE (end, begin);
-    ASSERT_EQ (address2, begin->first);
+    ASSERT_EQ (account2, begin->first);
     ASSERT_EQ (hash2, begin->second.hash);
     ASSERT_EQ (84, begin->second.balance.number ());
     ASSERT_EQ (200, begin->second.time);
@@ -366,12 +366,12 @@ TEST (block_store, latest_find)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::address address1 (1);
+    rai::account account1 (1);
     rai::block_hash hash1 (2);
-    rai::address address2 (3);
+    rai::account account2 (3);
     rai::block_hash hash2 (4);
-    store.latest_put (address1, {hash1, address1, 100});
-    store.latest_put (address2, {hash2, address2, 200});
+    store.latest_put (account1, {hash1, account1, 100});
+    store.latest_put (account2, {hash2, account2, 200});
     auto first (store.latest_begin ());
     auto second (store.latest_begin ());
     ++second;
@@ -395,7 +395,7 @@ TEST (block_store, already_open)
     auto path (boost::filesystem::unique_path ());
     boost::filesystem::create_directories (path);
     std::ofstream file;
-    file.open ((path / "addresses.ldb").string ().c_str ());
+    file.open ((path / "accounts.ldb").string ().c_str ());
     ASSERT_TRUE (file.is_open ());
     leveldb::Status init;
     rai::block_store store (init, path);

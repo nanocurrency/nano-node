@@ -303,7 +303,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     client1.conflicts.start (block1, true);
     rai::keypair key1;
     rai::confirm_ack con1;
-    con1.vote.address = key1.pub;
+    con1.vote.account = key1.pub;
     con1.vote.block = block1.clone ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash (), con1.vote.signature);
 	client1.processor.process_message (con1, rai::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000));
@@ -322,7 +322,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     client1.conflicts.start (block1, true);
     rai::keypair key1;
     rai::confirm_ack con1;
-    con1.vote.address = key1.pub;
+    con1.vote.account = key1.pub;
     con1.vote.block = block1.clone ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash (), con1.vote.signature);
 	client1.processor.process_message (con1, rai::endpoint (boost::asio::ip::address_v4 (0x7f000001), 10000));

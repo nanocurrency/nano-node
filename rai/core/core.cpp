@@ -72,12 +72,12 @@ rai::genesis::genesis ()
     send1.hashables.balance = std::numeric_limits <rai::uint128_t>::max ();
     send1.hashables.previous.clear ();
     send1.signature.clear ();
-    send2.hashables.destination = genesis_address;
+    send2.hashables.destination = genesis_account;
     send2.hashables.balance.clear ();
     send2.hashables.previous = send1.hash ();
     send2.signature.clear ();
     open.hashables.source = send2.hash ();
-    open.hashables.representative = genesis_address;
+    open.hashables.representative = genesis_account;
     open.signature.clear ();
 }
 
@@ -831,7 +831,7 @@ bool rai::client_init::error ()
     return !block_store_init.ok () || wallet_init || ledger_init;
 }
 
-rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, rai::processor_service & processor_a, rai::address const & representative_a) :
+rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, rai::processor_service & processor_a, rai::account const & representative_a) :
 representative (representative_a),
 store (init_a.block_store_init, data_path_a),
 ledger (init_a.ledger_init, init_a.block_store_init, store),
@@ -858,7 +858,7 @@ service (processor_a)
     }
 }
 
-rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a, rai::address const & representative_a) :
+rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a, rai::account const & representative_a) :
 client (init_a, service_a, port_a, boost::filesystem::unique_path (), processor_a, representative_a)
 {
 }
@@ -1060,7 +1060,7 @@ void rai::election::announce_vote ()
 void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
 {
     rai::confirm_ack confirm (std::move (block_a));
-    confirm.vote.address = client.representative;
+    confirm.vote.account = client.representative;
     confirm.vote.sequence = sequence_a;
     rai::private_key prv;
     auto error (client.wallet.fetch (client.representative, prv));
@@ -1353,9 +1353,9 @@ size_t rai::processor_service::size ()
     return operations.size ();
 }
 
-bool rai::client::send (rai::public_key const & address, rai::uint128_t const & amount_a)
+bool rai::client::send (rai::account const & account, rai::uint128_t const & amount_a)
 {
-    return transactions.send (address, amount_a);
+    return transactions.send (account, amount_a);
 }
 
 rai::system::system (uint16_t port_a, size_t count_a) :
@@ -1365,7 +1365,7 @@ service (new boost::asio::io_service)
     for (size_t i (0); i < count_a; ++i)
     {
         rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, port_a + i, processor, rai::genesis_address));
+        auto client (std::make_shared <rai::client> (init, service, port_a + i, processor, rai::genesis_account));
         assert (!init.error ());
         client->start ();
         clients.push_back (client);
@@ -1422,7 +1422,7 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
                 auto error (client.wallet.fetch (client.representative, prv));
                 assert (!error);
 				rai::confirm_ack outgoing (block_a.clone ());
-				outgoing.vote.address = client.representative;
+				outgoing.vote.account = client.representative;
 				outgoing.vote.sequence = 0;
 				rai::sign_message (prv, client.representative, outgoing.vote.hash (), outgoing.vote.signature);
 				assert (!rai::validate_message (client.representative, outgoing.vote.hash (), outgoing.vote.signature));
@@ -1471,7 +1471,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
     assert (type == rai::message_type::confirm_ack);
     if (!result)
     {
-        result = read (stream_a, vote.address);
+        result = read (stream_a, vote.account);
         if (!result)
         {
             result = read (stream_a, vote.signature);
@@ -1492,7 +1492,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 void rai::confirm_ack::serialize (rai::stream & stream_a)
 {
 	write_header (stream_a);
-    write (stream_a, vote.address);
+    write (stream_a, vote.account);
     write (stream_a, vote.signature);
     write (stream_a, vote.sequence);
     vote.block->serialize (stream_a);
@@ -1500,7 +1500,7 @@ void rai::confirm_ack::serialize (rai::stream & stream_a)
 
 bool rai::confirm_ack::operator == (rai::confirm_ack const & other_a) const
 {
-    auto result (vote.address == other_a.vote.address && *vote.block == *other_a.vote.block && vote.signature == other_a.vote.signature && vote.sequence == other_a.vote.sequence);
+    auto result (vote.account == other_a.vote.account && *vote.block == *other_a.vote.block && vote.signature == other_a.vote.signature && vote.sequence == other_a.vote.sequence);
     return result;
 }
 
@@ -1845,10 +1845,10 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
     }
 }
 
-rai::uint128_t rai::block_store::representation_get (rai::address const & address_a)
+rai::uint128_t rai::block_store::representation_get (rai::account const & account_a)
 {
     std::string value;
-    auto status (representation->Get (leveldb::ReadOptions (), leveldb::Slice (address_a.chars.data (), address_a.chars.size ()), &value));
+    auto status (representation->Get (leveldb::ReadOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), &value));
     assert (status.ok () || status.IsNotFound ());
     rai::uint128_t result;
     if (status.ok ())
@@ -1866,10 +1866,10 @@ rai::uint128_t rai::block_store::representation_get (rai::address const & addres
     return result;
 }
 
-void rai::block_store::representation_put (rai::address const & address_a, rai::uint128_t const & representation_a)
+void rai::block_store::representation_put (rai::account const & account_a, rai::uint128_t const & representation_a)
 {
     rai::uint128_union rep (representation_a);
-    auto status (representation->Put (leveldb::WriteOptions (), leveldb::Slice (address_a.chars.data (), address_a.chars.size ()), leveldb::Slice (rep.chars.data (), rep.chars.size ())));
+    auto status (representation->Put (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), leveldb::Slice (rep.chars.data (), rep.chars.size ())));
     assert (status.ok ());
 }
 
@@ -1917,9 +1917,9 @@ public:
     void send_block (rai::send_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-        rai::address sender;
+        rai::account sender;
         rai::amount amount;
-        rai::address destination;
+        rai::account destination;
 		while (ledger.store.pending_get (hash, sender, amount, destination))
 		{
 			ledger.rollback (ledger.latest (block_a.hashables.destination));
@@ -1935,22 +1935,22 @@ public:
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
-        auto destination_address (ledger.account (hash));
+        auto destination_account (ledger.account (hash));
 		ledger.move_representation (ledger.representative (hash), representative, amount);
-        ledger.change_latest (destination_address, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
+        ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_address);
+		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_account);
     }
     void open_block (rai::open_block const & block_a) override
     {
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
-        auto destination_address (ledger.account (hash));
+        auto destination_account (ledger.account (hash));
 		ledger.move_representation (ledger.representative (hash), representative, amount);
-        ledger.change_latest (destination_address, 0, representative, 0);
+        ledger.change_latest (destination_account, 0, representative, 0);
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_address);
+		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_account);
     }
     void change_block (rai::change_block const & block_a) override
     {
@@ -1972,16 +1972,16 @@ void rai::block_store::block_del (rai::block_hash const & hash_a)
     assert (status.ok ());
 }
 
-void rai::block_store::latest_del (rai::address const & address_a)
+void rai::block_store::latest_del (rai::account const & account_a)
 {
-    auto status (addresses->Delete (leveldb::WriteOptions (), leveldb::Slice (address_a.chars.data (), address_a.chars.size ())));
+    auto status (accounts->Delete (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ())));
     assert (status.ok ());
 }
 
-bool rai::block_store::latest_exists (rai::address const & address_a)
+bool rai::block_store::latest_exists (rai::account const & account_a)
 {
-    std::unique_ptr <leveldb::Iterator> existing (addresses->NewIterator (leveldb::ReadOptions {}));
-    existing->Seek (leveldb::Slice (address_a.chars.data (), address_a.chars.size ()));
+    std::unique_ptr <leveldb::Iterator> existing (accounts->NewIterator (leveldb::ReadOptions {}));
+    existing->Seek (leveldb::Slice (account_a.chars.data (), account_a.chars.size ()));
     bool result;
     if (existing->Valid ())
     {
@@ -2484,9 +2484,9 @@ void rai::bulk_req_response::no_block_sent (boost::system::error_code const & ec
     }
 }
 
-rai::account_iterator rai::block_store::latest_begin (rai::address const & address_a)
+rai::account_iterator rai::block_store::latest_begin (rai::account const & account_a)
 {
-    rai::account_iterator result (*addresses, address_a);
+    rai::account_iterator result (*accounts, account_a);
     return result;
 }
 
@@ -2647,7 +2647,7 @@ void rai::bulk_req_initiator::received_type (boost::system::error_code const & e
         {
             case rai::block_type::send:
             {
-				boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::address) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+				boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
                 {
                     this_l->received_block (ec, size_a);
                 });
@@ -2663,7 +2663,7 @@ void rai::bulk_req_initiator::received_type (boost::system::error_code const & e
             }
             case rai::block_type::open:
             {
-				boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::address) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+				boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
                 {
                     this_l->received_block (ec, size_a);
                 });
@@ -2671,7 +2671,7 @@ void rai::bulk_req_initiator::received_type (boost::system::error_code const & e
             }
             case rai::block_type::change:
             {
-				boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::address) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+				boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
                 {
                     this_l->received_block (ec, size_a);
                 });
@@ -2705,12 +2705,12 @@ class observed_visitor : public rai::block_visitor
 {
 public:
     observed_visitor () :
-    address (0)
+    account (0)
     {
     }
     void send_block (rai::send_block const & block_a)
     {
-        address = block_a.hashables.destination;
+        account = block_a.hashables.destination;
     }
     void receive_block (rai::receive_block const &)
     {
@@ -2721,7 +2721,7 @@ public:
     void change_block (rai::change_block const &)
     {
     }
-    rai::address address;
+    rai::account account;
 };
 }
 
@@ -3326,22 +3326,22 @@ void rai::frontier_req_initiator::received_frontier (boost::system::error_code c
     if (!ec)
     {
         assert (size_a == sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
-        rai::address address;
-        rai::bufferstream address_stream (receive_buffer.data (), sizeof (rai::uint256_union));
-        auto error1 (rai::read (address_stream, address));
+        rai::account account;
+        rai::bufferstream account_stream (receive_buffer.data (), sizeof (rai::uint256_union));
+        auto error1 (rai::read (account_stream, account));
         assert (!error1);
         rai::block_hash latest;
         rai::bufferstream latest_stream (receive_buffer.data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
         auto error2 (rai::read (latest_stream, latest));
         assert (!error2);
-        if (!address.is_zero ())
+        if (!account.is_zero ())
         {
             rai::frontier frontier;
-            auto unknown (connection->client->store.latest_get (address, frontier));
+            auto unknown (connection->client->store.latest_get (account, frontier));
             if (unknown)
             {
                 std::unique_ptr <rai::bulk_req> request (new rai::bulk_req);
-                request->start = address;
+                request->start = account;
                 request->end.clear ();
                 connection->add_request (std::move (request));
             }
@@ -3351,7 +3351,7 @@ void rai::frontier_req_initiator::received_frontier (boost::system::error_code c
                 if (!exists)
                 {
                     std::unique_ptr <rai::bulk_req> request (new rai::bulk_req);
-                    request->start = address;
+                    request->start = account;
                     request->end = frontier.hash;
                     connection->add_request (std::move (request));
                 }
@@ -3513,7 +3513,7 @@ rai::uint128_t rai::system::get_random_amount (rai::client & client_a)
 
 void rai::system::generate_send_existing (rai::client & client_a)
 {
-    rai::address account;
+    rai::account account;
     random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
     rai::account_iterator entry (client_a.store.latest_begin (account));
     if (entry == client_a.store.latest_end ())
@@ -3564,7 +3564,7 @@ client (client_a)
 {
 }
 
-bool rai::transactions::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::address const & representative_a)
+bool rai::transactions::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto hash (send_a.hash ());
@@ -3572,9 +3572,9 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
     if (client.ledger.store.pending_exists (hash))
     {
         rai::frontier frontier;
-        auto new_address (client.ledger.store.latest_get (send_a.hashables.destination, frontier));
+        auto new_account (client.ledger.store.latest_get (send_a.hashables.destination, frontier));
         std::unique_ptr <rai::block> block;
-        if (new_address)
+        if (new_account)
         {
             auto open (new rai::open_block);
             open->hashables.source = hash;
@@ -3603,14 +3603,14 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
     return result;
 }
 
-bool rai::transactions::send (rai::address const & address_a, rai::uint128_t const & amount_a)
+bool rai::transactions::send (rai::account const & account_a, rai::uint128_t const & amount_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::send_block>> blocks;
     auto result (!client.wallet.valid_password ());
     if (!result)
     {
-        result = client.wallet.generate_send (client.ledger, address_a, amount_a, blocks);
+        result = client.wallet.generate_send (client.ledger, account_a, amount_a, blocks);
         if (!result)
         {
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
@@ -3635,7 +3635,7 @@ confirmed (false)
     assert (client_a->store.block_exists (block_a.hash ()));
     rai::keypair anonymous;
     rai::vote vote_l;
-    vote_l.address = anonymous.pub;
+    vote_l.account = anonymous.pub;
     vote_l.sequence = 0;
     vote_l.block = block_a.clone ();
     rai::sign_message (anonymous.prv, anonymous.pub, vote_l.hash (), vote_l.signature);
@@ -3871,7 +3871,7 @@ void rai::client::representative_vote (rai::election & election_a, rai::block co
 	{
         rai::private_key prv;
         rai::vote vote_l;
-        vote_l.address = representative;
+        vote_l.account = representative;
         vote_l.sequence = 0;
         vote_l.block = block_a.clone ();
 		wallet.fetch (representative, prv);

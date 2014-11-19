@@ -21,8 +21,8 @@ TEST (ledger, empty)
     bool init1;
     rai::ledger ledger (init1, init, store);
     ASSERT_FALSE (init1);
-    rai::address address;
-    auto balance (ledger.account_balance (address));
+    rai::account account;
+    auto balance (ledger.account_balance (account));
     ASSERT_TRUE (balance.is_zero ());
 }
 
@@ -36,10 +36,10 @@ TEST (ledger, genesis_balance)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    auto balance (ledger.account_balance (rai::genesis_address));
+    auto balance (ledger.account_balance (rai::genesis_account));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), balance);
     rai::frontier frontier;
-    ASSERT_FALSE (store.latest_get (rai::genesis_address, frontier));
+    ASSERT_FALSE (store.latest_get (rai::genesis_account, frontier));
     ASSERT_GE (store.now (), frontier.time);
     ASSERT_LT (store.now () - frontier.time, 10);
 }
@@ -78,7 +78,7 @@ TEST (system, system_genesis)
     rai::system system (24000, 2);
     for (auto & i: system.clients)
     {
-        ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), i->ledger.account_balance (rai::genesis_address));
+        ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), i->ledger.account_balance (rai::genesis_account));
     }
 }
 
@@ -136,9 +136,9 @@ TEST (ledger, process_send)
 	ledger.rollback (hash2);
 	rai::frontier frontier5;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier5));
-    rai::address sender1;
+    rai::account sender1;
     rai::amount amount1;
-    rai::address destination1;
+    rai::account destination1;
 	ASSERT_FALSE (ledger.store.pending_get (hash1, sender1, amount1, destination1));
     ASSERT_EQ (rai::test_genesis_key.pub, sender1);
     ASSERT_EQ (key2.pub, destination1);
@@ -154,9 +154,9 @@ TEST (ledger, process_send)
     rai::frontier frontier7;
 	ASSERT_FALSE (ledger.store.latest_get (rai::test_genesis_key.pub, frontier7));
 	ASSERT_EQ (frontier1.hash, frontier7.hash);
-    rai::address sender2;
+    rai::account sender2;
     rai::amount amount2;
-    rai::address destination2;
+    rai::account destination2;
 	ASSERT_TRUE (ledger.store.pending_get (hash1, sender2, amount2, destination2));
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.account_balance (rai::test_genesis_key.pub));
 }
@@ -211,9 +211,9 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.account_balance (key2.pub));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.weight (key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
-    rai::address sender1;
+    rai::account sender1;
     rai::amount amount1;
-    rai::address destination1;
+    rai::account destination1;
 	ASSERT_FALSE (ledger.store.pending_get (hash3, sender1, amount1, destination1));
     ASSERT_EQ (rai::test_genesis_key.pub, sender1);
     ASSERT_EQ (25, amount1.number ());
@@ -260,9 +260,9 @@ TEST (ledger, rollback_receiver)
     ASSERT_EQ (0, ledger.weight (key3.pub));
 	rai::frontier frontier2;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier2));
-    rai::address sender1;
+    rai::account sender1;
     rai::amount amount1;
-    rai::address destination1;
+    rai::account destination1;
 	ASSERT_TRUE (ledger.store.pending_get (frontier2.hash, sender1, amount1, destination1));
 }
 
@@ -487,7 +487,7 @@ TEST (ledger, checksum_single)
     ASSERT_FALSE (init1);
     store.checksum_put (0, 0, genesis.hash ());
 	ASSERT_EQ (genesis.hash (), ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
-    rai::change_block block1 (rai::address (0), ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
+    rai::change_block block1 (rai::account (0), ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
 	ASSERT_EQ (genesis.hash (), check1);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -574,21 +574,21 @@ TEST (system, generate_send_new)
     ++iterator1;
     ASSERT_EQ (system.clients [0]->store.latest_end (), iterator1);
     system.generate_send_new (*system.clients [0]);
-    rai::address new_address;
+    rai::account new_account;
     auto iterator2 (system.clients [0]->wallet.begin ());
     if (iterator2->first != rai::test_genesis_key.pub)
     {
-        new_address = iterator2->first;
+        new_account = iterator2->first;
     }
     ++iterator2;
     ASSERT_NE (system.clients [0]->wallet.end (), iterator2);
     if (iterator2->first != rai::test_genesis_key.pub)
     {
-        new_address = iterator2->first;
+        new_account = iterator2->first;
     }
     ++iterator2;
     ASSERT_EQ (system.clients [0]->wallet.end (), iterator2);
-    while (system.clients [0]->ledger.account_balance (new_address) == 0)
+    while (system.clients [0]->ledger.account_balance (new_account) == 0)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -802,7 +802,7 @@ TEST (votes, add_unsigned)
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
-    vote1.address = key1.pub;
+    vote1.account = key1.pub;
     votes1->vote (vote1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 }
@@ -825,7 +825,7 @@ TEST (votes, add_one)
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
-    vote1.address = rai::test_genesis_key.pub;
+    vote1.account = rai::test_genesis_key.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     ASSERT_EQ (2, votes1->votes.rep_votes.size ());
@@ -854,7 +854,7 @@ TEST (votes, add_two)
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
-    vote1.address = rai::test_genesis_key.pub;
+    vote1.account = rai::test_genesis_key.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     rai::send_block send2;
@@ -864,7 +864,7 @@ TEST (votes, add_two)
     send2.hashables.destination = key2.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2.hash (), send2.signature);
     rai::vote vote2;
-    vote2.address = key2.pub;
+    vote2.account = key2.pub;
     vote2.sequence = 1;
     vote2.block = send2.clone ();
     rai::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
@@ -895,7 +895,7 @@ TEST (votes, add_existing)
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
-    vote1.address = rai::test_genesis_key.pub;
+    vote1.account = rai::test_genesis_key.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     rai::send_block send2;
@@ -905,7 +905,7 @@ TEST (votes, add_existing)
     send2.hashables.destination = key2.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2.hash (), send2.signature);
     rai::vote vote2;
-    vote2.address = rai::test_genesis_key.pub;
+    vote2.account = rai::test_genesis_key.pub;
     vote2.sequence = 2;
     vote2.block = send2.clone ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote2.hash (), vote2.signature);
@@ -934,7 +934,7 @@ TEST (votes, add_old)
     rai::vote vote1;
     vote1.sequence = 2;
     vote1.block = send1.clone ();
-    vote1.address = rai::test_genesis_key.pub;
+    vote1.account = rai::test_genesis_key.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
     votes1->vote (vote1);
     rai::send_block send2;
@@ -944,7 +944,7 @@ TEST (votes, add_old)
     send2.hashables.destination = key2.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2.hash (), send2.signature);
     rai::vote vote2;
-    vote2.address = rai::test_genesis_key.pub;
+    vote2.account = rai::test_genesis_key.pub;
     vote2.sequence = 1;
     vote2.block = send2.clone ();
     rai::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
@@ -1003,7 +1003,7 @@ TEST (conflicts, add_existing)
     client1.conflicts.start (send2, false);
     ASSERT_EQ (1, client1.conflicts.roots.size ());
     rai::vote vote1;
-    vote1.address = key2.pub;
+    vote1.account = key2.pub;
     vote1.sequence = 0;
     vote1.block = send2.clone ();
     rai::sign_message (key2.prv, key2.pub, vote1.hash (), vote1.signature);

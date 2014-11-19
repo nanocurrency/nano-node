@@ -82,8 +82,8 @@ add_executable (qt_client
 add_executable (qt_system
     rai/qt_system/entry.cpp)
 
-SET (GENESIS_KEY rai_test_address CACHE STRING "Select whether the genesis address is the test or live address")
-set_property (CACHE GENESIS_KEY PROPERTY STRINGS rai_test_address rai_live_address)
+SET (GENESIS_KEY rai_test_account CACHE STRING "Select whether the genesis account is the test or live account")
+set_property (CACHE GENESIS_KEY PROPERTY STRINGS rai_test_account rai_live_account)
 
 SET (KDF_WORK_FACTOR kdf_test_work CACHE STRING "Selects whether full or test kdf work is performed")
 set_property (CACHE KDF_WORK_FACTOR PROPERTY STRINGS kdf_test_work kdf_full_work)

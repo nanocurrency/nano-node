@@ -90,8 +90,7 @@ namespace rai
 		rai::uint256_t number () const;
 	};
 	using block_hash = uint256_union;
-	using identifier = uint256_union;
-	using address = uint256_union;
+	using account = uint256_union;
 	using balance = uint256_union;
 	using public_key = uint256_union;
 	using private_key = uint256_union;
@@ -191,7 +190,7 @@ namespace rai
 	{
 	public:
 		void hash (CryptoPP::SHA3 &) const;
-		rai::address destination;
+		rai::account destination;
 		rai::block_hash previous;
 		rai::amount balance;
 	};
@@ -252,7 +251,7 @@ namespace rai
 	{
 	public:
 		void hash (CryptoPP::SHA3 &) const;
-		rai::address representative;
+		rai::account representative;
 		rai::block_hash source;
 	};
 	class open_block : public rai::block
@@ -274,22 +273,23 @@ namespace rai
 		bool operator == (rai::open_block const &) const;
         rai::open_hashables hashables;
         uint64_t work;
+        rai::account account;
 		rai::uint512_union signature;
 	};
 	class change_hashables
 	{
 	public:
-        change_hashables (rai::address const &, rai::block_hash const &);
+        change_hashables (rai::account const &, rai::block_hash const &);
         change_hashables (bool &, rai::stream &);
         change_hashables (bool &, boost::property_tree::ptree const &);
 		void hash (CryptoPP::SHA3 &) const;
-		rai::address representative;
+		rai::account representative;
 		rai::block_hash previous;
 	};
 	class change_block : public rai::block
 	{
     public:
-        change_block (rai::address const &, rai::block_hash const &, uint64_t, rai::private_key const &, rai::public_key const &);
+        change_block (rai::account const &, rai::block_hash const &, uint64_t, rai::private_key const &, rai::public_key const &);
         change_block (bool &, rai::stream &);
         change_block (bool &, boost::property_tree::ptree const &);
 		using rai::block::hash;
@@ -328,7 +328,7 @@ namespace rai
 		bool deserialize (rai::stream &);
 		bool operator == (rai::frontier const &) const;
 		rai::uint256_union hash;
-		rai::address representative;
+		rai::account representative;
 		rai::uint128_union balance;
 		uint64_t time;
 	};
@@ -336,7 +336,7 @@ namespace rai
 	{
 	public:
 		account_entry * operator -> ();
-		rai::address first;
+		rai::account first;
 		rai::frontier second;
 	};
 	class account_iterator
@@ -344,7 +344,7 @@ namespace rai
 	public:
 		account_iterator (leveldb::DB &);
 		account_iterator (leveldb::DB &, std::nullptr_t);
-		account_iterator (leveldb::DB &, rai::address const &);
+		account_iterator (leveldb::DB &, rai::account const &);
 		account_iterator (rai::account_iterator &&) = default;
 		account_iterator & operator ++ ();
 		account_iterator & operator = (rai::account_iterator &&) = default;
@@ -392,21 +392,21 @@ namespace rai
 		block_iterator blocks_begin ();
 		block_iterator blocks_end ();
 		
-		void latest_put (rai::address const &, rai::frontier const &);
-		bool latest_get (rai::address const &, rai::frontier &);
-		void latest_del (rai::address const &);
-		bool latest_exists (rai::address const &);
-		account_iterator latest_begin (rai::address const &);
+		void latest_put (rai::account const &, rai::frontier const &);
+		bool latest_get (rai::account const &, rai::frontier &);
+		void latest_del (rai::account const &);
+		bool latest_exists (rai::account const &);
+		account_iterator latest_begin (rai::account const &);
 		account_iterator latest_begin ();
 		account_iterator latest_end ();
 		
-		void pending_put (rai::block_hash const &, rai::address const &, rai::amount const &, rai::address const &);
+		void pending_put (rai::block_hash const &, rai::account const &, rai::amount const &, rai::account const &);
 		void pending_del (rai::block_hash const &);
-		bool pending_get (rai::block_hash const &, rai::address &, rai::amount &, rai::address &);
+		bool pending_get (rai::block_hash const &, rai::account &, rai::amount &, rai::account &);
 		bool pending_exists (rai::block_hash const &);
 		
-		rai::uint128_t representation_get (rai::address const &);
-		void representation_put (rai::address const &, rai::uint128_t const &);
+		rai::uint128_t representation_get (rai::account const &);
+		void representation_put (rai::account const &, rai::uint128_t const &);
 		
 		void fork_put (rai::block_hash const &, rai::block const &);
 		std::unique_ptr <rai::block> fork_get (rai::block_hash const &);
@@ -420,13 +420,13 @@ namespace rai
 		void checksum_del (uint64_t, uint8_t);
 		
 	private:
-		// address -> block_hash, representative, balance, timestamp    // Address to frontier block, representative, balance, last_change
-		std::unique_ptr <leveldb::DB> addresses;
+		// account -> block_hash, representative, balance, timestamp    // Account to frontier block, representative, balance, last_change
+		std::unique_ptr <leveldb::DB> accounts;
 		// block_hash -> block                                          // Mapping block hash to contents
 		std::unique_ptr <leveldb::DB> blocks;
-		// block_hash -> sender, amount, destination                    // Pending blocks to sender address, amount, destination address
+		// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
 		std::unique_ptr <leveldb::DB> pending;
-		// address -> weight                                            // Representation
+		// account -> weight                                            // Representation
 		std::unique_ptr <leveldb::DB> representation;
 		// block_hash -> sequence, block                                // Previous block hash to most recent sequence and fork proof
 		std::unique_ptr <leveldb::DB> forks;
@@ -454,31 +454,31 @@ namespace rai
 	{
 	public:
         ledger (bool &, leveldb::Status const &, rai::block_store &);
-		rai::address account (rai::block_hash const &);
+		rai::account account (rai::block_hash const &);
 		rai::uint128_t amount (rai::block_hash const &);
 		rai::uint128_t balance (rai::block_hash const &);
-		rai::uint128_t account_balance (rai::address const &);
-        rai::uint128_t weight (rai::address const &);
+		rai::uint128_t account_balance (rai::account const &);
+        rai::uint128_t weight (rai::account const &);
         uint64_t create_work (rai::block const &);
 		std::unique_ptr <rai::block> successor (rai::block_hash const &);
-		rai::block_hash latest (rai::address const &);
-		rai::address representative (rai::block_hash const &);
-		rai::address representative_calculated (rai::block_hash const &);
-		rai::address representative_cached (rai::block_hash const &);
+		rai::block_hash latest (rai::account const &);
+		rai::account representative (rai::block_hash const &);
+		rai::account representative_calculated (rai::block_hash const &);
+		rai::account representative_cached (rai::block_hash const &);
 		rai::uint128_t supply ();
 		rai::process_result process (rai::block const &);
 		void rollback (rai::block_hash const &);
-		void change_latest (rai::address const &, rai::block_hash const &, rai::address const &, rai::uint128_union const &);
-		void move_representation (rai::address const &, rai::address const &, rai::uint128_t const &);
+		void change_latest (rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
+		void move_representation (rai::account const &, rai::account const &, rai::uint128_t const &);
 		void checksum_update (rai::block_hash const &);
-		rai::checksum checksum (rai::address const &, rai::address const &);
+		rai::checksum checksum (rai::account const &, rai::account const &);
 		rai::block_store & store;
 	};
 	class vote
 	{
 	public:
 		rai::uint256_union hash () const;
-		rai::address address;
+		rai::account account;
 		rai::signature signature;
 		uint64_t sequence;
 		std::unique_ptr <rai::block> block;
@@ -494,12 +494,12 @@ namespace rai
 		rai::block_hash const root;
 		std::unique_ptr <rai::block> last_winner;
 		uint64_t sequence;
-		std::unordered_map <rai::address, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
+		std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
     };
     extern rai::keypair test_genesis_key;
-    extern rai::address rai_test_address;
-    extern rai::address rai_live_address;
-    extern rai::address genesis_address;
+    extern rai::account rai_test_account;
+    extern rai::account rai_live_account;
+    extern rai::account genesis_account;
     class genesis
     {
     public:
