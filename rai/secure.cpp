@@ -292,8 +292,8 @@ void rai::send_block::serialize (rai::stream & stream_a) const
 	write (stream_a, hashables.destination.bytes);
 	write (stream_a, hashables.previous.bytes);
 	write (stream_a, hashables.balance.bytes);
-    write (stream_a, work);
 	write (stream_a, signature.bytes);
+    write (stream_a, work);
 }
 
 void rai::send_block::serialize_json (std::string & string_a) const
@@ -330,10 +330,10 @@ bool rai::send_block::deserialize (rai::stream & stream_a)
 			result = read (stream_a, hashables.balance.bytes);
 			if (!result)
 			{
-                result = read (stream_a, work);
+                result = read (stream_a, signature.bytes);
                 if (!result)
                 {
-                    result = read (stream_a, signature.bytes);
+                    result = read (stream_a, work);
                 }
 			}
 		}
@@ -402,10 +402,10 @@ bool rai::receive_block::deserialize (rai::stream & stream_a)
         result = read (stream_a, hashables.source.bytes);
 		if (!result)
 		{
-            result = read (stream_a, work);
+            result = read (stream_a, signature.bytes);
             if (!result)
             {
-                result = read (stream_a, signature.bytes);
+                result = read (stream_a, work);
             }
 		}
 	}
@@ -447,8 +447,8 @@ void rai::receive_block::serialize (rai::stream & stream_a) const
 {
 	write (stream_a, hashables.previous.bytes);
 	write (stream_a, hashables.source.bytes);
-    write (stream_a, work);
 	write (stream_a, signature.bytes);
+    write (stream_a, work);
 }
 
 void rai::receive_block::serialize_json (std::string & string_a) const
@@ -971,8 +971,8 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
 
 rai::send_block::send_block (send_block const & other_a) :
 hashables (other_a.hashables),
-work (other_a.work),
-signature (other_a.signature)
+signature (other_a.signature),
+work (other_a.work)
 {
 }
 
@@ -1039,8 +1039,8 @@ void rai::open_block::serialize (rai::stream & stream_a) const
 {
     write (stream_a, hashables.representative);
     write (stream_a, hashables.source);
-    write (stream_a, work);
     write (stream_a, signature);
+    write (stream_a, work);
 }
 
 void rai::open_block::serialize_json (std::string & string_a) const
@@ -1070,10 +1070,10 @@ bool rai::open_block::deserialize (rai::stream & stream_a)
         result = read (stream_a, hashables.source);
         if (!result)
         {
-            result = read (stream_a, work);
+            result = read (stream_a, signature);
             if (!result)
             {
-                result = read (stream_a, signature);
+                result = read (stream_a, work);
             }
         }
     }
@@ -1198,10 +1198,10 @@ hashables (error_a, stream_a)
 {
     if (!error_a)
     {
-        error_a = rai::read (stream_a, work);
+        error_a = rai::read (stream_a, signature);
         if (!error_a)
         {
-            error_a = rai::read (stream_a, signature);
+            error_a = rai::read (stream_a, work);
         }
     }
 }
@@ -1247,8 +1247,8 @@ void rai::change_block::serialize (rai::stream & stream_a) const
 {
     write (stream_a, hashables.representative);
     write (stream_a, hashables.previous);
-    write (stream_a, work);
     write (stream_a, signature);
+    write (stream_a, work);
 }
 
 void rai::change_block::serialize_json (std::string & string_a) const
@@ -1278,10 +1278,10 @@ bool rai::change_block::deserialize (rai::stream & stream_a)
         result = read (stream_a, hashables.previous);
         if (!result)
         {
-            result = read (stream_a, work);
+            result = read (stream_a, signature);
             if (!result);
             {
-                result = read (stream_a, signature);
+                result = read (stream_a, work);
             }
         }
     }
