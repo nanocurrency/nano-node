@@ -360,7 +360,7 @@ namespace rai {
         processor (rai::client &);
         void stop ();
         void contacted (rai::endpoint const &);
-        void check_bootstrap (rai::endpoint const &);
+        void warmup (rai::endpoint const &);
         void find_network (std::vector <std::pair <std::string, std::string>> const &);
         void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const &);
         void connect_bootstrap (std::vector <std::string> const &);

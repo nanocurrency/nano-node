@@ -804,7 +804,7 @@ void rai::processor::contacted (rai::endpoint const & endpoint_a)
     if (!client.peers.insert_peer (endpoint_l))
     {
         client.network.send_keepalive (endpoint_l);
-        check_bootstrap (endpoint_l);
+        warmup (endpoint_l);
     }
     else
     {
@@ -3788,7 +3788,7 @@ public:
 };
 }
 
-void rai::processor::check_bootstrap (rai::endpoint const & endpoint_a)
+void rai::processor::warmup (rai::endpoint const & endpoint_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     if (bootstrapped != nullptr)
