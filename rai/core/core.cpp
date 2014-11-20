@@ -3294,7 +3294,7 @@ rai::bulk_pull_initiator::~bulk_pull_initiator ()
 {
     if (network_logging ())
     {
-        connection->client->log.add ("Exiting bulk_req initiator");
+        connection->client->log.add ("Exiting bulk_pull initiator");
     }
 }
 
