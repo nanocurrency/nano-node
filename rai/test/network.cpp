@@ -814,15 +814,39 @@ TEST (bootstrap_processor, process_incomplete)
 {
     rai::system system (24000, 1);
     auto initiator (std::make_shared <rai::bootstrap_initiator> (system.clients [0], [] () {}));
-    initiator->requests.push (std::unique_ptr <rai::bulk_req> {});
+    initiator->requests.push (std::unique_ptr <rai::bulk_pull> {});
     rai::genesis genesis;
-    std::unique_ptr <rai::bulk_req> request (new rai::bulk_req);
+    std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
     request->start = rai::test_genesis_key.pub;
     request->end = genesis.hash ();
-    auto bulk_req_initiator (std::make_shared <rai::bulk_req_initiator> (initiator, std::move (request)));
+    auto bulk_pull_initiator (std::make_shared <rai::bulk_pull_initiator> (initiator, std::move (request)));
     rai::send_block block1;
-    ASSERT_FALSE (bulk_req_initiator->process_block (block1));
-    ASSERT_TRUE (bulk_req_initiator->process_end ());
+    ASSERT_FALSE (bulk_pull_initiator->process_block (block1));
+    ASSERT_TRUE (bulk_pull_initiator->process_end ());
+}
+
+TEST (bootstrap_processor, publish)
+{
+    rai::system system (24000, 1);
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    ASSERT_FALSE (system.clients [0]->transactions.send (rai::test_genesis_key.pub, 100));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    auto hash1 (system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
+    auto hash2 (client1->ledger.latest (rai::test_genesis_key.pub));
+    ASSERT_NE (hash1, hash2);
+    auto done (false);
+    client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint (), [&done] () {done = true;});
+    auto iterations (0);
+    while (!done)
+    {
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+    auto hash3 (client1->ledger.latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (hash1, hash3);
+    client1->stop ();
 }
 
 TEST (bootstrap_processor, process_one)
@@ -915,11 +939,11 @@ TEST (bulk_req, no_address)
 {
     rai::system system (24000, 1);
     auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
-    std::unique_ptr <rai::bulk_req> req (new rai::bulk_req);
+    std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull);
     req->start = 1;
     req->end = 2;
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
     ASSERT_EQ (request->current, request->request->end);
     ASSERT_FALSE (request->current.is_zero ());
 }
@@ -928,11 +952,11 @@ TEST (bulk_req, genesis_to_end)
 {
     rai::system system (24000, 1);
     auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
-    std::unique_ptr <rai::bulk_req> req (new rai::bulk_req {});
+    std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = rai::test_genesis_key.pub;
     req->end.clear ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
     ASSERT_EQ (system.clients [0]->ledger.latest (rai::test_genesis_key.pub), request->current);
     ASSERT_EQ (request->request->end, request->request->end);
 }
@@ -941,11 +965,11 @@ TEST (bulk_req, no_end)
 {
     rai::system system (24000, 1);
     auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
-    std::unique_ptr <rai::bulk_req> req (new rai::bulk_req {});
+    std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = rai::test_genesis_key.pub;
     req->end = 1;
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
     ASSERT_EQ (request->current, request->request->end);
     ASSERT_FALSE (request->current.is_zero ());
 }
@@ -963,11 +987,11 @@ TEST (bulk_req, end_not_owned)
     ASSERT_EQ (rai::process_result::progress, system.clients [0]->ledger.process (open));
     auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
     rai::genesis genesis;
-    std::unique_ptr <rai::bulk_req> req (new rai::bulk_req {});
+    std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = key2.pub;
     req->end = genesis.hash ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
     ASSERT_EQ (request->current, request->request->end);
 }
 
@@ -976,11 +1000,11 @@ TEST (bulk_connection, none)
     rai::system system (24000, 1);
     auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
     rai::genesis genesis;
-    std::unique_ptr <rai::bulk_req> req (new rai::bulk_req {});
+    std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = genesis.hash ();
     req->end = genesis.hash ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
     auto block (request->get_next ());
     ASSERT_EQ (nullptr, block);
 }
@@ -989,11 +1013,11 @@ TEST (bulk_connection, get_next_on_open)
 {
     rai::system system (24000, 1);
     auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
-    std::unique_ptr <rai::bulk_req> req (new rai::bulk_req {});
+    std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = rai::test_genesis_key.pub;
     req->end.clear ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
     auto block (request->get_next ());
     ASSERT_NE (nullptr, block);
     ASSERT_TRUE (block->previous ().is_zero ());

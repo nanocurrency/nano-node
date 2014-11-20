@@ -131,7 +131,7 @@ namespace rai {
         confirm_req,
         confirm_ack,
         confirm_unk,
-        bulk_req,
+        bulk_pull,
 		frontier_req
     };
     class message_visitor;
@@ -225,10 +225,10 @@ namespace rai {
         uint32_t age;
         uint32_t count;
     };
-    class bulk_req : public message
+    class bulk_pull : public message
     {
     public:
-        bulk_req ();
+        bulk_pull ();
         bool deserialize (rai::stream &);
         void serialize (rai::stream &) override;
         void visit (rai::message_visitor &) const override;
@@ -244,7 +244,7 @@ namespace rai {
         virtual void confirm_req (rai::confirm_req const &) = 0;
         virtual void confirm_ack (rai::confirm_ack const &) = 0;
         virtual void confirm_unk (rai::confirm_unk const &) = 0;
-        virtual void bulk_req (rai::bulk_req const &) = 0;
+        virtual void bulk_pull (rai::bulk_pull const &) = 0;
         virtual void frontier_req (rai::frontier_req const &) = 0;
     };
     class key_entry
@@ -411,18 +411,18 @@ namespace rai {
         std::mutex mutex;
         static size_t const max_queue_size = 10;
     };
-    class bulk_req_initiator : public std::enable_shared_from_this <bulk_req_initiator>
+    class bulk_pull_initiator : public std::enable_shared_from_this <bulk_pull_initiator>
     {
     public:
-        bulk_req_initiator (std::shared_ptr <rai::bootstrap_initiator> const &, std::unique_ptr <rai::bulk_req>);
-        ~bulk_req_initiator ();
+        bulk_pull_initiator (std::shared_ptr <rai::bootstrap_initiator> const &, std::unique_ptr <rai::bulk_pull>);
+        ~bulk_pull_initiator ();
         void receive_block ();
         void received_type (boost::system::error_code const &, size_t);
         void received_block (boost::system::error_code const &, size_t);
         bool process_block (rai::block const &);
         bool process_end ();
         std::array <uint8_t, 4000> receive_buffer;
-        std::unique_ptr <rai::bulk_req> request;
+        std::unique_ptr <rai::bulk_pull> request;
         rai::block_hash expecting;
         std::shared_ptr <rai::bootstrap_initiator> connection;
     };
@@ -508,7 +508,7 @@ namespace rai {
         ~bootstrap_connection ();
         void receive ();
         void receive_header_action (boost::system::error_code const &, size_t);
-        void receive_bulk_req_action (boost::system::error_code const &, size_t);
+        void receive_bulk_pull_action (boost::system::error_code const &, size_t);
 		void receive_frontier_req_action (boost::system::error_code const &, size_t);
 		void add_request (std::unique_ptr <rai::message>);
 		void finish_request ();
@@ -519,10 +519,10 @@ namespace rai {
         std::mutex mutex;
         std::queue <std::unique_ptr <rai::message>> requests;
     };
-    class bulk_req_response : public std::enable_shared_from_this <bulk_req_response>
+    class bulk_pull_response : public std::enable_shared_from_this <bulk_pull_response>
     {
     public:
-        bulk_req_response (std::shared_ptr <rai::bootstrap_connection> const &, std::unique_ptr <rai::bulk_req>);
+        bulk_pull_response (std::shared_ptr <rai::bootstrap_connection> const &, std::unique_ptr <rai::bulk_pull>);
         void set_current_end ();
         std::unique_ptr <rai::block> get_next ();
         void send_next ();
@@ -530,7 +530,7 @@ namespace rai {
         void send_finished ();
         void no_block_sent (boost::system::error_code const &, size_t);
         std::shared_ptr <rai::bootstrap_connection> connection;
-        std::unique_ptr <rai::bulk_req> request;
+        std::unique_ptr <rai::bulk_pull> request;
         std::vector <uint8_t> send_buffer;
         rai::block_hash current;
     };
