@@ -519,10 +519,10 @@ namespace rai {
         std::mutex mutex;
         std::queue <std::unique_ptr <rai::message>> requests;
     };
-    class bulk_pull_response : public std::enable_shared_from_this <bulk_pull_response>
+    class bulk_pull_server : public std::enable_shared_from_this <bulk_pull_server>
     {
     public:
-        bulk_pull_response (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::bulk_pull>);
+        bulk_pull_server (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::bulk_pull>);
         void set_current_end ();
         std::unique_ptr <rai::block> get_next ();
         void send_next ();
@@ -534,10 +534,10 @@ namespace rai {
         std::vector <uint8_t> send_buffer;
         rai::block_hash current;
     };
-    class frontier_req_response : public std::enable_shared_from_this <frontier_req_response>
+    class frontier_req_server : public std::enable_shared_from_this <frontier_req_server>
     {
     public:
-        frontier_req_response (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::frontier_req>);
+        frontier_req_server (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::frontier_req>);
         void skip_old ();
 		void send_next ();
         void sent_action (boost::system::error_code const &, size_t);

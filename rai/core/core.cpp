@@ -2349,12 +2349,12 @@ public:
     }
     void bulk_pull (rai::bulk_pull const &) override
     {
-        auto response (std::make_shared <rai::bulk_pull_response> (connection, std::unique_ptr <rai::bulk_pull> (static_cast <rai::bulk_pull *> (connection->requests.front ().release ()))));
+        auto response (std::make_shared <rai::bulk_pull_server> (connection, std::unique_ptr <rai::bulk_pull> (static_cast <rai::bulk_pull *> (connection->requests.front ().release ()))));
         response->send_next ();
     }
     void frontier_req (rai::frontier_req const &) override
     {
-        auto response (std::make_shared <rai::frontier_req_response> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
+        auto response (std::make_shared <rai::frontier_req_server> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
         response->send_next ();
     }
     std::shared_ptr <rai::bootstrap_server> connection;
@@ -2368,7 +2368,7 @@ void rai::bootstrap_server::run_next ()
     requests.front ()->visit (visitor);
 }
 
-void rai::bulk_pull_response::set_current_end ()
+void rai::bulk_pull_server::set_current_end ()
 {
     assert (request != nullptr);
     auto end_exists (request->end.is_zero () || connection->client->store.block_exists (request->end));
@@ -2406,7 +2406,7 @@ void rai::bulk_pull_response::set_current_end ()
     }
 }
 
-void rai::bulk_pull_response::send_next ()
+void rai::bulk_pull_server::send_next ()
 {
     std::unique_ptr <rai::block> block (get_next ());
     if (block != nullptr)
@@ -2432,7 +2432,7 @@ void rai::bulk_pull_response::send_next ()
     }
 }
 
-std::unique_ptr <rai::block> rai::bulk_pull_response::get_next ()
+std::unique_ptr <rai::block> rai::bulk_pull_server::get_next ()
 {
     std::unique_ptr <rai::block> result;
     if (current != request->end)
@@ -2452,7 +2452,7 @@ std::unique_ptr <rai::block> rai::bulk_pull_response::get_next ()
     return result;
 }
 
-void rai::bulk_pull_response::sent_action (boost::system::error_code const & ec, size_t size_a)
+void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -2460,7 +2460,7 @@ void rai::bulk_pull_response::sent_action (boost::system::error_code const & ec,
     }
 }
 
-void rai::bulk_pull_response::send_finished ()
+void rai::bulk_pull_server::send_finished ()
 {
     send_buffer.clear ();
     send_buffer.push_back (static_cast <uint8_t> (rai::block_type::not_a_block));
@@ -2475,7 +2475,7 @@ void rai::bulk_pull_response::send_finished ()
     });
 }
 
-void rai::bulk_pull_response::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -3121,14 +3121,14 @@ uint64_t rai::block_store::now ()
     return diff.total_seconds ();
 }
 
-rai::bulk_pull_response::bulk_pull_response (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
+rai::bulk_pull_server::bulk_pull_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
 connection (connection_a),
 request (std::move (request_a))
 {
     set_current_end ();
 }
 
-rai::frontier_req_response::frontier_req_response (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
+rai::frontier_req_server::frontier_req_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 connection (connection_a),
 iterator (connection_a->client->store.latest_begin (request_a->start)),
 request (std::move (request_a))
@@ -3136,7 +3136,7 @@ request (std::move (request_a))
     skip_old ();
 }
 
-void rai::frontier_req_response::skip_old ()
+void rai::frontier_req_server::skip_old ()
 {
     if (request->age != std::numeric_limits<decltype (request->age)>::max ())
     {
@@ -3148,7 +3148,7 @@ void rai::frontier_req_response::skip_old ()
     }
 }
 
-void rai::frontier_req_response::send_next ()
+void rai::frontier_req_server::send_next ()
 {
 	auto pair (get_next ());
     if (!pair.first.is_zero ())
@@ -3175,7 +3175,7 @@ void rai::frontier_req_response::send_next ()
     }
 }
 
-void rai::frontier_req_response::send_finished ()
+void rai::frontier_req_server::send_finished ()
 {
     {
         send_buffer.clear ();
@@ -3195,7 +3195,7 @@ void rai::frontier_req_response::send_finished ()
     });
 }
 
-void rai::frontier_req_response::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void rai::frontier_req_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -3210,7 +3210,7 @@ void rai::frontier_req_response::no_block_sent (boost::system::error_code const 
     }
 }
 
-void rai::frontier_req_response::sent_action (boost::system::error_code const & ec, size_t size_a)
+void rai::frontier_req_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -3225,7 +3225,7 @@ void rai::frontier_req_response::sent_action (boost::system::error_code const & 
     }
 }
 
-std::pair <rai::uint256_union, rai::uint256_union> rai::frontier_req_response::get_next ()
+std::pair <rai::uint256_union, rai::uint256_union> rai::frontier_req_server::get_next ()
 {
     std::pair <rai::uint256_union, rai::uint256_union> result (0, 0);
     if (iterator != connection->client->ledger.store.latest_end ())

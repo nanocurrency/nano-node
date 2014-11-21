@@ -803,7 +803,7 @@ TEST (bulk_pull, no_address)
     req->start = 1;
     req->end = 2;
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
     ASSERT_EQ (request->current, request->request->end);
     ASSERT_FALSE (request->current.is_zero ());
 }
@@ -816,7 +816,7 @@ TEST (bulk_pull, genesis_to_end)
     req->start = rai::test_genesis_key.pub;
     req->end.clear ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
     ASSERT_EQ (system.clients [0]->ledger.latest (rai::test_genesis_key.pub), request->current);
     ASSERT_EQ (request->request->end, request->request->end);
 }
@@ -829,7 +829,7 @@ TEST (bulk_pull, no_end)
     req->start = rai::test_genesis_key.pub;
     req->end = 1;
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
     ASSERT_EQ (request->current, request->request->end);
     ASSERT_FALSE (request->current.is_zero ());
 }
@@ -851,7 +851,7 @@ TEST (bulk_pull, end_not_owned)
     req->start = key2.pub;
     req->end = genesis.hash ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
     ASSERT_EQ (request->current, request->request->end);
 }
 
@@ -864,7 +864,7 @@ TEST (bulk_pull, none)
     req->start = genesis.hash ();
     req->end = genesis.hash ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
     auto block (request->get_next ());
     ASSERT_EQ (nullptr, block);
 }
@@ -877,7 +877,7 @@ TEST (bulk_pull, get_next_on_open)
     req->start = rai::test_genesis_key.pub;
     req->end.clear ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::bulk_pull_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
     auto block (request->get_next ());
     ASSERT_NE (nullptr, block);
     ASSERT_TRUE (block->previous ().is_zero ());
@@ -1005,7 +1005,7 @@ TEST (bootstrap_processor, process_new)
 TEST (frontier_req_response, destruction)
 {
     {
-        std::shared_ptr <rai::frontier_req_response> hold;
+        std::shared_ptr <rai::frontier_req_server> hold;
         {
             rai::system system (24000, 1);
             auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
@@ -1014,7 +1014,7 @@ TEST (frontier_req_response, destruction)
             req->age = std::numeric_limits <decltype (req->age)>::max ();
             req->count = std::numeric_limits <decltype (req->count)>::max ();
             connection->requests.push (std::unique_ptr <rai::message> {});
-            hold = std::make_shared <rai::frontier_req_response> (connection, std::move (req));
+            hold = std::make_shared <rai::frontier_req_server> (connection, std::move (req));
         }
     }
     ASSERT_TRUE (true);
@@ -1029,7 +1029,7 @@ TEST (frontier_req, begin)
     req->age = std::numeric_limits <decltype (req->age)>::max ();
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::frontier_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
     ASSERT_EQ (connection->client->ledger.store.latest_begin (rai::test_genesis_key.pub), request->iterator);
     auto pair (request->get_next ());
     ASSERT_EQ (rai::test_genesis_key.pub, pair.first);
@@ -1046,7 +1046,7 @@ TEST (frontier_req, end)
     req->age = std::numeric_limits <decltype (req->age)>::max ();
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::frontier_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
     ASSERT_EQ (connection->client->ledger.store.latest_end (), request->iterator);
     auto pair (request->get_next ());
     ASSERT_TRUE (pair.first.is_zero ());
@@ -1061,7 +1061,7 @@ TEST (frontier_req, time_bound)
     req->age = 0;
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::frontier_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
     ASSERT_EQ (connection->client->ledger.store.latest_end (), request->iterator);
     auto pair (request->get_next ());
     ASSERT_TRUE (pair.first.is_zero ());
@@ -1076,7 +1076,7 @@ TEST (frontier_req, time_cutoff)
     req->age = 10;
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <rai::message> {});
-    auto request (std::make_shared <rai::frontier_req_response> (connection, std::move (req)));
+    auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
     ASSERT_EQ (connection->client->ledger.store.latest_begin (rai::test_genesis_key.pub), request->iterator);
     auto pair (request->get_next ());
     ASSERT_EQ (rai::test_genesis_key.pub, pair.first);
