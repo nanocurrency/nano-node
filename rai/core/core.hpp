@@ -426,11 +426,11 @@ namespace rai {
         rai::block_hash expecting;
         std::shared_ptr <rai::bootstrap_client> connection;
     };
-    class frontier_req_initiator : public std::enable_shared_from_this <frontier_req_initiator>
+    class frontier_req_client : public std::enable_shared_from_this <frontier_req_client>
     {
     public:
-        frontier_req_initiator (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::frontier_req>);
-        ~frontier_req_initiator ();
+        frontier_req_client (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::frontier_req>);
+        ~frontier_req_client ();
         void receive_frontier ();
         void received_frontier (boost::system::error_code const &, size_t);
         std::array <uint8_t, 4000> receive_buffer;

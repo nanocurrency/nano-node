@@ -2526,7 +2526,7 @@ public:
     }
     void frontier_req (rai::frontier_req const &) override
     {
-        auto response (std::make_shared <rai::frontier_req_initiator> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
+        auto response (std::make_shared <rai::frontier_req_client> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
         response->receive_frontier ();
     }
     std::shared_ptr <rai::bootstrap_client> connection;
@@ -3298,13 +3298,13 @@ rai::bulk_pull_client::~bulk_pull_client ()
     }
 }
 
-rai::frontier_req_initiator::frontier_req_initiator (std::shared_ptr <rai::bootstrap_client> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
+rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_client> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 request (std::move (request_a)),
 connection (connection_a)
 {
 }
 
-rai::frontier_req_initiator::~frontier_req_initiator ()
+rai::frontier_req_client::~frontier_req_client ()
 {
     if (network_logging ())
     {
@@ -3312,7 +3312,7 @@ rai::frontier_req_initiator::~frontier_req_initiator ()
     }
 }
 
-void rai::frontier_req_initiator::receive_frontier ()
+void rai::frontier_req_client::receive_frontier ()
 {
     auto this_l (shared_from_this ());
     boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l] (boost::system::error_code const & ec, size_t size_a)
@@ -3321,7 +3321,7 @@ void rai::frontier_req_initiator::receive_frontier ()
     });
 }
 
-void rai::frontier_req_initiator::received_frontier (boost::system::error_code const & ec, size_t size_a)
+void rai::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
