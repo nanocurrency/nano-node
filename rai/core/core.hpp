@@ -486,10 +486,10 @@ namespace rai {
         uint64_t insufficient_work_count;
         bool on;
     };
-    class bootstrap_receiver
+    class bootstrap_listener
     {
     public:
-        bootstrap_receiver (boost::asio::io_service &, uint16_t, rai::client &);
+        bootstrap_listener (boost::asio::io_service &, uint16_t, rai::client &);
         void start ();
         void stop ();
         void accept_connection ();
@@ -636,7 +636,7 @@ namespace rai {
         rai::conflicts conflicts;
         rai::wallet wallet;
         rai::network network;
-        rai::bootstrap_receiver bootstrap;
+        rai::bootstrap_listener bootstrap;
         rai::processor processor;
         rai::transactions transactions;
         rai::peer_container peers;

@@ -2138,7 +2138,7 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
     });
 }
 
-rai::bootstrap_receiver::bootstrap_receiver (boost::asio::io_service & service_a, uint16_t port_a, rai::client & client_a) :
+rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::client & client_a) :
 acceptor (service_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 service (service_a),
@@ -2146,7 +2146,7 @@ client (client_a)
 {
 }
 
-void rai::bootstrap_receiver::start ()
+void rai::bootstrap_listener::start ()
 {
     acceptor.open (local.protocol ());
     acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
@@ -2155,13 +2155,13 @@ void rai::bootstrap_receiver::start ()
     accept_connection ();
 }
 
-void rai::bootstrap_receiver::stop ()
+void rai::bootstrap_listener::stop ()
 {
     on = false;
     acceptor.close ();
 }
 
-void rai::bootstrap_receiver::accept_connection ()
+void rai::bootstrap_listener::accept_connection ()
 {
     auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
     acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & ec)
@@ -2170,7 +2170,7 @@ void rai::bootstrap_receiver::accept_connection ()
     });
 }
 
-void rai::bootstrap_receiver::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
+void rai::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
 {
     if (!ec)
     {
@@ -2871,7 +2871,7 @@ rai::endpoint rai::network::endpoint ()
     return rai::endpoint (boost::asio::ip::address_v6::loopback (), socket.local_endpoint ().port ());
 }
 
-boost::asio::ip::tcp::endpoint rai::bootstrap_receiver::endpoint ()
+boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
 {
     return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
 }
