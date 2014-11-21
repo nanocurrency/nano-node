@@ -411,11 +411,11 @@ namespace rai {
         std::mutex mutex;
         static size_t const max_queue_size = 10;
     };
-    class bulk_pull_initiator : public std::enable_shared_from_this <bulk_pull_initiator>
+    class bulk_pull_client : public std::enable_shared_from_this <bulk_pull_client>
     {
     public:
-        bulk_pull_initiator (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::bulk_pull>);
-        ~bulk_pull_initiator ();
+        bulk_pull_client (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::bulk_pull>);
+        ~bulk_pull_client ();
         void receive_block ();
         void received_type (boost::system::error_code const &, size_t);
         void received_block (boost::system::error_code const &, size_t);

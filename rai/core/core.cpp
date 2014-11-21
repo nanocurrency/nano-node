@@ -2521,7 +2521,7 @@ public:
     }
     void bulk_pull (rai::bulk_pull const &) override
     {
-        auto response (std::make_shared <rai::bulk_pull_initiator> (connection, std::unique_ptr <rai::bulk_pull> (static_cast <rai::bulk_pull *> (connection->requests.front ().release ()))));
+        auto response (std::make_shared <rai::bulk_pull_client> (connection, std::unique_ptr <rai::bulk_pull> (static_cast <rai::bulk_pull *> (connection->requests.front ().release ()))));
         response->receive_block ();
     }
     void frontier_req (rai::frontier_req const &) override
@@ -2628,7 +2628,7 @@ void rai::bootstrap_client::finish_request ()
     }
 }
 
-void rai::bulk_pull_initiator::receive_block ()
+void rai::bulk_pull_client::receive_block ()
 {
     auto this_l (shared_from_this ());
     boost::asio::async_read (connection->socket, boost::asio::buffer (receive_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
@@ -2637,7 +2637,7 @@ void rai::bulk_pull_initiator::receive_block ()
     });
 }
 
-void rai::bulk_pull_initiator::received_type (boost::system::error_code const & ec, size_t size_a)
+void rai::bulk_pull_client::received_type (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -2725,7 +2725,7 @@ public:
 };
 }
 
-bool rai::bulk_pull_initiator::process_end ()
+bool rai::bulk_pull_client::process_end ()
 {
     bool result;
     if (expecting == request->end)
@@ -2761,7 +2761,7 @@ rai::block_hash rai::genesis::hash () const
     return open.hash ();
 }
 
-void rai::bulk_pull_initiator::received_block (boost::system::error_code const & ec, size_t size_a)
+void rai::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2778,7 +2778,7 @@ void rai::bulk_pull_initiator::received_block (boost::system::error_code const &
 	}
 }
 
-bool rai::bulk_pull_initiator::process_block (rai::block const & block)
+bool rai::bulk_pull_client::process_block (rai::block const & block)
 {
     assert (!connection->requests.empty ());
     bool result;
@@ -3281,7 +3281,7 @@ bool rai::frontier_req::operator == (rai::frontier_req const & other_a) const
     return start == other_a.start && age == other_a.age && count == other_a.count;
 }
 
-rai::bulk_pull_initiator::bulk_pull_initiator (std::shared_ptr <rai::bootstrap_client> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
+rai::bulk_pull_client::bulk_pull_client (std::shared_ptr <rai::bootstrap_client> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
 request (std::move (request_a)),
 expecting (request->start),
 connection (connection_a)
@@ -3290,7 +3290,7 @@ connection (connection_a)
     assert (connection_a->requests.front () == nullptr);
 }
 
-rai::bulk_pull_initiator::~bulk_pull_initiator ()
+rai::bulk_pull_client::~bulk_pull_client ()
 {
     if (network_logging ())
     {

@@ -910,7 +910,7 @@ TEST (bootstrap_processor, process_incomplete)
     std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
     request->start = rai::test_genesis_key.pub;
     request->end = genesis.hash ();
-    auto bulk_pull_initiator (std::make_shared <rai::bulk_pull_initiator> (initiator, std::move (request)));
+    auto bulk_pull_initiator (std::make_shared <rai::bulk_pull_client> (initiator, std::move (request)));
     rai::send_block block1;
     ASSERT_FALSE (bulk_pull_initiator->process_block (block1));
     ASSERT_TRUE (bulk_pull_initiator->process_end ());
