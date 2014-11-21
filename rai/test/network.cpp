@@ -798,7 +798,7 @@ TEST (parse_endpoint, no_colon)
 TEST (bulk_pull, no_address)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull);
     req->start = 1;
     req->end = 2;
@@ -811,7 +811,7 @@ TEST (bulk_pull, no_address)
 TEST (bulk_pull, genesis_to_end)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = rai::test_genesis_key.pub;
     req->end.clear ();
@@ -824,7 +824,7 @@ TEST (bulk_pull, genesis_to_end)
 TEST (bulk_pull, no_end)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = rai::test_genesis_key.pub;
     req->end = 1;
@@ -845,7 +845,7 @@ TEST (bulk_pull, end_not_owned)
     open.hashables.source = system.clients [0]->ledger.latest (rai::test_genesis_key.pub);
     rai::sign_message (key2.prv, key2.pub, open.hash (), open.signature);
     ASSERT_EQ (rai::process_result::progress, system.clients [0]->ledger.process (open));
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     rai::genesis genesis;
     std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = key2.pub;
@@ -858,7 +858,7 @@ TEST (bulk_pull, end_not_owned)
 TEST (bulk_pull, none)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     rai::genesis genesis;
     std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = genesis.hash ();
@@ -872,7 +872,7 @@ TEST (bulk_pull, none)
 TEST (bulk_pull, get_next_on_open)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
     req->start = rai::test_genesis_key.pub;
     req->end.clear ();
@@ -1008,7 +1008,7 @@ TEST (frontier_req_response, destruction)
         std::shared_ptr <rai::frontier_req_response> hold;
         {
             rai::system system (24000, 1);
-            auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+            auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
             std::unique_ptr <rai::frontier_req> req (new rai::frontier_req);
             req->start.clear ();
             req->age = std::numeric_limits <decltype (req->age)>::max ();
@@ -1023,7 +1023,7 @@ TEST (frontier_req_response, destruction)
 TEST (frontier_req, begin)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::frontier_req> req (new rai::frontier_req);
     req->start.clear ();
     req->age = std::numeric_limits <decltype (req->age)>::max ();
@@ -1040,7 +1040,7 @@ TEST (frontier_req, begin)
 TEST (frontier_req, end)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::frontier_req> req (new rai::frontier_req);
     req->start = rai::test_genesis_key.pub.number () + 1;
     req->age = std::numeric_limits <decltype (req->age)>::max ();
@@ -1055,7 +1055,7 @@ TEST (frontier_req, end)
 TEST (frontier_req, time_bound)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::frontier_req> req (new rai::frontier_req);
     req->start.clear ();
     req->age = 0;
@@ -1070,7 +1070,7 @@ TEST (frontier_req, time_bound)
 TEST (frontier_req, time_cutoff)
 {
     rai::system system (24000, 1);
-    auto connection (std::make_shared <rai::bootstrap_connection> (nullptr, system.clients [0]));
+    auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.clients [0]));
     std::unique_ptr <rai::frontier_req> req (new rai::frontier_req);
     req->start.clear ();
     req->age = 10;

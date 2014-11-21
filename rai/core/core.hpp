@@ -501,11 +501,11 @@ namespace rai {
         rai::client & client;
         bool on;
     };
-    class bootstrap_connection : public std::enable_shared_from_this <bootstrap_connection>
+    class bootstrap_server : public std::enable_shared_from_this <rai::bootstrap_server>
     {
     public:
-        bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <rai::client>);
-        ~bootstrap_connection ();
+        bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <rai::client>);
+        ~bootstrap_server ();
         void receive ();
         void receive_header_action (boost::system::error_code const &, size_t);
         void receive_bulk_pull_action (boost::system::error_code const &, size_t);
@@ -522,14 +522,14 @@ namespace rai {
     class bulk_pull_response : public std::enable_shared_from_this <bulk_pull_response>
     {
     public:
-        bulk_pull_response (std::shared_ptr <rai::bootstrap_connection> const &, std::unique_ptr <rai::bulk_pull>);
+        bulk_pull_response (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::bulk_pull>);
         void set_current_end ();
         std::unique_ptr <rai::block> get_next ();
         void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
         void send_finished ();
         void no_block_sent (boost::system::error_code const &, size_t);
-        std::shared_ptr <rai::bootstrap_connection> connection;
+        std::shared_ptr <rai::bootstrap_server> connection;
         std::unique_ptr <rai::bulk_pull> request;
         std::vector <uint8_t> send_buffer;
         rai::block_hash current;
@@ -537,14 +537,14 @@ namespace rai {
     class frontier_req_response : public std::enable_shared_from_this <frontier_req_response>
     {
     public:
-        frontier_req_response (std::shared_ptr <rai::bootstrap_connection> const &, std::unique_ptr <rai::frontier_req>);
+        frontier_req_response (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::frontier_req>);
         void skip_old ();
 		void send_next ();
         void sent_action (boost::system::error_code const &, size_t);
         void send_finished ();
         void no_block_sent (boost::system::error_code const &, size_t);
         std::pair <rai::uint256_union, rai::uint256_union> get_next ();
-        std::shared_ptr <rai::bootstrap_connection> connection;
+        std::shared_ptr <rai::bootstrap_server> connection;
 		account_iterator iterator;
         std::unique_ptr <rai::frontier_req> request;
         std::vector <uint8_t> send_buffer;

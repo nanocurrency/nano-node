@@ -2175,7 +2175,7 @@ void rai::bootstrap_listener::accept_action (boost::system::error_code const & e
     if (!ec)
     {
         accept_connection ();
-        auto connection (std::make_shared <rai::bootstrap_connection> (socket_a, client.shared ()));
+        auto connection (std::make_shared <rai::bootstrap_server> (socket_a, client.shared ()));
         connection->receive ();
     }
     else
@@ -2184,13 +2184,13 @@ void rai::bootstrap_listener::accept_action (boost::system::error_code const & e
     }
 }
 
-rai::bootstrap_connection::bootstrap_connection (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <rai::client> client_a) :
+rai::bootstrap_server::bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <rai::client> client_a) :
 socket (socket_a),
 client (client_a)
 {
 }
 
-void rai::bootstrap_connection::receive ()
+void rai::bootstrap_server::receive ()
 {
     auto this_l (shared_from_this ());
     boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), 8), [this_l] (boost::system::error_code const & ec, size_t size_a)
@@ -2199,7 +2199,7 @@ void rai::bootstrap_connection::receive ()
     });
 }
 
-void rai::bootstrap_connection::receive_header_action (boost::system::error_code const & ec, size_t size_a)
+void rai::bootstrap_server::receive_header_action (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -2252,7 +2252,7 @@ void rai::bootstrap_connection::receive_header_action (boost::system::error_code
     }
 }
 
-void rai::bootstrap_connection::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a)
+void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
     {
@@ -2271,7 +2271,7 @@ void rai::bootstrap_connection::receive_bulk_pull_action (boost::system::error_c
     }
 }
 
-void rai::bootstrap_connection::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a)
+void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2297,7 +2297,7 @@ void rai::bootstrap_connection::receive_frontier_req_action (boost::system::erro
     }
 }
 
-void rai::bootstrap_connection::add_request (std::unique_ptr <rai::message> message_a)
+void rai::bootstrap_server::add_request (std::unique_ptr <rai::message> message_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
     auto start (requests.empty ());
@@ -2308,7 +2308,7 @@ void rai::bootstrap_connection::add_request (std::unique_ptr <rai::message> mess
 	}
 }
 
-void rai::bootstrap_connection::finish_request ()
+void rai::bootstrap_server::finish_request ()
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	requests.pop ();
@@ -2323,7 +2323,7 @@ namespace
 class request_response_visitor : public rai::message_visitor
 {
 public:
-    request_response_visitor (std::shared_ptr <rai::bootstrap_connection> connection_a) :
+    request_response_visitor (std::shared_ptr <rai::bootstrap_server> connection_a) :
     connection (connection_a)
     {
     }
@@ -2357,11 +2357,11 @@ public:
         auto response (std::make_shared <rai::frontier_req_response> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
         response->send_next ();
     }
-    std::shared_ptr <rai::bootstrap_connection> connection;
+    std::shared_ptr <rai::bootstrap_server> connection;
 };
 }
 
-void rai::bootstrap_connection::run_next ()
+void rai::bootstrap_server::run_next ()
 {
 	assert (!requests.empty ());
     request_response_visitor visitor (shared_from_this ());
@@ -2885,7 +2885,7 @@ rai::bootstrap_initiator::~bootstrap_initiator ()
     }
 }
 
-rai::bootstrap_connection::~bootstrap_connection ()
+rai::bootstrap_server::~bootstrap_server ()
 {
     if (network_logging ())
     {
@@ -3121,14 +3121,14 @@ uint64_t rai::block_store::now ()
     return diff.total_seconds ();
 }
 
-rai::bulk_pull_response::bulk_pull_response (std::shared_ptr <rai::bootstrap_connection> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
+rai::bulk_pull_response::bulk_pull_response (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
 connection (connection_a),
 request (std::move (request_a))
 {
     set_current_end ();
 }
 
-rai::frontier_req_response::frontier_req_response (std::shared_ptr <rai::bootstrap_connection> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
+rai::frontier_req_response::frontier_req_response (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 connection (connection_a),
 iterator (connection_a->client->store.latest_begin (request_a->start)),
 request (std::move (request_a))
