@@ -132,6 +132,7 @@ namespace rai {
         confirm_ack,
         confirm_unk,
         bulk_pull,
+        bulk_push,
 		frontier_req
     };
     class message_visitor;
@@ -236,6 +237,14 @@ namespace rai {
         rai::block_hash end;
         uint32_t count;
     };
+    class bulk_push : public message
+    {
+    public:
+        bulk_push ();
+        bool deserialize (rai::stream &);
+        void serialize (rai::stream &) override;
+        void visit (rai::message_visitor &) const override;
+    };
     class message_visitor
     {
     public:
@@ -245,6 +254,7 @@ namespace rai {
         virtual void confirm_ack (rai::confirm_ack const &) = 0;
         virtual void confirm_unk (rai::confirm_unk const &) = 0;
         virtual void bulk_pull (rai::bulk_pull const &) = 0;
+        virtual void bulk_push (rai::bulk_push const &) = 0;
         virtual void frontier_req (rai::frontier_req const &) = 0;
     };
     class key_entry
@@ -409,8 +419,11 @@ namespace rai {
         void receive_frontier ();
         void received_frontier (boost::system::error_code const &, size_t);
         void request_account (rai::account const &);
+        void completed_requests ();
         void completed_pulls ();
+        void completed_pushes ();
         std::unordered_map <rai::account, rai::block_hash> pulls;
+        std::unordered_map <rai::account, rai::block_hash> pushes;
         std::array <uint8_t, 4000> receive_buffer;
         std::shared_ptr <rai::bootstrap_client> connection;
         rai::account_iterator current;
@@ -431,6 +444,19 @@ namespace rai {
         std::shared_ptr <rai::frontier_req_client> connection;
         std::unordered_map <rai::account, rai::block_hash>::iterator current;
         std::unordered_map <rai::account, rai::block_hash>::iterator end;
+    };
+    class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>
+    {
+    public:
+        bulk_push_client (std::shared_ptr <rai::frontier_req_client> const &);
+        ~bulk_push_client ();
+        void start ();
+        void push ();
+        void push_block ();
+        void send_finished ();
+        std::shared_ptr <rai::frontier_req_client> connection;
+        std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> blocks;
+        std::vector <std::unique_ptr <rai::block>> path;
     };
     class work
     {
@@ -505,6 +531,7 @@ namespace rai {
         void receive_header_action (boost::system::error_code const &, size_t);
         void receive_bulk_pull_action (boost::system::error_code const &, size_t);
 		void receive_frontier_req_action (boost::system::error_code const &, size_t);
+        void receive_bulk_push_action ();
 		void add_request (std::unique_ptr <rai::message>);
 		void finish_request ();
 		void run_next ();
@@ -514,7 +541,7 @@ namespace rai {
         std::mutex mutex;
         std::queue <std::unique_ptr <rai::message>> requests;
     };
-    class bulk_pull_server : public std::enable_shared_from_this <bulk_pull_server>
+    class bulk_pull_server : public std::enable_shared_from_this <rai::bulk_pull_server>
     {
     public:
         bulk_pull_server (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::bulk_pull>);
@@ -529,7 +556,19 @@ namespace rai {
         std::vector <uint8_t> send_buffer;
         rai::block_hash current;
     };
-    class frontier_req_server : public std::enable_shared_from_this <frontier_req_server>
+    class bulk_push_server : public std::enable_shared_from_this <rai::bulk_push_server>
+    {
+    public:
+        bulk_push_server (std::shared_ptr <rai::bootstrap_server> const &);
+        void receive ();
+        void receive_block ();
+        void received_type ();
+        void received_block (boost::system::error_code const &, size_t);
+        void process_end ();
+        std::array <uint8_t, 256> receive_buffer;
+        std::shared_ptr <rai::bootstrap_server> connection;
+    };
+    class frontier_req_server : public std::enable_shared_from_this <rai::frontier_req_server>
     {
     public:
         frontier_req_server (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::frontier_req>);

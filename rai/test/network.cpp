@@ -997,6 +997,27 @@ TEST (bootstrap_processor, process_new)
     client1->stop ();
 }
 
+TEST (bootstrap_processor, push_one)
+{
+    rai::system system (24000, 1);
+    rai::client_init init1;
+    rai::keypair key1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    client1->wallet.insert (rai::test_genesis_key.prv);
+    auto balance (client1->ledger.account_balance (rai::test_genesis_key.pub));
+    ASSERT_FALSE (client1->transactions.send (key1.pub, 100));
+    ASSERT_NE (balance, client1->ledger.account_balance (rai::test_genesis_key.pub));
+    client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint ());
+    auto iterations (0);
+    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) == balance)
+    {
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+    client1->stop ();
+}
+
 TEST (frontier_req_response, destruction)
 {
     {
