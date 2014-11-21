@@ -2261,12 +2261,12 @@ void rai::bootstrap_connection::receive_bulk_pull_action (boost::system::error_c
         auto error (request->deserialize (stream));
         if (!error)
         {
-            receive ();
             if (network_logging ())
             {
                 client->log.add (boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ()));
             }
 			add_request (std::unique_ptr <rai::message> (request.release ()));
+            receive ();
         }
     }
 }
@@ -2280,12 +2280,12 @@ void rai::bootstrap_connection::receive_frontier_req_action (boost::system::erro
 		auto error (request->deserialize (stream));
 		if (!error)
 		{
-			receive ();
 			if (network_logging ())
 			{
 				client->log.add (boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age));
 			}
 			add_request (std::unique_ptr <rai::message> (request.release ()));
+			receive ();
 		}
 	}
     else
