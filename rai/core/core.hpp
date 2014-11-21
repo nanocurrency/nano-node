@@ -390,11 +390,11 @@ namespace rai {
         std::mutex mutex;
         rai::client & client;
     };
-    class bootstrap_initiator : public std::enable_shared_from_this <bootstrap_initiator>
+    class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
     {
     public:
-        bootstrap_initiator (std::shared_ptr <rai::client>, std::function <void ()> const &);
-        ~bootstrap_initiator ();
+        bootstrap_client (std::shared_ptr <rai::client>, std::function <void ()> const &);
+        ~bootstrap_client ();
         void run (rai::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
         void send_frontier_request ();
@@ -414,7 +414,7 @@ namespace rai {
     class bulk_pull_initiator : public std::enable_shared_from_this <bulk_pull_initiator>
     {
     public:
-        bulk_pull_initiator (std::shared_ptr <rai::bootstrap_initiator> const &, std::unique_ptr <rai::bulk_pull>);
+        bulk_pull_initiator (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::bulk_pull>);
         ~bulk_pull_initiator ();
         void receive_block ();
         void received_type (boost::system::error_code const &, size_t);
@@ -424,18 +424,18 @@ namespace rai {
         std::array <uint8_t, 4000> receive_buffer;
         std::unique_ptr <rai::bulk_pull> request;
         rai::block_hash expecting;
-        std::shared_ptr <rai::bootstrap_initiator> connection;
+        std::shared_ptr <rai::bootstrap_client> connection;
     };
     class frontier_req_initiator : public std::enable_shared_from_this <frontier_req_initiator>
     {
     public:
-        frontier_req_initiator (std::shared_ptr <rai::bootstrap_initiator> const &, std::unique_ptr <rai::frontier_req>);
+        frontier_req_initiator (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::frontier_req>);
         ~frontier_req_initiator ();
         void receive_frontier ();
         void received_frontier (boost::system::error_code const &, size_t);
         std::array <uint8_t, 4000> receive_buffer;
         std::unique_ptr <rai::frontier_req> request;
-        std::shared_ptr <rai::bootstrap_initiator> connection;
+        std::shared_ptr <rai::bootstrap_client> connection;
     };
     class work
     {

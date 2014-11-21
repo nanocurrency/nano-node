@@ -904,7 +904,7 @@ TEST (bootstrap_processor, process_none)
 TEST (bootstrap_processor, process_incomplete)
 {
     rai::system system (24000, 1);
-    auto initiator (std::make_shared <rai::bootstrap_initiator> (system.clients [0], [] () {}));
+    auto initiator (std::make_shared <rai::bootstrap_client> (system.clients [0], [] () {}));
     initiator->requests.push (std::unique_ptr <rai::bulk_pull> {});
     rai::genesis genesis;
     std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);

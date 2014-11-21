@@ -2113,7 +2113,7 @@ void rai::client::stop ()
 
 void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & complete_action_a)
 {
-    auto processor (std::make_shared <rai::bootstrap_initiator> (client.shared (), complete_action_a));
+    auto processor (std::make_shared <rai::bootstrap_client> (client.shared (), complete_action_a));
     processor->run (endpoint_a);
 }
 
@@ -2495,7 +2495,7 @@ namespace
 class request_visitor : public rai::message_visitor
 {
 public:
-    request_visitor (std::shared_ptr <rai::bootstrap_initiator> connection_a) :
+    request_visitor (std::shared_ptr <rai::bootstrap_client> connection_a) :
     connection (connection_a)
     {
     }
@@ -2529,18 +2529,18 @@ public:
         auto response (std::make_shared <rai::frontier_req_initiator> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
         response->receive_frontier ();
     }
-    std::shared_ptr <rai::bootstrap_initiator> connection;
+    std::shared_ptr <rai::bootstrap_client> connection;
 };
 }
 
-rai::bootstrap_initiator::bootstrap_initiator (std::shared_ptr <rai::client> client_a, std::function <void ()> const & complete_action_a) :
+rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::client> client_a, std::function <void ()> const & complete_action_a) :
 client (client_a),
 socket (client_a->network.service),
 complete_action (complete_action_a)
 {
 }
 
-void rai::bootstrap_initiator::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
+void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
 {
     if (network_logging ())
     {
@@ -2553,7 +2553,7 @@ void rai::bootstrap_initiator::run (boost::asio::ip::tcp::endpoint const & endpo
     });
 }
 
-void rai::bootstrap_initiator::connect_action (boost::system::error_code const & ec)
+void rai::bootstrap_client::connect_action (boost::system::error_code const & ec)
 {
     if (!ec)
     {
@@ -2568,7 +2568,7 @@ void rai::bootstrap_initiator::connect_action (boost::system::error_code const &
     }
 }
 
-void rai::bootstrap_initiator::send_frontier_request ()
+void rai::bootstrap_client::send_frontier_request ()
 {
     std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
     request->start.clear ();
@@ -2577,7 +2577,7 @@ void rai::bootstrap_initiator::send_frontier_request ()
     add_request (std::move (request));
 }
 
-void rai::bootstrap_initiator::sent_request (boost::system::error_code const & ec, size_t size_a)
+void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, size_t size_a)
 {
     if (ec)
     {
@@ -2588,7 +2588,7 @@ void rai::bootstrap_initiator::sent_request (boost::system::error_code const & e
     }
 }
 
-void rai::bootstrap_initiator::add_request (std::unique_ptr <rai::message> message_a)
+void rai::bootstrap_client::add_request (std::unique_ptr <rai::message> message_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     send_buffer.clear ();
@@ -2609,7 +2609,7 @@ void rai::bootstrap_initiator::add_request (std::unique_ptr <rai::message> messa
     });
 }
 
-void rai::bootstrap_initiator::run_receiver ()
+void rai::bootstrap_client::run_receiver ()
 {
     assert (!mutex.try_lock ());
     assert (requests.front () != nullptr);
@@ -2617,7 +2617,7 @@ void rai::bootstrap_initiator::run_receiver ()
     requests.front ()->visit (visitor);
 }
 
-void rai::bootstrap_initiator::finish_request ()
+void rai::bootstrap_client::finish_request ()
 {
     std::lock_guard <std::mutex> lock (mutex);
     assert (!requests.empty ());
@@ -2876,7 +2876,7 @@ boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
     return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
 }
 
-rai::bootstrap_initiator::~bootstrap_initiator ()
+rai::bootstrap_client::~bootstrap_client ()
 {
     complete_action ();
     if (network_logging ())
@@ -3281,7 +3281,7 @@ bool rai::frontier_req::operator == (rai::frontier_req const & other_a) const
     return start == other_a.start && age == other_a.age && count == other_a.count;
 }
 
-rai::bulk_pull_initiator::bulk_pull_initiator (std::shared_ptr <rai::bootstrap_initiator> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
+rai::bulk_pull_initiator::bulk_pull_initiator (std::shared_ptr <rai::bootstrap_client> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
 request (std::move (request_a)),
 expecting (request->start),
 connection (connection_a)
@@ -3298,7 +3298,7 @@ rai::bulk_pull_initiator::~bulk_pull_initiator ()
     }
 }
 
-rai::frontier_req_initiator::frontier_req_initiator (std::shared_ptr <rai::bootstrap_initiator> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
+rai::frontier_req_initiator::frontier_req_initiator (std::shared_ptr <rai::bootstrap_client> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 request (std::move (request_a)),
 connection (connection_a)
 {
