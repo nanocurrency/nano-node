@@ -433,9 +433,12 @@ namespace rai {
         ~frontier_req_client ();
         void receive_frontier ();
         void received_frontier (boost::system::error_code const &, size_t);
+        void request_account (rai::account const &);
         std::array <uint8_t, 4000> receive_buffer;
         std::unique_ptr <rai::frontier_req> request;
         std::shared_ptr <rai::bootstrap_client> connection;
+        rai::account_iterator current;
+        rai::account_iterator end;
     };
     class work
     {

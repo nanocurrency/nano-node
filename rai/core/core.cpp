@@ -3300,7 +3300,9 @@ rai::bulk_pull_client::~bulk_pull_client ()
 
 rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_client> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 request (std::move (request_a)),
-connection (connection_a)
+connection (connection_a),
+current (connection->client->store.latest_begin ()),
+end (connection->client->store.latest_end ())
 {
 }
 
@@ -3321,6 +3323,15 @@ void rai::frontier_req_client::receive_frontier ()
     });
 }
 
+void rai::frontier_req_client::request_account (rai::account const & account_a)
+{
+    // Account they know about and we don't.
+    std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
+    request->start = account_a;
+    request->end.clear ();
+    connection->add_request (std::move (request));
+}
+
 void rai::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
@@ -3336,30 +3347,51 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         assert (!error2);
         if (!account.is_zero ())
         {
-            rai::frontier frontier;
-            auto unknown (connection->client->store.latest_get (account, frontier));
-            if (unknown)
+            while (current != end && current->first < account)
             {
-                std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
-                request->start = account;
-                request->end.clear ();
-                connection->add_request (std::move (request));
+                // We know about an account they don't.
+                ++current;
+            }
+            if (current != end)
+            {
+                if (account == current->first)
+                {
+                    if (latest == current->second.hash)
+                    {
+                        // In sync
+                    }
+                    else if (connection->client->store.block_exists (latest))
+                    {
+                        // We know about a block they don't.
+                    }
+                    else
+                    {
+                        // They know about a block we don't.
+                        std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
+                        request->start = account;
+                        request->end = current->second.hash;
+                        connection->add_request (std::move (request));
+                    }
+                    ++current;
+                }
+                else
+                {
+                    assert (account < current->first);
+                    request_account (account);
+                }
             }
             else
             {
-                auto exists (connection->client->store.block_exists (latest));
-                if (!exists)
-                {
-                    std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
-                    request->start = account;
-                    request->end = frontier.hash;
-                    connection->add_request (std::move (request));
-                }
+                request_account (account);
             }
             receive_frontier ();
         }
         else
         {
+            while (current != end)
+            {
+                // We know about an account they don't.
+            }
             connection->finish_request ();
         }
     }
