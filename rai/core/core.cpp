@@ -2111,9 +2111,9 @@ void rai::client::stop ()
     service.stop ();
 }
 
-void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & complete_action_a)
+void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a)
 {
-    auto processor (std::make_shared <rai::bootstrap_client> (client.shared (), complete_action_a));
+    auto processor (std::make_shared <rai::bootstrap_client> (client.shared ()));
     processor->run (endpoint_a);
 }
 
@@ -2533,10 +2533,9 @@ public:
 };
 }
 
-rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::client> client_a, std::function <void ()> const & complete_action_a) :
+rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::client> client_a) :
 client (client_a),
-socket (client_a->network.service),
-complete_action (complete_action_a)
+socket (client_a->network.service)
 {
 }
 
@@ -2878,7 +2877,6 @@ boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
 
 rai::bootstrap_client::~bootstrap_client ()
 {
-    complete_action ();
     if (network_logging ())
     {
         client->log.add ("Exiting bootstrap processor");
@@ -3828,10 +3826,7 @@ void rai::processor::warmup (rai::endpoint const & endpoint_a)
         auto existing (bootstrapped->find (endpoint_a));
         if (existing == bootstrapped->end ())
         {
-            client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()),
-                [] ()
-                {
-                });
+            client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
             if (bootstrapped->size () + 1 >= bootstrap_max)
             {
                 bootstrapped.reset ();

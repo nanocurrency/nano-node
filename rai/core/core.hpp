@@ -362,7 +362,7 @@ namespace rai {
         void contacted (rai::endpoint const &);
         void warmup (rai::endpoint const &);
         void find_network (std::vector <std::pair <std::string, std::string>> const &);
-        void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const &);
+        void bootstrap (rai::tcp_endpoint const &);
         void connect_bootstrap (std::vector <std::string> const &);
         rai::process_result process_receive (rai::block const &);
         void process_receive_republish (std::unique_ptr <rai::block>, rai::endpoint const &);
@@ -393,7 +393,7 @@ namespace rai {
     class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
     {
     public:
-        bootstrap_client (std::shared_ptr <rai::client>, std::function <void ()> const &);
+        bootstrap_client (std::shared_ptr <rai::client>);
         ~bootstrap_client ();
         void run (rai::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
@@ -407,7 +407,6 @@ namespace rai {
         std::vector <uint8_t> send_buffer;
         std::shared_ptr <rai::client> client;
         boost::asio::ip::tcp::socket socket;
-        std::function <void ()> complete_action;
         std::mutex mutex;
         static size_t const max_queue_size = 10;
     };
