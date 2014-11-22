@@ -404,10 +404,8 @@ namespace rai {
         void add_and_send (std::unique_ptr <rai::message>);
         void add_request (std::unique_ptr <rai::message>);
         std::queue <std::unique_ptr <rai::message>> requests;
-        std::vector <uint8_t> send_buffer;
         std::shared_ptr <rai::client> client;
         boost::asio::ip::tcp::socket socket;
-        std::mutex mutex;
         static size_t const max_queue_size = 10;
     };
     class bulk_pull_client : public std::enable_shared_from_this <bulk_pull_client>

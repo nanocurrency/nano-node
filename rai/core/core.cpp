@@ -2589,10 +2589,9 @@ void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, 
 
 void rai::bootstrap_client::add_request (std::unique_ptr <rai::message> message_a)
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    send_buffer.clear ();
+    auto send_buffer (std::make_shared <std::vector <uint8_t>> ());
     {
-        rai::vectorstream stream (send_buffer);
+        rai::vectorstream stream (*send_buffer);
         message_a->serialize (stream);
     }
     auto startup (requests.empty ());
@@ -2602,7 +2601,7 @@ void rai::bootstrap_client::add_request (std::unique_ptr <rai::message> message_
         run_receiver ();
     }
     auto this_l (shared_from_this ());
-    boost::asio::async_write (socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
+    boost::asio::async_write (socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
     {
         this_l->sent_request (ec, size_a);
     });
@@ -2610,7 +2609,6 @@ void rai::bootstrap_client::add_request (std::unique_ptr <rai::message> message_
 
 void rai::bootstrap_client::run_receiver ()
 {
-    assert (!mutex.try_lock ());
     assert (requests.front () != nullptr);
     request_visitor visitor (shared_from_this ());
     requests.front ()->visit (visitor);
@@ -2618,7 +2616,6 @@ void rai::bootstrap_client::run_receiver ()
 
 void rai::bootstrap_client::finish_request ()
 {
-    std::lock_guard <std::mutex> lock (mutex);
     assert (!requests.empty ());
     requests.pop ();
     if (!requests.empty ())
