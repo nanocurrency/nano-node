@@ -53,7 +53,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -2558,10 +2558,10 @@ void rai::bulk_pull_client::request ()
 {
     if (current != end)
     {
-        assert (current != end);
         rai::bulk_pull req;
         req.start = current->first;
         req.end = current->second;
+        ++current;
         auto buffer (std::make_shared <std::vector <uint8_t>> ());
         {
             rai::vectorstream stream (*buffer);
@@ -2582,6 +2582,7 @@ void rai::bulk_pull_client::request ()
     }
     else
     {
+        process_end ();
         connection->completed_pulls ();
     }
 }
@@ -2642,11 +2643,7 @@ void rai::bulk_pull_client::received_type ()
         }
         case rai::block_type::not_a_block:
         {
-            auto error (process_end ());
-            if (error)
-            {
-                connection->connection->client->log.add ("Error processing end_block");
-            }
+            request ();
             break;
         }
         default:
@@ -2657,60 +2654,93 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
-namespace
-{
-class observed_visitor : public rai::block_visitor
+namespace {
+    class path_filler : public rai::block_visitor
 {
 public:
-    observed_visitor () :
-    account (0)
+    path_filler (std::vector <std::unique_ptr <rai::block>> & path_a, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_a) :
+    path (path_a),
+    blocks (blocks_a)
     {
     }
     void send_block (rai::send_block const & block_a)
     {
-        account = block_a.hashables.destination;
+        auto existing (blocks.find (block_a.hashables.previous));
+        if (existing != blocks.end ())
+        {
+            path.push_back (std::move (existing->second));
+            blocks.erase (existing);
+        }
     }
-    void receive_block (rai::receive_block const &)
+    void receive_block (rai::receive_block const & block_a)
     {
+        auto existing1 (blocks.find (block_a.hashables.previous));
+        if (existing1 != blocks.end ())
+        {
+            path.push_back (std::move (existing1->second));
+            blocks.erase (existing1);
+        }
+        auto existing2 (blocks.find (block_a.hashables.source));
+        if (existing2 != blocks.end ())
+        {
+            path.push_back (std::move (existing2->second));
+            blocks.erase (existing2);
+        }
     }
-    void open_block (rai::open_block const &)
+    void open_block (rai::open_block const & block_a)
     {
+        auto existing (blocks.find (block_a.hashables.source));
+        if (existing != blocks.end ())
+        {
+            path.push_back (std::move (existing->second));
+            blocks.erase (existing);
+        }
     }
-    void change_block (rai::change_block const &)
+    void change_block (rai::change_block const & block_a)
     {
+        auto existing (blocks.find (block_a.hashables.previous));
+        if (existing != blocks.end ())
+        {
+            path.push_back (std::move (existing->second));
+            blocks.erase (existing);
+        }
     }
-    rai::account account;
+    std::vector <std::unique_ptr <rai::block>> & path;
+    std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks;
 };
 }
 
-bool rai::bulk_pull_client::process_end ()
+void rai::bulk_pull_client::process_end ()
 {
-    bool result;
-    if (expecting == current->second)
+    std::vector <std::unique_ptr <rai::block>> path;
+    while (!blocks.empty ())
     {
-        rai::process_result processing (rai::process_result::progress);
-        std::unique_ptr <rai::block> block;
-        do
+        path.clear ();
+        auto first (blocks.begin ());
+        path.push_back (std::move (first->second));
+        blocks.erase (first);
+        path_filler filler (path, blocks);
+        auto previous_size (0);
+        while (previous_size != path.size ())
         {
-            block = connection->connection->client->store.bootstrap_get (expecting);
-            if (block != nullptr)
+            previous_size = path.size ();
+            path.back ()->visit (filler);
+        }
+        while (!path.empty ())
+        {
+            auto process_result (connection->connection->client->ledger.process (*path.back ()));
+            switch (process_result)
             {
-                auto connection_l (connection);
-                processing = connection->connection->client->processor.process_receive (*block);
-                expecting = block->hash ();
+                case rai::process_result::progress:
+                case rai::process_result::old:
+                    path.pop_back ();
+                    break;
+                default:
+                    path.clear ();
+                    break;
             }
-        } while (block != nullptr && processing == rai::process_result::progress);
-        result = processing != rai::process_result::progress;
+        }
     }
-    else if (expecting == current->first)
-    {
-        result = false;
-    }
-    else
-    {
-        result = true;
-    }
-    return result;
 }
 
 rai::block_hash rai::genesis::hash () const
@@ -2726,43 +2756,15 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 		auto block (rai::deserialize_block (stream));
 		if (block != nullptr)
 		{
-			auto error (process_block (*block));
-			if (!error)
-			{
-				receive_block ();
-			}
+            auto hash (block->hash ());
+            blocks [hash] = std::move (block);
+            receive_block ();
 		}
-	}
-}
-
-bool rai::bulk_pull_client::process_block (rai::block const & block)
-{
-    bool result;
-    auto hash (block.hash ());
-    if (network_logging ())
-    {
-        connection->connection->client->log.add (boost::str (boost::format ("Received block: %1%") % hash.to_string ()));
-    }
-    if (expecting != current->second && (expecting == current->first || hash == expecting))
-    {
-        auto previous (block.previous ());
-        connection->connection->client->store.bootstrap_put (previous, block);
-        expecting = previous;
-        if (network_logging ())
+        else
         {
-            connection->connection->client->log.add (boost::str (boost::format ("Expecting: %1%") % expecting.to_string ()));
+            connection->connection->client->log.add ("Error deserializing block received from pull request");
         }
-        result = false;
-    }
-    else
-    {
-		if (network_logging ())
-		{
-            connection->connection->client->log.add (boost::str (boost::format ("Block hash: %1% did not match expecting %1%") % expecting.to_string ()));
-		}
-        result = true;
-    }
-    return result;
+	}
 }
 
 bool rai::block_store::block_exists (rai::block_hash const & hash_a)
@@ -3239,8 +3241,7 @@ bool rai::frontier_req::operator == (rai::frontier_req const & other_a) const
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
 connection (connection_a),
 current (connection->pulls.begin ()),
-end (connection->pulls.end ()),
-expecting (current->first)
+end (connection->pulls.end ())
 {
 }
 
@@ -3342,6 +3343,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             while (current != end)
             {
                 // We know about an account they don't.
+                ++current;
             }
             auto this_l (shared_from_this ());
             auto pulls (std::make_shared <rai::bulk_pull_client> (this_l));

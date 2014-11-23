@@ -425,13 +425,12 @@ namespace rai {
         void receive_block ();
         void received_type ();
         void received_block (boost::system::error_code const &, size_t);
-        bool process_block (rai::block const &);
-        bool process_end ();
+        void process_end ();
+        std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> blocks;
         std::array <uint8_t, 4000> receive_buffer;
         std::shared_ptr <rai::frontier_req_client> connection;
         std::unordered_map <rai::account, rai::block_hash>::iterator current;
         std::unordered_map <rai::account, rai::block_hash>::iterator end;
-        rai::block_hash expecting;
     };
     class work
     {
