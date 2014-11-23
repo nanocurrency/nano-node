@@ -53,7 +53,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return true;
+        return false;
     }
 }
 
@@ -2728,7 +2728,7 @@ void rai::bulk_pull_client::process_end ()
         }
         while (!path.empty ())
         {
-            auto process_result (connection->connection->client->ledger.process (*path.back ()));
+            auto process_result (connection->connection->client->processor.process_receive (*path.back ()));
             switch (process_result)
             {
                 case rai::process_result::progress:
