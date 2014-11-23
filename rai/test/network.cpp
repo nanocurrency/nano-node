@@ -904,16 +904,16 @@ TEST (bootstrap_processor, DISABLED_process_none)
 TEST (bootstrap_processor, process_incomplete)
 {
     rai::system system (24000, 1);
-    auto initiator (std::make_shared <rai::bootstrap_client> (system.clients [0]));
-    initiator->requests.push (std::unique_ptr <rai::bulk_pull> {});
+    auto client (std::make_shared <rai::bootstrap_client> (system.clients [0]));
     rai::genesis genesis;
     std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
     request->start = rai::test_genesis_key.pub;
     request->end = genesis.hash ();
-    auto bulk_pull_initiator (std::make_shared <rai::bulk_pull_client> (initiator, std::move (request)));
+    auto frontier_req_client (std::make_shared <rai::frontier_req_client> (client));
+    auto bulk_pull_client (std::make_shared <rai::bulk_pull_client> (frontier_req_client));
     rai::send_block block1;
-    ASSERT_FALSE (bulk_pull_initiator->process_block (block1));
-    ASSERT_TRUE (bulk_pull_initiator->process_end ());
+    ASSERT_FALSE (bulk_pull_client->process_block (block1));
+    ASSERT_TRUE (bulk_pull_client->process_end ());
 }
 
 TEST (bootstrap_processor, process_one)

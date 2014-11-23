@@ -397,45 +397,41 @@ namespace rai {
         ~bootstrap_client ();
         void run (rai::tcp_endpoint const &);
         void connect_action (boost::system::error_code const &);
-        void send_frontier_request ();
         void sent_request (boost::system::error_code const &, size_t);
-        void run_receiver ();
-        void finish_request ();
-        void add_and_send (std::unique_ptr <rai::message>);
-        void add_request (std::unique_ptr <rai::message>);
-        std::queue <std::unique_ptr <rai::message>> requests;
         std::shared_ptr <rai::client> client;
         boost::asio::ip::tcp::socket socket;
-        static size_t const max_queue_size = 10;
     };
-    class bulk_pull_client : public std::enable_shared_from_this <bulk_pull_client>
+    class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
     {
     public:
-        bulk_pull_client (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::bulk_pull>);
-        ~bulk_pull_client ();
-        void receive_block ();
-        void received_type (boost::system::error_code const &, size_t);
-        void received_block (boost::system::error_code const &, size_t);
-        bool process_block (rai::block const &);
-        bool process_end ();
-        std::array <uint8_t, 4000> receive_buffer;
-        std::unique_ptr <rai::bulk_pull> request;
-        rai::block_hash expecting;
-        std::shared_ptr <rai::bootstrap_client> connection;
-    };
-    class frontier_req_client : public std::enable_shared_from_this <frontier_req_client>
-    {
-    public:
-        frontier_req_client (std::shared_ptr <rai::bootstrap_client> const &, std::unique_ptr <rai::frontier_req>);
+        frontier_req_client (std::shared_ptr <rai::bootstrap_client> const &);
         ~frontier_req_client ();
         void receive_frontier ();
         void received_frontier (boost::system::error_code const &, size_t);
         void request_account (rai::account const &);
+        void completed_pulls ();
+        std::unordered_map <rai::account, rai::block_hash> pulls;
         std::array <uint8_t, 4000> receive_buffer;
-        std::unique_ptr <rai::frontier_req> request;
         std::shared_ptr <rai::bootstrap_client> connection;
         rai::account_iterator current;
         rai::account_iterator end;
+    };
+    class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
+    {
+    public:
+        bulk_pull_client (std::shared_ptr <rai::frontier_req_client> const &);
+        ~bulk_pull_client ();
+        void request ();
+        void receive_block ();
+        void received_type ();
+        void received_block (boost::system::error_code const &, size_t);
+        bool process_block (rai::block const &);
+        bool process_end ();
+        std::array <uint8_t, 4000> receive_buffer;
+        std::shared_ptr <rai::frontier_req_client> connection;
+        std::unordered_map <rai::account, rai::block_hash>::iterator current;
+        std::unordered_map <rai::account, rai::block_hash>::iterator end;
+        rai::block_hash expecting;
     };
     class work
     {
