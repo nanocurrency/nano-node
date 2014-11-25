@@ -2688,13 +2688,13 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
-rai::block_path_finder::block_path_finder (std::vector <std::unique_ptr <rai::block>> & path_a, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_a) :
+rai::block_path::block_path (std::vector <std::unique_ptr <rai::block>> & path_a, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_a) :
 path (path_a),
 blocks (blocks_a)
 {
 }
 
-void rai::block_path_finder::send_block (rai::send_block const & block_a)
+void rai::block_path::send_block (rai::send_block const & block_a)
 {
     auto existing (blocks.find (block_a.hashables.previous));
     if (existing != blocks.end ())
@@ -2704,7 +2704,7 @@ void rai::block_path_finder::send_block (rai::send_block const & block_a)
     }
 }
 
-void rai::block_path_finder::receive_block (rai::receive_block const & block_a)
+void rai::block_path::receive_block (rai::receive_block const & block_a)
 {
     auto existing1 (blocks.find (block_a.hashables.previous));
     if (existing1 != blocks.end ())
@@ -2720,7 +2720,7 @@ void rai::block_path_finder::receive_block (rai::receive_block const & block_a)
     }
 }
 
-void rai::block_path_finder::open_block (rai::open_block const & block_a)
+void rai::block_path::open_block (rai::open_block const & block_a)
 {
     auto existing (blocks.find (block_a.hashables.source));
     if (existing != blocks.end ())
@@ -2730,7 +2730,7 @@ void rai::block_path_finder::open_block (rai::open_block const & block_a)
     }
 }
 
-void rai::block_path_finder::change_block (rai::change_block const & block_a)
+void rai::block_path::change_block (rai::change_block const & block_a)
 {
     auto existing (blocks.find (block_a.hashables.previous));
     if (existing != blocks.end ())
@@ -2749,7 +2749,7 @@ void rai::bulk_pull_client::process_end ()
         auto first (blocks.begin ());
         path.push_back (std::move (first->second));
         blocks.erase (first);
-        rai::block_path_finder filler (path, blocks);
+        rai::block_path filler (path, blocks);
         auto previous_size (0);
         while (previous_size != path.size ())
         {
@@ -3565,7 +3565,7 @@ void rai::bulk_push_client::push ()
         auto begin (blocks.begin ());
         path.push_back (std::move (begin->second));
         blocks.erase (begin);
-        rai::block_path_finder filler (path, blocks);
+        rai::block_path filler (path, blocks);
         auto previous_size (0);
         while (previous_size != path.size ())
         {

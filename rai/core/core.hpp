@@ -400,10 +400,10 @@ namespace rai {
         std::mutex mutex;
         rai::client & client;
     };
-    class block_path_finder : public rai::block_visitor
+    class block_path : public rai::block_visitor
     {
     public:
-        block_path_finder (std::vector <std::unique_ptr <rai::block>> &, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> &);
+        block_path (std::vector <std::unique_ptr <rai::block>> &, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> &);
         void send_block (rai::send_block const &);
         void receive_block (rai::receive_block const &);
         void open_block (rai::open_block const &);
