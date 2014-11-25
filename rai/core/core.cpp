@@ -2708,11 +2708,11 @@ void rai::block_path::receive_block (rai::receive_block const & block_a)
 {
 	rai::block_path path_l (path, blocks);
 	path_l.generate (block_a.hashables.source);
-    auto existing2 (blocks.find (block_a.hashables.previous));
-    if (existing2 != blocks.end ())
+    auto existing (blocks.find (block_a.hashables.previous));
+    if (existing != blocks.end ())
 	{
-        path.push_back (std::move (existing2->second));
-        blocks.erase (existing2);
+        path.push_back (std::move (existing->second));
+        blocks.erase (existing);
 	}
 }
 
