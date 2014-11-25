@@ -2706,12 +2706,8 @@ void rai::block_path::send_block (rai::send_block const & block_a)
 
 void rai::block_path::receive_block (rai::receive_block const & block_a)
 {
-    auto existing1 (blocks.find (block_a.hashables.source));
-    if (existing1 != blocks.end ())
-	{
-        path.push_back (std::move (existing1->second));
-        blocks.erase (existing1);
-    }
+	rai::block_path path_l (path, blocks);
+	path_l.generate (block_a.hashables.source);
     auto existing2 (blocks.find (block_a.hashables.previous));
     if (existing2 != blocks.end ())
 	{
