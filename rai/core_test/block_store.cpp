@@ -196,3 +196,23 @@ TEST (checksum, simple)
     rai::block_hash hash3;
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash3));
 }
+
+TEST (block_store, delete_iterator_entry)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::send_block block1;
+    block1.hashables.previous = 1;
+    store.block_put (block1.hash (), block1);
+    rai::send_block block2;
+    block2.hashables.previous = 2;
+    store.block_put (block2.hash (), block2);
+    auto current (store.blocks_begin ());
+    ASSERT_NE (store.blocks_end (), current);
+    store.block_del (current->first);
+    ++current;
+    ASSERT_NE (store.blocks_end (), current);
+    store.block_del (current->first);
+    ASSERT_EQ (store.blocks_end (), current);
+}
