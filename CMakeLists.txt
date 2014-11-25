@@ -47,18 +47,19 @@ add_library (core
     )
 
 add_executable (core_test
-	rai/test/block.cpp
-    rai/test/block_store.cpp
-    rai/test/client.cpp
-    rai/test/daemon.cpp
-	rai/test/entry.cpp
-	rai/test/ledger.cpp
-    rai/test/message.cpp
-    rai/test/processor_service.cpp
-    rai/test/peer_container.cpp
-    rai/test/network.cpp
-    rai/test/uint256_union.cpp
-    rai/test/wallet_test.cpp
+	rai/core_test/block.cpp
+    rai/core_test/block_path.cpp
+    rai/core_test/block_store.cpp
+    rai/core_test/client.cpp
+    rai/core_test/daemon.cpp
+	rai/core_test/entry.cpp
+	rai/core_test/ledger.cpp
+    rai/core_test/message.cpp
+    rai/core_test/processor_service.cpp
+    rai/core_test/peer_container.cpp
+    rai/core_test/network.cpp
+    rai/core_test/uint256_union.cpp
+    rai/core_test/wallet_test.cpp
     )
     
 add_executable (qt_test
