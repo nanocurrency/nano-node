@@ -400,6 +400,17 @@ namespace rai {
         std::mutex mutex;
         rai::client & client;
     };
+    class block_path_finder : public rai::block_visitor
+    {
+    public:
+        block_path_finder (std::vector <std::unique_ptr <rai::block>> &, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> &);
+        void send_block (rai::send_block const &);
+        void receive_block (rai::receive_block const &);
+        void open_block (rai::open_block const &);
+        void change_block (rai::change_block const &);
+        std::vector <std::unique_ptr <rai::block>> & path;
+        std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks;
+    };
     class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
     {
     public:

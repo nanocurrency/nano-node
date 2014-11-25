@@ -2688,60 +2688,56 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
-namespace {
-class path_filler : public rai::block_visitor
+rai::block_path_finder::block_path_finder (std::vector <std::unique_ptr <rai::block>> & path_a, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_a) :
+path (path_a),
+blocks (blocks_a)
 {
-public:
-    path_filler (std::vector <std::unique_ptr <rai::block>> & path_a, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_a) :
-    path (path_a),
-    blocks (blocks_a)
+}
+
+void rai::block_path_finder::send_block (rai::send_block const & block_a)
+{
+    auto existing (blocks.find (block_a.hashables.previous));
+    if (existing != blocks.end ())
     {
+        path.push_back (std::move (existing->second));
+        blocks.erase (existing);
     }
-    void send_block (rai::send_block const & block_a)
+}
+
+void rai::block_path_finder::receive_block (rai::receive_block const & block_a)
+{
+    auto existing1 (blocks.find (block_a.hashables.previous));
+    if (existing1 != blocks.end ())
     {
-        auto existing (blocks.find (block_a.hashables.previous));
-        if (existing != blocks.end ())
-        {
-            path.push_back (std::move (existing->second));
-            blocks.erase (existing);
-        }
+        path.push_back (std::move (existing1->second));
+        blocks.erase (existing1);
     }
-    void receive_block (rai::receive_block const & block_a)
+    auto existing2 (blocks.find (block_a.hashables.source));
+    if (existing2 != blocks.end ())
     {
-        auto existing1 (blocks.find (block_a.hashables.previous));
-        if (existing1 != blocks.end ())
-        {
-            path.push_back (std::move (existing1->second));
-            blocks.erase (existing1);
-        }
-        auto existing2 (blocks.find (block_a.hashables.source));
-        if (existing2 != blocks.end ())
-        {
-            path.push_back (std::move (existing2->second));
-            blocks.erase (existing2);
-        }
+        path.push_back (std::move (existing2->second));
+        blocks.erase (existing2);
     }
-    void open_block (rai::open_block const & block_a)
+}
+
+void rai::block_path_finder::open_block (rai::open_block const & block_a)
+{
+    auto existing (blocks.find (block_a.hashables.source));
+    if (existing != blocks.end ())
     {
-        auto existing (blocks.find (block_a.hashables.source));
-        if (existing != blocks.end ())
-        {
-            path.push_back (std::move (existing->second));
-            blocks.erase (existing);
-        }
+        path.push_back (std::move (existing->second));
+        blocks.erase (existing);
     }
-    void change_block (rai::change_block const & block_a)
+}
+
+void rai::block_path_finder::change_block (rai::change_block const & block_a)
+{
+    auto existing (blocks.find (block_a.hashables.previous));
+    if (existing != blocks.end ())
     {
-        auto existing (blocks.find (block_a.hashables.previous));
-        if (existing != blocks.end ())
-        {
-            path.push_back (std::move (existing->second));
-            blocks.erase (existing);
-        }
+        path.push_back (std::move (existing->second));
+        blocks.erase (existing);
     }
-    std::vector <std::unique_ptr <rai::block>> & path;
-    std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks;
-};
 }
 
 void rai::bulk_pull_client::process_end ()
@@ -2753,7 +2749,7 @@ void rai::bulk_pull_client::process_end ()
         auto first (blocks.begin ());
         path.push_back (std::move (first->second));
         blocks.erase (first);
-        path_filler filler (path, blocks);
+        rai::block_path_finder filler (path, blocks);
         auto previous_size (0);
         while (previous_size != path.size ())
         {
@@ -3569,7 +3565,7 @@ void rai::bulk_push_client::push ()
         auto begin (blocks.begin ());
         path.push_back (std::move (begin->second));
         blocks.erase (begin);
-        path_filler filler (path, blocks);
+        rai::block_path_finder filler (path, blocks);
         auto previous_size (0);
         while (previous_size != path.size ())
         {
