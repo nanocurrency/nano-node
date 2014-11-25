@@ -404,6 +404,7 @@ namespace rai {
     {
     public:
         block_path (std::vector <std::unique_ptr <rai::block>> &, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> &);
+        void generate (rai::block_hash const &);
         void send_block (rai::send_block const &);
         void receive_block (rai::receive_block const &);
         void open_block (rai::open_block const &);

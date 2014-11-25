@@ -2740,22 +2740,27 @@ void rai::block_path::change_block (rai::change_block const & block_a)
     }
 }
 
+void rai::block_path::generate (rai::block_hash const & hash_a)
+{
+    auto first (blocks.begin ());
+    path.push_back (std::move (first->second));
+    blocks.erase (first);
+    auto previous_size (0);
+    while (previous_size != path.size ())
+    {
+        previous_size = path.size ();
+        path.back ()->visit (*this);
+    }
+}
+
 void rai::bulk_pull_client::process_end ()
 {
     std::vector <std::unique_ptr <rai::block>> path;
     while (!blocks.empty ())
     {
         path.clear ();
-        auto first (blocks.begin ());
-        path.push_back (std::move (first->second));
-        blocks.erase (first);
         rai::block_path filler (path, blocks);
-        auto previous_size (0);
-        while (previous_size != path.size ())
-        {
-            previous_size = path.size ();
-            path.back ()->visit (filler);
-        }
+        filler.generate (blocks.begin ()->first);
         while (!path.empty ())
         {
             auto process_result (connection->connection->client->processor.process_receive (*path.back ()));
@@ -3562,16 +3567,8 @@ void rai::bulk_push_client::push ()
     if (!blocks.empty ())
     {
         path.clear ();
-        auto begin (blocks.begin ());
-        path.push_back (std::move (begin->second));
-        blocks.erase (begin);
         rai::block_path filler (path, blocks);
-        auto previous_size (0);
-        while (previous_size != path.size ())
-        {
-            previous_size = path.size ();
-            path.back ()->visit (filler);
-        }
+        filler.generate (blocks.begin ()->first);
         push_block ();
     }
     else
