@@ -2706,18 +2706,18 @@ void rai::block_path::send_block (rai::send_block const & block_a)
 
 void rai::block_path::receive_block (rai::receive_block const & block_a)
 {
-    auto existing1 (blocks.find (block_a.hashables.previous));
+    auto existing1 (blocks.find (block_a.hashables.source));
     if (existing1 != blocks.end ())
-    {
+	{
         path.push_back (std::move (existing1->second));
         blocks.erase (existing1);
     }
-    auto existing2 (blocks.find (block_a.hashables.source));
+    auto existing2 (blocks.find (block_a.hashables.previous));
     if (existing2 != blocks.end ())
-    {
+	{
         path.push_back (std::move (existing2->second));
         blocks.erase (existing2);
-    }
+	}
 }
 
 void rai::block_path::open_block (rai::open_block const & block_a)
@@ -2742,15 +2742,18 @@ void rai::block_path::change_block (rai::change_block const & block_a)
 
 void rai::block_path::generate (rai::block_hash const & hash_a)
 {
-    auto first (blocks.begin ());
-    path.push_back (std::move (first->second));
-    blocks.erase (first);
-    auto previous_size (0);
-    while (previous_size != path.size ())
-    {
-        previous_size = path.size ();
-        path.back ()->visit (*this);
-    }
+    auto first (blocks.find (hash_a));
+	if (first != blocks.end ())
+	{
+		path.push_back (std::move (first->second));
+		blocks.erase (first);
+		auto previous_size (0);
+		while (previous_size != path.size ())
+		{
+			previous_size = path.size ();
+			path.back ()->visit (*this);
+		}
+	}
 }
 
 void rai::bulk_pull_client::process_end ()
