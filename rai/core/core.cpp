@@ -2696,21 +2696,21 @@ void rai::block_path::generate (rai::block_hash const & hash_a)
 void rai::bulk_pull_client::process_end ()
 {
     std::vector <std::unique_ptr <rai::block>> path;
-    while (!blocks.empty ())
+    while (connection->connection->client->store.bootstrap_begin () != connection->connection->client->store.bootstrap_end ())
     {
         path.clear ();
         rai::block_path filler (path, [this] (rai::block_hash const & hash_a)
         {
             std::unique_ptr <rai::block> result;
-            auto existing (blocks.find (hash_a));
-            if (existing != blocks.end ())
+            auto block (connection->connection->client->store.bootstrap_get (hash_a));
+            if (block != nullptr)
             {
-                result = std::move (existing->second);
-                blocks.erase (existing);
+                result = std::move (block);
+                connection->connection->client->store.bootstrap_del (hash_a);
             }
             return result;
         });
-        filler.generate (blocks.begin ()->first);
+        filler.generate (connection->connection->client->store.bootstrap_begin ()->first);
         while (!path.empty ())
         {
             auto process_result (connection->connection->client->processor.process_receive (*path.back ()));
@@ -2742,7 +2742,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 		if (block != nullptr)
 		{
             auto hash (block->hash ());
-            blocks [hash] = std::move (block);
+            connection->connection->client->store.bootstrap_put (hash, *block);
             receive_block ();
 		}
         else

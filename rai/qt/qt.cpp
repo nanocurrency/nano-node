@@ -101,9 +101,8 @@ wallet_add_account (new QPushButton ("Create account"))
             QPalette palette;
             palette.setColor (QPalette::Text, Qt::black);
             settings_connect_line->setPalette (palette);
-            settings_bootstrap_button->setEnabled (false);
             settings_bootstrap_button->setText ("Bootstrapping...");
-            client_m.processor.bootstrap (endpoint, [this] () {settings_bootstrap_button->setText ("Bootstrap"); settings_bootstrap_button->setEnabled (true);});
+            client_m.processor.bootstrap (endpoint);
             settings_connect_line->clear ();
         }
         else
