@@ -3418,36 +3418,10 @@ void rai::frontier_req_client::completed_pushes ()
 }
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
-connection (connection_a)
+connection (connection_a),
+current (connection->pushes.begin ()),
+end (connection->pushes.end ())
 {
-    for (auto i (connection->pushes.begin ()), n (connection->pushes.end ()); i != n; ++i)
-    {
-        rai::frontier frontier;
-        auto error (connection->connection->client->store.latest_get (i->first, frontier));
-        if (!error)
-        {
-            auto current (frontier.hash);
-            while (current != i->second)
-            {
-                auto block (connection->connection->client->store.block_get (current));
-                if (block != nullptr)
-                {
-                    auto hash (block->hash ());
-                    current = block->previous ();
-                    blocks [hash] = std::move (block);
-                }
-                else
-                {
-                    connection->connection->client->log.add (boost::str (boost::format ("Unable to retrieve block: %1%") % current.to_string ()));
-                    current = i->second;
-                }
-            }
-        }
-        else
-        {
-            connection->connection->client->log.add (boost::str (boost::format ("Unable to get frontier for account: %1%") % i->first.to_string ()));
-        }
-    }
 }
 
 rai::bulk_push_client::~bulk_push_client ()
@@ -3482,21 +3456,20 @@ void rai::bulk_push_client::start ()
 
 void rai::bulk_push_client::push ()
 {
-    if (!blocks.empty ())
+    if (current != end)
     {
         path.clear ();
         rai::block_path filler (path, [this] (rai::block_hash const & hash_a)
         {
             std::unique_ptr <rai::block> result;
-            auto existing (blocks.find (hash_a));
-            if (existing != blocks.end ())
+            auto block (connection->connection->client->store.block_get (hash_a));
+            if (block != nullptr)
             {
-                result = std::move (existing->second);
-                blocks.erase (existing);
+                result = std::move (block);
             }
             return result;
         });
-        filler.generate (blocks.begin ()->first);
+        filler.generate (frontier.hash);
         push_block ();
     }
     else

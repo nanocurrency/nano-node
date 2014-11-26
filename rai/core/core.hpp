@@ -466,7 +466,8 @@ namespace rai {
         void push_block ();
         void send_finished ();
         std::shared_ptr <rai::frontier_req_client> connection;
-        std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> blocks;
+        std::unordered_map <rai::account, rai::block_hash>::iterator current;
+        std::unordered_map <rai::account, rai::block_hash>::iterator end;
         std::vector <std::unique_ptr <rai::block>> path;
     };
     class work
