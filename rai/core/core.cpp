@@ -3469,6 +3469,8 @@ void rai::bulk_push_client::push ()
             }
             return result;
         });
+		rai::frontier frontier;
+		connection->connection->client->store.latest_get (current->first, frontier);
         filler.generate (frontier.hash);
         push_block ();
     }

@@ -436,7 +436,7 @@ namespace rai {
         void completed_pushes ();
         std::unordered_map <rai::account, rai::block_hash> pulls;
         std::unordered_map <rai::account, rai::block_hash> pushes;
-        std::array <uint8_t, 4000> receive_buffer;
+        std::array <uint8_t, 200> receive_buffer;
         std::shared_ptr <rai::bootstrap_client> connection;
         rai::account_iterator current;
         rai::account_iterator end;
@@ -451,7 +451,7 @@ namespace rai {
         void received_type ();
         void received_block (boost::system::error_code const &, size_t);
         void process_end ();
-        std::array <uint8_t, 4000> receive_buffer;
+        std::array <uint8_t, 200> receive_buffer;
         std::shared_ptr <rai::frontier_req_client> connection;
         std::unordered_map <rai::account, rai::block_hash>::iterator current;
         std::unordered_map <rai::account, rai::block_hash>::iterator end;
