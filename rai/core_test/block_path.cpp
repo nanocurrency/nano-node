@@ -5,7 +5,17 @@ TEST (block_path, zero)
 {
 	std::vector <std::unique_ptr <rai::block>> path;
 	std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> blocks;
-	rai::block_path block_path (path, blocks);
+    rai::block_path block_path (path, [&blocks] (rai::block_hash const & hash_a)
+    {
+        std::unique_ptr <rai::block> result;
+        auto existing (blocks.find (hash_a));
+        if (existing != blocks.end ())
+        {
+            result = std::move (existing->second);
+            blocks.erase (existing);
+        }
+        return result;
+    });
 	block_path.generate (0);
 	ASSERT_EQ (0, path.size ());
 	ASSERT_EQ (0, blocks.size ());
@@ -18,7 +28,17 @@ TEST (block_path, one)
     std::unique_ptr <rai::block> block1 (new rai::send_block);
     auto hash1 (block1->hash ());
     blocks [hash1] = block1->clone ();
-    rai::block_path block_path (path, blocks);
+    rai::block_path block_path (path, [&blocks] (rai::block_hash const & hash_a)
+    {
+        std::unique_ptr <rai::block> result;
+        auto existing (blocks.find (hash_a));
+        if (existing != blocks.end ())
+        {
+            result = std::move (existing->second);
+            blocks.erase (existing);
+        }
+        return result;
+    });
     block_path.generate (hash1);
     ASSERT_EQ (1, path.size ());
     ASSERT_EQ (0, blocks.size ());
@@ -36,7 +56,17 @@ TEST (block_path, two)
     block2->hashables.previous = hash1;
     auto hash2 (block2->hash ());
     blocks [hash2] = block2->clone ();
-    rai::block_path block_path (path, blocks);
+    rai::block_path block_path (path, [&blocks] (rai::block_hash const & hash_a)
+    {
+        std::unique_ptr <rai::block> result;
+        auto existing (blocks.find (hash_a));
+        if (existing != blocks.end ())
+        {
+            result = std::move (existing->second);
+            blocks.erase (existing);
+        }
+        return result;
+    });
     block_path.generate (hash2);
     ASSERT_EQ (2, path.size ());
     ASSERT_EQ (0, blocks.size ());
@@ -61,7 +91,17 @@ TEST (block_path, receive_one)
 	block3->hashables.source = hash2;
 	auto hash3 (block3->hash ());
 	blocks [hash3] = block3->clone ();
-	rai::block_path block_path (path, blocks);
+    rai::block_path block_path (path, [&blocks] (rai::block_hash const & hash_a)
+    {
+        std::unique_ptr <rai::block> result;
+        auto existing (blocks.find (hash_a));
+        if (existing != blocks.end ())
+        {
+            result = std::move (existing->second);
+            blocks.erase (existing);
+        }
+        return result;
+    });
 	block_path.generate (hash3);
 	ASSERT_EQ (3, path.size ());
 	ASSERT_EQ (0, blocks.size ());
@@ -90,7 +130,17 @@ TEST (block_path, receive_two)
 	block3->hashables.source = hash2;
 	auto hash3 (block3->hash ());
 	blocks [hash3] = block3->clone ();
-	rai::block_path block_path (path, blocks);
+    rai::block_path block_path (path, [&blocks] (rai::block_hash const & hash_a)
+    {
+        std::unique_ptr <rai::block> result;
+        auto existing (blocks.find (hash_a));
+        if (existing != blocks.end ())
+        {
+            result = std::move (existing->second);
+            blocks.erase (existing);
+        }
+        return result;
+    });
 	block_path.generate (hash3);
 	ASSERT_EQ (4, path.size ());
 	ASSERT_EQ (0, blocks.size ());

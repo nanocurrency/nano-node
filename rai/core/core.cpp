@@ -2634,21 +2634,10 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
-rai::block_path::block_path (std::vector <std::unique_ptr <rai::block>> & path_a, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_a) :
+rai::block_path::block_path (std::vector <std::unique_ptr <rai::block>> & path_a, std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> const & retrieve_a) :
 path (path_a),
-blocks_m (blocks_a)
+retrieve (retrieve_a)
 {
-    retrieve = [this] (rai::block_hash const & hash_a)
-    {
-        std::unique_ptr <rai::block> result;
-        auto existing (blocks_m.find (hash_a));
-        if (existing != blocks_m.end ())
-        {
-            result = std::move (existing->second);
-            blocks_m.erase (existing);
-        }
-        return result;
-    };
 }
 
 void rai::block_path::send_block (rai::send_block const & block_a)
@@ -2662,7 +2651,7 @@ void rai::block_path::send_block (rai::send_block const & block_a)
 
 void rai::block_path::receive_block (rai::receive_block const & block_a)
 {
-	rai::block_path path_l (path, blocks_m);
+	rai::block_path path_l (path, retrieve);
 	path_l.generate (block_a.hashables.source);
     auto block (retrieve (block_a.hashables.previous));
     if (block != nullptr)
@@ -2710,7 +2699,17 @@ void rai::bulk_pull_client::process_end ()
     while (!blocks.empty ())
     {
         path.clear ();
-        rai::block_path filler (path, blocks);
+        rai::block_path filler (path, [this] (rai::block_hash const & hash_a)
+        {
+            std::unique_ptr <rai::block> result;
+            auto existing (blocks.find (hash_a));
+            if (existing != blocks.end ())
+            {
+                result = std::move (existing->second);
+                blocks.erase (existing);
+            }
+            return result;
+        });
         filler.generate (blocks.begin ()->first);
         while (!path.empty ())
         {
@@ -3486,7 +3485,17 @@ void rai::bulk_push_client::push ()
     if (!blocks.empty ())
     {
         path.clear ();
-        rai::block_path filler (path, blocks);
+        rai::block_path filler (path, [this] (rai::block_hash const & hash_a)
+        {
+            std::unique_ptr <rai::block> result;
+            auto existing (blocks.find (hash_a));
+            if (existing != blocks.end ())
+            {
+                result = std::move (existing->second);
+                blocks.erase (existing);
+            }
+            return result;
+        });
         filler.generate (blocks.begin ()->first);
         push_block ();
     }

@@ -403,14 +403,13 @@ namespace rai {
     class block_path : public rai::block_visitor
     {
     public:
-        block_path (std::vector <std::unique_ptr <rai::block>> &, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> &);
+        block_path (std::vector <std::unique_ptr <rai::block>> &, std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> const &);
         void generate (rai::block_hash const &);
         void send_block (rai::send_block const &);
         void receive_block (rai::receive_block const &);
         void open_block (rai::open_block const &);
         void change_block (rai::change_block const &);
         std::vector <std::unique_ptr <rai::block>> & path;
-        std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_m;
         std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> retrieve;
     };
     class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
