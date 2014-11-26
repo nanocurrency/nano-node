@@ -388,16 +388,16 @@ namespace rai
 		std::unique_ptr <rai::block> block_get (rai::block_hash const &);
 		void block_del (rai::block_hash const &);
 		bool block_exists (rai::block_hash const &);
-		block_iterator blocks_begin ();
-		block_iterator blocks_end ();
+		rai::block_iterator blocks_begin ();
+		rai::block_iterator blocks_end ();
 		
 		void latest_put (rai::account const &, rai::frontier const &);
 		bool latest_get (rai::account const &, rai::frontier &);
 		void latest_del (rai::account const &);
 		bool latest_exists (rai::account const &);
-		account_iterator latest_begin (rai::account const &);
-		account_iterator latest_begin ();
-		account_iterator latest_end ();
+		rai::account_iterator latest_begin (rai::account const &);
+		rai::account_iterator latest_begin ();
+		rai::account_iterator latest_end ();
 		
 		void pending_put (rai::block_hash const &, rai::account const &, rai::amount const &, rai::account const &);
 		void pending_del (rai::block_hash const &);
@@ -413,6 +413,8 @@ namespace rai
 		void bootstrap_put (rai::block_hash const &, rai::block const &);
 		std::unique_ptr <rai::block> bootstrap_get (rai::block_hash const &);
 		void bootstrap_del (rai::block_hash const &);
+        rai::block_iterator bootstrap_begin ();
+        rai::block_iterator bootstrap_end ();
 		
 		void checksum_put (uint64_t, uint8_t, rai::checksum const &);
 		bool checksum_get (uint64_t, uint8_t, rai::checksum &);

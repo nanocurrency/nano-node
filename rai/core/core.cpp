@@ -1845,64 +1845,10 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
     }
 }
 
-rai::uint128_t rai::block_store::representation_get (rai::account const & account_a)
-{
-    std::string value;
-    auto status (representation->Get (leveldb::ReadOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
-    rai::uint128_t result;
-    if (status.ok ())
-    {
-        rai::uint128_union rep;
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        auto error (rai::read (stream, rep));
-        assert (!error);
-        result = rep.number ();
-    }
-    else
-    {
-        result = 0;
-    }
-    return result;
-}
-
-void rai::block_store::representation_put (rai::account const & account_a, rai::uint128_t const & representation_a)
-{
-    rai::uint128_union rep (representation_a);
-    auto status (representation->Put (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), leveldb::Slice (rep.chars.data (), rep.chars.size ())));
-    assert (status.ok ());
-}
-
 void rai::confirm_unk::serialize (rai::stream & stream_a)
 {
 	write_header (stream_a);
     write (stream_a, rep_hint);
-}
-
-std::unique_ptr <rai::block> rai::block_store::fork_get (rai::block_hash const & hash_a)
-{
-    std::string value;
-    auto status (forks->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
-    std::unique_ptr <rai::block> result;
-    if (status.ok ())
-    {
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        result = rai::deserialize_block (stream);
-        assert (result != nullptr);
-    }
-    return result;
-}
-
-void rai::block_store::fork_put (rai::block_hash const & hash_a, rai::block const & block_a)
-{
-    std::vector <uint8_t> vector;
-    {
-        rai::vectorstream stream (vector);
-        rai::serialize_block (stream, block_a);
-    }
-    auto status (forks->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok ());
 }
 
 namespace
@@ -2826,38 +2772,6 @@ bool rai::block_store::block_exists (rai::block_hash const & hash_a)
     return result;
 }
 
-void rai::block_store::bootstrap_put (rai::block_hash const & hash_a, rai::block const & block_a)
-{
-    std::vector <uint8_t> vector;
-    {
-        rai::vectorstream stream (vector);
-        rai::serialize_block (stream, block_a);
-    }
-    auto status (bootstrap->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok () | status.IsNotFound ());
-}
-
-std::unique_ptr <rai::block> rai::block_store::bootstrap_get (rai::block_hash const & hash_a)
-{
-    std::string value;
-    auto status (bootstrap->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
-    std::unique_ptr <rai::block> result;
-    if (status.ok ())
-    {
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        result = rai::deserialize_block (stream);
-        assert (result != nullptr);
-    }
-    return result;
-}
-
-void rai::block_store::bootstrap_del (rai::block_hash const & hash_a)
-{
-    auto status (bootstrap->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
-}
-
 rai::endpoint rai::network::endpoint ()
 {
     return rai::endpoint (boost::asio::ip::address_v6::loopback (), socket.local_endpoint ().port ());
@@ -3619,43 +3533,6 @@ void rai::bulk_push_client::push_block ()
                 this_l->connection->connection->client->log.add (boost::str (boost::format ("Error sending block during bulk push %1%") % ec.message ()));
             }
         });
-}
-
-void rai::block_store::checksum_put (uint64_t prefix, uint8_t mask, rai::uint256_union const & hash_a)
-{
-    assert ((prefix & 0xff) == 0);
-    uint64_t key (prefix | mask);
-    auto status (checksum->Put (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
-}
-
-bool rai::block_store::checksum_get (uint64_t prefix, uint8_t mask, rai::uint256_union & hash_a)
-{
-    assert ((prefix & 0xff) == 0);
-    std::string value;
-    uint64_t key (prefix | mask);
-    auto status (checksum->Get (leveldb::ReadOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)), &value));
-    assert (status.ok () || status.IsNotFound ());
-    bool result;
-    if (status.ok ())
-    {
-        result = false;
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        auto error (rai::read (stream, hash_a));
-        assert (!error);
-    }
-    else
-    {
-        result = true;
-    }
-    return result;
-}
-
-void rai::block_store::checksum_del (uint64_t prefix, uint8_t mask)
-{
-    assert ((prefix & 0xff) == 0);
-    uint64_t key (prefix | mask);
-    checksum->Delete (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)));
 }
 
 bool rai::keepalive::operator == (rai::keepalive const & other_a) const

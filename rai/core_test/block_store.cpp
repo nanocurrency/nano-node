@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <rai/core/core.hpp>
 
+#include <fstream>
+
 TEST (block_store, construction)
 {
     leveldb::Status init;
@@ -197,6 +199,209 @@ TEST (checksum, simple)
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash3));
 }
 
+TEST (block_store, empty_blocks)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    auto begin (store.blocks_begin ());
+    auto end (store.blocks_end ());
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, empty_accounts)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    auto begin (store.latest_begin ());
+    auto end (store.latest_end ());
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, one_block)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::send_block block1;
+    store.block_put (block1.hash (), block1);
+    auto begin (store.blocks_begin ());
+    auto end (store.blocks_end ());
+    ASSERT_NE (end, begin);
+    auto hash1 (begin->first);
+    ASSERT_EQ (block1.hash (), hash1);
+    auto block2 (begin->second->clone ());
+    ASSERT_EQ (block1, *block2);
+    ++begin;
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, empty_bootstrap)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    auto begin (store.bootstrap_begin ());
+    auto end (store.bootstrap_end ());
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, one_bootstrap)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::send_block block1;
+    store.bootstrap_put (block1.hash (), block1);
+    auto begin (store.bootstrap_begin ());
+    auto end (store.bootstrap_end ());
+    ASSERT_NE (end, begin);
+    auto hash1 (begin->first);
+    ASSERT_EQ (block1.hash (), hash1);
+    auto block2 (begin->second->clone ());
+    ASSERT_EQ (block1, *block2);
+    ++begin;
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, frontier_retrieval)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());;
+    rai::account account1;
+    rai::frontier frontier1;
+    store.latest_put (account1, frontier1);
+    rai::frontier frontier2;
+    store.latest_get (account1, frontier2);
+    ASSERT_EQ (frontier1, frontier2);
+}
+
+TEST (block_store, one_account)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::account account;
+    rai::block_hash hash;
+    store.latest_put (account, {hash, account, 42, 100});
+    auto begin (store.latest_begin ());
+    auto end (store.latest_end ());
+    ASSERT_NE (end, begin);
+    ASSERT_EQ (account, begin->first);
+    ASSERT_EQ (hash, begin->second.hash);
+    ASSERT_EQ (42, begin->second.balance.number ());
+    ASSERT_EQ (100, begin->second.time);
+    ++begin;
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, two_block)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::send_block block1;
+    block1.hashables.destination = 1;
+    block1.hashables.balance = 2;
+    std::vector <rai::block_hash> hashes;
+    std::vector <rai::send_block> blocks;
+    hashes.push_back (block1.hash ());
+    blocks.push_back (block1);
+    store.block_put (hashes [0], block1);
+    rai::send_block block2;
+    block2.hashables.destination = 3;
+    block2.hashables.balance = 4;
+    hashes.push_back (block2.hash ());
+    blocks.push_back (block2);
+    store.block_put (hashes [1], block2);
+    auto begin (store.blocks_begin ());
+    auto end (store.blocks_end ());
+    ASSERT_NE (end, begin);
+    auto hash1 (begin->first);
+    ASSERT_NE (hashes.end (), std::find (hashes.begin (), hashes.end (), hash1));
+    auto block3 (begin->second->clone ());
+    ASSERT_NE (blocks.end (), std::find (blocks.begin (), blocks.end (), *block3));
+    ++begin;
+    ASSERT_NE (end, begin);
+    auto hash2 (begin->first);
+    ASSERT_NE (hashes.end (), std::find (hashes.begin (), hashes.end (), hash2));
+    auto block4 (begin->second->clone ());
+    ASSERT_NE (blocks.end (), std::find (blocks.begin (), blocks.end (), *block4));
+    ++begin;
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, two_account)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::account account1 (1);
+    rai::block_hash hash1 (2);
+    rai::account account2 (3);
+    rai::block_hash hash2 (4);
+    store.latest_put (account1, {hash1, account1, 42, 100});
+    store.latest_put (account2, {hash2, account2, 84, 200});
+    auto begin (store.latest_begin ());
+    auto end (store.latest_end ());
+    ASSERT_NE (end, begin);
+    ASSERT_EQ (account1, begin->first);
+    ASSERT_EQ (hash1, begin->second.hash);
+    ASSERT_EQ (42, begin->second.balance.number ());
+    ASSERT_EQ (100, begin->second.time);
+    ++begin;
+    ASSERT_NE (end, begin);
+    ASSERT_EQ (account2, begin->first);
+    ASSERT_EQ (hash2, begin->second.hash);
+    ASSERT_EQ (84, begin->second.balance.number ());
+    ASSERT_EQ (200, begin->second.time);
+    ++begin;
+    ASSERT_EQ (end, begin);
+}
+
+TEST (block_store, latest_find)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    rai::account account1 (1);
+    rai::block_hash hash1 (2);
+    rai::account account2 (3);
+    rai::block_hash hash2 (4);
+    store.latest_put (account1, {hash1, account1, 100});
+    store.latest_put (account2, {hash2, account2, 200});
+    auto first (store.latest_begin ());
+    auto second (store.latest_begin ());
+    ++second;
+    auto find1 (store.latest_begin (1));
+    ASSERT_EQ (first, find1);
+    auto find2 (store.latest_begin (3));
+    ASSERT_EQ (second, find2);
+    auto find3 (store.latest_begin (2));
+    ASSERT_EQ (second, find3);
+}
+
+TEST (block_store, bad_path)
+{
+    leveldb::Status init;
+    rai::block_store store (init, boost::filesystem::path {});
+    ASSERT_FALSE (init.ok ());
+}
+
+TEST (block_store, already_open)
+{
+    auto path (boost::filesystem::unique_path ());
+    boost::filesystem::create_directories (path);
+    std::ofstream file;
+    file.open ((path / "accounts.ldb").string ().c_str ());
+    ASSERT_TRUE (file.is_open ());
+    leveldb::Status init;
+    rai::block_store store (init, path);
+    ASSERT_FALSE (init.ok ());
+}
+
 TEST (block_store, delete_iterator_entry)
 {
     leveldb::Status init;
@@ -214,5 +419,6 @@ TEST (block_store, delete_iterator_entry)
     ++current;
     ASSERT_NE (store.blocks_end (), current);
     store.block_del (current->first);
+    ++current;
     ASSERT_EQ (store.blocks_end (), current);
 }
