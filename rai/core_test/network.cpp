@@ -88,6 +88,7 @@ TEST (network, send_keepalive)
     ASSERT_EQ (1, peers2.size ());
     ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&client1] (rai::peer_information const & information_a) {return information_a.endpoint == client1->network.endpoint ();}));
     ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system] (rai::peer_information const & information_a) {return information_a.endpoint == system.clients [0]->network.endpoint ();}));
+    client1->stop ();
 }
 
 TEST (network, keepalive_ipv4)
@@ -107,6 +108,7 @@ TEST (network, keepalive_ipv4)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
+    client1->stop ();
 }
 
 TEST (network, multi_keepalive)

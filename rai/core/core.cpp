@@ -373,7 +373,7 @@ void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
 {
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
     {
-        if (!client.peers.known_peer (*i))
+        if (!client.peers.not_a_peer (*i) && !client.peers.known_peer (*i))
         {
             send_keepalive (*i);
         }
@@ -3351,7 +3351,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             while (current != end && current->first < account)
             {
                 // We know about an account they don't.
-                pushes [account] = rai::block_hash (0);
+                pushes [current->first] = rai::block_hash (0);
                 ++current;
             }
             if (current != end)
@@ -3391,7 +3391,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             while (current != end)
             {
                 // We know about an account they don't.
-                pushes [account] = rai::block_hash (0);
+                pushes [current->first] = rai::block_hash (0);
                 ++current;
             }
             completed_requests ();
@@ -3469,8 +3469,11 @@ void rai::bulk_push_client::push ()
             }
             return result;
         });
+        auto hash (current->first);
 		rai::frontier frontier;
-		connection->connection->client->store.latest_get (current->first, frontier);
+		auto error (connection->connection->client->store.latest_get (hash, frontier));
+        assert (!error);
+        ++current;
         filler.generate (frontier.hash);
         push_block ();
     }
