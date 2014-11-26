@@ -258,3 +258,13 @@ TEST (client, scale_num)
     auto up (rai::scale_up (down));
     ASSERT_EQ (num, up);
 }
+
+TEST (client, merge_peers)
+{
+	rai::system system (24000, 1);
+	std::array <rai::endpoint, 8> endpoints;
+	endpoints.fill (rai::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
+	endpoints [0] = rai::endpoint (boost::asio::ip::address_v6::loopback (), 24001);
+	system.clients [0]->network.merge_peers (endpoints);
+	ASSERT_EQ (0, system.clients [0]->peers.peers.size ());
+}

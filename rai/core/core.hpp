@@ -620,14 +620,14 @@ namespace rai {
     {
     public:
 		peer_container (rai::endpoint const &);
+		// Unassigned, reserved, self
         bool not_a_peer (rai::endpoint const &);
-        bool known_peer (rai::endpoint const &);
         // Returns true if peer was already known
+        bool known_peer (rai::endpoint const &);
+		// Notify of peer we received from
 		bool insert_peer (rai::endpoint const &);
 		void random_fill (std::array <rai::endpoint, 8> &);
         std::vector <peer_information> list ();
-        void refresh_action ();
-        void queue_next_refresh ();
         std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
         size_t size ();
         bool empty ();

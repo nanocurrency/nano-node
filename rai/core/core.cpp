@@ -373,7 +373,7 @@ void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
 {
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
     {
-        if (!client.peers.insert_peer (*i))
+        if (!client.peers.known_peer (*i))
         {
             send_keepalive (*i);
         }
