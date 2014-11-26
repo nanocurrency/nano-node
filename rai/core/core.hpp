@@ -410,7 +410,8 @@ namespace rai {
         void open_block (rai::open_block const &);
         void change_block (rai::change_block const &);
         std::vector <std::unique_ptr <rai::block>> & path;
-        std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks;
+        std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_m;
+        std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> retrieve;
     };
     class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
     {

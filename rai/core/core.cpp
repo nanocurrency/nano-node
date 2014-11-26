@@ -2636,59 +2636,65 @@ void rai::bulk_pull_client::received_type ()
 
 rai::block_path::block_path (std::vector <std::unique_ptr <rai::block>> & path_a, std::unordered_map <rai::block_hash, std::unique_ptr <rai::block>> & blocks_a) :
 path (path_a),
-blocks (blocks_a)
+blocks_m (blocks_a)
 {
+    retrieve = [this] (rai::block_hash const & hash_a)
+    {
+        std::unique_ptr <rai::block> result;
+        auto existing (blocks_m.find (hash_a));
+        if (existing != blocks_m.end ())
+        {
+            result = std::move (existing->second);
+            blocks_m.erase (existing);
+        }
+        return result;
+    };
 }
 
 void rai::block_path::send_block (rai::send_block const & block_a)
 {
-    auto existing (blocks.find (block_a.hashables.previous));
-    if (existing != blocks.end ())
+    auto block (retrieve (block_a.hashables.previous));
+    if (block != nullptr)
     {
-        path.push_back (std::move (existing->second));
-        blocks.erase (existing);
+        path.push_back (std::move (block));
     }
 }
 
 void rai::block_path::receive_block (rai::receive_block const & block_a)
 {
-	rai::block_path path_l (path, blocks);
+	rai::block_path path_l (path, blocks_m);
 	path_l.generate (block_a.hashables.source);
-    auto existing (blocks.find (block_a.hashables.previous));
-    if (existing != blocks.end ())
+    auto block (retrieve (block_a.hashables.previous));
+    if (block != nullptr)
 	{
-        path.push_back (std::move (existing->second));
-        blocks.erase (existing);
+        path.push_back (std::move (block));
 	}
 }
 
 void rai::block_path::open_block (rai::open_block const & block_a)
 {
-    auto existing (blocks.find (block_a.hashables.source));
-    if (existing != blocks.end ())
+    auto block (retrieve (block_a.hashables.source));
+    if (block != nullptr)
     {
-        path.push_back (std::move (existing->second));
-        blocks.erase (existing);
+        path.push_back (std::move (block));
     }
 }
 
 void rai::block_path::change_block (rai::change_block const & block_a)
 {
-    auto existing (blocks.find (block_a.hashables.previous));
-    if (existing != blocks.end ())
+    auto block (retrieve (block_a.hashables.previous));
+    if (block != nullptr)
     {
-        path.push_back (std::move (existing->second));
-        blocks.erase (existing);
+        path.push_back (std::move (block));
     }
 }
 
 void rai::block_path::generate (rai::block_hash const & hash_a)
 {
-    auto first (blocks.find (hash_a));
-	if (first != blocks.end ())
+    auto block (retrieve (hash_a));
+	if (block != nullptr)
 	{
-		path.push_back (std::move (first->second));
-		blocks.erase (first);
+		path.push_back (std::move (block));
 		auto previous_size (0);
 		while (previous_size != path.size ())
 		{
