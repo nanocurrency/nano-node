@@ -11,6 +11,7 @@ client_m (client_a),
 password_change (*this),
 enter_password (*this),
 advanced (*this),
+block_creation (*this),
 block_entry (*this),
 application (application_a),
 main_stack (new QStackedWidget),
@@ -75,6 +76,7 @@ send_blocks_back (new QPushButton ("Back"))
     
     main_stack->addWidget (entry_window);
     
+    balance_label->setAlignment (Qt::AlignCenter);
     client_layout->addWidget (balance_label);
     client_layout->addWidget (main_stack);
     client_layout->setSpacing (0);
@@ -388,6 +390,7 @@ show_log (new QPushButton ("Log")),
 wallet_key_text (new QLabel ("Account key:")),
 wallet_key_line (new QLineEdit),
 wallet_add_key_button (new QPushButton ("Add account key")),
+create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
@@ -445,6 +448,7 @@ client (client_a)
     layout->addWidget (wallet_key_text);
     layout->addWidget (wallet_key_line);
     layout->addWidget (wallet_add_key_button);
+    layout->addWidget (create_block);
     layout->addWidget (enter_block);
     layout->addStretch ();
     layout->addWidget (back);
@@ -510,10 +514,14 @@ client (client_a)
           wallet_key_line->setPalette (palette);
       }
     });
+    QObject::connect (create_block, &QPushButton::released, [this] ()
+    {
+        client.push_main_stack (client.block_creation.window);
+    });
     QObject::connect (enter_block, &QPushButton::released, [this] ()
-        {
-            client.push_main_stack (client.block_entry.window);
-        });
+    {
+        client.push_main_stack (client.block_entry.window);
+    });
     refresh_ledger ();
 }
 
@@ -581,32 +589,163 @@ client (client_a)
     layout->addWidget (back);
     window->setLayout (layout);
     QObject::connect (process, &QPushButton::released, [this] ()
+    {
+        auto string (block->toPlainText ().toStdString ());
+        try
         {
-            auto string (block->toPlainText ().toStdString ());
-            try
+            boost::property_tree::ptree tree;
+            std::stringstream istream (string);
+            boost::property_tree::read_json (istream, tree);
+            auto block_l (rai::deserialize_block_json (tree));
+            if (block_l != nullptr)
             {
-                boost::property_tree::ptree tree;
-                std::stringstream istream (string);
-                boost::property_tree::read_json (istream, tree);
-                auto block_l (rai::deserialize_block_json (tree));
-                if (block_l != nullptr)
-                {
-                    client.client_m.processor.process_receive_republish (std::move (block_l), rai::endpoint {});
-                }
-                else
-                {
-                    status->setStyleSheet ("QLabel { color: red }");
-                    status->setText ("Unable to parse block");
-                }
+                client.client_m.processor.process_receive_republish (std::move (block_l), rai::endpoint {});
             }
-            catch (std::runtime_error const &)
+            else
             {
                 status->setStyleSheet ("QLabel { color: red }");
                 status->setText ("Unable to parse block");
             }
-        });
-    QObject::connect (back, &QPushButton::released, [this] ()
+        }
+        catch (std::runtime_error const &)
         {
-            client.pop_main_stack ();
-        });
+            status->setStyleSheet ("QLabel { color: red }");
+            status->setText ("Unable to parse block");
+        }
+    });
+    QObject::connect (back, &QPushButton::released, [this] ()
+    {
+        client.pop_main_stack ();
+    });
+}
+
+rai_qt::block_creation::block_creation (rai_qt::client & client_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+group (new QButtonGroup),
+button_layout (new QHBoxLayout),
+send (new QRadioButton ("Send")),
+receive (new QRadioButton ("Receive")),
+change (new QRadioButton ("Change")),
+open (new QRadioButton ("Open")),
+account_label (new QLabel ("Account:")),
+account (new QLineEdit),
+source_label (new QLabel ("Source:")),
+source (new QLineEdit),
+amount_label (new QLabel ("Amount:")),
+amount (new QLineEdit),
+destination_label (new QLabel ("Destination:")),
+destination (new QLineEdit),
+representative_label (new QLabel ("Representative:")),
+representative (new QLineEdit),
+back (new QPushButton ("Back")),
+client (client_a)
+{
+    group->addButton (send);
+    group->addButton (receive);
+    group->addButton (change);
+    group->addButton (open);
+    
+    button_layout->addWidget (send);
+    button_layout->addWidget (receive);
+    button_layout->addWidget (open);
+    button_layout->addWidget (change);
+    
+    layout->addLayout (button_layout);
+    layout->addWidget (account_label);
+    layout->addWidget (account);
+    layout->addWidget (source_label);
+    layout->addWidget (source);
+    layout->addWidget (amount_label);
+    layout->addWidget (amount);
+    layout->addWidget (destination_label);
+    layout->addWidget (destination);
+    layout->addWidget (representative_label);
+    layout->addWidget (representative);
+    layout->addStretch ();
+    layout->addWidget (back);
+    window->setLayout (layout);
+    QObject::connect (send, &QRadioButton::toggled, [this] ()
+    {
+        if (send->isChecked ())
+        {
+            deactivate_all ();
+            activate_send ();
+        }
+    });
+    QObject::connect (receive, &QRadioButton::toggled, [this] ()
+    {
+        if (receive->isChecked ())
+        {
+            deactivate_all ();
+            activate_receive ();
+        }
+    });
+    QObject::connect (open, &QRadioButton::toggled, [this] ()
+    {
+        if (open->isChecked ())
+        {
+            deactivate_all ();
+            activate_open ();
+        }
+    });
+    QObject::connect (change, &QRadioButton::toggled, [this] ()
+    {
+        if (change->isChecked ())
+        {
+            deactivate_all ();
+            activate_change ();
+        }
+    });
+    QObject::connect (back, &QPushButton::released, [this] ()
+    {
+        client.pop_main_stack ();
+    });
+    send->click ();
+}
+
+void rai_qt::block_creation::deactivate_all ()
+{
+    account_label->hide ();
+    account->hide ();
+    source_label->hide ();
+    source->hide ();
+    amount_label->hide ();
+    amount->hide ();
+    destination_label->hide ();
+    destination->hide ();
+    representative_label->hide ();
+    representative->hide ();
+}
+
+void rai_qt::block_creation::activate_send ()
+{
+    account_label->show ();
+    account->show ();
+    amount_label->show ();
+    amount->show ();
+    destination_label->show ();
+    destination->show ();
+}
+
+void rai_qt::block_creation::activate_receive ()
+{
+    source_label->show ();
+    source->show ();
+}
+
+void rai_qt::block_creation::activate_open ()
+{
+    source_label->show ();
+    source->show ();
+    representative_label->show ();
+    representative->show ();
+}
+
+void rai_qt::block_creation::activate_change ()
+{
+    account_label->show ();
+    account->show ();
+    representative_label->show ();
+    representative->show ();
 }

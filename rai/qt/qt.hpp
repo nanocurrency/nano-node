@@ -51,6 +51,7 @@ namespace rai_qt {
         QLabel * wallet_key_text;
         QLineEdit * wallet_key_line;
         QPushButton * wallet_add_key_button;
+        QPushButton * create_block;
         QPushButton * enter_block;
         QPushButton * back;
         
@@ -97,9 +98,15 @@ namespace rai_qt {
     {
     public:
         block_creation (rai_qt::client &);
+        void deactivate_all ();
+        void activate_send ();
+        void activate_receive ();
+        void activate_change ();
+        void activate_open ();
         QWidget * window;
         QVBoxLayout * layout;
-        QButtonGroup * type_group;
+        QButtonGroup * group;
+        QHBoxLayout * button_layout;
         QRadioButton * send;
         QRadioButton * receive;
         QRadioButton * change;
@@ -110,9 +117,12 @@ namespace rai_qt {
         QLineEdit * source;
         QLabel * amount_label;
         QLineEdit * amount;
+        QLabel * destination_label;
+        QLineEdit * destination;
         QLabel * representative_label;
         QLineEdit * representative;
         QPushButton * back;
+        rai_qt::client & client;
     };
     class client
     {
@@ -123,8 +133,9 @@ namespace rai_qt {
         rai_qt::password_change password_change;
         rai_qt::enter_password enter_password;
         rai_qt::advanced_actions advanced;
+        rai_qt::block_creation block_creation;
         rai_qt::block_entry block_entry;
-        
+    
         QApplication & application;
         QStackedWidget * main_stack;
         
