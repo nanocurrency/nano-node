@@ -34,6 +34,13 @@ TEST (uint256_union, encryption)
     ASSERT_EQ (number1, number2);
 }
 
+TEST (uint256_union, decode_empty)
+{
+    std::string text;
+    rai::uint256_union val;
+    ASSERT_TRUE (val.decode_hex (text));
+}
+
 TEST (uint256_union, parse_zero)
 {
     rai::uint256_union input (rai::uint256_t (0));

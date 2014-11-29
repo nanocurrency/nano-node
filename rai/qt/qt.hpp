@@ -103,6 +103,10 @@ namespace rai_qt {
         void activate_receive ();
         void activate_change ();
         void activate_open ();
+        void create_send ();
+        void create_receive ();
+        void create_change ();
+        void create_open ();
         QWidget * window;
         QVBoxLayout * layout;
         QButtonGroup * group;
@@ -121,6 +125,9 @@ namespace rai_qt {
         QLineEdit * destination;
         QLabel * representative_label;
         QLineEdit * representative;
+        QPlainTextEdit * block;
+        QLabel * status;
+        QPushButton * create;
         QPushButton * back;
         rai_qt::client & client;
     };

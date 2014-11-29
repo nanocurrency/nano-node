@@ -289,6 +289,7 @@ namespace rai
 	{
     public:
         change_block (rai::account const &, rai::block_hash const &, uint64_t, rai::private_key const &, rai::public_key const &);
+        change_block (rai::account const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &);
         change_block (bool &, rai::stream &);
         change_block (bool &, boost::property_tree::ptree const &);
 		using rai::block::hash;

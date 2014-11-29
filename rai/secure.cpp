@@ -623,21 +623,32 @@ void rai::uint256_union::encode_hex (std::string & text) const
 
 bool rai::uint256_union::decode_hex (std::string const & text)
 {
-    auto result (text.size () > 64);
-    if (!result)
+    auto result (false);
+    if (!text.empty ())
     {
-        std::stringstream stream (text);
-        stream << std::hex << std::noshowbase;
-        rai::uint256_t number_l;
-        try
+        if (text.size () <= 64)
         {
-            stream >> number_l;
-            *this = number_l;
+            std::stringstream stream (text);
+            stream << std::hex << std::noshowbase;
+            rai::uint256_t number_l;
+            try
+            {
+                stream >> number_l;
+                *this = number_l;
+            }
+            catch (std::runtime_error &)
+            {
+                result = true;
+            }
         }
-        catch (std::runtime_error &)
+        else
         {
             result = true;
         }
+    }
+    else
+    {
+        result = true;
     }
     return result;
 }
@@ -1203,6 +1214,12 @@ void rai::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
 rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, uint64_t work_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
 hashables (representative_a, previous_a),
 work (work_a)
+{
+    rai::sign_message (prv_a, pub_a, hash (), signature);
+}
+
+rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
+hashables (representative_a, previous_a)
 {
     rai::sign_message (prv_a, pub_a, hash (), signature);
 }

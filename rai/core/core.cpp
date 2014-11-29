@@ -544,6 +544,11 @@ bool rai::wallet::fetch (rai::public_key const & pub, rai::private_key & prv)
     return result;
 }
 
+bool rai::wallet::exists (rai::public_key const & pub)
+{
+    return find (pub) != end ();
+}
+
 rai::key_iterator::key_iterator (leveldb::DB * db_a) :
 iterator (db_a->NewIterator (leveldb::ReadOptions ()))
 {

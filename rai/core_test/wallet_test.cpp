@@ -228,7 +228,9 @@ TEST (wallet, find_existing)
     rai::wallet wallet (init, boost::filesystem::unique_path ());
     ASSERT_FALSE (init);
     rai::keypair key1;
+    ASSERT_FALSE (wallet.exists (key1.pub));
     wallet.insert (key1.prv);
+    ASSERT_TRUE (wallet.exists (key1.pub));
     auto existing (wallet.find (key1.pub));
     ASSERT_NE (wallet.end (), existing);
     ++existing;

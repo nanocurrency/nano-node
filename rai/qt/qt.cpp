@@ -638,6 +638,9 @@ destination_label (new QLabel ("Destination:")),
 destination (new QLineEdit),
 representative_label (new QLabel ("Representative:")),
 representative (new QLineEdit),
+block (new QPlainTextEdit),
+status (new QLabel),
+create (new QPushButton ("Create")),
 back (new QPushButton ("Back")),
 client (client_a)
 {
@@ -645,6 +648,10 @@ client (client_a)
     group->addButton (receive);
     group->addButton (change);
     group->addButton (open);
+    group->setId (send, 0);
+    group->setId (receive, 1);
+    group->setId (change, 2);
+    group->setId (open, 3);
     
     button_layout->addWidget (send);
     button_layout->addWidget (receive);
@@ -662,7 +669,9 @@ client (client_a)
     layout->addWidget (destination);
     layout->addWidget (representative_label);
     layout->addWidget (representative);
-    layout->addStretch ();
+    layout->addWidget (block);
+    layout->addWidget (status);
+    layout->addWidget (create);
     layout->addWidget (back);
     window->setLayout (layout);
     QObject::connect (send, &QRadioButton::toggled, [this] ()
@@ -695,6 +704,27 @@ client (client_a)
         {
             deactivate_all ();
             activate_change ();
+        }
+    });
+    QObject::connect (create, &QPushButton::released, [this] ()
+    {
+        switch (group->checkedId ())
+        {
+            case 0:
+                create_send ();
+                break;
+            case 1:
+                create_receive ();
+                break;
+            case 2:
+                create_change ();
+                break;
+            case 3:
+                create_open ();
+                break;
+            default:
+                assert (false);
+                break;
         }
     });
     QObject::connect (back, &QPushButton::released, [this] ()
@@ -748,4 +778,245 @@ void rai_qt::block_creation::activate_change ()
     account->show ();
     representative_label->show ();
     representative->show ();
+}
+
+void rai_qt::block_creation::create_send ()
+{
+    rai::account account_l;
+    auto error (account_l.decode_hex (account->text ().toStdString ()));
+    if (!error)
+    {
+        rai::amount amount_l;
+        error = account_l.decode_hex (amount->text ().toStdString ());
+        if (!error)
+        {
+            rai::account destination_l;
+            error = destination_l.decode_hex (destination->text ().toStdString ());
+            if (!error)
+            {
+                rai::private_key key;
+                if (client.client_m.wallet.fetch (account_l, key))
+                {
+                    auto balance (client.client_m.ledger.account_balance (account_l));
+                    if (amount_l.number () <= balance)
+                    {
+                        rai::frontier frontier;
+                        auto error (client.client_m.store.latest_get (account_l, frontier));
+                        assert (!error);
+                        rai::send_block send;
+                        send.hashables.destination = destination_l;
+                        send.hashables.previous = frontier.hash;
+                        send.hashables.balance = rai::amount (balance - amount_l.number ());
+                        rai::sign_message (key, account_l, send.hash (), send.signature);
+                        key.clear ();
+                        send.work = client.client_m.ledger.create_work (send);
+                        std::string block_l;
+                        send.serialize_json (block_l);
+                        block->setPlainText (QString (block_l.c_str ()));
+                        status->setStyleSheet ("QLabel { color: black }");
+                        status->setText ("Created block");
+                    }
+                    else
+                    {
+                        status->setStyleSheet ("QLabel { color: red }");
+                        status->setText ("Insufficient balance");
+                    }
+                }
+                else
+                {
+                    status->setStyleSheet ("QLabel { color: red }");
+                    status->setText ("Account is not in wallet");
+                }
+            }
+            else
+            {
+                status->setStyleSheet ("QLabel { color: red }");
+                status->setText ("Unable to decode destination");
+            }
+        }
+        else
+        {
+            status->setStyleSheet ("QLabel { color: red }");
+            status->setText ("Unable to decode amount");
+        }
+    }
+    else
+    {
+        status->setStyleSheet ("QLabel { color: red }");
+        status->setText ("Unable to decode account");
+    }
+}
+
+void rai_qt::block_creation::create_receive ()
+{
+    rai::block_hash source_l;
+    auto error (source_l.decode_hex (source->text ().toStdString ()));
+    if (!error)
+    {
+        rai::account source;
+        rai::amount amount;
+        rai::account destination;
+        if (!client.client_m.store.pending_get (source_l, source, amount, destination))
+        {
+            rai::frontier frontier;
+            auto error (client.client_m.store.latest_get (destination, frontier));
+            if (!error)
+            {
+                rai::private_key key;
+                auto error (client.client_m.wallet.fetch (destination, key));
+                if (!error)
+                {
+                    rai::receive_block receive;
+                    receive.hashables.previous = frontier.hash;
+                    receive.hashables.source = source_l;
+                    rai::sign_message (key, destination, receive.hash (), receive.signature);
+                    key.clear ();
+                    receive.work = client.client_m.ledger.create_work (receive);
+                    std::string block_l;
+                    receive.serialize_json (block_l);
+                    block->setPlainText (QString (block_l.c_str ()));
+                    status->setStyleSheet ("QLabel { color: black }");
+                    status->setText ("Created block");
+                }
+                else
+                {
+                    status->setStyleSheet ("QLabel { color: red }");
+                    status->setText ("Account is not in wallet");
+                }
+            }
+            else
+            {
+                status->setStyleSheet ("QLabel { color: red }");
+                status->setText ("Account not yet open");
+            }
+        }
+        else
+        {
+            status->setStyleSheet ("QLabel { color: red }");
+            status->setText ("Source block is not pending to receive");
+        }
+    }
+    else
+    {
+        status->setStyleSheet ("QLabel { color: red }");
+        status->setText ("Unable to decode source");
+    }
+}
+
+void rai_qt::block_creation::create_change ()
+{
+    rai::account account_l;
+    auto error (account_l.decode_hex (account->text ().toStdString ()));
+    if (!error)
+    {
+        rai::account representative_l;
+        error = representative_l.decode_hex (representative->text ().toStdString ());
+        if (!error)
+        {
+            rai::frontier frontier;
+            auto error (client.client_m.store.latest_get (account_l, frontier));
+            if (!error)
+            {
+                rai::private_key key;
+                auto error (client.client_m.wallet.fetch (account_l, key));
+                if (!error)
+                {
+                    rai::change_block change (representative_l, frontier.hash, key, account_l);
+                    key.clear ();
+                    change.work = client.client_m.ledger.create_work (change);
+                    std::string block_l;
+                    change.serialize_json (block_l);
+                    block->setPlainText (QString (block_l.c_str ()));
+                    status->setStyleSheet ("QLabel { color: black }");
+                    status->setText ("Created block");
+                }
+                else
+                {
+                    status->setStyleSheet ("QLabel { color: red }");
+                    status->setText ("Account is not in wallet");
+                }
+            }
+            else
+            {
+                status->setStyleSheet ("QLabel { color: red }");
+                status->setText ("Account not yet open");
+            }
+        }
+        else
+        {
+            status->setStyleSheet ("QLabel { color: red }");
+            status->setText ("Unable to decode representative");
+        }
+    }
+    else
+    {
+        status->setStyleSheet ("QLabel { color: red }");
+        status->setText ("Unable to decode account");
+    }
+}
+
+void rai_qt::block_creation::create_open ()
+{
+    rai::block_hash source_l;
+    auto error (source_l.decode_hex (source->text ().toStdString ()));
+    if (!error)
+    {
+        rai::account representative_l;
+        error = representative_l.decode_hex (representative->text ().toStdString ());
+        if (!error)
+        {
+            rai::account source;
+            rai::amount amount;
+            rai::account destination;
+            if (!client.client_m.store.pending_get (source_l, source, amount, destination))
+            {
+                rai::frontier frontier;
+                auto error (client.client_m.store.latest_get (destination, frontier));
+                if (error)
+                {
+                    rai::private_key key;
+                    auto error (client.client_m.wallet.fetch (destination, key));
+                    if (!error)
+                    {
+                        rai::open_block open;
+                        open.hashables.source = source_l;
+                        open.hashables.representative = representative_l;
+                        rai::sign_message (key, destination, open.hash (), open.signature);
+                        key.clear ();
+                        open.work = client.client_m.ledger.create_work (open);
+                        std::string block_l;
+                        open.serialize_json (block_l);
+                        block->setPlainText (QString (block_l.c_str ()));
+                        status->setStyleSheet ("QLabel { color: black }");
+                        status->setText ("Created block");
+                    }
+                    else
+                    {
+                        status->setStyleSheet ("QLabel { color: red }");
+                        status->setText ("Account is not in wallet");
+                    }
+                }
+                else
+                {
+                    status->setStyleSheet ("QLabel { color: red }");
+                    status->setText ("Account already open");
+                }
+            }
+            else
+            {
+                status->setStyleSheet ("QLabel { color: red }");
+                status->setText ("Source block is not pending to receive");
+            }
+        }
+        else
+        {
+            status->setStyleSheet ("QLabel { color: red }");
+            status->setText ("Unable to decode representative");
+        }
+    }
+    else
+    {
+        status->setStyleSheet ("QLabel { color: red }");
+        status->setText ("Unable to decode source");
+    }
 }
