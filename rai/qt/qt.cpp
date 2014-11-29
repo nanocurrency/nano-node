@@ -50,6 +50,7 @@ send_blocks_back (new QPushButton ("Back"))
     send_blocks_layout->addWidget (send_count_label);
     send_blocks_layout->addWidget (send_count);
     send_blocks_layout->addWidget (send_blocks_send);
+    send_blocks_layout->addStretch ();
     send_blocks_layout->addWidget (send_blocks_back);
     send_blocks_layout->setContentsMargins (0, 0, 0, 0);
     send_blocks_window->setLayout (send_blocks_layout);
@@ -88,6 +89,7 @@ send_blocks_back (new QPushButton ("Back"))
     settings_layout->addWidget (settings_bootstrap_button);
     settings_layout->addWidget (settings_enter_password_button);
     settings_layout->addWidget (settings_change_password_button);
+    settings_layout->addStretch ();
     settings_layout->addWidget (settings_back);
     settings_window->setLayout (settings_layout);
     
@@ -292,6 +294,7 @@ client (client_a)
     layout->addWidget (retype_label);
     layout->addWidget (retype);
     layout->addWidget (change);
+    layout->addStretch ();
     layout->addWidget (back);
     layout->setContentsMargins (0, 0, 0, 0);
     window->setLayout (layout);
@@ -333,6 +336,7 @@ client (client_a)
     layout->addWidget (password);
     layout->addWidget (unlock);
     layout->addWidget (lock);
+    layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
     QObject::connect (back, &QPushButton::released, [this] ()
@@ -442,6 +446,7 @@ client (client_a)
     layout->addWidget (wallet_key_line);
     layout->addWidget (wallet_add_key_button);
     layout->addWidget (enter_block);
+    layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
     QObject::connect (show_log, &QPushButton::released, [this] ()

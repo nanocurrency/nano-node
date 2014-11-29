@@ -93,6 +93,27 @@ namespace rai_qt {
         QPushButton * back;
         rai_qt::client & client;
     };
+    class block_creation
+    {
+    public:
+        block_creation (rai_qt::client &);
+        QWidget * window;
+        QVBoxLayout * layout;
+        QButtonGroup * type_group;
+        QRadioButton * send;
+        QRadioButton * receive;
+        QRadioButton * change;
+        QRadioButton * open;
+        QLabel * account_label;
+        QLineEdit * account;
+        QLabel * source_label;
+        QLineEdit * source;
+        QLabel * amount_label;
+        QLineEdit * amount;
+        QLabel * representative_label;
+        QLineEdit * representative;
+        QPushButton * back;
+    };
     class client
     {
     public:
@@ -131,7 +152,6 @@ namespace rai_qt {
         QPushButton * settings;
         QPushButton * show_advanced;
         QPushButton * wallet_refresh;
-
         
         QWidget * send_blocks_window;
         QVBoxLayout * send_blocks_layout;
@@ -141,7 +161,6 @@ namespace rai_qt {
         QLineEdit * send_count;
         QPushButton * send_blocks_send;
         QPushButton * send_blocks_back;
-        
 		
         void pop_main_stack ();
         void push_main_stack (QWidget *);
