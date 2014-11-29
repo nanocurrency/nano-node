@@ -29,9 +29,13 @@ client_layout (new QVBoxLayout),
 balance_label (new QLabel),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
+wallet_model (new QStandardItemModel),
+wallet_view (new QTableView),
 send_blocks (new QPushButton ("Send")),
+wallet_add_account (new QPushButton ("Create account")),
 settings (new QPushButton ("Settings")),
 show_advanced (new QPushButton ("Advanced")),
+wallet_refresh (new QPushButton ("Refresh")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
 send_account_label (new QLabel ("Destination account:")),
@@ -39,11 +43,7 @@ send_account (new QLineEdit),
 send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
-send_blocks_back (new QPushButton ("Back")),
-wallet_model (new QStandardItemModel),
-wallet_view (new QTableView),
-wallet_refresh (new QPushButton ("Refresh")),
-wallet_add_account (new QPushButton ("Create account"))
+send_blocks_back (new QPushButton ("Back"))
 {
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
@@ -63,11 +63,11 @@ wallet_add_account (new QPushButton ("Create account"))
     wallet_view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
     
     entry_window_layout->addWidget (wallet_view);
-    entry_window_layout->addWidget (wallet_refresh);
-    entry_window_layout->addWidget (wallet_add_account);
     entry_window_layout->addWidget (send_blocks);
+    entry_window_layout->addWidget (wallet_add_account);
     entry_window_layout->addWidget (settings);
     entry_window_layout->addWidget (show_advanced);
+    entry_window_layout->addWidget (wallet_refresh);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window_layout->setSpacing (5);
     entry_window->setLayout (entry_window_layout);

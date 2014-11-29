@@ -124,9 +124,14 @@ namespace rai_qt {
         
         QWidget * entry_window;
         QVBoxLayout * entry_window_layout;
+        QStandardItemModel * wallet_model;
+        QTableView * wallet_view;
         QPushButton * send_blocks;
+        QPushButton * wallet_add_account;
         QPushButton * settings;
         QPushButton * show_advanced;
+        QPushButton * wallet_refresh;
+
         
         QWidget * send_blocks_window;
         QVBoxLayout * send_blocks_layout;
@@ -137,10 +142,6 @@ namespace rai_qt {
         QPushButton * send_blocks_send;
         QPushButton * send_blocks_back;
         
-        QStandardItemModel * wallet_model;
-        QTableView * wallet_view;
-        QPushButton * wallet_refresh;
-        QPushButton * wallet_add_account;
 		
         void pop_main_stack ();
         void push_main_stack (QWidget *);
