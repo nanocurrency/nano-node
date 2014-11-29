@@ -497,10 +497,11 @@ namespace rai
 		uint64_t sequence;
 		std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
     };
-    extern rai::keypair test_genesis_key;
-    extern rai::account rai_test_account;
-    extern rai::account rai_live_account;
-    extern rai::account genesis_account;
+    extern rai::keypair const test_genesis_key;
+    extern rai::account const rai_test_account;
+    extern rai::account const rai_beta_account;
+    extern rai::account const rai_live_account;
+    extern rai::account const genesis_account;
     class genesis
     {
     public:
@@ -511,4 +512,11 @@ namespace rai
         rai::send_block send2;
         rai::open_block open;
     };
+    enum class rai_networks
+    {
+        rai_test_network,
+        rai_beta_network,
+        rai_live_network
+    };
+    rai_networks const rai_network = rai_networks::ACTIVE_NETWORK;
 }

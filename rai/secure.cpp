@@ -5,8 +5,22 @@
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
 
-CryptoPP::AutoSeededRandomPool rai::random_pool;
+namespace
+{
+    std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
+    std::string rai_test_public_key = "B241CC17B3684D22F304C7AF063D1B833124F7F1A4DAD07E6DA60D7D8F334911"; // U63Kt3B7yp2iQB4GsVWriGv34kk2qwhT7acKvn8yWZGdNVesJ8
+    std::string rai_beta_public_key = "0";
+    std::string rai_live_public_key = "0";
+}
 
+rai::keypair const rai::test_genesis_key (rai_test_private_key);
+rai::account const rai::rai_test_account (rai_test_public_key);
+rai::account const rai::rai_beta_account (rai_beta_public_key);
+rai::account const rai::rai_live_account (rai_live_public_key);
+
+rai::account const rai::genesis_account = rai_network == rai_networks::rai_test_network ? rai_test_account : rai_network == rai_networks::rai_beta_network ? rai_beta_account : rai_live_account;
+
+CryptoPP::AutoSeededRandomPool rai::random_pool;
 
 std::string rai::to_string_hex (uint64_t value_a)
 {
@@ -2519,13 +2533,3 @@ rai::uint256_t rai::votes::flip_threshold ()
 {
     return ledger.supply () / 2;
 }
-
-namespace {
-	std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
-	std::string rai_test_public_key = "B241CC17B3684D22F304C7AF063D1B833124F7F1A4DAD07E6DA60D7D8F334911"; // U63Kt3B7yp2iQB4GsVWriGv34kk2qwhT7acKvn8yWZGdNVesJ8
-    std::string rai_live_public_key = "0";
-}
-rai::keypair rai::test_genesis_key (rai_test_private_key);
-rai::account rai::rai_test_account (rai_test_public_key);
-rai::account rai::rai_live_account (rai_live_public_key);
-rai::account rai::genesis_account (GENESIS_KEY);

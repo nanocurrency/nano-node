@@ -4080,9 +4080,9 @@ namespace
 class kdf
 {
 public:
-    size_t static constexpr kdf_full_work = 8 * 1024 * 1024;
-    size_t static constexpr kdf_test_work = 8 * 1024;
-    size_t static constexpr entry_count = KDF_WORK_FACTOR;
+    size_t const static kdf_full_work = 8 * 1024 * 1024;
+    size_t const static kdf_test_work = 8 * 1024;
+    size_t const static entry_count = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
     kdf (std::string const & password_a, rai::uint256_union const & salt_a)
     {
         auto entries (entry_count);
@@ -4135,9 +4135,9 @@ bool rai::publish::operator == (rai::publish const & other_a) const
 
 namespace
 {
-size_t publish_test_work (1024);
-size_t publish_full_work (128 * 1024);
-size_t publish_work (PUBLISH_WORK_FACTOR);
+size_t const publish_test_work (1024);
+size_t const publish_full_work (128 * 1024);
+size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
 }
 
 rai::work::work () :
@@ -4232,9 +4232,8 @@ void rai::fan::value_set (rai::uint256_union const & value_a)
 }
 
 std::array <uint8_t, 2> constexpr rai::message::magic_number;
-size_t constexpr rai::message::test_network_position;
 size_t constexpr rai::message::ipv4_only_position;
-size_t constexpr rai::message::bootstrap_receiver_position;
+size_t constexpr rai::message::bootstrap_server_position;
 std::bitset <16> constexpr rai::message::block_type_mask;
 
 rai::message::message (rai::message_type type_a) :

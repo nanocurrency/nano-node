@@ -150,15 +150,14 @@ namespace rai {
         void block_type_set (rai::block_type);
         bool ipv4_only ();
         void ipv4_only_set (bool);
-        static std::array <uint8_t, 2> constexpr magic_number = {{'R', 'A'}};
+        static std::array <uint8_t, 2> constexpr magic_number = {{'R', rai::rai_network == rai::rai_networks::rai_test_network ? 'A' : rai::rai_network == rai::rai_networks::rai_beta_network ? 'B' : 'C'}};
         uint8_t version_max;
         uint8_t version_using;
         uint8_t version_min;
         rai::message_type type;
         std::bitset <16> extensions;
-        static size_t constexpr test_network_position = 0;
         static size_t constexpr ipv4_only_position = 1;
-        static size_t constexpr bootstrap_receiver_position = 2;
+        static size_t constexpr bootstrap_server_position = 2;
         static std::bitset <16> constexpr block_type_mask = std::bitset <16> (0x0f00);
     };
     class keepalive : public message

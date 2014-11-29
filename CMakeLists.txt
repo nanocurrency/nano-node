@@ -83,16 +83,10 @@ add_executable (qt_client
 add_executable (qt_system
     rai/qt_system/entry.cpp)
 
-SET (GENESIS_KEY rai_test_account CACHE STRING "Select whether the genesis account is the test or live account")
-set_property (CACHE GENESIS_KEY PROPERTY STRINGS rai_test_account rai_live_account)
+SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
-SET (KDF_WORK_FACTOR kdf_test_work CACHE STRING "Selects whether full or test kdf work is performed")
-set_property (CACHE KDF_WORK_FACTOR PROPERTY STRINGS kdf_test_work kdf_full_work)
-
-SET (PUBLISH_WORK_FACTOR publish_test_work CACHE STRING "Selects whether full or test publish work is performed")
-set_property (CACHE PUBLISH_WORK_FACTOR PROPERTY STRINGS publish_test_work publish_full_work)
-
-set_target_properties (secure core core_test qt_test cli qt qt_client qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DGENESIS_KEY=${GENESIS_KEY} -DKDF_WORK_FACTOR=${KDF_WORK_FACTOR} -DPUBLISH_WORK_FACTOR=${PUBLISH_WORK_FACTOR} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (secure core core_test qt_test cli qt qt_client qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (qt_client qt_test PROPERTIES LINK_FLAGS "${PLATFORM_GUI_EXE_LINK_FLAGS}")
 
 if (WIN32)
