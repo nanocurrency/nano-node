@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <boost/property_tree/json_parser.hpp>
+
 #include <rai/qt/qt.hpp>
 #include <thread>
 #include <QTest>
@@ -159,7 +161,7 @@ TEST (client, process_block)
     send.work = system.clients [0]->ledger.create_work (send);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
     std::string destination;
-    send.hashables.destination.encode_hex (destination);
+    send.hashables.destination.encode_base58check (destination);
     std::string previous;
     send.hashables.previous.encode_hex (previous);
     std::string balance;
@@ -172,4 +174,35 @@ TEST (client, process_block)
     ASSERT_EQ (send.hash (), system.clients [0]->ledger.latest (rai::genesis_account));
     QTest::mouseClick(client.block_entry.back, Qt::LeftButton);
     ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
+}
+
+TEST (client, create_send)
+{
+	rai::keypair key;
+	rai::system system (24000, 1);
+	system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+	system.clients [0]->wallet.insert (key.prv);
+	int argc (0);
+	QApplication application (argc, nullptr);
+	rai_qt::client client (application, *system.clients [0]);
+	QTest::mouseClick (client.show_advanced, Qt::LeftButton);
+	QTest::mouseClick (client.advanced.create_block, Qt::LeftButton);
+	QTest::mouseClick (client.block_creation.send, Qt::LeftButton);
+	std::string account;
+	rai::test_genesis_key.pub.encode_base58check (account);
+	QTest::keyClicks (client.block_creation.account, account.c_str ());
+	QTest::keyClicks (client.block_creation.amount, "56bc75e2d63100000");
+	std::string destination;
+	key.pub.encode_base58check (destination);
+	QTest::keyClicks (client.block_creation.destination, destination.c_str ());
+	QTest::mouseClick (client.block_creation.create, Qt::LeftButton);
+	std::string json (client.block_creation.block->toPlainText ().toStdString ());
+	ASSERT_FALSE (json.empty ());
+	rai::send_block send;
+	boost::property_tree::ptree tree1;
+	std::stringstream istream (json);
+	boost::property_tree::read_json (istream, tree1);
+	ASSERT_FALSE (send.deserialize_json (tree1));
+	ASSERT_EQ (rai::process_result::progress, system.clients [0]->ledger.process (send));
+	ASSERT_EQ (rai::process_result::old, system.clients [0]->ledger.process (send));
 }

@@ -315,7 +315,7 @@ void rai::send_block::serialize_json (std::string & string_a) const
     boost::property_tree::ptree tree;
     tree.put ("type", "send");
     std::string destination;
-    hashables.destination.encode_hex (destination);
+    hashables.destination.encode_base58check (destination);
     tree.put ("destination", destination);
     std::string previous;
     hashables.previous.encode_hex (previous);
@@ -366,7 +366,7 @@ bool rai::send_block::deserialize_json (boost::property_tree::ptree const & tree
         auto balance_l (tree_a.get <std::string> ("balance"));
         auto work_l (tree_a.get <std::string> ("work"));
         auto signature_l (tree_a.get <std::string> ("signature"));
-        result = hashables.destination.decode_hex (destination_l);
+        result = hashables.destination.decode_base58check (destination_l);
         if (!result)
         {
             result = hashables.previous.decode_hex (previous_l);

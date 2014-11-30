@@ -783,19 +783,19 @@ void rai_qt::block_creation::activate_change ()
 void rai_qt::block_creation::create_send ()
 {
     rai::account account_l;
-    auto error (account_l.decode_hex (account->text ().toStdString ()));
+    auto error (account_l.decode_base58check (account->text ().toStdString ()));
     if (!error)
     {
         rai::amount amount_l;
-        error = account_l.decode_hex (amount->text ().toStdString ());
+        error = amount_l.decode_hex (amount->text ().toStdString ());
         if (!error)
         {
             rai::account destination_l;
-            error = destination_l.decode_hex (destination->text ().toStdString ());
+            error = destination_l.decode_base58check (destination->text ().toStdString ());
             if (!error)
             {
                 rai::private_key key;
-                if (client.client_m.wallet.fetch (account_l, key))
+                if (!client.client_m.wallet.fetch (account_l, key))
                 {
                     auto balance (client.client_m.ledger.account_balance (account_l));
                     if (amount_l.number () <= balance)
@@ -910,7 +910,7 @@ void rai_qt::block_creation::create_change ()
     if (!error)
     {
         rai::account representative_l;
-        error = representative_l.decode_hex (representative->text ().toStdString ());
+        error = representative_l.decode_base58check (representative->text ().toStdString ());
         if (!error)
         {
             rai::frontier frontier;
@@ -962,7 +962,7 @@ void rai_qt::block_creation::create_open ()
     if (!error)
     {
         rai::account representative_l;
-        error = representative_l.decode_hex (representative->text ().toStdString ());
+        error = representative_l.decode_base58check (representative->text ().toStdString ());
         if (!error)
         {
             rai::account source;
