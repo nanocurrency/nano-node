@@ -1310,7 +1310,7 @@ bool rai::change_block::deserialize (rai::stream & stream_a)
         if (!result)
         {
             result = read (stream_a, signature);
-            if (!result);
+            if (!result)
             {
                 result = read (stream_a, work);
             }

@@ -50,6 +50,25 @@ TEST (block, send_serialize)
     ASSERT_EQ (block1, block2);
 }
 
+TEST (block, change_serialize)
+{
+    rai::change_block block1 (1, 2, 3, 4, 5);
+    std::vector <uint8_t> bytes;
+    {
+        rai::vectorstream stream1 (bytes);
+        block1.serialize (stream1);
+    }
+    auto data (bytes.data ());
+    auto size (bytes.size ());
+    ASSERT_NE (nullptr, data);
+    ASSERT_NE (0, size);
+    rai::bufferstream stream2 (data, size);
+    bool error;
+    rai::change_block block2 (error, stream2);
+    ASSERT_FALSE (error);
+    ASSERT_EQ (block1, block2);
+}
+
 TEST (block, send_serialize_json)
 {
     rai::send_block block1;
