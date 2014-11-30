@@ -107,6 +107,7 @@ int main (int argc, char * const * argv)
         ("debug_activity", "Generates fake debug activity")
         ("profile_work", "Profile the work function")
         ("generate_key", "Generates a random keypair")
+        ("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
         ("xorshift_profile", "Profile xorshift algorithms")
         ("verify_profile", "Profile signature verification");
     boost::program_options::variables_map vm;
@@ -128,7 +129,17 @@ int main (int argc, char * const * argv)
     else if (vm.count ("generate_key"))
     {
         rai::keypair pair;
-        std::cout << "Private: " << pair.prv.to_string () << " Public: " << pair.pub.to_string () << std::endl;
+        std::string account;
+        pair.pub.encode_base58check (account);
+        std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << account << std::endl;
+    }
+    else if (vm.count ("get_account"))
+    {
+        rai::uint256_union pub;
+        pub.decode_hex (vm ["get_account"].as <std::string> ());
+        std::string account;
+        pub.encode_base58check (account);
+        std::cout << "Account: " << account << std::endl;
     }
     else if (vm.count ("profile_work"))
     {
