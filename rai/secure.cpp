@@ -2550,3 +2550,34 @@ rai::uint256_t rai::votes::flip_threshold ()
 {
     return ledger.supply () / 2;
 }
+
+rai::genesis::genesis ()
+{
+    send1.hashables.destination.clear ();
+    send1.hashables.balance = std::numeric_limits <rai::uint128_t>::max ();
+    send1.hashables.previous.clear ();
+    send1.signature.clear ();
+    send2.hashables.destination = genesis_account;
+    send2.hashables.balance.clear ();
+    send2.hashables.previous = send1.hash ();
+    send2.signature.clear ();
+    open.hashables.source = send2.hash ();
+    open.hashables.representative = genesis_account;
+    open.signature.clear ();
+}
+
+void rai::genesis::initialize (rai::block_store & store_a) const
+{
+    assert (store_a.latest_begin () == store_a.latest_end ());
+    store_a.block_put (send1.hash (), send1);
+    store_a.block_put (send2.hash (), send2);
+    store_a.block_put (open.hash (), open);
+    store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, send1.hashables.balance, store_a.now ()});
+    store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
+    store_a.checksum_put (0, 0, hash ());
+}
+
+rai::block_hash rai::genesis::hash () const
+{
+    return open.hash ();
+}

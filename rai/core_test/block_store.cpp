@@ -127,6 +127,7 @@ TEST (block_store, add_genesis)
     rai::block_store db (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
     rai::genesis genesis;
+    auto hash (genesis.hash ());
     genesis.initialize (db);
     rai::frontier frontier;
     ASSERT_FALSE (db.latest_get (rai::genesis_account, frontier));
