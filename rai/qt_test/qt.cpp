@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <rai/qt/qt.hpp>
+
 #include <boost/property_tree/json_parser.hpp>
 
-#include <rai/qt/qt.hpp>
 #include <thread>
 #include <QTest>
 
