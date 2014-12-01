@@ -2022,10 +2022,17 @@ namespace {
         void from_previous (rai::block_hash const & hash_a)
         {
             auto block (store.block_get (hash_a));
-            assert (block != nullptr);
-            assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-            auto send (static_cast <rai::send_block *> (block.get ()));
-            result = send->hashables.destination;
+			if (block != nullptr)
+			{
+				assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
+				auto send (static_cast <rai::send_block *> (block.get ()));
+				result = send->hashables.destination;
+			}
+			else
+			{
+				assert (hash_a == rai::genesis_account);
+				result = rai::genesis_account;
+			}
         }
         rai::block_store & store;
         rai::account result;
@@ -2055,7 +2062,7 @@ namespace {
     
     void amount_visitor::change_block (rai::change_block const & block_a)
     {
-        
+		assert (false);
     }
     
     void amount_visitor::from_send (rai::block_hash const & hash_a)
@@ -2207,8 +2214,22 @@ namespace
 void amount_visitor::compute (rai::block_hash const & block_hash)
 {
     auto block (store.block_get (block_hash));
-    assert (block != nullptr);
-    block->visit (*this);
+	if (block != nullptr)
+	{
+		block->visit (*this);
+	}
+	else
+	{
+		if (block_hash == rai::genesis_account)
+		{
+			result = std::numeric_limits <rai::uint128_t>::max ();
+		}
+		else
+		{
+			assert (false);
+			result = 0;
+		}
+	}
 }
 
 void balance_visitor::compute (rai::block_hash const & block_hash)
@@ -2553,28 +2574,18 @@ rai::uint256_t rai::votes::flip_threshold ()
 
 rai::genesis::genesis ()
 {
-    send1.hashables.destination.clear ();
-    send1.hashables.balance = std::numeric_limits <rai::uint128_t>::max ();
-    send1.hashables.previous.clear ();
-    send1.signature.clear ();
-    send2.hashables.destination = genesis_account;
-    send2.hashables.balance.clear ();
-    send2.hashables.previous = send1.hash ();
-    send2.signature.clear ();
-    open.hashables.source = send2.hash ();
-    open.hashables.representative = genesis_account;
-    open.signature.clear ();
+	open.hashables.source = genesis_account;
+	open.hashables.representative = genesis_account;
+	open.signature.clear ();
 }
 
 void rai::genesis::initialize (rai::block_store & store_a) const
 {
-    assert (store_a.latest_begin () == store_a.latest_end ());
-    store_a.block_put (send1.hash (), send1);
-    store_a.block_put (send2.hash (), send2);
-    store_a.block_put (open.hash (), open);
-    store_a.latest_put (send2.hashables.destination, {open.hash (), open.hashables.representative, send1.hashables.balance, store_a.now ()});
-    store_a.representation_put (send2.hashables.destination, send1.hashables.balance.number ());
-    store_a.checksum_put (0, 0, hash ());
+	assert (store_a.latest_begin () == store_a.latest_end ());
+	store_a.block_put (open.hash (), open);
+	store_a.latest_put (genesis_account, {open.hash (), open.hashables.representative, std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
+	store_a.representation_put (genesis_account, std::numeric_limits <rai::uint128_t>::max ());
+	store_a.checksum_put (0, 0, hash ());
 }
 
 rai::block_hash rai::genesis::hash () const

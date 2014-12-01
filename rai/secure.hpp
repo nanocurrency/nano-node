@@ -509,8 +509,6 @@ namespace rai
         explicit genesis ();
         void initialize (rai::block_store &) const;
         rai::block_hash hash () const;
-        rai::send_block send1;
-        rai::send_block send2;
         rai::open_block open;
     };
     enum class rai_networks
