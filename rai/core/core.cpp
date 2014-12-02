@@ -25,7 +25,7 @@ namespace
     }
     bool constexpr network_message_logging ()
     {
-        return network_logging () && false;
+        return network_logging () && true;
     }
     bool constexpr network_publish_logging ()
     {
@@ -33,7 +33,7 @@ namespace
     }
     bool constexpr network_packet_logging ()
     {
-        return network_logging () && false;
+        return network_logging () && true;
     }
     bool constexpr network_keepalive_logging ()
     {
@@ -48,6 +48,10 @@ namespace
         return network_logging () && true;
     }
     bool constexpr log_rpc ()
+    {
+        return network_logging () && true;
+    }
+    bool constexpr bulk_pull_logging ()
     {
         return network_logging () && true;
     }
@@ -1171,15 +1175,16 @@ public:
 rai::process_result rai::processor::process_receive (rai::block const & block_a)
 {
     auto result (client.ledger.process (block_a));
+    if (ledger_logging ())
+    {
+        std::string block;
+        block_a.serialize_json (block);
+        client.log.add (boost::str (boost::format ("Processing block %1% %2%") % block_a.hash().to_string () % block));
+    }
     switch (result)
     {
         case rai::process_result::progress:
         {
-            if (ledger_logging ())
-            {
-                progress_log_visitor logger (client);
-                block_a.visit (logger);
-            }
             receivable_visitor visitor (client, block_a);
             block_a.visit (visitor);
             break;
@@ -2716,6 +2721,12 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 		if (block != nullptr)
 		{
             auto hash (block->hash ());
+            if (bulk_pull_logging ())
+            {
+                std::string block_l;
+                block->serialize_json (block_l);
+                connection->connection->client->log.add (boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l));                
+            }
             connection->connection->client->store.bootstrap_put (hash, *block);
             receive_block ();
 		}

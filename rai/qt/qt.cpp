@@ -906,7 +906,7 @@ void rai_qt::block_creation::create_receive ()
 void rai_qt::block_creation::create_change ()
 {
     rai::account account_l;
-    auto error (account_l.decode_hex (account->text ().toStdString ()));
+    auto error (account_l.decode_base58check (account->text ().toStdString ()));
     if (!error)
     {
         rai::account representative_l;
