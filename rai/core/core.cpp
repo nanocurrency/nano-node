@@ -90,6 +90,10 @@ on (true)
 
 void rai::network::receive ()
 {
+    if (network_packet_logging ())
+    {
+        client.log.add ("Receiving packet");
+    }
     std::unique_lock <std::mutex> lock (socket_mutex);
     socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote,
         [this] (boost::system::error_code const & error, size_t size_a)
@@ -202,6 +206,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                 {
                     case rai::message_type::keepalive:
                     {
+                        if (network_packet_logging ())
+                        {
+                            client.log.add ("Keepalive packet received");
+                        }
                         rai::keepalive incoming;
                         rai::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
@@ -219,6 +227,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                     }
                     case rai::message_type::publish:
                     {
+                        if (network_packet_logging ())
+                        {
+                            client.log.add ("Publish packet received");
+                        }
                         rai::publish incoming;
                         rai::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
@@ -248,6 +260,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                     }
                     case rai::message_type::confirm_req:
                     {
+                        if (network_packet_logging ())
+                        {
+                            client.log.add ("Confirm req packet received");
+                        }
                         rai::confirm_req incoming;
                         rai::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
@@ -277,6 +293,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                     }
                     case rai::message_type::confirm_ack:
                     {
+                        if (network_packet_logging ())
+                        {
+                            client.log.add ("Confirm ack packet received");
+                        }
                         rai::confirm_ack incoming;
                         rai::bufferstream stream (buffer.data (), size_a);
                         auto error (incoming.deserialize (stream));
@@ -306,6 +326,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                     }
                     case rai::message_type::confirm_unk:
                     {
+                        if (network_packet_logging ())
+                        {
+                            client.log.add ("Confirm unk packet received");
+                        }
                         ++confirm_unk_count;
                         auto incoming (new rai::confirm_unk);
                         rai::bufferstream stream (buffer.data (), size_a);
@@ -315,6 +339,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                     }
                     default:
                     {
+                        if (network_packet_logging ())
+                        {
+                            client.log.add ("Unknown packet received");
+                        }
                         ++unknown_count;
                         receive ();
                         break;
@@ -1129,31 +1157,6 @@ public:
     rai::block const & incoming;
 };
     
-class progress_log_visitor : public rai::block_visitor
-{
-public:
-    progress_log_visitor (rai::client & client_a) :
-    client (client_a)
-    {
-    }
-    void send_block (rai::send_block const & block_a) override
-    {
-        client.log.add (boost::str (boost::format ("Sending from:\n\t%1% to:\n\t%2% amount:\n\t%3% previous:\n\t%4% block:\n\t%5%") % client.ledger.account (block_a.hash ()).to_string () % block_a.hashables.destination.to_string () % client.ledger.amount (block_a.hash ()) % block_a.hashables.previous.to_string () % block_a.hash ().to_string ()));
-    }
-    void receive_block (rai::receive_block const & block_a) override
-    {
-        client.log.add (boost::str (boost::format ("Receiving from:\n\t%1% to:\n\t%2% previous:\n\t%3% block:\n\t%4%") % client.ledger.account (block_a.hashables.source).to_string () % client.ledger.account (block_a.hash ()).to_string () %block_a.hashables.previous.to_string () % block_a.hash ().to_string ()));
-    }
-    void open_block (rai::open_block const & block_a) override
-    {
-        client.log.add (boost::str (boost::format ("Open from:\n\t%1% to:\n\t%2% block:\n\t%3%") % client.ledger.account (block_a.hashables.source).to_string () % client.ledger.account (block_a.hash ()).to_string () % block_a.hash ().to_string ()));
-    }
-    void change_block (rai::change_block const & block_a) override
-    {
-    }
-    rai::client & client;
-};
-	
 class successor_visitor : public rai::block_visitor
 {
 public:
@@ -1386,22 +1389,35 @@ void rai::processor::process_unknown (rai::vectorstream & stream_a)
 
 void rai::processor::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
+    auto client_l (client.shared ());
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
 	{
 		rai::vectorstream stream (*bytes);
 		if (!client.is_representative ())
-		{
+        {
+            if (network_message_logging ())
+            {
+                client.log.add (boost::str (boost::format ("Sending confirm unk to: %1%") % sender));
+            }
 			process_unknown (stream);
 		}
 		else
 		{
 			auto weight (client.ledger.weight (client.representative));
 			if (weight.is_zero ())
-			{
+            {
+                if (network_message_logging ())
+                {
+                    client.log.add (boost::str (boost::format ("Sending confirm unk to: %1%") % sender));
+                }
 				process_unknown (stream);
 			}
 			else
 			{
+                if (network_message_logging ())
+                {
+                    client.log.add (boost::str (boost::format ("Sending confirm ack to: %1%") % sender));
+                }
                 rai::private_key prv;
                 auto error (client.wallet.fetch (client.representative, prv));
                 assert (!error);
@@ -1414,18 +1430,13 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
 			}
 		}
 	}
-    auto client_l (client.shared ());
-    if (network_message_logging ())
-    {
-        client_l->log.add (boost::str (boost::format ("Sending confirm ack to: %1%") % sender));
-    }
     client.network.send_buffer (bytes->data (), bytes->size (), sender, [bytes, client_l] (boost::system::error_code const & ec, size_t size_a)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    client_l->log.add (boost::str (boost::format ("Error sending confirm ack: %1%") % ec.message ()));
+                    client_l->log.add (boost::str (boost::format ("Error sending confirm to: %1%") % ec.message ()));
                 }
             }
         });
