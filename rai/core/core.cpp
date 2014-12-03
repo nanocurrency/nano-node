@@ -1642,6 +1642,42 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad account number";
                 }
             }
+            else if (action == "account_weight_exact")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+                rai::uint256_union account;
+                auto error (account.decode_base58check (account_text));
+                if (!error)
+                {
+                    auto balance (client.ledger.weight (account));
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("weight", balance.convert_to <std::string> ());
+                    set_response (response, response_l);
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
+            else if (action == "account_weight")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+                rai::uint256_union account;
+                auto error (account.decode_base58check (account_text));
+                if (!error)
+                {
+                    auto balance (rai::scale_down (client.ledger.weight (account)));
+                    boost::property_tree::ptree response_l;
+                    response_l.put ("weight", std::to_string (balance));
+                    set_response (response, response_l);
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
             else if (action == "wallet_create")
             {
                 if (enable_control)
