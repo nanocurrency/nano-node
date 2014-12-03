@@ -999,6 +999,51 @@ TEST (bootstrap_processor, process_new)
     client1->stop ();
 }
 
+TEST (bootstrap_processor, diamond)
+{
+    rai::system system (24000, 1);
+    rai::keypair key;
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block);
+    send1->hashables.previous = system.clients [0]->ledger.latest (rai::test_genesis_key.pub);
+    send1->hashables.destination = key.pub;
+    send1->hashables.balance = 100;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
+    send1->work = system.clients [0]->ledger.create_work (*send1);
+    ASSERT_EQ (rai::process_result::progress, system.clients[0]->ledger.process (*send1));
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block);
+    send2->hashables.previous = send1->hash ();
+    send2->hashables.destination = key.pub;
+    send2->hashables.balance = 0;
+    send2->work = system.clients [0]->ledger.create_work (*send2);
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
+    ASSERT_EQ (rai::process_result::progress, system.clients[0]->ledger.process (*send2));
+    std::unique_ptr <rai::open_block> open (new rai::open_block);
+    open->hashables.source = send1->hash ();
+    open->work = system.clients [0]->ledger.create_work (*open);
+    rai::sign_message (key.prv, key.pub, open->hash (), open->signature);
+    ASSERT_EQ (rai::process_result::progress, system.clients[0]->ledger.process (*open));
+    std::unique_ptr <rai::receive_block> receive (new rai::receive_block);
+    receive->hashables.previous = open->hash ();
+    receive->hashables.source = send2->hash ();
+    rai::sign_message (key.prv, key.pub, receive->hash (), receive->signature);
+    receive->work = system.clients [0]->ledger.create_work (*receive);
+    ASSERT_EQ (rai::process_result::progress, system.clients[0]->ledger.process (*receive));
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24002, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
+    client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint ());
+    auto iterations (0);
+    while (client1->ledger.account_balance (key.pub) != std::numeric_limits <rai::uint128_t>::max ())
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), client1->ledger.account_balance (key.pub));
+    client1->stop ();
+}
+
 TEST (bootstrap_processor, push_one)
 {
     rai::system system (24000, 1);

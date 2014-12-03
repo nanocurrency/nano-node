@@ -2687,27 +2687,25 @@ void rai::bulk_pull_client::process_end ()
         {
             std::unique_ptr <rai::block> result;
             auto block (connection->connection->client->store.bootstrap_get (hash_a));
-            if (block != nullptr)
-            {
-                result = std::move (block);
-                connection->connection->client->store.bootstrap_del (hash_a);
-            }
+            result = std::move (block);
             return result;
         });
         filler.generate (connection->connection->client->store.bootstrap_begin ()->first);
         while (!path.empty ())
         {
+            auto hash (path.back ()->hash ());
             auto process_result (connection->connection->client->processor.process_receive (*path.back ()));
             switch (process_result)
             {
                 case rai::process_result::progress:
                 case rai::process_result::old:
-                    path.pop_back ();
                     break;
                 default:
-                    path.clear ();
+                    connection->connection->client->log.add ("Error inserting block");
                     break;
             }
+            path.pop_back ();
+            connection->connection->client->store.bootstrap_del (hash);
         }
     }
 }
@@ -2725,7 +2723,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
             {
                 std::string block_l;
                 block->serialize_json (block_l);
-                connection->connection->client->log.add (boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l));                
+                connection->connection->client->log.add (boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l));
             }
             connection->connection->client->store.bootstrap_put (hash, *block);
             receive_block ();
