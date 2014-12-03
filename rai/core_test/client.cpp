@@ -295,3 +295,29 @@ TEST (client, search_pending)
         ASSERT_LT (iterations2, 200);
     }
 }
+
+TEST (client, connect_after_junk)
+{
+    rai::system system (24000, 1);
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    uint64_t junk;
+    client1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.clients [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
+    auto iterations1 (0);
+    while (system.clients [0]->network.unknown_count == 0)
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
+    }
+    client1->start ();
+    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
+    auto iterations2 (0);
+    while (client1->peers.empty ())
+    {
+        system.service->poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}

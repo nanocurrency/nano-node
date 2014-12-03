@@ -355,22 +355,25 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                 {
                     client.log.add ("Unable to parse message header");
                 }
+                ++unknown_count;
+                receive ();
             }
         }
         else
         {
-            ++bad_sender_count;
             if (network_logging ())
             {
                 client.log.add ("Reserved sender");
             }
+            ++bad_sender_count;
+            receive ();
         }
     }
     else
     {
         if (network_logging ())
         {
-            client.log.add ("Receive error");
+            client.log.add ("Receive error, shutting down network");
         }
     }
 }
