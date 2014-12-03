@@ -102,23 +102,29 @@ TEST (block_store, add_pending)
     ASSERT_TRUE (init.ok ());
     rai::keypair key1;
     rai::block_hash hash1;
-    rai::account sender1;
-    rai::amount amount1;
-    rai::account destination1;
-    auto pending1 (db.pending_get (hash1, sender1, amount1, destination1));
-    ASSERT_TRUE (pending1);
-    db.pending_put (hash1, sender1, amount1, destination1);
-    rai::account sender2;
-    rai::amount amount2;
-    rai::account destination2;
-    auto pending2 (db.pending_get (hash1, sender2, amount2, destination2));
-    ASSERT_EQ (sender1, sender2);
-    ASSERT_EQ (amount1, amount2);
-    ASSERT_EQ (destination1, destination2);
-    ASSERT_FALSE (pending2);
+    rai::receivable receivable1;
+    ASSERT_TRUE (db.pending_get (hash1, receivable1));
+    db.pending_put (hash1, receivable1);
+    rai::receivable receivable2;
+    ASSERT_FALSE (db.pending_get (hash1, receivable2));
+    ASSERT_EQ (receivable1, receivable2);
     db.pending_del (hash1);
-    auto pending3 (db.pending_get (hash1, sender2, amount2, destination2));
-    ASSERT_TRUE (pending3);
+    ASSERT_TRUE (db.pending_get (hash1, receivable2));
+}
+
+TEST (block_store, pending_iterator)
+{
+    leveldb::Status init;
+    rai::block_store db (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    ASSERT_EQ (db.pending_end (), db.pending_begin ());
+    db.pending_put (1, {2, 3, 4});
+    auto current (db.pending_begin ());
+    ASSERT_NE (db.pending_end (), current);
+    ASSERT_EQ (rai::account (1), current->first);
+    ASSERT_EQ (rai::account (2), current->second.source);
+    ASSERT_EQ (rai::amount (3), current->second.amount);
+    ASSERT_EQ (rai::account (4), current->second.destination);
 }
 
 TEST (block_store, add_genesis)

@@ -1139,8 +1139,6 @@ public:
     {
         if (client.wallet.find (block_a.hashables.destination) != client.wallet.end ())
         {
-            auto root (incoming.previous ());
-            assert (!root.is_zero ());
             client.conflicts.start (block_a, true);
         }
     }
@@ -1894,17 +1892,15 @@ public:
     void send_block (rai::send_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-        rai::account sender;
-        rai::amount amount;
-        rai::account destination;
-		while (ledger.store.pending_get (hash, sender, amount, destination))
+        rai::receivable receivable;
+		while (ledger.store.pending_get (hash, receivable))
 		{
 			ledger.rollback (ledger.latest (block_a.hashables.destination));
 		}
         rai::frontier frontier;
-        ledger.store.latest_get (sender, frontier);
+        ledger.store.latest_get (receivable.source, frontier);
 		ledger.store.pending_del (hash);
-        ledger.change_latest (sender, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
+        ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
     }
     void receive_block (rai::receive_block const & block_a) override
@@ -1916,7 +1912,7 @@ public:
 		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_account);
+        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void open_block (rai::open_block const & block_a) override
     {
@@ -1927,7 +1923,7 @@ public:
 		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, 0, representative, 0);
 		ledger.store.block_del (hash);
-		ledger.store.pending_put (block_a.hashables.source, ledger.account (block_a.hashables.source), amount, destination_account);
+        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void change_block (rai::change_block const & block_a) override
     {
@@ -2134,6 +2130,29 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
                     }
                 }
             });
+        }
+    });
+}
+
+void rai::processor::search_pending ()
+{
+    auto client_l (client.shared ());
+    client.service.add (std::chrono::system_clock::now (), [client_l] ()
+    {
+        std::unordered_set <rai::uint256_union> wallet;
+        for (auto i (client_l->wallet.begin ()), n (client_l->wallet.end ()); i != n; ++i)
+        {
+            wallet.insert (i->first);
+        }
+        for (auto i (client_l->store.pending_begin ()), n (client_l->store.pending_end ()); i != n; ++i)
+        {
+            if (wallet.find (i->second.destination) != wallet.end ())
+            {
+                auto block (client_l->store.block_get (i->first));
+                assert (block != nullptr);
+                assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
+                client_l->conflicts.start (*block, true);
+            }
         }
     });
 }

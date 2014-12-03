@@ -375,7 +375,39 @@ namespace rai
 		void set_current ();
 		std::unique_ptr <leveldb::Iterator> iterator;
 		rai::block_entry current;
-	};
+    };
+    class receivable
+    {
+    public:
+        void serialize (rai::stream &) const;
+        bool deserialize (rai::stream &);
+        bool operator == (rai::receivable const &) const;
+        rai::account source;
+        rai::amount amount;
+        rai::account destination;
+    };
+    class pending_entry
+    {
+    public:
+        pending_entry * operator -> ();
+        rai::account first;
+        rai::receivable second;
+    };
+    class pending_iterator
+    {
+    public:
+        pending_iterator (leveldb::DB &);
+        pending_iterator (leveldb::DB &, std::nullptr_t);
+        pending_iterator (rai::pending_iterator &&) = default;
+        pending_iterator & operator ++ ();
+        pending_iterator & operator = (rai::pending_iterator &&) = default;
+        pending_entry & operator -> ();
+        bool operator == (rai::pending_iterator const &) const;
+        bool operator != (rai::pending_iterator const &) const;
+        void set_current ();
+        std::unique_ptr <leveldb::Iterator> iterator;
+        rai::pending_entry current;
+    };
 	extern block_store_temp_t block_store_temp;
 	class block_store
 	{
@@ -400,10 +432,12 @@ namespace rai
 		rai::account_iterator latest_begin ();
 		rai::account_iterator latest_end ();
 		
-		void pending_put (rai::block_hash const &, rai::account const &, rai::amount const &, rai::account const &);
+        void pending_put (rai::block_hash const &, rai::receivable const &);
 		void pending_del (rai::block_hash const &);
-		bool pending_get (rai::block_hash const &, rai::account &, rai::amount &, rai::account &);
-		bool pending_exists (rai::block_hash const &);
+		bool pending_get (rai::block_hash const &, rai::receivable &);
+        bool pending_exists (rai::block_hash const &);
+        rai::pending_iterator pending_begin ();
+        rai::pending_iterator pending_end ();
 		
 		rai::uint128_t representation_get (rai::account const &);
 		void representation_put (rai::account const &, rai::uint128_t const &);

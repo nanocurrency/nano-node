@@ -381,6 +381,7 @@ namespace rai {
 		void process_unknown (rai::vectorstream &);
         void process_confirmation (rai::block const &, rai::endpoint const &);
         void process_confirmed (rai::block const &);
+        void search_pending ();
         void ongoing_keepalive ();
         std::unique_ptr <std::set <rai::endpoint>> bootstrapped;
         rai::client & client;

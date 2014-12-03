@@ -136,13 +136,11 @@ TEST (ledger, process_send)
 	ledger.rollback (hash2);
 	rai::frontier frontier5;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier5));
-    rai::account sender1;
-    rai::amount amount1;
-    rai::account destination1;
-	ASSERT_FALSE (ledger.store.pending_get (hash1, sender1, amount1, destination1));
-    ASSERT_EQ (rai::test_genesis_key.pub, sender1);
-    ASSERT_EQ (key2.pub, destination1);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, amount1.number ());
+    rai::receivable receivable1;
+	ASSERT_FALSE (ledger.store.pending_get (hash1, receivable1));
+    ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
+    ASSERT_EQ (key2.pub, receivable1.destination);
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, receivable1.amount.number ());
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::test_genesis_key.pub));
@@ -154,10 +152,8 @@ TEST (ledger, process_send)
     rai::frontier frontier7;
 	ASSERT_FALSE (ledger.store.latest_get (rai::test_genesis_key.pub, frontier7));
 	ASSERT_EQ (frontier1.hash, frontier7.hash);
-    rai::account sender2;
-    rai::amount amount2;
-    rai::account destination2;
-	ASSERT_TRUE (ledger.store.pending_get (hash1, sender2, amount2, destination2));
+    rai::receivable receivable2;
+	ASSERT_TRUE (ledger.store.pending_get (hash1, receivable2));
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.account_balance (rai::test_genesis_key.pub));
 }
 
@@ -211,12 +207,10 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.account_balance (key2.pub));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.weight (key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
-    rai::account sender1;
-    rai::amount amount1;
-    rai::account destination1;
-	ASSERT_FALSE (ledger.store.pending_get (hash3, sender1, amount1, destination1));
-    ASSERT_EQ (rai::test_genesis_key.pub, sender1);
-    ASSERT_EQ (25, amount1.number ());
+    rai::receivable receivable1;
+	ASSERT_FALSE (ledger.store.pending_get (hash3, receivable1));
+    ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
+    ASSERT_EQ (25, receivable1.amount.number ());
 }
 
 TEST (ledger, rollback_receiver)
@@ -260,10 +254,8 @@ TEST (ledger, rollback_receiver)
     ASSERT_EQ (0, ledger.weight (key3.pub));
 	rai::frontier frontier2;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier2));
-    rai::account sender1;
-    rai::amount amount1;
-    rai::account destination1;
-	ASSERT_TRUE (ledger.store.pending_get (frontier2.hash, sender1, amount1, destination1));
+    rai::receivable receivable1;
+	ASSERT_TRUE (ledger.store.pending_get (frontier2.hash, receivable1));
 }
 
 TEST (ledger, rollback_representation)

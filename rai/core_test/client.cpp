@@ -268,3 +268,30 @@ TEST (client, merge_peers)
 	system.clients [0]->network.merge_peers (endpoints);
 	ASSERT_EQ (0, system.clients [0]->peers.peers.size ());
 }
+
+TEST (client, search_pending)
+{
+    rai::system system (24000, 1);
+    rai::keypair key2;
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
+    auto iterations1 (0);
+    auto balance (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
+    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) == balance)
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
+    }
+    system.clients [0]->wallet.insert (key2.prv);
+    system.clients [0]->processor.search_pending ();
+    auto iterations2 (0);
+    while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}
