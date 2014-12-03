@@ -390,6 +390,7 @@ show_log (new QPushButton ("Log")),
 wallet_key_text (new QLabel ("Account key:")),
 wallet_key_line (new QLineEdit),
 wallet_add_key_button (new QPushButton ("Add account key")),
+search_pending (new QPushButton ("Search for receivables")),
 create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 back (new QPushButton ("Back")),
@@ -448,6 +449,7 @@ client (client_a)
     layout->addWidget (wallet_key_text);
     layout->addWidget (wallet_key_line);
     layout->addWidget (wallet_add_key_button);
+    layout->addWidget (search_for_receivables);
     layout->addWidget (create_block);
     layout->addWidget (enter_block);
     layout->addStretch ();
@@ -513,6 +515,10 @@ client (client_a)
           palette.setColor (QPalette::Text, Qt::red);
           wallet_key_line->setPalette (palette);
       }
+    });
+    QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
+    {
+        client.client_m.processor.search_pending ();
     });
     QObject::connect (create_block, &QPushButton::released, [this] ()
     {
