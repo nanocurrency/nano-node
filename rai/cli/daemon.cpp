@@ -6,6 +6,7 @@
 #include <thread>
 
 rai_daemon::daemon_config::daemon_config () :
+representative (rai::genesis_account),
 peering_port (24000),
 rpc_enable (false),
 rpc_address (boost::asio::ip::address_v6::loopback ()),
@@ -18,6 +19,9 @@ rpc_enable_control (false)
 void rai_daemon::daemon_config::serialize (std::ostream & output_a)
 {
     boost::property_tree::ptree tree;
+    std::string representative_l;
+    representative.encode_base58check (representative_l);
+    tree.put ("representative", representative_l);
     tree.put ("peering_port", std::to_string (peering_port));
     boost::property_tree::ptree bootstrap_peers_l;
     for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
@@ -41,6 +45,7 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
     try
     {
         boost::property_tree::read_json (input_a, tree);
+        auto representative_l (tree.get <std::string> ("representative"));
         auto peering_port_l (tree.get <std::string> ("peering_port"));
         auto rpc_address_l (tree.get <std::string> ("rpc_address"));
         auto rpc_port_l (tree.get <std::string> ("rpc_port"));
@@ -68,6 +73,7 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
         {
             error_a = true;
         }
+        error_a = error_a | representative.decode_base58check (representative_l);
     }
     catch (std::runtime_error const &)
     {
@@ -106,7 +112,7 @@ void rai_daemon::daemon::run ()
         auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
         rai::processor_service processor;
         rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, rai::genesis_account));
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, config.representative));
         if (!init.error ())
         {
             client->processor.connect_bootstrap (config.bootstrap_peers);

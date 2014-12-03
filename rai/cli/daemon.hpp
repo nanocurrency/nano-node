@@ -17,6 +17,7 @@ namespace rai_daemon
         daemon_config ();
         daemon_config (bool &, std::istream &);
         void serialize (std::ostream &);
+        rai::uint256_union representative;
         std::vector <std::string> bootstrap_peers;
         uint16_t peering_port;
         bool rpc_enable;
