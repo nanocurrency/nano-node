@@ -390,7 +390,7 @@ show_log (new QPushButton ("Log")),
 wallet_key_text (new QLabel ("Account key:")),
 wallet_key_line (new QLineEdit),
 wallet_add_key_button (new QPushButton ("Add account key")),
-search_pending (new QPushButton ("Search for receivables")),
+search_for_receivables (new QPushButton ("Search for receivables")),
 create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 back (new QPushButton ("Back")),
@@ -859,23 +859,21 @@ void rai_qt::block_creation::create_receive ()
     auto error (source_l.decode_hex (source->text ().toStdString ()));
     if (!error)
     {
-        rai::account source;
-        rai::amount amount;
-        rai::account destination;
-        if (!client.client_m.store.pending_get (source_l, source, amount, destination))
+        rai::receivable receivable;
+        if (!client.client_m.store.pending_get (source_l, receivable))
         {
             rai::frontier frontier;
-            auto error (client.client_m.store.latest_get (destination, frontier));
+            auto error (client.client_m.store.latest_get (receivable.destination, frontier));
             if (!error)
             {
                 rai::private_key key;
-                auto error (client.client_m.wallet.fetch (destination, key));
+                auto error (client.client_m.wallet.fetch (receivable.destination, key));
                 if (!error)
                 {
                     rai::receive_block receive;
                     receive.hashables.previous = frontier.hash;
                     receive.hashables.source = source_l;
-                    rai::sign_message (key, destination, receive.hash (), receive.signature);
+                    rai::sign_message (key, receivable.destination, receive.hash (), receive.signature);
                     key.clear ();
                     receive.work = client.client_m.ledger.create_work (receive);
                     std::string block_l;
@@ -971,23 +969,21 @@ void rai_qt::block_creation::create_open ()
         error = representative_l.decode_base58check (representative->text ().toStdString ());
         if (!error)
         {
-            rai::account source;
-            rai::amount amount;
-            rai::account destination;
-            if (!client.client_m.store.pending_get (source_l, source, amount, destination))
+            rai::receivable receivable;
+            if (!client.client_m.store.pending_get (source_l, receivable))
             {
                 rai::frontier frontier;
-                auto error (client.client_m.store.latest_get (destination, frontier));
+                auto error (client.client_m.store.latest_get (receivable.destination, frontier));
                 if (error)
                 {
                     rai::private_key key;
-                    auto error (client.client_m.wallet.fetch (destination, key));
+                    auto error (client.client_m.wallet.fetch (receivable.destination, key));
                     if (!error)
                     {
                         rai::open_block open;
                         open.hashables.source = source_l;
                         open.hashables.representative = representative_l;
-                        rai::sign_message (key, destination, open.hash (), open.signature);
+                        rai::sign_message (key, receivable.destination, open.hash (), open.signature);
                         key.clear ();
                         open.work = client.client_m.ledger.create_work (open);
                         std::string block_l;
