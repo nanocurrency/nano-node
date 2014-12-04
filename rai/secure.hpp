@@ -508,7 +508,11 @@ namespace rai
 		void move_representation (rai::account const &, rai::account const &, rai::uint128_t const &);
 		void checksum_update (rai::block_hash const &);
 		rai::checksum checksum (rai::account const &, rai::account const &);
-		rai::block_store & store;
+        rai::block_store & store;
+        std::function <void (rai::account const &, rai::amount const &)> send_observer;
+        std::function <void (rai::account const &, rai::amount const &)> receive_observer;
+        std::function <void (rai::account const &, rai::amount const &, rai::account const &)> open_observer;
+        std::function <void (rai::account const &, rai::account const &)> change_observer;
 	};
 	class vote
 	{
