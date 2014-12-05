@@ -46,6 +46,7 @@ void fill_128_reference (void * data)
     }
 }
 
+#if 0
 void fill_128_sse (void * data)
 {
     xorshift128 rng;
@@ -58,6 +59,7 @@ void fill_128_sse (void * data)
         _mm_store_si128 (i, _mm_set_epi64x (v1, v0));
     }
 }
+#endif // 0
 
 void fill_1024_reference (void * data)
 {
@@ -74,6 +76,7 @@ void fill_1024_reference (void * data)
     }
 }
 
+#if 0
 void fill_1024_sse (void * data)
 {
     xorshift1024 rng;
@@ -98,6 +101,7 @@ void fill_zero (void * data)
         _mm_store_si128 (i, _mm_setzero_si128 ());
     }
 }
+#endif // 0
 
 int main (int argc, char * const * argv)
 {
@@ -156,6 +160,7 @@ int main (int argc, char * const * argv)
         auto end2 (std::chrono::high_resolution_clock::now ());
         std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
     }
+#if 0
     else if (vm.count ("xorshift_profile"))
     {
         auto unaligned (new uint8_t [64 * 1024 * 1024 + 16]);
@@ -211,6 +216,7 @@ int main (int argc, char * const * argv)
             std::cerr << "SSE fill 1024 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
         }
     }
+#endif // 0
     else if (vm.count ("verify_profile"))
     {
         rai::keypair key;
