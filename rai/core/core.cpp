@@ -860,11 +860,39 @@ service (processor_a)
 {
     ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {
-        if (wallet.find (block_a.hashables.destination) != wallet.end ())
+        for (auto & i: send_observers)
         {
-            conflicts.start (block_a, true);
+            i (block_a, account_a, balance_a);
         }
     };
+    ledger.receive_observer = [this] (rai::receive_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
+    {
+        for (auto & i: receive_observers)
+        {
+            i (block_a, account_a, balance_a);
+        }
+    };
+    ledger.open_observer = [this] (rai::open_block const & block_a, rai::account const & account_a, rai::amount const & balance_a, rai::account const & representative_a)
+    {
+        for (auto & i: open_observers)
+        {
+            i (block_a, account_a, balance_a, representative_a);
+        }
+    };
+    ledger.change_observer = [this] (rai::change_block const & block_a, rai::account const & account_a, rai::account const & representative_a)
+    {
+        for (auto & i: change_observers)
+        {
+            i (block_a, account_a, representative_a);
+        }
+    };
+    send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
+    {
+        if (wallet.find (block_a.hashables.destination) != wallet.end ())
+        {
+          conflicts.start (block_a, true);
+        }
+    });
     if (!init_a.error ())
     {
         if (client_lifetime_tracing ())

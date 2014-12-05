@@ -688,6 +688,10 @@ namespace rai {
         rai::transactions transactions;
         rai::peer_container peers;
         rai::processor_service & service;
+        std::vector <std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)>> send_observers;
+        std::vector <std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)>> receive_observers;
+        std::vector <std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)>> open_observers;
+        std::vector <std::function <void (rai::change_block const &, rai::account const &, rai::account const &)>> change_observers;
     };
     class system
     {
