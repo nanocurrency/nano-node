@@ -36,7 +36,6 @@ send_blocks (new QPushButton ("Send")),
 wallet_add_account (new QPushButton ("Create account")),
 settings (new QPushButton ("Settings")),
 show_advanced (new QPushButton ("Advanced")),
-wallet_refresh (new QPushButton ("Refresh")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
 send_account_label (new QLabel ("Destination account:")),
@@ -69,7 +68,6 @@ send_blocks_back (new QPushButton ("Back"))
     entry_window_layout->addWidget (wallet_add_account);
     entry_window_layout->addWidget (settings);
     entry_window_layout->addWidget (show_advanced);
-    entry_window_layout->addWidget (wallet_refresh);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window_layout->setSpacing (5);
     entry_window->setLayout (entry_window_layout);
@@ -136,10 +134,6 @@ send_blocks_back (new QPushButton ("Back"))
             palette.setColor (QPalette::Text, Qt::red);
             settings_connect_line->setPalette (palette);
         }
-    });
-    QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
-    {
-        refresh_wallet ();
     });
     QObject::connect (settings_back, &QPushButton::released, [this] ()
     {
@@ -231,6 +225,27 @@ send_blocks_back (new QPushButton ("Back"))
         rai::keypair key;
         client_m.wallet.insert (key.prv);
         refresh_wallet ();
+    });
+    client_m.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
+    {
+        if (client_m.wallet.exists (account_a))
+        {
+            refresh_wallet ();
+        }
+    });
+    client_m.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
+    {
+        if (client_m.wallet.exists (account_a))
+        {
+            refresh_wallet ();
+        }
+    });
+    client_m.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
+    {
+        if (client_m.wallet.exists (account_a))
+        {
+            refresh_wallet ();
+        }
     });
     refresh_wallet ();
 }
@@ -348,7 +363,7 @@ client (client_a)
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-        client.client_m.wallet.password.value_set (client.client_m.wallet.derive_key (std::string (password->text ().toLocal8Bit ())));
+        client.client_m.wallet.enter_password (std::string (password->text ().toLocal8Bit ()));
         update_label ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
@@ -391,6 +406,7 @@ wallet_key_text (new QLabel ("Account key:")),
 wallet_key_line (new QLineEdit),
 wallet_add_key_button (new QPushButton ("Add account key")),
 search_for_receivables (new QPushButton ("Search for receivables")),
+wallet_refresh (new QPushButton ("Refresh Wallet")),
 create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 back (new QPushButton ("Back")),
@@ -450,11 +466,17 @@ client (client_a)
     layout->addWidget (wallet_key_line);
     layout->addWidget (wallet_add_key_button);
     layout->addWidget (search_for_receivables);
+    layout->addWidget (wallet_refresh);
     layout->addWidget (create_block);
     layout->addWidget (enter_block);
     layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
+    
+    QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
+    {
+        client.refresh_wallet ();
+    });
     QObject::connect (show_log, &QPushButton::released, [this] ()
     {
         client.push_main_stack (log_window);

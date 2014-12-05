@@ -726,6 +726,79 @@ TEST (rpc, wallet_add)
     ASSERT_EQ (account_text1, account_text2);
 }
 
+TEST (rpc, wallet_password_valid)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "password_valid");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string account_text1 (response_tree.get <std::string> ("valid"));
+    ASSERT_EQ (account_text1, "1");
+}
+
+TEST (rpc, wallet_password_change)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "password_change");
+    request_tree.put ("password", "test");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string account_text1 (response_tree.get <std::string> ("changed"));
+    ASSERT_EQ (account_text1, "1");
+    ASSERT_TRUE (system.clients [0]->wallet.valid_password ());
+    system.clients [0]->wallet.enter_password ("");
+    ASSERT_FALSE (system.clients [0]->wallet.valid_password ());
+    system.clients [0]->wallet.enter_password ("test");
+    ASSERT_TRUE (system.clients [0]->wallet.valid_password ());
+}
+
+TEST (rpc, wallet_password_enter)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "password_enter");
+    request_tree.put ("password", "");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string account_text1 (response_tree.get <std::string> ("valid"));
+    ASSERT_EQ (account_text1, "1");
+}
+
 TEST (network, receive_weight_change)
 {
     rai::system system (24000, 2);

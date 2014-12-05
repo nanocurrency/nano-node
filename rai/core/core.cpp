@@ -502,8 +502,7 @@ password (0, 1024)
             }
             else
             {
-                auto password_l (derive_key (""));
-                password.value_set (password_l);
+                enter_password ("");
             }
             init_a = false;
         }
@@ -1862,6 +1861,28 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
                     response.content = "RPC control is disabled";
                 }
+            }
+            else if (action == "password_valid")
+            {
+                boost::property_tree::ptree response_l;
+                response_l.put ("valid", client.wallet.valid_password () ? "1" : "0");
+                set_response (response, response_l);
+            }
+            else if (action == "password_change")
+            {
+                boost::property_tree::ptree response_l;
+                std::string password_text (request_l.get <std::string> ("password"));
+                auto error (client.wallet.rekey (password_text));
+                response_l.put ("changed", error ? "0" : "1");
+                set_response (response, response_l);
+            }
+            else if (action == "password_enter")
+            {
+                boost::property_tree::ptree response_l;
+                std::string password_text (request_l.get <std::string> ("password"));
+                client.wallet.enter_password (password_text);
+                response_l.put ("valid", client.wallet.valid_password () ? "1" : "0");
+                set_response (response, response_l);
             }
             else
             {
@@ -4102,6 +4123,11 @@ bool rai::wallet::valid_password ()
     rai::uint256_union check_l (zero, wallet_key_l, salt ().owords [0]);
     wallet_key_l.clear ();
     return check () == check_l;
+}
+
+void rai::wallet::enter_password (std::string const & password_a)
+{
+    password.value_set (derive_key (password_a));
 }
 
 bool rai::transactions::rekey (std::string const & password_a)

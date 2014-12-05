@@ -365,5 +365,9 @@ TEST (wallet, repoen_default_password)
         rai::wallet wallet (init, path);
         ASSERT_FALSE (init);
         ASSERT_TRUE (wallet.valid_password ());
+        wallet.enter_password (" ");
+        ASSERT_FALSE (wallet.valid_password ());
+        wallet.enter_password ("");
+        ASSERT_TRUE (wallet.valid_password ());
     }
 }

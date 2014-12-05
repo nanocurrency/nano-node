@@ -52,6 +52,7 @@ namespace rai_qt {
         QLineEdit * wallet_key_line;
         QPushButton * wallet_add_key_button;
         QPushButton * search_for_receivables;
+        QPushButton * wallet_refresh;
         QPushButton * create_block;
         QPushButton * enter_block;
         QPushButton * back;
@@ -170,7 +171,6 @@ namespace rai_qt {
         QPushButton * wallet_add_account;
         QPushButton * settings;
         QPushButton * show_advanced;
-        QPushButton * wallet_refresh;
         
         QWidget * send_blocks_window;
         QVBoxLayout * send_blocks_layout;

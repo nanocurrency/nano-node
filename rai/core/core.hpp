@@ -294,13 +294,14 @@ namespace rai {
         wallet (bool &, boost::filesystem::path const &);
         rai::uint256_union check ();
         bool rekey (std::string const &);
+		bool valid_password ();
+        void enter_password (std::string const &);
         rai::uint256_union wallet_key ();
         rai::uint256_union salt ();
         void insert (rai::private_key const &);
         bool fetch (rai::public_key const &, rai::private_key &);
         bool exists (rai::public_key const &);
         bool generate_send (rai::ledger &, rai::public_key const &, rai::uint128_t const &, std::vector <std::unique_ptr <rai::send_block>> &);
-		bool valid_password ();
         key_iterator find (rai::uint256_union const &);
         key_iterator begin ();
         key_iterator end ();
