@@ -509,10 +509,10 @@ namespace rai
 		void checksum_update (rai::block_hash const &);
 		rai::checksum checksum (rai::account const &, rai::account const &);
         rai::block_store & store;
-        std::function <void (rai::account const &, rai::amount const &)> send_observer;
-        std::function <void (rai::account const &, rai::amount const &)> receive_observer;
-        std::function <void (rai::account const &, rai::amount const &, rai::account const &)> open_observer;
-        std::function <void (rai::account const &, rai::account const &)> change_observer;
+        std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)> send_observer;
+        std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)> receive_observer;
+        std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)> open_observer;
+        std::function <void (rai::change_block const &, rai::account const &, rai::account const &)> change_observer;
 	};
 	class vote
 	{

@@ -103,10 +103,11 @@ TEST (ledger, process_send)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash1, send.signature);
     rai::account account1;
     rai::amount amount1;
-    ledger.send_observer = [&account1, &amount1] (rai::account const & account_a, rai::amount const & amount_a)
+    ledger.send_observer = [&account1, &amount1, &send] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
     {
         account1 = account_a;
         amount1 = amount_a;
+        ASSERT_EQ (send, block_a);
     };
     ASSERT_EQ (rai::process_result::progress, ledger.process (send));
     ASSERT_EQ (rai::test_genesis_key.pub, account1);
@@ -195,11 +196,12 @@ TEST (ledger, process_receive)
     rai::account account2;
     rai::amount amount2;
     rai::account account3;
-    ledger.open_observer = [&account2, &amount2, &account3] (rai::account const & account_a, rai::amount const & amount_a, rai::account const & representative_a)
+    ledger.open_observer = [&account2, &amount2, &account3, &open] (rai::open_block const & block_a, rai::account const & account_a, rai::amount const & amount_a, rai::account const & representative_a)
     {
         account2 = account_a;
         amount2 = amount_a;
         account3 = representative_a;
+        ASSERT_EQ (open, block_a);
     };
     ASSERT_EQ (rai::process_result::progress, ledger.process (open));
     ASSERT_EQ (key2.pub, account2);
@@ -220,10 +222,11 @@ TEST (ledger, process_receive)
 	rai::sign_message (key2.prv, key2.pub, hash4, receive.signature);
     rai::account account1;
     rai::amount amount1;
-    ledger.receive_observer = [&account1, &amount1] (rai::account const & account_a, rai::amount const & amount_a)
+    ledger.receive_observer = [&account1, &amount1, &receive] (rai::receive_block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
     {
         account1 = account_a;
         amount1 = amount_a;
+        ASSERT_EQ (receive, block_a);
     };
 	ASSERT_EQ (rai::process_result::progress, ledger.process (receive));
     ASSERT_EQ (rai::uint128_union (std::numeric_limits <rai::uint128_t>::max () - 25), amount1);
@@ -417,10 +420,11 @@ TEST (ledger, representative_change)
     rai::change_block block (key2.pub, frontier1.hash, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     rai::account account1;
     rai::account account2;
-    ledger.change_observer = [&account1, &account2] (rai::account const & account_a, rai::account const & representative_a)
+    ledger.change_observer = [&account1, &account2, &block] (rai::change_block const & block_a, rai::account const & account_a, rai::account const & representative_a)
     {
         account1 = account_a;
         account2 = representative_a;
+        ASSERT_EQ (block, block_a);
     };
     ASSERT_EQ (rai::process_result::progress, ledger.process (block));
     ASSERT_EQ (rai::test_genesis_key.pub, account1);

@@ -274,9 +274,9 @@ TEST (client, search_pending)
     rai::system system (24000, 1);
     rai::keypair key2;
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    auto balance (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_FALSE (system.clients [0]->transactions.send (key2.pub, 1000));
     auto iterations1 (0);
-    auto balance (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) == balance)
     {
         system.service->poll_one ();
@@ -320,4 +320,5 @@ TEST (client, connect_after_junk)
         ++iterations2;
         ASSERT_LT (iterations2, 200);
     }
+    client1->stop ();
 }

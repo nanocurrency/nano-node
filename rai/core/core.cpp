@@ -858,6 +858,13 @@ transactions (*this),
 peers (network.endpoint ()),
 service (processor_a)
 {
+    ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
+    {
+        if (wallet.find (block_a.hashables.destination) != wallet.end ())
+        {
+            conflicts.start (block_a, true);
+        }
+    };
     if (!init_a.error ())
     {
         if (client_lifetime_tracing ())
@@ -1130,34 +1137,6 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
 
 namespace
 {
-class receivable_visitor : public rai::block_visitor
-{
-public:
-    receivable_visitor (rai::client & client_a, rai::block const & incoming_a) :
-    client (client_a),
-    incoming (incoming_a)
-    {
-    }
-    void send_block (rai::send_block const & block_a) override
-    {
-        if (client.wallet.find (block_a.hashables.destination) != client.wallet.end ())
-        {
-            client.conflicts.start (block_a, true);
-        }
-    }
-    void receive_block (rai::receive_block const &) override
-    {
-    }
-    void open_block (rai::open_block const &) override
-    {
-    }
-    void change_block (rai::change_block const &) override
-    {
-    }
-    rai::client & client;
-    rai::block const & incoming;
-};
-    
 class successor_visitor : public rai::block_visitor
 {
 public:
@@ -1189,8 +1168,6 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
     {
         case rai::process_result::progress:
         {
-            receivable_visitor visitor (client, block_a);
-            block_a.visit (visitor);
             break;
         }
         case rai::process_result::gap_previous:
