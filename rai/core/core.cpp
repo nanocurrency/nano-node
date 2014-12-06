@@ -64,12 +64,6 @@ namespace
 std::chrono::seconds constexpr rai::processor::period;
 std::chrono::seconds constexpr rai::processor::cutoff;
 
-void hash_number (CryptoPP::SHA3 & hash_a, boost::multiprecision::uint256_t const & number_a)
-{
-    rai::uint256_union bytes (number_a);
-    hash_a.Update (bytes.bytes.data (), sizeof (bytes));
-}
-
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
@@ -378,6 +372,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     }
 }
 
+// Send keepalives to all the peers we've been notified of
 void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
 {
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
@@ -494,7 +489,7 @@ password (0, 1024)
                 assert (status1.ok ());
                 rai::uint256_union zero (0);
                 rai::uint256_union check (zero, wallet_key, salt_l.owords [0]);
-                // Check key is stored in entry 1
+                // Check key is stored in entry 1 and is used to check if the password is correct
                 auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (check_special.chars.data (), check_special.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
                 assert (status2.ok ());
                 wallet_key.clear ();
@@ -659,6 +654,7 @@ rai::key_iterator & rai::key_iterator::operator = (rai::key_iterator && other_a)
     return *this;
 }
 
+// Generate a set of sends that totals the amount requested.
 bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint128_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
 {
     bool result (false);
@@ -689,6 +685,7 @@ bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const &
     }
     if (!remaining.is_zero ())
     {
+        // Destroy the sends because they're signed and we're not going to use them.
         result = true;
         blocks.clear ();
     }
@@ -806,6 +803,7 @@ client (client_a)
 {
 }
 
+// We were contacted by `endpoint_a', update peers
 void rai::processor::contacted (rai::endpoint const & endpoint_a)
 {
     auto endpoint_l (endpoint_a);
@@ -821,7 +819,7 @@ void rai::processor::contacted (rai::endpoint const & endpoint_a)
     }
     else
     {
-        // Skipping due to keepalive limiting
+        // Skipping because they were already in peers list and we'll contact them next keepalive interval.
     }
 }
 
@@ -900,6 +898,7 @@ service (processor_a)
         }
         if (store.latest_begin () == store.latest_end ())
         {
+            // Store was empty meaning we just created it, add the genesis block
             rai::genesis genesis;
             genesis.initialize (store);
         }
@@ -932,6 +931,7 @@ void rai::client::send_keepalive (rai::endpoint const & endpoint_a)
 
 namespace
 {
+// Publish to all peers
 class publish_processor : public std::enable_shared_from_this <publish_processor>
 {
 public:
@@ -988,7 +988,8 @@ void rai::processor::republish (std::unique_ptr <rai::block> incoming_a, rai::en
     republisher->run ();
 }
 
-namespace {
+namespace
+{
 class republish_visitor : public rai::block_visitor
 {
 public:
@@ -1160,26 +1161,6 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
         block = client.gap_cache.get (hash);
     }
     while (block != nullptr);
-}
-
-namespace
-{
-class successor_visitor : public rai::block_visitor
-{
-public:
-    void send_block (rai::send_block const & block_a) override
-    {
-    }
-    void receive_block (rai::receive_block const & block_a) override
-    {
-    }
-    void open_block (rai::open_block const & block_a) override
-    {
-    }
-    void change_block (rai::change_block const & block_a) override
-    {
-    }
-};
 }
 
 rai::process_result rai::processor::process_receive (rai::block const & block_a)
