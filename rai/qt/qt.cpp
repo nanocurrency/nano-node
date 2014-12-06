@@ -15,16 +15,6 @@ block_creation (*this),
 block_entry (*this),
 application (application_a),
 main_stack (new QStackedWidget),
-settings_window (new QWidget),
-settings_layout (new QVBoxLayout),
-settings_port_label (new QLabel ((std::string ("Port: ") + std::to_string (client_a.network.socket.local_endpoint ().port ())).c_str ())),
-settings_connect_label (new QLabel ("Connect to IP:Port")),
-settings_connect_line (new QLineEdit),
-settings_connect_button (new QPushButton ("Connect")),
-settings_bootstrap_button (new QPushButton ("Bootstrap")),
-settings_enter_password_button (new QPushButton ("Enter Password")),
-settings_change_password_button (new QPushButton ("Change Password")),
-settings_back (new QPushButton ("Back")),
 client_window (new QWidget),
 client_layout (new QVBoxLayout),
 balance_label (new QLabel),
@@ -34,7 +24,6 @@ wallet_model (new QStandardItemModel),
 wallet_view (new QTableView),
 send_blocks (new QPushButton ("Send")),
 wallet_add_account (new QPushButton ("Create account")),
-settings (new QPushButton ("Settings")),
 show_advanced (new QPushButton ("Advanced")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
@@ -66,7 +55,6 @@ send_blocks_back (new QPushButton ("Back"))
     entry_window_layout->addWidget (wallet_view);
     entry_window_layout->addWidget (send_blocks);
     entry_window_layout->addWidget (wallet_add_account);
-    entry_window_layout->addWidget (settings);
     entry_window_layout->addWidget (show_advanced);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window_layout->setSpacing (5);
@@ -82,67 +70,6 @@ send_blocks_back (new QPushButton ("Back"))
     client_window->setLayout (client_layout);
     client_window->resize (320, 480);
     
-    settings_layout->addWidget (settings_port_label);
-    settings_layout->addWidget (settings_connect_label);
-    settings_layout->addWidget (settings_connect_line);
-    settings_layout->addWidget (settings_connect_button);
-    settings_layout->addWidget (settings_bootstrap_button);
-    settings_layout->addWidget (settings_enter_password_button);
-    settings_layout->addWidget (settings_change_password_button);
-    settings_layout->addStretch ();
-    settings_layout->addWidget (settings_back);
-    settings_window->setLayout (settings_layout);
-    
-    QObject::connect (settings_bootstrap_button, &QPushButton::released, [this] ()
-    {
-        QString account_text_wide (settings_connect_line->text ());
-        std::string account_text (account_text_wide.toLocal8Bit ());
-        rai::tcp_endpoint endpoint;
-        if (!rai::parse_tcp_endpoint (account_text, endpoint))
-        {
-            QPalette palette;
-            palette.setColor (QPalette::Text, Qt::black);
-            settings_connect_line->setPalette (palette);
-            settings_bootstrap_button->setText ("Bootstrapping...");
-            client_m.processor.bootstrap (endpoint);
-            settings_connect_line->clear ();
-        }
-        else
-        {
-          QPalette palette;
-          palette.setColor (QPalette::Text, Qt::red);
-          settings_connect_line->setPalette (palette);
-        }
-    });
-    
-    QObject::connect (settings_connect_button, &QPushButton::released, [this] ()
-    {
-        QString account_text_wide (settings_connect_line->text ());
-        std::string account_text (account_text_wide.toLocal8Bit ());
-        rai::endpoint endpoint;
-        if (!rai::parse_endpoint (account_text, endpoint))
-        {
-            QPalette palette;
-            palette.setColor (QPalette::Text, Qt::black);
-            settings_connect_line->setPalette (palette);
-            client_m.send_keepalive (endpoint);
-            settings_connect_line->clear ();
-        }
-        else
-        {
-            QPalette palette;
-            palette.setColor (QPalette::Text, Qt::red);
-            settings_connect_line->setPalette (palette);
-        }
-    });
-    QObject::connect (settings_back, &QPushButton::released, [this] ()
-    {
-        pop_main_stack ();
-    });
-    QObject::connect (settings, &QPushButton::released, [this] ()
-    {
-        push_main_stack (settings_window);
-    });
     QObject::connect (show_advanced, &QPushButton::released, [this] ()
     {
         push_main_stack (advanced.window);
@@ -211,14 +138,6 @@ send_blocks_back (new QPushButton ("Back"))
     QObject::connect (send_blocks, &QPushButton::released, [this] ()
     {
         push_main_stack (send_blocks_window);
-    });
-    QObject::connect (settings_enter_password_button, &QPushButton::released, [this] ()
-    {
-        enter_password.activate ();
-    });
-    QObject::connect (settings_change_password_button, &QPushButton::released, [this] ()
-    {
-        push_main_stack (password_change.window);
     });
     QObject::connect (wallet_add_account, &QPushButton::released, [this] ()
     {
@@ -399,6 +318,8 @@ void rai_qt::enter_password::update_label ()
 rai_qt::advanced_actions::advanced_actions (rai_qt::client & client_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
+enter_password (new QPushButton ("Enter Password")),
+change_password (new QPushButton ("Change Password")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
 show_log (new QPushButton ("Log")),
@@ -459,6 +380,8 @@ client (client_a)
     peers_layout->setContentsMargins (0, 0, 0, 0);
     peers_window->setLayout (peers_layout);
     
+    layout->addWidget (enter_password);
+    layout->addWidget (change_password);
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
     layout->addWidget (show_log);
@@ -473,6 +396,14 @@ client (client_a)
     layout->addWidget (back);
     window->setLayout (layout);
     
+    QObject::connect (enter_password, &QPushButton::released, [this] ()
+    {
+        client.enter_password.activate ();
+    });
+    QObject::connect (change_password, &QPushButton::released, [this] ()
+    {
+        client.push_main_stack (client.password_change.window);
+    });
     QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
     {
         client.refresh_wallet ();

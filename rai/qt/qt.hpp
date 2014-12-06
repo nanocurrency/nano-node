@@ -45,6 +45,8 @@ namespace rai_qt {
         advanced_actions (rai_qt::client &);
         QWidget * window;
         QVBoxLayout * layout;
+        QPushButton * enter_password;
+        QPushButton * change_password;
         QPushButton * show_ledger;
         QPushButton * show_peers;
         QPushButton * show_log;
@@ -148,17 +150,6 @@ namespace rai_qt {
         QApplication & application;
         QStackedWidget * main_stack;
         
-        QWidget * settings_window;
-        QVBoxLayout * settings_layout;
-        QLabel * settings_port_label;
-        QLabel * settings_connect_label;
-        QLineEdit * settings_connect_line;
-        QPushButton * settings_connect_button;
-        QPushButton * settings_bootstrap_button;
-        QPushButton * settings_enter_password_button;
-        QPushButton * settings_change_password_button;
-        QPushButton * settings_back;
-        
         QWidget * client_window;
         QVBoxLayout * client_layout;
         QLabel * balance_label;
@@ -169,7 +160,6 @@ namespace rai_qt {
         QTableView * wallet_view;
         QPushButton * send_blocks;
         QPushButton * wallet_add_account;
-        QPushButton * settings;
         QPushButton * show_advanced;
         
         QWidget * send_blocks_window;
