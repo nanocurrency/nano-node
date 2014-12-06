@@ -1573,33 +1573,24 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
                     if (status4.ok ())
                     {
                         representation.reset (db);
-                        auto status5 (leveldb::DB::Open (options, (path_a / "forks.ldb").string (), &db));
-                        if (status5.ok ())
+                        auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").string (), &db));
+                        if (status6.ok ())
                         {
-                            forks.reset (db);
-                            auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").string (), &db));
-                            if (status6.ok ())
+                            bootstrap.reset (db);
+                            auto status7 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
+                            if (status7.ok ())
                             {
-                                bootstrap.reset (db);
-                                auto status7 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
-                                if (status7.ok ())
-                                {
-                                    checksum.reset (db);
-                                    checksum_put (0, 0, 0);
-                                }
-                                else
-                                {
-                                    init_a = status7;
-                                }
+                                checksum.reset (db);
+                                checksum_put (0, 0, 0);
                             }
                             else
                             {
-                                init_a = status6;
+                                init_a = status7;
                             }
                         }
                         else
                         {
-                            init_a = status5;
+                            init_a = status6;
                         }
                     }
                     else

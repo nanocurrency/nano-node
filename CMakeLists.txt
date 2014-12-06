@@ -61,6 +61,9 @@ add_executable (core_test
     rai/core_test/uint256_union.cpp
     rai/core_test/wallet_test.cpp
     )
+
+add_executable (slow_test
+    rai/slow_test/client.cpp)
     
 add_executable (qt_test
     rai/qt_test/qt.cpp)
@@ -86,7 +89,7 @@ add_executable (qt_system
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
-set_target_properties (secure core core_test qt_test cli qt qt_client qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (secure core core_test slow_test qt_test cli qt qt_client qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (qt_client qt_test PROPERTIES LINK_FLAGS "${PLATFORM_GUI_EXE_LINK_FLAGS}")
 
 if (WIN32)
@@ -96,6 +99,8 @@ else (WIN32)
 endif (WIN32)
 
 target_link_libraries (core_test core secure ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
+
+target_link_libraries (slow_test core secure ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 
 target_link_libraries (cli core secure ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS} ${LevelDB_LIBRARY})
 

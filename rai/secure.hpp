@@ -460,8 +460,6 @@ namespace rai
 		std::unique_ptr <leveldb::DB> pending;
 		// account -> weight                                            // Representation
 		std::unique_ptr <leveldb::DB> representation;
-		// block_hash -> sequence, block                                // Previous block hash to most recent sequence and fork proof
-		std::unique_ptr <leveldb::DB> forks;
 		// block_hash -> block                                          // Unchecked bootstrap blocks
 		std::unique_ptr <leveldb::DB> bootstrap;
 		// block_hash -> block_hash                                     // Tracking successors for bootstrapping
