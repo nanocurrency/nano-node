@@ -351,7 +351,6 @@ peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
 client (client_a)
 {
-    
     ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
     ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
     ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
