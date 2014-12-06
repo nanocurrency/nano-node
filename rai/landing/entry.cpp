@@ -180,7 +180,7 @@ int main ()
         auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor, rai::genesis_account));
         if (!init.error ())
         {
-            client->processor.connect_bootstrap (config.bootstrap_peers);
+            client->bootstrap_peers = config.bootstrap_peers;
             client->start ();
             std::thread network_thread ([&service] ()
                 {

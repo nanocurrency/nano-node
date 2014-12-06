@@ -693,6 +693,7 @@ namespace rai {
         std::vector <std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)>> receive_observers;
         std::vector <std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)>> open_observers;
         std::vector <std::function <void (rai::change_block const &, rai::account const &, rai::account const &)>> change_observers;
+        std::vector <std::string> bootstrap_peers;
     };
     class system
     {

@@ -115,7 +115,7 @@ void rai_daemon::daemon::run ()
         auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, config.representative));
         if (!init.error ())
         {
-            client->processor.connect_bootstrap (config.bootstrap_peers);
+            client->bootstrap_peers = config.bootstrap_peers;
             client->start ();
             rai::rpc rpc (service, pool, config.rpc_address, config.rpc_port, *client, config.rpc_enable_control);
             if (config.rpc_enable)

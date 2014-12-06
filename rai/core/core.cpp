@@ -2907,6 +2907,7 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
 
 void rai::processor::ongoing_keepalive ()
 {
+    connect_bootstrap (client.bootstrap_peers);
     auto peers (client.peers.purge_list (std::chrono::system_clock::now () - cutoff));
     for (auto i (peers.begin ()), j (peers.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
     {

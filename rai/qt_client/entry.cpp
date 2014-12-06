@@ -103,7 +103,7 @@ int main (int argc, char ** argv)
         });
         if (!init.error ())
         {
-            client->processor.connect_bootstrap (config.bootstrap_peers);
+            client->bootstrap_peers = config.bootstrap_peers;
             client->start ();
             std::unique_ptr <rai_qt::client> gui (new rai_qt::client (application, *client));
             gui->client_window->show ();
