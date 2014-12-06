@@ -53,8 +53,7 @@ TEST (processor_service, bad_receive_signature)
     rai::receive_block receive;
     receive.hashables.source = hash1;
     receive.hashables.previous = key2.pub;
-    rai::block_hash hash2 (receive.hash ());
-    receive.sign (key2.prv, key2.pub, hash2);
+    rai::sign_message (key2.prv, key2.pub, receive.hash (), receive.signature);
     receive.signature.bytes [32] ^= 0x1;
     ASSERT_EQ (rai::process_result::bad_signature, ledger.process (receive));
 }

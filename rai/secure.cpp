@@ -51,23 +51,19 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
     return result;
 }
 
+// Divide the raw 128bit number to one that fits in 64bits
 uint64_t rai::scale_down (rai::uint128_t const & amount_a)
 {
     return (amount_a / rai::scale_64bit_base10).convert_to <uint64_t> ();
 }
 
+// Return the full 128bit amount number from a reduced 64bit one
 rai::uint128_t rai::scale_up (uint64_t amount_a)
 {
     return rai::scale_64bit_base10 * amount_a;
 }
 
-void rai::uint256_union::digest_password (std::string const & password_a)
-{
-	CryptoPP::SHA3 hash (32);
-	hash.Update (reinterpret_cast <uint8_t const *> (password_a.c_str ()), password_a.size ());
-	hash.Final (bytes.data ());
-}
-
+// Validate a vote and apply it to the current election or start a new election if it doesn't exist
 void rai::votes::vote (rai::vote const & vote_a)
 {
 	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
@@ -98,6 +94,7 @@ void rai::votes::vote (rai::vote const & vote_a)
 	}
 }
 
+// Sum the weights for each vote and return the winning block with its vote tally
 std::pair <std::unique_ptr <rai::block>, rai::uint256_t> rai::votes::winner ()
 {
 	std::unordered_map <rai::block_hash, std::pair <std::unique_ptr <block>, rai::uint256_t>> totals;
@@ -133,12 +130,14 @@ sequence (0)
 {
 }
 
+// Create a new random keypair
 rai::keypair::keypair ()
 {
     random_pool.GenerateBlock (prv.bytes.data (), prv.bytes.size ());
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
+// Create a keypair given a hex string of the private key
 rai::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.decode_hex (prv_a));
@@ -400,11 +399,6 @@ void rai::receive_block::visit (rai::block_visitor & visitor_a) const
     visitor_a.receive_block (*this);
 }
 
-void rai::receive_block::sign (rai::private_key const & prv, rai::public_key const & pub, rai::uint256_union const & hash_a)
-{
-	sign_message (prv, pub, hash_a, signature);
-}
-
 bool rai::receive_block::operator == (rai::receive_block const & other_a) const
 {
 	auto result (hashables.previous == other_a.hashables.previous && hashables.source == other_a.hashables.source && work == other_a.work && signature == other_a.signature);
@@ -498,11 +492,6 @@ uint64_t rai::receive_block::block_work () const
     return work;
 }
 
-bool rai::receive_block::validate (rai::public_key const & key, rai::uint256_t const & hash) const
-{
-    return validate_message (key, hash, signature);
-}
-
 bool rai::receive_block::operator == (rai::block const & other_a) const
 {
     auto other_l (dynamic_cast <rai::receive_block const *> (&other_a));
@@ -537,23 +526,7 @@ rai::block_type rai::receive_block::type () const
 void rai::receive_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
 	hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
-	hash_a.Update (source.bytes.data (), sizeof (source.bytes));}
-
-namespace
-{
-    char const * base58_lookup ("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
-    char const * base58_reverse ("~012345678~~~~~~~9:;<=>?@~ABCDE~FGHIJKLMNOP~~~~~~QRSTUVWXYZ[~\\]^_`abcdefghi");
-    char base58_encode (uint8_t value)
-    {
-        assert (value < 58);
-        auto result (base58_lookup [value]);
-        return result;
-    }
-    uint8_t base58_decode (char value)
-    {
-        auto result (base58_reverse [value - 0x30] - 0x30);
-        return result;
-    }
+	hash_a.Update (source.bytes.data (), sizeof (source.bytes));
 }
 
 bool rai::uint256_union::is_zero () const
@@ -696,6 +669,25 @@ rai::uint256_union::uint256_union (uint64_t value)
 bool rai::uint256_union::operator != (rai::uint256_union const & other_a) const
 {
     return ! (*this == other_a);
+}
+
+// Base58check is an encoding using [0-9][a-z][A-Z] excluding characters that can be confused
+// Base56check also has a 32bit error correction code.
+namespace
+{
+    char const * base58_lookup ("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
+    char const * base58_reverse ("~012345678~~~~~~~9:;<=>?@~ABCDE~FGHIJKLMNOP~~~~~~QRSTUVWXYZ[~\\]^_`abcdefghi");
+    char base58_encode (uint8_t value)
+    {
+        assert (value < 58);
+        auto result (base58_lookup [value]);
+        return result;
+    }
+    uint8_t base58_decode (char value)
+    {
+        auto result (base58_reverse [value - 0x30] - 0x30);
+        return result;
+    }
 }
 
 void rai::uint256_union::encode_base58check (std::string & destination_a) const
@@ -880,6 +872,7 @@ rai::uint256_union rai::block::hash () const
     return result;
 }
 
+// Serialize a block prefixed with an 8-bit typecode
 void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
 {
     write (stream_a, block_a.type ());
@@ -1452,7 +1445,7 @@ void rai::account_iterator::set_current ()
         auto slice (iterator->value ());
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (slice.data ()), slice.size ());
         auto error (current.second.deserialize (stream));
-        assert (!error); // {TODO} Corrupt db
+        assert (!error);
     }
     else
     {
@@ -1820,7 +1813,7 @@ void rai::pending_iterator::set_current ()
         auto slice (iterator->value ());
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (slice.data ()), slice.size ());
         auto error (current.second.deserialize (stream));
-        assert (!error); // {TODO} Corrupt db
+        assert (!error);
     }
     else
     {
@@ -1876,32 +1869,6 @@ void rai::block_store::representation_put (rai::account const & account_a, rai::
     rai::uint128_union rep (representation_a);
     auto status (representation->Put (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), leveldb::Slice (rep.chars.data (), rep.chars.size ())));
     assert (status.ok ());
-}
-
-void rai::block_store::fork_put (rai::block_hash const & hash_a, rai::block const & block_a)
-{
-    std::vector <uint8_t> vector;
-    {
-        rai::vectorstream stream (vector);
-        rai::serialize_block (stream, block_a);
-    }
-    auto status (forks->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok ());
-}
-
-std::unique_ptr <rai::block> rai::block_store::fork_get (rai::block_hash const & hash_a)
-{
-    std::string value;
-    auto status (forks->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
-    std::unique_ptr <rai::block> result;
-    if (status.ok ())
-    {
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        result = rai::deserialize_block (stream);
-        assert (result != nullptr);
-    }
-    return result;
 }
 
 void rai::block_store::bootstrap_put (rai::block_hash const & hash_a, rai::block const & block_a)
@@ -1987,35 +1954,36 @@ void rai::block_store::checksum_del (uint64_t prefix, uint8_t mask)
 
 namespace
 {
-    class root_visitor : public rai::block_visitor
+class root_visitor : public rai::block_visitor
+{
+public:
+    root_visitor (rai::block_store & store_a) :
+    store (store_a)
     {
-    public:
-        root_visitor (rai::block_store & store_a) :
-        store (store_a)
-        {
-        }
-        void send_block (rai::send_block const & block_a) override
-        {
-            result = block_a.previous ();
-        }
-        void receive_block (rai::receive_block const & block_a) override
-        {
-            result = block_a.previous ();
-        }
-        void open_block (rai::open_block const & block_a) override
-        {
-            auto source (store.block_get (block_a.source ()));
-            assert (source != nullptr);
-            assert (dynamic_cast <rai::send_block *> (source.get ()) != nullptr);
-            result = static_cast <rai::send_block *> (source.get ())->hashables.destination;
-        }
-        void change_block (rai::change_block const & block_a) override
-        {
-            result = block_a.previous ();
-        }
-        rai::block_store & store;
-        rai::block_hash result;
-    };
+    }
+    void send_block (rai::send_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    void receive_block (rai::receive_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    // Open blocks have no previous () so we use the account number
+    void open_block (rai::open_block const & block_a) override
+    {
+        auto source (store.block_get (block_a.source ()));
+        assert (source != nullptr);
+        assert (dynamic_cast <rai::send_block *> (source.get ()) != nullptr);
+        result = static_cast <rai::send_block *> (source.get ())->hashables.destination;
+    }
+    void change_block (rai::change_block const & block_a) override
+    {
+        result = block_a.previous ();
+    }
+    rai::block_store & store;
+    rai::block_hash result;
+};
 }
 
 rai::block_hash rai::block_store::root (rai::block const & block_a)
@@ -2049,267 +2017,267 @@ rai::account_iterator rai::block_store::latest_end ()
     return result;
 }
 
-namespace {
-    class ledger_processor : public rai::block_visitor
-    {
-    public:
-        ledger_processor (rai::ledger &);
-        void send_block (rai::send_block const &) override;
-        void receive_block (rai::receive_block const &) override;
-        void open_block (rai::open_block const &) override;
-        void change_block (rai::change_block const &) override;
-        rai::ledger & ledger;
-        rai::process_result result;
-    };
-    
-    class amount_visitor : public rai::block_visitor
-    {
-    public:
-        amount_visitor (rai::block_store &);
-        void compute (rai::block_hash const &);
-        void send_block (rai::send_block const &) override;
-        void receive_block (rai::receive_block const &) override;
-        void open_block (rai::open_block const &) override;
-        void change_block (rai::change_block const &) override;
-        void from_send (rai::block_hash const &);
-        rai::block_store & store;
-        rai::uint128_t result;
-    };
-    
-    class balance_visitor : public rai::block_visitor
-    {
-    public:
-        balance_visitor (rai::block_store &);
-        void compute (rai::block_hash const &);
-        void send_block (rai::send_block const &) override;
-        void receive_block (rai::receive_block const &) override;
-        void open_block (rai::open_block const &) override;
-        void change_block (rai::change_block const &) override;
-        rai::block_store & store;
-        rai::uint128_t result;
-    };
-    
-    class account_visitor : public rai::block_visitor
-    {
-    public:
-        account_visitor (rai::block_store & store_a) :
-        store (store_a)
-        {
-        }
-        void compute (rai::block_hash const & hash_block)
-        {
-            auto block (store.block_get (hash_block));
-            assert (block != nullptr);
-            block->visit (*this);
-        }
-        void send_block (rai::send_block const & block_a) override
-        {
-            account_visitor prev (store);
-            prev.compute (block_a.hashables.previous);
-            result = prev.result;
-        }
-        void receive_block (rai::receive_block const & block_a) override
-        {
-            from_previous (block_a.hashables.source);
-        }
-        void open_block (rai::open_block const & block_a) override
-        {
-            from_previous (block_a.hashables.source);
-        }
-        void change_block (rai::change_block const & block_a) override
-        {
-            account_visitor prev (store);
-            prev.compute (block_a.hashables.previous);
-            result = prev.result;
-        }
-        void from_previous (rai::block_hash const & hash_a)
-        {
-            auto block (store.block_get (hash_a));
-			if (block != nullptr)
-			{
-				assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-				auto send (static_cast <rai::send_block *> (block.get ()));
-				result = send->hashables.destination;
-			}
-			else
-			{
-				assert (hash_a == rai::genesis_account);
-				result = rai::genesis_account;
-			}
-        }
-        rai::block_store & store;
-        rai::account result;
-    };
-    
-    amount_visitor::amount_visitor (rai::block_store & store_a) :
+namespace
+{
+class ledger_processor : public rai::block_visitor
+{
+public:
+    ledger_processor (rai::ledger &);
+    void send_block (rai::send_block const &) override;
+    void receive_block (rai::receive_block const &) override;
+    void open_block (rai::open_block const &) override;
+    void change_block (rai::change_block const &) override;
+    rai::ledger & ledger;
+    rai::process_result result;
+};
+
+// Determine the amount delta resultant from this block
+class amount_visitor : public rai::block_visitor
+{
+public:
+    amount_visitor (rai::block_store &);
+    void compute (rai::block_hash const &);
+    void send_block (rai::send_block const &) override;
+    void receive_block (rai::receive_block const &) override;
+    void open_block (rai::open_block const &) override;
+    void change_block (rai::change_block const &) override;
+    void from_send (rai::block_hash const &);
+    rai::block_store & store;
+    rai::uint128_t result;
+};
+
+// Determine the balance as of this block
+class balance_visitor : public rai::block_visitor
+{
+public:
+    balance_visitor (rai::block_store &);
+    void compute (rai::block_hash const &);
+    void send_block (rai::send_block const &) override;
+    void receive_block (rai::receive_block const &) override;
+    void open_block (rai::open_block const &) override;
+    void change_block (rai::change_block const &) override;
+    rai::block_store & store;
+    rai::uint128_t result;
+};
+
+// Determine the account for this block
+class account_visitor : public rai::block_visitor
+{
+public:
+    account_visitor (rai::block_store & store_a) :
     store (store_a)
     {
     }
-    
-    void amount_visitor::send_block (rai::send_block const & block_a)
+    void compute (rai::block_hash const & hash_block)
     {
-        balance_visitor prev (store);
-        prev.compute (block_a.hashables.previous);
-        result = prev.result - block_a.hashables.balance.number ();
+        auto block (store.block_get (hash_block));
+        assert (block != nullptr);
+        block->visit (*this);
     }
-    
-    void amount_visitor::receive_block (rai::receive_block const & block_a)
+    void send_block (rai::send_block const & block_a) override
     {
-        from_send (block_a.hashables.source);
-    }
-    
-    void amount_visitor::open_block (rai::open_block const & block_a)
-    {
-        from_send (block_a.hashables.source);
-    }
-    
-    void amount_visitor::change_block (rai::change_block const & block_a)
-    {
-		assert (false);
-    }
-    
-    void amount_visitor::from_send (rai::block_hash const & hash_a)
-    {
-        balance_visitor source (store);
-        source.compute (hash_a);
-        auto source_block (store.block_get (hash_a));
-        assert (source_block != nullptr);
-        balance_visitor source_prev (store);
-        source_prev.compute (source_block->previous ());
-    }
-    
-    balance_visitor::balance_visitor (rai::block_store & store_a):
-    store (store_a),
-    result (0)
-    {
-    }
-    
-    void balance_visitor::send_block (rai::send_block const & block_a)
-    {
-        result = block_a.hashables.balance.number ();
-    }
-    
-    void balance_visitor::receive_block (rai::receive_block const & block_a)
-    {
-        balance_visitor prev (store);
-        prev.compute (block_a.hashables.previous);
-        amount_visitor source (store);
-        source.compute (block_a.hashables.source);
-        result = prev.result + source.result;
-    }
-    
-    void balance_visitor::open_block (rai::open_block const & block_a)
-    {
-        amount_visitor source (store);
-        source.compute (block_a.hashables.source);
-        result = source.result;
-    }
-    
-    void balance_visitor::change_block (rai::change_block const & block_a)
-    {
-        balance_visitor prev (store);
+        account_visitor prev (store);
         prev.compute (block_a.hashables.previous);
         result = prev.result;
     }
+    void receive_block (rai::receive_block const & block_a) override
+    {
+        from_previous (block_a.hashables.source);
+    }
+    void open_block (rai::open_block const & block_a) override
+    {
+        from_previous (block_a.hashables.source);
+    }
+    void change_block (rai::change_block const & block_a) override
+    {
+        account_visitor prev (store);
+        prev.compute (block_a.hashables.previous);
+        result = prev.result;
+    }
+    void from_previous (rai::block_hash const & hash_a)
+    {
+        auto block (store.block_get (hash_a));
+        if (block != nullptr)
+        {
+            assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
+            auto send (static_cast <rai::send_block *> (block.get ()));
+            result = send->hashables.destination;
+        }
+        else
+        {
+            assert (hash_a == rai::genesis_account);
+            result = rai::genesis_account;
+        }
+    }
+    rai::block_store & store;
+    rai::account result;
+};
+
+amount_visitor::amount_visitor (rai::block_store & store_a) :
+store (store_a)
+{
 }
 
-namespace
+void amount_visitor::send_block (rai::send_block const & block_a)
 {
-    class representative_visitor : public rai::block_visitor
-    {
-    public:
-        representative_visitor (rai::block_store & store_a) :
-        store (store_a)
-        {
-        }
-        void compute (rai::block_hash const & hash_a)
-        {
-            auto block (store.block_get (hash_a));
-            assert (block != nullptr);
-            block->visit (*this);
-        }
-        void send_block (rai::send_block const & block_a) override
-        {
-            representative_visitor visitor (store);
-            visitor.compute (block_a.previous ());
-            result = visitor.result;
-        }
-        void receive_block (rai::receive_block const & block_a) override
-        {
-            representative_visitor visitor (store);
-            visitor.compute (block_a.previous ());
-            result = visitor.result;
-        }
-        void open_block (rai::open_block const & block_a) override
-        {
-            result = block_a.hashables.representative;
-        }
-        void change_block (rai::change_block const & block_a) override
-        {
-            result = block_a.hashables.representative;
-        }
-        rai::block_store & store;
-        rai::account result;
-    };
+    balance_visitor prev (store);
+    prev.compute (block_a.hashables.previous);
+    result = prev.result - block_a.hashables.balance.number ();
 }
 
-namespace
+void amount_visitor::receive_block (rai::receive_block const & block_a)
 {
-    class rollback_visitor : public rai::block_visitor
+    from_send (block_a.hashables.source);
+}
+
+void amount_visitor::open_block (rai::open_block const & block_a)
+{
+    from_send (block_a.hashables.source);
+}
+
+void amount_visitor::change_block (rai::change_block const & block_a)
+{
+    assert (false);
+}
+
+void amount_visitor::from_send (rai::block_hash const & hash_a)
+{
+    balance_visitor source (store);
+    source.compute (hash_a);
+    auto source_block (store.block_get (hash_a));
+    assert (source_block != nullptr);
+    balance_visitor source_prev (store);
+    source_prev.compute (source_block->previous ());
+}
+
+balance_visitor::balance_visitor (rai::block_store & store_a):
+store (store_a),
+result (0)
+{
+}
+
+void balance_visitor::send_block (rai::send_block const & block_a)
+{
+    result = block_a.hashables.balance.number ();
+}
+
+void balance_visitor::receive_block (rai::receive_block const & block_a)
+{
+    balance_visitor prev (store);
+    prev.compute (block_a.hashables.previous);
+    amount_visitor source (store);
+    source.compute (block_a.hashables.source);
+    result = prev.result + source.result;
+}
+
+void balance_visitor::open_block (rai::open_block const & block_a)
+{
+    amount_visitor source (store);
+    source.compute (block_a.hashables.source);
+    result = source.result;
+}
+
+void balance_visitor::change_block (rai::change_block const & block_a)
+{
+    balance_visitor prev (store);
+    prev.compute (block_a.hashables.previous);
+    result = prev.result;
+}
+
+// Determine the representative for this block
+class representative_visitor : public rai::block_visitor
+{
+public:
+    representative_visitor (rai::block_store & store_a) :
+    store (store_a)
     {
-    public:
-        rollback_visitor (rai::ledger & ledger_a) :
-        ledger (ledger_a)
+    }
+    void compute (rai::block_hash const & hash_a)
+    {
+        auto block (store.block_get (hash_a));
+        assert (block != nullptr);
+        block->visit (*this);
+    }
+    void send_block (rai::send_block const & block_a) override
+    {
+        representative_visitor visitor (store);
+        visitor.compute (block_a.previous ());
+        result = visitor.result;
+    }
+    void receive_block (rai::receive_block const & block_a) override
+    {
+        representative_visitor visitor (store);
+        visitor.compute (block_a.previous ());
+        result = visitor.result;
+    }
+    void open_block (rai::open_block const & block_a) override
+    {
+        result = block_a.hashables.representative;
+    }
+    void change_block (rai::change_block const & block_a) override
+    {
+        result = block_a.hashables.representative;
+    }
+    rai::block_store & store;
+    rai::account result;
+};
+
+// Rollback this block
+class rollback_visitor : public rai::block_visitor
+{
+public:
+    rollback_visitor (rai::ledger & ledger_a) :
+    ledger (ledger_a)
+    {
+    }
+    void send_block (rai::send_block const & block_a) override
+    {
+        auto hash (block_a.hash ());
+        rai::receivable receivable;
+        while (ledger.store.pending_get (hash, receivable))
         {
+            ledger.rollback (ledger.latest (block_a.hashables.destination));
         }
-        void send_block (rai::send_block const & block_a) override
-        {
-            auto hash (block_a.hash ());
-            rai::receivable receivable;
-            while (ledger.store.pending_get (hash, receivable))
-            {
-                ledger.rollback (ledger.latest (block_a.hashables.destination));
-            }
-            rai::frontier frontier;
-            ledger.store.latest_get (receivable.source, frontier);
-            ledger.store.pending_del (hash);
-            ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
-            ledger.store.block_del (hash);
-        }
-        void receive_block (rai::receive_block const & block_a) override
-        {
-            auto hash (block_a.hash ());
-            auto representative (ledger.representative (block_a.hashables.source));
-            auto amount (ledger.amount (block_a.hashables.source));
-            auto destination_account (ledger.account (hash));
-            ledger.move_representation (ledger.representative (hash), representative, amount);
-            ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
-            ledger.store.block_del (hash);
-            ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
-        }
-        void open_block (rai::open_block const & block_a) override
-        {
-            auto hash (block_a.hash ());
-            auto representative (ledger.representative (block_a.hashables.source));
-            auto amount (ledger.amount (block_a.hashables.source));
-            auto destination_account (ledger.account (hash));
-            ledger.move_representation (ledger.representative (hash), representative, amount);
-            ledger.change_latest (destination_account, 0, representative, 0);
-            ledger.store.block_del (hash);
-            ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
-        }
-        void change_block (rai::change_block const & block_a) override
-        {
-            auto representative (ledger.representative (block_a.hashables.previous));
-            auto account (ledger.account (block_a.hashables.previous));
-            rai::frontier frontier;
-            ledger.store.latest_get (account, frontier);
-            ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
-            ledger.store.block_del (block_a.hash ());
-            ledger.change_latest (account, block_a.hashables.previous, representative, frontier.balance);
-        }
-        rai::ledger & ledger;
-    };
+        rai::frontier frontier;
+        ledger.store.latest_get (receivable.source, frontier);
+        ledger.store.pending_del (hash);
+        ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
+        ledger.store.block_del (hash);
+    }
+    void receive_block (rai::receive_block const & block_a) override
+    {
+        auto hash (block_a.hash ());
+        auto representative (ledger.representative (block_a.hashables.source));
+        auto amount (ledger.amount (block_a.hashables.source));
+        auto destination_account (ledger.account (hash));
+        ledger.move_representation (ledger.representative (hash), representative, amount);
+        ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
+        ledger.store.block_del (hash);
+        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+    }
+    void open_block (rai::open_block const & block_a) override
+    {
+        auto hash (block_a.hash ());
+        auto representative (ledger.representative (block_a.hashables.source));
+        auto amount (ledger.amount (block_a.hashables.source));
+        auto destination_account (ledger.account (hash));
+        ledger.move_representation (ledger.representative (hash), representative, amount);
+        ledger.change_latest (destination_account, 0, representative, 0);
+        ledger.store.block_del (hash);
+        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+    }
+    void change_block (rai::change_block const & block_a) override
+    {
+        auto representative (ledger.representative (block_a.hashables.previous));
+        auto account (ledger.account (block_a.hashables.previous));
+        rai::frontier frontier;
+        ledger.store.latest_get (account, frontier);
+        ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
+        ledger.store.block_del (block_a.hash ());
+        ledger.change_latest (account, block_a.hashables.previous, representative, frontier.balance);
+    }
+    rai::ledger & ledger;
+};
 }
 
 void amount_visitor::compute (rai::block_hash const & block_hash)
@@ -2395,6 +2363,7 @@ rai::uint128_t rai::ledger::weight (rai::account const & account_a)
     return store.representation_get (account_a);
 }
 
+// Rollback blocks until `frontier_a' is the frontier block
 void rai::ledger::rollback (rai::block_hash const & frontier_a)
 {
     auto account_l (account (frontier_a));
@@ -2406,7 +2375,7 @@ void rai::ledger::rollback (rai::block_hash const & frontier_a)
         assert (!latest_error);
         auto block (store.block_get (frontier.hash));
         block->visit (rollback);
-        
+    // Continue rolling back until this block is the frontier
     } while (frontier.hash != frontier_a);
 }
 

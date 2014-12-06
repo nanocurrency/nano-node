@@ -157,21 +157,6 @@ TEST (representation, changes)
     ASSERT_EQ (2, store.representation_get (key1.pub));
 }
 
-TEST (fork, adding_checking)
-{
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
-    rai::keypair key1;
-    rai::change_block block1 (key1.pub, rai::uint256_union (0), 0, rai::uint256_union (0), rai::uint256_union (0));
-    ASSERT_EQ (nullptr, store.fork_get (block1.hash ()));
-    rai::keypair key2;
-    rai::change_block block2 (rai::uint256_union (0), rai::uint256_union (0), 0, rai::uint256_union (0), rai::uint256_union (0));
-    store.fork_put (block1.hash (), block2);
-    auto block3 (store.fork_get (block1.hash ()));
-    ASSERT_EQ (block2, *block3);
-}
-
 TEST (bootstrap, simple)
 {
     leveldb::Status init;

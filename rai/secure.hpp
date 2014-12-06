@@ -36,6 +36,8 @@ namespace rai
 	using uint128_t = boost::multiprecision::uint128_t;
 	using uint256_t = boost::multiprecision::uint256_t;
 	using uint512_t = boost::multiprecision::uint512_t;
+    // 10^20 chosen so that the amount will fit in a 64bit
+    // Base 10 reduction so scaling is intuitive to users
     rai::uint128_t const scale_64bit_base10 = rai::uint128_t ("100000000000000000000");
     uint64_t scale_down (rai::uint128_t const &);
     rai::uint128_t scale_up (uint64_t);
@@ -66,7 +68,6 @@ namespace rai
 		uint256_union (uint64_t);
 		uint256_union (rai::uint256_t const &);
 		uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
-		void digest_password (std::string const &);
 		uint256_union prv (uint256_union const &, uint128_union const &) const;
 		uint256_union & operator = (leveldb::Slice const &);
 		uint256_union & operator ^= (rai::uint256_union const &);
@@ -239,8 +240,6 @@ namespace rai
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
-		void sign (rai::private_key const &, rai::public_key const &, rai::uint256_union const &);
-		bool validate (rai::public_key const &, rai::uint256_t const &) const;
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::receive_block const &) const;
         receive_hashables hashables;
@@ -441,9 +440,6 @@ namespace rai
 		
 		rai::uint128_t representation_get (rai::account const &);
 		void representation_put (rai::account const &, rai::uint128_t const &);
-		
-		void fork_put (rai::block_hash const &, rai::block const &);
-		std::unique_ptr <rai::block> fork_get (rai::block_hash const &);
 		
 		void bootstrap_put (rai::block_hash const &, rai::block const &);
 		std::unique_ptr <rai::block> bootstrap_get (rai::block_hash const &);
