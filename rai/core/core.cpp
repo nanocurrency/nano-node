@@ -33,11 +33,11 @@ namespace
     }
     bool constexpr network_packet_logging ()
     {
-        return network_logging () && true;
+        return network_logging () && false;
     }
     bool constexpr network_keepalive_logging ()
     {
-        return network_logging () && true;
+        return network_logging () && false;
     }
     bool constexpr client_lifetime_tracing ()
     {
