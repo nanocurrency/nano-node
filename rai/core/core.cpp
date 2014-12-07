@@ -3867,7 +3867,14 @@ bool rai::conflicts::no_conflict (rai::block_hash const & hash_a)
     if (existing != roots.end ())
     {
         auto size (existing->second->votes.rep_votes.size ());
-        result = size == 0 || size == 1;
+		if (size > 1)
+		{
+			auto & block (existing->second->votes.rep_votes.begin ()->second.second);
+			for (auto i (existing->second->votes.rep_votes.begin ()), n (existing->second->votes.rep_votes.end ()); i != n && result; ++i)
+			{
+				result = *block == *i->second.second;
+			}
+		}
     }
     return result;
 }
