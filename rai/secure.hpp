@@ -543,6 +543,7 @@ namespace rai
         rai::block_hash hash () const;
         rai::open_block open;
     };
+    extern std::chrono::milliseconds const confirm_wait;
     enum class rai_networks
     {
         rai_test_network,

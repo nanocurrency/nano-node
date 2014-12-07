@@ -234,7 +234,7 @@ TEST (network, send_invalid_publish)
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
 }
 
-TEST (network, send_valid_publish)
+TEST (network, send_valid_confirm_ack)
 {
     rai::system system (24000, 2);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
@@ -253,7 +253,39 @@ TEST (network, send_valid_publish)
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
     auto iterations (0);
-    while (system.clients [1]->network.publish_req_count == 0)
+    while (system.clients [1]->network.confirm_ack_count == 0)
+    {
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+    rai::frontier frontier3;
+    ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier3));
+    ASSERT_FALSE (frontier2.hash == frontier3.hash);
+    ASSERT_EQ (hash2, frontier3.hash);
+    ASSERT_EQ (50, system.clients [1]->ledger.account_balance (rai::test_genesis_key.pub));
+}
+
+TEST (network, send_valid_publish)
+{
+    rai::system system (24000, 2);
+    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    rai::keypair key2;
+    system.clients [1]->wallet.insert (key2.prv);
+    rai::send_block block2;
+    rai::frontier frontier1;
+    ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
+    block2.hashables.previous = frontier1.hash;
+    block2.hashables.balance = 50;
+    block2.hashables.destination = key2.pub;
+    block2.work = system.clients [0]->ledger.create_work (block2);
+    auto hash2 (block2.hash ());
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash2, block2.signature);
+    rai::frontier frontier2;
+    ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
+    system.clients [1]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
+    auto iterations (0);
+    while (system.clients [0]->network.publish_req_count == 0)
     {
         system.service->poll_one ();
         ++iterations;
@@ -349,17 +381,17 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount, system.clients [1]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [1]->ledger.account_balance (key2.pub));
-    ASSERT_EQ (rai::process_result::progress, system.clients [0]->ledger.process (*block1));
-    ASSERT_EQ (rai::process_result::progress, system.clients [1]->ledger.process (*block1));
+    system.clients [0]->processor.process_receive_republish (block1->clone (), rai::endpoint ());
+    system.clients [1]->processor.process_receive_republish (block1->clone (), rai::endpoint ());
     ASSERT_EQ (amount - 100, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [1]->ledger.account_balance (key2.pub));
-    system.clients [1]->conflicts.start (*block1, true);
     auto iterations (0);
-    while (system.clients [0]->network.publish_req_count != 1)
+    while (system.clients [0]->ledger.account_balance (key2.pub) != 100)
     {
         system.service->poll_one ();
+        system.processor.poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }

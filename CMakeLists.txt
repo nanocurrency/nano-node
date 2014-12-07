@@ -51,6 +51,7 @@ add_executable (core_test
     rai/core_test/block_path.cpp
     rai/core_test/block_store.cpp
     rai/core_test/client.cpp
+    rai/core_test/conflicts.cpp
     rai/core_test/daemon.cpp
 	rai/core_test/entry.cpp
 	rai/core_test/ledger.cpp

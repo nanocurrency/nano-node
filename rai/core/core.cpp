@@ -136,23 +136,30 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
     {
         client.log.add (boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a));
     }
-    rai::publish message (std::move (block));
-    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+    if (client.is_representative ())
     {
-        rai::vectorstream stream (*bytes);
-        message.serialize (stream);
+        confirm_block (std::move (block), 0);
     }
-    auto client_l (client.shared ());
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
+    else
+    {
+        rai::publish message (std::move (block));
+        std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
         {
-            if (network_logging ())
+            rai::vectorstream stream (*bytes);
+            message.serialize (stream);
+        }
+        auto client_l (client.shared ());
+        send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
             {
-                if (ec)
+                if (network_logging ())
                 {
-                    client_l->log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
+                    if (ec)
+                    {
+                        client_l->log.add (boost::str (boost::format ("Error sending publish: %1%") % ec.message ()));
+                    }
                 }
-            }
-        });
+            });      
+    }
 }
 
 void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, rai::block const & block)
@@ -367,7 +374,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     {
         if (network_logging ())
         {
-            client.log.add ("Receive error, shutting down network");
+            client.log.add (boost::str (boost::format ("Receive error, shutting down network: %1%") % error.message ()));
         }
     }
 }
@@ -887,7 +894,16 @@ service (processor_a)
     {
         if (wallet.find (block_a.hashables.destination) != wallet.end ())
         {
-          conflicts.start (block_a, true);
+            conflicts.start (block_a, false);
+            auto root (store.root (block_a));
+            std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
+            service.add (std::chrono::system_clock::now () + rai::confirm_wait, [this, root, block_l] ()
+            {
+                if (conflicts.no_conflict (root))
+                {
+                    processor.process_confirmed (*block_l);
+                }
+            });
         }
     });
     if (!init_a.error ())
@@ -986,43 +1002,6 @@ void rai::processor::republish (std::unique_ptr <rai::block> incoming_a, rai::en
 {
     auto republisher (std::make_shared <publish_processor> (client.shared (), incoming_a->clone (), sender_a));
     republisher->run ();
-}
-
-namespace
-{
-class republish_visitor : public rai::block_visitor
-{
-public:
-    republish_visitor (std::shared_ptr <rai::client> client_a, std::unique_ptr <rai::block> incoming_a, rai::endpoint const & sender_a) :
-    client (client_a),
-    incoming (std::move (incoming_a)),
-    sender (sender_a)
-    {
-        assert (client_a->store.block_exists (incoming->hash ()));
-    }
-    void send_block (rai::send_block const & block_a)
-    {
-        if (client->wallet.find (block_a.hashables.destination) == client->wallet.end ())
-        {
-            client->processor.republish (std::move (incoming), sender);
-        }
-    }
-    void receive_block (rai::receive_block const & block_a)
-    {
-        client->processor.republish (std::move (incoming), sender);
-    }
-    void open_block (rai::open_block const & block_a)
-    {
-        client->processor.republish (std::move (incoming), sender);
-    }
-    void change_block (rai::change_block const & block_a)
-    {
-        client->processor.republish (std::move (incoming), sender);
-    }
-    std::shared_ptr <rai::client> client;
-    std::unique_ptr <rai::block> incoming;
-    rai::endpoint sender;
-};
 }
 
 rai::gap_cache::gap_cache () :
@@ -1149,8 +1128,7 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
         {
             case rai::process_result::progress:
             {
-                republish_visitor visitor (client.shared (), std::move (block), sender_a);
-                visitor.incoming->visit (visitor);
+                republish (std::move (block), sender_a);
                 break;
             }
             default:
@@ -3881,6 +3859,19 @@ void rai::conflicts::start (rai::block const & block_a, bool request_a)
     }
 }
 
+bool rai::conflicts::no_conflict (rai::block_hash const & hash_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    auto result (true);
+    auto existing (roots.find (hash_a));
+    if (existing != roots.end ())
+    {
+        auto size (existing->second->votes.rep_votes.size ());
+        result = size == 0 || size == 1;
+    }
+    return result;
+}
+
 void rai::conflicts::update (rai::vote const & vote_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
@@ -4014,7 +4005,6 @@ public:
         {
             auto error (client.transactions.receive (block_a, prv, client.representative));
             prv.bytes.fill (0);
-            assert (!error);
         }
         else
         {

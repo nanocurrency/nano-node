@@ -136,6 +136,53 @@ TEST (client, send_out_of_order)
     }
 }
 
+TEST (client, bootstrap_end)
+{
+    rai::system system (24000, 1);
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    ASSERT_FALSE (init1.error ());
+    client1->start ();
+    ASSERT_NE (nullptr, client1->processor.bootstrapped);
+    ASSERT_EQ (0, client1->processor.bootstrapped->size ());
+    for (auto i (0); i < rai::processor::bootstrap_max; ++i)
+    {
+        client1->processor.bootstrapped->insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 24002 + i));
+    }
+    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
+    auto iterations (0);
+    do
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    } while (client1->processor.bootstrapped != nullptr);
+    client1->stop ();
+}
+
+TEST (client, quick_confirm)
+{
+    rai::system system (24000, 1);
+    rai::keypair key;
+    system.clients [0]->wallet.insert (key.prv);
+    rai::send_block send;
+    send.hashables.balance = 0;
+    send.hashables.destination = key.pub;
+    send.hashables.previous = system.clients [0]->ledger.latest (rai::test_genesis_key.pub);
+    send.work = system.clients [0]->ledger.create_work (send);
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+    ASSERT_EQ (rai::process_result::progress, system.clients [0]->processor.process_receive (send));
+    auto iterations (0);
+    while (system.clients [0]->ledger.account_balance (key.pub).is_zero ())
+    {
+        system.processor.poll_one ();
+        system.service->poll_one ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+}
+
 TEST (client, auto_bootstrap)
 {
     rai::system system (24000, 1);
@@ -166,31 +213,6 @@ TEST (client, auto_bootstrap)
     ASSERT_NE (nullptr, system.clients [0]->processor.bootstrapped);
     ASSERT_EQ (1, system.clients [0]->processor.bootstrapped->size ());
     ASSERT_NE (system.clients [0]->processor.bootstrapped->end (), system.clients [0]->processor.bootstrapped->find (client1->network.endpoint ()));
-    client1->stop ();
-}
-
-TEST (client, bootstrap_end)
-{
-    rai::system system (24000, 1);
-    rai::client_init init1;
-    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
-    ASSERT_FALSE (init1.error ());
-    client1->start ();
-    ASSERT_NE (nullptr, client1->processor.bootstrapped);
-    ASSERT_EQ (0, client1->processor.bootstrapped->size ());
-    for (auto i (0); i < rai::processor::bootstrap_max; ++i)
-    {
-        client1->processor.bootstrapped->insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 24002 + i));
-    }
-    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
-    auto iterations (0);
-    do
-    {
-        system.service->poll_one ();
-        system.processor.poll_one ();
-        ++iterations;
-        ASSERT_LT (iterations, 200);
-    } while (client1->processor.bootstrapped != nullptr);
     client1->stop ();
 }
 

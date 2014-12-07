@@ -19,6 +19,7 @@ rai::account const rai::rai_beta_account (rai_beta_public_key);
 rai::account const rai::rai_live_account (rai_live_public_key);
 
 rai::account const rai::genesis_account = rai_network == rai_networks::rai_test_network ? rai_test_account : rai_network == rai_networks::rai_beta_network ? rai_beta_account : rai_live_account;
+std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 CryptoPP::AutoSeededRandomPool rai::random_pool;
 
@@ -126,7 +127,8 @@ rai::votes::votes (rai::ledger & ledger_a, rai::block const & block_a) :
 ledger (ledger_a),
 root (ledger.store.root (block_a)),
 last_winner (block_a.clone ()),
-sequence (0)
+// Sequence 0 is the first response by a representative before a fork was observed
+sequence (1)
 {
 }
 

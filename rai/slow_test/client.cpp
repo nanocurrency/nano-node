@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <rai/core/core.hpp>
 
+#include <thread>
+
 TEST (system, generate_mass_activity)
 {
     rai::system system (24000, 1);
