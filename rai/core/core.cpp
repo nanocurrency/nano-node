@@ -903,6 +903,13 @@ service (processor_a)
                 {
                     processor.process_confirmed (*block_l);
                 }
+				else
+				{
+					if (ledger_logging ())
+					{
+						log.add (boost::str (boost::format ("Unable to fast-confirm block: %1% because root: %2% is in conflict") % block_l->hash ().to_string () % root.to_string ()));
+					}
+				}
             });
         }
     });
