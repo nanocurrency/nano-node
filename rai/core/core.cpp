@@ -894,6 +894,10 @@ service (processor_a)
     {
         if (wallet.find (block_a.hashables.destination) != wallet.end ())
         {
+			if (ledger_logging ())
+			{
+				log.add (boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ()));
+			}
             conflicts.start (block_a, false);
             auto root (store.root (block_a));
             std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
