@@ -63,6 +63,7 @@ namespace
 
 std::chrono::seconds constexpr rai::processor::period;
 std::chrono::seconds constexpr rai::processor::cutoff;
+std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),

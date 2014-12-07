@@ -713,4 +713,5 @@ public:
     rai::processor_service processor;
     std::vector <std::shared_ptr <rai::client>> clients;
 };
+extern std::chrono::milliseconds const confirm_wait;
 }
