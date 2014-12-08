@@ -375,8 +375,9 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     {
         if (network_logging ())
         {
-            client.log.add (boost::str (boost::format ("Receive error, shutting down network: %1%") % error.message ()));
+            client.log.add (boost::str (boost::format ("Receive error: %1%") % error.message ()));
         }
+        client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
     }
 }
 
