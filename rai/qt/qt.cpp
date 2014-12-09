@@ -43,15 +43,16 @@ send_blocks_back (new QPushButton ("Back"))
     send_blocks_layout->addWidget (send_blocks_back);
     send_blocks_layout->setContentsMargins (0, 0, 0, 0);
     send_blocks_window->setLayout (send_blocks_layout);
-	
+
 	wallet_model->setHorizontalHeaderItem (0, new QStandardItem ("Balance"));
 	wallet_model->setHorizontalHeaderItem (1, new QStandardItem ("Account"));
+    wallet_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     wallet_view->setModel (wallet_model);
 	wallet_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::ResizeToContents);
 	wallet_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::Stretch);
     wallet_view->verticalHeader ()->hide ();
     wallet_view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
-    
+
     entry_window_layout->addWidget (wallet_view);
     entry_window_layout->addWidget (send_blocks);
     entry_window_layout->addWidget (wallet_add_account);
@@ -59,9 +60,9 @@ send_blocks_back (new QPushButton ("Back"))
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window_layout->setSpacing (5);
     entry_window->setLayout (entry_window_layout);
-    
+
     main_stack->addWidget (entry_window);
-    
+
     balance_label->setAlignment (Qt::AlignCenter);
     client_layout->addWidget (balance_label);
     client_layout->addWidget (main_stack);
@@ -69,7 +70,13 @@ send_blocks_back (new QPushButton ("Back"))
     client_layout->setContentsMargins (0, 0, 0, 0);
     client_window->setLayout (client_layout);
     client_window->resize (320, 480);
-    
+
+    QObject::connect (wallet_view, &QTableView::clicked, [this] (QModelIndex const & index_a)
+    {
+        auto item (wallet_model->item (index_a.row (), 1));
+        assert (item != nullptr);
+        application.clipboard ()->setText (item->text ());
+    });
     QObject::connect (show_advanced, &QPushButton::released, [this] ()
     {
         push_main_stack (advanced.window);
@@ -355,6 +362,7 @@ client (client_a)
     ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
     ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
     ledger_view->setModel (ledger_model);
+    ledger_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     ledger_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
     ledger_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
     ledger_view->horizontalHeader ()->setSectionResizeMode (2, QHeaderView::ResizeMode::Stretch);
@@ -364,21 +372,23 @@ client (client_a)
     ledger_layout->addWidget (ledger_back);
     ledger_layout->setContentsMargins (0, 0, 0, 0);
     ledger_window->setLayout (ledger_layout);
-    
+
+    log_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     log_view->setModel (log_model);
     log_layout->addWidget (log_view);
     log_layout->addWidget (log_refresh);
     log_layout->addWidget (log_back);
     log_layout->setContentsMargins (0, 0, 0, 0);
     log_window->setLayout (log_layout);
-    
+
+    peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     peers_view->setModel (peers_model);
     peers_layout->addWidget (peers_view);
     peers_layout->addWidget (peers_refresh);
     peers_layout->addWidget (peers_back);
     peers_layout->setContentsMargins (0, 0, 0, 0);
     peers_window->setLayout (peers_layout);
-    
+
     layout->addWidget (enter_password);
     layout->addWidget (change_password);
     layout->addWidget (show_ledger);
@@ -394,7 +404,7 @@ client (client_a)
     layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
-    
+
     QObject::connect (enter_password, &QPushButton::released, [this] ()
     {
         client.enter_password.activate ();
