@@ -6,6 +6,8 @@
 #include <boost/network/include/http/server.hpp>
 #include <boost/network/utils/thread_pool.hpp>
 #include <boost/iostreams/device/array.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/sources/logger.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -647,14 +649,6 @@ public:
         >
     > peers;
 };
-class log
-{
-public:
-    log ();
-    void add (std::string const &);
-    void dump_cerr ();
-    boost::circular_buffer <std::pair <std::chrono::system_clock::time_point, std::string>> items;
-};
 class client_init
 {
 public:
@@ -678,7 +672,7 @@ public:
     std::shared_ptr <rai::client> shared ();
     bool is_representative ();
     void representative_vote (rai::election &, rai::block const &);
-    rai::log log;
+    boost::log::sources::logger log;
     rai::account representative;
     rai::block_store store;
     rai::gap_cache gap_cache;

@@ -39,10 +39,6 @@ TEST (client, main)
     ASSERT_EQ (client.advanced.peers_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.advanced.peers_back, Qt::LeftButton);
     ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.advanced.show_log, Qt::LeftButton);
-    ASSERT_EQ (client.advanced.log_window, client.main_stack->currentWidget ());
-    QTest::mouseClick (client.advanced.log_back, Qt::LeftButton);
-    ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.advanced.back, Qt::LeftButton);
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
 }

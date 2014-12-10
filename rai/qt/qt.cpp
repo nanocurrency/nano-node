@@ -329,7 +329,6 @@ enter_password (new QPushButton ("Enter Password")),
 change_password (new QPushButton ("Change Password")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
-show_log (new QPushButton ("Log")),
 wallet_key_text (new QLabel ("Account key:")),
 wallet_key_line (new QLineEdit),
 wallet_add_key_button (new QPushButton ("Add account key")),
@@ -344,12 +343,6 @@ ledger_model (new QStandardItemModel),
 ledger_view (new QTableView),
 ledger_refresh (new QPushButton ("Refresh")),
 ledger_back (new QPushButton ("Back")),
-log_window (new QWidget),
-log_layout (new QVBoxLayout),
-log_model (new QStringListModel),
-log_view (new QListView),
-log_refresh (new QPushButton ("Refresh")),
-log_back (new QPushButton ("Back")),
 peers_window (new QWidget),
 peers_layout (new QVBoxLayout),
 peers_model (new QStringListModel),
@@ -372,15 +365,7 @@ client (client_a)
     ledger_layout->addWidget (ledger_back);
     ledger_layout->setContentsMargins (0, 0, 0, 0);
     ledger_window->setLayout (ledger_layout);
-
-    log_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
-    log_view->setModel (log_model);
-    log_layout->addWidget (log_view);
-    log_layout->addWidget (log_refresh);
-    log_layout->addWidget (log_back);
-    log_layout->setContentsMargins (0, 0, 0, 0);
-    log_window->setLayout (log_layout);
-
+    
     peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     peers_view->setModel (peers_model);
     peers_layout->addWidget (peers_view);
@@ -393,7 +378,6 @@ client (client_a)
     layout->addWidget (change_password);
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
-    layout->addWidget (show_log);
     layout->addWidget (wallet_key_text);
     layout->addWidget (wallet_key_line);
     layout->addWidget (wallet_add_key_button);
@@ -417,10 +401,6 @@ client (client_a)
     {
         client.refresh_wallet ();
     });
-    QObject::connect (show_log, &QPushButton::released, [this] ()
-    {
-        client.push_main_stack (log_window);
-    });
     QObject::connect (show_peers, &QPushButton::released, [this] ()
     {
         client.push_main_stack (peers_window);
@@ -430,14 +410,6 @@ client (client_a)
         client.push_main_stack (ledger_window);
     });
     QObject::connect (back, &QPushButton::released, [this] ()
-    {
-        client.pop_main_stack ();
-    });
-    QObject::connect (log_refresh, &QPushButton::released, [this] ()
-    {
-        refresh_log ();
-    });
-    QObject::connect (log_back, &QPushButton::released, [this] ()
     {
         client.pop_main_stack ();
     });
@@ -491,19 +463,6 @@ client (client_a)
         client.push_main_stack (client.block_entry.window);
     });
     refresh_ledger ();
-}
-
-void rai_qt::advanced_actions::refresh_log ()
-{
-    QStringList log;
-    for (auto i: client.client_m.log.items)
-    {
-        std::stringstream entry;
-        entry << i.first << ' ' << i.second << std::endl;
-        QString qentry (entry.str ().c_str ());
-        log << qentry;
-    }
-    log_model->setStringList (log);
 }
 
 void rai_qt::advanced_actions::refresh_peers ()
