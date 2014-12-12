@@ -173,7 +173,7 @@ public:
 }
 
 rai::work::work (size_t entries_a, size_t iterations_a) :
-threshold_requirement (0xfff0000000000000),
+threshold_requirement (0xff00000000000000),
 entries (entries_a),
 iterations (iterations_a),
 data (new uint64_t [entries_a])
@@ -197,20 +197,18 @@ rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
         auto next (rng.next ());
         *i = next;
     }
-    auto previous (rng.next ());
-    for (size_t i (0), n (iterations); i != n; ++i)
-    {
-        auto next (rng.next ());
-        data.get () [previous & mask] = next;
-        // Use the index of the previous random number otherwise the lsb of all entries will match the table index:
-        // entries [0] = xxxxxxx0
-        // entries [1] = xxxxxxx1
-        // entries [n] = xxxxxxxn
-        // Etc
-        previous = next;
-    }
     CryptoPP::SHA3 hash (32);
-    hash.Update (reinterpret_cast <uint8_t *> (data.get ()), entries * sizeof (uint64_t));
+    size_t constexpr buffer_size = 64;
+    assert ((iterations & (buffer_size - 1)) == 0 && "Iterations not divisible by buffer size");
+    for (auto j (0); j != iterations / buffer_size; ++j)
+    {
+        std::array <uint64_t, buffer_size> buffer;
+        for (size_t i (0); i < buffer_size; ++i)
+        {
+            buffer [i] = data.get () [rng.next () & mask];
+        }
+        hash.Update (reinterpret_cast <uint8_t *> (buffer.data ()), buffer_size * sizeof (uint64_t));
+    }
     rai::uint256_union result;
     hash.Final (result.bytes.data ());
     return result;

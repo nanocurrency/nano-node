@@ -110,6 +110,7 @@ int main (int argc, char * const * argv)
         ("help", "Print out options")
         ("debug_activity", "Generates fake debug activity")
         ("profile_work", "Profile the work function")
+        ("profile_kdf", "Profile kdf function")
         ("generate_key", "Generates a random keypair")
         ("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
         ("xorshift_profile", "Profile xorshift algorithms")
@@ -159,6 +160,19 @@ int main (int argc, char * const * argv)
         work.validate (source, value);
         auto end2 (std::chrono::high_resolution_clock::now ());
         std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
+    }
+    else if (vm.count ("profile_kdf"))
+    {
+        rai::uint256_union source (0x123456789abcdef);
+        rai::work work (rai::wallet::kdf_work, rai::wallet::kdf_work);
+        for (auto i (work.data.get ()), n (work.data.get () + work.entries); i != n; ++i)
+        {
+            *i = 0;
+        }
+        auto begin1 (std::chrono::high_resolution_clock::now ());
+        auto value (work.kdf ("", source));
+        auto end1 (std::chrono::high_resolution_clock::now ());
+        std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
     }
 #if 0
     else if (vm.count ("xorshift_profile"))
