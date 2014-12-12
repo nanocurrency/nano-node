@@ -112,7 +112,7 @@ void rai_daemon::daemon::run ()
         auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
         rai::processor_service processor;
         rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working / "data", processor, config.representative));
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port,  working, processor, config.representative));
         if (!init.error ())
         {
             client->bootstrap_peers = config.bootstrap_peers;

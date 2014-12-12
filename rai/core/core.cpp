@@ -828,12 +828,12 @@ bool rai::client_init::error ()
     return !block_store_init.ok () || wallet_init || ledger_init;
 }
 
-rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & data_path_a, rai::processor_service & processor_a, rai::account const & representative_a) :
+rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::account const & representative_a) :
 representative (representative_a),
-store (init_a.block_store_init, data_path_a),
+store (init_a.block_store_init, application_path_a / "data"),
 ledger (init_a.ledger_init, init_a.block_store_init, store),
 conflicts (*this),
-wallet (init_a.wallet_init, data_path_a),
+wallet (init_a.wallet_init, application_path_a / "wallet"),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
@@ -845,7 +845,7 @@ service (processor_a)
     {
         boost::log::add_console_log (std::cerr);
     }
-    boost::log::add_file_log (boost::log::keywords::target = boost::filesystem::current_path () / "log", boost::log::keywords::file_name = boost::filesystem::current_path () / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = rai::rai_network != rai::rai_networks::rai_test_network, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024);
+    boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = rai::rai_network != rai::rai_networks::rai_test_network, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024);
     BOOST_LOG (log) << "Client starting";
     ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {

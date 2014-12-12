@@ -96,7 +96,7 @@ int main (int argc, char ** argv)
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
         rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port, boost::filesystem::system_complete (argv[0]).parent_path () / "data", processor, config.representative));
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port, boost::filesystem::system_complete (argv[0]).parent_path (), processor, config.representative));
         QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
         {
             client->stop ();
