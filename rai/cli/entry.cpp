@@ -148,31 +148,35 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("profile_work"))
     {
-        rai::uint256_union source (0x123456789abcdef);
-        rai::work work (rai::block::publish_work, rai::block::publish_work);
+        rai::work work (rai::block::publish_work);
         for (auto i (work.data.get ()), n (work.data.get () + work.entries); i != n; ++i)
         {
             *i = 0;
         }
-        auto begin1 (std::chrono::high_resolution_clock::now ());
-        auto value (work.create (source));
-        auto end1 (std::chrono::high_resolution_clock::now ());
-        work.validate (source, value);
-        auto end2 (std::chrono::high_resolution_clock::now ());
-        std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
+        for (uint64_t i (0); true; ++i)
+        {
+            auto begin1 (std::chrono::high_resolution_clock::now ());
+            auto value (work.create (i));
+            auto end1 (std::chrono::high_resolution_clock::now ());
+            work.validate (i, value);
+            auto end2 (std::chrono::high_resolution_clock::now ());
+            std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
+        }
     }
     else if (vm.count ("profile_kdf"))
     {
-        rai::uint256_union source (0x123456789abcdef);
-        rai::work work (rai::wallet::kdf_work, rai::wallet::kdf_work);
+        rai::work work (rai::wallet::kdf_work);
         for (auto i (work.data.get ()), n (work.data.get () + work.entries); i != n; ++i)
         {
             *i = 0;
         }
-        auto begin1 (std::chrono::high_resolution_clock::now ());
-        auto value (work.kdf ("", source));
-        auto end1 (std::chrono::high_resolution_clock::now ());
-        std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+        for (uint64_t i (0); true; ++i)
+        {
+            auto begin1 (std::chrono::high_resolution_clock::now ());
+            auto value (work.kdf ("", i));
+            auto end1 (std::chrono::high_resolution_clock::now ());
+            std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+        }
     }
 #if 0
     else if (vm.count ("xorshift_profile"))

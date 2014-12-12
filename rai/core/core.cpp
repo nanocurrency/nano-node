@@ -68,7 +68,7 @@ std::chrono::seconds constexpr rai::processor::cutoff;
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
-work (rai::block::publish_work, rai::block::publish_work),
+work (rai::block::publish_work),
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
 resolver (service_a),
@@ -845,7 +845,7 @@ service (processor_a)
     {
         boost::log::add_console_log (std::cerr);
     }
-    boost::log::add_file_log (boost::log::keywords::target = boost::filesystem::current_path () / "log", boost::log::keywords::file_name = boost::filesystem::current_path () / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024);
+    boost::log::add_file_log (boost::log::keywords::target = boost::filesystem::current_path () / "log", boost::log::keywords::file_name = boost::filesystem::current_path () / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = rai::rai_network != rai::rai_networks::rai_test_network, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024);
     BOOST_LOG (log) << "Client starting";
     ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {
@@ -4106,7 +4106,7 @@ bool rai::wallet::rekey (std::string const & password_a)
 
 rai::uint256_union rai::wallet::derive_key (std::string const & password_a)
 {
-    rai::work work (kdf_work, kdf_work);
+    rai::work work (kdf_work);
     auto result (work.kdf (password_a, salt ()));
     return result;
 }

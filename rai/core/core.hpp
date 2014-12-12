@@ -319,8 +319,8 @@ public:
     static rai::uint256_union const salt_special;
     static rai::uint256_union const check_special;
     static int const special_count;
-    static size_t const kdf_full_work = 8 * 1024 * 1024;
-    static size_t const kdf_test_work = 8 * 1024;
+    static size_t const kdf_full_work = 32 * 1024 * 1024; // 8 * 32 * 1024 * 1024 = 256 MB memory to derive key
+    static size_t const kdf_test_work = 1024;
     static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
     
 private:

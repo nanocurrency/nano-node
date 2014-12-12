@@ -172,17 +172,18 @@ public:
 };
 }
 
-rai::work::work (size_t entries_a, size_t iterations_a) :
-threshold_requirement (0xff00000000000000),
+rai::work::work (size_t entries_a) :
+threshold_requirement (0xffc0000000000000),
 entries (entries_a),
-iterations (iterations_a),
 data (new uint64_t [entries_a])
 {
+    assert ((entries_a & 0x3) == 0);
 }
 
 rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
 {
-    auto mask (entries - 1);
+    auto entries_l (entries);
+    auto mask (entries_l - 1);
     xorshift1024star rng;
     rng.s [0] = input_a.qwords [0];
     rng.s [1] = input_a.qwords [1];
@@ -192,25 +193,20 @@ rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
     {
         rng.s [i] = 0;
     }
-    for (auto i (data.get ()), n (data.get () + entries); i != n; ++i)
+    for (auto i (data.get ()), n (data.get () + entries_l); i != n; ++i)
     {
         auto next (rng.next ());
         *i = next;
     }
-    CryptoPP::SHA3 hash (32);
-    size_t constexpr buffer_size = 64;
-    assert ((iterations & (buffer_size - 1)) == 0 && "Iterations not divisible by buffer size");
-    for (auto j (0); j != iterations / buffer_size; ++j)
+    auto data_l (data.get ());
+    rai::uint256_union result (input_a);
+    for (size_t i (0), n (entries_l / 4); i != n; ++i)
     {
-        std::array <uint64_t, buffer_size> buffer;
-        for (size_t i (0); i < buffer_size; ++i)
-        {
-            buffer [i] = data.get () [rng.next () & mask];
-        }
-        hash.Update (reinterpret_cast <uint8_t *> (buffer.data ()), buffer_size * sizeof (uint64_t));
+        result.qwords [0] ^= data_l [rng.next () & mask];
+        result.qwords [1] ^= data_l [rng.next () & mask];
+        result.qwords [2] ^= data_l [rng.next () & mask];
+        result.qwords [3] ^= data_l [rng.next () & mask];
     }
-    rai::uint256_union result;
-    hash.Final (result.bytes.data ());
     return result;
 }
 
@@ -228,7 +224,7 @@ rai::uint256_union rai::work::kdf (std::string const & password_a, rai::uint256_
 uint64_t rai::work::generate (rai::uint256_union const & seed, uint64_t nonce)
 {
     auto result (derive (seed ^ nonce));
-    return result.qwords [0];
+    return result.qwords [0] ^ result.qwords [1] ^ result.qwords [2] ^ result.qwords [3];
 }
 
 uint64_t rai::work::create (rai::uint256_union const & seed)
@@ -2463,7 +2459,7 @@ rai::uint128_t rai::ledger::weight (rai::account const & account_a)
 uint64_t rai::ledger::create_work (rai::block const & block_a)
 {
     auto root (store.root (block_a));
-    rai::work work (rai::block::publish_work, rai::block::publish_work);
+    rai::work work (rai::block::publish_work);
     auto proof (work.create (root));
     return proof;
 }
