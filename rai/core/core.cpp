@@ -68,6 +68,7 @@ std::chrono::seconds constexpr rai::processor::cutoff;
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
+work (rai::block::publish_work, rai::block::publish_work),
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
 resolver (service_a),
@@ -425,32 +426,6 @@ void rai::publish::serialize (rai::stream & stream_a)
     assert (block != nullptr);
 	write_header (stream_a);
     block->serialize (stream_a);
-}
-
-namespace
-{
-class xorshift1024star
-{
-public:
-    xorshift1024star ():
-    p (0)
-    {
-    }
-    std::array <uint64_t, 16> s;
-    unsigned p;
-    uint64_t next ()
-    {
-        auto p_l (p);
-        auto pn ((p_l + 1) & 15);
-        p = pn;
-        uint64_t s0 = s[ p_l ];
-        uint64_t s1 = s[ pn ];
-        s1 ^= s1 << 31; // a
-        s1 ^= s1 >> 11; // b
-        s0 ^= s0 >> 30; // c
-        return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
-    }
-};
 }
 
 rai::uint256_union const rai::wallet::version_1 (1);
@@ -1165,16 +1140,16 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
 rai::process_result rai::processor::process_receive (rai::block const & block_a)
 {
     auto result (client.ledger.process (block_a));
-    if (ledger_logging ())
-    {
-        std::string block;
-        block_a.serialize_json (block);
-        BOOST_LOG (client.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash().to_string () % block);
-    }
     switch (result)
     {
         case rai::process_result::progress:
         {
+            if (ledger_logging ())
+            {
+                std::string block;
+                block_a.serialize_json (block);
+                BOOST_LOG (client.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash().to_string () % block);
+            }
             break;
         }
         case rai::process_result::gap_previous:
@@ -3578,14 +3553,6 @@ bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
     return existing != peers.end () && existing->last_contact > std::chrono::system_clock::now () - rai::processor::cutoff;
 }
 
-uint64_t rai::ledger::create_work (rai::block const & block_a)
-{
-    auto root (store.root (block_a));
-    rai::work work;
-    auto proof (work.create (root));
-    return proof;
-}
-
 std::shared_ptr <rai::client> rai::client::shared ()
 {
     return shared_from_this ();
@@ -4137,52 +4104,11 @@ bool rai::wallet::rekey (std::string const & password_a)
     return result;
 }
 
-namespace
-{
-class kdf
-{
-public:
-    size_t const static kdf_full_work = 8 * 1024 * 1024;
-    size_t const static kdf_test_work = 8 * 1024;
-    size_t const static entry_count = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
-    kdf (std::string const & password_a, rai::uint256_union const & salt_a)
-    {
-        auto entries (entry_count);
-        std::unique_ptr <uint64_t []> allocation (new uint64_t [entries] ());
-        xorshift1024star rng;
-        rng.s.fill (0);
-        rai::uint256_union password_l;
-        CryptoPP::SHA3 hash1 (password_l.bytes.size ());
-        hash1.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-        hash1.Final (password_l.bytes.data ());
-        rng.s [0] = password_l.qwords [0];
-        rng.s [1] = password_l.qwords [1];
-        rng.s [2] = password_l.qwords [2];
-        rng.s [3] = password_l.qwords [3];
-        rng.s [4] = salt_a.qwords [0];
-        rng.s [5] = salt_a.qwords [1];
-        rng.s [6] = salt_a.qwords [2];
-        rng.s [7] = salt_a.qwords [3];
-        size_t mask (entries - 1);
-        auto previous (rng.next ());
-        for (auto i (0u); i != entry_count; ++i)
-        {
-            auto next (rng.next ());
-            allocation [static_cast <size_t> (previous & mask)] = next;
-            previous = next;
-        }
-        CryptoPP::SHA3 hash2 (key.bytes.size ());
-        hash2.Update (reinterpret_cast <uint8_t const *> (allocation.get ()), entries * sizeof (uint64_t));
-        hash2.Final (key.bytes.data ());
-    }
-    rai::uint256_union key;
-};
-}
-
 rai::uint256_union rai::wallet::derive_key (std::string const & password_a)
 {
-    kdf key (password_a, salt ());
-    return key.key;
+    rai::work work (kdf_work, kdf_work);
+    auto result (work.kdf (password_a, salt ()));
+    return result;
 }
 
 bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
@@ -4193,73 +4119,6 @@ bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
 bool rai::publish::operator == (rai::publish const & other_a) const
 {
     return *block == *other_a.block;
-}
-
-namespace
-{
-size_t const publish_test_work (1024);
-size_t const publish_full_work (128 * 1024);
-size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
-}
-
-rai::work::work () :
-threshold_requirement (0xfe00000000000000),
-entry_requirement (publish_work),
-iteration_requirement (publish_work)
-{
-    entries.resize (entry_requirement);
-}
-
-uint64_t rai::work::generate (rai::uint256_union const & seed, uint64_t nonce)
-{
-    auto mask (entries.size () - 1);
-	xorshift1024star rng;
-    rng.s.fill (0);
-    rng.s [0] = seed.qwords [0];
-    rng.s [1] = seed.qwords [1];
-    rng.s [2] = seed.qwords [2];
-    rng.s [3] = seed.qwords [3];
-    rng.s [4] = nonce;
-    rng.s [5] = 0;
-    rng.s [6] = 0;
-    rng.s [7] = 0;
-    std::fill (entries.begin (), entries.end (), 0);
-	for (auto i (0u), n (iteration_requirement); i != n; ++i)
-	{
-		auto next (rng.next ());
-		auto index (next & mask);
-		entries [index] = next;
-	}
-    CryptoPP::SHA3 hash (8);
-    for (auto & i: entries)
-    {
-		auto address (&i);
-        hash.Update (reinterpret_cast <uint8_t *> (address), sizeof (uint64_t));
-    }
-    uint64_t result;
-    hash.Final (reinterpret_cast <uint8_t *> (&result));
-    return result;
-}
-
-uint64_t rai::work::create (rai::uint256_union const & seed)
-{
-    xorshift1024star rng;
-    rng.s.fill (0);
-    rng.s [0] = 1; // No seed here, we're not securing anything, s just can't be 0 per the spec
-    uint64_t result;
-    rai::uint256_union value;
-    do
-    {
-        result = rng.next ();
-        value = generate (seed, result);
-    } while (value < threshold_requirement);
-    return result;
-}
-
-bool rai::work::validate (rai::uint256_union const & seed, uint64_t nonce)
-{
-    auto value (generate (seed, nonce));
-    return value < threshold_requirement;
 }
 
 rai::fan::fan (rai::uint256_union const & key, size_t count_a)

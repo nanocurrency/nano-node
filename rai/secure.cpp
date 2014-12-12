@@ -146,6 +146,113 @@ rai::keypair::keypair (std::string const & prv_a)
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
+namespace
+{
+class xorshift1024star
+{
+public:
+    xorshift1024star ():
+    p (0)
+    {
+    }
+    std::array <uint64_t, 16> s;
+    unsigned p;
+    uint64_t next ()
+    {
+        auto p_l (p);
+        auto pn ((p_l + 1) & 15);
+        p = pn;
+        uint64_t s0 = s[ p_l ];
+        uint64_t s1 = s[ pn ];
+        s1 ^= s1 << 31; // a
+        s1 ^= s1 >> 11; // b
+        s0 ^= s0 >> 30; // c
+        return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
+    }
+};
+}
+
+rai::work::work (size_t entries_a, size_t iterations_a) :
+threshold_requirement (0xfff0000000000000),
+entries (entries_a),
+iterations (iterations_a),
+data (new uint64_t [entries_a])
+{
+}
+
+rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
+{
+    auto mask (entries - 1);
+    xorshift1024star rng;
+    rng.s [0] = input_a.qwords [0];
+    rng.s [1] = input_a.qwords [1];
+    rng.s [2] = input_a.qwords [2];
+    rng.s [3] = input_a.qwords [3];
+    for (auto i (4), n (16); i != n; ++i)
+    {
+        rng.s [i] = 0;
+    }
+    for (auto i (data.get ()), n (data.get () + entries); i != n; ++i)
+    {
+        auto next (rng.next ());
+        *i = next;
+    }
+    auto previous (rng.next ());
+    for (size_t i (0), n (iterations); i != n; ++i)
+    {
+        auto next (rng.next ());
+        data.get () [previous & mask] = next;
+        // Use the index of the previous random number otherwise the lsb of all entries will match the table index:
+        // entries [0] = xxxxxxx0
+        // entries [1] = xxxxxxx1
+        // entries [n] = xxxxxxxn
+        // Etc
+        previous = next;
+    }
+    CryptoPP::SHA3 hash (32);
+    hash.Update (reinterpret_cast <uint8_t *> (data.get ()), entries * sizeof (uint64_t));
+    rai::uint256_union result;
+    hash.Final (result.bytes.data ());
+    return result;
+}
+
+rai::uint256_union rai::work::kdf (std::string const & password_a, rai::uint256_union const & salt_a)
+{
+    rai::uint256_union input;
+    CryptoPP::SHA3 hash (32);
+    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+    hash.Final (input.bytes.data ());
+    input ^= salt_a;
+    auto result (derive (input));
+    return result;
+}
+
+uint64_t rai::work::generate (rai::uint256_union const & seed, uint64_t nonce)
+{
+    auto result (derive (seed ^ nonce));
+    return result.qwords [0];
+}
+
+uint64_t rai::work::create (rai::uint256_union const & seed)
+{
+    xorshift1024star rng;
+    rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the spec
+    uint64_t result;
+    rai::uint256_union value;
+    do
+    {
+        result = rng.next ();
+        value = generate (seed, result);
+    } while (value < threshold_requirement);
+    return result;
+}
+
+bool rai::work::validate (rai::uint256_union const & seed, uint64_t nonce)
+{
+    auto value (generate (seed, nonce));
+    return value < threshold_requirement;
+}
+
 rai::ledger::ledger (bool & init_a, leveldb::Status const & store_init_a, rai::block_store & store_a) :
 store (store_a),
 send_observer ([] (rai::send_block const &, rai::account const &, rai::amount const &) {}),
@@ -2353,6 +2460,14 @@ rai::account rai::ledger::representative_cached (rai::block_hash const & hash_a)
 rai::uint128_t rai::ledger::weight (rai::account const & account_a)
 {
     return store.representation_get (account_a);
+}
+
+uint64_t rai::ledger::create_work (rai::block const & block_a)
+{
+    auto root (store.root (block_a));
+    rai::work work (rai::block::publish_work, rai::block::publish_work);
+    auto proof (work.create (root));
+    return proof;
 }
 
 // Rollback blocks until `frontier_a' is the frontier block

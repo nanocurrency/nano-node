@@ -325,7 +325,7 @@ TEST (frontier_req, serialization)
 
 TEST (work, one)
 {
-    rai::work work;
+    rai::work work (rai::block::publish_work, rai::block::publish_work);
     rai::uint256_union seed;
     rai::random_pool.GenerateBlock (seed.bytes.data (), sizeof (seed));
     uint64_t nonce;
@@ -338,7 +338,7 @@ TEST (work, one)
 TEST (work, create)
 {
     rai::uint256_union source (1);
-    rai::work work;
+    rai::work work (rai::block::publish_work, rai::block::publish_work);
     auto begin1 (std::chrono::high_resolution_clock::now ());
     auto value (work.create (source));
     auto end1 (std::chrono::high_resolution_clock::now ());

@@ -319,6 +319,10 @@ public:
     static rai::uint256_union const salt_special;
     static rai::uint256_union const check_special;
     static int const special_count;
+    static size_t const kdf_full_work = 8 * 1024 * 1024;
+    static size_t const kdf_test_work = 8 * 1024;
+    static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
+    
 private:
     std::unique_ptr <leveldb::DB> handle;
 };
@@ -475,18 +479,6 @@ public:
     std::unordered_map <rai::account, rai::block_hash>::iterator current;
     std::unordered_map <rai::account, rai::block_hash>::iterator end;
     std::vector <std::unique_ptr <rai::block>> path;
-};
-class work
-{
-public:
-    work ();
-    uint64_t generate (rai::uint256_union const &, uint64_t);
-    uint64_t create (rai::uint256_union const &);
-    bool validate (rai::uint256_union const &, uint64_t);
-    uint64_t threshold_requirement;
-    size_t const entry_requirement;
-    uint32_t const iteration_requirement;
-    std::vector <uint64_t> entries;
 };
 class network
 {

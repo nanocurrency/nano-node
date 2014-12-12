@@ -15,6 +15,13 @@
 
 namespace rai
 {
+    enum class rai_networks
+    {
+        rai_test_network,
+        rai_beta_network,
+        rai_live_network
+    };
+    rai::rai_networks const rai_network = rai_networks::ACTIVE_NETWORK;
     extern CryptoPP::AutoSeededRandomPool random_pool;
     using stream = std::basic_streambuf <uint8_t>;
     using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
@@ -181,7 +188,10 @@ namespace rai
 		virtual void visit (rai::block_visitor &) const = 0;
 		virtual bool operator == (rai::block const &) const = 0;
 		virtual std::unique_ptr <rai::block> clone () const = 0;
-		virtual rai::block_type type () const = 0;
+        virtual rai::block_type type () const = 0;
+        static size_t const publish_test_work = 1024;
+        static size_t const publish_full_work = 128 * 1024;
+        static size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
     };
     std::unique_ptr <rai::block> deserialize_block (rai::stream &);
     std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
@@ -479,7 +489,21 @@ namespace rai
 		gap_previous, // Block marked as previous isn't in store
 		gap_source, // Block marked as source isn't in store
 		not_receive_from_send // Receive does not have a send source
-	};
+    };
+    class work
+    {
+    public:
+        work (size_t, size_t);
+        rai::uint256_union derive (rai::uint256_union const &);
+        rai::uint256_union kdf (std::string const &, rai::uint256_union const &);
+        uint64_t generate (rai::uint256_union const &, uint64_t);
+        uint64_t create (rai::uint256_union const &);
+        bool validate (rai::uint256_union const &, uint64_t);
+        uint64_t const threshold_requirement;
+        size_t const entries;
+        size_t const iterations;
+        std::unique_ptr <uint64_t []> data;
+    };
 	class ledger
 	{
 	public:
@@ -543,11 +567,4 @@ namespace rai
         rai::block_hash hash () const;
         rai::open_block open;
     };
-    enum class rai_networks
-    {
-        rai_test_network,
-        rai_beta_network,
-        rai_live_network
-    };
-    rai_networks const rai_network = rai_networks::ACTIVE_NETWORK;
 }

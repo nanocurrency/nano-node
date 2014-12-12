@@ -147,11 +147,11 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("profile_work"))
     {
-        rai::uint256_union source;
-        rai::work work;
-        for (auto & i: work.entries)
+        rai::uint256_union source (0x123456789abcdef);
+        rai::work work (rai::block::publish_work, rai::block::publish_work);
+        for (auto i (work.data.get ()), n (work.data.get () + work.entries); i != n; ++i)
         {
-            i = 0;
+            *i = 0;
         }
         auto begin1 (std::chrono::high_resolution_clock::now ());
         auto value (work.create (source));
