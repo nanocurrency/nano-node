@@ -177,7 +177,7 @@ threshold_requirement (0xffc0000000000000),
 entries (entries_a),
 data (new uint64_t [entries_a])
 {
-    assert ((entries_a & 0x3) == 0);
+    assert ((entries_a & 0xf) == 0);
 }
 
 rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
@@ -200,7 +200,7 @@ rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
     }
     auto data_l (data.get ());
     rai::uint256_union result (input_a);
-    for (size_t i (0), n (entries_l / 4); i != n; ++i)
+    for (size_t i (0), n (entries_l / 16); i != n; ++i)
     {
         result.qwords [0] ^= data_l [rng.next () & mask];
         result.qwords [1] ^= data_l [rng.next () & mask];
