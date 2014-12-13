@@ -487,6 +487,13 @@ public:
     void receive ();
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
+    void deserialize_buffer (uint8_t const *, size_t);
+    void deserialize_keepalive (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_publish (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_confirm_req (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_confirm_ack (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_confirm_unk (uint8_t const *, size_t, rai::endpoint const &);
+    bool at_end (rai::bufferstream &);
     void rpc_action (boost::system::error_code const &, size_t);
     void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
     void confirm_block (std::unique_ptr <rai::block>, uint64_t);
@@ -507,7 +514,7 @@ public:
     rai::client & client;
     std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
     uint64_t keepalive_count;
-    uint64_t publish_req_count;
+    uint64_t publish_count;
     uint64_t confirm_req_count;
     uint64_t confirm_ack_count;
     uint64_t confirm_unk_count;

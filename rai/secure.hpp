@@ -253,7 +253,7 @@ namespace rai
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::receive_block const &) const;
         receive_hashables hashables;
-		uint512_union signature;
+        rai::signature signature;
         uint64_t work;
 	};
 	class open_hashables
@@ -281,7 +281,7 @@ namespace rai
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::open_block const &) const;
         rai::open_hashables hashables;
-		rai::uint512_union signature;
+		rai::signature signature;
         uint64_t work;
 	};
 	class change_hashables
@@ -316,7 +316,7 @@ namespace rai
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::change_block const &) const;
         rai::change_hashables hashables;
-		rai::uint512_union signature;
+		rai::signature signature;
         uint64_t work;
 	};
 	class block_visitor
