@@ -61,6 +61,7 @@ add_executable (core_test
     rai/core_test/network.cpp
     rai/core_test/uint256_union.cpp
     rai/core_test/wallet_test.cpp
+    rai/core_test/wallets.cpp
     )
 
 add_executable (slow_test

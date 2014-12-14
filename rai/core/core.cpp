@@ -492,7 +492,7 @@ password (0, 1024)
         leveldb::Options options;
         options.create_if_missing = true;
         leveldb::DB * db (nullptr);
-        auto status (leveldb::DB::Open (options, (path_a / "wallet.ldb").string (), &db));
+        auto status (leveldb::DB::Open (options, path_a.string (), &db));
         handle.reset (db);
         if (status.ok ())
         {
@@ -582,6 +582,38 @@ bool rai::wallet::fetch (rai::public_key const & pub, rai::private_key & prv)
 bool rai::wallet::exists (rai::public_key const & pub)
 {
     return find (pub) != end ();
+}
+
+rai::wallets::wallets (boost::filesystem::path const & path_a) :
+path (path_a)
+{
+}
+
+std::shared_ptr <rai::wallet> rai::wallets::open (rai::uint256_union const & id_a)
+{
+    std::shared_ptr <rai::wallet> result;
+    auto existing (items.find (id_a));
+    if (existing != items.end ())
+    {
+        result = existing->second;
+    }
+    return result;
+}
+
+std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & id_a)
+{
+    assert (items.find (id_a) == items.end ());
+    std::shared_ptr <rai::wallet> result;
+    bool error;
+    std::string id;
+    id_a.encode_hex (id);
+    auto wallet (std::make_shared <rai::wallet> (error, path / id));
+    if (!error)
+    {
+        items [id_a] = wallet;
+        result = wallet;
+    }
+    return result;
 }
 
 rai::key_iterator::key_iterator (leveldb::DB * db_a) :
