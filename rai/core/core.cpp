@@ -607,6 +607,38 @@ bool rai::wallet::exists (rai::public_key const & pub)
 rai::wallets::wallets (boost::filesystem::path const & path_a) :
 path (path_a)
 {
+    boost::filesystem::create_directories (path_a);
+    boost::filesystem::directory_iterator i (path_a);
+    boost::filesystem::directory_iterator n;
+    for (; i != n; ++i)
+    {
+        if (boost::filesystem::is_directory (i->path ()))
+        {
+            rai::uint256_union id;
+            if (!id.decode_hex (i->path ().filename ().string ()))
+            {
+                assert (items.find (id) == items.end ());
+                auto error (false);
+                auto wallet (std::make_shared <rai::wallet> (error, i->path ()));
+                if (!error)
+                {
+                    items [id] = wallet;
+                }
+                else
+                {
+                    // Couldn't open wallet
+                }
+            }
+            else
+            {
+                // Non-id directory in wallets directory
+            }
+        }
+        else
+        {
+            // Non-directory in wallets directory
+        }
+    }
 }
 
 std::shared_ptr <rai::wallet> rai::wallets::open (rai::uint256_union const & id_a)
