@@ -15,7 +15,7 @@ TEST (client, block_store_path_failure)
     rai::client_init init;
     rai::processor_service processor;
     auto service (boost::make_shared <boost::asio::io_service> ());
-    auto client (std::make_shared <rai::client> (init, service, 0, boost::filesystem::path {}, processor, rai::account {}));
+    auto client (std::make_shared <rai::client> (init, service, 0, boost::filesystem::path {}, processor));
     client->stop ();
 }
 
@@ -140,7 +140,7 @@ TEST (client, bootstrap_end)
 {
     rai::system system (24000, 1);
     rai::client_init init1;
-    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
     client1->start ();
     ASSERT_NE (nullptr, client1->processor.bootstrapped);
@@ -188,7 +188,7 @@ TEST (client, auto_bootstrap)
     rai::system system (24000, 1);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     rai::client_init init1;
-    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
@@ -221,7 +221,7 @@ TEST (client, auto_bootstrap_reverse)
     rai::system system (24000, 1);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
     rai::client_init init1;
-    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
     rai::keypair key2;
     client1->wallet.insert (key2.prv);
@@ -322,7 +322,7 @@ TEST (client, connect_after_junk)
 {
     rai::system system (24000, 1);
     rai::client_init init1;
-    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor, rai::test_genesis_key.pub));
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     uint64_t junk;
     client1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.clients [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);

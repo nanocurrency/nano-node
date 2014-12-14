@@ -177,7 +177,7 @@ int main ()
         rai::client_init init;
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor, rai::genesis_account));
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor));
         if (!init.error ())
         {
             client->bootstrap_peers = config.bootstrap_peers;

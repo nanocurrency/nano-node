@@ -347,7 +347,7 @@ TEST (wallet, already_open)
     file.open ((path / "wallet.ldb").string ().c_str ());
     ASSERT_TRUE (file.is_open ());
     bool init;
-    rai::wallet store (init, path);
+    rai::wallet store (init, path / "wallet.ldb");
     ASSERT_TRUE (init);
 }
 
@@ -370,4 +370,15 @@ TEST (wallet, repoen_default_password)
         wallet.enter_password ("");
         ASSERT_TRUE (wallet.valid_password ());
     }
+}
+
+TEST (wallet, representative)
+{
+    auto error (false);
+    rai::wallet wallet (error, boost::filesystem::unique_path ());
+    ASSERT_EQ (false, error);
+    ASSERT_EQ (rai::genesis_account, wallet.representative ());
+    rai::keypair key;
+    wallet.representative_set (key.pub);
+    ASSERT_EQ (key.pub, wallet.representative());
 }

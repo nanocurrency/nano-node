@@ -303,6 +303,8 @@ public:
     void enter_password (std::string const &);
     rai::uint256_union wallet_key ();
     rai::uint256_union salt ();
+    rai::account representative ();
+    void representative_set (rai::account const &);
     void insert (rai::private_key const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
@@ -318,6 +320,7 @@ public:
     static rai::uint256_union const wallet_key_special;
     static rai::uint256_union const salt_special;
     static rai::uint256_union const check_special;
+    static rai::uint256_union const representative_special;
     static int const special_count;
     static size_t const kdf_full_work = 32 * 1024 * 1024; // 8 * 32 * 1024 * 1024 = 256 MB memory to derive key
     static size_t const kdf_test_work = 1024;
@@ -668,8 +671,8 @@ public:
 class client : public std::enable_shared_from_this <rai::client>
 {
 public:
-    client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::account const &);
-    client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &, rai::account const &);
+    client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &);
+    client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &);
     ~client ();
     bool send (rai::public_key const &, rai::uint128_t const &);
     void send_keepalive (rai::endpoint const &);
@@ -680,7 +683,6 @@ public:
     bool is_representative ();
     void representative_vote (rai::election &, rai::block const &);
     boost::log::sources::logger log;
-    rai::account representative;
     rai::block_store store;
     rai::gap_cache gap_cache;
     rai::ledger ledger;

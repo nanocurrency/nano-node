@@ -480,7 +480,8 @@ rai::uint256_union const rai::wallet::version_special (0);
 rai::uint256_union const rai::wallet::salt_special (1);
 rai::uint256_union const rai::wallet::wallet_key_special (2);
 rai::uint256_union const rai::wallet::check_special (3);
-int const rai::wallet::special_count (4);
+rai::uint256_union const rai::wallet::representative_special (4);
+int const rai::wallet::special_count (5);
 
 rai::wallet::wallet (bool & init_a, boost::filesystem::path const & path_a) :
 password (0, 1024)
@@ -526,6 +527,8 @@ password (0, 1024)
                 assert (status2.ok ());
                 wallet_key.clear ();
                 password_l.clear ();
+                auto status4 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), leveldb::Slice (rai::genesis_account.chars.data (), rai::genesis_account.chars.size ())));
+                assert (status4.ok ());
             }
             else
             {
@@ -542,6 +545,23 @@ password (0, 1024)
     {
         init_a = true;
     }
+}
+
+void rai::wallet::representative_set (rai::account const & representative_a)
+{
+    auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), leveldb::Slice (representative_a.chars.data (), representative_a.chars.size ())));
+    assert (status.ok ());
+}
+
+rai::account rai::wallet::representative ()
+{
+    std::string representative_l;
+    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), &representative_l));
+    assert (status.ok ());
+    rai::account result;
+    assert (representative_l.size () == result.chars.size ());
+    std::copy (representative_l.begin (), representative_l.end (), result.chars.begin ());
+    return result;
 }
 
 void rai::wallet::insert (rai::private_key const & prv)
@@ -906,8 +926,7 @@ bool rai::client_init::error ()
     return !block_store_init.ok () || wallet_init || ledger_init;
 }
 
-rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::account const & representative_a) :
-representative (representative_a),
+rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a) :
 store (init_a.block_store_init, application_path_a / "data"),
 ledger (init_a.ledger_init, init_a.block_store_init, store),
 conflicts (*this),
@@ -996,8 +1015,8 @@ service (processor_a)
     }
 }
 
-rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a, rai::account const & representative_a) :
-client (init_a, service_a, port_a, boost::filesystem::unique_path (), processor_a, representative_a)
+rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a) :
+client (init_a, service_a, port_a, boost::filesystem::unique_path (), processor_a)
 {
 }
 
@@ -1163,12 +1182,12 @@ void rai::election::announce_vote ()
 void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
 {
     rai::confirm_ack confirm (std::move (block_a));
-    confirm.vote.account = client.representative;
+    confirm.vote.account = client.wallet.representative ();
     confirm.vote.sequence = sequence_a;
     rai::private_key prv;
-    auto error (client.wallet.fetch (client.representative, prv));
+    auto error (client.wallet.fetch (confirm.vote.account, prv));
     assert (!error);
-    rai::sign_message (prv, client.representative, confirm.vote.hash (), confirm.vote.signature);
+    rai::sign_message (prv, confirm.vote.account, confirm.vote.hash (), confirm.vote.signature);
     prv.clear ();
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
@@ -1391,7 +1410,7 @@ service (new boost::asio::io_service)
     for (size_t i (0); i < count_a; ++i)
     {
         rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, port_a + i, processor, rai::genesis_account));
+        auto client (std::make_shared <rai::client> (init, service, port_a + i, processor));
         assert (!init.error ());
         client->start ();
         clients.push_back (client);
@@ -1422,7 +1441,7 @@ rai::system::~system ()
 void rai::processor::process_unknown (rai::vectorstream & stream_a)
 {
 	rai::confirm_unk outgoing;
-	outgoing.rep_hint = client.representative;
+	outgoing.rep_hint = client.wallet.representative ();
 	outgoing.serialize (stream_a);
 }
 
@@ -1442,7 +1461,8 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
 		}
 		else
 		{
-			auto weight (client.ledger.weight (client.representative));
+            auto representative (client.wallet.representative ());
+			auto weight (client.ledger.weight (representative));
 			if (weight.is_zero ())
             {
                 if (network_message_logging ())
@@ -1458,13 +1478,13 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
                     BOOST_LOG (client.log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
                 }
                 rai::private_key prv;
-                auto error (client.wallet.fetch (client.representative, prv));
+                auto error (client.wallet.fetch (representative, prv));
                 assert (!error);
 				rai::confirm_ack outgoing (block_a.clone ());
-				outgoing.vote.account = client.representative;
+				outgoing.vote.account = representative;
 				outgoing.vote.sequence = 0;
-				rai::sign_message (prv, client.representative, outgoing.vote.hash (), outgoing.vote.signature);
-				assert (!rai::validate_message (client.representative, outgoing.vote.hash (), outgoing.vote.signature));
+				rai::sign_message (prv, representative, outgoing.vote.hash (), outgoing.vote.signature);
+				assert (!rai::validate_message (representative, outgoing.vote.hash (), outgoing.vote.signature));
                 outgoing.serialize (stream);
 			}
 		}
@@ -4057,8 +4077,8 @@ public:
         rai::private_key prv;
         if (!client.wallet.fetch (block_a.hashables.destination, prv))
         {
-            auto error (client.transactions.receive (block_a, prv, client.representative));
-            prv.bytes.fill (0);
+            auto error (client.transactions.receive (block_a, prv, client.wallet.representative ()));
+            prv.clear ();
         }
         else
         {
@@ -4086,13 +4106,14 @@ void rai::processor::process_confirmed (rai::block const & confirmed_a)
 
 bool rai::client::is_representative ()
 {
-    return wallet.find (representative) != wallet.end ();
+    return wallet.find (wallet.representative ()) != wallet.end ();
 }
 
 void rai::client::representative_vote (rai::election & election_a, rai::block const & block_a)
 {
 	if (is_representative ())
 	{
+        auto representative (wallet.representative ());
         rai::private_key prv;
         rai::vote vote_l;
         vote_l.account = representative;
