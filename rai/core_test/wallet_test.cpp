@@ -377,8 +377,12 @@ TEST (wallet, representative)
     auto error (false);
     rai::wallet wallet (error, boost::filesystem::unique_path ());
     ASSERT_EQ (false, error);
+    ASSERT_FALSE (wallet.is_representative ());
     ASSERT_EQ (rai::genesis_account, wallet.representative ());
     rai::keypair key;
     wallet.representative_set (key.pub);
     ASSERT_EQ (key.pub, wallet.representative());
+    ASSERT_FALSE (wallet.is_representative ());
+    wallet.insert (key.prv);
+    ASSERT_TRUE (wallet.is_representative ());
 }

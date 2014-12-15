@@ -303,6 +303,7 @@ public:
     void enter_password (std::string const &);
     rai::uint256_union wallet_key ();
     rai::uint256_union salt ();
+    bool is_representative ();
     rai::account representative ();
     void representative_set (rai::account const &);
     void insert (rai::private_key const &);
@@ -507,7 +508,8 @@ public:
     bool at_end (rai::bufferstream &);
     void rpc_action (boost::system::error_code const &, size_t);
     void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
-    void confirm_block (std::unique_ptr <rai::block>, uint64_t);
+    void confirm_broadcast (std::unique_ptr <rai::block>, uint64_t);
+    void confirm_block (rai::private_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);
     void send_confirm_req (rai::endpoint const &, rai::block const &);

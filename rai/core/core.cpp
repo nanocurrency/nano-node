@@ -144,7 +144,7 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
     }
     if (client.is_representative ())
     {
-        confirm_block (std::move (block), 0);
+        confirm_broadcast (std::move (block), 0);
     }
     else
     {
@@ -545,6 +545,11 @@ password (0, 1024)
     {
         init_a = true;
     }
+}
+
+bool rai::wallet::is_representative ()
+{
+    return exists (representative ());
 }
 
 void rai::wallet::representative_set (rai::account const & representative_a)
@@ -1202,7 +1207,7 @@ void rai::election::announce_vote ()
 {
     auto winner_l (votes.winner ());
 	assert (winner_l.first != nullptr);
-    client->network.confirm_block (std::move (winner_l.first), votes.sequence);
+    client->network.confirm_broadcast (std::move (winner_l.first), votes.sequence);
     auto now (std::chrono::system_clock::now ());
     if (now - last_vote < std::chrono::seconds (15))
     {
@@ -1211,36 +1216,51 @@ void rai::election::announce_vote ()
     }
 }
 
-void rai::network::confirm_block (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
+void rai::network::confirm_broadcast (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
+{
+    auto list (client.peers.list ());
+    if (client.wallet.is_representative ())
+    {
+        auto pub (client.wallet.representative ());
+        rai::private_key prv;
+        auto error (client.wallet.fetch (pub, prv));
+        if (!error)
+        {
+            for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
+            {
+                confirm_block (prv, pub, block_a->clone (), sequence_a, j->endpoint);
+            }
+        }
+        else
+        {
+            // Wallet is locked
+        }
+        prv.clear ();
+    }
+}
+
+void rai::network::confirm_block (rai::private_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a)
 {
     rai::confirm_ack confirm (std::move (block_a));
-    confirm.vote.account = client.wallet.representative ();
+    confirm.vote.account = pub;
     confirm.vote.sequence = sequence_a;
-    rai::private_key prv;
-    auto error (client.wallet.fetch (confirm.vote.account, prv));
-    assert (!error);
-    rai::sign_message (prv, confirm.vote.account, confirm.vote.hash (), confirm.vote.signature);
-    prv.clear ();
+    rai::sign_message (prv, pub, confirm.vote.hash (), confirm.vote.signature);
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
         confirm.serialize (stream);
     }
     auto client_l (client.shared ());
-    auto list (client.peers.list ());
-    for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
-    {
-        client.network.send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, client_l] (boost::system::error_code const & ec, size_t size_a)
+    client.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size_a)
+        {
+            if (network_logging ())
             {
-                if (network_logging ())
+                if (ec)
                 {
-                    if (ec)
-                    {
-                        BOOST_LOG (client_l->log) << boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ());
-                    }
+                    BOOST_LOG (client_l->log) << boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ());
                 }
-            });
-    }
+            }
+        });
 }
 
 void rai::processor::process_receive_republish (std::unique_ptr <rai::block> incoming, rai::endpoint const & sender_a)
