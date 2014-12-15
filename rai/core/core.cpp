@@ -3778,7 +3778,7 @@ void rai::system::generate_activity (rai::client & client_a)
 
 rai::uint128_t rai::system::get_random_amount (rai::client & client_a)
 {
-    rai::uint256_t balance (client_a.balance ());
+    rai::uint128_t balance (client_a.wallet.balance (client_a.ledger));
     std::string balance_text (balance.convert_to <std::string> ());
     rai::uint128_union random_amount;
     random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
@@ -3823,13 +3823,13 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::client & client
     }
 }
 
-rai::uint256_t rai::client::balance ()
+rai::uint128_t rai::wallet::balance (rai::ledger & ledger_a)
 {
-    rai::uint256_t result;
-    for (auto i (wallet.begin ()), n (wallet.end ()); i !=  n; ++i)
+    rai::uint128_t result;
+    for (auto i (begin ()), n (end ()); i !=  n; ++i)
     {
         auto pub (i->first);
-        auto account_balance (ledger.account_balance (pub));
+        auto account_balance (ledger_a.account_balance (pub));
         result += account_balance;
     }
     return result;

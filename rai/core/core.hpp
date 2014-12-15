@@ -314,6 +314,7 @@ public:
     key_iterator begin ();
     key_iterator end ();
     rai::uint256_union derive_key (std::string const &);
+    rai::uint128_t balance (rai::ledger &);
     rai::fan password;
     static rai::uint256_union const version_1;
     static rai::uint256_union const version_current;
@@ -678,7 +679,6 @@ public:
     ~client ();
     bool send (rai::public_key const &, rai::uint128_t const &);
     void send_keepalive (rai::endpoint const &);
-    rai::uint256_t balance ();
     void start ();
     void stop ();
     std::shared_ptr <rai::client> shared ();

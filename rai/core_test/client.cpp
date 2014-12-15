@@ -23,7 +23,7 @@ TEST (client, balance)
 {
     rai::system system (24000, 1);
     system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.clients [0]->balance ());
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.clients [0]->wallet.balance (system.clients [0]->ledger));
 }
 
 TEST (client, send_unkeyed)
