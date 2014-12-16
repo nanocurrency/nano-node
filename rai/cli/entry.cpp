@@ -165,7 +165,7 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("profile_kdf"))
     {
-        rai::work work (rai::wallet::kdf_work);
+        rai::work work (rai::wallet_store::kdf_work);
         for (auto i (work.data.get ()), n (work.data.get () + work.entries); i != n; ++i)
         {
             *i = 0;

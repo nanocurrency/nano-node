@@ -474,16 +474,16 @@ void rai::publish::serialize (rai::stream & stream_a)
     block->serialize (stream_a);
 }
 
-rai::uint256_union const rai::wallet::version_1 (1);
-rai::uint256_union const rai::wallet::version_current (version_1);
-rai::uint256_union const rai::wallet::version_special (0);
-rai::uint256_union const rai::wallet::salt_special (1);
-rai::uint256_union const rai::wallet::wallet_key_special (2);
-rai::uint256_union const rai::wallet::check_special (3);
-rai::uint256_union const rai::wallet::representative_special (4);
-int const rai::wallet::special_count (5);
+rai::uint256_union const rai::wallet_store::version_1 (1);
+rai::uint256_union const rai::wallet_store::version_current (version_1);
+rai::uint256_union const rai::wallet_store::version_special (0);
+rai::uint256_union const rai::wallet_store::salt_special (1);
+rai::uint256_union const rai::wallet_store::wallet_key_special (2);
+rai::uint256_union const rai::wallet_store::check_special (3);
+rai::uint256_union const rai::wallet_store::representative_special (4);
+int const rai::wallet_store::special_count (5);
 
-rai::wallet::wallet (bool & init_a, boost::filesystem::path const & path_a) :
+rai::wallet_store::wallet_store (bool & init_a, boost::filesystem::path const & path_a) :
 password (0, 1024)
 {
     boost::system::error_code code;
@@ -547,18 +547,18 @@ password (0, 1024)
     }
 }
 
-bool rai::wallet::is_representative ()
+bool rai::wallet_store::is_representative ()
 {
     return exists (representative ());
 }
 
-void rai::wallet::representative_set (rai::account const & representative_a)
+void rai::wallet_store::representative_set (rai::account const & representative_a)
 {
     auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), leveldb::Slice (representative_a.chars.data (), representative_a.chars.size ())));
     assert (status.ok ());
 }
 
-rai::account rai::wallet::representative ()
+rai::account rai::wallet_store::representative ()
 {
     std::string representative_l;
     auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), &representative_l));
@@ -569,7 +569,7 @@ rai::account rai::wallet::representative ()
     return result;
 }
 
-void rai::wallet::insert (rai::private_key const & prv)
+void rai::wallet_store::insert (rai::private_key const & prv)
 {
     rai::public_key pub;
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
@@ -578,7 +578,7 @@ void rai::wallet::insert (rai::private_key const & prv)
     assert (status.ok ());
 }
 
-bool rai::wallet::fetch (rai::public_key const & pub, rai::private_key & prv)
+bool rai::wallet_store::fetch (rai::public_key const & pub, rai::private_key & prv)
 {
     auto result (false);
     std::string value;
@@ -604,7 +604,7 @@ bool rai::wallet::fetch (rai::public_key const & pub, rai::private_key & prv)
     return result;
 }
 
-bool rai::wallet::exists (rai::public_key const & pub)
+bool rai::wallet_store::exists (rai::public_key const & pub)
 {
     return find (pub) != end ();
 }
@@ -624,7 +624,7 @@ path (path_a)
             {
                 assert (items.find (id) == items.end ());
                 auto error (false);
-                auto wallet (std::make_shared <rai::wallet> (error, i->path ()));
+                auto wallet (std::make_shared <rai::wallet_store> (error, i->path ()));
                 if (!error)
                 {
                     items [id] = wallet;
@@ -646,9 +646,9 @@ path (path_a)
     }
 }
 
-std::shared_ptr <rai::wallet> rai::wallets::open (rai::uint256_union const & id_a)
+std::shared_ptr <rai::wallet_store> rai::wallets::open (rai::uint256_union const & id_a)
 {
-    std::shared_ptr <rai::wallet> result;
+    std::shared_ptr <rai::wallet_store> result;
     auto existing (items.find (id_a));
     if (existing != items.end ())
     {
@@ -657,14 +657,14 @@ std::shared_ptr <rai::wallet> rai::wallets::open (rai::uint256_union const & id_
     return result;
 }
 
-std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & id_a)
+std::shared_ptr <rai::wallet_store> rai::wallets::create (rai::uint256_union const & id_a)
 {
     assert (items.find (id_a) == items.end ());
-    std::shared_ptr <rai::wallet> result;
+    std::shared_ptr <rai::wallet_store> result;
     bool error;
     std::string id;
     id_a.encode_hex (id);
-    auto wallet (std::make_shared <rai::wallet> (error, path / id));
+    auto wallet (std::make_shared <rai::wallet_store> (error, path / id));
     if (!error)
     {
         items [id_a] = wallet;
@@ -719,7 +719,7 @@ rai::key_entry & rai::key_iterator::operator -> ()
     return current;
 }
 
-rai::key_iterator rai::wallet::begin ()
+rai::key_iterator rai::wallet_store::begin ()
 {
     rai::key_iterator result (handle.get ());
     for (auto i (0); i < special_count; ++i)
@@ -730,7 +730,7 @@ rai::key_iterator rai::wallet::begin ()
     return result;
 }
 
-rai::key_iterator rai::wallet::find (rai::uint256_union const & key)
+rai::key_iterator rai::wallet_store::find (rai::uint256_union const & key)
 {
     rai::key_iterator result (handle.get (), key);
     rai::key_iterator end (handle.get (), nullptr);
@@ -751,7 +751,7 @@ rai::key_iterator rai::wallet::find (rai::uint256_union const & key)
     }
 }
 
-rai::key_iterator rai::wallet::end ()
+rai::key_iterator rai::wallet_store::end ()
 {
     return rai::key_iterator (handle.get (), nullptr);
 }
@@ -776,7 +776,7 @@ rai::key_iterator & rai::key_iterator::operator = (rai::key_iterator && other_a)
 }
 
 // Generate a set of sends that totals the amount requested.
-bool rai::wallet::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint128_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
+bool rai::wallet_store::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint128_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
 {
     bool result (false);
     rai::uint128_t remaining (amount_a);
@@ -3823,7 +3823,7 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::client & client
     }
 }
 
-rai::uint128_t rai::wallet::balance (rai::ledger & ledger_a)
+rai::uint128_t rai::wallet_store::balance (rai::ledger & ledger_a)
 {
     rai::uint128_t result;
     for (auto i (begin ()), n (end ()); i !=  n; ++i)
@@ -4178,10 +4178,10 @@ void rai::client::representative_vote (rai::election & election_a, rai::block co
 	}
 }
 
-rai::uint256_union rai::wallet::check ()
+rai::uint256_union rai::wallet_store::check ()
 {
     std::string check;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet::check_special.chars.data (), wallet::check_special.chars.size ()), &check));
+    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (rai::wallet_store::check_special.chars.data (), rai::wallet_store::check_special.chars.size ()), &check));
     assert (status.ok ());
     rai::uint256_union result;
     assert (check.size () == sizeof (rai::uint256_union));
@@ -4189,10 +4189,10 @@ rai::uint256_union rai::wallet::check ()
     return result;
 }
 
-rai::uint256_union rai::wallet::salt ()
+rai::uint256_union rai::wallet_store::salt ()
 {
     std::string salt_string;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet::salt_special.chars.data (), wallet::salt_special.chars.size ()), &salt_string));
+    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (rai::wallet_store::salt_special.chars.data (), rai::wallet_store::salt_special.chars.size ()), &salt_string));
     assert (status.ok ());
     rai::uint256_union result;
     assert (salt_string.size () == result.chars.size ());
@@ -4200,10 +4200,10 @@ rai::uint256_union rai::wallet::salt ()
     return result;
 }
 
-rai::uint256_union rai::wallet::wallet_key ()
+rai::uint256_union rai::wallet_store::wallet_key ()
 {
     std::string encrypted_wallet_key;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet::wallet_key_special.chars.data (), wallet::wallet_key_special.chars.size ()), &encrypted_wallet_key));
+    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (rai::wallet_store::wallet_key_special.chars.data (), rai::wallet_store::wallet_key_special.chars.size ()), &encrypted_wallet_key));
     assert (status.ok ());
     assert (encrypted_wallet_key.size () == sizeof (rai::uint256_union));
     rai::uint256_union encrypted_key;
@@ -4214,7 +4214,7 @@ rai::uint256_union rai::wallet::wallet_key ()
     return result;
 }
 
-bool rai::wallet::valid_password ()
+bool rai::wallet_store::valid_password ()
 {
     rai::uint256_union zero;
     zero.clear ();
@@ -4224,7 +4224,7 @@ bool rai::wallet::valid_password ()
     return check () == check_l;
 }
 
-void rai::wallet::enter_password (std::string const & password_a)
+void rai::wallet_store::enter_password (std::string const & password_a)
 {
     password.value_set (derive_key (password_a));
 }
@@ -4235,7 +4235,7 @@ bool rai::transactions::rekey (std::string const & password_a)
     return client.wallet.rekey (password_a);
 }
 
-bool rai::wallet::rekey (std::string const & password_a)
+bool rai::wallet_store::rekey (std::string const & password_a)
 {
     bool result (false);
 	if (valid_password ())
@@ -4246,7 +4246,7 @@ bool rai::wallet::rekey (std::string const & password_a)
         (*password.values [0]) ^= password_l;
         (*password.values [0]) ^= password_new;
         rai::uint256_union encrypted (wallet_key_l, password_new, salt ().owords [0]);
-        auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (wallet::wallet_key_special.chars.data (), wallet::wallet_key_special.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
+        auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (rai::wallet_store::wallet_key_special.chars.data (), rai::wallet_store::wallet_key_special.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
         wallet_key_l.clear ();
         assert (status1.ok ());
     }
@@ -4257,7 +4257,7 @@ bool rai::wallet::rekey (std::string const & password_a)
     return result;
 }
 
-rai::uint256_union rai::wallet::derive_key (std::string const & password_a)
+rai::uint256_union rai::wallet_store::derive_key (std::string const & password_a)
 {
     rai::work work (kdf_work);
     auto result (work.kdf (password_a, salt ()));

@@ -293,10 +293,10 @@ public:
     void value_set (rai::uint256_union const &);
     std::vector <std::unique_ptr <rai::uint256_union>> values;
 };
-class wallet
+class wallet_store
 {
 public:
-    wallet (bool &, boost::filesystem::path const &);
+    wallet_store (bool &, boost::filesystem::path const &);
     rai::uint256_union check ();
     bool rekey (std::string const &);
     bool valid_password ();
@@ -334,9 +334,9 @@ class wallets
 {
 public:
     wallets (boost::filesystem::path const &);
-    std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
-    std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
-    std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
+    std::shared_ptr <rai::wallet_store> open (rai::uint256_union const &);
+    std::shared_ptr <rai::wallet_store> create (rai::uint256_union const &);
+    std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet_store>> items;
     boost::filesystem::path const path;
 };
 class operation
@@ -689,7 +689,7 @@ public:
     rai::gap_cache gap_cache;
     rai::ledger ledger;
     rai::conflicts conflicts;
-    rai::wallet wallet;
+    rai::wallet_store wallet;
     rai::network network;
     rai::bootstrap_listener bootstrap;
     rai::processor processor;
