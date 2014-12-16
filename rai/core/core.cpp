@@ -609,6 +609,12 @@ bool rai::wallet_store::exists (rai::public_key const & pub)
     return find (pub) != end ();
 }
 
+rai::wallet::wallet (bool & init_a, rai::client & client_a, boost::filesystem::path const & path_a) :
+store (init_a, path_a),
+client (client_a)
+{
+}
+
 rai::wallets::wallets (boost::filesystem::path const & path_a) :
 path (path_a)
 {
@@ -967,7 +973,7 @@ rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::
 store (init_a.block_store_init, application_path_a / "data"),
 ledger (init_a.ledger_init, init_a.block_store_init, store),
 conflicts (*this),
-wallet (init_a.wallet_init, application_path_a / "wallet"),
+wallet (init_a.wallet_init, *this, application_path_a / "wallet"),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
@@ -1012,7 +1018,7 @@ service (processor_a)
     };
     send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {
-        if (wallet.find (block_a.hashables.destination) != wallet.end ())
+        if (wallet.store.find (block_a.hashables.destination) != wallet.store.end ())
         {
 			if (ledger_logging ())
 			{
@@ -1219,11 +1225,11 @@ void rai::election::announce_vote ()
 void rai::network::confirm_broadcast (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
 {
     auto list (client.peers.list ());
-    if (client.wallet.is_representative ())
+    if (client.wallet.store.is_representative ())
     {
-        auto pub (client.wallet.representative ());
+        auto pub (client.wallet.store.representative ());
         rai::private_key prv;
-        auto error (client.wallet.fetch (pub, prv));
+        auto error (client.wallet.store.fetch (pub, prv));
         if (!error)
         {
             for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
@@ -1493,7 +1499,7 @@ rai::system::~system ()
 void rai::processor::process_unknown (rai::vectorstream & stream_a)
 {
 	rai::confirm_unk outgoing;
-	outgoing.rep_hint = client.wallet.representative ();
+	outgoing.rep_hint = client.wallet.store.representative ();
 	outgoing.serialize (stream_a);
 }
 
@@ -1513,7 +1519,7 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
 		}
 		else
 		{
-            auto representative (client.wallet.representative ());
+            auto representative (client.wallet.store.representative ());
 			auto weight (client.ledger.weight (representative));
 			if (weight.is_zero ())
             {
@@ -1530,7 +1536,7 @@ void rai::processor::process_confirmation (rai::block const & block_a, rai::endp
                     BOOST_LOG (client.log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
                 }
                 rai::private_key prv;
-                auto error (client.wallet.fetch (representative, prv));
+                auto error (client.wallet.store.fetch (representative, prv));
                 assert (!error);
 				rai::confirm_ack outgoing (block_a.clone ());
 				outgoing.vote.account = representative;
@@ -1795,7 +1801,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 if (enable_control)
                 {
                     rai::keypair new_key;
-                    client.wallet.insert (new_key.prv);
+                    client.wallet.store.insert (new_key.prv);
                     boost::property_tree::ptree response_l;
                     std::string account;
                     new_key.pub.encode_base58check (account);
@@ -1815,7 +1821,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto exists (client.wallet.find (account) != client.wallet.end ());
+                    auto exists (client.wallet.store.find (account) != client.wallet.store.end ());
                     boost::property_tree::ptree response_l;
                     response_l.put ("exists", exists ? "1" : "0");
                     set_response (response, response_l);
@@ -1830,7 +1836,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             {
                 boost::property_tree::ptree response_l;
                 boost::property_tree::ptree accounts;
-                for (auto i (client.wallet.begin ()), j (client.wallet.end ()); i != j; ++i)
+                for (auto i (client.wallet.store.begin ()), j (client.wallet.store.end ()); i != j; ++i)
                 {
                     std::string account;
                     i->first.encode_base58check (account);
@@ -1850,7 +1856,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto error (key.decode_hex (key_text));
                     if (!error)
                     {
-                        client.wallet.insert (key);
+                        client.wallet.store.insert (key);
                         rai::public_key pub;
                         ed25519_publickey (key.bytes.data (), pub.bytes.data ());
                         std::string account;
@@ -1875,7 +1881,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             {
                 if (enable_control)
                 {
-                    auto valid (client.wallet.valid_password ());
+                    auto valid (client.wallet.store.valid_password ());
                     boost::property_tree::ptree response_l;
                     response_l.put ("valid", valid ? "1" : "0");
                     set_response (response, response_l);
@@ -1972,14 +1978,14 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             else if (action == "password_valid")
             {
                 boost::property_tree::ptree response_l;
-                response_l.put ("valid", client.wallet.valid_password () ? "1" : "0");
+                response_l.put ("valid", client.wallet.store.valid_password () ? "1" : "0");
                 set_response (response, response_l);
             }
             else if (action == "password_change")
             {
                 boost::property_tree::ptree response_l;
                 std::string password_text (request_l.get <std::string> ("password"));
-                auto error (client.wallet.rekey (password_text));
+                auto error (client.wallet.store.rekey (password_text));
                 response_l.put ("changed", error ? "0" : "1");
                 set_response (response, response_l);
             }
@@ -1987,8 +1993,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             {
                 boost::property_tree::ptree response_l;
                 std::string password_text (request_l.get <std::string> ("password"));
-                client.wallet.enter_password (password_text);
-                response_l.put ("valid", client.wallet.valid_password () ? "1" : "0");
+                client.wallet.store.enter_password (password_text);
+                response_l.put ("valid", client.wallet.store.valid_password () ? "1" : "0");
                 set_response (response, response_l);
             }
             else
@@ -2277,7 +2283,7 @@ void rai::processor::search_pending ()
     client.service.add (std::chrono::system_clock::now (), [client_l] ()
     {
         std::unordered_set <rai::uint256_union> wallet;
-        for (auto i (client_l->wallet.begin ()), n (client_l->wallet.end ()); i != n; ++i)
+        for (auto i (client_l->wallet.store.begin ()), n (client_l->wallet.store.end ()); i != n; ++i)
         {
             wallet.insert (i->first);
         }
@@ -3778,7 +3784,7 @@ void rai::system::generate_activity (rai::client & client_a)
 
 rai::uint128_t rai::system::get_random_amount (rai::client & client_a)
 {
-    rai::uint128_t balance (client_a.wallet.balance (client_a.ledger));
+    rai::uint128_t balance (client_a.wallet.store.balance (client_a.ledger));
     std::string balance_text (balance.convert_to <std::string> ());
     rai::uint128_union random_amount;
     random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
@@ -3803,7 +3809,7 @@ void rai::system::generate_send_existing (rai::client & client_a)
 void rai::system::generate_send_new (rai::client & client_a)
 {
     rai::keypair key;
-    client_a.wallet.insert (key.prv);
+    client_a.wallet.store.insert (key.prv);
     client_a.send (key.pub, get_random_amount (client_a));
 }
 
@@ -3883,10 +3889,10 @@ bool rai::transactions::send (rai::account const & account_a, rai::uint128_t con
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::send_block>> blocks;
-    auto result (!client.wallet.valid_password ());
+    auto result (!client.wallet.store.valid_password ());
     if (!result)
     {
-        result = client.wallet.generate_send (client.ledger, account_a, amount_a, blocks);
+        result = client.wallet.store.generate_send (client.ledger, account_a, amount_a, blocks);
         if (!result)
         {
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
@@ -4127,9 +4133,9 @@ public:
     void send_block (rai::send_block const & block_a) override
     {
         rai::private_key prv;
-        if (!client.wallet.fetch (block_a.hashables.destination, prv))
+        if (!client.wallet.store.fetch (block_a.hashables.destination, prv))
         {
-            auto error (client.transactions.receive (block_a, prv, client.wallet.representative ()));
+            auto error (client.transactions.receive (block_a, prv, client.wallet.store.representative ()));
             prv.clear ();
         }
         else
@@ -4158,20 +4164,20 @@ void rai::processor::process_confirmed (rai::block const & confirmed_a)
 
 bool rai::client::is_representative ()
 {
-    return wallet.find (wallet.representative ()) != wallet.end ();
+    return wallet.store.find (wallet.store.representative ()) != wallet.store.end ();
 }
 
 void rai::client::representative_vote (rai::election & election_a, rai::block const & block_a)
 {
 	if (is_representative ())
 	{
-        auto representative (wallet.representative ());
+        auto representative (wallet.store.representative ());
         rai::private_key prv;
         rai::vote vote_l;
         vote_l.account = representative;
         vote_l.sequence = 0;
         vote_l.block = block_a.clone ();
-		wallet.fetch (representative, prv);
+		wallet.store.fetch (representative, prv);
         rai::sign_message (prv, representative, vote_l.hash (), vote_l.signature);
         prv.clear ();
         election_a.vote (vote_l);
@@ -4232,7 +4238,7 @@ void rai::wallet_store::enter_password (std::string const & password_a)
 bool rai::transactions::rekey (std::string const & password_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-    return client.wallet.rekey (password_a);
+    return client.wallet.store.rekey (password_a);
 }
 
 bool rai::wallet_store::rekey (std::string const & password_a)

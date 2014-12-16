@@ -330,6 +330,13 @@ public:
 private:
     std::unique_ptr <leveldb::DB> handle;
 };
+class wallet
+{
+public:
+    wallet (bool &, rai::client &, boost::filesystem::path const &);
+    rai::wallet_store store;
+    rai::client & client;
+};
 class wallets
 {
 public:
@@ -689,7 +696,7 @@ public:
     rai::gap_cache gap_cache;
     rai::ledger ledger;
     rai::conflicts conflicts;
-    rai::wallet_store wallet;
+    rai::wallet wallet;
     rai::network network;
     rai::bootstrap_listener bootstrap;
     rai::processor processor;

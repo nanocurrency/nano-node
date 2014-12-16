@@ -51,11 +51,11 @@ TEST (client, password_change)
     rai_qt::client client (application, *system.clients [0]);
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);
     QTest::mouseClick (client.advanced.change_password, Qt::LeftButton);
-    ASSERT_NE (client.client_m.wallet.derive_key ("1"), client.client_m.wallet.password.value ());
+    ASSERT_NE (client.client_m.wallet.store.derive_key ("1"), client.client_m.wallet.store.password.value ());
     QTest::keyClicks (client.password_change.password, "1");
     QTest::keyClicks (client.password_change.retype, "1");
     QTest::mouseClick (client.password_change.change, Qt::LeftButton);
-    ASSERT_EQ (client.client_m.wallet.derive_key ("1"), client.client_m.wallet.password.value ());
+    ASSERT_EQ (client.client_m.wallet.store.derive_key ("1"), client.client_m.wallet.store.password.value ());
     ASSERT_EQ ("", client.password_change.password->text ());
     ASSERT_EQ ("", client.password_change.retype->text ());
 }
@@ -68,11 +68,11 @@ TEST (client, password_nochange)
     rai_qt::client client (application, *system.clients [0]);
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);
     QTest::mouseClick (client.advanced.change_password, Qt::LeftButton);
-    ASSERT_EQ (client.client_m.wallet.derive_key (""), client.client_m.wallet.password.value ());
+    ASSERT_EQ (client.client_m.wallet.store.derive_key (""), client.client_m.wallet.store.password.value ());
     QTest::keyClicks (client.password_change.password, "1");
     QTest::keyClicks (client.password_change.retype, "2");
     QTest::mouseClick (client.password_change.change, Qt::LeftButton);
-    ASSERT_EQ (client.client_m.wallet.derive_key (""), client.client_m.wallet.password.value ());
+    ASSERT_EQ (client.client_m.wallet.store.derive_key (""), client.client_m.wallet.store.password.value ());
     ASSERT_EQ ("1", client.password_change.password->text ());
     ASSERT_EQ ("2", client.password_change.retype->text ());
 }
@@ -88,7 +88,7 @@ TEST (client, enter_password)
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.unlock));
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.lock));
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.back));
-    ASSERT_FALSE (client.client_m.wallet.rekey ("abc"));
+    ASSERT_FALSE (client.client_m.wallet.store.rekey ("abc"));
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);
     QTest::mouseClick (client.advanced.enter_password, Qt::LeftButton);
     QTest::keyClicks (client.enter_password.password, "a");
@@ -104,11 +104,11 @@ TEST (client, enter_password)
 TEST (client, send)
 {
     rai::system system (24000, 2);
-    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
     std::string account;
     key1.pub.encode_base58check (account);
-    system.clients [1]->wallet.insert (key1.prv);
+    system.clients [1]->wallet.store.insert (key1.prv);
     int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::client client (application, *system.clients [0]);
@@ -172,8 +172,8 @@ TEST (client, create_send)
 {
 	rai::keypair key;
 	rai::system system (24000, 1);
-	system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
-	system.clients [0]->wallet.insert (key.prv);
+	system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+	system.clients [0]->wallet.store.insert (key.prv);
 	int argc (0);
 	QApplication application (argc, nullptr);
 	rai_qt::client client (application, *system.clients [0]);

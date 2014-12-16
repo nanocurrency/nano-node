@@ -576,7 +576,7 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (system, generate_send_existing)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
     rai::frontier frontier1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
     system.generate_send_existing (*system.clients [0]);
@@ -604,25 +604,25 @@ TEST (system, generate_send_existing)
 TEST (system, generate_send_new)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.insert (rai::test_genesis_key.prv);
+    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
     auto iterator1 (system.clients [0]->store.latest_begin ());
     ++iterator1;
     ASSERT_EQ (system.clients [0]->store.latest_end (), iterator1);
     system.generate_send_new (*system.clients [0]);
     rai::account new_account;
-    auto iterator2 (system.clients [0]->wallet.begin ());
+    auto iterator2 (system.clients [0]->wallet.store.begin ());
     if (iterator2->first != rai::test_genesis_key.pub)
     {
         new_account = iterator2->first;
     }
     ++iterator2;
-    ASSERT_NE (system.clients [0]->wallet.end (), iterator2);
+    ASSERT_NE (system.clients [0]->wallet.store.end (), iterator2);
     if (iterator2->first != rai::test_genesis_key.pub)
     {
         new_account = iterator2->first;
     }
     ++iterator2;
-    ASSERT_EQ (system.clients [0]->wallet.end (), iterator2);
+    ASSERT_EQ (system.clients [0]->wallet.store.end (), iterator2);
     while (system.clients [0]->ledger.account_balance (new_account) == 0)
     {
         system.service->poll_one ();
@@ -983,7 +983,7 @@ TEST (fork, publish)
         rai::system system (24000, 1);
         client0 = system.clients [0];
         auto & client1 (*system.clients [0]);
-        client1.wallet.insert (rai::test_genesis_key.prv);
+        client1.wallet.store.insert (rai::test_genesis_key.prv);
         rai::keypair key1;
 		rai::genesis genesis;
         std::unique_ptr <rai::send_block> send1 (new rai::send_block);
@@ -1032,7 +1032,7 @@ TEST (ledger, fork_keep)
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());
-	client1.wallet.insert (rai::test_genesis_key.prv);
+	client1.wallet.store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block);
@@ -1088,7 +1088,7 @@ TEST (ledger, fork_flip)
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
     ASSERT_EQ (1, client1.peers.size ());
-    client1.wallet.insert (rai::test_genesis_key.prv);
+    client1.wallet.store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block);
@@ -1145,7 +1145,7 @@ TEST (ledger, fork_multi_flip)
     auto & client1 (*system.clients [0]);
     auto & client2 (*system.clients [1]);
 	ASSERT_EQ (1, client1.peers.size ());
-	client1.wallet.insert (rai::test_genesis_key.prv);
+	client1.wallet.store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block);

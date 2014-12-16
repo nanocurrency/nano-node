@@ -213,18 +213,18 @@ int main ()
             {
                 std::cout << boost::str (boost::format ("Distribution will begin in %1% minutes\n") % (config.last - now));
             }
-            auto wallet_entry (client->wallet.begin ());
-            if (wallet_entry == client->wallet.end ())
+            auto wallet_entry (client->wallet.store.begin ());
+            if (wallet_entry == client->wallet.store.end ())
             {
                 rai::keypair key;
-                client->wallet.insert (key.prv);
-                wallet_entry = client->wallet.begin ();
+                client->wallet.store.insert (key.prv);
+                wallet_entry = client->wallet.store.begin ();
             }
-            assert (wallet_entry != client->wallet.end ());
+            assert (wallet_entry != client->wallet.store.end ());
             std::string landing_account;
             wallet_entry->first.encode_base58check (landing_account);
             ++wallet_entry;
-            assert (wallet_entry == client->wallet.end ());
+            assert (wallet_entry == client->wallet.store.end ());
             std::cout << boost::str (boost::format ("Landing account: %1%\n") % landing_account);
             std::cout << "Type a line to start\n";
             std::string line;
