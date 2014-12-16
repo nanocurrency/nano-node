@@ -977,7 +977,6 @@ wallet (init_a.wallet_init, *this, application_path_a / "wallet"),
 network (*service_a, port_a, *this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
-transactions (*this),
 peers (network.endpoint ()),
 service (processor_a)
 {
@@ -1456,11 +1455,6 @@ size_t rai::processor_service::size ()
     return operations.size ();
 }
 
-bool rai::client::send (rai::account const & account, rai::uint128_t const & amount_a)
-{
-    return transactions.send (account, amount_a);
-}
-
 rai::system::system (uint16_t port_a, size_t count_a) :
 service (new boost::asio::io_service)
 {
@@ -1915,7 +1909,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         auto error (amount.decode_dec (amount_text));
                         if (!error)
                         {
-                            auto error (client.send (account, amount.number ()));
+                            auto error (client.wallet.send (account, amount.number ()));
                             boost::property_tree::ptree response_l;
                             response_l.put ("sent", error ? "0" : "1");
                             set_response (response, response_l);
@@ -1952,7 +1946,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         {
                             uint64_t amount_number (std::stoull (amount_text));
                             auto amount (rai::scale_up (amount_number));
-                            auto error (client.send (account, amount));
+                            auto error (client.wallet.send (account, amount));
                             boost::property_tree::ptree response_l;
                             response_l.put ("sent", error ? "0" : "1");
                             set_response (response, response_l);
@@ -3803,14 +3797,14 @@ void rai::system::generate_send_existing (rai::client & client_a)
         entry = client_a.store.latest_begin ();
     }
     assert (entry != client_a.store.latest_end ());
-    client_a.send (entry->first, get_random_amount (client_a));
+    client_a.wallet.send (entry->first, get_random_amount (client_a));
 }
 
 void rai::system::generate_send_new (rai::client & client_a)
 {
     rai::keypair key;
     client_a.wallet.store.insert (key.prv);
-    client_a.send (key.pub, get_random_amount (client_a));
+    client_a.wallet.send (key.pub, get_random_amount (client_a));
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::client & client_a)
@@ -3841,12 +3835,7 @@ rai::uint128_t rai::wallet_store::balance (rai::ledger & ledger_a)
     return result;
 }
 
-rai::transactions::transactions (rai::client & client_a) :
-client (client_a)
-{
-}
-
-bool rai::transactions::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
+bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto hash (send_a.hash ());
@@ -3885,7 +3874,7 @@ bool rai::transactions::receive (rai::send_block const & send_a, rai::private_ke
     return result;
 }
 
-bool rai::transactions::send (rai::account const & account_a, rai::uint128_t const & amount_a)
+bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & amount_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::send_block>> blocks;
@@ -4135,7 +4124,7 @@ public:
         rai::private_key prv;
         if (!client.wallet.store.fetch (block_a.hashables.destination, prv))
         {
-            auto error (client.transactions.receive (block_a, prv, client.wallet.store.representative ()));
+            auto error (client.wallet.receive (block_a, prv, client.wallet.store.representative ()));
             prv.clear ();
         }
         else
@@ -4233,12 +4222,6 @@ bool rai::wallet_store::valid_password ()
 void rai::wallet_store::enter_password (std::string const & password_a)
 {
     password.value_set (derive_key (password_a));
-}
-
-bool rai::transactions::rekey (std::string const & password_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-    return client.wallet.store.rekey (password_a);
 }
 
 bool rai::wallet_store::rekey (std::string const & password_a)

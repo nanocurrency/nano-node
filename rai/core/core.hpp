@@ -334,6 +334,10 @@ class wallet
 {
 public:
     wallet (bool &, rai::client &, boost::filesystem::path const &);
+    bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
+    bool send (rai::account const &, rai::uint128_t const &);
+    void vote (rai::vote const &);
+    std::mutex mutex;
     rai::wallet_store store;
     rai::client & client;
 };
@@ -418,17 +422,6 @@ public:
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
     std::mutex mutex;
-};
-class transactions
-{
-public:
-    transactions (rai::client &);
-    bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
-    bool send (rai::account const &, rai::uint128_t const &);
-    void vote (rai::vote const &);
-    bool rekey (std::string const &);
-    std::mutex mutex;
-    rai::client & client;
 };
 class block_path : public rai::block_visitor
 {
@@ -684,7 +677,6 @@ public:
     client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &);
     client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &);
     ~client ();
-    bool send (rai::public_key const &, rai::uint128_t const &);
     void send_keepalive (rai::endpoint const &);
     void start ();
     void stop ();
@@ -700,7 +692,6 @@ public:
     rai::network network;
     rai::bootstrap_listener bootstrap;
     rai::processor processor;
-    rai::transactions transactions;
     rai::peer_container peers;
     rai::processor_service & service;
     std::vector <std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)>> send_observers;

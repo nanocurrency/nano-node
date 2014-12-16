@@ -100,7 +100,7 @@ send_blocks_back (new QPushButton ("Back"))
                 auto parse_error (account.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-                    auto send_error (client_m.send (account, coins));
+                    auto send_error (client_m.wallet.send (account, coins));
                     if (!send_error)
                     {
                         QPalette palette;
@@ -247,7 +247,7 @@ client (client_a)
         {
             if (password->text () == retype->text ())
             {
-                client.client_m.transactions.rekey (std::string (password->text ().toLocal8Bit ()));
+                client.client_m.wallet.store.rekey (std::string (password->text ().toLocal8Bit ()));
                 clear ();
             }
             else
