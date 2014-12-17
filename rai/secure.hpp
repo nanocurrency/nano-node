@@ -62,6 +62,7 @@ namespace rai
         bool decode_dec (std::string const &);
         rai::uint128_t number () const;
         void clear ();
+        bool is_zero () const;
 		std::array <uint8_t, 16> bytes;
         std::array <char, 16> chars;
         std::array <uint32_t, 4> dwords;
@@ -336,6 +337,7 @@ namespace rai
 		void serialize (rai::stream &) const;
 		bool deserialize (rai::stream &);
 		bool operator == (rai::frontier const &) const;
+        bool operator != (rai::frontier const &) const;
 		rai::uint256_union hash;
 		rai::account representative;
 		rai::uint128_union balance;

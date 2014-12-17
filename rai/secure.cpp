@@ -357,6 +357,11 @@ void rai::uint128_union::clear ()
     qwords.fill (0);
 }
 
+bool rai::uint128_union::is_zero () const
+{
+    return qwords [0] == 0 && qwords [1] == 0;
+}
+
 bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const
 {
 	return bytes == other_a.bytes;
@@ -1514,6 +1519,11 @@ bool rai::frontier::deserialize (rai::stream & stream_a)
 bool rai::frontier::operator == (rai::frontier const & other_a) const
 {
     return hash == other_a.hash && representative == other_a.representative && balance == other_a.balance && time == other_a.time;
+}
+
+bool rai::frontier::operator != (rai::frontier const & other_a) const
+{
+    return ! (*this == other_a);
 }
 
 rai::account_entry * rai::account_entry::operator -> ()

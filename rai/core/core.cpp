@@ -615,6 +615,95 @@ client (client_a)
 {
 }
 
+bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    auto hash (send_a.hash ());
+    bool result;
+    if (client.ledger.store.pending_exists (hash))
+    {
+        rai::frontier frontier;
+        auto new_account (client.ledger.store.latest_get (send_a.hashables.destination, frontier));
+        std::unique_ptr <rai::block> block;
+        if (new_account)
+        {
+            auto open (new rai::open_block);
+            open->hashables.source = hash;
+            open->hashables.representative = representative_a;
+            open->work = client.ledger.create_work (*open);
+            rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
+            block.reset (open);
+        }
+        else
+        {
+            auto receive (new rai::receive_block);
+            receive->hashables.previous = frontier.hash;
+            receive->hashables.source = hash;
+            receive->work = client.ledger.create_work (*receive);
+            rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
+            block.reset (receive);
+        }
+        client.processor.process_receive_republish (std::move (block), rai::endpoint {});
+        result = false;
+    }
+    else
+    {
+        result = true;
+        // Ledger doesn't have this marked as available to receive anymore
+    }
+    return result;
+}
+
+bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & amount_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    std::vector <std::unique_ptr <rai::send_block>> blocks;
+    auto result (!client.wallet.store.valid_password ());
+    if (!result)
+    {
+        rai::uint128_t remaining (amount_a);
+        for (auto i (store.begin ()), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
+        {
+            auto account (i->first);
+            auto balance (client.ledger.account_balance (account));
+            if (!balance.is_zero ())
+            {
+                rai::frontier frontier;
+                result = client.ledger.store.latest_get (account, frontier);
+                assert (!result);
+                auto amount (std::min (remaining, balance));
+                remaining -= amount;
+                std::unique_ptr <rai::send_block> block (new rai::send_block);
+                block->hashables.destination = account_a;
+                block->hashables.previous = frontier.hash;
+                block->hashables.balance = balance - amount;
+                block->work = client.ledger.create_work (*block);
+                rai::private_key prv;
+                result = store.fetch (account, prv);
+                assert (!result);
+                sign_message (prv, account, block->hash (), block->signature);
+                prv.clear ();
+                blocks.push_back (std::move (block));
+            }
+        }
+        if (!remaining.is_zero ())
+        {
+            // Destroy the sends because they're signed and we're not going to use them.
+            result = true;
+            blocks.clear ();
+        }
+        for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+        {
+            client.processor.process_receive_republish (std::move (*i), rai::endpoint {});
+        }
+    }
+    else
+    {
+        BOOST_LOG (client.log) << "Wallet key is invalid";
+    }
+    return result;
+}
+
 rai::wallets::wallets (boost::filesystem::path const & path_a) :
 path (path_a)
 {
@@ -779,44 +868,6 @@ rai::key_iterator & rai::key_iterator::operator = (rai::key_iterator && other_a)
     iterator = std::move (other_a.iterator);
     current = other_a.current;
     return *this;
-}
-
-// Generate a set of sends that totals the amount requested.
-bool rai::wallet_store::generate_send (rai::ledger & ledger_a, rai::public_key const & destination, rai::uint128_t const & amount_a, std::vector <std::unique_ptr <rai::send_block>> & blocks)
-{
-    bool result (false);
-    rai::uint128_t remaining (amount_a);
-    for (auto i (begin ()), j (end ()); i != j && !result && !remaining.is_zero (); ++i)
-    {
-        auto account (i->first);
-        auto balance (ledger_a.account_balance (account));
-        if (!balance.is_zero ())
-        {
-            rai::frontier frontier;
-            result = ledger_a.store.latest_get (account, frontier);
-            assert (!result);
-            auto amount (std::min (remaining, balance));
-            remaining -= amount;
-            std::unique_ptr <rai::send_block> block (new rai::send_block);
-            block->hashables.destination = destination;
-            block->hashables.previous = frontier.hash;
-            block->hashables.balance = balance - amount;
-            block->work = ledger_a.create_work (*block);
-            rai::private_key prv;
-            result = fetch (account, prv);
-            assert (!result);
-            sign_message (prv, account, block->hash (), block->signature);
-            prv.clear ();
-            blocks.push_back (std::move (block));
-        }
-    }
-    if (!remaining.is_zero ())
-    {
-        // Destroy the sends because they're signed and we're not going to use them.
-        result = true;
-        blocks.clear ();
-    }
-    return result;
 }
 
 void rai::processor_service::run ()
@@ -3831,68 +3882,6 @@ rai::uint128_t rai::wallet_store::balance (rai::ledger & ledger_a)
         auto pub (i->first);
         auto account_balance (ledger_a.account_balance (pub));
         result += account_balance;
-    }
-    return result;
-}
-
-bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    auto hash (send_a.hash ());
-    bool result;
-    if (client.ledger.store.pending_exists (hash))
-    {
-        rai::frontier frontier;
-        auto new_account (client.ledger.store.latest_get (send_a.hashables.destination, frontier));
-        std::unique_ptr <rai::block> block;
-        if (new_account)
-        {
-            auto open (new rai::open_block);
-            open->hashables.source = hash;
-            open->hashables.representative = representative_a;
-            open->work = client.ledger.create_work (*open);
-            rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
-            block.reset (open);
-        }
-        else
-        {
-            auto receive (new rai::receive_block);
-            receive->hashables.previous = frontier.hash;
-            receive->hashables.source = hash;
-            receive->work = client.ledger.create_work (*receive);
-            rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
-            block.reset (receive);
-        }
-        client.processor.process_receive_republish (std::move (block), rai::endpoint {});
-        result = false;
-    }
-    else
-    {
-        result = true;
-        // Ledger doesn't have this marked as available to receive anymore
-    }
-    return result;
-}
-
-bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & amount_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    std::vector <std::unique_ptr <rai::send_block>> blocks;
-    auto result (!client.wallet.store.valid_password ());
-    if (!result)
-    {
-        result = client.wallet.store.generate_send (client.ledger, account_a, amount_a, blocks);
-        if (!result)
-        {
-            for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
-            {
-                client.processor.process_receive_republish (std::move (*i), rai::endpoint {});
-            }
-        }
-    }
-    else
-    {
-        BOOST_LOG (client.log) << "Wallet key is invalid";
     }
     return result;
 }

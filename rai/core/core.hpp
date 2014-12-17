@@ -309,7 +309,6 @@ public:
     void insert (rai::private_key const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
-    bool generate_send (rai::ledger &, rai::public_key const &, rai::uint128_t const &, std::vector <std::unique_ptr <rai::send_block>> &);
     key_iterator find (rai::uint256_union const &);
     key_iterator begin ();
     key_iterator end ();
@@ -336,7 +335,6 @@ public:
     wallet (bool &, rai::client &, boost::filesystem::path const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
     bool send (rai::account const &, rai::uint128_t const &);
-    void vote (rai::vote const &);
     std::mutex mutex;
     rai::wallet_store store;
     rai::client & client;
