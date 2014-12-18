@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-rai_qt::client::client (QApplication & application_a, rai::client & client_a) :
+rai_qt::client::client (QApplication & application_a, rai::client & client_a, rai::uint256_union const & wallet_a) :
 client_m (client_a),
 password_change (*this),
 enter_password (*this),
@@ -34,6 +34,11 @@ send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back"))
 {
+    wallet = client_m.wallets.open (wallet_a);
+    if (wallet == nullptr)
+    {
+        wallet = client_m.wallets.create (wallet_a);
+    }
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
     send_blocks_layout->addWidget (send_count_label);
@@ -100,7 +105,7 @@ send_blocks_back (new QPushButton ("Back"))
                 auto parse_error (account.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-                    auto send_error (client_m.wallet.send (account, coins));
+                    auto send_error (wallet->send (account, coins));
                     if (!send_error)
                     {
                         QPalette palette;
@@ -149,26 +154,26 @@ send_blocks_back (new QPushButton ("Back"))
     QObject::connect (wallet_add_account, &QPushButton::released, [this] ()
     {
         rai::keypair key;
-        client_m.wallet.store.insert (key.prv);
+        wallet->store.insert (key.prv);
         refresh_wallet ();
     });
     client_m.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
     {
-        if (client_m.wallet.store.exists (account_a))
+        if (wallet->store.exists (account_a))
         {
             refresh_wallet ();
         }
     });
     client_m.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
     {
-        if (client_m.wallet.store.exists (account_a))
+        if (wallet->store.exists (account_a))
         {
             refresh_wallet ();
         }
     });
     client_m.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
     {
-        if (client_m.wallet.store.exists (account_a))
+        if (wallet->store.exists (account_a))
         {
             refresh_wallet ();
         }
@@ -180,7 +185,7 @@ void rai_qt::client::refresh_wallet ()
 {
     rai::uint128_t balance;
 	wallet_model->removeRows (0, wallet_model->rowCount ());
-    for (auto i (client_m.wallet.store.begin ()), j (client_m.wallet.store.end ()); i != j; ++i)
+    for (auto i (wallet->store.begin ()), j (wallet->store.end ()); i != j; ++i)
     {
 		QList <QStandardItem *> items;
         std::string account;
@@ -243,11 +248,11 @@ client (client_a)
     window->setLayout (layout);
     QObject::connect (change, &QPushButton::released, [this] ()
     {
-        if (client.client_m.wallet.store.valid_password ())
+        if (client.wallet->store.valid_password ())
         {
             if (password->text () == retype->text ())
             {
-                client.client_m.wallet.store.rekey (std::string (password->text ().toLocal8Bit ()));
+                client.wallet->store.rekey (std::string (password->text ().toLocal8Bit ()));
                 clear ();
             }
             else
@@ -289,14 +294,14 @@ client (client_a)
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-        client.client_m.wallet.store.enter_password (std::string (password->text ().toLocal8Bit ()));
+        client.wallet->store.enter_password (std::string (password->text ().toLocal8Bit ()));
         update_label ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
     {
         rai::uint256_union empty;
         empty.clear ();
-        client.client_m.wallet.store.password.value_set (empty);
+        client.wallet->store.password.value_set (empty);
         update_label ();
     });
 }
@@ -309,7 +314,7 @@ void rai_qt::enter_password::activate ()
 
 void rai_qt::enter_password::update_label ()
 {
-    if (client.client_m.wallet.store.valid_password ())
+    if (client.wallet->store.valid_password ())
     {
         valid->setStyleSheet ("QLabel { color: black }");
         valid->setText ("Password: Valid");
@@ -440,7 +445,7 @@ client (client_a)
           palette.setColor (QPalette::Text, Qt::black);
           wallet_key_line->setPalette (palette);
           wallet_key_line->clear ();
-          client.client_m.wallet.store.insert (key);
+          client.wallet->store.insert (key);
           client.refresh_wallet ();
       }
       else
@@ -722,7 +727,7 @@ void rai_qt::block_creation::create_send ()
             if (!error)
             {
                 rai::private_key key;
-                if (!client.client_m.wallet.store.fetch (account_l, key))
+                if (!client.wallet->store.fetch (account_l, key))
                 {
                     auto balance (client.client_m.ledger.account_balance (account_l));
                     if (amount_l.number () <= balance)
@@ -788,7 +793,7 @@ void rai_qt::block_creation::create_receive ()
             if (!error)
             {
                 rai::private_key key;
-                auto error (client.client_m.wallet.store.fetch (receivable.destination, key));
+                auto error (client.wallet->store.fetch (receivable.destination, key));
                 if (!error)
                 {
                     rai::receive_block receive;
@@ -843,7 +848,7 @@ void rai_qt::block_creation::create_change ()
             if (!error)
             {
                 rai::private_key key;
-                auto error (client.client_m.wallet.store.fetch (account_l, key));
+                auto error (client.wallet->store.fetch (account_l, key));
                 if (!error)
                 {
                     rai::change_block change (representative_l, frontier.hash, key, account_l);
@@ -898,7 +903,7 @@ void rai_qt::block_creation::create_open ()
                 if (error)
                 {
                     rai::private_key key;
-                    auto error (client.client_m.wallet.store.fetch (receivable.destination, key));
+                    auto error (client.wallet->store.fetch (receivable.destination, key));
                     if (!error)
                     {
                         rai::open_block open;

@@ -129,7 +129,7 @@ namespace rai_qt {
     class client
     {
     public:
-        client (QApplication &, rai::client &);
+        client (QApplication &, rai::client &, rai::uint256_union const &);
         ~client ();
         rai::client & client_m;
         rai_qt::password_change password_change;
@@ -165,5 +165,6 @@ namespace rai_qt {
         void pop_main_stack ();
         void push_main_stack (QWidget *);
         void refresh_wallet ();
+        std::shared_ptr <rai::wallet> wallet;
     };
 }
