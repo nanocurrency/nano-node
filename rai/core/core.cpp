@@ -61,7 +61,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return true;
+        return false;
     }
 }
 
