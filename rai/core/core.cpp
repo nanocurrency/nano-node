@@ -61,7 +61,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -142,7 +142,7 @@ void rai::network::publish_block (boost::asio::ip::udp::endpoint const & endpoin
     {
         BOOST_LOG (client.log) << boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % endpoint_a);
     }
-    if (!confirm_broadcast (std::move (block), 0))
+    if (!confirm_broadcast (block->clone(), 0))
     {
         rai::publish message (std::move (block));
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -1281,7 +1281,7 @@ void rai::election::announce_vote ()
 
 bool rai::network::confirm_broadcast (std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
 {
-    bool result;
+    bool result (false);
     auto list (client.peers.list ());
     for (auto i (client.wallets.items.begin ()), n (client.wallets.items.end ()); i != n; ++i)
     {
@@ -4338,7 +4338,7 @@ void rai::processor::process_confirmed (rai::block const & confirmed_a)
 
 bool rai::client::representative_vote (rai::election & election_a, rai::block const & block_a)
 {
-    bool result;
+    bool result (false);
     for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
         if (i->second->store.is_representative ())
