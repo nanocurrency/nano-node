@@ -2075,7 +2075,8 @@ public:
     // Open blocks have no previous () so we use the account number
     void open_block (rai::open_block const & block_a) override
     {
-        auto source (store.block_get (block_a.source ()));
+        auto hash (block_a.source ());
+        auto source (store.block_get (hash));
         assert (source != nullptr);
         assert (dynamic_cast <rai::send_block *> (source.get ()) != nullptr);
         result = static_cast <rai::send_block *> (source.get ())->hashables.destination;
