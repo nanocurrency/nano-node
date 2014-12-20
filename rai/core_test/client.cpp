@@ -204,14 +204,6 @@ TEST (client, auto_bootstrap)
     ASSERT_FALSE (init1.error ());
     client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
-    auto iterations1 (0);
-    do
-    {
-        system.service->poll_one ();
-        system.processor.poll_one ();
-        ++iterations1;
-        ASSERT_LT (iterations1, 200);
-    } while (system.clients [0]->ledger.account_balance (key2.pub) != 100);
     ASSERT_NE (nullptr, client1->processor.bootstrapped);
     ASSERT_EQ (0, client1->processor.bootstrapped->size ());
     ASSERT_NE (nullptr, system.clients [0]->processor.bootstrapped);
@@ -343,7 +335,7 @@ TEST (client, connect_after_junk)
     uint64_t junk;
     client1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.clients [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);
-    while (system.clients [0]->network.unknown_count == 0)
+    while (system.clients [0]->network.parser.unknown_count == 0)
     {
         system.service->poll_one ();
         system.processor.poll_one ();

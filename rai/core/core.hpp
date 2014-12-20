@@ -492,6 +492,29 @@ public:
     std::unordered_map <rai::account, rai::block_hash>::iterator end;
     std::vector <std::unique_ptr <rai::block>> path;
 };
+class message_parser
+{
+public:
+    message_parser (rai::client &);
+    void deserialize_buffer (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_keepalive (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_publish (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_confirm_req (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_confirm_ack (uint8_t const *, size_t, rai::endpoint const &);
+    void deserialize_confirm_unk (uint8_t const *, size_t, rai::endpoint const &);
+    bool at_end (rai::bufferstream &);
+    uint64_t keepalive_count;
+    uint64_t publish_count;
+    uint64_t confirm_req_count;
+    uint64_t confirm_ack_count;
+    uint64_t confirm_unk_count;
+    uint64_t unknown_count;
+    uint64_t error_count;
+    uint64_t insufficient_work_count;
+    rai::work work;
+    std::mutex work_mutex;
+    rai::client & client;
+};
 class network
 {
 public:
@@ -499,13 +522,6 @@ public:
     void receive ();
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
-    void deserialize_buffer (uint8_t const *, size_t);
-    void deserialize_keepalive (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_publish (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_confirm_req (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_confirm_ack (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_confirm_unk (uint8_t const *, size_t, rai::endpoint const &);
-    bool at_end (rai::bufferstream &);
     void rpc_action (boost::system::error_code const &, size_t);
     void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
     bool confirm_broadcast (std::unique_ptr <rai::block>, uint64_t);
@@ -515,26 +531,17 @@ public:
     void send_confirm_req (rai::endpoint const &, rai::block const &);
     void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
     void send_complete (boost::system::error_code const &, size_t);
+    rai::message_parser parser;
     rai::endpoint endpoint ();
     rai::endpoint remote;
     std::array <uint8_t, 512> buffer;
-    rai::work work;
-    std::mutex work_mutex;
     boost::asio::ip::udp::socket socket;
     std::mutex socket_mutex;
     boost::asio::io_service & service;
     boost::asio::ip::udp::resolver resolver;
     rai::client & client;
-    std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
-    uint64_t keepalive_count;
-    uint64_t publish_count;
-    uint64_t confirm_req_count;
-    uint64_t confirm_ack_count;
-    uint64_t confirm_unk_count;
     uint64_t bad_sender_count;
-    uint64_t unknown_count;
-    uint64_t error_count;
-    uint64_t insufficient_work_count;
+    std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
     bool on;
 };
 class bootstrap_listener

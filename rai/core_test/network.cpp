@@ -72,11 +72,11 @@ TEST (network, send_keepalive)
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     client1->start ();
     system.clients [0]->network.send_keepalive (client1->network.endpoint ());
-    auto initial (system.clients [0]->network.keepalive_count);
+    auto initial (system.clients [0]->network.parser.keepalive_count);
     ASSERT_EQ (0, system.clients [0]->peers.list ().size ());
     ASSERT_EQ (0, client1->peers.list ().size ());
     auto iterations (0);
-    while (system.clients [0]->network.keepalive_count == initial)
+    while (system.clients [0]->network.parser.keepalive_count == initial)
     {
         system.service->poll_one ();
         ++iterations;
@@ -100,9 +100,9 @@ TEST (network, keepalive_ipv4)
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     client1->start ();
     client1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
-    auto initial (system.clients [0]->network.keepalive_count);
+    auto initial (system.clients [0]->network.parser.keepalive_count);
     auto iterations (0);
-    while (system.clients [0]->network.keepalive_count == initial)
+    while (system.clients [0]->network.parser.keepalive_count == initial)
     {
         system.service->poll_one ();
         ++iterations;
@@ -201,7 +201,7 @@ TEST (network, send_discarded_publish)
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
     auto iterations (0);
-    while (system.clients [1]->network.publish_count == 0)
+    while (system.clients [1]->network.parser.publish_count == 0)
     {
         system.service->poll_one ();
         ++iterations;
@@ -224,7 +224,7 @@ TEST (network, send_invalid_publish)
     ASSERT_EQ (genesis.hash (), system.clients [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.clients [1]->ledger.latest (rai::test_genesis_key.pub));
     auto iterations (0);
-    while (system.clients [1]->network.publish_count == 0)
+    while (system.clients [1]->network.parser.publish_count == 0)
     {
         system.service->poll_one ();
         ++iterations;
@@ -253,7 +253,7 @@ TEST (network, send_valid_confirm_ack)
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
     auto iterations (0);
-    while (system.clients [1]->network.confirm_ack_count == 0)
+    while (system.clients [1]->network.parser.confirm_ack_count == 0)
     {
         system.service->poll_one ();
         ++iterations;
@@ -285,7 +285,7 @@ TEST (network, send_valid_publish)
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     system.clients [1]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
     auto iterations (0);
-    while (system.clients [0]->network.publish_count == 0)
+    while (system.clients [0]->network.parser.publish_count == 0)
     {
         system.service->poll_one ();
         ++iterations;
@@ -313,15 +313,15 @@ TEST (network, send_insufficient_work)
     }
     auto client (system.clients [1]->shared ());
     system.clients [0]->network.send_buffer (bytes->data (), bytes->size (), system.clients [1]->network.endpoint (), [bytes, client] (boost::system::error_code const & ec, size_t size) {});
-    ASSERT_EQ (0, system.clients [0]->network.insufficient_work_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.insufficient_work_count);
     auto iterations (0);
-    while (system.clients [1]->network.insufficient_work_count == 0)
+    while (system.clients [1]->network.parser.insufficient_work_count == 0)
     {
         system.service->poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (1, system.clients [1]->network.insufficient_work_count);
+    ASSERT_EQ (1, system.clients [1]->network.parser.insufficient_work_count);
 }
 
 TEST (receivable_processor, confirm_insufficient_pos)
@@ -1499,15 +1499,15 @@ TEST (network, exact_confirm_unk_size)
         rai::vectorstream stream (bytes);
         message.serialize (stream);
     }
-    ASSERT_EQ (0, system.clients [0]->network.confirm_unk_count);
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
-    system.clients [0]->network.deserialize_confirm_unk (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_EQ (1, system.clients [0]->network.confirm_unk_count);
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.confirm_unk_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
+    system.clients [0]->network.parser.deserialize_confirm_unk (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_EQ (1, system.clients [0]->network.parser.confirm_unk_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
-    system.clients [0]->network.deserialize_confirm_unk (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_EQ (1, system.clients [0]->network.confirm_unk_count);
-    ASSERT_EQ (1, system.clients [0]->network.error_count);
+    system.clients [0]->network.parser.deserialize_confirm_unk (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_EQ (1, system.clients [0]->network.parser.confirm_unk_count);
+    ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }
 
 TEST (network, exact_confirm_ack_size)
@@ -1519,15 +1519,15 @@ TEST (network, exact_confirm_ack_size)
         rai::vectorstream stream (bytes);
         message.serialize (stream);
     }
-    ASSERT_EQ (0, system.clients [0]->network.confirm_ack_count);
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
-    system.clients [0]->network.deserialize_confirm_ack (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.confirm_ack_count == 1) != (system.clients [0]->network.insufficient_work_count == 1));
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.confirm_ack_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
+    system.clients [0]->network.parser.deserialize_confirm_ack (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_ack_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
-    system.clients [0]->network.deserialize_confirm_ack (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.confirm_ack_count == 1) != (system.clients [0]->network.insufficient_work_count == 1));
-    ASSERT_EQ (1, system.clients [0]->network.error_count);
+    system.clients [0]->network.parser.deserialize_confirm_ack (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_ack_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }
 
 TEST (network, exact_confirm_req_size)
@@ -1539,15 +1539,15 @@ TEST (network, exact_confirm_req_size)
         rai::vectorstream stream (bytes);
         message.serialize (stream);
     }
-    ASSERT_EQ (0, system.clients [0]->network.confirm_req_count);
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
-    system.clients [0]->network.deserialize_confirm_req (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.confirm_req_count == 1) != (system.clients [0]->network.insufficient_work_count == 1));
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.confirm_req_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
+    system.clients [0]->network.parser.deserialize_confirm_req (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_req_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
-    system.clients [0]->network.deserialize_confirm_req (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.confirm_req_count == 1) != (system.clients [0]->network.insufficient_work_count == 1));
-    ASSERT_EQ (1, system.clients [0]->network.error_count);
+    system.clients [0]->network.parser.deserialize_confirm_req (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_req_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }
 
 TEST (network, exact_publish_size)
@@ -1559,15 +1559,15 @@ TEST (network, exact_publish_size)
         rai::vectorstream stream (bytes);
         message.serialize (stream);
     }
-    ASSERT_EQ (0, system.clients [0]->network.publish_count);
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
-    system.clients [0]->network.deserialize_publish (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.publish_count == 1) != (system.clients [0]->network.insufficient_work_count == 1));
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.publish_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
+    system.clients [0]->network.parser.deserialize_publish (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_TRUE ((system.clients [0]->network.parser.publish_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
-    system.clients [0]->network.deserialize_publish (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.publish_count == 1) != (system.clients [0]->network.insufficient_work_count == 1));
-    ASSERT_EQ (1, system.clients [0]->network.error_count);
+    system.clients [0]->network.parser.deserialize_publish (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_TRUE ((system.clients [0]->network.parser.publish_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }
 
 TEST (network, exact_keepalive_size)
@@ -1579,13 +1579,13 @@ TEST (network, exact_keepalive_size)
         rai::vectorstream stream (bytes);
         message.serialize (stream);
     }
-    ASSERT_EQ (0, system.clients [0]->network.keepalive_count);
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
-    system.clients [0]->network.deserialize_keepalive (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_EQ (1, system.clients [0]->network.keepalive_count);
-    ASSERT_EQ (0, system.clients [0]->network.error_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.keepalive_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
+    system.clients [0]->network.parser.deserialize_keepalive (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_EQ (1, system.clients [0]->network.parser.keepalive_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
-    system.clients [0]->network.deserialize_keepalive (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_EQ (1, system.clients [0]->network.keepalive_count);
-    ASSERT_EQ (1, system.clients [0]->network.error_count);
+    system.clients [0]->network.parser.deserialize_keepalive (bytes.data (), bytes.size (), rai::endpoint ());
+    ASSERT_EQ (1, system.clients [0]->network.parser.keepalive_count);
+    ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }

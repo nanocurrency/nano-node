@@ -65,25 +65,232 @@ namespace
     }
 }
 
-std::chrono::seconds constexpr rai::processor::period;
-std::chrono::seconds constexpr rai::processor::cutoff;
-std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
-
-rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
-work (rai::block::publish_work),
-socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
-service (service_a),
-resolver (service_a),
-client (client_a),
+rai::message_parser::message_parser (rai::client & client_a) :
 keepalive_count (0),
 publish_count (0),
 confirm_req_count (0),
 confirm_ack_count (0),
 confirm_unk_count (0),
-bad_sender_count (0),
 unknown_count (0),
 error_count (0),
 insufficient_work_count (0),
+work (rai::block::publish_work),
+client (client_a)
+{
+}
+
+void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender)
+{
+    rai::bufferstream header_stream (buffer_a, size_a);
+    uint8_t version_max;
+    uint8_t version_using;
+    uint8_t version_min;
+    rai::message_type type;
+    std::bitset <16> extensions;
+    if (!rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions))
+    {
+        client.processor.contacted (sender);
+        switch (type)
+        {
+            case rai::message_type::keepalive:
+            {
+                deserialize_keepalive (buffer_a, size_a, sender);
+                break;
+            }
+            case rai::message_type::publish:
+            {
+                deserialize_publish (buffer_a, size_a, sender);
+                break;
+            }
+            case rai::message_type::confirm_req:
+            {
+                deserialize_confirm_req (buffer_a, size_a, sender);
+                break;
+            }
+            case rai::message_type::confirm_ack:
+            {
+                deserialize_confirm_ack (buffer_a, size_a, sender);
+                break;
+            }
+            case rai::message_type::confirm_unk:
+            {
+                deserialize_confirm_unk (buffer_a, size_a, sender);
+                break;
+            }
+            default:
+            {
+                if (network_packet_logging ())
+                {
+                    BOOST_LOG (client.log) << "Unknown packet received";
+                }
+                ++unknown_count;
+                break;
+            }
+        }
+    }
+    else
+    {
+        if (network_logging ())
+        {
+            BOOST_LOG (client.log) << "Unable to parse message header";
+        }
+        ++unknown_count;
+    }
+}
+
+void rai::message_parser::deserialize_keepalive (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
+{
+    if (network_packet_logging ())
+    {
+        BOOST_LOG (client.log) <<  "Keepalive packet received";
+    }
+    rai::keepalive incoming;
+    rai::bufferstream stream (buffer_a, size_a);
+    auto error (incoming.deserialize (stream));
+    if (!error && at_end (stream))
+    {
+        ++keepalive_count;
+        client.processor.process_message (incoming, sender_a);
+    }
+    else
+    {
+        ++error_count;
+    }
+}
+
+void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
+{
+    if (network_packet_logging ())
+    {
+        BOOST_LOG (client.log) << "Publish packet received";
+    }
+    rai::publish incoming;
+    rai::bufferstream stream (buffer_a, size_a);
+    auto error (incoming.deserialize (stream));
+    if (!error && at_end (stream))
+    {
+        std::lock_guard <std::mutex> lock (work_mutex);
+        if (!work.validate (client.store.root (*incoming.block), incoming.block->block_work ()))
+        {
+            ++publish_count;
+            client.processor.process_message (incoming, sender_a);
+        }
+        else
+        {
+            ++insufficient_work_count;
+            if (insufficient_work_logging ())
+            {
+                BOOST_LOG (client.log) << "Insufficient work for publish";
+            }
+        }
+    }
+    else
+    {
+        ++error_count;
+    }
+}
+
+void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
+{
+    if (network_packet_logging ())
+    {
+        BOOST_LOG (client.log) << "Confirm req packet received";
+    }
+    rai::confirm_req incoming;
+    rai::bufferstream stream (buffer_a, size_a);
+    auto error (incoming.deserialize (stream));
+    if (!error && at_end (stream))
+    {
+        std::lock_guard <std::mutex> lock (work_mutex);
+        if (!work.validate (client.store.root (*incoming.block), incoming.block->block_work ()))
+        {
+            ++confirm_req_count;
+            client.processor.process_message (incoming, sender_a);
+        }
+        else
+        {
+            ++insufficient_work_count;
+            if (insufficient_work_logging ())
+            {
+                BOOST_LOG (client.log) << "Insufficient work for confirm_req";
+            }
+        }
+    }
+    else
+    {
+        ++error_count;
+    }
+}
+
+void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
+{
+    if (network_packet_logging ())
+    {
+        BOOST_LOG (client.log) <<  "Confirm ack packet received";
+    }
+    rai::confirm_ack incoming;
+    rai::bufferstream stream (buffer_a, size_a);
+    auto error (incoming.deserialize (stream));
+    if (!error && at_end (stream))
+    {
+        std::lock_guard <std::mutex> lock (work_mutex);
+        if (!work.validate (client.store.root (*incoming.vote.block), incoming.vote.block->block_work ()))
+        {
+            ++confirm_ack_count;
+            client.processor.process_message (incoming, sender_a);
+        }
+        else
+        {
+            ++insufficient_work_count;
+            if (insufficient_work_logging ())
+            {
+                BOOST_LOG (client.log) << "Insufficient work for confirm_ack";
+            }
+        }
+    }
+    else
+    {
+        ++error_count;
+    }
+}
+
+void rai::message_parser::deserialize_confirm_unk (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
+{
+    if (network_packet_logging ())
+    {
+        BOOST_LOG (client.log) <<  "Confirm unk packet received";
+    }
+    rai::confirm_unk incoming;
+    rai::bufferstream stream (buffer_a, size_a);
+    auto error (incoming.deserialize (stream));
+    if (!error && at_end (stream))
+    {
+        ++confirm_unk_count;
+    }
+    else
+    {
+        ++error_count;
+    }
+}
+
+bool rai::message_parser::at_end (rai::bufferstream & stream_a)
+{
+    uint8_t junk;
+    auto end (rai::read (stream_a, junk));
+    return end;
+}
+
+std::chrono::seconds constexpr rai::processor::period;
+std::chrono::seconds constexpr rai::processor::cutoff;
+std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
+
+rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
+parser (client_a),
+socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
+service (service_a),
+resolver (service_a),
+client (client_a),
+bad_sender_count (0),
 on (true)
 {
 }
@@ -195,7 +402,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     {
         if (!rai::reserved_address (remote) && remote != endpoint ())
         {
-            deserialize_buffer (buffer.data (), size_a);
+            parser.deserialize_buffer (buffer.data (), size_a, remote);
         }
         else
         {
@@ -204,8 +411,8 @@ void rai::network::receive_action (boost::system::error_code const & error, size
                 BOOST_LOG (client.log) << "Reserved sender";
             }
             ++bad_sender_count;
-            receive ();
         }
+        receive ();
     }
     else
     {
@@ -215,215 +422,6 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         }
         client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
     }
-}
-
-void rai::network::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
-{
-    rai::bufferstream header_stream (buffer_a, size_a);
-    uint8_t version_max;
-    uint8_t version_using;
-    uint8_t version_min;
-    rai::message_type type;
-    std::bitset <16> extensions;
-    if (!rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions))
-    {
-        auto sender (remote);
-        client.processor.contacted (sender);
-        switch (type)
-        {
-            case rai::message_type::keepalive:
-            {
-                deserialize_keepalive (buffer_a, size_a, sender);
-                break;
-            }
-            case rai::message_type::publish:
-            {
-                deserialize_publish (buffer_a, size_a, sender);
-                break;
-            }
-            case rai::message_type::confirm_req:
-            {
-                deserialize_confirm_req (buffer_a, size_a, sender);
-                break;
-            }
-            case rai::message_type::confirm_ack:
-            {
-                deserialize_confirm_ack (buffer_a, size_a, sender);
-                break;
-            }
-            case rai::message_type::confirm_unk:
-            {
-                deserialize_confirm_unk (buffer_a, size_a, sender);
-                break;
-            }
-            default:
-            {
-                if (network_packet_logging ())
-                {
-                    BOOST_LOG (client.log) << "Unknown packet received";
-                }
-                ++unknown_count;
-                receive ();
-                break;
-            }
-        }
-    }
-    else
-    {
-        if (network_logging ())
-        {
-            BOOST_LOG (client.log) << "Unable to parse message header";
-        }
-        ++unknown_count;
-        receive ();
-    }
-}
-
-void rai::network::deserialize_keepalive (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
-{
-    if (network_packet_logging ())
-    {
-        BOOST_LOG (client.log) <<  "Keepalive packet received";
-    }
-    rai::keepalive incoming;
-    rai::bufferstream stream (buffer_a, size_a);
-    auto error (incoming.deserialize (stream));
-    receive ();
-    if (!error && at_end (stream))
-    {
-        ++keepalive_count;
-        client.processor.process_message (incoming, sender_a);
-    }
-    else
-    {
-        ++error_count;
-    }
-}
-
-void rai::network::deserialize_publish (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
-{
-    if (network_packet_logging ())
-    {
-        BOOST_LOG (client.log) << "Publish packet received";
-    }
-    rai::publish incoming;
-    rai::bufferstream stream (buffer_a, size_a);
-    auto error (incoming.deserialize (stream));
-    receive ();
-    if (!error && at_end (stream))
-    {
-        std::lock_guard <std::mutex> lock (work_mutex);
-        if (!work.validate (client.store.root (*incoming.block), incoming.block->block_work ()))
-        {
-            ++publish_count;
-            client.processor.process_message (incoming, sender_a);
-        }
-        else
-        {
-            ++insufficient_work_count;
-            if (insufficient_work_logging ())
-            {
-                BOOST_LOG (client.log) << "Insufficient work for publish";
-            }
-        }
-    }
-    else
-    {
-        ++error_count;
-    }
-}
-
-void rai::network::deserialize_confirm_req (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
-{
-    if (network_packet_logging ())
-    {
-        BOOST_LOG (client.log) << "Confirm req packet received";
-    }
-    rai::confirm_req incoming;
-    rai::bufferstream stream (buffer_a, size_a);
-    auto error (incoming.deserialize (stream));
-    receive ();
-    if (!error && at_end (stream))
-    {
-        std::lock_guard <std::mutex> lock (work_mutex);
-        if (!work.validate (client.store.root (*incoming.block), incoming.block->block_work ()))
-        {
-            ++confirm_req_count;
-            client.processor.process_message (incoming, sender_a);
-        }
-        else
-        {
-            ++insufficient_work_count;
-            if (insufficient_work_logging ())
-            {
-                BOOST_LOG (client.log) << "Insufficient work for confirm_req";
-            }
-        }
-    }
-    else
-    {
-        ++error_count;
-    }
-}
-
-void rai::network::deserialize_confirm_ack (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
-{
-    if (network_packet_logging ())
-    {
-        BOOST_LOG (client.log) <<  "Confirm ack packet received";
-    }
-    rai::confirm_ack incoming;
-    rai::bufferstream stream (buffer_a, size_a);
-    auto error (incoming.deserialize (stream));
-    receive ();
-    if (!error && at_end (stream))
-    {
-        std::lock_guard <std::mutex> lock (work_mutex);
-        if (!work.validate (client.store.root (*incoming.vote.block), incoming.vote.block->block_work ()))
-        {
-            ++confirm_ack_count;
-            client.processor.process_message (incoming, sender_a);
-        }
-        else
-        {
-            ++insufficient_work_count;
-            if (insufficient_work_logging ())
-            {
-                BOOST_LOG (client.log) << "Insufficient work for confirm_ack";
-            }
-        }
-    }
-    else
-    {
-        ++error_count;
-    }
-}
-
-void rai::network::deserialize_confirm_unk (uint8_t const * buffer_a, size_t size_a, rai::endpoint const & sender_a)
-{
-    if (network_packet_logging ())
-    {
-        BOOST_LOG (client.log) <<  "Confirm unk packet received";
-    }
-    rai::confirm_unk incoming;
-    rai::bufferstream stream (buffer_a, size_a);
-    auto error (incoming.deserialize (stream));
-    receive ();
-    if (!error && at_end (stream))
-    {
-        ++confirm_unk_count;
-    }
-    else
-    {
-        ++error_count;
-    }
-}
-
-bool rai::network::at_end (rai::bufferstream & stream_a)
-{
-    uint8_t junk;
-    auto end (rai::read (stream_a, junk));
-    return end;
 }
 
 // Send keepalives to all the peers we've been notified of
