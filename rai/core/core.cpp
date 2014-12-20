@@ -345,6 +345,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 
 void rai::network::republish_block (std::unique_ptr <rai::block> block)
 {
+	auto hash (block->hash ());
     auto list (client.peers.list ());
     if (!confirm_broadcast (list, block->clone(), 0))
     {
@@ -357,20 +358,23 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
         auto client_l (client.shared ());
         for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
         {
-            if (network_publish_logging ())
-            {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % i->endpoint);
-            }
-            send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
-                {
-                    if (network_logging ())
-                    {
-                        if (ec)
-                        {
-                            BOOST_LOG (client_l->log) << boost::str (boost::format ("Error sending publish: %1%") % ec.message ());
-                        }
-                    }
-                });
+			if (!client.peers.knows_about (i->endpoint, hash))
+			{
+				if (network_publish_logging ())
+				{
+					BOOST_LOG (client.log) << boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % i->endpoint);
+				}
+				send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
+					{
+						if (network_logging ())
+						{
+							if (ec)
+							{
+								BOOST_LOG (client_l->log) << boost::str (boost::format ("Error sending publish: %1%") % ec.message ());
+							}
+						}
+					});
+			}
         }
     }
 }
