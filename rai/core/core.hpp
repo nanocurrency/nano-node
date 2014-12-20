@@ -640,6 +640,7 @@ public:
     rai::endpoint endpoint;
     std::chrono::system_clock::time_point last_contact;
     std::chrono::system_clock::time_point last_attempt;
+    rai::block_hash most_recent;
 };
 class peer_container
 {
@@ -650,7 +651,11 @@ public:
     // Returns true if peer was already known
     bool known_peer (rai::endpoint const &);
     // Notify of peer we received from
-    bool insert_peer (rai::endpoint const &);
+    bool insert (rai::endpoint const &);
+    // Received from a peer and contained a block announcement
+    bool insert (rai::endpoint const &, rai::block_hash const &);
+    // Does this peer probably know about this block
+    bool knows_about (rai::endpoint const &, rai::block_hash const &);
     void random_fill (std::array <rai::endpoint, 8> &);
     std::vector <peer_information> list ();
     std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);

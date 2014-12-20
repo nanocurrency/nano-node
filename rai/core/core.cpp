@@ -985,7 +985,7 @@ void rai::processor::contacted (rai::endpoint const & endpoint_a)
         endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
     }
     assert (endpoint_l.address ().is_v6 ());
-    if (!client.peers.insert_peer (endpoint_l))
+    if (!client.peers.insert (endpoint_l))
     {
         client.network.send_keepalive (endpoint_l);
         warmup (endpoint_l);
@@ -3307,24 +3307,45 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a)
     return result;
 }
 
-bool rai::peer_container::insert_peer (rai::endpoint const & endpoint_a)
+bool rai::peer_container::insert (rai::endpoint const & endpoint_a)
 {
-	auto result (not_a_peer (endpoint_a));
-	if (!result)
-	{
+    return insert (endpoint_a, rai::block_hash (0));
+}
+
+bool rai::peer_container::knows_about (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    bool result (false);
+    auto existing (peers.find (endpoint_a));
+    if (existing != peers.end ())
+    {
+        result = existing->most_recent == hash_a;
+    }
+    return result;
+}
+
+bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a)
+{
+    auto result (not_a_peer (endpoint_a));
+    if (!result)
+    {
         std::lock_guard <std::mutex> lock (mutex);
         auto existing (peers.find (endpoint_a));
         if (existing != peers.end ())
         {
-            peers.modify (existing, [] (rai::peer_information & info) {info.last_contact = std::chrono::system_clock::now ();});
+            peers.modify (existing, [&hash_a] (rai::peer_information & info)
+            {
+                info.last_contact = std::chrono::system_clock::now ();
+                info.most_recent = hash_a;
+            });
             result = true;
         }
         else
         {
-            peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now ()});
+            peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now (), hash_a});
         }
-	}
-	return result;
+    }
+    return result;
 }
 
 namespace {
