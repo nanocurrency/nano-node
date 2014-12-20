@@ -345,5 +345,48 @@ TEST (work, create)
     EXPECT_FALSE (work.validate (source, value));
     auto end2 (std::chrono::high_resolution_clock::now ());
     std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
+}
 
+TEST (block, publish_req_serialization)
+{
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
+    rai::keypair key1;
+    rai::keypair key2;
+    block->hashables.previous.clear ();
+    block->hashables.balance = 200;
+    block->hashables.destination = key2.pub;
+    rai::publish req (std::move (block));
+    std::vector <uint8_t> bytes;
+    {
+        rai::vectorstream stream (bytes);
+        req.serialize (stream);
+    }
+    rai::publish req2;
+    rai::bufferstream stream2 (bytes.data (), bytes.size ());
+    auto error (req2.deserialize (stream2));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (req, req2);
+    ASSERT_EQ (*req.block, *req2.block);
+}
+
+TEST (block, confirm_req_serialization)
+{
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
+    rai::keypair key1;
+    rai::keypair key2;
+    block->hashables.previous.clear ();
+    block->hashables.balance = 200;
+    block->hashables.destination = key2.pub;
+    rai::confirm_req req (std::move (block));
+    std::vector <uint8_t> bytes;
+    {
+        rai::vectorstream stream (bytes);
+        req.serialize (stream);
+    }
+    rai::confirm_req req2;
+    rai::bufferstream stream2 (bytes.data (), bytes.size ());
+    auto error (req2.deserialize (stream2));
+    ASSERT_FALSE (error);
+    ASSERT_EQ (req, req2);
+    ASSERT_EQ (*req.block, *req2.block);
 }

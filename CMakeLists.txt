@@ -56,6 +56,7 @@ add_executable (core_test
 	rai/core_test/entry.cpp
 	rai/core_test/ledger.cpp
     rai/core_test/message.cpp
+    rai/core_test/message_parser.cpp
     rai/core_test/processor_service.cpp
     rai/core_test/peer_container.cpp
     rai/core_test/network.cpp
