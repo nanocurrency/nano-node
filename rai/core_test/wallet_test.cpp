@@ -84,17 +84,17 @@ TEST (wallet, insufficient_spend)
 {
     rai::system system (24000, 1);
     rai::keypair key1;
-    ASSERT_TRUE (system.clients [0]->wallet.send (key1.pub, 500));
+    ASSERT_TRUE (system.wallet (0)->send (key1.pub, 500));
 }
 
 TEST (wallet, one_spend)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::frontier frontier1;
     system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier1);
     rai::keypair key2;
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
     rai::frontier frontier2;
     system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier2);
     ASSERT_NE (frontier1, frontier2);
@@ -136,27 +136,27 @@ TEST (wallet, DISABLED_two_spend)
 TEST (wallet, partial_spend)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::frontier frontier1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 500));
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 500));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
 }
 
 TEST (wallet, spend_no_previous)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::frontier frontier1;
     ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
     for (auto i (0); i < 50; ++i)
     {
         rai::keypair key;
-        system.clients [0]->wallet.store.insert (key.prv);
+        system.wallet (0)->store.insert (key.prv);
     }
     rai::keypair key2;
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 500));
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 500));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.clients [0]->ledger.account_balance(rai::test_genesis_key.pub));
 }
 
@@ -326,8 +326,10 @@ TEST (wallet, representative)
     ASSERT_EQ (false, error);
     ASSERT_FALSE (wallet.is_representative ());
     ASSERT_EQ (rai::genesis_account, wallet.representative ());
+    ASSERT_FALSE (wallet.is_representative ());
     rai::keypair key;
     wallet.representative_set (key.pub);
+    ASSERT_FALSE (wallet.is_representative ());
     ASSERT_EQ (key.pub, wallet.representative());
     ASSERT_FALSE (wallet.is_representative ());
     wallet.insert (key.prv);

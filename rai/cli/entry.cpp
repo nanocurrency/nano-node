@@ -127,7 +127,7 @@ int main (int argc, char * const * argv)
     else if (vm.count ("debug_activity"))
     {
         rai::system system (24000, 1);
-        system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+        system.wallet (0)->store.insert (rai::test_genesis_key.prv);
         size_t count (10000);
         system.generate_mass_activity (count, *system.clients [0]);
     }

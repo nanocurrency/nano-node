@@ -4,6 +4,7 @@
 TEST (client, stop)
 {
     rai::system system (24000, 1);
+    ASSERT_NE (system.clients [0]->wallets.items.end (), system.clients [0]->wallets.items.begin ());
     system.clients [0]->stop ();
     system.processor.run ();
     system.service->run ();
@@ -22,26 +23,26 @@ TEST (client, block_store_path_failure)
 TEST (client, balance)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.clients [0]->wallet.store.balance (system.clients [0]->ledger));
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.wallet (0)->store.balance (system.clients [0]->ledger));
 }
 
 TEST (client, send_unkeyed)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
-    system.clients [0]->wallet.store.password.value_set (rai::uint256_union (0));
-    ASSERT_TRUE (system.clients [0]->wallet.send (key2.pub, 1000));
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.password.value_set (rai::uint256_union (0));
+    ASSERT_TRUE (system.wallet (0)->send (key2.pub, 1000));
 }
 
 TEST (client, send_self)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
-    system.clients [0]->wallet.store.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 1000));
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (key2.prv);
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 1000));
     auto iterations (0);
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())
     {
@@ -57,9 +58,9 @@ TEST (client, send_single)
 {
     rai::system system (24000, 2);
     rai::keypair key2;
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
-    system.clients [1]->wallet.store.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 1000));
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    system.wallet (1)->store.insert (key2.prv);
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     auto iterations (0);
@@ -76,9 +77,9 @@ TEST (client, send_single_observing_peer)
 {
     rai::system system (24000, 3);
     rai::keypair key2;
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
-    system.clients [1]->wallet.store.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 1000));
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    system.wallet (1)->store.insert (key2.prv);
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     auto iterations (0);
@@ -95,9 +96,9 @@ TEST (client, send_single_many_peers)
 {
     rai::system system (24000, 10);
     rai::keypair key2;
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
-    system.clients [1]->wallet.store.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 1000));
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    system.wallet (1)->store.insert (key2.prv);
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 1000));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_TRUE (system.clients [0]->ledger.account_balance (key2.pub).is_zero ());
     auto iterations (0);
@@ -165,7 +166,7 @@ TEST (client, quick_confirm)
 {
     rai::system system (24000, 1);
     rai::keypair key;
-    system.clients [0]->wallet.store.insert (key.prv);
+    system.wallet (0)->store.insert (key.prv);
     rai::send_block send;
     send.hashables.balance = 0;
     send.hashables.destination = key.pub;
@@ -186,13 +187,21 @@ TEST (client, quick_confirm)
 TEST (client, auto_bootstrap)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    rai::keypair key2;
+    system.wallet (0)->store.insert (key2.prv);
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
+    auto iterations1 (0);
+    do
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
+    } while (system.clients [0]->ledger.account_balance (key2.pub) != 100);
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
-    rai::keypair key2;
-    client1->wallet.store.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 100));
     client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
     auto iterations1 (0);
@@ -227,13 +236,13 @@ TEST (client, auto_bootstrap)
 TEST (client, auto_bootstrap_reverse)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::client_init init1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
     rai::keypair key2;
-    client1->wallet.store.insert (key2.prv);
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 100));
+    system.wallet (0)->store.insert (key2.prv);
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
     system.clients [0]->network.send_keepalive (client1->network.endpoint ());
     client1->start ();
     auto iterations (0);
@@ -250,11 +259,11 @@ TEST (client, auto_bootstrap_reverse)
 TEST (client, multi_account_send_atomicness)
 {
     rai::system system (24000, 1);
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
-    system.clients [0]->wallet.store.insert (key1.prv);
-    system.clients [0]->wallet.send (key1.pub, std::numeric_limits<rai::uint128_t>::max () / 2);
-    system.clients [0]->wallet.send (key1.pub, std::numeric_limits<rai::uint128_t>::max () / 2 + std::numeric_limits<rai::uint128_t>::max () / 4);
+    system.wallet (0)->store.insert (key1.prv);
+    system.wallet (0)->send (key1.pub, std::numeric_limits<rai::uint128_t>::max () / 2);
+    system.wallet (0)->send (key1.pub, std::numeric_limits<rai::uint128_t>::max () / 2 + std::numeric_limits<rai::uint128_t>::max () / 4);
 }
 
 TEST (client, receive_gap)
@@ -303,9 +312,9 @@ TEST (client, search_pending)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-    system.clients [0]->wallet.store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     auto balance (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_FALSE (system.clients [0]->wallet.send (key2.pub, 1000));
+    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 1000));
     auto iterations1 (0);
     while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) == balance)
     {
@@ -314,7 +323,7 @@ TEST (client, search_pending)
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
-    system.clients [0]->wallet.store.insert (key2.prv);
+    system.wallet (0)->store.insert (key2.prv);
     system.clients [0]->processor.search_pending ();
     auto iterations2 (0);
     while (system.clients [0]->ledger.account_balance (key2.pub).is_zero ())

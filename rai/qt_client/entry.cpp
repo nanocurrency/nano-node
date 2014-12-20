@@ -12,6 +12,7 @@ public:
     peering_port (24000)
     {
         bootstrap_peers.push_back ("rai.raiblocks.net");
+        rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
     }
     qt_client_config (bool & error_a, std::istream & stream_a)
     {
@@ -22,6 +23,7 @@ public:
             boost::property_tree::read_json (stream_a, tree);
             auto peering_port_l (tree.get <std::string> ("peering_port"));
             auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
+            auto wallet_l (tree.get <std::string> ("wallet"));
             bootstrap_peers.clear ();
             for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
             {
@@ -32,6 +34,7 @@ public:
             {
                 peering_port = std::stoul (peering_port_l);
                 error_a = peering_port > std::numeric_limits <uint16_t>::max ();
+                error_a = error_a | wallet.decode_hex (wallet_l);
             }
             catch (std::logic_error const &)
             {
@@ -48,6 +51,9 @@ public:
     {
         boost::property_tree::ptree tree;
         tree.put ("peering_port", std::to_string (peering_port));
+        std::string wallet_string;
+        wallet.encode_hex (wallet_string);
+        tree.put ("wallet", wallet_string);
         boost::property_tree::ptree bootstrap_peers_l;
         for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
         {
@@ -60,6 +66,7 @@ public:
     }
     std::vector <std::string> bootstrap_peers;
     uint16_t peering_port;
+    rai::uint256_union wallet;
 };
 
 int main (int argc, char ** argv)
@@ -98,7 +105,7 @@ int main (int argc, char ** argv)
         {
             client->bootstrap_peers = config.bootstrap_peers;
             client->start ();
-            std::unique_ptr <rai_qt::client> gui (new rai_qt::client (application, *client));
+            std::unique_ptr <rai_qt::client> gui (new rai_qt::client (application, *client, config.wallet));
             gui->client_window->show ();
             std::thread network_thread ([&service] ()
             {

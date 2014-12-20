@@ -342,11 +342,12 @@ public:
 class wallets
 {
 public:
-    wallets (boost::filesystem::path const &);
-    std::shared_ptr <rai::wallet_store> open (rai::uint256_union const &);
-    std::shared_ptr <rai::wallet_store> create (rai::uint256_union const &);
-    std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet_store>> items;
+    wallets (rai::client &, boost::filesystem::path const &);
+    std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
+    std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
+    std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
     boost::filesystem::path const path;
+    rai::client & client;
 };
 class operation
 {
@@ -507,7 +508,7 @@ public:
     bool at_end (rai::bufferstream &);
     void rpc_action (boost::system::error_code const &, size_t);
     void publish_block (rai::endpoint const &, std::unique_ptr <rai::block>);
-    void confirm_broadcast (std::unique_ptr <rai::block>, uint64_t);
+    bool confirm_broadcast (std::unique_ptr <rai::block>, uint64_t);
     void confirm_block (rai::private_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);
@@ -679,14 +680,13 @@ public:
     void start ();
     void stop ();
     std::shared_ptr <rai::client> shared ();
-    bool is_representative ();
-    void representative_vote (rai::election &, rai::block const &);
+    bool representative_vote (rai::election &, rai::block const &);
     boost::log::sources::logger log;
     rai::block_store store;
     rai::gap_cache gap_cache;
     rai::ledger ledger;
     rai::conflicts conflicts;
-    rai::wallet wallet;
+    rai::wallets wallets;
     rai::network network;
     rai::bootstrap_listener bootstrap;
     rai::processor processor;
@@ -710,6 +710,7 @@ public:
     rai::uint128_t get_random_amount (rai::client &);
     void generate_send_new (rai::client &);
     void generate_send_existing (rai::client &);
+    std::shared_ptr <rai::wallet> wallet (size_t);
     boost::shared_ptr <boost::asio::io_service> service;
     rai::processor_service processor;
     std::vector <std::shared_ptr <rai::client>> clients;
