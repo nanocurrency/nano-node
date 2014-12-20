@@ -188,14 +188,9 @@ TEST (client, auto_bootstrap)
 {
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    rai::client_init init1;
-    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
-    ASSERT_FALSE (init1.error ());
     rai::keypair key2;
     system.wallet (0)->store.insert (key2.prv);
     ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
-    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
-    client1->start ();
     auto iterations1 (0);
     do
     {
@@ -204,6 +199,11 @@ TEST (client, auto_bootstrap)
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     } while (system.clients [0]->ledger.account_balance (key2.pub) != 100);
+    rai::client_init init1;
+    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
+    ASSERT_FALSE (init1.error ());
+    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
+    client1->start ();
     ASSERT_NE (nullptr, client1->processor.bootstrapped);
     ASSERT_EQ (0, client1->processor.bootstrapped->size ());
     ASSERT_NE (nullptr, system.clients [0]->processor.bootstrapped);

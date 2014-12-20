@@ -411,6 +411,9 @@ TEST (rpc, account_create)
     request.method = "POST";
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "wallet_create");
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
@@ -549,6 +552,9 @@ TEST (rpc, wallet_contains)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "wallet_contains");
     request_tree.put ("account", account);
     std::stringstream ostream;
@@ -574,6 +580,9 @@ TEST (rpc, wallet_doesnt_contain)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "wallet_contains");
     request_tree.put ("account", account);
     std::stringstream ostream;
@@ -655,6 +664,9 @@ TEST (rpc, send_exact)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "send_exact");
     request_tree.put ("account", account);
     request_tree.put ("amount", "100");
@@ -684,6 +696,9 @@ TEST (rpc, send)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "send");
     request_tree.put ("account", account);
     request_tree.put ("amount", "1");
@@ -714,6 +729,9 @@ TEST (rpc, send_fail)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "send");
     request_tree.put ("account", account);
     request_tree.put ("amount", "100");
@@ -742,6 +760,9 @@ TEST (rpc, wallet_add)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "wallet_add");
     request_tree.put ("key", key_text);
     std::stringstream ostream;
@@ -767,6 +788,9 @@ TEST (rpc, wallet_password_valid)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "password_valid");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
@@ -789,6 +813,9 @@ TEST (rpc, wallet_password_change)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "password_change");
     request_tree.put ("password", "test");
     std::stringstream ostream;
@@ -817,6 +844,9 @@ TEST (rpc, wallet_password_enter)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "password_enter");
     request_tree.put ("password", "");
     std::stringstream ostream;
@@ -863,6 +893,9 @@ TEST (rpc, wallet_list)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "wallet_list");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
@@ -900,6 +933,9 @@ TEST (rpc, wallet_key_valid)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
     request_tree.put ("action", "wallet_key_valid");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
@@ -1217,7 +1253,8 @@ TEST (bootstrap_processor, push_one)
     rai::client_init init1;
     rai::keypair key1;
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
-    auto wallet (client1->wallets.open (rai::uint256_union ()));
+    auto wallet (client1->wallets.create (rai::uint256_union ()));
+    ASSERT_NE (nullptr, wallet);
     wallet->store.insert (rai::test_genesis_key.prv);
     auto balance (client1->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_FALSE (wallet->send (key1.pub, 100));
