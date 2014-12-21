@@ -407,8 +407,8 @@ public:
     void bootstrap (rai::tcp_endpoint const &);
     void connect_bootstrap (std::vector <std::string> const &);
     rai::process_result process_receive (rai::block const &);
-    void process_receive_republish (std::unique_ptr <rai::block>, rai::endpoint const &);
-    void process_message (rai::message &, rai::endpoint const &);
+    void process_receive_republish (std::unique_ptr <rai::block>);
+	void process_message (rai::message &, rai::endpoint const &);
     void process_unknown (rai::vectorstream &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_confirmed (rai::block const &);
@@ -564,7 +564,7 @@ public:
     void republish_block (std::unique_ptr <rai::block>);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
     bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, uint64_t);
-    void confirm_block (rai::private_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &);
+	void confirm_block (rai::private_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);
     void send_confirm_req (rai::endpoint const &, rai::block const &);

@@ -207,7 +207,7 @@ TEST (network, send_valid_confirm_ack)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash2, block2.signature);
     rai::frontier frontier2;
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
-    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
+    system.clients [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
     while (system.clients [1]->network.parser.confirm_ack_count == 0)
     {
@@ -239,7 +239,7 @@ TEST (network, send_valid_publish)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash2, block2.signature);
     rai::frontier frontier2;
     ASSERT_FALSE (system.clients [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
-    system.clients [1]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), system.clients [0]->network.endpoint ());
+    system.clients [1]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
     while (system.clients [0]->network.parser.publish_count == 0)
     {
@@ -337,8 +337,8 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount, system.clients [1]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [1]->ledger.account_balance (key2.pub));
-    system.clients [0]->processor.process_receive_republish (block1->clone (), rai::endpoint ());
-    system.clients [1]->processor.process_receive_republish (block1->clone (), rai::endpoint ());
+    system.clients [0]->processor.process_receive_republish (block1->clone ());
+    system.clients [1]->processor.process_receive_republish (block1->clone ());
     ASSERT_EQ (amount - 100, system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.clients [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount - 100, system.clients [1]->ledger.account_balance (rai::test_genesis_key.pub));
