@@ -135,7 +135,6 @@ enum class message_type : uint8_t
     publish,
     confirm_req,
     confirm_ack,
-    confirm_unk,
     bulk_pull,
     bulk_push,
     frontier_req
@@ -208,16 +207,6 @@ public:
     bool operator == (rai::confirm_ack const &) const;
     rai::vote vote;
 };
-class confirm_unk : public message
-{
-public:
-    confirm_unk ();
-    bool deserialize (rai::stream &);
-    void serialize (rai::stream &) override;
-    void visit (rai::message_visitor &) const override;
-    rai::uint256_union hash () const;
-    rai::account rep_hint;
-};
 class frontier_req : public message
 {
 public:
@@ -256,7 +245,6 @@ public:
     virtual void publish (rai::publish const &) = 0;
     virtual void confirm_req (rai::confirm_req const &) = 0;
     virtual void confirm_ack (rai::confirm_ack const &) = 0;
-    virtual void confirm_unk (rai::confirm_unk const &) = 0;
     virtual void bulk_pull (rai::bulk_pull const &) = 0;
     virtual void bulk_push (rai::bulk_push const &) = 0;
     virtual void frontier_req (rai::frontier_req const &) = 0;
@@ -409,7 +397,6 @@ public:
     rai::process_result process_receive (rai::block const &);
     void process_receive_republish (std::unique_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
-    void process_unknown (rai::vectorstream &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_confirmed (rai::block const &);
     void search_pending ();
@@ -511,7 +498,6 @@ public:
     void deserialize_publish (uint8_t const *, size_t);
     void deserialize_confirm_req (uint8_t const *, size_t);
     void deserialize_confirm_ack (uint8_t const *, size_t);
-    void deserialize_confirm_unk (uint8_t const *, size_t);
     bool at_end (rai::bufferstream &);
 	rai::shared_work & work;
     rai::message_visitor & visitor;
@@ -589,7 +575,6 @@ public:
     uint64_t publish_count;
     uint64_t confirm_req_count;
     uint64_t confirm_ack_count;
-    uint64_t confirm_unk_count;
     uint64_t error_count;
 };
 class bootstrap_listener

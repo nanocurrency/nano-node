@@ -105,11 +105,6 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
                 deserialize_confirm_ack (buffer_a, size_a);
                 break;
             }
-            case rai::message_type::confirm_unk:
-            {
-                deserialize_confirm_unk (buffer_a, size_a);
-                break;
-            }
             default:
             {
                 error = true;
@@ -192,21 +187,6 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
     }
 }
 
-void rai::message_parser::deserialize_confirm_unk (uint8_t const * buffer_a, size_t size_a)
-{
-    rai::confirm_unk incoming;
-    rai::bufferstream stream (buffer_a, size_a);
-    auto error_l (incoming.deserialize (stream));
-    if (!error_l && at_end (stream))
-    {
-        visitor.confirm_unk (incoming);
-    }
-    else
-    {
-        error = true;
-    }
-}
-
 bool rai::message_parser::at_end (rai::bufferstream & stream_a)
 {
     uint8_t junk;
@@ -266,7 +246,6 @@ keepalive_count (0),
 publish_count (0),
 confirm_req_count (0),
 confirm_ack_count (0),
-confirm_unk_count (0),
 error_count (0)
 {
 }
@@ -437,10 +416,6 @@ namespace
             client.peers.insert (sender, message_a.vote.block->hash ());
             client.processor.process_receive_republish (message_a.vote.block->clone ());
             client.conflicts.update (message_a.vote);
-        }
-        void confirm_unk (rai::confirm_unk const &) override
-        {
-            assert (false);
         }
         void bulk_pull (rai::bulk_pull const &) override
         {
@@ -1574,13 +1549,6 @@ std::shared_ptr <rai::wallet> rai::system::wallet (size_t index_a)
     return clients [index_a]->wallets.items.begin ()->second;
 }
 
-void rai::processor::process_unknown (rai::vectorstream & stream_a)
-{
-	rai::confirm_unk outgoing;
-	outgoing.rep_hint.clear ();
-	outgoing.serialize (stream_a);
-}
-
 void rai::processor::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
     auto client_l (client.shared ());
@@ -1693,31 +1661,9 @@ bool rai::confirm_req::deserialize (rai::stream & stream_a)
     return result;
 }
 
-rai::confirm_unk::confirm_unk () :
-message (rai::message_type::confirm_unk)
-{
-}
-
-bool rai::confirm_unk::deserialize (rai::stream & stream_a)
-{
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-    assert (type == rai::message_type::confirm_unk);
-	if (!result)
-	{
-		result = read (stream_a, rep_hint);
-	}
-    return result;
-}
-
 void rai::confirm_req::visit (rai::message_visitor & visitor_a) const
 {
     visitor_a.confirm_req (*this);
-}
-
-void rai::confirm_unk::visit (rai::message_visitor & visitor_a) const
-{
-    visitor_a.confirm_unk (*this);
 }
 
 void rai::confirm_req::serialize (rai::stream & stream_a)
@@ -2262,12 +2208,6 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
     }
 }
 
-void rai::confirm_unk::serialize (rai::stream & stream_a)
-{
-	write_header (stream_a);
-    write (stream_a, rep_hint);
-}
-
 namespace
 {
 class rollback_visitor : public rai::block_visitor
@@ -2756,10 +2696,6 @@ public:
         assert (false);
     }
     void confirm_ack (rai::confirm_ack const &) override
-    {
-        assert (false);
-    }
-    void confirm_unk (rai::confirm_unk const &) override
     {
         assert (false);
     }

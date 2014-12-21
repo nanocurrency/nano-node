@@ -10,7 +10,6 @@ public:
     publish_count (0),
     confirm_req_count (0),
     confirm_ack_count (0),
-    confirm_unk_count (0),
     bulk_pull_count (0),
     bulk_push_count (0),
     frontier_req_count (0)
@@ -32,10 +31,6 @@ public:
     {
         ++confirm_ack_count;
     }
-    void confirm_unk (rai::confirm_unk const &)
-    {
-        ++confirm_unk_count;
-    }
     void bulk_pull (rai::bulk_pull const &)
     {
         ++bulk_pull_count;
@@ -52,33 +47,10 @@ public:
     uint64_t publish_count;
     uint64_t confirm_req_count;
     uint64_t confirm_ack_count;
-    uint64_t confirm_unk_count;
     uint64_t bulk_pull_count;
     uint64_t bulk_push_count;
     uint64_t frontier_req_count;
 };
-}
-
-TEST (message_parser, exact_confirm_unk_size)
-{
-    rai::system system (24000, 1);
-    test_visitor visitor;
-    rai::message_parser parser (visitor, system.clients [0]->network.work);
-    rai::confirm_unk message;
-    std::vector <uint8_t> bytes;
-    {
-        rai::vectorstream stream (bytes);
-        message.serialize (stream);
-    }
-    ASSERT_EQ (0, visitor.confirm_unk_count);
-    ASSERT_FALSE (parser.error);
-    parser.deserialize_confirm_unk (bytes.data (), bytes.size ());
-    ASSERT_EQ (1, visitor.confirm_unk_count);
-    ASSERT_FALSE (parser.error);
-    bytes.push_back (0);
-    parser.deserialize_confirm_unk (bytes.data (), bytes.size ());
-    ASSERT_EQ (1, visitor.confirm_unk_count);
-    ASSERT_TRUE (parser.error);
 }
 
 TEST (message_parser, exact_confirm_ack_size)
