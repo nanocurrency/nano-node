@@ -266,7 +266,7 @@ TEST (client, receive_gap)
     rai::send_block block;
     rai::confirm_req message;
     message.block = block.clone ();
-    client.processor.process_message (message, rai::endpoint {});
+    client.processor.process_message (message, client.network.endpoint ());
     ASSERT_EQ (1, client.gap_cache.blocks.size ());
 }
 
@@ -335,7 +335,7 @@ TEST (client, connect_after_junk)
     uint64_t junk;
     client1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.clients [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);
-    while (system.clients [0]->network.parser.unknown_count == 0)
+    while (system.clients [0]->network.error_count == 0)
     {
         system.service->poll_one ();
         system.processor.poll_one ();

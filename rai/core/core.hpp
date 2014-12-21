@@ -505,23 +505,17 @@ public:
 class message_parser
 {
 public:
-    message_parser (rai::client &, rai::shared_work & work_a);
-    void deserialize_buffer (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_keepalive (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_publish (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_confirm_req (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_confirm_ack (uint8_t const *, size_t, rai::endpoint const &);
-    void deserialize_confirm_unk (uint8_t const *, size_t, rai::endpoint const &);
+    message_parser (rai::message_visitor &, rai::shared_work & work_a);
+    void deserialize_buffer (uint8_t const *, size_t);
+    void deserialize_keepalive (uint8_t const *, size_t);
+    void deserialize_publish (uint8_t const *, size_t);
+    void deserialize_confirm_req (uint8_t const *, size_t);
+    void deserialize_confirm_ack (uint8_t const *, size_t);
+    void deserialize_confirm_unk (uint8_t const *, size_t);
     bool at_end (rai::bufferstream &);
 	rai::shared_work & work;
-    uint64_t keepalive_count;
-    uint64_t publish_count;
-    uint64_t confirm_req_count;
-    uint64_t confirm_ack_count;
-    uint64_t confirm_unk_count;
-    uint64_t unknown_count;
-    uint64_t error_count;
-    rai::client & client;
+    rai::message_visitor & visitor;
+    bool error;
 };
 class peer_information
 {
@@ -580,7 +574,6 @@ public:
     void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
     void send_complete (boost::system::error_code const &, size_t);
 	rai::shared_work work;
-    rai::message_parser parser;
     rai::endpoint endpoint ();
     rai::endpoint remote;
     std::array <uint8_t, 512> buffer;
@@ -592,6 +585,12 @@ public:
     uint64_t bad_sender_count;
     std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
     bool on;
+    uint64_t keepalive_count;
+    uint64_t publish_count;
+    uint64_t confirm_req_count;
+    uint64_t confirm_ack_count;
+    uint64_t confirm_unk_count;
+    uint64_t error_count;
 };
 class bootstrap_listener
 {
