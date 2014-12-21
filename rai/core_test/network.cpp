@@ -151,6 +151,7 @@ TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block);
+	block->hashables.previous = 1;
     block->work = system.clients [0]->ledger.create_work (*block);
     system.clients [0]->network.republish_block (std::move (block));
     rai::genesis genesis;
@@ -171,7 +172,7 @@ TEST (network, send_invalid_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block);
-    block->hashables.previous.clear ();
+    block->hashables.previous = 1;
     block->hashables.balance = 20;
     block->work = system.clients [0]->ledger.create_work (*block);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
@@ -258,7 +259,7 @@ TEST (network, send_insufficient_work)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block);
-    block->hashables.previous.clear ();
+    block->hashables.previous = 1;
     block->hashables.balance = 20;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
     rai::publish publish (std::move (block));
@@ -269,15 +270,15 @@ TEST (network, send_insufficient_work)
     }
     auto client (system.clients [1]->shared ());
     system.clients [0]->network.send_buffer (bytes->data (), bytes->size (), system.clients [1]->network.endpoint (), [bytes, client] (boost::system::error_code const & ec, size_t size) {});
-    ASSERT_EQ (0, system.clients [0]->network.parser.insufficient_work_count);
+    ASSERT_EQ (0, system.clients [0]->network.parser.work.insufficient_work_count);
     auto iterations (0);
-    while (system.clients [1]->network.parser.insufficient_work_count == 0)
+    while (system.clients [1]->network.parser.work.insufficient_work_count == 0)
     {
         system.service->poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (1, system.clients [1]->network.parser.insufficient_work_count);
+    ASSERT_EQ (1, system.clients [1]->network.parser.work.insufficient_work_count);
 }
 
 TEST (receivable_processor, confirm_insufficient_pos)

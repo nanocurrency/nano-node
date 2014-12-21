@@ -2077,9 +2077,22 @@ public:
     {
         auto hash (block_a.source ());
         auto source (store.block_get (hash));
-        assert (source != nullptr);
-        assert (dynamic_cast <rai::send_block *> (source.get ()) != nullptr);
-        result = static_cast <rai::send_block *> (source.get ())->hashables.destination;
+        if (source != nullptr)
+		{
+			auto send (dynamic_cast <rai::send_block *> (source.get ()));
+			if (send != nullptr)
+			{
+				result = send->hashables.destination;
+			}
+			else
+			{
+				result.clear ();
+			}
+		}
+		else
+		{
+			result.clear ();
+		}
     }
     void change_block (rai::change_block const & block_a) override
     {

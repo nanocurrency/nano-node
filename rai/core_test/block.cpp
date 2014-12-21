@@ -347,6 +347,20 @@ TEST (work, create)
     std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
 }
 
+TEST (shared_work, validate)
+{
+	rai::system system (24000, 1);
+	rai::shared_work work (*system.clients [0]);
+	rai::send_block send_block;
+	ASSERT_TRUE (work.validate (send_block));
+	ASSERT_EQ (1, work.insufficient_work_count);
+	send_block.work = system.clients [0]->ledger.create_work (send_block);
+	ASSERT_FALSE (work.validate (send_block));
+	rai::open_block open_block;
+	ASSERT_TRUE (work.validate (open_block));
+	ASSERT_EQ (1, work.no_root_count);
+}
+
 TEST (block, publish_req_serialization)
 {
     auto block (std::unique_ptr <rai::send_block> (new rai::send_block));

@@ -33,11 +33,11 @@ TEST (message_parser, exact_confirm_ack_size)
     ASSERT_EQ (0, system.clients [0]->network.parser.confirm_ack_count);
     ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     system.clients [0]->network.parser.deserialize_confirm_ack (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_ack_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_ack_count == 1) != (system.clients [0]->network.parser.work.insufficient_work_count == 1));
     ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
     system.clients [0]->network.parser.deserialize_confirm_ack (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_ack_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_ack_count == 1) != (system.clients [0]->network.parser.work.insufficient_work_count == 1));
     ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }
 
@@ -53,18 +53,20 @@ TEST (message_parser, exact_confirm_req_size)
     ASSERT_EQ (0, system.clients [0]->network.parser.confirm_req_count);
     ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     system.clients [0]->network.parser.deserialize_confirm_req (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_req_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_req_count == 1) != (system.clients [0]->network.parser.work.insufficient_work_count == 1));
     ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
     system.clients [0]->network.parser.deserialize_confirm_req (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_req_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_TRUE ((system.clients [0]->network.parser.confirm_req_count == 1) != (system.clients [0]->network.parser.work.insufficient_work_count == 1));
     ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }
 
 TEST (message_parser, exact_publish_size)
 {
     rai::system system (24000, 1);
-    rai::publish message (std::unique_ptr <rai::send_block> (new rai::send_block));
+	auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
+	block->hashables.previous = 1;
+	rai::publish message (std::move (block));
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream (bytes);
@@ -73,11 +75,11 @@ TEST (message_parser, exact_publish_size)
     ASSERT_EQ (0, system.clients [0]->network.parser.publish_count);
     ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     system.clients [0]->network.parser.deserialize_publish (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.parser.publish_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_TRUE ((system.clients [0]->network.parser.publish_count == 1) != (system.clients [0]->network.parser.work.insufficient_work_count == 1));
     ASSERT_EQ (0, system.clients [0]->network.parser.error_count);
     bytes.push_back (0);
     system.clients [0]->network.parser.deserialize_publish (bytes.data (), bytes.size (), rai::endpoint ());
-    ASSERT_TRUE ((system.clients [0]->network.parser.publish_count == 1) != (system.clients [0]->network.parser.insufficient_work_count == 1));
+    ASSERT_TRUE ((system.clients [0]->network.parser.publish_count == 1) != (system.clients [0]->network.parser.work.insufficient_work_count == 1));
     ASSERT_EQ (1, system.clients [0]->network.parser.error_count);
 }
 

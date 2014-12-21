@@ -491,10 +491,21 @@ public:
     std::unordered_map <rai::account, rai::block_hash>::iterator end;
     std::vector <std::unique_ptr <rai::block>> path;
 };
+class shared_work
+{
+public:
+	shared_work (rai::client &);
+	bool validate (rai::block const &);
+	rai::client & client;
+	uint64_t insufficient_work_count;
+	uint64_t no_root_count;
+	rai::work work;
+	std::mutex mutex;
+};
 class message_parser
 {
 public:
-    message_parser (rai::client &);
+    message_parser (rai::client &, rai::shared_work & work_a);
     void deserialize_buffer (uint8_t const *, size_t, rai::endpoint const &);
     void deserialize_keepalive (uint8_t const *, size_t, rai::endpoint const &);
     void deserialize_publish (uint8_t const *, size_t, rai::endpoint const &);
@@ -502,6 +513,7 @@ public:
     void deserialize_confirm_ack (uint8_t const *, size_t, rai::endpoint const &);
     void deserialize_confirm_unk (uint8_t const *, size_t, rai::endpoint const &);
     bool at_end (rai::bufferstream &);
+	rai::shared_work & work;
     uint64_t keepalive_count;
     uint64_t publish_count;
     uint64_t confirm_req_count;
@@ -509,50 +521,47 @@ public:
     uint64_t confirm_unk_count;
     uint64_t unknown_count;
     uint64_t error_count;
-    uint64_t insufficient_work_count;
-    rai::work work;
-    std::mutex work_mutex;
     rai::client & client;
 };
-    class peer_information
-    {
-    public:
-        rai::endpoint endpoint;
-        std::chrono::system_clock::time_point last_contact;
-        std::chrono::system_clock::time_point last_attempt;
-        rai::block_hash most_recent;
-    };
-    class peer_container
-    {
-    public:
-        peer_container (rai::endpoint const &);
-        // Unassigned, reserved, self
-        bool not_a_peer (rai::endpoint const &);
-        // Returns true if peer was already known
-        bool known_peer (rai::endpoint const &);
-        // Notify of peer we received from
-        bool insert (rai::endpoint const &);
-        // Received from a peer and contained a block announcement
-        bool insert (rai::endpoint const &, rai::block_hash const &);
-        // Does this peer probably know about this block
-        bool knows_about (rai::endpoint const &, rai::block_hash const &);
-        void random_fill (std::array <rai::endpoint, 8> &);
-        std::vector <peer_information> list ();
-        std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
-        size_t size ();
-        bool empty ();
-        std::mutex mutex;
-        rai::endpoint self;
-        boost::multi_index_container
-        <peer_information,
-        boost::multi_index::indexed_by
-        <
-        boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, rai::endpoint, &peer_information::endpoint>>,
-        boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
-        boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
-        >
-        > peers;
-    };
+class peer_information
+{
+public:
+	rai::endpoint endpoint;
+	std::chrono::system_clock::time_point last_contact;
+	std::chrono::system_clock::time_point last_attempt;
+	rai::block_hash most_recent;
+};
+class peer_container
+{
+public:
+	peer_container (rai::endpoint const &);
+	// Unassigned, reserved, self
+	bool not_a_peer (rai::endpoint const &);
+	// Returns true if peer was already known
+	bool known_peer (rai::endpoint const &);
+	// Notify of peer we received from
+	bool insert (rai::endpoint const &);
+	// Received from a peer and contained a block announcement
+	bool insert (rai::endpoint const &, rai::block_hash const &);
+	// Does this peer probably know about this block
+	bool knows_about (rai::endpoint const &, rai::block_hash const &);
+	void random_fill (std::array <rai::endpoint, 8> &);
+	std::vector <peer_information> list ();
+	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
+	size_t size ();
+	bool empty ();
+	std::mutex mutex;
+	rai::endpoint self;
+	boost::multi_index_container
+	<peer_information,
+	boost::multi_index::indexed_by
+	<
+	boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, rai::endpoint, &peer_information::endpoint>>,
+	boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
+	boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
+	>
+	> peers;
+};
 class network
 {
 public:
@@ -570,6 +579,7 @@ public:
     void send_confirm_req (rai::endpoint const &, rai::block const &);
     void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
     void send_complete (boost::system::error_code const &, size_t);
+	rai::shared_work work;
     rai::message_parser parser;
     rai::endpoint endpoint ();
     rai::endpoint remote;

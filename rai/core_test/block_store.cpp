@@ -414,3 +414,18 @@ TEST (block_store, delete_iterator_entry)
     ++current;
     ASSERT_EQ (store.blocks_end (), current);
 }
+
+TEST (block_store, roots)
+{
+	leveldb::Status init;
+	rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
+	rai::send_block send_block;
+	ASSERT_EQ (send_block.hashables.previous, store.root (send_block));
+	rai::change_block change_block (0, 0, 0, 0);
+	ASSERT_EQ (change_block.hashables.previous, store.root (change_block));
+	rai::receive_block receive_block;
+	ASSERT_EQ (receive_block.hashables.previous, store.root (receive_block));
+	rai::open_block open_block;
+	ASSERT_EQ (rai::block_hash (0), store.root (open_block));
+}

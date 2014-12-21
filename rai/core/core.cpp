@@ -65,7 +65,8 @@ namespace
     }
 }
 
-rai::message_parser::message_parser (rai::client & client_a) :
+rai::message_parser::message_parser (rai::client & client_a, rai::shared_work & work_a) :
+work (work_a),
 keepalive_count (0),
 publish_count (0),
 confirm_req_count (0),
@@ -73,8 +74,6 @@ confirm_ack_count (0),
 confirm_unk_count (0),
 unknown_count (0),
 error_count (0),
-insufficient_work_count (0),
-work (rai::block::publish_work),
 client (client_a)
 {
 }
@@ -169,20 +168,11 @@ void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t 
     auto error (incoming.deserialize (stream));
     if (!error && at_end (stream))
     {
-        std::lock_guard <std::mutex> lock (work_mutex);
-        if (!work.validate (client.store.root (*incoming.block), incoming.block->block_work ()))
+        if (!work.validate (*incoming.block))
         {
             ++publish_count;
 			client.peers.insert (sender_a, incoming.block->hash ());
             client.processor.process_message (incoming, sender_a);
-        }
-        else
-        {
-            ++insufficient_work_count;
-            if (insufficient_work_logging ())
-            {
-                BOOST_LOG (client.log) << "Insufficient work for publish";
-            }
         }
     }
     else
@@ -202,20 +192,11 @@ void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, siz
     auto error (incoming.deserialize (stream));
     if (!error && at_end (stream))
     {
-        std::lock_guard <std::mutex> lock (work_mutex);
-        if (!work.validate (client.store.root (*incoming.block), incoming.block->block_work ()))
+        if (!work.validate (*incoming.block))
         {
 			++confirm_req_count;
 			client.peers.insert (sender_a, incoming.block->hash ());
             client.processor.process_message (incoming, sender_a);
-        }
-        else
-        {
-            ++insufficient_work_count;
-            if (insufficient_work_logging ())
-            {
-                BOOST_LOG (client.log) << "Insufficient work for confirm_req";
-            }
         }
     }
     else
@@ -235,20 +216,11 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
     auto error (incoming.deserialize (stream));
     if (!error && at_end (stream))
     {
-        std::lock_guard <std::mutex> lock (work_mutex);
-        if (!work.validate (client.store.root (*incoming.vote.block), incoming.vote.block->block_work ()))
+        if (!work.validate (*incoming.vote.block))
         {
 			++confirm_ack_count;
 			client.peers.insert (sender_a, incoming.vote.block->hash ());
             client.processor.process_message (incoming, sender_a);
-        }
-        else
-        {
-            ++insufficient_work_count;
-            if (insufficient_work_logging ())
-            {
-                BOOST_LOG (client.log) << "Insufficient work for confirm_ack";
-            }
         }
     }
     else
@@ -283,12 +255,49 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
     return end;
 }
 
+rai::shared_work::shared_work (rai::client & client_a) :
+client (client_a),
+insufficient_work_count (0),
+no_root_count (0),
+work (rai::block::publish_work)
+{
+}
+
+bool rai::shared_work::validate (rai::block const & block_a)
+{
+	auto result (false);
+	auto root (client.store.root (block_a));
+	if (!root.is_zero ())
+	{
+		if (work.validate (root, block_a.block_work ()))
+		{
+			if (insufficient_work_logging ())
+			{
+				BOOST_LOG (client.log) << "Insufficient work for publish";
+			}
+			++insufficient_work_count;
+			result = true;
+		}
+	}
+	else
+	{
+		if (insufficient_work_logging ())
+		{
+			BOOST_LOG (client.log) << "No root for block";
+		}
+		++no_root_count;
+		result = true;
+	}
+	return result;
+}
+
 std::chrono::seconds constexpr rai::processor::period;
 std::chrono::seconds constexpr rai::processor::cutoff;
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
-parser (client_a),
+work (client_a),
+parser (client_a, work),
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
 resolver (service_a),
