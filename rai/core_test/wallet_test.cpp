@@ -323,7 +323,7 @@ TEST (wallet, representative)
 {
     auto error (false);
     rai::wallet_store wallet (error, boost::filesystem::unique_path ());
-    ASSERT_EQ (false, error);
+    ASSERT_FALSE (error);
     ASSERT_FALSE (wallet.is_representative ());
     ASSERT_EQ (rai::genesis_account, wallet.representative ());
     ASSERT_FALSE (wallet.is_representative ());
