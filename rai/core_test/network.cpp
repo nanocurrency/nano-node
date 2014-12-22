@@ -367,7 +367,7 @@ TEST (rpc, account_create)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "wallet_create");
+    request_tree.put ("action", "account_create");
     std::string wallet;
     system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request_tree.put ("wallet", wallet);
@@ -554,7 +554,7 @@ TEST (rpc, wallet_doesnt_contain)
     ASSERT_EQ ("0", exists_text);
 }
 
-TEST (rpc, validate_account)
+TEST (rpc, validate_account_number)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -566,7 +566,7 @@ TEST (rpc, validate_account)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "validate_account");
+    request_tree.put ("action", "validate_account_number");
     request_tree.put ("account", account);
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
@@ -593,7 +593,7 @@ TEST (rpc, validate_account_invalid)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "validate_account");
+    request_tree.put ("action", "validate_account_number");
     request_tree.put ("account", account);
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);

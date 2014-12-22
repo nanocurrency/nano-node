@@ -1788,7 +1788,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad account number";
                 }
             }
-            else if (action == "wallet_create")
+            else if (action == "account_create")
             {
                 if (enable_control)
                 {
@@ -1984,7 +1984,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "RPC control is disabled";
                 }
             }
-            else if (action == "validate_account")
+            else if (action == "validate_account_number")
             {
                 std::string account_text (request_l.get <std::string> ("account"));
                 rai::uint256_union account;
