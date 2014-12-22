@@ -531,7 +531,7 @@ client (client_a)
             auto block_l (rai::deserialize_block_json (tree));
             if (block_l != nullptr)
             {
-                client.client_m.processor.process_receive_republish (std::move (block_l), rai::endpoint {});
+                client.client_m.processor.process_receive_republish (std::move (block_l));
             }
             else
             {

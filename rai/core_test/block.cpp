@@ -326,12 +326,12 @@ TEST (frontier_req, serialization)
 TEST (work, one)
 {
     rai::work work (rai::block::publish_work);
-    rai::uint256_union seed;
-    rai::random_pool.GenerateBlock (seed.bytes.data (), sizeof (seed));
-    uint64_t nonce;
-    rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (&nonce), sizeof (nonce));
-    auto value1 (work.generate (seed, nonce));
-	auto value2 (work.generate (seed, nonce));
+    rai::uint256_union seed (0x0123456789abcdef);
+    uint64_t nonce (0x0123456789abcdef);
+    CryptoPP::SHA3 hash (32);
+    auto value1 (work.generate (hash, seed, nonce));
+    std::cerr << value1;
+	auto value2 (work.generate (hash, seed, nonce));
 	ASSERT_EQ (value1, value2);
 }
 

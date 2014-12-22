@@ -153,6 +153,7 @@ int main (int argc, char * const * argv)
         {
             *i = 0;
         }
+        std::cerr << "Starting\n";
         for (uint64_t i (0); true; ++i)
         {
             auto begin1 (std::chrono::high_resolution_clock::now ());

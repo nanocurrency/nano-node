@@ -191,7 +191,7 @@ namespace rai
 		virtual std::unique_ptr <rai::block> clone () const = 0;
         virtual rai::block_type type () const = 0;
         static size_t const publish_test_work = 1024;
-        static size_t const publish_full_work = 128 * 1024; // 8 * 128 * 1024 = 1mb to generate work
+        static size_t const publish_full_work = 8 * 1024; // 8 * 8 * 1024 = 64k to generate work
         static size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
     };
     std::unique_ptr <rai::block> deserialize_block (rai::stream &);
@@ -496,9 +496,9 @@ namespace rai
     {
     public:
         work (size_t);
-        rai::uint256_union derive (rai::uint256_union const &);
+        rai::uint256_union derive (CryptoPP::SHA3 &, rai::uint256_union const &);
         rai::uint256_union kdf (std::string const &, rai::uint256_union const &);
-        uint64_t generate (rai::uint256_union const &, uint64_t);
+        uint64_t generate (CryptoPP::SHA3 &, rai::uint256_union const &, uint64_t);
         uint64_t create (rai::uint256_union const &);
         bool validate (rai::uint256_union const &, uint64_t);
         uint64_t const threshold_requirement;

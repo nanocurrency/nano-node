@@ -173,14 +173,17 @@ public:
 }
 
 rai::work::work (size_t entries_a) :
-threshold_requirement (0xffc0000000000000),
+threshold_requirement (0xfff0000000000000),
 entries (entries_a),
 data (new uint64_t [entries_a])
 {
     assert ((entries_a & 0xf) == 0);
 }
 
-rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
+namespace {
+size_t constexpr stepping (16);
+}
+rai::uint256_union rai::work::derive (CryptoPP::SHA3 & hash_a, rai::uint256_union const & input_a)
 {
     auto entries_l (entries);
     auto mask (entries_l - 1);
@@ -193,20 +196,38 @@ rai::uint256_union rai::work::derive (rai::uint256_union const & input_a)
     {
         rng.s [i] = 0;
     }
+    // Random-fill buffer for an initialized starting point
     for (auto i (data.get ()), n (data.get () + entries_l); i != n; ++i)
     {
         auto next (rng.next ());
         *i = next;
     }
-    auto data_l (data.get ());
-    rai::uint256_union result (input_a);
-    for (size_t i (0), n (entries_l / 16); i != n; ++i)
+    auto previous (rng.next ());
+    // Random-write buffer to break n+1 = f(n) relation
+    for (size_t i (0), n (entries); i != n; ++i)
     {
-        result.qwords [0] ^= data_l [rng.next () & mask];
-        result.qwords [1] ^= data_l [rng.next () & mask];
-        result.qwords [2] ^= data_l [rng.next () & mask];
-        result.qwords [3] ^= data_l [rng.next () & mask];
+        auto index (previous & mask);
+        auto value (rng.next ());
+        data [index] = value;
     }
+    // Random-read buffer to prevent partial memorization
+    union
+    {
+        std::array <uint64_t, stepping> qwords;
+        std::array <uint8_t, stepping * sizeof (uint64_t)> bytes;
+    } value;
+    for (size_t i (0), n (entries); i != n; i += stepping)
+    {
+        for (size_t j (0), m (stepping); j != m; ++j)
+        {
+            auto index (rng.next () % (entries_l - (i + j)));
+            value.qwords [j] = data [index];
+            data [index] = data [entries_l - (i + j) - 1];
+        }
+        hash_a.Update (reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
+    }
+    rai::uint256_union result;
+    hash_a.Final (result.bytes.data ());
     return result;
 }
 
@@ -217,13 +238,14 @@ rai::uint256_union rai::work::kdf (std::string const & password_a, rai::uint256_
     hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
     hash.Final (input.bytes.data ());
     input ^= salt_a;
-    auto result (derive (input));
+    hash.Restart ();
+    auto result (derive (hash, input));
     return result;
 }
 
-uint64_t rai::work::generate (rai::uint256_union const & seed, uint64_t nonce)
+uint64_t rai::work::generate (CryptoPP::SHA3 & hash, rai::uint256_union const & seed, uint64_t nonce)
 {
-    auto result (derive (seed ^ nonce));
+    auto result (derive (hash, seed ^ nonce));
     return result.qwords [0] ^ result.qwords [1] ^ result.qwords [2] ^ result.qwords [3];
 }
 
@@ -233,17 +255,20 @@ uint64_t rai::work::create (rai::uint256_union const & seed)
     rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the spec
     uint64_t result;
     rai::uint256_union value;
+    CryptoPP::SHA3 hash (32);
     do
     {
         result = rng.next ();
-        value = generate (seed, result);
+        value = generate (hash, seed, result);
+        hash.Restart ();
     } while (value < threshold_requirement);
     return result;
 }
 
 bool rai::work::validate (rai::uint256_union const & seed, uint64_t nonce)
 {
-    auto value (generate (seed, nonce));
+    CryptoPP::SHA3 hash (32);
+    auto value (generate (hash, seed, nonce));
     return value < threshold_requirement;
 }
 
@@ -769,8 +794,10 @@ bool rai::uint256_union::decode_dec (std::string const & text)
 
 rai::uint256_union::uint256_union (uint64_t value)
 {
-    qwords.fill (0);
     qwords [0] = value;
+    qwords [1] = 0;
+    qwords [2] = 0;
+    qwords [3] = 0;
 }
 
 bool rai::uint256_union::operator != (rai::uint256_union const & other_a) const
