@@ -4214,7 +4214,7 @@ public:
             }
             else
             {
-                // Wallet doesn't contain key for this destination or couldn't decrypt
+                BOOST_LOG (client.log) << "While confirming, unable to fetch wallet key";
             }
         }
     }
