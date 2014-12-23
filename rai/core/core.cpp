@@ -726,6 +726,7 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
         }
         if (!remaining.is_zero ())
         {
+            BOOST_LOG (client.log) << "Wallet contained insufficient coins";
             // Destroy the sends because they're signed and we're not going to use them.
             result = true;
             blocks.clear ();
@@ -740,6 +741,14 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
         BOOST_LOG (client.log) << "Wallet key is invalid";
     }
     return result;
+}
+
+void rai::wallet::serialize_json (std::string &)
+{
+    for (auto i (store.begin ()), n (store.end ()); i != n; ++i)
+    {
+        
+    }
 }
 
 rai::wallets::wallets (rai::client & client_a, boost::filesystem::path const & path_a) :
