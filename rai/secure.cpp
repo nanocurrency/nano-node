@@ -2507,14 +2507,6 @@ rai::uint128_t rai::ledger::weight (rai::account const & account_a)
     return store.representation_get (account_a);
 }
 
-uint64_t rai::ledger::create_work (rai::block const & block_a)
-{
-    auto root (store.root (block_a));
-    rai::work work (rai::block::publish_work);
-    auto proof (work.create (root));
-    return proof;
-}
-
 // Rollback blocks until `frontier_a' is the frontier block
 void rai::ledger::rollback (rai::block_hash const & frontier_a)
 {

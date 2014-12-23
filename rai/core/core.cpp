@@ -59,6 +59,10 @@ namespace
     {
         return network_logging () && true;
     }
+    bool constexpr work_generation_time ()
+    {
+        return true;
+    }
     bool constexpr log_to_cerr ()
     {
         return false;
@@ -668,7 +672,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
             auto open (new rai::open_block);
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
-            open->work = client.ledger.create_work (*open);
+            open->work = client.create_work (*open);
             rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
             block.reset (open);
         }
@@ -677,7 +681,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
             auto receive (new rai::receive_block);
             receive->hashables.previous = frontier.hash;
             receive->hashables.source = hash;
-            receive->work = client.ledger.create_work (*receive);
+            receive->work = client.create_work (*receive);
             rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
             block.reset (receive);
         }
@@ -715,7 +719,7 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
                 block->hashables.destination = account_a;
                 block->hashables.previous = frontier.hash;
                 block->hashables.balance = balance - amount;
-                block->work = client.ledger.create_work (*block);
+                block->work = client.create_work (*block);
                 rai::private_key prv;
                 result = store.fetch (account, prv);
                 assert (!result);
@@ -731,9 +735,13 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
             result = true;
             blocks.clear ();
         }
-        for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+        else
         {
-            client.processor.process_receive_republish (std::move (*i));
+            BOOST_LOG (client.log) << "Publishing blocks";
+            for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+            {
+                client.processor.process_receive_republish (std::move (*i));
+            }
         }
     }
     else
@@ -1180,6 +1188,17 @@ void rai::client::send_keepalive (rai::endpoint const & endpoint_a)
     }
     assert (endpoint_l.address ().is_v6 ());
     network.send_keepalive (endpoint_l);
+}
+
+uint64_t rai::client::create_work (rai::block const & block_a)
+{
+    auto root (store.root (block_a));
+    rai::work work (rai::block::publish_work);
+    auto begin (std::chrono::system_clock::now ());
+    BOOST_LOG (log) << "Beginning work generation";
+    auto proof (work.create (root));
+    BOOST_LOG (log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
+    return proof;
 }
 
 rai::gap_cache::gap_cache () :

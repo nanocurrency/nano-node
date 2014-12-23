@@ -687,6 +687,7 @@ public:
     void stop ();
     std::shared_ptr <rai::client> shared ();
     bool representative_vote (rai::election &, rai::block const &);
+    uint64_t create_work (rai::block const &);
     boost::log::sources::logger log;
     rai::block_store store;
     rai::gap_cache gap_cache;
