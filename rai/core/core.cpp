@@ -2209,6 +2209,63 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad account number";
                 }
             }
+            else if (action == "representative")
+            {
+                std::string wallet_text (request_l.get <std::string> ("wallet"));
+                rai::uint256_union wallet;
+                auto error (wallet.decode_hex (wallet_text));
+                if (!error)
+                {
+                    auto existing (client.wallets.items.find (wallet));
+                    if (existing != client.wallets.items.end ())
+                    {
+                        boost::property_tree::ptree response_l;
+                        std::string representative;
+                        existing->second->store.representative ().encode_base58check (representative);
+                        response_l.put ("representative", representative);
+                        set_response (response, response_l);
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Wallet not found";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
+            else if (action == "representative_set")
+            {
+                std::string wallet_text (request_l.get <std::string> ("wallet"));
+                rai::uint256_union wallet;
+                auto error (wallet.decode_hex (wallet_text));
+                if (!error)
+                {
+                    auto existing (client.wallets.items.find (wallet));
+                    if (existing != client.wallets.items.end ())
+                    {
+                        std::string representative_text (request_l.get <std::string> ("representative"));
+                        rai::account representative;
+                        representative.decode_base58check (representative_text);
+                        existing->second->store.representative_set (representative);
+                        boost::property_tree::ptree response_l;
+                        set_response (response, response_l);
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Wallet not found";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);

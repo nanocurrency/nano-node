@@ -818,6 +818,58 @@ TEST (rpc, wallet_password_enter)
     ASSERT_EQ (account_text1, "1");
 }
 
+TEST (rpc, representative)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
+    request_tree.put ("action", "representative");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string account_text1 (response_tree.get <std::string> ("representative"));
+    std::string representative;
+    rai::genesis_account.encode_base58check (representative);
+    ASSERT_EQ (account_text1, representative);
+}
+
+TEST (rpc, representative_set)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    std::string wallet;
+    system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request_tree.put ("wallet", wallet);
+    rai::keypair key;
+    std::string representative_l;
+    key.pub.encode_base58check (representative_l);
+    request_tree.put ("action", "representative_set");
+    request_tree.put ("representative", representative_l);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (key.pub, system.clients [0]->wallets.items.begin ()->second->store.representative ());
+}
+
 TEST (network, receive_weight_change)
 {
     rai::system system (24000, 2);
