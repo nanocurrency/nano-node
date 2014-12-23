@@ -174,9 +174,9 @@ namespace landing
 }
 }
 
-int main ()
+int main (int argc, char * const * argv)
 {
-    auto working (boost::filesystem::current_path ());
+    auto working (boost::filesystem::system_complete (argv[0]).parent_path ());
     auto config_error (false);
     rai::landing::config config (rai::landing::read_config (config_error, working));
     if (!config_error)

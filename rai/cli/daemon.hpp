@@ -8,7 +8,7 @@ namespace rai_daemon
     {
     public:
         daemon ();
-        void run ();
+        void run (int, char * const *);
         std::string path;
     };
     class daemon_config

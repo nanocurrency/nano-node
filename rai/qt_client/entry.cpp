@@ -69,9 +69,9 @@ public:
     rai::uint256_union wallet;
 };
 
-int main (int argc, char ** argv)
+int main (int argc, char * const * argv)
 {
-    auto working (boost::filesystem::current_path ());
+    auto working (boost::filesystem::system_complete (argv[0]).parent_path ());
     auto config_error (false);
     qt_client_config config;
     auto config_path ((working / "config.json").string ());
@@ -92,11 +92,11 @@ int main (int argc, char ** argv)
     }
     if (!config_error)
     {
-        QApplication application (argc, argv);
+        QApplication application (argc, const_cast <char **> (argv));
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
         rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port, boost::filesystem::system_complete (argv[0]).parent_path (), processor));
+        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor));
         QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
         {
             client->stop ();
