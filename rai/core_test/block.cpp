@@ -354,7 +354,7 @@ TEST (shared_work, validate)
 	rai::send_block send_block;
 	ASSERT_TRUE (work.validate (send_block));
 	ASSERT_EQ (1, work.insufficient_work_count);
-	send_block.work = system.clients [0]->ledger.create_work (send_block);
+	send_block.work = system.clients [0]->create_work (send_block);
 	ASSERT_FALSE (work.validate (send_block));
 	rai::open_block open_block;
 	ASSERT_TRUE (work.validate (open_block));

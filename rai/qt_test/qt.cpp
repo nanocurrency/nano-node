@@ -150,7 +150,7 @@ TEST (client, process_block)
     send.hashables.destination = key1.pub;
     send.hashables.previous = system.clients [0]->ledger.latest (rai::genesis_account);
     send.hashables.balance = 0;
-    send.work = system.clients [0]->ledger.create_work (send);
+    send.work = system.clients [0]->create_work (send);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
     std::string destination;
     send.hashables.destination.encode_base58check (destination);

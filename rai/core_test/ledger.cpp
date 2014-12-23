@@ -1039,7 +1039,7 @@ TEST (ledger, fork_keep)
     send1->hashables.previous = genesis.hash ();
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
-    send1->work = client1.ledger.create_work (*send1);
+    send1->work = client1.create_work (*send1);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
     rai::publish publish1;
     publish1.block = std::move (send1);
@@ -1048,7 +1048,7 @@ TEST (ledger, fork_keep)
     send2->hashables.previous = genesis.hash ();
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
-    send2->work = client1.ledger.create_work (*send2);
+    send2->work = client1.create_work (*send2);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
     rai::publish publish2;
     publish2.block = std::move (send2);
@@ -1095,7 +1095,7 @@ TEST (ledger, fork_flip)
     send1->hashables.previous = genesis.hash ();
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
-    send1->work = client1.ledger.create_work (*send1);
+    send1->work = client1.create_work (*send1);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
     rai::publish publish1;
     publish1.block = std::move (send1);
@@ -1104,7 +1104,7 @@ TEST (ledger, fork_flip)
     send2->hashables.previous = genesis.hash ();
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
-    send2->work = client1.ledger.create_work (*send2);
+    send2->work = client1.create_work (*send2);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
     rai::publish publish2;
     publish2.block = std::move (send2);
@@ -1152,7 +1152,7 @@ TEST (ledger, fork_multi_flip)
     send1->hashables.previous = genesis.hash ();
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
-    send1->work = client1.ledger.create_work (*send1);
+    send1->work = client1.create_work (*send1);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
     rai::publish publish1;
     publish1.block = std::move (send1);
@@ -1161,7 +1161,7 @@ TEST (ledger, fork_multi_flip)
     send2->hashables.previous = genesis.hash ();
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
-    send2->work = client1.ledger.create_work (*send2);
+    send2->work = client1.create_work (*send2);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
     rai::publish publish2;
     publish2.block = std::move (send2);
@@ -1169,7 +1169,7 @@ TEST (ledger, fork_multi_flip)
     send3->hashables.previous = publish2.block->hash ();
     send3->hashables.balance.clear ();
     send3->hashables.destination = key2.pub;
-    send3->work = client1.ledger.create_work (*send3);
+    send3->work = client1.create_work (*send3);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send3->hash (), send3->signature);
     rai::publish publish3;
     publish3.block = std::move (send3);
