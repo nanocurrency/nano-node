@@ -743,14 +743,6 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
     return result;
 }
 
-void rai::wallet::serialize_json (std::string &)
-{
-    for (auto i (store.begin ()), n (store.end ()); i != n; ++i)
-    {
-        
-    }
-}
-
 rai::wallets::wallets (rai::client & client_a, boost::filesystem::path const & path_a) :
 path (path_a),
 client (client_a)
