@@ -285,6 +285,8 @@ class wallet_store
 {
 public:
     wallet_store (bool &, boost::filesystem::path const &);
+    wallet_store (bool &, boost::filesystem::path const &, std::string const &);
+    void initialize (bool &, boost::filesystem::path const &);
     rai::uint256_union check ();
     bool rekey (std::string const &);
     bool valid_password ();
@@ -302,6 +304,7 @@ public:
     key_iterator end ();
     rai::uint256_union derive_key (std::string const &);
     rai::uint128_t balance (rai::ledger &);
+    void serialize_json (std::string &);
     rai::fan password;
     static rai::uint256_union const version_1;
     static rai::uint256_union const version_current;
@@ -321,6 +324,7 @@ class wallet
 {
 public:
     wallet (bool &, rai::client &, boost::filesystem::path const &);
+    wallet (bool &, rai::client &, boost::filesystem::path const &, std::string const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
     bool send (rai::account const &, rai::uint128_t const &);
     std::mutex mutex;

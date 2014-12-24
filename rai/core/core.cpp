@@ -525,8 +525,130 @@ rai::uint256_union const rai::wallet_store::check_special (3);
 rai::uint256_union const rai::wallet_store::representative_special (4);
 int const rai::wallet_store::special_count (5);
 
+rai::wallet_store::wallet_store (bool & init_a, boost::filesystem::path const & path_a, std::string const & json_a) :
+password (0, 1024)
+{
+    init_a = false;
+    initialize (init_a, path_a);
+    if (!init_a)
+    {
+        std::string junk;
+        assert (handle->Get (leveldb::ReadOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), &junk).IsNotFound ());
+        boost::property_tree::ptree wallet_l;
+        std::stringstream istream (json_a);
+        boost::property_tree::read_json (istream, wallet_l);
+        for (auto i (wallet_l.begin ()), n (wallet_l.end ()); i != n; ++i)
+        {
+            rai::uint256_union key;
+            init_a = key.decode_hex (i->first);
+            if (!init_a)
+            {
+                rai::uint256_union value;
+                init_a = value.decode_hex (wallet_l.get <std::string> (i->first));
+                if (!init_a)
+                {
+                    auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (key.chars.data (), key.chars.size ()), leveldb::Slice (value.chars.data (), value.chars.size ())));
+                    if (!status.ok ())
+                    {
+                        init_a = true;
+                    }
+                }
+                else
+                {
+                    init_a = true;
+                }
+            }
+            else
+            {
+                init_a = true;
+            }
+        }
+        if (!init_a)
+        {
+            auto status0 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), &junk));
+            if (status0.ok ())
+            {
+                auto status1 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet_key_special.chars.data (), wallet_key_special.chars.size ()), &junk));
+                if (status1.ok ())
+                {
+                    auto status2 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (salt_special.chars.data (), salt_special.chars.size ()), &junk));
+                    if (status2.ok ())
+                    {
+                        auto status3 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (check_special.chars.data (), check_special.chars.size ()), &junk));
+                        if (status3.ok ())
+                        {
+                            auto status4 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), &junk));
+                            if (!status4.ok ())
+                            {
+                                init_a = true;
+                            }
+                        }
+                        else
+                        {
+                            init_a = true;
+                        }
+                    }
+                    else
+                    {
+                        init_a = true;
+                    }
+                }
+                else
+                {
+                    init_a = true;
+                }
+            }
+            else
+            {
+                init_a = true;
+            }
+        }
+    }
+}
+
 rai::wallet_store::wallet_store (bool & init_a, boost::filesystem::path const & path_a) :
 password (0, 1024)
+{
+    init_a = false;
+    initialize (init_a, path_a);
+    if (!init_a)
+    {
+        std::string version_value;
+        auto version_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), &version_value));
+        if (version_status.IsNotFound ())
+        {
+            auto status0 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), leveldb::Slice (version_current.chars.data (), version_current.chars.size ())));
+            assert (status0.ok ());
+            // Wallet key is a fixed random key that encrypts all entries
+            rai::uint256_union wallet_key;
+            random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
+            auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (wallet_key_special.chars.data (), wallet_key_special.chars.size ()), leveldb::Slice (wallet_key.chars.data (), wallet_key.chars.size ())));
+            assert (status1.ok ());
+            rai::uint256_union salt_l;
+            random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
+            auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (salt_special.chars.data (), salt_special.chars.size ()), leveldb::Slice (salt_l.chars.data (), salt_l.chars.size ())));
+            assert (status2.ok ());
+            auto password_l (derive_key (""));
+            password.value_set (password_l);
+            // Wallet key is encrypted by the user's password
+            rai::uint256_union encrypted (wallet_key, password_l, salt_l.owords [0]);
+            rai::uint256_union zero (0);
+            rai::uint256_union check (zero, wallet_key, salt_l.owords [0]);
+            auto status3 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (check_special.chars.data (), check_special.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
+            assert (status3.ok ());
+            wallet_key.clear ();
+            password_l.clear ();
+            auto status4 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), leveldb::Slice (rai::genesis_account.chars.data (), rai::genesis_account.chars.size ())));
+            assert (status4.ok ());
+        }
+        else
+        {
+            enter_password ("");
+        }
+    }
+}
+
+void rai::wallet_store::initialize (bool & init_a, boost::filesystem::path const & path_a)
 {
     boost::system::error_code code;
     boost::filesystem::create_directories (path_a, code);
@@ -537,48 +659,7 @@ password (0, 1024)
         leveldb::DB * db (nullptr);
         auto status (leveldb::DB::Open (options, path_a.string (), &db));
         handle.reset (db);
-        if (status.ok ())
-        {
-            rai::uint256_union wallet_password_key;
-            wallet_password_key.clear ();
-            std::string wallet_password_value;
-            auto wallet_password_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet_password_key.chars.data (), wallet_password_key.chars.size ()), &wallet_password_value));
-            if (wallet_password_status.IsNotFound ())
-            {
-                // The wallet is empty meaning we just created it, initialize it.
-                auto version_status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), leveldb::Slice (version_current.chars.data (), version_current.chars.size ())));
-                assert (version_status.ok ());
-                // Wallet key is a fixed random key that encrypts all entries
-                rai::uint256_union salt_l;
-                random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
-                auto status3 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (salt_special.chars.data (), salt_special.chars.size ()), leveldb::Slice (salt_l.chars.data (), salt_l.chars.size ())));
-                assert (status3.ok ());
-                auto password_l (derive_key (""));
-                password.value_set (password_l);
-                rai::uint256_union wallet_key;
-                random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-                // Wallet key is encrypted by the user's password
-                rai::uint256_union encrypted (wallet_key, password_l, salt_l.owords [0]);
-                // Wallet key is stored in entry 0
-                auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (wallet_key_special.chars.data (), wallet_key_special.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
-                assert (status1.ok ());
-                rai::uint256_union zero (0);
-                rai::uint256_union check (zero, wallet_key, salt_l.owords [0]);
-                // Check key is stored in entry 1 and is used to check if the password is correct
-                auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (check_special.chars.data (), check_special.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
-                assert (status2.ok ());
-                wallet_key.clear ();
-                password_l.clear ();
-                auto status4 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), leveldb::Slice (rai::genesis_account.chars.data (), rai::genesis_account.chars.size ())));
-                assert (status4.ok ());
-            }
-            else
-            {
-                enter_password ("");
-            }
-            init_a = false;
-        }
-        else
+        if (!status.ok ())
         {
             init_a = true;
         }
@@ -651,8 +732,36 @@ bool rai::wallet_store::exists (rai::public_key const & pub)
     return find (pub) != end ();
 }
 
+void rai::wallet_store::serialize_json (std::string & string_a)
+{
+    boost::property_tree::ptree tree;
+    std::unique_ptr <leveldb::Iterator> iterator (handle->NewIterator (leveldb::ReadOptions ()));
+    iterator->SeekToFirst ();
+    for (; iterator->Valid (); iterator->Next ())
+    {
+        rai::uint256_union key;
+        key = iterator->key ();
+        rai::uint256_union value;
+        value = iterator->value ();
+        std::string key_hex;
+        key.encode_hex (key_hex);
+        std::string value_hex;
+        value.encode_hex (value_hex);
+        tree.put (key_hex, value_hex);
+    }
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, tree);
+    string_a = ostream.str ();
+}
+
 rai::wallet::wallet (bool & init_a, rai::client & client_a, boost::filesystem::path const & path_a) :
 store (init_a, path_a),
+client (client_a)
+{
+}
+
+rai::wallet::wallet (bool & init_a, rai::client & client_a, boost::filesystem::path const & path_a, std::string const & json) :
+store (init_a, path_a, json),
 client (client_a)
 {
 }

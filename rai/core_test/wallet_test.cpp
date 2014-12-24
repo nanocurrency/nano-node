@@ -335,3 +335,17 @@ TEST (wallet, representative)
     wallet.insert (key.prv);
     ASSERT_TRUE (wallet.is_representative ());
 }
+
+TEST (wallet, serialize_json)
+{
+    auto error (false);
+    rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
+    std::string serialized;
+    wallet1.serialize_json (serialized);
+    rai::wallet_store wallet2 (error, boost::filesystem::unique_path (), serialized);
+    ASSERT_FALSE (error);
+    ASSERT_EQ (wallet1.wallet_key (), wallet2.wallet_key ());
+    ASSERT_EQ (wallet1.salt (), wallet2.salt ());
+    ASSERT_EQ (wallet1.check (), wallet2.check ());
+    ASSERT_EQ (wallet1.representative (), wallet2.representative ());
+}
