@@ -336,7 +336,7 @@ TEST (wallet, representative)
     ASSERT_TRUE (wallet.is_representative ());
 }
 
-TEST (wallet, serialize_json)
+TEST (wallet, serialize_json_empty)
 {
     auto error (false);
     rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
@@ -348,4 +348,50 @@ TEST (wallet, serialize_json)
     ASSERT_EQ (wallet1.salt (), wallet2.salt ());
     ASSERT_EQ (wallet1.check (), wallet2.check ());
     ASSERT_EQ (wallet1.representative (), wallet2.representative ());
+    ASSERT_EQ (wallet1.end (), wallet1.begin ());
+    ASSERT_EQ (wallet2.end (), wallet2.begin ());
+}
+
+TEST (wallet, serialize_json_one)
+{
+    auto error (false);
+    rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
+    rai::keypair key;
+    wallet1.insert (key.prv);
+    std::string serialized;
+    wallet1.serialize_json (serialized);
+    rai::wallet_store wallet2 (error, boost::filesystem::unique_path (), serialized);
+    ASSERT_FALSE (error);
+    ASSERT_EQ (wallet1.wallet_key (), wallet2.wallet_key ());
+    ASSERT_EQ (wallet1.salt (), wallet2.salt ());
+    ASSERT_EQ (wallet1.check (), wallet2.check ());
+    ASSERT_EQ (wallet1.representative (), wallet2.representative ());
+    ASSERT_TRUE (wallet2.exists (key.pub));
+    rai::private_key prv;
+    wallet2.fetch (key.pub, prv);
+    ASSERT_EQ (key.prv, prv);
+}
+
+TEST (wallet, serialize_json_password)
+{
+    auto error (false);
+    rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
+    rai::keypair key;
+    wallet1.rekey ("password");
+    wallet1.insert (key.prv);
+    std::string serialized;
+    wallet1.serialize_json (serialized);
+    rai::wallet_store wallet2 (error, boost::filesystem::unique_path (), serialized);
+    ASSERT_FALSE (error);
+    ASSERT_FALSE (wallet2.valid_password ());
+    wallet2.enter_password ("password");
+    ASSERT_TRUE (wallet2.valid_password ());
+    ASSERT_EQ (wallet1.wallet_key (), wallet2.wallet_key ());
+    ASSERT_EQ (wallet1.salt (), wallet2.salt ());
+    ASSERT_EQ (wallet1.check (), wallet2.check ());
+    ASSERT_EQ (wallet1.representative (), wallet2.representative ());
+    ASSERT_TRUE (wallet2.exists (key.pub));
+    rai::private_key prv;
+    wallet2.fetch (key.pub, prv);
+    ASSERT_EQ (key.prv, prv);
 }

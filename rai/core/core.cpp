@@ -578,7 +578,11 @@ password (0, 1024)
                         if (status3.ok ())
                         {
                             auto status4 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), &junk));
-                            if (!status4.ok ())
+                            if (status4.ok ())
+                            {
+                                enter_password ("");
+                            }
+                            else
                             {
                                 init_a = true;
                             }
@@ -619,19 +623,19 @@ password (0, 1024)
         {
             auto status0 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), leveldb::Slice (version_current.chars.data (), version_current.chars.size ())));
             assert (status0.ok ());
-            // Wallet key is a fixed random key that encrypts all entries
-            rai::uint256_union wallet_key;
-            random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-            auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (wallet_key_special.chars.data (), wallet_key_special.chars.size ()), leveldb::Slice (wallet_key.chars.data (), wallet_key.chars.size ())));
-            assert (status1.ok ());
             rai::uint256_union salt_l;
             random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
             auto status2 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (salt_special.chars.data (), salt_special.chars.size ()), leveldb::Slice (salt_l.chars.data (), salt_l.chars.size ())));
             assert (status2.ok ());
+            // Wallet key is a fixed random key that encrypts all entries
+            rai::uint256_union wallet_key;
+            random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
             auto password_l (derive_key (""));
             password.value_set (password_l);
             // Wallet key is encrypted by the user's password
             rai::uint256_union encrypted (wallet_key, password_l, salt_l.owords [0]);
+            auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (wallet_key_special.chars.data (), wallet_key_special.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
+            assert (status1.ok ());
             rai::uint256_union zero (0);
             rai::uint256_union check (zero, wallet_key, salt_l.owords [0]);
             auto status3 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (check_special.chars.data (), check_special.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
