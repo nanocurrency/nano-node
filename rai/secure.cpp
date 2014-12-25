@@ -182,17 +182,17 @@ public:
 };
 }
 
+namespace {
+size_t constexpr stepping (16);
+}
 rai::work::work (size_t entries_a) :
 threshold_requirement (0xfff0000000000000),
 entries (entries_a),
 data (new uint64_t [entries_a])
 {
-    assert ((entries_a & 0xf) == 0);
+    assert ((entries_a & (stepping - 1)) == 0);
 }
 
-namespace {
-size_t constexpr stepping (16);
-}
 rai::uint256_union rai::work::derive (CryptoPP::SHA3 & hash_a, rai::uint256_union const & input_a)
 {
     auto entries_l (entries);
