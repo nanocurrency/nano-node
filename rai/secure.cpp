@@ -97,26 +97,25 @@ void rai::votes::vote (rai::vote const & vote_a)
 // Sum the weights for each vote and return the winning block with its vote tally
 std::pair <std::unique_ptr <rai::block>, rai::uint128_t> rai::votes::winner ()
 {
-	std::unordered_map <rai::block_hash, std::pair <std::unique_ptr <block>, rai::uint128_t>> totals;
+    std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash> totals;
 	for (auto & i: rep_votes)
 	{
-		auto hash (i.second.second->hash ());
-		auto existing (totals.find (hash));
+		auto existing (totals.find (i.second));
 		if (existing == totals.end ())
 		{
-			totals.insert (std::make_pair (hash, std::make_pair (i.second.second->clone (), 0)));
-			existing = totals.find (hash);
+			totals.insert (std::make_pair (i.first->clone (), 0));
+			existing = totals.find (i.first);
 		}
 		auto weight (ledger.weight (i.first));
-		existing->second.second += weight;
+		existing->second += weight;
 	}
 	std::pair <std::unique_ptr <rai::block>, rai::uint128_t> winner_l;
 	for (auto & i: totals)
 	{
-		if (i.second.second >= winner_l.second)
+		if (i.second >= winner_l.second)
 		{
-			winner_l.first = i.second.first->clone ();
-			winner_l.second = i.second.second;
+			winner_l.first = i.first->clone ();
+			winner_l.second = i.second;
 		}
 	}
 	return winner_l;

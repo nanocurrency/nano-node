@@ -379,7 +379,7 @@ public:
     std::unique_ptr <rai::block> get (rai::block_hash const &);
     boost::multi_index_container
     <
-        gap_information,
+        rai::gap_information,
         boost::multi_index::indexed_by
         <
             boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>,

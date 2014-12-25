@@ -164,8 +164,6 @@ namespace boost
 }
 namespace rai
 {
-	void sign_message (rai::private_key const &, rai::public_key const &, rai::uint256_union const &, rai::uint512_union &);
-	bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
 	class block_visitor;
 	enum class block_type : uint8_t
 	{
@@ -194,6 +192,17 @@ namespace rai
         static size_t const publish_full_work = 8 * 1024; // 8 * 8 * 1024 = 64k to generate work
         static size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
     };
+    class unique_ptr_block_hash
+    {
+    public:
+        size_t operator () (std::unique_ptr <rai::block> const & block_a)
+        {
+            auto hash (block_a->hash ());
+            return static_cast <size_t> (hash.qwords [0]);
+        }
+    };
+	void sign_message (rai::private_key const &, rai::public_key const &, rai::uint256_union const &, rai::uint512_union &);
+	bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
     std::unique_ptr <rai::block> deserialize_block (rai::stream &);
     std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
     std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
