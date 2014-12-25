@@ -76,32 +76,30 @@ bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const
 }
 
 // Validate a vote and apply it to the current election or start a new election if it doesn't exist
-void rai::votes::vote (rai::vote const & vote_a)
+bool rai::votes::vote (rai::vote const & vote_a)
 {
+	auto result (false);
 	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
 	{
 		auto existing (rep_votes.find (vote_a.account));
 		if (existing == rep_votes.end ())
 		{
+			result = true;
 			rep_votes.insert (std::make_pair (vote_a.account, std::make_pair (vote_a.sequence, vote_a.block->clone ())));
 		}
 		else
 		{
 			if (existing->second.first < vote_a.sequence)
 			{
-				existing->second.second = vote_a.block->clone ();
+				result = !(*existing->second.second == *vote_a.block);
+				if (result)
+				{
+					existing->second.second = vote_a.block->clone ();
+				}
 			}
 		}
-		assert (rep_votes.size () > 0);
-		auto tally_l (tally ());
-		auto winner (tally_l.begin ()->second->clone ());
-		if (!(*winner == *last_winner))
-		{
-			ledger.rollback (last_winner->hash ());
-			ledger.process (*winner);
-			last_winner = std::move (winner);
-		}
 	}
+	return result;
 }
 
 std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::votes::tally ()
@@ -138,7 +136,6 @@ std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::votes::winner ()
 rai::votes::votes (rai::ledger & ledger_a, rai::block const & block_a) :
 ledger (ledger_a),
 root (ledger.store.root (block_a)),
-last_winner (block_a.clone ()),
 // Sequence 0 is the first response by a representative before a fork was observed
 sequence (1)
 {

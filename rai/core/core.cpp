@@ -4194,6 +4194,7 @@ rai::election::election (std::shared_ptr <rai::client> client_a, rai::block cons
 votes (client_a->ledger, block_a),
 client (client_a),
 last_vote (std::chrono::system_clock::now ()),
+last_winner (block_a.clone ()),
 confirmed (false)
 {
     assert (client_a->store.block_exists (block_a.hash ()));
@@ -4218,7 +4219,7 @@ rai::destructable::~destructable ()
 
 void rai::election::start ()
 {
-    auto have_representative (client->representative_vote (*this, *votes.last_winner));
+    auto have_representative (client->representative_vote (*this, *last_winner));
     if (have_representative)
     {
         announce_vote ();
@@ -4251,16 +4252,24 @@ rai::uint256_t rai::election::contested_threshold ()
 
 void rai::election::vote (rai::vote const & vote_a)
 {
-    votes.vote (vote_a);
-    if (!confirmed)
+    auto changed (votes.vote (vote_a));
+    if (!confirmed && changed)
     {
         auto tally_l (votes.tally ());
+		assert (tally_l.size () > 0);
+		auto winner (tally_l.begin ()->second->clone ());
+		if (!(*winner == *last_winner))
+		{
+			client->ledger.rollback (last_winner->hash ());
+			client->ledger.process (*winner);
+			last_winner = std::move (winner);
+		}
         if (tally_l.size () == 1)
         {
             if (tally_l.begin ()->first > uncontested_threshold ())
             {
                 confirmed = true;
-                client->processor.process_confirmed (*votes.last_winner);
+                client->processor.process_confirmed (*last_winner);
             }
         }
         else
@@ -4268,7 +4277,7 @@ void rai::election::vote (rai::vote const & vote_a)
             if (tally_l.begin ()->first > contested_threshold ())
             {
                 confirmed = true;
-                client->processor.process_confirmed (*votes.last_winner);
+                client->processor.process_confirmed (*last_winner);
             }
         }
     }

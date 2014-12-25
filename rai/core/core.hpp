@@ -113,6 +113,7 @@ public:
     rai::votes votes;
     std::shared_ptr <rai::client> client;
     std::chrono::system_clock::time_point last_vote;
+	std::unique_ptr <rai::block> last_winner;
     bool confirmed;
 };
 class conflicts
