@@ -839,8 +839,8 @@ TEST (votes, add_one)
     ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
     ASSERT_EQ (send1, *existing1->second.second);
     auto winner (votes1->votes.winner ());
-    ASSERT_EQ (send1, *winner.first);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.second);
+    ASSERT_EQ (send1, *winner.second);
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
 }
 
 TEST (votes, add_two)
@@ -881,7 +881,7 @@ TEST (votes, add_two)
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (key2.pub));
     ASSERT_EQ (send2, *votes1->votes.rep_votes [key2.pub].second);
     auto winner (votes1->votes.winner ());
-    ASSERT_EQ (send1, *winner.first);
+    ASSERT_EQ (send1, *winner.second);
 }
 
 TEST (votes, add_existing)
@@ -920,7 +920,7 @@ TEST (votes, add_existing)
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
     ASSERT_EQ (send2, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
     auto winner (votes1->votes.winner ());
-    ASSERT_EQ (send2, *winner.first);
+    ASSERT_EQ (send2, *winner.second);
 }
 
 TEST (votes, add_old)
@@ -959,7 +959,7 @@ TEST (votes, add_old)
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
     ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
     auto winner (votes1->votes.winner ());
-    ASSERT_EQ (send1, *winner.first);
+    ASSERT_EQ (send1, *winner.second);
 }
 
 TEST (ledger, successor)
@@ -1020,8 +1020,8 @@ TEST (fork, publish)
         ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
         ASSERT_EQ (*publish1.block, *existing1->second.second);
         auto winner (votes1->votes.winner ());
-        ASSERT_EQ (*publish1.block, *winner.first);
-        ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.second);
+        ASSERT_EQ (*publish1.block, *winner.second);
+        ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
     }
     ASSERT_TRUE (client0.expired ());
 }
@@ -1076,8 +1076,8 @@ TEST (ledger, fork_keep)
         ASSERT_LT (iterations, 200);
 	}
     auto winner (votes1->votes.winner ());
-    ASSERT_EQ (*publish1.block, *winner.first);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.second);
+    ASSERT_EQ (*publish1.block, *winner.second);
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
 	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
 }
@@ -1132,8 +1132,8 @@ TEST (ledger, fork_flip)
         ASSERT_LT (iterations, 200);
     }
     auto winner (votes1->votes.winner ());
-    ASSERT_EQ (*publish1.block, *winner.first);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.second);
+    ASSERT_EQ (*publish1.block, *winner.second);
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
     ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
     ASSERT_TRUE (client2.store.block_exists (publish1.block->hash ()));
     ASSERT_FALSE (client2.store.block_exists (publish2.block->hash ()));
@@ -1200,8 +1200,8 @@ TEST (ledger, fork_multi_flip)
         ASSERT_LT (iterations, 200);
 	}
     auto winner (votes1->votes.winner ());
-    ASSERT_EQ (*publish1.block, *winner.first);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.second);
+    ASSERT_EQ (*publish1.block, *winner.second);
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
 	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (client2.store.block_exists (publish1.block->hash ()));
 	ASSERT_FALSE (client2.store.block_exists (publish2.block->hash ()));

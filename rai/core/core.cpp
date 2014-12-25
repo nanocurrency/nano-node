@@ -4257,7 +4257,7 @@ void rai::election::vote (rai::vote const & vote_a)
         auto winner_l (votes.winner ());
         if (votes.rep_votes.size () == 1)
         {
-            if (winner_l.second > uncontested_threshold ())
+            if (winner_l.first > uncontested_threshold ())
             {
                 confirmed = true;
                 client->processor.process_confirmed (*votes.last_winner);
@@ -4265,7 +4265,7 @@ void rai::election::vote (rai::vote const & vote_a)
         }
         else
         {
-            if (winner_l.second > contested_threshold ())
+            if (winner_l.first > contested_threshold ())
             {
                 confirmed = true;
                 client->processor.process_confirmed (*votes.last_winner);
@@ -4286,9 +4286,9 @@ void rai::election::start_request (rai::block const & block_a)
 void rai::election::announce_vote ()
 {
     auto winner_l (votes.winner ());
-    assert (winner_l.first != nullptr);
+    assert (winner_l.second != nullptr);
     auto list (client->peers.list ());
-    client->network.confirm_broadcast (list, std::move (winner_l.first), votes.sequence);
+    client->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence);
     auto now (std::chrono::system_clock::now ());
     if (now - last_vote < std::chrono::seconds (15))
     {

@@ -552,7 +552,8 @@ namespace rai
 	public:
 		votes (rai::ledger &, rai::block const &);
 		void vote (rai::vote const &);
-		std::pair <std::unique_ptr <rai::block>, rai::uint128_t> winner ();
+		std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally ();
+		std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner ();
 		rai::uint128_t flip_threshold ();
 		rai::ledger & ledger;
 		rai::block_hash const root;

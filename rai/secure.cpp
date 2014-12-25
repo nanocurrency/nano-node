@@ -94,20 +94,19 @@ void rai::votes::vote (rai::vote const & vote_a)
 		}
 		assert (rep_votes.size () > 0);
 		auto winner_l (winner ());
-		if (winner_l.second > flip_threshold ())
+		if (winner_l.first > flip_threshold ())
 		{
-			if (!(*winner_l.first == *last_winner))
+			if (!(*winner_l.second == *last_winner))
 			{
 				ledger.rollback (last_winner->hash ());
-				ledger.process (*winner_l.first);
-				last_winner = std::move (winner_l.first);
+				ledger.process (*winner_l.second);
+				last_winner = std::move (winner_l.second);
 			}
 		}
 	}
 }
 
-// Sum the weights for each vote and return the winning block with its vote tally
-std::pair <std::unique_ptr <rai::block>, rai::uint128_t> rai::votes::winner ()
+std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::votes::tally ()
 {
 	std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash, rai::unique_ptr_block_hash> totals;
 	for (auto & i: rep_votes)
@@ -122,16 +121,20 @@ std::pair <std::unique_ptr <rai::block>, rai::uint128_t> rai::votes::winner ()
 		auto weight (ledger.weight (i.first));
 		existing->second += weight;
 	}
-	std::pair <std::unique_ptr <rai::block>, rai::uint128_t> winner_l;
+	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> result;
 	for (auto & i: totals)
 	{
-		if (i.second >= winner_l.second)
-		{
-			winner_l.first = i.first->clone ();
-			winner_l.second = i.second;
-		}
+		result [i.second] = i.first->clone ();
 	}
-	return winner_l;
+	return result;
+}
+
+// Sum the weights for each vote and return the winning block with its vote tally
+std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::votes::winner ()
+{
+	auto tally_l (tally ());
+	auto existing (tally_l.begin ());
+	return std::make_pair (existing->first, existing->second->clone ());
 }
 
 rai::votes::votes (rai::ledger & ledger_a, rai::block const & block_a) :

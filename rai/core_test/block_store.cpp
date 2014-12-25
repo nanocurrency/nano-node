@@ -137,6 +137,7 @@ TEST (block_store, add_genesis)
     genesis.initialize (db);
     rai::frontier frontier;
     ASSERT_FALSE (db.latest_get (rai::genesis_account, frontier));
+	ASSERT_EQ (hash, frontier.hash);
     auto block1 (db.block_get (frontier.hash));
     ASSERT_NE (nullptr, block1);
     auto receive1 (dynamic_cast <rai::open_block *> (block1.get ()));
