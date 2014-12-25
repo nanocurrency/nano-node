@@ -95,9 +95,9 @@ void rai::votes::vote (rai::vote const & vote_a)
 }
 
 // Sum the weights for each vote and return the winning block with its vote tally
-std::pair <std::unique_ptr <rai::block>, rai::uint256_t> rai::votes::winner ()
+std::pair <std::unique_ptr <rai::block>, rai::uint128_t> rai::votes::winner ()
 {
-	std::unordered_map <rai::block_hash, std::pair <std::unique_ptr <block>, rai::uint256_t>> totals;
+	std::unordered_map <rai::block_hash, std::pair <std::unique_ptr <block>, rai::uint128_t>> totals;
 	for (auto & i: rep_votes)
 	{
 		auto hash (i.second.second->hash ());
@@ -110,7 +110,7 @@ std::pair <std::unique_ptr <rai::block>, rai::uint256_t> rai::votes::winner ()
 		auto weight (ledger.weight (i.first));
 		existing->second.second += weight;
 	}
-	std::pair <std::unique_ptr <rai::block>, rai::uint256_t> winner_l;
+	std::pair <std::unique_ptr <rai::block>, rai::uint128_t> winner_l;
 	for (auto & i: totals)
 	{
 		if (i.second.second >= winner_l.second)
@@ -2782,7 +2782,7 @@ rai::uint256_union rai::vote::hash () const
     return result;
 }
 
-rai::uint256_t rai::votes::flip_threshold ()
+rai::uint128_t rai::votes::flip_threshold ()
 {
     return ledger.supply () / 2;
 }

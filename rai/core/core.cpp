@@ -1348,54 +1348,6 @@ std::unique_ptr <rai::block> rai::gap_cache::get (rai::block_hash const & hash_a
     return result;
 }
 
-void rai::election::vote (rai::vote const & vote_a)
-{
-    votes.vote (vote_a);
-    if (!confirmed)
-    {
-        auto winner_l (votes.winner ());
-        if (votes.rep_votes.size () == 1)
-        {
-            if (winner_l.second > uncontested_threshold ())
-            {
-                confirmed = true;
-                client->processor.process_confirmed (*votes.last_winner);
-            }
-        }
-        else
-        {
-            if (winner_l.second > contested_threshold ())
-            {
-                confirmed = true;
-                client->processor.process_confirmed (*votes.last_winner);
-            }
-        }
-    }
-}
-
-void rai::election::start_request (rai::block const & block_a)
-{
-    auto list (client->peers.list ());
-    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
-    {
-        client->network.send_confirm_req (i->endpoint, block_a);
-    }
-}
-
-void rai::election::announce_vote ()
-{
-    auto winner_l (votes.winner ());
-	assert (winner_l.first != nullptr);
-    auto list (client->peers.list ());
-    client->network.confirm_broadcast (list, std::move (winner_l.first), votes.sequence);
-    auto now (std::chrono::system_clock::now ());
-    if (now - last_vote < std::chrono::seconds (15))
-    {
-        auto this_l (shared_from_this ());
-        client->service.add (now + std::chrono::seconds (15), [this_l] () {this_l->announce_vote ();});
-    }
-}
-
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
 {
     bool result (false);
@@ -4254,6 +4206,16 @@ confirmed (false)
     vote (vote_l);
 }
 
+rai::destructable::destructable (std::function <void ()> operation_a) :
+operation (operation_a)
+{
+}
+
+rai::destructable::~destructable ()
+{
+    operation ();
+}
+
 void rai::election::start ()
 {
     auto have_representative (client->representative_vote (*this, *votes.last_winner));
@@ -4265,16 +4227,6 @@ void rai::election::start ()
     auto root_l (votes.root);
     auto destructable (std::make_shared <rai::destructable> ([client_l, root_l] () {client_l->conflicts.stop (root_l);}));
     timeout_action (destructable);
-}
-
-rai::destructable::destructable (std::function <void ()> operation_a) :
-operation (operation_a)
-{
-}
-
-rai::destructable::~destructable ()
-{
-    operation ();
 }
 
 void rai::election::timeout_action (std::shared_ptr <rai::destructable> destructable_a)
@@ -4295,6 +4247,54 @@ rai::uint256_t rai::election::uncontested_threshold ()
 rai::uint256_t rai::election::contested_threshold ()
 {
     return (client->ledger.supply () / 16) * 15;
+}
+
+void rai::election::vote (rai::vote const & vote_a)
+{
+    votes.vote (vote_a);
+    if (!confirmed)
+    {
+        auto winner_l (votes.winner ());
+        if (votes.rep_votes.size () == 1)
+        {
+            if (winner_l.second > uncontested_threshold ())
+            {
+                confirmed = true;
+                client->processor.process_confirmed (*votes.last_winner);
+            }
+        }
+        else
+        {
+            if (winner_l.second > contested_threshold ())
+            {
+                confirmed = true;
+                client->processor.process_confirmed (*votes.last_winner);
+            }
+        }
+    }
+}
+
+void rai::election::start_request (rai::block const & block_a)
+{
+    auto list (client->peers.list ());
+    for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+    {
+        client->network.send_confirm_req (i->endpoint, block_a);
+    }
+}
+
+void rai::election::announce_vote ()
+{
+    auto winner_l (votes.winner ());
+    assert (winner_l.first != nullptr);
+    auto list (client->peers.list ());
+    client->network.confirm_broadcast (list, std::move (winner_l.first), votes.sequence);
+    auto now (std::chrono::system_clock::now ());
+    if (now - last_vote < std::chrono::seconds (15))
+    {
+        auto this_l (shared_from_this ());
+        client->service.add (now + std::chrono::seconds (15), [this_l] () {this_l->announce_vote ();});
+    }
 }
 
 void rai::conflicts::start (rai::block const & block_a, bool request_a)
