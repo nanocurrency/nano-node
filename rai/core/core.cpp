@@ -4254,10 +4254,10 @@ void rai::election::vote (rai::vote const & vote_a)
     votes.vote (vote_a);
     if (!confirmed)
     {
-        auto winner_l (votes.winner ());
-        if (votes.rep_votes.size () == 1)
+        auto tally_l (votes.tally ());
+        if (tally_l.size () == 1)
         {
-            if (winner_l.first > uncontested_threshold ())
+            if (tally_l.begin ()->first > uncontested_threshold ())
             {
                 confirmed = true;
                 client->processor.process_confirmed (*votes.last_winner);
@@ -4265,7 +4265,7 @@ void rai::election::vote (rai::vote const & vote_a)
         }
         else
         {
-            if (winner_l.first > contested_threshold ())
+            if (tally_l.begin ()->first > contested_threshold ())
             {
                 confirmed = true;
                 client->processor.process_confirmed (*votes.last_winner);

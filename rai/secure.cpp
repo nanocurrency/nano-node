@@ -93,15 +93,13 @@ void rai::votes::vote (rai::vote const & vote_a)
 			}
 		}
 		assert (rep_votes.size () > 0);
-		auto winner_l (winner ());
-		if (winner_l.first > flip_threshold ())
+		auto tally_l (tally ());
+		auto winner (tally_l.begin ()->second->clone ());
+		if (!(*winner == *last_winner))
 		{
-			if (!(*winner_l.second == *last_winner))
-			{
-				ledger.rollback (last_winner->hash ());
-				ledger.process (*winner_l.second);
-				last_winner = std::move (winner_l.second);
-			}
+			ledger.rollback (last_winner->hash ());
+			ledger.process (*winner);
+			last_winner = std::move (winner);
 		}
 	}
 }
