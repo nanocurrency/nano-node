@@ -195,11 +195,8 @@ namespace rai
     class unique_ptr_block_hash
     {
     public:
-        size_t operator () (std::unique_ptr <rai::block> const & block_a)
-        {
-            auto hash (block_a->hash ());
-            return static_cast <size_t> (hash.qwords [0]);
-        }
+		size_t operator () (std::unique_ptr <rai::block> const &) const;
+		bool operator () (std::unique_ptr <rai::block> const &, std::unique_ptr <rai::block> const &) const;
     };
 	void sign_message (rai::private_key const &, rai::public_key const &, rai::uint256_union const &, rai::uint512_union &);
 	bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);

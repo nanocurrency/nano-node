@@ -63,6 +63,18 @@ rai::uint128_t rai::scale_up (uint64_t amount_a)
     return rai::scale_64bit_base10 * amount_a;
 }
 
+size_t rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const & block_a) const
+{
+	auto hash (block_a->hash ());
+	auto result (static_cast <size_t> (hash.qwords [0]));
+	return result;
+}
+
+bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const & lhs, std::unique_ptr <rai::block> const & rhs) const
+{
+	return *lhs == *rhs;
+}
+
 // Validate a vote and apply it to the current election or start a new election if it doesn't exist
 void rai::votes::vote (rai::vote const & vote_a)
 {
@@ -97,14 +109,15 @@ void rai::votes::vote (rai::vote const & vote_a)
 // Sum the weights for each vote and return the winning block with its vote tally
 std::pair <std::unique_ptr <rai::block>, rai::uint128_t> rai::votes::winner ()
 {
-    std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash> totals;
+	std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash, rai::unique_ptr_block_hash> totals;
 	for (auto & i: rep_votes)
 	{
-		auto existing (totals.find (i.second));
+		auto existing (totals.find (i.second.second));
 		if (existing == totals.end ())
 		{
-			totals.insert (std::make_pair (i.first->clone (), 0));
-			existing = totals.find (i.first);
+			totals.insert (std::make_pair (i.second.second->clone (), 0));
+			existing = totals.find (i.second.second);
+			assert (existing != totals.end ());
 		}
 		auto weight (ledger.weight (i.first));
 		existing->second += weight;

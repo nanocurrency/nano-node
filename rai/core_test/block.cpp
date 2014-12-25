@@ -330,7 +330,6 @@ TEST (work, one)
     uint64_t nonce (0x0123456789abcdef);
     CryptoPP::SHA3 hash (32);
     auto value1 (work.generate (hash, seed, nonce));
-    std::cerr << value1;
 	auto value2 (work.generate (hash, seed, nonce));
 	ASSERT_EQ (value1, value2);
 }
