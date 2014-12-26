@@ -362,7 +362,7 @@ class gap_information
 {
 public:
     std::chrono::system_clock::time_point arrival;
-    rai::block_hash hash;
+    rai::block_hash required;
     std::unique_ptr <rai::block> block;
 };
 class gap_cache
@@ -376,7 +376,7 @@ public:
         rai::gap_information,
         boost::multi_index::indexed_by
         <
-            boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>,
+            boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::required>>,
             boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>
         >
     > blocks;
