@@ -92,13 +92,6 @@ struct hash <rai::endpoint>
 namespace rai
 {
 class client;
-class destructable
-{
-public:
-    destructable (std::function <void ()>);
-    ~destructable ();
-    std::function <void ()> operation;
-};
 class election : public std::enable_shared_from_this <rai::election>
 {
 public:
@@ -106,12 +99,12 @@ public:
     void start ();
     void vote (rai::vote const &);
     void announce_vote ();
-    void timeout_action (std::shared_ptr <rai::destructable>);
+    void timeout_action ();
     void start_request (rai::block const &);
-    rai::uint256_t uncontested_threshold ();
-    rai::uint256_t contested_threshold ();
+    rai::uint128_t uncontested_threshold (rai::ledger &);
+    rai::uint128_t contested_threshold (rai::ledger &);
     rai::votes votes;
-    std::shared_ptr <rai::client> client;
+    std::weak_ptr <rai::client> client;
     std::chrono::system_clock::time_point last_vote;
 	std::unique_ptr <rai::block> last_winner;
     bool confirmed;
