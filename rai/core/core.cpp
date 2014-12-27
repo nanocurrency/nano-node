@@ -33,7 +33,7 @@ namespace
     }
     bool constexpr network_publish_logging ()
     {
-        return network_logging () && false;
+        return network_logging () && true;
     }
     bool constexpr network_packet_logging ()
     {
@@ -65,7 +65,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return false;
+        return true;
     }
 }
 
@@ -308,7 +308,7 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
 			{
 				if (network_publish_logging ())
 				{
-					BOOST_LOG (client.log) << boost::str (boost::format ("Publish %1% to %2%") % block->hash ().to_string () % i->endpoint);
+					BOOST_LOG (client.log) << boost::str (boost::format ("Publish %1% to %2%") % message.block->hash ().to_string () % i->endpoint);
 				}
 				send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
 					{
@@ -1417,6 +1417,10 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
     {
         rai::vectorstream stream (*bytes);
         confirm.serialize (stream);
+    }
+    if (network_publish_logging ())
+    {
+        BOOST_LOG (client.log) << boost::str (boost::format ("Confirm %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
     }
     auto client_l (client.shared ());
     client.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size_a)

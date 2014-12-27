@@ -64,3 +64,42 @@ TEST (gap_cache, limit)
     }
     ASSERT_EQ (cache.max, cache.blocks.size ());
 }
+
+TEST (gap_cache, DISABLED_gap_bootstrap)
+{
+    rai::system system (24000, 2);
+    auto iterations1 (0);
+    while (system.clients [0]->bootstrap_initiator.in_progress || system.clients [1]->bootstrap_initiator.in_progress)
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
+    }
+    rai::keypair key;
+    rai::send_block send;
+    send.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 100;
+    send.hashables.destination = key.pub;
+    send.hashables.previous = system.clients [0]->ledger.latest (rai::test_genesis_key.pub);
+    send.work = system.clients [0]->create_work (send);
+    std::string hash;
+    send.hash ().encode_hex (hash);
+    std::cerr << hash << std::endl;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+    ASSERT_EQ (rai::process_result::progress, system.clients [0]->processor.process_receive (send));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 100, system.clients [0]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.clients [1]->ledger.account_balance (rai::genesis_account));
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    system.wallet (0)->store.insert (key.prv);
+    system.wallet (0)->send (key.pub, 100);
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, system.clients [0]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.clients [1]->ledger.account_balance (rai::genesis_account));
+    auto iterations2 (0);
+    while (system.clients [1]->ledger.account_balance (rai::genesis_account) != std::numeric_limits <rai::uint128_t>::max () - 200)
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}
