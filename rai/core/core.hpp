@@ -697,6 +697,7 @@ public:
     std::shared_ptr <rai::client> shared ();
     bool representative_vote (rai::election &, rai::block const &);
     uint64_t create_work (rai::block const &);
+    void vote (rai::vote const &);
     boost::log::sources::logger log;
     rai::block_store store;
     rai::gap_cache gap_cache;
@@ -713,6 +714,7 @@ public:
     std::vector <std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)>> receive_observers;
     std::vector <std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)>> open_observers;
     std::vector <std::function <void (rai::change_block const &, rai::account const &, rai::account const &)>> change_observers;
+    std::vector <std::function <void (rai::vote const &)>> vote_observers;
     std::vector <std::string> bootstrap_peers;
 };
 class system

@@ -406,7 +406,7 @@ namespace
             client.processor.contacted (sender);
             client.peers.insert (sender, message_a.vote.block->hash ());
             client.processor.process_receive_republish (message_a.vote.block->clone ());
-            client.conflicts.update (message_a.vote);
+            client.vote (message_a.vote);
         }
         void bulk_pull (rai::bulk_pull const &) override
         {
@@ -1176,6 +1176,10 @@ service (processor_a)
 		network.send_keepalive (endpoint_a);
 		bootstrap_initiator.warmup (endpoint_a);
 	};
+    vote_observers.push_back ([this] (rai::vote const & vote_a)
+    {
+        conflicts.update (vote_a);
+    });
     if (wallets.items.empty ())
     {
         rai::uint256_union id;
@@ -1302,6 +1306,14 @@ uint64_t rai::client::create_work (rai::block const & block_a)
 		BOOST_LOG (log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
 	}
     return proof;
+}
+
+void rai::client::vote (rai::vote const & vote_a)
+{
+    for (auto & i: vote_observers)
+    {
+        i (vote_a);
+    }
 }
 
 void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
