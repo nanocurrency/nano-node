@@ -368,7 +368,6 @@ public:
 class gap_cache
 {
 public:
-    gap_cache ();
     void add (rai::block const &, rai::block_hash);
     std::unique_ptr <rai::block> get (rai::block_hash const &);
     boost::multi_index_container
@@ -380,7 +379,7 @@ public:
             boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>
         >
     > blocks;
-    size_t const max;
+    size_t const max = 128;
 };
 class processor
 {
@@ -579,6 +578,8 @@ class bootstrap_initiator
 public:
 	bootstrap_initiator (rai::client &);
 	void warmup (rai::endpoint const &);
+	void bootstrap (rai::endpoint const &);
+	void initiate (rai::endpoint const &);
 	std::mutex mutex;
 	rai::client & client;
 	bool in_progress;

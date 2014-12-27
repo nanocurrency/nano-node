@@ -555,14 +555,14 @@ namespace rai
 	class votes
 	{
 	public:
-		votes (rai::ledger &, rai::block const &);
+		votes (rai::ledger &, rai::block_hash const &);
 		bool vote (rai::vote const &);
 		std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally ();
 		std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner ();
 		rai::uint128_t flip_threshold ();
 		rai::ledger & ledger;
-		rai::block_hash const root;
 		uint64_t sequence;
+		rai::block_hash id;
 		std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
     };
     extern rai::keypair const test_genesis_key;

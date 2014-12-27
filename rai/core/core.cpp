@@ -1304,11 +1304,6 @@ uint64_t rai::client::create_work (rai::block const & block_a)
     return proof;
 }
 
-rai::gap_cache::gap_cache () :
-max (128)
-{
-}
-
 void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
 {
     auto existing (blocks.find (needed_a));
@@ -1318,7 +1313,7 @@ void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
     }
     else
     {
-        blocks.insert ({std::chrono::system_clock::now (), needed_a, block_a.clone ()});
+		blocks.insert ({std::chrono::system_clock::now (), needed_a, block_a.clone ()});
         if (blocks.size () > max)
         {
             blocks.get <1> ().erase (blocks.get <1> ().begin ());
@@ -2635,12 +2630,26 @@ void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 	{
 		warmed_up = true;
 		in_progress = true;
-		client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()), [this] ()
-		{
-			std::lock_guard <std::mutex> lock (mutex);
-			in_progress = false;
-		});
+		initiate (endpoint_a);
 	}
+}
+
+void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	if (!in_progress)
+	{
+		initiate (endpoint_a);
+	}
+}
+
+void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)
+{
+	client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()), [this] ()
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		in_progress = false;
+	});
 }
 
 rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::client & client_a) :
@@ -4211,7 +4220,7 @@ rai::uint128_t rai::wallet_store::balance (rai::ledger & ledger_a)
 }
 
 rai::election::election (std::shared_ptr <rai::client> client_a, rai::block const & block_a) :
-votes (client_a->ledger, block_a),
+votes (client_a->ledger, block_a.root ()),
 client (client_a),
 last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
@@ -4254,7 +4263,7 @@ void rai::election::timeout_action ()
 		}
 		else
 		{
-			auto root_l (votes.root);
+			auto root_l (votes.id);
 			client_l->conflicts.stop (root_l);
 		}
 	}

@@ -133,9 +133,9 @@ std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::votes::winner ()
 	return std::make_pair (existing->first, existing->second->clone ());
 }
 
-rai::votes::votes (rai::ledger & ledger_a, rai::block const & block_a) :
+rai::votes::votes (rai::ledger & ledger_a, rai::block_hash const & id_a) :
 ledger (ledger_a),
-root (block_a.root ()),
+id (id_a),
 // Sequence 0 is the first response by a representative before a fork was observed
 sequence (1)
 {
