@@ -75,7 +75,6 @@ bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const
 	return *lhs == *rhs;
 }
 
-// Validate a vote and apply it to the current election or start a new election if it doesn't exist
 bool rai::votes::vote (rai::vote const & vote_a)
 {
 	auto result (false);

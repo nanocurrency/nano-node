@@ -363,24 +363,30 @@ class gap_information
 public:
     std::chrono::system_clock::time_point arrival;
     rai::block_hash required;
+    rai::block_hash hash;
 	std::unique_ptr <rai::votes> votes;
     std::unique_ptr <rai::block> block;
 };
 class gap_cache
 {
 public:
+    gap_cache (rai::client &);
     void add (rai::block const &, rai::block_hash);
     std::unique_ptr <rai::block> get (rai::block_hash const &);
+    void vote (rai::vote const &);
+    rai::uint128_t bootstrap_threshold ();
     boost::multi_index_container
     <
         rai::gap_information,
         boost::multi_index::indexed_by
         <
             boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::required>>,
-            boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>
+            boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>,
+            boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>
         >
     > blocks;
     size_t const max = 128;
+    rai::client & client;
 };
 class processor
 {

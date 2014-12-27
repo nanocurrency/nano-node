@@ -1161,6 +1161,7 @@ bool rai::client_init::error ()
 
 rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a) :
 store (init_a.block_store_init, application_path_a / "data"),
+gap_cache (*this),
 ledger (init_a.ledger_init, init_a.block_store_init, store),
 conflicts (*this),
 wallets (*this, application_path_a / "wallets"),
@@ -1179,6 +1180,10 @@ service (processor_a)
     vote_observers.push_back ([this] (rai::vote const & vote_a)
     {
         conflicts.update (vote_a);
+    });
+    vote_observers.push_back ([this] (rai::vote const & vote_a)
+    {
+        gap_cache.vote (vote_a);
     });
     if (wallets.items.empty ())
     {
@@ -1316,6 +1321,11 @@ void rai::client::vote (rai::vote const & vote_a)
     }
 }
 
+rai::gap_cache::gap_cache (rai::client & client_a) :
+client (client_a)
+{
+}
+
 void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
 {
     auto existing (blocks.find (needed_a));
@@ -1325,7 +1335,8 @@ void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
     }
     else
     {
-		blocks.insert ({std::chrono::system_clock::now (), needed_a, std::unique_ptr <rai::votes> (new rai::votes (block_a.hash ())), block_a.clone ()});
+        auto hash (block_a.hash ());
+		blocks.insert ({std::chrono::system_clock::now (), needed_a, hash, std::unique_ptr <rai::votes> (new rai::votes (hash)), block_a.clone ()});
         if (blocks.size () > max)
         {
             blocks.get <1> ().erase (blocks.get <1> ().begin ());
@@ -1343,6 +1354,24 @@ std::unique_ptr <rai::block> rai::gap_cache::get (rai::block_hash const & hash_a
         blocks.erase (existing);
     }
     return result;
+}
+
+void rai::gap_cache::vote (rai::vote const & vote_a)
+{
+    auto existing (blocks.get <2> ().find (vote_a.block->hash ()));
+    if (existing != blocks.get <2> ().end ())
+    {
+        auto changed (existing->votes->vote (vote_a));
+        if (changed)
+        {
+            auto tally (client.ledger.tally (*existing->votes));
+        }
+    }
+}
+
+rai::uint128_t rai::gap_cache::bootstrap_threshold ()
+{
+    return client.ledger.supply () / 16;
 }
 
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
@@ -4396,6 +4425,7 @@ bool rai::conflicts::no_conflict (rai::block_hash const & hash_a)
     return result;
 }
 
+// Validate a vote and apply it to the current election or start a new election if it doesn't exist
 void rai::conflicts::update (rai::vote const & vote_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
