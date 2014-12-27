@@ -137,31 +137,6 @@ TEST (client, send_out_of_order)
     }
 }
 
-TEST (client, bootstrap_end)
-{
-    rai::system system (24000, 1);
-    rai::client_init init1;
-    auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
-    ASSERT_FALSE (init1.error ());
-    client1->start ();
-    ASSERT_NE (nullptr, client1->processor.bootstrapped);
-    ASSERT_EQ (0, client1->processor.bootstrapped->size ());
-    for (auto i (0); i < rai::processor::bootstrap_max; ++i)
-    {
-        client1->processor.bootstrapped->insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 24002 + i));
-    }
-    client1->network.send_keepalive (system.clients [0]->network.endpoint ());
-    auto iterations (0);
-    do
-    {
-        system.service->poll_one ();
-        system.processor.poll_one ();
-        ++iterations;
-        ASSERT_LT (iterations, 200);
-    } while (client1->processor.bootstrapped != nullptr);
-    client1->stop ();
-}
-
 TEST (client, quick_confirm)
 {
     rai::system system (24000, 1);
@@ -204,10 +179,10 @@ TEST (client, auto_bootstrap)
     ASSERT_FALSE (init1.error ());
     client1->network.send_keepalive (system.clients [0]->network.endpoint ());
     client1->start ();
-    ASSERT_NE (nullptr, client1->processor.bootstrapped);
-    ASSERT_EQ (0, client1->processor.bootstrapped->size ());
-    ASSERT_NE (nullptr, system.clients [0]->processor.bootstrapped);
-    ASSERT_EQ (0, system.clients [0]->processor.bootstrapped->size ());
+    ASSERT_FALSE (client1->bootstrap_initiator.warmed_up);
+	ASSERT_FALSE (client1->bootstrap_initiator.in_progress);
+	ASSERT_FALSE (system.clients [0]->bootstrap_initiator.warmed_up);
+	ASSERT_FALSE (system.clients [0]->bootstrap_initiator.in_progress);
     auto iterations2 (0);
     do
     {
@@ -215,13 +190,25 @@ TEST (client, auto_bootstrap)
         system.processor.poll_one ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
-    } while (client1->ledger.account_balance (key2.pub) != 100);
-    ASSERT_NE (nullptr, client1->processor.bootstrapped);
-    ASSERT_EQ (1, client1->processor.bootstrapped->size ());
-    ASSERT_NE (client1->processor.bootstrapped->end (), client1->processor.bootstrapped->find (system.clients [0]->network.endpoint ()));
-    ASSERT_NE (nullptr, system.clients [0]->processor.bootstrapped);
-    ASSERT_EQ (1, system.clients [0]->processor.bootstrapped->size ());
-    ASSERT_NE (system.clients [0]->processor.bootstrapped->end (), system.clients [0]->processor.bootstrapped->find (client1->network.endpoint ()));
+	} while (!client1->bootstrap_initiator.in_progress || !system.clients [0]->bootstrap_initiator.in_progress);
+	ASSERT_TRUE (client1->bootstrap_initiator.warmed_up);
+	ASSERT_TRUE (system.clients [0]->bootstrap_initiator.warmed_up);
+	auto iterations3 (0);
+	do
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+		++iterations3;
+		ASSERT_LT (iterations3, 200);
+	} while (client1->ledger.account_balance (key2.pub) != 100);
+	auto iterations4 (0);
+	do
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+		++iterations4;
+		ASSERT_LT (iterations4, 200);
+	} while (client1->bootstrap_initiator.in_progress || system.clients [0]->bootstrap_initiator.in_progress);
     client1->stop ();
 }
 

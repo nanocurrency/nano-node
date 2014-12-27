@@ -388,9 +388,8 @@ public:
     processor (rai::client &);
     void stop ();
     void contacted (rai::endpoint const &);
-    void warmup (rai::endpoint const &);
     void find_network (std::vector <std::pair <std::string, std::string>> const &);
-    void bootstrap (rai::tcp_endpoint const &);
+	void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const & = [] () {});
     void connect_bootstrap (std::vector <std::string> const &);
     rai::process_result process_receive (rai::block const &);
     void process_receive_republish (std::unique_ptr <rai::block>);
@@ -399,9 +398,7 @@ public:
     void process_confirmed (rai::block const &);
     void search_pending ();
     void ongoing_keepalive ();
-    std::unique_ptr <std::set <rai::endpoint>> bootstrapped;
     rai::client & client;
-    static size_t constexpr bootstrap_max = 16;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
     std::mutex mutex;
@@ -421,13 +418,14 @@ public:
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
 public:
-    bootstrap_client (std::shared_ptr <rai::client>);
+	bootstrap_client (std::shared_ptr <rai::client>, std::function <void ()> const & = [] () {});
     ~bootstrap_client ();
     void run (rai::tcp_endpoint const &);
     void connect_action (boost::system::error_code const &);
     void sent_request (boost::system::error_code const &, size_t);
     std::shared_ptr <rai::client> client;
     boost::asio::ip::tcp::socket socket;
+	std::function <void ()> completion_action;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
@@ -531,14 +529,16 @@ public:
 	std::mutex mutex;
 	rai::endpoint self;
 	boost::multi_index_container
-	<peer_information,
-	boost::multi_index::indexed_by
 	<
-	boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, rai::endpoint, &peer_information::endpoint>>,
-	boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
-	boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
-	>
+		peer_information,
+		boost::multi_index::indexed_by
+		<
+			boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, rai::endpoint, &peer_information::endpoint>>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>
+		>
 	> peers;
+	std::function <void (rai::endpoint const &)> peer_observer;
 };
 class network
 {
@@ -574,6 +574,16 @@ public:
     uint64_t confirm_req_count;
     uint64_t confirm_ack_count;
     uint64_t error_count;
+};
+class bootstrap_initiator
+{
+public:
+	bootstrap_initiator (rai::client &);
+	void warmup (rai::endpoint const &);
+	std::mutex mutex;
+	rai::client & client;
+	bool in_progress;
+	bool warmed_up;
 };
 class bootstrap_listener
 {
@@ -693,6 +703,7 @@ public:
     rai::conflicts conflicts;
     rai::wallets wallets;
     rai::network network;
+	rai::bootstrap_initiator bootstrap_initiator;
     rai::bootstrap_listener bootstrap;
     rai::processor processor;
     rai::peer_container peers;

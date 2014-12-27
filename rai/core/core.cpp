@@ -1137,7 +1137,6 @@ void rai::processor_service::stop ()
 }
 
 rai::processor::processor (rai::client & client_a) :
-bootstrapped (new std::set <rai::endpoint>),
 client (client_a)
 {
 }
@@ -1151,15 +1150,7 @@ void rai::processor::contacted (rai::endpoint const & endpoint_a)
         endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
     }
     assert (endpoint_l.address ().is_v6 ());
-    if (!client.peers.insert (endpoint_l))
-    {
-        client.network.send_keepalive (endpoint_l);
-        warmup (endpoint_l);
-    }
-    else
-    {
-        // Skipping because they were already in peers list and we'll contact them next keepalive interval.
-    }
+	client.peers.insert (endpoint_l);
 }
 
 void rai::processor::stop ()
@@ -1187,11 +1178,17 @@ ledger (init_a.ledger_init, init_a.block_store_init, store),
 conflicts (*this),
 wallets (*this, application_path_a / "wallets"),
 network (*service_a, port_a, *this),
+bootstrap_initiator (*this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
 peers (network.endpoint ()),
 service (processor_a)
 {
+	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
+	{
+		network.send_keepalive (endpoint_a);
+		bootstrap_initiator.warmup (endpoint_a);
+	};
     if (wallets.items.empty ())
     {
         rai::uint256_union id;
@@ -2578,9 +2575,9 @@ void rai::client::stop ()
     service.stop ();
 }
 
-void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a)
+void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & completion_action_a)
 {
-    auto processor (std::make_shared <rai::bootstrap_client> (client.shared ()));
+    auto processor (std::make_shared <rai::bootstrap_client> (client.shared (), completion_action_a));
     processor->run (endpoint_a);
 }
 
@@ -2629,6 +2626,28 @@ void rai::processor::search_pending ()
             }
         }
     });
+}
+
+rai::bootstrap_initiator::bootstrap_initiator (rai::client & client_a) :
+client (client_a),
+in_progress (false),
+warmed_up (false)
+{
+}
+
+void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	if (!warmed_up && !in_progress)
+	{
+		warmed_up = true;
+		in_progress = true;
+		client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()), [this] ()
+		{
+			std::lock_guard <std::mutex> lock (mutex);
+			in_progress = false;
+		});
+	}
 }
 
 rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::client & client_a) :
@@ -2989,11 +3008,20 @@ rai::account_iterator rai::block_store::latest_begin (rai::account const & accou
     return result;
 }
 
-rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::client> client_a) :
-
+rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::client> client_a, std::function <void ()> const & completion_action_a) :
 client (client_a),
-socket (client_a->network.service)
+socket (client_a->network.service),
+completion_action (completion_action_a)
 {
+}
+
+rai::bootstrap_client::~bootstrap_client ()
+{
+	if (network_logging ())
+	{
+		BOOST_LOG (client->log) << "Exiting bootstrap processor";
+	}
+	completion_action ();
 }
 
 void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
@@ -3306,14 +3334,6 @@ boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
     return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
 }
 
-rai::bootstrap_client::~bootstrap_client ()
-{
-    if (network_logging ())
-    {
-        BOOST_LOG (client->log) << "Exiting bootstrap processor";
-    }
-}
-
 rai::bootstrap_server::~bootstrap_server ()
 {
     if (network_logging ())
@@ -3418,6 +3438,7 @@ bool rai::peer_container::knows_about (rai::endpoint const & endpoint_a, rai::bl
 
 bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a)
 {
+	auto unknown (false);
     auto result (not_a_peer (endpoint_a));
     if (!result)
     {
@@ -3435,8 +3456,13 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_h
         else
         {
             peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now (), hash_a});
+			unknown = true;
         }
     }
+	if (unknown)
+	{
+		peer_observer (endpoint_a);
+	}
     return result;
 }
 
@@ -3480,7 +3506,8 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 }
 
 rai::peer_container::peer_container (rai::endpoint const & self_a) :
-self (self_a)
+self (self_a),
+peer_observer ([] (rai::endpoint const &) {})
 {
 }
 
@@ -4375,27 +4402,6 @@ void rai::conflicts::stop (rai::block_hash const & root_a)
 rai::conflicts::conflicts (rai::client & client_a) :
 client (client_a)
 {
-}
-
-void rai::processor::warmup (rai::endpoint const & endpoint_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    if (bootstrapped != nullptr)
-    {
-        auto existing (bootstrapped->find (endpoint_a));
-        if (existing == bootstrapped->end ())
-        {
-            client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
-            if (bootstrapped->size () + 1 >= bootstrap_max)
-            {
-                bootstrapped.reset ();
-            }
-            else
-            {
-                bootstrapped->insert (endpoint_a);
-            }
-        }
-    }
 }
 
 void rai::processor::process_message (rai::message & message_a, rai::endpoint const & sender_a)

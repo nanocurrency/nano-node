@@ -1107,7 +1107,7 @@ TEST (bootstrap_processor, DISABLED_process_none)
     auto client1 (std::make_shared <rai::client> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
     auto done (false);
-    client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint ());
+	client1->processor.bootstrap (system.clients [0]->bootstrap.endpoint ());
     while (!done)
     {
         system.service->run_one ();
