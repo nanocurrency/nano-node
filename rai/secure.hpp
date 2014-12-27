@@ -73,7 +73,7 @@ namespace rai
 	{
 		uint256_union () = default;
 		uint256_union (std::string const &);
-		uint256_union (uint64_t);
+		uint256_union (uint64_t, uint64_t = 0, uint64_t = 0, uint64_t = 0);
 		uint256_union (rai::uint256_t const &);
 		uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
 		uint256_union prv (uint256_union const &, uint128_union const &) const;
@@ -182,6 +182,7 @@ namespace rai
         virtual uint64_t block_work () const = 0;
 		virtual rai::block_hash previous () const = 0;
 		virtual rai::block_hash source () const = 0;
+		virtual rai::block_hash root () const = 0;
 		virtual void serialize (rai::stream &) const = 0;
         virtual void serialize_json (std::string &) const = 0;
 		virtual void visit (rai::block_visitor &) const = 0;
@@ -221,7 +222,8 @@ namespace rai
         void hash (CryptoPP::SHA3 &) const override;
         uint64_t block_work () const override;
 		rai::block_hash previous () const override;
-        rai::block_hash source () const override;
+		rai::block_hash source () const override;
+		rai::block_hash root () const override;
         void serialize (rai::stream &) const override;
         void serialize_json (std::string &) const override;
         bool deserialize (rai::stream &);
@@ -250,6 +252,7 @@ namespace rai
         uint64_t block_work () const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
+		rai::block_hash root () const override;
         void serialize (rai::stream &) const override;
         void serialize_json (std::string &) const override;
 		bool deserialize (rai::stream &);
@@ -278,6 +281,7 @@ namespace rai
         uint64_t block_work () const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
+		rai::block_hash root () const override;
         void serialize (rai::stream &) const override;
         void serialize_json (std::string &) const override;
         bool deserialize (rai::stream &);
@@ -289,7 +293,8 @@ namespace rai
 		bool operator == (rai::open_block const &) const;
         rai::open_hashables hashables;
 		rai::signature signature;
-        uint64_t work;
+		uint64_t work;
+		static rai::uint256_union const root_mask;
 	};
 	class change_hashables
 	{
@@ -313,6 +318,7 @@ namespace rai
         uint64_t block_work () const override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
+		rai::block_hash root () const override;
         void serialize (rai::stream &) const override;
         void serialize_json (std::string &) const override;
         bool deserialize (rai::stream &);
@@ -433,7 +439,6 @@ namespace rai
         block_store (leveldb::Status &, boost::filesystem::path const &);
 		uint64_t now ();
 		
-		rai::block_hash root (rai::block const &);
 		void block_put (rai::block_hash const &, rai::block const &);
 		std::unique_ptr <rai::block> block_get (rai::block_hash const &);
 		void block_del (rai::block_hash const &);

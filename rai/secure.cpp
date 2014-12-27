@@ -135,7 +135,7 @@ std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::votes::winner ()
 
 rai::votes::votes (rai::ledger & ledger_a, rai::block const & block_a) :
 ledger (ledger_a),
-root (ledger.store.root (block_a)),
+root (block_a.root ()),
 // Sequence 0 is the first response by a representative before a fork was observed
 sequence (1)
 {
@@ -655,6 +655,11 @@ rai::block_hash rai::receive_block::source () const
     return hashables.source;
 }
 
+rai::block_hash rai::receive_block::root () const
+{
+	return hashables.previous;
+}
+
 std::unique_ptr <rai::block> rai::receive_block::clone () const
 {
     return std::unique_ptr <rai::block> (new rai::receive_block (*this));
@@ -802,12 +807,12 @@ bool rai::uint256_union::decode_dec (std::string const & text)
     return result;
 }
 
-rai::uint256_union::uint256_union (uint64_t value)
+rai::uint256_union::uint256_union (uint64_t value0, uint64_t value1, uint64_t value2, uint64_t value3)
 {
-    qwords [0] = value;
-    qwords [1] = 0;
-    qwords [2] = 0;
-    qwords [3] = 0;
+    qwords [0] = value0;
+    qwords [1] = value1;
+    qwords [2] = value2;
+    qwords [3] = value3;
 }
 
 bool rai::uint256_union::operator != (rai::uint256_union const & other_a) const
@@ -1179,6 +1184,11 @@ rai::block_hash rai::send_block::source () const
     return 0;
 }
 
+rai::block_hash rai::send_block::root () const
+{
+	return hashables.previous;
+}
+
 void rai::open_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
     hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
@@ -1312,6 +1322,13 @@ rai::block_hash rai::open_block::source () const
 {
     return hashables.source;
 }
+
+rai::block_hash rai::open_block::root () const
+{
+	return hashables.source ^ root_mask;
+}
+
+rai::uint256_union const rai::open_block::root_mask = rai::uint256_union (~0, ~0, ~0, ~0);
 
 rai::change_hashables::change_hashables (rai::account const & representative_a, rai::block_hash const & previous_a) :
 representative (representative_a),
@@ -1525,6 +1542,11 @@ bool rai::change_block::operator == (rai::change_block const & other_a) const
 rai::block_hash rai::change_block::source () const
 {
     return 0;
+}
+
+rai::block_hash rai::change_block::root () const
+{
+	return hashables.previous;
 }
 
 void rai::frontier::serialize (rai::stream & stream_a) const
@@ -2138,13 +2160,6 @@ public:
     rai::block_store & store;
     rai::block_hash result;
 };
-}
-
-rai::block_hash rai::block_store::root (rai::block const & block_a)
-{
-    root_visitor visitor (*this);
-    block_a.visit (visitor);
-    return visitor.result;
 }
 
 rai::block_iterator rai::block_store::blocks_begin ()

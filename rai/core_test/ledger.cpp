@@ -802,7 +802,7 @@ TEST (votes, add_unsigned)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
+    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     rai::vote vote1;
@@ -826,7 +826,7 @@ TEST (votes, add_one)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
+    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     rai::vote vote1;
     vote1.sequence = 1;
@@ -856,7 +856,7 @@ TEST (votes, add_two)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
+    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
@@ -897,7 +897,7 @@ TEST (votes, add_existing)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
+    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
@@ -936,7 +936,7 @@ TEST (votes, add_old)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
     ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
     client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (client1.store.root (send1))->second);
+    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
     rai::vote vote1;
     vote1.sequence = 2;
     vote1.block = send1.clone ();
@@ -1005,7 +1005,7 @@ TEST (fork, publish)
         ASSERT_EQ (0, client1.conflicts.roots.size ());
         client1.processor.process_message (publish2, client1.network.endpoint ());
         ASSERT_EQ (1, client1.conflicts.roots.size ());
-        auto conflict1 (client1.conflicts.roots.find (client1.store.root (*publish1.block)));
+        auto conflict1 (client1.conflicts.roots.find (publish1.block->root ()));
         ASSERT_NE (client1.conflicts.roots.end (), conflict1);
         auto votes1 (conflict1->second);
         ASSERT_NE (nullptr, votes1);

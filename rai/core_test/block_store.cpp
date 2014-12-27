@@ -422,11 +422,11 @@ TEST (block_store, roots)
 	rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
 	rai::send_block send_block;
-	ASSERT_EQ (send_block.hashables.previous, store.root (send_block));
+	ASSERT_EQ (send_block.hashables.previous, send_block.root ());
 	rai::change_block change_block (0, 0, 0, 0);
-	ASSERT_EQ (change_block.hashables.previous, store.root (change_block));
+	ASSERT_EQ (change_block.hashables.previous, change_block.root ());
 	rai::receive_block receive_block;
-	ASSERT_EQ (receive_block.hashables.previous, store.root (receive_block));
+	ASSERT_EQ (receive_block.hashables.previous, receive_block.root ());
 	rai::open_block open_block;
-	ASSERT_EQ (rai::block_hash (0), store.root (open_block));
+	ASSERT_EQ (open_block.hashables.source ^ rai::open_block::root_mask, open_block.root ());
 }

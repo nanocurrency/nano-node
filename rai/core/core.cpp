@@ -201,7 +201,6 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
 rai::shared_work::shared_work (rai::client & client_a) :
 client (client_a),
 insufficient_work_count (0),
-no_root_count (0),
 work (rai::block::publish_work)
 {
 }
@@ -209,26 +208,14 @@ work (rai::block::publish_work)
 bool rai::shared_work::validate (rai::block const & block_a)
 {
 	auto result (false);
-	auto root (client.store.root (block_a));
-	if (!root.is_zero ())
-	{
-		if (work.validate (root, block_a.block_work ()))
-		{
-			if (insufficient_work_logging ())
-			{
-				BOOST_LOG (client.log) << "Insufficient work for publish";
-			}
-			++insufficient_work_count;
-			result = true;
-		}
-	}
-	else
+	auto root (block_a.root ());
+	if (work.validate (root, block_a.block_work ()))
 	{
 		if (insufficient_work_logging ())
 		{
-			BOOST_LOG (client.log) << "No root for block";
+			BOOST_LOG (client.log) << "Insufficient work for publish";
 		}
-		++no_root_count;
+		++insufficient_work_count;
 		result = true;
 	}
 	return result;
@@ -1242,7 +1229,7 @@ service (processor_a)
                     BOOST_LOG (log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
                 }
                 conflicts.start (block_a, false);
-                auto root (store.root (block_a));
+                auto root (block_a.root ());
                 std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
                 service.add (std::chrono::system_clock::now () + rai::confirm_wait, [this, root, block_l] ()
                 {
@@ -1302,7 +1289,7 @@ void rai::client::send_keepalive (rai::endpoint const & endpoint_a)
 
 uint64_t rai::client::create_work (rai::block const & block_a)
 {
-    auto root (store.root (block_a));
+    auto root (block_a.root ());
     rai::work work (rai::block::publish_work);
     auto begin (std::chrono::system_clock::now ());
 	if (work_generation_time ())
@@ -1513,7 +1500,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             {
                 BOOST_LOG (client.log) << boost::str (boost::format ("Fork source for: %1%") % block_a.hash ().to_string ());
             }
-            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), false);
+            client.conflicts.start (*client.ledger.successor (block_a.root ()), false);
             break;
         }
         case rai::process_result::fork_previous:
@@ -1522,7 +1509,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             {
                 BOOST_LOG (client.log) << boost::str (boost::format ("Fork previous for: %1%") % block_a.hash ().to_string ());
             }
-            client.conflicts.start (*client.ledger.successor (client.store.root (block_a)), false);
+            client.conflicts.start (*client.ledger.successor (block_a.root ()), false);
             break;
         }
     }
@@ -4354,7 +4341,7 @@ void rai::election::announce_vote ()
 void rai::conflicts::start (rai::block const & block_a, bool request_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    auto root (client.store.root (block_a));
+    auto root (block_a.root ());
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
@@ -4391,7 +4378,7 @@ bool rai::conflicts::no_conflict (rai::block_hash const & hash_a)
 void rai::conflicts::update (rai::vote const & vote_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    auto existing (roots.find (client.store.root (*vote_a.block)));
+    auto existing (roots.find (vote_a.block->root ()));
     if (existing != roots.end ())
     {
         existing->second->vote (vote_a);

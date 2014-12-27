@@ -481,7 +481,6 @@ public:
 	bool validate (rai::block const &);
 	rai::client & client;
 	uint64_t insufficient_work_count;
-	uint64_t no_root_count;
 	rai::work work;
 	std::mutex mutex;
 };

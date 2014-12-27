@@ -355,9 +355,6 @@ TEST (shared_work, validate)
 	ASSERT_EQ (1, work.insufficient_work_count);
 	send_block.work = system.clients [0]->create_work (send_block);
 	ASSERT_FALSE (work.validate (send_block));
-	rai::open_block open_block;
-	ASSERT_TRUE (work.validate (open_block));
-	ASSERT_EQ (1, work.no_root_count);
 }
 
 TEST (block, publish_req_serialization)

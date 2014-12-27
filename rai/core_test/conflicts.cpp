@@ -18,7 +18,7 @@ TEST (conflicts, start_stop)
     client1.conflicts.start (send1, false);
     ASSERT_TRUE (client1.conflicts.no_conflict (send1.hashables.previous));
     ASSERT_EQ (1, client1.conflicts.roots.size ());
-    auto root1 (client1.store.root (send1));
+    auto root1 (send1.root ());
     auto existing1 (client1.conflicts.roots.find (root1));
     ASSERT_NE (client1.conflicts.roots.end (), existing1);
     auto votes1 (existing1->second);
@@ -58,7 +58,7 @@ TEST (conflicts, add_existing)
     client1.conflicts.update (vote1);
     ASSERT_FALSE (client1.conflicts.no_conflict (send1.hashables.previous));
     ASSERT_EQ (1, client1.conflicts.roots.size ());
-    auto votes1 (client1.conflicts.roots [client1.store.root (send2)]);
+    auto votes1 (client1.conflicts.roots [send2.root ()]);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (2, votes1->votes.rep_votes.size ());
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (key2.pub));
