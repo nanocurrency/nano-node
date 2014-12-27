@@ -515,11 +515,31 @@ namespace rai
         uint64_t const threshold_requirement;
         size_t const entries;
         std::unique_ptr <uint64_t []> data;
-    };
+	};
+	class vote
+	{
+	public:
+		rai::uint256_union hash () const;
+		rai::account account;
+		rai::signature signature;
+		uint64_t sequence;
+		std::unique_ptr <rai::block> block;
+	};
+	class votes
+	{
+	public:
+		votes (rai::block_hash const &);
+		bool vote (rai::vote const &);
+		uint64_t sequence;
+		rai::block_hash id;
+		std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
+	};
 	class ledger
 	{
 	public:
-        ledger (bool &, leveldb::Status const &, rai::block_store &);
+		ledger (bool &, leveldb::Status const &, rai::block_store &);
+		std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (rai::votes const & votes_a);
+		std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (rai::votes const &);
 		rai::account account (rai::block_hash const &);
 		rai::uint128_t amount (rai::block_hash const &);
 		rai::uint128_t balance (rai::block_hash const &);
@@ -543,28 +563,6 @@ namespace rai
         std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)> open_observer;
         std::function <void (rai::change_block const &, rai::account const &, rai::account const &)> change_observer;
 	};
-	class vote
-	{
-	public:
-		rai::uint256_union hash () const;
-		rai::account account;
-		rai::signature signature;
-		uint64_t sequence;
-		std::unique_ptr <rai::block> block;
-	};
-	class votes
-	{
-	public:
-		votes (rai::ledger &, rai::block_hash const &);
-		bool vote (rai::vote const &);
-		std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally ();
-		std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner ();
-		rai::uint128_t flip_threshold ();
-		rai::ledger & ledger;
-		uint64_t sequence;
-		rai::block_hash id;
-		std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
-    };
     extern rai::keypair const test_genesis_key;
     extern rai::account const rai_test_account;
     extern rai::account const rai_beta_account;

@@ -102,10 +102,18 @@ bool rai::votes::vote (rai::vote const & vote_a)
 	return result;
 }
 
-std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::votes::tally ()
+// Sum the weights for each vote and return the winning block with its vote tally
+std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::ledger::winner (rai::votes const & votes_a)
+{
+	auto tally_l (tally (votes_a));
+	auto existing (tally_l.begin ());
+	return std::make_pair (existing->first, existing->second->clone ());
+}
+
+std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::ledger::tally (rai::votes const & votes_a)
 {
 	std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash, rai::unique_ptr_block_hash> totals;
-	for (auto & i: rep_votes)
+	for (auto & i: votes_a.rep_votes)
 	{
 		auto existing (totals.find (i.second.second));
 		if (existing == totals.end ())
@@ -114,8 +122,8 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 			existing = totals.find (i.second.second);
 			assert (existing != totals.end ());
 		}
-		auto weight (ledger.weight (i.first));
-		existing->second += weight;
+		auto weight_l (weight (i.first));
+		existing->second += weight_l;
 	}
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> result;
 	for (auto & i: totals)
@@ -125,16 +133,7 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 	return result;
 }
 
-// Sum the weights for each vote and return the winning block with its vote tally
-std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::votes::winner ()
-{
-	auto tally_l (tally ());
-	auto existing (tally_l.begin ());
-	return std::make_pair (existing->first, existing->second->clone ());
-}
-
-rai::votes::votes (rai::ledger & ledger_a, rai::block_hash const & id_a) :
-ledger (ledger_a),
+rai::votes::votes (rai::block_hash const & id_a) :
 id (id_a),
 // Sequence 0 is the first response by a representative before a fork was observed
 sequence (1)
@@ -2805,11 +2804,6 @@ rai::uint256_union rai::vote::hash () const
     hash.Update (bytes.data (), sizeof (bytes));
     hash.Final (result.bytes.data ());
     return result;
-}
-
-rai::uint128_t rai::votes::flip_threshold ()
-{
-    return ledger.supply () / 2;
 }
 
 rai::genesis::genesis ()

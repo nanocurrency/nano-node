@@ -363,6 +363,7 @@ class gap_information
 public:
     std::chrono::system_clock::time_point arrival;
     rai::block_hash required;
+	std::unique_ptr <rai::votes> votes;
     std::unique_ptr <rai::block> block;
 };
 class gap_cache

@@ -1313,7 +1313,7 @@ void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
     }
     else
     {
-		blocks.insert ({std::chrono::system_clock::now (), needed_a, block_a.clone ()});
+		blocks.insert ({std::chrono::system_clock::now (), needed_a, std::unique_ptr <rai::votes> (new rai::votes (block_a.hash ())), block_a.clone ()});
         if (blocks.size () > max)
         {
             blocks.get <1> ().erase (blocks.get <1> ().begin ());
@@ -4220,7 +4220,7 @@ rai::uint128_t rai::wallet_store::balance (rai::ledger & ledger_a)
 }
 
 rai::election::election (std::shared_ptr <rai::client> client_a, rai::block const & block_a) :
-votes (client_a->ledger, block_a.root ()),
+votes (block_a.root ()),
 client (client_a),
 last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
@@ -4287,7 +4287,7 @@ void rai::election::vote (rai::vote const & vote_a)
 		auto changed (votes.vote (vote_a));
 		if (!confirmed && changed)
 		{
-			auto tally_l (votes.tally ());
+			auto tally_l (client_l->ledger.tally (votes));
 			assert (tally_l.size () > 0);
 			auto winner (tally_l.begin ()->second->clone ());
 			if (!(*winner == *last_winner))
@@ -4334,7 +4334,7 @@ void rai::election::announce_vote ()
 	auto client_l (client.lock ());
 	if (client_l != nullptr)
 	{
-		auto winner_l (votes.winner ());
+		auto winner_l (client_l->ledger.winner (votes));
 		assert (winner_l.second != nullptr);
 		auto list (client_l->peers.list ());
 		client_l->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence);
