@@ -1305,9 +1305,15 @@ uint64_t rai::client::create_work (rai::block const & block_a)
     auto root (store.root (block_a));
     rai::work work (rai::block::publish_work);
     auto begin (std::chrono::system_clock::now ());
-    BOOST_LOG (log) << "Beginning work generation";
+	if (work_generation_time ())
+	{
+		BOOST_LOG (log) << "Beginning work generation";
+	}
     auto proof (work.create (root));
-    BOOST_LOG (log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
+	if (work_generation_time ())
+	{
+		BOOST_LOG (log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
+	}
     return proof;
 }
 
