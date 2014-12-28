@@ -184,7 +184,6 @@ namespace {
 size_t constexpr stepping (16);
 }
 rai::work::work (size_t entries_a) :
-threshold_requirement (0xfff0000000000000),
 entries (entries_a),
 data (new uint64_t [entries_a])
 {
@@ -260,7 +259,7 @@ uint64_t rai::work::generate (CryptoPP::SHA3 & hash, rai::uint256_union const & 
 uint64_t rai::work::create (rai::uint256_union const & seed)
 {
     xorshift1024star rng;
-    rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the spec
+    rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
     uint64_t result;
     rai::uint256_union value;
     CryptoPP::SHA3 hash (32);
@@ -269,7 +268,7 @@ uint64_t rai::work::create (rai::uint256_union const & seed)
         result = rng.next ();
         value = generate (hash, seed, result);
         hash.Restart ();
-    } while (value < threshold_requirement);
+    } while (value < rai::block::publish_threshold);
     return result;
 }
 
@@ -277,7 +276,7 @@ bool rai::work::validate (rai::uint256_union const & seed, uint64_t nonce)
 {
     CryptoPP::SHA3 hash (32);
     auto value (generate (hash, seed, nonce));
-    return value < threshold_requirement;
+    return value < rai::block::publish_threshold;
 }
 
 rai::ledger::ledger (bool & init_a, leveldb::Status const & store_init_a, rai::block_store & store_a) :

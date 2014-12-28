@@ -192,6 +192,9 @@ namespace rai
         static size_t const publish_test_work = 1024;
         static size_t const publish_full_work = 8 * 1024; // 8 * 8 * 1024 = 64k to generate work
         static size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
+        static uint64_t const publish_test_threshold = 0xfc00000000000000;
+        static uint64_t const publish_full_threshold = 0xfff0000000000000;
+        static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
     };
     class unique_ptr_block_hash
     {
@@ -512,7 +515,6 @@ namespace rai
         uint64_t generate (CryptoPP::SHA3 &, rai::uint256_union const &, uint64_t);
         uint64_t create (rai::uint256_union const &);
         bool validate (rai::uint256_union const &, uint64_t);
-        uint64_t const threshold_requirement;
         size_t const entries;
         std::unique_ptr <uint64_t []> data;
 	};
