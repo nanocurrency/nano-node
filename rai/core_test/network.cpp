@@ -982,6 +982,33 @@ TEST (rpc, wallet_create)
     ASSERT_NE (system.clients [0]->wallets.items.end (), system.clients [0]->wallets.items.find (wallet_id));
 }
 
+TEST (rpc, wallet_export)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "wallet_export");
+    request_tree.put ("wallet", system.clients [0]->wallets.items.begin ()->first.to_string ());
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string wallet_json (response_tree.get <std::string> ("json"));
+    bool error (false);
+    rai::wallet_store store (error, boost::filesystem::unique_path (), wallet_json);
+    ASSERT_FALSE (error);
+    ASSERT_TRUE (store.exists (rai::test_genesis_key.pub));
+}
+
 TEST (parse_endpoint, valid)
 {
     std::string string ("127.0.0.1:24000");

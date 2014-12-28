@@ -2378,6 +2378,34 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 response_l.put ("wallet", wallet_id.prv.to_string ());
                 set_response (response, response_l);
             }
+            else if (action == "wallet_export")
+            {
+                std::string wallet_text (request_l.get <std::string> ("wallet"));
+                rai::uint256_union wallet;
+                auto error (wallet.decode_hex (wallet_text));
+                if (!error)
+                {
+                    auto existing (client.wallets.items.find (wallet));
+                    if (existing != client.wallets.items.end ())
+                    {
+                        std::string json;
+                        existing->second->store.serialize_json (json);
+                        boost::property_tree::ptree response_l;
+                        response_l.put ("json", json);
+                        set_response (response, response_l);
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Wallet not found";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
