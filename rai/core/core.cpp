@@ -1197,7 +1197,7 @@ service (processor_a)
     }
     boost::log::add_common_attributes ();
     boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = rai::rai_network != rai::rai_networks::rai_test_network, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-    BOOST_LOG (log) << "Client starting";
+    BOOST_LOG (log) << "Client starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
     ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {
         for (auto & i: send_observers)
@@ -1988,7 +1988,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad account number";
                 }
             }
-            else if (action == "wallet_list")
+            else if (action == "account_list")
             {
                 std::string wallet_text (request_l.get <std::string> ("wallet"));
                 rai::uint256_union wallet;

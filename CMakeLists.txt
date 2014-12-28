@@ -88,12 +88,16 @@ add_executable (qt_client
     rai/qt_client/entry.cpp)
     
 add_executable (qt_system
-    rai/qt_system/entry.cpp)
+rai/qt_system/entry.cpp)
+
+set (CPACK_PACKAGE_VERSION_MAJOR "3")
+set (CPACK_PACKAGE_VERSION_MINOR "1")
+set (CPACK_PACKAGE_VERSION_PATCH "0")
 
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
-set_target_properties (secure core core_test slow_test qt_test cli qt qt_client qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (secure core core_test slow_test qt_test cli qt qt_client qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
 set_target_properties (qt_client qt_test PROPERTIES LINK_FLAGS "${PLATFORM_GUI_EXE_LINK_FLAGS}")
 
 if (WIN32)
@@ -183,9 +187,5 @@ elseif (WIN32)
 else ()
 	install (TARGETS qt_client DESTINATION .)
 endif ()
-
-set (CPACK_PACKAGE_VERSION_MAJOR "3")
-set (CPACK_PACKAGE_VERSION_MINOR "1")
-set (CPACK_PACKAGE_VERSION_PATCH "0")
 
 include (CPack)
