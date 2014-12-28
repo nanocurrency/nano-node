@@ -958,6 +958,30 @@ TEST (rpc, wallet_key_valid)
     ASSERT_EQ ("1", exists_text);
 }
 
+TEST (rpc, wallet_create)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "wallet_create");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    std::string wallet_text (response_tree.get <std::string> ("wallet"));
+    rai::uint256_union wallet_id;
+    ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
+    ASSERT_NE (system.clients [0]->wallets.items.end (), system.clients [0]->wallets.items.find (wallet_id));
+}
+
 TEST (parse_endpoint, valid)
 {
     std::string string ("127.0.0.1:24000");

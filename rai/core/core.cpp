@@ -2370,6 +2370,14 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad account number";
                 }
             }
+            else if (action == "wallet_create")
+            {
+                rai::keypair wallet_id;
+                auto wallet (client.wallets.create (wallet_id.prv));
+                boost::property_tree::ptree response_l;
+                response_l.put ("wallet", wallet_id.prv.to_string ());
+                set_response (response, response_l);
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
