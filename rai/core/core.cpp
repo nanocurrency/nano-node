@@ -33,7 +33,7 @@ namespace
     }
     bool constexpr network_publish_logging ()
     {
-        return network_logging () && true;
+        return network_logging () && false;
     }
     bool constexpr network_packet_logging ()
     {
@@ -65,7 +65,7 @@ namespace
     }
     bool constexpr log_to_cerr ()
     {
-        return true;
+        return false;
     }
 }
 
@@ -1328,6 +1328,7 @@ client (client_a)
 
 void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
 {
+    std::lock_guard <std::mutex> lock (mutex);
     auto existing (blocks.find (needed_a));
     if (existing != blocks.end ())
     {
@@ -1346,6 +1347,7 @@ void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
 
 std::unique_ptr <rai::block> rai::gap_cache::get (rai::block_hash const & hash_a)
 {
+    std::lock_guard <std::mutex> lock (mutex);
     std::unique_ptr <rai::block> result;
     auto existing (blocks.find (hash_a));
     if (existing != blocks.end ())
@@ -1358,13 +1360,20 @@ std::unique_ptr <rai::block> rai::gap_cache::get (rai::block_hash const & hash_a
 
 void rai::gap_cache::vote (rai::vote const & vote_a)
 {
-    auto existing (blocks.get <2> ().find (vote_a.block->hash ()));
+    std::lock_guard <std::mutex> lock (mutex);
+    auto hash (vote_a.block->hash ());
+    auto existing (blocks.get <2> ().find (hash));
     if (existing != blocks.get <2> ().end ())
     {
         auto changed (existing->votes->vote (vote_a));
         if (changed)
         {
-            auto tally (client.ledger.tally (*existing->votes));
+            auto winner (client.ledger.winner (*existing->votes));
+            if (winner.first > bootstrap_threshold ())
+            {
+                BOOST_LOG (client.log) << boost::str (boost::format ("Initiating bootstrap for confirmed gap: %1%") % hash.to_string ());
+                client.bootstrap_initiator.bootstrap_any ();
+            }
         }
     }
 }
@@ -2686,6 +2695,15 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 	{
 		initiate (endpoint_a);
 	}
+}
+
+void rai::bootstrap_initiator::bootstrap_any ()
+{
+    auto list (client.peers.list ());
+    if (!list.empty ())
+    {
+        bootstrap (list [0].endpoint);
+    }
 }
 
 void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)

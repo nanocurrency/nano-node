@@ -65,7 +65,7 @@ TEST (gap_cache, limit)
     ASSERT_EQ (cache.max, cache.blocks.size ());
 }
 
-TEST (gap_cache, DISABLED_gap_bootstrap)
+TEST (gap_cache, gap_bootstrap)
 {
     rai::system system (24000, 2);
     auto iterations1 (0);

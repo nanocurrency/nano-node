@@ -386,6 +386,7 @@ public:
         >
     > blocks;
     size_t const max = 128;
+    std::mutex mutex;
     rai::client & client;
 };
 class processor
@@ -586,6 +587,7 @@ public:
 	bootstrap_initiator (rai::client &);
 	void warmup (rai::endpoint const &);
 	void bootstrap (rai::endpoint const &);
+    void bootstrap_any ();
 	void initiate (rai::endpoint const &);
 	std::mutex mutex;
 	rai::client & client;
