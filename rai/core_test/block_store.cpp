@@ -430,3 +430,25 @@ TEST (block_store, roots)
 	rai::open_block open_block;
 	ASSERT_EQ (open_block.hashables.source ^ rai::open_block::root_mask, open_block.root ());
 }
+
+TEST (block_store, pending_exists)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    rai::block_hash two (2);
+    rai::receivable receivable;
+    store.pending_put (two, receivable);
+    rai::block_hash one (1);
+    ASSERT_FALSE (store.pending_exists (one));
+}
+
+TEST (block_store, latest_exists)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    rai::block_hash two (2);
+    rai::frontier frontier;
+    store.latest_put (two, frontier);
+    rai::block_hash one (1);
+    ASSERT_FALSE (store.latest_exists (one));
+}

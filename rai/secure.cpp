@@ -1814,6 +1814,54 @@ std::unique_ptr <rai::block> rai::block_store::block_get (rai::block_hash const 
     return result;
 }
 
+void rai::block_store::block_del (rai::block_hash const & hash_a)
+{
+    auto status (blocks->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
+    assert (status.ok ());
+}
+
+bool rai::block_store::block_exists (rai::block_hash const & hash_a)
+{
+    bool result;
+    std::unique_ptr <leveldb::Iterator> iterator (blocks->NewIterator (leveldb::ReadOptions ()));
+    iterator->Seek (leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
+    if (iterator->Valid ())
+    {
+        rai::block_hash hash;
+        hash = iterator->key ();
+        result = hash == hash_a;
+    }
+    else
+    {
+        result = false;
+    }
+    return result;
+}
+
+void rai::block_store::latest_del (rai::account const & account_a)
+{
+    auto status (accounts->Delete (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ())));
+    assert (status.ok ());
+}
+
+bool rai::block_store::latest_exists (rai::account const & account_a)
+{
+    std::unique_ptr <leveldb::Iterator> existing (accounts->NewIterator (leveldb::ReadOptions {}));
+    existing->Seek (leveldb::Slice (account_a.chars.data (), account_a.chars.size ()));
+    bool result;
+    if (existing->Valid ())
+    {
+        rai::account account;
+        account = existing->key ();
+        result = account == account_a;
+    }
+    else
+    {
+        result = false;
+    }
+    return result;
+}
+
 bool rai::block_store::latest_get (rai::account const & account_a, rai::frontier & frontier_a)
 {
     std::string value;
@@ -1870,7 +1918,9 @@ bool rai::block_store::pending_exists (rai::block_hash const & hash_a)
     bool result;
     if (iterator->Valid ())
     {
-        result = true;
+        rai::block_hash hash;
+        hash = iterator->key ();
+        result = hash == hash_a;
     }
     else
     {

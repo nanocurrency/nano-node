@@ -2448,34 +2448,6 @@ public:
 };
 }
 
-void rai::block_store::block_del (rai::block_hash const & hash_a)
-{
-    auto status (blocks->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
-}
-
-void rai::block_store::latest_del (rai::account const & account_a)
-{
-    auto status (accounts->Delete (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ())));
-    assert (status.ok ());
-}
-
-bool rai::block_store::latest_exists (rai::account const & account_a)
-{
-    std::unique_ptr <leveldb::Iterator> existing (accounts->NewIterator (leveldb::ReadOptions {}));
-    existing->Seek (leveldb::Slice (account_a.chars.data (), account_a.chars.size ()));
-    bool result;
-    if (existing->Valid ())
-    {
-        result = true;
-    }
-    else
-    {
-        result = false;
-    }
-    return result;
-}
-
 namespace
 {
 bool parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
@@ -3362,31 +3334,6 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
             BOOST_LOG (connection->connection->client->log) << "Error deserializing block received from pull request";
         }
 	}
-}
-
-bool rai::block_store::block_exists (rai::block_hash const & hash_a)
-{
-    bool result;
-    std::unique_ptr <leveldb::Iterator> iterator (blocks->NewIterator (leveldb::ReadOptions ()));
-    iterator->Seek (leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
-    if (iterator->Valid ())
-    {
-        rai::uint256_union hash;
-        hash = iterator->key ();
-        if (hash == hash_a)
-        {
-            result = true;
-        }
-        else
-        {
-            result = false;
-        }
-    }
-    else
-    {
-        result = false;
-    }
-    return result;
 }
 
 rai::endpoint rai::network::endpoint ()
