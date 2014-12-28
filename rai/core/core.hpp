@@ -312,7 +312,6 @@ public:
     static size_t const kdf_full_work = 8 * 1024 * 1024; // 8 * 8 * 1024 * 1024 = 64 MB memory to derive key
     static size_t const kdf_test_work = 1024;
     static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
-private:
     std::unique_ptr <leveldb::DB> handle;
 };
 class wallet
@@ -333,6 +332,7 @@ public:
     wallets (rai::client &, boost::filesystem::path const &);
     std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
     std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
+    void remove (rai::uint256_union const &);
     std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
     boost::filesystem::path const path;
     rai::client & client;

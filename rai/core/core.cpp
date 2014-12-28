@@ -871,6 +871,7 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
 
 bool rai::wallet::import (std::string const & json_a, std::string const & password_a)
 {
+    std::lock_guard <std::mutex> lock (mutex);
     auto result (!store.valid_password ());
     rai::wallet_store store_l (result, boost::filesystem::unique_path (), json_a);
     if (!result)
@@ -948,6 +949,18 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
         result = wallet;
     }
     return result;
+}
+
+void rai::wallets::remove (rai::uint256_union const & id_a)
+{
+    auto existing (items.find (id_a));
+    assert (existing != items.end ());
+    auto wallet (existing->second);
+    items.erase (existing);
+    std::lock_guard <std::mutex> lock (wallet->mutex);
+    wallet->store.handle.reset ();
+    assert (boost::filesystem::is_directory (path / id_a.to_string ()));
+    boost::filesystem::remove_all (path / id_a.to_string ());
 }
 
 rai::key_iterator::key_iterator (leveldb::DB * db_a) :
@@ -2426,6 +2439,32 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         existing->second->store.serialize_json (json);
                         boost::property_tree::ptree response_l;
                         response_l.put ("json", json);
+                        set_response (response, response_l);
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Wallet not found";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
+            else if (action == "wallet_remove")
+            {
+                std::string wallet_text (request_l.get <std::string> ("wallet"));
+                rai::uint256_union wallet;
+                auto error (wallet.decode_hex (wallet_text));
+                if (!error)
+                {
+                    auto existing (client.wallets.items.find (wallet));
+                    if (existing != client.wallets.items.end ())
+                    {
+                        client.wallets.remove (wallet);
+                        boost::property_tree::ptree response_l;
                         set_response (response, response_l);
                     }
                     else
