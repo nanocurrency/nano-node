@@ -395,3 +395,19 @@ TEST (wallet, serialize_json_password)
     wallet2.fetch (key.pub, prv);
     ASSERT_EQ (key.prv, prv);
 }
+
+TEST (wallet_store, merge)
+{
+    auto error (false);
+    rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
+    ASSERT_FALSE (error);
+    rai::keypair key1;
+    wallet1.insert (key1.prv);
+    rai::wallet_store wallet2 (error, boost::filesystem::unique_path ());
+    ASSERT_FALSE (error);
+    rai::keypair key2;
+    wallet2.insert (key2.prv);
+    ASSERT_FALSE (wallet1.exists (key2.pub));
+    ASSERT_FALSE (wallet1.merge (wallet2));
+    ASSERT_TRUE (wallet1.exists (key2.pub));
+}

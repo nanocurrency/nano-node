@@ -299,6 +299,7 @@ public:
     rai::uint256_union derive_key (std::string const &);
     rai::uint128_t balance (rai::ledger &);
     void serialize_json (std::string &);
+    bool merge (rai::wallet_store &);
     rai::fan password;
     static rai::uint256_union const version_1;
     static rai::uint256_union const version_current;
@@ -321,6 +322,7 @@ public:
     wallet (bool &, rai::client &, boost::filesystem::path const &, std::string const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
     bool send (rai::account const &, rai::uint128_t const &);
+    bool import (std::string const &, std::string const &);
     std::mutex mutex;
     rai::wallet_store store;
     rai::client & client;

@@ -60,9 +60,10 @@ add_executable (core_test
     rai/core_test/message_parser.cpp
     rai/core_test/processor_service.cpp
     rai/core_test/peer_container.cpp
+    rai/core_test/rpc.cpp
     rai/core_test/network.cpp
     rai/core_test/uint256_union.cpp
-    rai/core_test/wallet_test.cpp
+    rai/core_test/wallet.cpp
     rai/core_test/wallets.cpp
     )
 

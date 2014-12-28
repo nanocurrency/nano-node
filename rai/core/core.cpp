@@ -745,6 +745,24 @@ void rai::wallet_store::serialize_json (std::string & string_a)
     string_a = ostream.str ();
 }
 
+bool rai::wallet_store::merge (rai::wallet_store & other_a)
+{
+    assert (valid_password ());
+    assert (other_a.valid_password ());
+    auto result (false);
+    for (auto i (other_a.begin ()), n (other_a.end ()); i != n; ++i)
+    {
+        rai::private_key prv;
+        auto error (other_a.fetch (i->first, prv));
+        result = result | error;
+        if (!result)
+        {
+            insert (prv);
+        }
+    }
+    return result;
+}
+
 rai::wallet::wallet (bool & init_a, rai::client & client_a, boost::filesystem::path const & path_a) :
 store (init_a, path_a),
 client (client_a)
@@ -847,6 +865,22 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
     else
     {
         BOOST_LOG (client.log) << "Wallet key is invalid";
+    }
+    return result;
+}
+
+bool rai::wallet::import (std::string const & json_a, std::string const & password_a)
+{
+    auto result (!store.valid_password ());
+    rai::wallet_store store_l (result, boost::filesystem::unique_path (), json_a);
+    if (!result)
+    {
+        store_l.enter_password (password_a);
+        result = !store_l.valid_password ();
+        if (!result)
+        {
+            result = store.merge (store_l);
+        }
     }
     return result;
 }
