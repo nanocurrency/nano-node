@@ -2521,7 +2521,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                                 }
                                 auto error (wallet->store.move (source->store, accounts));
                                 boost::property_tree::ptree response_l;
-                                response_l.put ("moved", error ? "false" : "true");
+                                response_l.put ("moved", error ? "0" : "1");
                                 set_response (response, response_l);
                             }
                             else

@@ -516,7 +516,7 @@ TEST (rpc, representative_set)
     ASSERT_EQ (key.pub, system.clients [0]->wallets.items.begin ()->second->store.representative ());
 }
 
-TEST (rpc, wallet_list)
+TEST (rpc, account_list)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -533,7 +533,7 @@ TEST (rpc, wallet_list)
     std::string wallet;
     system.clients [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request_tree.put ("wallet", wallet);
-    request_tree.put ("action", "wallet_list");
+    request_tree.put ("action", "account_list");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
@@ -693,7 +693,7 @@ TEST (rpc, account_move)
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
-    ASSERT_EQ ("true", response_tree.get <std::string> ("moved"));
+    ASSERT_EQ ("1", response_tree.get <std::string> ("moved"));
     ASSERT_NE (destination->store.end (), destination->store.find (key.pub));
     ASSERT_NE (destination->store.end (), destination->store.find (rai::test_genesis_key.pub));
     ASSERT_EQ (source->store.end (), source->store.begin ());
