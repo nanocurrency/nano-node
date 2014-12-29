@@ -692,6 +692,12 @@ void rai::wallet_store::insert (rai::private_key const & prv)
     assert (status.ok ());
 }
 
+void rai::wallet_store::erase (rai::public_key const & pub)
+{
+    auto status (handle->Delete (leveldb::WriteOptions (), leveldb::Slice (pub.chars.data (), pub.chars.size ())));
+    assert (status.ok ());
+}
+
 bool rai::wallet_store::fetch (rai::public_key const & pub, rai::private_key & prv)
 {
     auto result (false);
@@ -745,19 +751,20 @@ void rai::wallet_store::serialize_json (std::string & string_a)
     string_a = ostream.str ();
 }
 
-bool rai::wallet_store::merge (rai::wallet_store & other_a)
+bool rai::wallet_store::move (rai::wallet_store & other_a, std::vector <rai::public_key> const & keys)
 {
     assert (valid_password ());
     assert (other_a.valid_password ());
     auto result (false);
-    for (auto i (other_a.begin ()), n (other_a.end ()); i != n; ++i)
+    for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
     {
         rai::private_key prv;
-        auto error (other_a.fetch (i->first, prv));
+        auto error (other_a.fetch (*i, prv));
         result = result | error;
         if (!result)
         {
             insert (prv);
+            other_a.erase (*i);
         }
     }
     return result;
@@ -880,7 +887,12 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
         result = !store_l.valid_password ();
         if (!result)
         {
-            result = store.merge (store_l);
+            std::vector <rai::public_key> accounts;
+            for (auto i (store_l.begin ()), n (store_l.end ()); i != n; ++i)
+            {
+                accounts.push_back (i->first);
+            }
+            result = store.move (store_l, accounts);
         }
     }
     return result;
@@ -951,7 +963,7 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
     return result;
 }
 
-void rai::wallets::remove (rai::uint256_union const & id_a)
+void rai::wallets::destroy (rai::uint256_union const & id_a)
 {
     auto existing (items.find (id_a));
     assert (existing != items.end ());
@@ -2453,7 +2465,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad account number";
                 }
             }
-            else if (action == "wallet_remove")
+            else if (action == "wallet_destroy")
             {
                 std::string wallet_text (request_l.get <std::string> ("wallet"));
                 rai::uint256_union wallet;
@@ -2463,7 +2475,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto existing (client.wallets.items.find (wallet));
                     if (existing != client.wallets.items.end ())
                     {
-                        client.wallets.remove (wallet);
+                        client.wallets.destroy (wallet);
                         boost::property_tree::ptree response_l;
                         set_response (response, response_l);
                     }
@@ -2476,7 +2488,64 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 else
                 {
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
+                    response.content = "Bad wallet number";
+                }
+            }
+            else if (action == "account_move")
+            {
+                std::string wallet_text (request_l.get <std::string> ("wallet"));
+                std::string source_text (request_l.get <std::string> ("source"));
+                auto accounts_text (request_l.get_child ("accounts"));
+                rai::uint256_union wallet;
+                auto error (wallet.decode_hex (wallet_text));
+                if (!error)
+                {
+                    auto existing (client.wallets.items.find (wallet));
+                    if (existing != client.wallets.items.end ())
+                    {
+                        auto wallet (existing->second);
+                        rai::uint256_union source;
+                        auto error (source.decode_hex (source_text));
+                        if (!error)
+                        {
+                            auto existing (client.wallets.items.find (source));
+                            if (existing != client.wallets.items.end ())
+                            {
+                                auto source (existing->second);
+                                std::vector <rai::public_key> accounts;
+                                for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
+                                {
+                                    rai::public_key account;
+                                    account.decode_hex (i->second.get <std::string> (""));
+                                    accounts.push_back (account);
+                                }
+                                auto error (wallet->store.move (source->store, accounts));
+                                boost::property_tree::ptree response_l;
+                                response_l.put ("moved", error ? "false" : "true");
+                                set_response (response, response_l);
+                            }
+                            else
+                            {
+                                response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                                response.content = "Source not found";
+                            }
+                        }
+                        else
+                        {
+                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                            response.content = "Bad source number";
+                        }
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Wallet not found";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad wallet number";
                 }
             }
             else

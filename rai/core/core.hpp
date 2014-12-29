@@ -291,6 +291,7 @@ public:
     rai::account representative ();
     void representative_set (rai::account const &);
     void insert (rai::private_key const &);
+    void erase (rai::public_key const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
     key_iterator find (rai::uint256_union const &);
@@ -299,7 +300,7 @@ public:
     rai::uint256_union derive_key (std::string const &);
     rai::uint128_t balance (rai::ledger &);
     void serialize_json (std::string &);
-    bool merge (rai::wallet_store &);
+    bool move (rai::wallet_store &, std::vector <rai::public_key> const &);
     rai::fan password;
     static rai::uint256_union const version_1;
     static rai::uint256_union const version_current;
@@ -332,7 +333,7 @@ public:
     wallets (rai::client &, boost::filesystem::path const &);
     std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
     std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
-    void remove (rai::uint256_union const &);
+    void destroy (rai::uint256_union const &);
     std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
     boost::filesystem::path const path;
     rai::client & client;

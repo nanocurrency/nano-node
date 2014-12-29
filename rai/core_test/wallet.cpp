@@ -396,7 +396,7 @@ TEST (wallet, serialize_json_password)
     ASSERT_EQ (key.prv, prv);
 }
 
-TEST (wallet_store, merge)
+TEST (wallet_store, move)
 {
     auto error (false);
     rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
@@ -408,6 +408,10 @@ TEST (wallet_store, merge)
     rai::keypair key2;
     wallet2.insert (key2.prv);
     ASSERT_FALSE (wallet1.exists (key2.pub));
-    ASSERT_FALSE (wallet1.merge (wallet2));
+    ASSERT_TRUE (wallet2.exists (key2.pub));
+    std::vector <rai::public_key> keys;
+    keys.push_back (key2.pub);
+    ASSERT_FALSE (wallet1.move (wallet2, keys));
     ASSERT_TRUE (wallet1.exists (key2.pub));
+    ASSERT_FALSE (wallet2.exists (key2.pub));
 }

@@ -637,7 +637,7 @@ TEST (rpc, wallet_export)
     ASSERT_TRUE (store.exists (rai::test_genesis_key.pub));
 }
 
-TEST (rpc, wallet_remove)
+TEST (rpc, wallet_destroy)
 {
     rai::system system (24000, 1);
     auto wallet_id (system.clients [0]->wallets.items.begin ()->first);
@@ -648,7 +648,7 @@ TEST (rpc, wallet_remove)
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "wallet_remove");
+    request_tree.put ("action", "wallet_destroy");
     request_tree.put ("wallet", wallet_id.to_string ());
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
@@ -659,4 +659,42 @@ TEST (rpc, wallet_remove)
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
     ASSERT_EQ (system.clients [0]->wallets.items.end (), system.clients [0]->wallets.items.find (wallet_id));
+}
+
+TEST (rpc, account_move)
+{
+    rai::system system (24000, 1);
+    auto wallet_id (system.clients [0]->wallets.items.begin ()->first);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.clients [0], true);
+    auto destination (system.wallet (0));
+    destination->store.insert (rai::test_genesis_key.prv);
+    rai::keypair source_id;
+    rai::keypair key;
+    auto source (system.clients [0]->wallets.create (source_id.prv));
+    source->store.insert (key.prv);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "account_move");
+    request_tree.put ("wallet", wallet_id.to_string ());
+    request_tree.put ("source", source_id.prv.to_string ());
+    boost::property_tree::ptree keys;
+    boost::property_tree::ptree entry;
+    entry.put ("", key.pub.to_string ());
+    keys.push_back (std::make_pair ("", entry));
+    request_tree.add_child ("accounts", keys);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    ASSERT_EQ ("true", response_tree.get <std::string> ("moved"));
+    ASSERT_NE (destination->store.end (), destination->store.find (key.pub));
+    ASSERT_NE (destination->store.end (), destination->store.find (rai::test_genesis_key.pub));
+    ASSERT_EQ (source->store.end (), source->store.begin ());
 }

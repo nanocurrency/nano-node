@@ -41,7 +41,7 @@ TEST (wallets, remove)
         ASSERT_EQ (0, wallets.items.size ());
         auto wallet (wallets.create (one));
         ASSERT_EQ (1, wallets.items.size ());
-        wallets.remove (one);
+        wallets.destroy (one);
         ASSERT_EQ (0, wallets.items.size ());
     }
     {
