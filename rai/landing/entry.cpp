@@ -20,7 +20,7 @@ namespace landing
         config () :
         start (minutes_since_epoch ()),
         last (start),
-        peering_port (24000)
+        peering_port (rai::network::node_port)
         {
             bootstrap_peers.push_back ("rai.raiblocks.net");
             rai::random_pool.GenerateBlock (wallet.bytes.begin (), wallet.bytes.size ());

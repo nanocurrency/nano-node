@@ -6,10 +6,10 @@
 #include <thread>
 
 rai_daemon::daemon_config::daemon_config () :
-peering_port (24000),
+peering_port (rai::network::node_port),
 rpc_enable (false),
 rpc_address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
-rpc_port (25000),
+rpc_port (rai::network::rpc_port),
 rpc_enable_control (false)
 {
     bootstrap_peers.push_back ("rai.raiblocks.net");

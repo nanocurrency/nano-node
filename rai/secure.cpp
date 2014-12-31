@@ -250,35 +250,6 @@ rai::uint256_union rai::work::kdf (std::string const & password_a, rai::uint256_
     return result;
 }
 
-uint64_t rai::work::generate (CryptoPP::SHA3 & hash, rai::uint256_union const & seed, uint64_t nonce)
-{
-    auto result (derive (hash, seed ^ nonce));
-    return result.qwords [0] ^ result.qwords [1] ^ result.qwords [2] ^ result.qwords [3];
-}
-
-uint64_t rai::work::create (rai::uint256_union const & seed)
-{
-    xorshift1024star rng;
-    rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
-    uint64_t result;
-    rai::uint256_union value;
-    CryptoPP::SHA3 hash (32);
-    do
-    {
-        result = rng.next ();
-        value = generate (hash, seed, result);
-        hash.Restart ();
-    } while (value < rai::block::publish_threshold);
-    return result;
-}
-
-bool rai::work::validate (rai::uint256_union const & seed, uint64_t nonce)
-{
-    CryptoPP::SHA3 hash (32);
-    auto value (generate (hash, seed, nonce));
-    return value < rai::block::publish_threshold;
-}
-
 rai::ledger::ledger (bool & init_a, leveldb::Status const & store_init_a, rai::block_store & store_a) :
 store (store_a),
 send_observer ([] (rai::send_block const &, rai::account const &, rai::amount const &) {}),
@@ -434,6 +405,11 @@ void rai::send_block::hash (CryptoPP::SHA3 & hash_a) const
 uint64_t rai::send_block::block_work () const
 {
     return work;
+}
+
+void rai::send_block::block_work_set (uint64_t work_a)
+{
+    work = work_a;
 }
 
 void rai::send_hashables::hash (CryptoPP::SHA3 & hash_a) const
@@ -629,6 +605,11 @@ void rai::receive_block::hash (CryptoPP::SHA3 & hash_a) const
 uint64_t rai::receive_block::block_work () const
 {
     return work;
+}
+
+void rai::receive_block::block_work_set (uint64_t work_a)
+{
+    work = work_a;
 }
 
 bool rai::receive_block::operator == (rai::block const & other_a) const
@@ -1025,6 +1006,37 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
     block_a.serialize (stream_a);
 }
 
+void rai::work_generate (rai::block & block_a)
+{
+    xorshift1024star rng;
+    rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
+    CryptoPP::SHA3 hash (8);
+    auto root (block_a.root ());
+    uint64_t work;
+    uint64_t output;
+    do
+    {
+        work = rng.next ();
+        hash.Update (reinterpret_cast <uint8_t *> (&work), sizeof (work));
+        hash.Update (root.bytes.data (), root.bytes.size ());
+        hash.Final (reinterpret_cast <uint8_t *> (&output));
+        hash.Restart ();
+    } while (output < rai::block::publish_threshold);
+    block_a.block_work_set (work);
+}
+
+bool rai::work_validate (rai::block & block_a)
+{
+    CryptoPP::SHA3 hash (8);
+    auto root (block_a.root ());
+    uint64_t work (block_a.block_work ());
+    hash.Update (reinterpret_cast <uint8_t *> (&work), sizeof (work));
+    hash.Update (root.bytes.data (), root.bytes.size ());
+    uint64_t result;
+    hash.Final (reinterpret_cast <uint8_t *> (&result));
+    return result < rai::block::publish_threshold;
+}
+
 std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a)
 {
     std::unique_ptr <rai::block> result;
@@ -1200,6 +1212,11 @@ void rai::open_block::hash (CryptoPP::SHA3 & hash_a) const
 uint64_t rai::open_block::block_work () const
 {
     return work;
+}
+
+void rai::open_block::block_work_set (uint64_t work_a)
+{
+    work = work_a;
 }
 
 rai::block_hash rai::open_block::previous () const
@@ -1422,6 +1439,11 @@ void rai::change_block::hash (CryptoPP::SHA3 & hash_a) const
 uint64_t rai::change_block::block_work () const
 {
     return work;
+}
+
+void rai::change_block::block_work_set (uint64_t work_a)
+{
+    work = work_a;
 }
 
 rai::block_hash rai::change_block::previous () const

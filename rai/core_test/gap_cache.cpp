@@ -81,7 +81,7 @@ TEST (gap_cache, gap_bootstrap)
     send.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 100;
     send.hashables.destination = key.pub;
     send.hashables.previous = system.clients [0]->ledger.latest (rai::test_genesis_key.pub);
-    send.work = system.clients [0]->create_work (send);
+    system.clients [0]->work_create (send);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
     ASSERT_EQ (rai::process_result::progress, system.clients [0]->processor.process_receive (send));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 100, system.clients [0]->ledger.account_balance (rai::genesis_account));

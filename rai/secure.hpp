@@ -13,6 +13,11 @@
 
 #include <unordered_map>
 
+namespace CryptoPP
+{
+    class SHA3;
+}
+
 namespace rai
 {
     enum class rai_networks
@@ -180,6 +185,7 @@ namespace rai
 		rai::uint256_union hash () const;
 		virtual void hash (CryptoPP::SHA3 &) const = 0;
         virtual uint64_t block_work () const = 0;
+        virtual void block_work_set (uint64_t) = 0;
 		virtual rai::block_hash previous () const = 0;
 		virtual rai::block_hash source () const = 0;
 		virtual rai::block_hash root () const = 0;
@@ -192,8 +198,8 @@ namespace rai
         static size_t const publish_test_work = 1024;
         static size_t const publish_full_work = 8 * 1024; // 8 * 8 * 1024 = 64k to generate work
         static size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
-        static uint64_t const publish_test_threshold = 0xfc00000000000000;
-        static uint64_t const publish_full_threshold = 0xfff0000000000000;
+        static uint64_t const publish_test_threshold = 0xff00000000000000;
+        static uint64_t const publish_full_threshold = 0xfffffc0000000000;
         static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
     };
     class unique_ptr_block_hash
@@ -208,6 +214,8 @@ namespace rai
     std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
     std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
     void serialize_block (rai::stream &, rai::block const &);
+    void work_generate (rai::block &);
+    bool work_validate (rai::block &);
 	class send_hashables
 	{
 	public:
@@ -224,6 +232,7 @@ namespace rai
 		using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         uint64_t block_work () const override;
+        void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
 		rai::block_hash root () const override;
@@ -253,6 +262,7 @@ namespace rai
 		using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         uint64_t block_work () const override;
+        void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
 		rai::block_hash root () const override;
@@ -282,6 +292,7 @@ namespace rai
 		using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         uint64_t block_work () const override;
+        void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
 		rai::block_hash root () const override;
@@ -319,6 +330,7 @@ namespace rai
 		using rai::block::hash;
         void hash (CryptoPP::SHA3 &) const override;
         uint64_t block_work () const override;
+        void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;
 		rai::block_hash source () const override;
 		rai::block_hash root () const override;
@@ -512,9 +524,6 @@ namespace rai
         work (size_t);
         rai::uint256_union derive (CryptoPP::SHA3 &, rai::uint256_union const &);
         rai::uint256_union kdf (std::string const &, rai::uint256_union const &);
-        uint64_t generate (CryptoPP::SHA3 &, rai::uint256_union const &, uint64_t);
-        uint64_t create (rai::uint256_union const &);
-        bool validate (rai::uint256_union const &, uint64_t);
         size_t const entries;
         std::unique_ptr <uint64_t []> data;
 	};

@@ -265,36 +265,19 @@ TEST (frontier_req, serialization)
 
 TEST (work, one)
 {
-    rai::work work (rai::block::publish_work);
-    rai::uint256_union seed (0x0123456789abcdef);
-    uint64_t nonce (0x0123456789abcdef);
-    CryptoPP::SHA3 hash (32);
-    auto value1 (work.generate (hash, seed, nonce));
-	auto value2 (work.generate (hash, seed, nonce));
-	ASSERT_EQ (value1, value2);
+    rai::change_block block (0, 0, 0, 0);
+    rai::work_generate (block);
+    auto work (block.block_work ());
+    rai::work_generate (block);
+    ASSERT_EQ (work, block.block_work ());
 }
 
-TEST (work, create)
+TEST (work, validate)
 {
-    rai::uint256_union source (1);
-    rai::work work (rai::block::publish_work);
-    auto begin1 (std::chrono::high_resolution_clock::now ());
-    auto value (work.create (source));
-    auto end1 (std::chrono::high_resolution_clock::now ());
-    EXPECT_FALSE (work.validate (source, value));
-    auto end2 (std::chrono::high_resolution_clock::now ());
-    std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
-}
-
-TEST (shared_work, validate)
-{
-	rai::system system (24000, 1);
-	rai::shared_work work (*system.clients [0]);
 	rai::send_block send_block;
-	ASSERT_TRUE (work.validate (send_block));
-	ASSERT_EQ (1, work.insufficient_work_count);
-	send_block.work = system.clients [0]->create_work (send_block);
-	ASSERT_FALSE (work.validate (send_block));
+    ASSERT_TRUE (rai::work_validate (send_block));
+    rai::work_generate (send_block);
+    ASSERT_FALSE (rai::work_validate (send_block));
 }
 
 TEST (block, publish_req_serialization)

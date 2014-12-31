@@ -741,7 +741,7 @@ void rai_qt::block_creation::create_send ()
                         send.hashables.balance = rai::amount (balance - amount_l.number ());
                         rai::sign_message (key, account_l, send.hash (), send.signature);
                         key.clear ();
-                        send.work = client.client_m.create_work (send);
+                        client.client_m.work_create (send);
                         std::string block_l;
                         send.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
@@ -801,7 +801,7 @@ void rai_qt::block_creation::create_receive ()
                     receive.hashables.source = source_l;
                     rai::sign_message (key, receivable.destination, receive.hash (), receive.signature);
                     key.clear ();
-                    receive.work = client.client_m.create_work (receive);
+                    client.client_m.work_create (receive);
                     std::string block_l;
                     receive.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -853,7 +853,7 @@ void rai_qt::block_creation::create_change ()
                 {
                     rai::change_block change (representative_l, frontier.hash, key, account_l);
                     key.clear ();
-                    change.work = client.client_m.create_work (change);
+                    client.client_m.work_create (change);
                     std::string block_l;
                     change.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -911,7 +911,7 @@ void rai_qt::block_creation::create_open ()
                         open.hashables.representative = representative_l;
                         rai::sign_message (key, receivable.destination, open.hash (), open.signature);
                         key.clear ();
-                        open.work = client.client_m.create_work (open);
+                        client.client_m.work_create (open);
                         std::string block_l;
                         open.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));

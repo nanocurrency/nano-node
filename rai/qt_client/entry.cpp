@@ -9,7 +9,7 @@ class qt_client_config
 {
 public:
     qt_client_config () :
-    peering_port (24000)
+    peering_port (rai::network::node_port)
     {
         bootstrap_peers.push_back ("rai.raiblocks.net");
         rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());

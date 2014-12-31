@@ -57,10 +57,10 @@ TEST (message_parser, exact_confirm_ack_size)
 {
     rai::system system (24000, 1);
     test_visitor visitor;
-    rai::message_parser parser (visitor, system.clients [0]->network.work);
+    rai::message_parser parser (visitor);
     auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
     block->hashables.previous = 1;
-    block->work = system.clients [0]->create_work (*block);
+    system.clients [0]->work_create (*block);
     rai::confirm_ack message (std::move (block));
     std::vector <uint8_t> bytes;
     {
@@ -82,10 +82,10 @@ TEST (message_parser, exact_confirm_req_size)
 {
     rai::system system (24000, 1);
     test_visitor visitor;
-    rai::message_parser parser (visitor, system.clients [0]->network.work);
+    rai::message_parser parser (visitor);
     auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
     block->hashables.previous = 1;
-    block->work = system.clients [0]->create_work (*block);
+    system.clients [0]->work_create (*block);
     rai::confirm_req message (std::move (block));
     std::vector <uint8_t> bytes;
     {
@@ -107,10 +107,10 @@ TEST (message_parser, exact_publish_size)
 {
     rai::system system (24000, 1);
     test_visitor visitor;
-    rai::message_parser parser (visitor, system.clients [0]->network.work);
+    rai::message_parser parser (visitor);
 	auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
 	block->hashables.previous = 1;
-    block->work = system.clients [0]->create_work (*block);
+    system.clients [0]->work_create (*block);
 	rai::publish message (std::move (block));
     std::vector <uint8_t> bytes;
     {
@@ -132,7 +132,7 @@ TEST (message_parser, exact_keepalive_size)
 {
     rai::system system (24000, 1);
     test_visitor visitor;
-    rai::message_parser parser (visitor, system.clients [0]->network.work);
+    rai::message_parser parser (visitor);
     rai::keepalive message;
     std::vector <uint8_t> bytes;
     {

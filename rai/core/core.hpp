@@ -21,11 +21,6 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace CryptoPP
-{
-class SHA3;
-}
-
 std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
 namespace rai
 {
@@ -484,29 +479,19 @@ public:
     std::unordered_map <rai::account, rai::block_hash>::iterator end;
     std::vector <std::unique_ptr <rai::block>> path;
 };
-class shared_work
-{
-public:
-	shared_work (rai::client &);
-	bool validate (rai::block const &);
-	rai::client & client;
-	uint64_t insufficient_work_count;
-	rai::work work;
-	std::mutex mutex;
-};
 class message_parser
 {
 public:
-    message_parser (rai::message_visitor &, rai::shared_work & work_a);
+    message_parser (rai::message_visitor &);
     void deserialize_buffer (uint8_t const *, size_t);
     void deserialize_keepalive (uint8_t const *, size_t);
     void deserialize_publish (uint8_t const *, size_t);
     void deserialize_confirm_req (uint8_t const *, size_t);
     void deserialize_confirm_ack (uint8_t const *, size_t);
     bool at_end (rai::bufferstream &);
-	rai::shared_work & work;
     rai::message_visitor & visitor;
     bool error;
+    bool insufficient_work;
 };
 class peer_information
 {
@@ -566,7 +551,6 @@ public:
     void send_confirm_req (rai::endpoint const &, rai::block const &);
     void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
     void send_complete (boost::system::error_code const &, size_t);
-	rai::shared_work work;
     rai::endpoint endpoint ();
     rai::endpoint remote;
     std::array <uint8_t, 512> buffer;
@@ -582,7 +566,10 @@ public:
     uint64_t publish_count;
     uint64_t confirm_req_count;
     uint64_t confirm_ack_count;
+    uint64_t insufficient_work_count;
     uint64_t error_count;
+    static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
+    static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
 };
 class bootstrap_initiator
 {
@@ -707,7 +694,7 @@ public:
     void stop ();
     std::shared_ptr <rai::client> shared ();
     bool representative_vote (rai::election &, rai::block const &);
-    uint64_t create_work (rai::block const &);
+    void work_create (rai::block &);
     void vote (rai::vote const &);
     boost::log::sources::logger log;
     rai::block_store store;

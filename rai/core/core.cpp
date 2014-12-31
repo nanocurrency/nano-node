@@ -69,10 +69,10 @@ namespace
     }
 }
 
-rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::shared_work & work_a) :
-work (work_a),
+rai::message_parser::message_parser (rai::message_visitor & visitor_a) :
 visitor (visitor_a),
-error (false)
+error (false),
+insufficient_work (false)
 {
 }
 
@@ -144,9 +144,13 @@ void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t 
     auto error_l (incoming.deserialize (stream));
     if (!error_l && at_end (stream))
     {
-        if (!work.validate (*incoming.block))
+        if (!rai::work_validate (*incoming.block))
         {
             visitor.publish (incoming);
+        }
+        else
+        {
+            insufficient_work = true;
         }
     }
     else
@@ -162,9 +166,13 @@ void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, siz
     auto error_l (incoming.deserialize (stream));
     if (!error_l && at_end (stream))
     {
-        if (!work.validate (*incoming.block))
+        if (!rai::work_validate (*incoming.block))
         {
             visitor.confirm_req (incoming);
+        }
+        else
+        {
+            insufficient_work = true;
         }
     }
     else
@@ -180,9 +188,13 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
     auto error_l (incoming.deserialize (stream));
     if (!error_l && at_end (stream))
     {
-        if (!work.validate (*incoming.vote.block))
+        if (!rai::work_validate (*incoming.vote.block))
         {
             visitor.confirm_ack (incoming);
+        }
+        else
+        {
+            insufficient_work = true;
         }
     }
     else
@@ -198,35 +210,11 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
     return end;
 }
 
-rai::shared_work::shared_work (rai::client & client_a) :
-client (client_a),
-insufficient_work_count (0),
-work (rai::block::publish_work)
-{
-}
-
-bool rai::shared_work::validate (rai::block const & block_a)
-{
-	auto result (false);
-	auto root (block_a.root ());
-	if (work.validate (root, block_a.block_work ()))
-	{
-		if (insufficient_work_logging ())
-		{
-			BOOST_LOG (client.log) << "Insufficient work for publish";
-		}
-		++insufficient_work_count;
-		result = true;
-	}
-	return result;
-}
-
 std::chrono::seconds constexpr rai::processor::period;
 std::chrono::seconds constexpr rai::processor::cutoff;
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
-work (client_a),
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
 resolver (service_a),
@@ -237,6 +225,7 @@ keepalive_count (0),
 publish_count (0),
 confirm_req_count (0),
 confirm_ack_count (0),
+insufficient_work_count (0),
 error_count (0)
 {
 }
@@ -352,77 +341,77 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
 
 namespace
 {
-    class network_message_visitor : public rai::message_visitor
+class network_message_visitor : public rai::message_visitor
+{
+public:
+    network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
+    client (client_a),
+    sender (sender_a)
     {
-    public:
-        network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
-        client (client_a),
-        sender (sender_a)
+    }
+    void keepalive (rai::keepalive const & message_a) override
+    {
+        if (network_keepalive_logging ())
         {
+            BOOST_LOG (client.log) << boost::str (boost::format ("Received keepalive from %1%") % sender);
         }
-        void keepalive (rai::keepalive const & message_a) override
+        ++client.network.keepalive_count;
+        client.processor.contacted (sender);
+        client.network.merge_peers (message_a.peers);
+    }
+    void publish (rai::publish const & message_a) override
+    {
+        if (network_message_logging ())
         {
-            if (network_keepalive_logging ())
-            {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Received keepalive from %1%") % sender);
-            }
-            ++client.network.keepalive_count;
-            client.processor.contacted (sender);
-            client.network.merge_peers (message_a.peers);
+            BOOST_LOG (client.log) << boost::str (boost::format ("Received publish req from %1%") % sender);
         }
-        void publish (rai::publish const & message_a) override
+        ++client.network.publish_count;
+        client.processor.contacted (sender);
+        client.peers.insert (sender, message_a.block->hash ());
+        client.processor.process_receive_republish (message_a.block->clone ());
+    }
+    void confirm_req (rai::confirm_req const & message_a) override
+    {
+        if (network_message_logging ())
         {
-            if (network_message_logging ())
-            {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Received publish req from %1%") % sender);
-            }
-            ++client.network.publish_count;
-            client.processor.contacted (sender);
-            client.peers.insert (sender, message_a.block->hash ());
-            client.processor.process_receive_republish (message_a.block->clone ());
+            BOOST_LOG (client.log) << boost::str (boost::format ("Received confirm req %1%") % sender);
         }
-        void confirm_req (rai::confirm_req const & message_a) override
+        ++client.network.confirm_req_count;
+        client.processor.contacted (sender);
+        client.peers.insert (sender, message_a.block->hash ());
+        client.processor.process_receive_republish (message_a.block->clone ());
+        if (client.store.block_exists (message_a.block->hash ()))
         {
-            if (network_message_logging ())
-            {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Received confirm req %1%") % sender);
-            }
-            ++client.network.confirm_req_count;
-            client.processor.contacted (sender);
-            client.peers.insert (sender, message_a.block->hash ());
-            client.processor.process_receive_republish (message_a.block->clone ());
-            if (client.store.block_exists (message_a.block->hash ()))
-            {
-                client.processor.process_confirmation (*message_a.block, sender);
-            }
+            client.processor.process_confirmation (*message_a.block, sender);
         }
-        void confirm_ack (rai::confirm_ack const & message_a) override
+    }
+    void confirm_ack (rai::confirm_ack const & message_a) override
+    {
+        if (network_message_logging ())
         {
-            if (network_message_logging ())
-            {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Received Confirm from %1%") % sender);
-            }
-            ++client.network.confirm_ack_count;
-            client.processor.contacted (sender);
-            client.peers.insert (sender, message_a.vote.block->hash ());
-            client.processor.process_receive_republish (message_a.vote.block->clone ());
-            client.vote (message_a.vote);
+            BOOST_LOG (client.log) << boost::str (boost::format ("Received Confirm from %1%") % sender);
         }
-        void bulk_pull (rai::bulk_pull const &) override
-        {
-            assert (false);
-        }
-        void bulk_push (rai::bulk_push const &) override
-        {
-            assert (false);
-        }
-        void frontier_req (rai::frontier_req const &) override
-        {
-            assert (false);
-        }
-        rai::client & client;
-        rai::endpoint sender;
-    };
+        ++client.network.confirm_ack_count;
+        client.processor.contacted (sender);
+        client.peers.insert (sender, message_a.vote.block->hash ());
+        client.processor.process_receive_republish (message_a.vote.block->clone ());
+        client.vote (message_a.vote);
+    }
+    void bulk_pull (rai::bulk_pull const &) override
+    {
+        assert (false);
+    }
+    void bulk_push (rai::bulk_push const &) override
+    {
+        assert (false);
+    }
+    void frontier_req (rai::frontier_req const &) override
+    {
+        assert (false);
+    }
+    rai::client & client;
+    rai::endpoint sender;
+};
 }
 
 void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)
@@ -432,11 +421,15 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         if (!rai::reserved_address (remote) && remote != endpoint ())
         {
             network_message_visitor visitor (client, remote);
-            rai::message_parser parser (visitor, work);
+            rai::message_parser parser (visitor);
             parser.deserialize_buffer (buffer.data (), size_a);
             if (parser.error)
             {
                 ++error_count;
+            }
+            else if (parser.insufficient_work)
+            {
+                ++insufficient_work_count;
             }
         }
         else
@@ -797,7 +790,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
             auto open (new rai::open_block);
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
-            open->work = client.create_work (*open);
+            client.work_create (*open);
             rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
             block.reset (open);
         }
@@ -806,7 +799,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
             auto receive (new rai::receive_block);
             receive->hashables.previous = frontier.hash;
             receive->hashables.source = hash;
-            receive->work = client.create_work (*receive);
+            client.work_create (*receive);
             rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
             block.reset (receive);
         }
@@ -844,7 +837,7 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
                 block->hashables.destination = account_a;
                 block->hashables.previous = frontier.hash;
                 block->hashables.balance = balance - amount;
-                block->work = client.create_work (*block);
+                client.work_create (*block);
                 rai::private_key prv;
                 result = store.fetch (account, prv);
                 assert (!result);
@@ -1355,21 +1348,18 @@ void rai::client::send_keepalive (rai::endpoint const & endpoint_a)
     network.send_keepalive (endpoint_l);
 }
 
-uint64_t rai::client::create_work (rai::block const & block_a)
+void rai::client::work_create (rai::block & block_a)
 {
-    auto root (block_a.root ());
-    rai::work work (rai::block::publish_work);
     auto begin (std::chrono::system_clock::now ());
 	if (work_generation_time ())
 	{
 		BOOST_LOG (log) << "Beginning work generation";
 	}
-    auto proof (work.create (root));
+    rai::work_generate (block_a);
 	if (work_generation_time ())
 	{
 		BOOST_LOG (log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
 	}
-    return proof;
 }
 
 void rai::client::vote (rai::vote const & vote_a)
@@ -2780,7 +2770,7 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
     {
         for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
         {
-            client_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, "24000"), [client_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
+            client_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, std::to_string (rai::network::node_port)), [client_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
             {
                 if (!ec)
                 {

@@ -148,18 +148,15 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("profile_work"))
     {
-        rai::work work (rai::block::publish_work);
-        for (auto i (work.data.get ()), n (work.data.get () + work.entries); i != n; ++i)
-        {
-            *i = 0;
-        }
+        rai::change_block block (0, 0, 0, 0);
         std::cerr << "Starting\n";
         for (uint64_t i (0); true; ++i)
         {
+            block.hashables.previous.qwords [0] += 1;
             auto begin1 (std::chrono::high_resolution_clock::now ());
-            auto value (work.create (i));
+            rai::work_generate (block);
             auto end1 (std::chrono::high_resolution_clock::now ());
-            work.validate (i, value);
+            rai::work_validate (block);
             auto end2 (std::chrono::high_resolution_clock::now ());
             std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
         }
