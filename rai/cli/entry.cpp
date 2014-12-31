@@ -163,15 +163,15 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("profile_kdf"))
     {
-        rai::work work (rai::wallet_store::kdf_work);
-        for (auto i (work.data.get ()), n (work.data.get () + work.entries); i != n; ++i)
+        rai::kdf kdf (rai::wallet_store::kdf_work);
+        for (auto i (kdf.data.get ()), n (kdf.data.get () + kdf.entries); i != n; ++i)
         {
             *i = 0;
         }
         for (uint64_t i (0); true; ++i)
         {
             auto begin1 (std::chrono::high_resolution_clock::now ());
-            auto value (work.kdf ("", i));
+            auto value (kdf.generate ("", i));
             auto end1 (std::chrono::high_resolution_clock::now ());
             std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
