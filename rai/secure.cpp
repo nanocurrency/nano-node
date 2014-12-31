@@ -1761,15 +1761,33 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
                         if (status6.ok ())
                         {
                             bootstrap.reset (db);
-                            auto status7 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
-                            if (status7.ok ())
+                            auto status5 (leveldb::DB::Open (options, (path_a / "stack.ldb").string (), &db));
+                            if (status5.ok ())
                             {
-                                checksum.reset (db);
-                                checksum_put (0, 0, 0);
+                                stack.reset (db);
+                                leveldb::Snapshot const * snapshot (stack->GetSnapshot ());
+                                leveldb::ReadOptions options_l;
+                                options_l.snapshot = snapshot;
+                                std::unique_ptr <leveldb::Iterator> iterator (stack->NewIterator (options_l));
+                                while (iterator->Valid())
+                                {
+                                    stack->Delete (leveldb::WriteOptions (), iterator->key ());
+                                }
+                                stack->ReleaseSnapshot (snapshot);
+                                auto status7 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
+                                if (status7.ok ())
+                                {
+                                    checksum.reset (db);
+                                    checksum_put (0, 0, 0);
+                                }
+                                else
+                                {
+                                    init_a = status7;
+                                }
                             }
                             else
                             {
-                                init_a = status7;
+                                init_a = status5;
                             }
                         }
                         else
@@ -2137,6 +2155,22 @@ rai::block_iterator rai::block_store::bootstrap_begin ()
 rai::block_iterator rai::block_store::bootstrap_end ()
 {
     rai::block_iterator result (*bootstrap, nullptr);
+    return result;
+}
+
+void rai::block_store::stack_push (uint64_t key_a, rai::block_hash const & hash_a)
+{
+    stack->Put (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key_a), sizeof (key_a)), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
+}
+
+rai::block_hash rai::block_store::stack_pop (uint64_t key_a)
+{
+    rai::block_hash result;
+    std::string value;
+    stack->Get (leveldb::ReadOptions (), leveldb::Slice (reinterpret_cast<char const *> (&key_a), sizeof (key_a)), &value);
+    assert (value.size () == result.chars.size ());
+    std::copy (value.data (), value.data () + value.size (), result.chars.data ());
+    stack->Delete (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast<char const *> (&key_a), sizeof (key_a)));
     return result;
 }
 

@@ -452,3 +452,17 @@ TEST (block_store, latest_exists)
     rai::block_hash one (1);
     ASSERT_FALSE (store.latest_exists (one));
 }
+
+TEST (block_store, stack)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    rai::block_hash hash1 (1);
+    store.stack_push (0, hash1);
+    rai::block_hash hash2 (2);
+    store.stack_push (1, hash2);
+    auto hash3 (store.stack_pop (1));
+    ASSERT_EQ (hash2, hash3);
+    auto hash4 (store.stack_pop (0));
+    ASSERT_EQ (hash1, hash4);
+}

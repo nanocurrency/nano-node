@@ -484,6 +484,10 @@ namespace rai
 		void bootstrap_del (rai::block_hash const &);
         rai::block_iterator bootstrap_begin ();
         rai::block_iterator bootstrap_end ();
+
+        void stack_open ();
+        void stack_push (uint64_t, rai::block_hash const &);
+        rai::block_hash stack_pop (uint64_t);
 		
 		void checksum_put (uint64_t, uint8_t, rai::checksum const &);
 		bool checksum_get (uint64_t, uint8_t, rai::checksum &);
@@ -500,6 +504,8 @@ namespace rai
 		std::unique_ptr <leveldb::DB> representation;
 		// block_hash -> block                                          // Unchecked bootstrap blocks
 		std::unique_ptr <leveldb::DB> bootstrap;
+        // uint64_t -> block_hash                                       // Block dependency stack while bootstrapping
+        std::unique_ptr <leveldb::DB> stack;
 		// block_hash -> block_hash                                     // Tracking successors for bootstrapping
 		std::unique_ptr <leveldb::DB> successors;
 		// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
