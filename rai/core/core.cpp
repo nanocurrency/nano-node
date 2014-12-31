@@ -4733,8 +4733,8 @@ bool rai::wallet_store::rekey (std::string const & password_a)
 
 rai::uint256_union rai::wallet_store::derive_key (std::string const & password_a)
 {
-    rai::work work (kdf_work);
-    auto result (work.kdf (password_a, salt ()));
+    rai::kdf kdf (kdf_work);
+    auto result (kdf.generate (password_a, salt ()));
     return result;
 }
 

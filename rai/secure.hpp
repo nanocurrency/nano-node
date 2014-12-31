@@ -518,15 +518,6 @@ namespace rai
 		gap_source, // Block marked as source isn't in store
 		not_receive_from_send // Receive does not have a send source
     };
-    class work
-    {
-    public:
-        work (size_t);
-        rai::uint256_union derive (CryptoPP::SHA3 &, rai::uint256_union const &);
-        rai::uint256_union kdf (std::string const &, rai::uint256_union const &);
-        size_t const entries;
-        std::unique_ptr <uint64_t []> data;
-	};
 	class vote
 	{
 	public:
@@ -544,7 +535,15 @@ namespace rai
 		uint64_t sequence;
 		rai::block_hash id;
 		std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
-	};
+    };
+    class kdf
+    {
+    public:
+        kdf (size_t);
+        rai::uint256_union generate (std::string const &, rai::uint256_union const &);
+        size_t const entries;
+        std::unique_ptr <uint64_t []> data;
+    };
 	class ledger
 	{
 	public:

@@ -181,24 +181,30 @@ public:
 }
 
 namespace {
-size_t constexpr stepping (16);
+    size_t constexpr stepping (16);
 }
-rai::work::work (size_t entries_a) :
+rai::kdf::kdf (size_t entries_a) :
 entries (entries_a),
 data (new uint64_t [entries_a])
 {
     assert ((entries_a & (stepping - 1)) == 0);
 }
 
-rai::uint256_union rai::work::derive (CryptoPP::SHA3 & hash_a, rai::uint256_union const & input_a)
+rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint256_union const & salt_a)
 {
+    rai::uint256_union input;
+    CryptoPP::SHA3 hash (32);
+    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+    hash.Final (input.bytes.data ());
+    input ^= salt_a;
+    hash.Restart ();
     auto entries_l (entries);
     auto mask (entries_l - 1);
     xorshift1024star rng;
-    rng.s [0] = input_a.qwords [0];
-    rng.s [1] = input_a.qwords [1];
-    rng.s [2] = input_a.qwords [2];
-    rng.s [3] = input_a.qwords [3];
+    rng.s [0] = input.qwords [0];
+    rng.s [1] = input.qwords [1];
+    rng.s [2] = input.qwords [2];
+    rng.s [3] = input.qwords [3];
     for (auto i (4), n (16); i != n; ++i)
     {
         rng.s [i] = 0;
@@ -231,22 +237,10 @@ rai::uint256_union rai::work::derive (CryptoPP::SHA3 & hash_a, rai::uint256_unio
             value.qwords [j] = data [index];
             data [index] = data [entries_l - (i + j) - 1];
         }
-        hash_a.Update (reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
+        hash.Update (reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
     }
     rai::uint256_union result;
-    hash_a.Final (result.bytes.data ());
-    return result;
-}
-
-rai::uint256_union rai::work::kdf (std::string const & password_a, rai::uint256_union const & salt_a)
-{
-    rai::uint256_union input;
-    CryptoPP::SHA3 hash (32);
-    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-    hash.Final (input.bytes.data ());
-    input ^= salt_a;
-    hash.Restart ();
-    auto result (derive (hash, input));
+    hash.Final (result.bytes.data ());
     return result;
 }
 
