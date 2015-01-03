@@ -3387,6 +3387,108 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
+rai::block_synchronization::block_synchronization (std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+target (target_a),
+store (store_a)
+{
+}
+
+rai::block_synchronization::~block_synchronization ()
+{
+}
+
+namespace {
+class add_dependency_visitor : public rai::block_visitor
+{
+public:
+    add_dependency_visitor (rai::block_synchronization & sync_a) :
+    sync (sync_a),
+    result (true)
+    {
+    }
+    void send_block (rai::send_block const & block_a) override
+    {
+        add_dependency (block_a.hashables.previous);
+    }
+    void receive_block (rai::receive_block const & block_a) override
+    {
+        add_dependency (block_a.hashables.previous);
+        if (result)
+        {
+            add_dependency (block_a.hashables.source);
+        }
+    }
+    void open_block (rai::open_block const & block_a) override
+    {
+        add_dependency (block_a.hashables.source);
+    }
+    void change_block (rai::change_block const & block_a) override
+    {
+        add_dependency (block_a.hashables.previous);
+    }
+    void add_dependency (rai::block_hash const & hash_a)
+    {
+        if (!sync.synchronized (hash_a))
+        {
+            result = false;
+            sync.blocks.push (hash_a);
+        }
+    }
+    rai::block_synchronization & sync;
+    bool result;
+};
+}
+
+bool rai::block_synchronization::add_dependency (rai::block const & block_a)
+{
+    add_dependency_visitor visitor (*this);
+    block_a.visit (visitor);
+    return visitor.result;
+}
+
+bool rai::block_synchronization::synchronize (rai::block_hash const & hash_a)
+{
+    assert (!synchronized (hash_a));
+    auto result (false);
+    blocks.push (hash_a);
+    while (!result && !blocks.empty ())
+    {
+        auto block (retrieve (blocks.top ()));
+        if (block != nullptr)
+        {
+            if (add_dependency (*block))
+            {
+                target (*block);
+                blocks.pop ();
+            }
+            else
+            {
+                // Dependency was added to 'blocks'
+            }
+        }
+        else
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
+rai::pull_synchronization::pull_synchronization (std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+block_synchronization (target_a, store_a)
+{
+}
+
+std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (rai::block_hash const & hash_a)
+{
+    return store.bootstrap_get (hash_a);
+}
+
+bool rai::pull_synchronization::synchronized (rai::block_hash const & hash_a)
+{
+    return store.block_exists (hash_a);
+}
+
 rai::block_path::block_path (std::vector <std::unique_ptr <rai::block>> & path_a, std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> const & retrieve_a) :
 path (path_a),
 retrieve (retrieve_a)

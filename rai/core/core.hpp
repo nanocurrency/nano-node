@@ -408,6 +408,36 @@ public:
     static std::chrono::seconds constexpr cutoff = period * 5;
     std::mutex mutex;
 };
+class block_synchronization
+{
+public:
+    block_synchronization (std::function <void (rai::block const &)> const &, rai::block_store &);
+    ~block_synchronization ();
+    // Return true if target already has block
+    virtual bool synchronized (rai::block_hash const &) = 0;
+    virtual std::unique_ptr <rai::block> retrieve (rai::block_hash const &) = 0;
+    // return true if all dependencies are synchronized
+    bool add_dependency (rai::block const &);
+    bool synchronize (rai::block_hash const &);
+    std::stack <rai::block_hash> blocks;
+    std::unordered_set <rai::block_hash> sent;
+    std::function <void (rai::block const &)> target;
+    rai::block_store & store;
+};
+class pull_synchronization : public rai::block_synchronization
+{
+public:
+    pull_synchronization (std::function <void (rai::block const &)> const &, rai::block_store &);
+    bool synchronized (rai::block_hash const &) override;
+    std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
+};
+class push_synchronization : public rai::block_synchronization
+{
+public:
+    push_synchronization (std::function <void (rai::block const &)> const &, rai::block_store &);
+    bool synchronized (rai::block_hash const &) override;
+    std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
+};
 class block_path : public rai::block_visitor
 {
 public:
