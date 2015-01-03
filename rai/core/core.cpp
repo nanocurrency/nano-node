@@ -3448,7 +3448,6 @@ bool rai::block_synchronization::add_dependency (rai::block const & block_a)
 
 bool rai::block_synchronization::synchronize (rai::block_hash const & hash_a)
 {
-    assert (!synchronized (hash_a));
     auto result (false);
     blocks.push (hash_a);
     while (!result && !blocks.empty ())
@@ -3487,6 +3486,21 @@ std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (rai::block_has
 bool rai::pull_synchronization::synchronized (rai::block_hash const & hash_a)
 {
     return store.block_exists (hash_a);
+}
+
+rai::push_synchronization::push_synchronization (std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+block_synchronization (target_a, store_a)
+{
+}
+
+bool rai::push_synchronization::synchronized (rai::block_hash const & hash_a)
+{
+    return sends.find (hash_a) == sends.end ();
+}
+
+std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_hash const & hash_a)
+{
+    return store.block_get (hash_a);
 }
 
 rai::block_path::block_path (std::vector <std::unique_ptr <rai::block>> & path_a, std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> const & retrieve_a) :

@@ -184,3 +184,38 @@ TEST (pull_synchronization, ladder_dependencies)
     ASSERT_EQ (block6, *blocks [4]);
     ASSERT_EQ (block7, *blocks [5]);
 }
+
+TEST (push_synchronization, empty)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    std::vector <std::unique_ptr <rai::block>> blocks;
+    rai::push_synchronization sync ([&blocks] (rai::block const & block_a)
+    {
+        blocks.push_back (block_a.clone ());
+    }, store);
+    ASSERT_TRUE (sync.synchronize (0));
+    ASSERT_EQ (0, blocks.size ());
+}
+
+TEST (push_synchronization, one)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    rai::send_block block1;
+    block1.hashables.previous = 1;
+    rai::send_block block2;
+    block2.hashables.previous = block1.hash ();
+    std::vector <std::unique_ptr <rai::block>> blocks;
+    store.block_put (block1.hash (), block1);
+    store.block_put (block2.hash (), block2);
+    rai::push_synchronization sync ([&blocks, &store] (rai::block const & block_a)
+    {
+        store.block_put (block_a.hash (), block_a);
+        blocks.push_back (block_a.clone ());
+    }, store);
+    sync.sends.insert (block2.hash ());
+    ASSERT_FALSE (sync.synchronize (block2.hash ()));
+    ASSERT_EQ (1, blocks.size ());
+    ASSERT_EQ (block2, *blocks [0]);
+}
