@@ -3586,6 +3586,7 @@ void rai::bulk_pull_client::process_end ()
             while (!synchronization.blocks.empty ())
             {
                 connection->connection->client->store.unchecked_del (synchronization.blocks.top ());
+                synchronization.blocks.pop ();
             }
         }
     }
