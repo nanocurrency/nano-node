@@ -2232,6 +2232,24 @@ void rai::block_store::unsynced_del (rai::block_hash const & hash_a)
     assert (status.ok ());
 }
 
+bool rai::block_store::unsynced_exists (rai::block_hash const & hash_a)
+{
+    std::unique_ptr <leveldb::Iterator> existing (unsynced->NewIterator (leveldb::ReadOptions {}));
+    existing->Seek (leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
+    bool result;
+    if (existing->Valid ())
+    {
+        rai::block_hash hash;
+        hash = existing->key ();
+        result = hash == hash_a;
+    }
+    else
+    {
+        result = false;
+    }
+    return result;
+}
+
 rai::hash_iterator rai::block_store::unsynced_begin ()
 {
     return rai::hash_iterator (*unsynced);

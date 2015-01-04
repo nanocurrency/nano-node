@@ -473,10 +473,13 @@ TEST (block_store, unsynced)
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
     rai::block_hash hash1;
+    ASSERT_FALSE (store.unsynced_exists (hash1));
     store.unsynced_put (hash1);
+    ASSERT_TRUE (store.unsynced_exists (hash1));
     ASSERT_NE (store.unsynced_end (), store.unsynced_begin ());
     ASSERT_EQ (hash1, *store.unsynced_begin ());
     store.unsynced_del (hash1);
+    ASSERT_FALSE (store.unsynced_exists (hash1));
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
 }
 

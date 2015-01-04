@@ -502,6 +502,7 @@ namespace rai
         
         void unsynced_put (rai::block_hash const &);
         void unsynced_del (rai::block_hash const &);
+        bool unsynced_exists (rai::block_hash const &);
         rai::hash_iterator unsynced_begin ();
         rai::hash_iterator unsynced_end ();
 
