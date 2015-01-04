@@ -1757,7 +1757,7 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
                     if (status4.ok ())
                     {
                         representation.reset (db);
-                        auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").string (), &db));
+                        auto status6 (leveldb::DB::Open (options, (path_a / "unchecked.ldb").string (), &db));
                         if (status6.ok ())
                         {
                             unchecked.reset (db);
