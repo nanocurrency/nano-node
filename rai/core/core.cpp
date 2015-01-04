@@ -3480,7 +3480,7 @@ block_synchronization (target_a, store_a)
 
 std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (rai::block_hash const & hash_a)
 {
-    return store.bootstrap_get (hash_a);
+    return store.unchecked_get (hash_a);
 }
 
 bool rai::pull_synchronization::synchronized (rai::block_hash const & hash_a)
@@ -3576,11 +3576,11 @@ void rai::bulk_pull_client::process_end ()
 			   BOOST_LOG (connection->connection->client->log) << "Error inserting block";
 			   break;
 		}
-		connection->connection->client->store.bootstrap_del (block_a.hash ());
+		connection->connection->client->store.unchecked_del (block_a.hash ());
 	}, connection->connection->client->store);
-    while (connection->connection->client->store.bootstrap_begin () != connection->connection->client->store.bootstrap_end ())
+    while (connection->connection->client->store.unchecked_begin () != connection->connection->client->store.unchecked_end ())
     {
-		synchronization.synchronize (connection->connection->client->store.bootstrap_begin ()->first);
+		synchronization.synchronize (connection->connection->client->store.unchecked_begin ()->first);
     }
 }
 
@@ -3599,7 +3599,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
                 block->serialize_json (block_l);
                 BOOST_LOG (connection->connection->client->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
             }
-            connection->connection->client->store.bootstrap_put (hash, *block);
+            connection->connection->client->store.unchecked_put (hash, *block);
             receive_block ();
 		}
         else

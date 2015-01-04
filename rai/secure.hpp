@@ -479,11 +479,11 @@ namespace rai
 		rai::uint128_t representation_get (rai::account const &);
 		void representation_put (rai::account const &, rai::uint128_t const &);
 		
-		void bootstrap_put (rai::block_hash const &, rai::block const &);
-		std::unique_ptr <rai::block> bootstrap_get (rai::block_hash const &);
-		void bootstrap_del (rai::block_hash const &);
-        rai::block_iterator bootstrap_begin ();
-        rai::block_iterator bootstrap_end ();
+		void unchecked_put (rai::block_hash const &, rai::block const &);
+		std::unique_ptr <rai::block> unchecked_get (rai::block_hash const &);
+		void unchecked_del (rai::block_hash const &);
+        rai::block_iterator unchecked_begin ();
+        rai::block_iterator unchecked_end ();
 
         void stack_open ();
         void stack_push (uint64_t, rai::block_hash const &);
@@ -503,7 +503,7 @@ namespace rai
 		// account -> weight                                            // Representation
 		std::unique_ptr <leveldb::DB> representation;
 		// block_hash -> block                                          // Unchecked bootstrap blocks
-		std::unique_ptr <leveldb::DB> bootstrap;
+		std::unique_ptr <leveldb::DB> unchecked;
         // uint64_t -> block_hash                                       // Block dependency stack while bootstrapping
         std::unique_ptr <leveldb::DB> stack;
 		// block_hash -> block_hash                                     // Tracking successors for bootstrapping

@@ -1760,7 +1760,7 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
                         auto status6 (leveldb::DB::Open (options, (path_a / "bootstrap.ldb").string (), &db));
                         if (status6.ok ())
                         {
-                            bootstrap.reset (db);
+                            unchecked.reset (db);
                             auto status5 (leveldb::DB::Open (options, (path_a / "stack.ldb").string (), &db));
                             if (status5.ok ())
                             {
@@ -2114,21 +2114,21 @@ void rai::block_store::representation_put (rai::account const & account_a, rai::
     assert (status.ok ());
 }
 
-void rai::block_store::bootstrap_put (rai::block_hash const & hash_a, rai::block const & block_a)
+void rai::block_store::unchecked_put (rai::block_hash const & hash_a, rai::block const & block_a)
 {
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
         rai::serialize_block (stream, block_a);
     }
-    auto status (bootstrap->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
+    auto status (unchecked->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
     assert (status.ok () | status.IsNotFound ());
 }
 
-std::unique_ptr <rai::block> rai::block_store::bootstrap_get (rai::block_hash const & hash_a)
+std::unique_ptr <rai::block> rai::block_store::unchecked_get (rai::block_hash const & hash_a)
 {
     std::string value;
-    auto status (bootstrap->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
+    auto status (unchecked->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
     assert (status.ok () || status.IsNotFound ());
     std::unique_ptr <rai::block> result;
     if (status.ok ())
@@ -2140,21 +2140,21 @@ std::unique_ptr <rai::block> rai::block_store::bootstrap_get (rai::block_hash co
     return result;
 }
 
-void rai::block_store::bootstrap_del (rai::block_hash const & hash_a)
+void rai::block_store::unchecked_del (rai::block_hash const & hash_a)
 {
-    auto status (bootstrap->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
+    auto status (unchecked->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
     assert (status.ok ());
 }
 
-rai::block_iterator rai::block_store::bootstrap_begin ()
+rai::block_iterator rai::block_store::unchecked_begin ()
 {
-    rai::block_iterator result (*bootstrap);
+    rai::block_iterator result (*unchecked);
     return result;
 }
 
-rai::block_iterator rai::block_store::bootstrap_end ()
+rai::block_iterator rai::block_store::unchecked_end ()
 {
-    rai::block_iterator result (*bootstrap, nullptr);
+    rai::block_iterator result (*unchecked, nullptr);
     return result;
 }
 

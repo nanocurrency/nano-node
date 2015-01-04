@@ -164,14 +164,14 @@ TEST (bootstrap, simple)
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
     rai::send_block block1;
-    auto block2 (store.bootstrap_get (block1.previous ()));
+    auto block2 (store.unchecked_get (block1.previous ()));
     ASSERT_EQ (nullptr, block2);
-    store.bootstrap_put (block1.previous (), block1);
-    auto block3 (store.bootstrap_get (block1.previous ()));
+    store.unchecked_put (block1.previous (), block1);
+    auto block3 (store.unchecked_get (block1.previous ()));
     ASSERT_NE (nullptr, block3);
     ASSERT_EQ (block1, *block3);
-    store.bootstrap_del (block1.previous ());
-    auto block4 (store.bootstrap_get (block1.previous ()));
+    store.unchecked_del (block1.previous ());
+    auto block4 (store.unchecked_get (block1.previous ()));
     ASSERT_EQ (nullptr, block4);
 }
 
@@ -235,8 +235,8 @@ TEST (block_store, empty_bootstrap)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    auto begin (store.bootstrap_begin ());
-    auto end (store.bootstrap_end ());
+    auto begin (store.unchecked_begin ());
+    auto end (store.unchecked_end ());
     ASSERT_EQ (end, begin);
 }
 
@@ -246,9 +246,9 @@ TEST (block_store, one_bootstrap)
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
     rai::send_block block1;
-    store.bootstrap_put (block1.hash (), block1);
-    auto begin (store.bootstrap_begin ());
-    auto end (store.bootstrap_end ());
+    store.unchecked_put (block1.hash (), block1);
+    auto begin (store.unchecked_begin ());
+    auto end (store.unchecked_end ());
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
     ASSERT_EQ (block1.hash (), hash1);
