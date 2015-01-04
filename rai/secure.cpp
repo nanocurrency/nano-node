@@ -1725,6 +1725,53 @@ bool rai::block_iterator::operator != (rai::block_iterator const & other_a) cons
     return !(*this == other_a);
 }
 
+rai::hash_iterator::hash_iterator (leveldb::DB & db_a) :
+iterator (db_a.NewIterator (leveldb::ReadOptions ()))
+{
+    iterator->SeekToFirst ();
+    set_current ();
+}
+
+rai::hash_iterator::hash_iterator (leveldb::DB & db_a, std::nullptr_t) :
+iterator (db_a.NewIterator (leveldb::ReadOptions ()))
+{
+    set_current ();
+}
+
+rai::hash_iterator & rai::hash_iterator::operator ++ ()
+{
+    iterator->Next ();
+    set_current ();
+    return *this;
+}
+
+rai::block_hash & rai::hash_iterator::operator * ()
+{
+    return current;
+}
+
+bool rai::hash_iterator::operator == (rai::hash_iterator const & other_a) const
+{
+    return current == other_a.current;
+}
+
+bool rai::hash_iterator::operator != (rai::hash_iterator const & other_a) const
+{
+    return !(*this == other_a);
+}
+
+void rai::hash_iterator::set_current ()
+{
+    if (iterator->Valid ())
+    {
+        current = iterator->key ();
+    }
+    else
+    {
+        current.clear ();
+    }
+}
+
 rai::block_store_temp_t rai::block_store_temp;
 
 rai::block_store::block_store (leveldb::Status & result, block_store_temp_t const &) :
@@ -1761,33 +1808,35 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
                         if (status6.ok ())
                         {
                             unchecked.reset (db);
-                            auto status5 (leveldb::DB::Open (options, (path_a / "stack.ldb").string (), &db));
-                            if (status5.ok ())
+                            auto status8 (leveldb::DB::Open (options, (path_a / "unsynced.ldb").string (), &db));
+                            if (status8.ok ())
                             {
-                                stack.reset (db);
-                                leveldb::Snapshot const * snapshot (stack->GetSnapshot ());
-                                leveldb::ReadOptions options_l;
-                                options_l.snapshot = snapshot;
-                                std::unique_ptr <leveldb::Iterator> iterator (stack->NewIterator (options_l));
-                                while (iterator->Valid())
+                                unsynced.reset (db);
+                                clear (*unsynced);
+                                auto status5 (leveldb::DB::Open (options, (path_a / "stack.ldb").string (), &db));
+                                if (status5.ok ())
                                 {
-                                    stack->Delete (leveldb::WriteOptions (), iterator->key ());
-                                }
-                                stack->ReleaseSnapshot (snapshot);
-                                auto status7 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
-                                if (status7.ok ())
-                                {
-                                    checksum.reset (db);
-                                    checksum_put (0, 0, 0);
+                                    stack.reset (db);
+                                    clear (*stack);
+                                    auto status7 (leveldb::DB::Open (options, (path_a / "checksum.ldb").string (), &db));
+                                    if (status7.ok ())
+                                    {
+                                        checksum.reset (db);
+                                        checksum_put (0, 0, 0);
+                                    }
+                                    else
+                                    {
+                                        init_a = status7;
+                                    }
                                 }
                                 else
                                 {
-                                    init_a = status7;
+                                    init_a = status5;
                                 }
                             }
                             else
                             {
-                                init_a = status5;
+                                init_a = status8;
                             }
                         }
                         else
@@ -1819,6 +1868,19 @@ rai::block_store::block_store (leveldb::Status & init_a, boost::filesystem::path
     {
         init_a = leveldb::Status::IOError ("Unable to create directories");
     }
+}
+
+void rai::block_store::clear (leveldb::DB & db_a)
+{
+    leveldb::Snapshot const * snapshot (db_a.GetSnapshot ());
+    leveldb::ReadOptions options_l;
+    options_l.snapshot = snapshot;
+    std::unique_ptr <leveldb::Iterator> iterator (db_a.NewIterator (options_l));
+    while (iterator->Valid())
+    {
+        db_a.Delete (leveldb::WriteOptions (), iterator->key ());
+    }
+    db_a.ReleaseSnapshot (snapshot);
 }
 
 void rai::block_store::block_put (rai::block_hash const & hash_a, rai::block const & block_a)

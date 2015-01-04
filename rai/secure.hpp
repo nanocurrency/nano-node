@@ -446,6 +446,21 @@ namespace rai
         std::unique_ptr <leveldb::Iterator> iterator;
         rai::pending_entry current;
     };
+    class hash_iterator
+    {
+    public:
+        hash_iterator (leveldb::DB &);
+        hash_iterator (leveldb::DB &, std::nullptr_t);
+        hash_iterator (rai::hash_iterator &&) = default;
+        hash_iterator & operator ++ ();
+        hash_iterator & operator = (rai::hash_iterator &&) = default;
+        rai::block_hash & operator * ();
+        bool operator == (rai::hash_iterator const &) const;
+        bool operator != (rai::hash_iterator const &) const;
+        void set_current ();
+        std::unique_ptr <leveldb::Iterator> iterator;
+        rai::block_hash current;
+    };
 	extern block_store_temp_t block_store_temp;
 	class block_store
 	{
@@ -484,6 +499,11 @@ namespace rai
 		void unchecked_del (rai::block_hash const &);
         rai::block_iterator unchecked_begin ();
         rai::block_iterator unchecked_end ();
+        
+        void unsynced_put (rai::block_hash const &);
+        void unsynced_del (rai::block_hash const &);
+        rai::hash_iterator unsynced_begin ();
+        rai::hash_iterator unsynced_end ();
 
         void stack_open ();
         void stack_push (uint64_t, rai::block_hash const &);
@@ -492,6 +512,8 @@ namespace rai
 		void checksum_put (uint64_t, uint8_t, rai::checksum const &);
 		bool checksum_get (uint64_t, uint8_t, rai::checksum &);
 		void checksum_del (uint64_t, uint8_t);
+        
+        void clear (leveldb::DB &);
 		
 	private:
 		// account -> block_hash, representative, balance, timestamp    // Account to frontier block, representative, balance, last_change
@@ -504,6 +526,8 @@ namespace rai
 		std::unique_ptr <leveldb::DB> representation;
 		// block_hash -> block                                          // Unchecked bootstrap blocks
 		std::unique_ptr <leveldb::DB> unchecked;
+        // block_hash ->                                                // Blocks that haven't been broadcast
+        std::unique_ptr <leveldb::DB> unsynced;
         // uint64_t -> block_hash                                       // Block dependency stack while bootstrapping
         std::unique_ptr <leveldb::DB> stack;
 		// block_hash -> block_hash                                     // Tracking successors for bootstrapping
