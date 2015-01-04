@@ -65,19 +65,19 @@ TEST (wallet, two_item_iteration)
     rai::keypair key2;
     wallet.insert (key1.prv);
     wallet.insert (key2.prv);
-    std::set <rai::public_key> keys1;
-    std::set <rai::private_key> keys2;
+    std::unordered_set <rai::public_key> pubs;
+    std::unordered_set <rai::private_key> prvs;
     for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
     {
-        keys1.insert (i->first);
-        keys2.insert (i->second.prv (wallet.wallet_key (), wallet.salt ().owords [0]));
+        pubs.insert (i->first);
+        prvs.insert (i->second.prv (wallet.wallet_key (), wallet.salt ().owords [0]));
     }
-    ASSERT_EQ (2, keys1.size ());
-    ASSERT_EQ (2, keys2.size ());
-    ASSERT_NE (keys1.end (), keys1.find (key1.pub));
-    ASSERT_NE (keys2.end (), keys2.find (key1.prv));
-    ASSERT_NE (keys1.end (), keys1.find (key2.pub));
-    ASSERT_NE (keys2.end (), keys2.find (key2.prv));
+    ASSERT_EQ (2, pubs.size ());
+    ASSERT_EQ (2, prvs.size ());
+    ASSERT_NE (pubs.end (), pubs.find (key1.pub));
+    ASSERT_NE (prvs.end (), prvs.find (key1.prv));
+    ASSERT_NE (pubs.end (), pubs.find (key2.pub));
+    ASSERT_NE (prvs.end (), prvs.find (key2.prv));
 }
 
 TEST (wallet, insufficient_spend)

@@ -3495,7 +3495,7 @@ block_synchronization (target_a, store_a)
 
 bool rai::push_synchronization::synchronized (rai::block_hash const & hash_a)
 {
-    return sends.find (hash_a) == sends.end ();
+    return !store.unsynced_exists (hash_a);
 }
 
 std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_hash const & hash_a)
@@ -3580,7 +3580,14 @@ void rai::bulk_pull_client::process_end ()
 	}, connection->connection->client->store);
     while (connection->connection->client->store.unchecked_begin () != connection->connection->client->store.unchecked_end ())
     {
-		synchronization.synchronize (connection->connection->client->store.unchecked_begin ()->first);
+		auto error (synchronization.synchronize (connection->connection->client->store.unchecked_begin ()->first));
+        if (error)
+        {
+            while (!synchronization.blocks.empty ())
+            {
+                connection->connection->client->store.unchecked_del (synchronization.blocks.top ());
+            }
+        }
     }
 }
 

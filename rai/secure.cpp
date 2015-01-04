@@ -133,9 +133,9 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 }
 
 rai::votes::votes (rai::block_hash const & id_a) :
-id (id_a),
 // Sequence 0 is the first response by a representative before a fork was observed
-sequence (1)
+sequence (1),
+id (id_a)
 {
 }
 

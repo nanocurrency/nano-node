@@ -214,7 +214,7 @@ TEST (push_synchronization, one)
         store.block_put (block_a.hash (), block_a);
         blocks.push_back (block_a.clone ());
     }, store);
-    sync.sends.insert (block2.hash ());
+    store.unsynced_put (block2.hash ());
     ASSERT_FALSE (sync.synchronize (block2.hash ()));
     ASSERT_EQ (1, blocks.size ());
     ASSERT_EQ (block2, *blocks [0]);

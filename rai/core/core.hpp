@@ -437,7 +437,6 @@ public:
     push_synchronization (std::function <void (rai::block const &)> const &, rai::block_store &);
     bool synchronized (rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
-    std::unordered_set <rai::block_hash> sends;
 };
 class block_path : public rai::block_visitor
 {
