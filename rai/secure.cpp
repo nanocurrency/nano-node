@@ -2184,7 +2184,7 @@ void rai::block_store::unchecked_put (rai::block_hash const & hash_a, rai::block
         rai::serialize_block (stream, block_a);
     }
     auto status (unchecked->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok () | status.IsNotFound ());
+    assert (status.ok ());
 }
 
 std::unique_ptr <rai::block> rai::block_store::unchecked_get (rai::block_hash const & hash_a)
@@ -2218,6 +2218,28 @@ rai::block_iterator rai::block_store::unchecked_end ()
 {
     rai::block_iterator result (*unchecked, nullptr);
     return result;
+}
+
+void rai::block_store::unsynced_put (rai::block_hash const & hash_a)
+{
+    auto status (unsynced->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (nullptr, 0)));
+    assert (status.ok ());
+}
+
+void rai::block_store::unsynced_del (rai::block_hash const & hash_a)
+{
+    auto status (unsynced->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
+    assert (status.ok ());
+}
+
+rai::hash_iterator rai::block_store::unsynced_begin ()
+{
+    return rai::hash_iterator (*unsynced);
+}
+
+rai::hash_iterator rai::block_store::unsynced_end ()
+{
+    return rai::hash_iterator (*unsynced, nullptr);
 }
 
 void rai::block_store::stack_push (uint64_t key_a, rai::block_hash const & hash_a)

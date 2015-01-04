@@ -466,3 +466,35 @@ TEST (block_store, stack)
     auto hash4 (store.stack_pop (0));
     ASSERT_EQ (hash1, hash4);
 }
+
+TEST (block_store, unsynced)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
+    rai::block_hash hash1;
+    store.unsynced_put (hash1);
+    ASSERT_NE (store.unsynced_end (), store.unsynced_begin ());
+    ASSERT_EQ (hash1, *store.unsynced_begin ());
+    store.unsynced_del (hash1);
+    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
+}
+
+TEST (block_store, unsynced_iteration)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
+    rai::block_hash hash1 (1);
+    store.unsynced_put (hash1);
+    rai::block_hash hash2 (2);
+    store.unsynced_put (hash2);
+    std::unordered_set <rai::block_hash> hashes;
+    for (auto i (store.unsynced_begin ()), n (store.unsynced_end ()); i != n; ++i)
+    {
+        hashes.insert (*i);
+    }
+    ASSERT_EQ (2, hashes.size ());
+    ASSERT_TRUE (hashes.find (hash1) != hashes.end ());
+    ASSERT_TRUE (hashes.find (hash2) != hashes.end ());
+}
