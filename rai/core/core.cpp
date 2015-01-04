@@ -3564,34 +3564,23 @@ void rai::block_path::generate (rai::block_hash const & hash_a)
 
 void rai::bulk_pull_client::process_end ()
 {
-    std::vector <std::unique_ptr <rai::block>> path;
+	rai::pull_synchronization synchronization ([this] (rai::block const & block_a)
+	{
+		auto process_result (connection->connection->client->processor.process_receive (block_a));
+		switch (process_result)
+		{
+		   case rai::process_result::progress:
+		   case rai::process_result::old:
+			   break;
+		   default:
+			   BOOST_LOG (connection->connection->client->log) << "Error inserting block";
+			   break;
+		}
+		connection->connection->client->store.bootstrap_del (block_a.hash ());
+	}, connection->connection->client->store);
     while (connection->connection->client->store.bootstrap_begin () != connection->connection->client->store.bootstrap_end ())
     {
-        path.clear ();
-        rai::block_path filler (path, [this] (rai::block_hash const & hash_a)
-        {
-            std::unique_ptr <rai::block> result;
-            auto block (connection->connection->client->store.bootstrap_get (hash_a));
-            result = std::move (block);
-            return result;
-        });
-        filler.generate (connection->connection->client->store.bootstrap_begin ()->first);
-        while (!path.empty ())
-        {
-            auto hash (path.back ()->hash ());
-            auto process_result (connection->connection->client->processor.process_receive (*path.back ()));
-            switch (process_result)
-            {
-                case rai::process_result::progress:
-                case rai::process_result::old:
-                    break;
-                default:
-                    BOOST_LOG (connection->connection->client->log) << "Error inserting block";
-                    break;
-            }
-            path.pop_back ();
-            connection->connection->client->store.bootstrap_del (hash);
-        }
+		synchronization.synchronize (connection->connection->client->store.bootstrap_begin ()->first);
     }
 }
 
