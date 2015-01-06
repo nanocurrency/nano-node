@@ -1,4 +1,4 @@
-#include <rai/core/core.hpp>
+#include <rai/node.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -214,11 +214,11 @@ std::chrono::seconds constexpr rai::processor::period;
 std::chrono::seconds constexpr rai::processor::cutoff;
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
-rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::client & client_a) :
+rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
 resolver (service_a),
-client (client_a),
+node (node_a),
 bad_sender_count (0),
 on (true),
 keepalive_count (0),
@@ -234,7 +234,7 @@ void rai::network::receive ()
 {
     if (network_packet_logging ())
     {
-        BOOST_LOG (client.log) << "Receiving packet";
+        BOOST_LOG (node.log) << "Receiving packet";
     }
     std::unique_lock <std::mutex> lock (socket_mutex);
     socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote,
@@ -255,7 +255,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 {
     assert (endpoint_a.address ().is_v6 ());
     rai::keepalive message;
-    client.peers.random_fill (message.peers);
+    node.peers.random_fill (message.peers);
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
@@ -263,9 +263,9 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
     }
     if (network_keepalive_logging ())
     {
-        BOOST_LOG (client.log) << boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_a);
+        BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_a);
     }
-    auto client_l (client.shared ());
+    auto client_l (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l, endpoint_a] (boost::system::error_code const & ec, size_t)
         {
             if (network_logging ())
@@ -281,7 +281,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 void rai::network::republish_block (std::unique_ptr <rai::block> block)
 {
 	auto hash (block->hash ());
-    auto list (client.peers.list ());
+    auto list (node.peers.list ());
     if (!confirm_broadcast (list, block->clone(), 0))
     {
         rai::publish message (std::move (block));
@@ -290,22 +290,22 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
             rai::vectorstream stream (*bytes);
             message.serialize (stream);
         }
-        auto client_l (client.shared ());
+        auto node_l (node.shared ());
         for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
         {
-			if (!client.peers.knows_about (i->endpoint, hash))
+			if (!node.peers.knows_about (i->endpoint, hash))
 			{
 				if (network_publish_logging ())
 				{
-					BOOST_LOG (client.log) << boost::str (boost::format ("Publish %1% to %2%") % message.block->hash ().to_string () % i->endpoint);
+					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % message.block->hash ().to_string () % i->endpoint);
 				}
-				send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
+				send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
 					{
 						if (network_logging ())
 						{
 							if (ec)
 							{
-								BOOST_LOG (client_l->log) << boost::str (boost::format ("Error sending publish: %1%") % ec.message ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1%") % ec.message ());
 							}
 						}
 					});
@@ -324,9 +324,9 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
     }
     if (network_logging ())
     {
-        BOOST_LOG (client.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
+        BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
     }
-    auto client_l (client.shared ());
+    auto client_l (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
         {
             if (network_logging ())
@@ -344,8 +344,8 @@ namespace
 class network_message_visitor : public rai::message_visitor
 {
 public:
-    network_message_visitor (rai::client & client_a, rai::endpoint const & sender_a) :
-    client (client_a),
+    network_message_visitor (rai::node & node_a, rai::endpoint const & sender_a) :
+    node (node_a),
     sender (sender_a)
     {
     }
@@ -353,49 +353,49 @@ public:
     {
         if (network_keepalive_logging ())
         {
-            BOOST_LOG (client.log) << boost::str (boost::format ("Received keepalive from %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive from %1%") % sender);
         }
-        ++client.network.keepalive_count;
-        client.processor.contacted (sender);
-        client.network.merge_peers (message_a.peers);
+        ++node.network.keepalive_count;
+        node.processor.contacted (sender);
+        node.network.merge_peers (message_a.peers);
     }
     void publish (rai::publish const & message_a) override
     {
         if (network_message_logging ())
         {
-            BOOST_LOG (client.log) << boost::str (boost::format ("Received publish req from %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received publish req from %1%") % sender);
         }
-        ++client.network.publish_count;
-        client.processor.contacted (sender);
-        client.peers.insert (sender, message_a.block->hash ());
-        client.processor.process_receive_republish (message_a.block->clone ());
+        ++node.network.publish_count;
+        node.processor.contacted (sender);
+        node.peers.insert (sender, message_a.block->hash ());
+        node.processor.process_receive_republish (message_a.block->clone ());
     }
     void confirm_req (rai::confirm_req const & message_a) override
     {
         if (network_message_logging ())
         {
-            BOOST_LOG (client.log) << boost::str (boost::format ("Received confirm req %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm req %1%") % sender);
         }
-        ++client.network.confirm_req_count;
-        client.processor.contacted (sender);
-        client.peers.insert (sender, message_a.block->hash ());
-        client.processor.process_receive_republish (message_a.block->clone ());
-        if (client.store.block_exists (message_a.block->hash ()))
+        ++node.network.confirm_req_count;
+        node.processor.contacted (sender);
+        node.peers.insert (sender, message_a.block->hash ());
+        node.processor.process_receive_republish (message_a.block->clone ());
+        if (node.store.block_exists (message_a.block->hash ()))
         {
-            client.processor.process_confirmation (*message_a.block, sender);
+            node.processor.process_confirmation (*message_a.block, sender);
         }
     }
     void confirm_ack (rai::confirm_ack const & message_a) override
     {
         if (network_message_logging ())
         {
-            BOOST_LOG (client.log) << boost::str (boost::format ("Received Confirm from %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received Confirm from %1%") % sender);
         }
-        ++client.network.confirm_ack_count;
-        client.processor.contacted (sender);
-        client.peers.insert (sender, message_a.vote.block->hash ());
-        client.processor.process_receive_republish (message_a.vote.block->clone ());
-        client.vote (message_a.vote);
+        ++node.network.confirm_ack_count;
+        node.processor.contacted (sender);
+        node.peers.insert (sender, message_a.vote.block->hash ());
+        node.processor.process_receive_republish (message_a.vote.block->clone ());
+        node.vote (message_a.vote);
     }
     void bulk_pull (rai::bulk_pull const &) override
     {
@@ -409,7 +409,7 @@ public:
     {
         assert (false);
     }
-    rai::client & client;
+    rai::node & node;
     rai::endpoint sender;
 };
 }
@@ -420,7 +420,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     {
         if (!rai::reserved_address (remote) && remote != endpoint ())
         {
-            network_message_visitor visitor (client, remote);
+            network_message_visitor visitor (node, remote);
             rai::message_parser parser (visitor);
             parser.deserialize_buffer (buffer.data (), size_a);
             if (parser.error)
@@ -436,7 +436,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         {
             if (network_logging ())
             {
-                BOOST_LOG (client.log) << "Reserved sender";
+                BOOST_LOG (node.log) << "Reserved sender";
             }
             ++bad_sender_count;
         }
@@ -446,9 +446,9 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     {
         if (network_logging ())
         {
-            BOOST_LOG (client.log) << boost::str (boost::format ("Receive error: %1%") % error.message ());
+            BOOST_LOG (node.log) << boost::str (boost::format ("Receive error: %1%") % error.message ());
         }
-        client.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
+        node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
     }
 }
 
@@ -457,7 +457,7 @@ void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
 {
     for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
     {
-        if (!client.peers.not_a_peer (*i) && !client.peers.known_peer (*i))
+        if (!node.peers.not_a_peer (*i) && !node.peers.known_peer (*i))
         {
             send_keepalive (*i);
         }
@@ -763,15 +763,15 @@ bool rai::wallet_store::move (rai::wallet_store & other_a, std::vector <rai::pub
     return result;
 }
 
-rai::wallet::wallet (bool & init_a, rai::client & client_a, boost::filesystem::path const & path_a) :
+rai::wallet::wallet (bool & init_a, rai::node & node_a, boost::filesystem::path const & path_a) :
 store (init_a, path_a),
-client (client_a)
+node (node_a)
 {
 }
 
-rai::wallet::wallet (bool & init_a, rai::client & client_a, boost::filesystem::path const & path_a, std::string const & json) :
+rai::wallet::wallet (bool & init_a, rai::node & node_a, boost::filesystem::path const & path_a, std::string const & json) :
 store (init_a, path_a, json),
-client (client_a)
+node (node_a)
 {
 }
 
@@ -780,17 +780,17 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
     std::lock_guard <std::mutex> lock (mutex);
     auto hash (send_a.hash ());
     bool result;
-    if (client.ledger.store.pending_exists (hash))
+    if (node.ledger.store.pending_exists (hash))
     {
         rai::frontier frontier;
-        auto new_account (client.ledger.store.latest_get (send_a.hashables.destination, frontier));
+        auto new_account (node.ledger.store.latest_get (send_a.hashables.destination, frontier));
         std::unique_ptr <rai::block> block;
         if (new_account)
         {
             auto open (new rai::open_block);
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
-            client.work_create (*open);
+            node.work_create (*open);
             rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
             block.reset (open);
         }
@@ -799,11 +799,11 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
             auto receive (new rai::receive_block);
             receive->hashables.previous = frontier.hash;
             receive->hashables.source = hash;
-            client.work_create (*receive);
+            node.work_create (*receive);
             rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
             block.reset (receive);
         }
-        client.processor.process_receive_republish (std::move (block));
+        node.processor.process_receive_republish (std::move (block));
         result = false;
     }
     else
@@ -825,11 +825,11 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
         for (auto i (store.begin ()), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
         {
             auto account (i->first);
-            auto balance (client.ledger.account_balance (account));
+            auto balance (node.ledger.account_balance (account));
             if (!balance.is_zero ())
             {
                 rai::frontier frontier;
-                result = client.ledger.store.latest_get (account, frontier);
+                result = node.ledger.store.latest_get (account, frontier);
                 assert (!result);
                 auto amount (std::min (remaining, balance));
                 remaining -= amount;
@@ -837,7 +837,7 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
                 block->hashables.destination = account_a;
                 block->hashables.previous = frontier.hash;
                 block->hashables.balance = balance - amount;
-                client.work_create (*block);
+                node.work_create (*block);
                 rai::private_key prv;
                 result = store.fetch (account, prv);
                 assert (!result);
@@ -848,23 +848,23 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
         }
         if (!remaining.is_zero ())
         {
-            BOOST_LOG (client.log) << "Wallet contained insufficient coins";
+            BOOST_LOG (node.log) << "Wallet contained insufficient coins";
             // Destroy the sends because they're signed and we're not going to use them.
             result = true;
             blocks.clear ();
         }
         else
         {
-            BOOST_LOG (client.log) << "Publishing blocks";
+            BOOST_LOG (node.log) << "Publishing blocks";
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
             {
-                client.processor.process_receive_republish (std::move (*i));
+                node.processor.process_receive_republish (std::move (*i));
             }
         }
     }
     else
     {
-        BOOST_LOG (client.log) << "Wallet key is invalid";
+        BOOST_LOG (node.log) << "Wallet key is invalid";
     }
     return result;
 }
@@ -891,9 +891,9 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
     return result;
 }
 
-rai::wallets::wallets (rai::client & client_a, boost::filesystem::path const & path_a) :
+rai::wallets::wallets (rai::node & node_a, boost::filesystem::path const & path_a) :
 path (path_a),
-client (client_a)
+node (node_a)
 {
     boost::filesystem::create_directories (path_a);
     boost::filesystem::directory_iterator i (path_a);
@@ -907,7 +907,7 @@ client (client_a)
             {
                 assert (items.find (id) == items.end ());
                 auto error (false);
-                auto wallet (std::make_shared <rai::wallet> (error, client, i->path ()));
+                auto wallet (std::make_shared <rai::wallet> (error, node_a, i->path ()));
                 if (!error)
                 {
                     items [id] = wallet;
@@ -947,7 +947,7 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
     bool error;
     std::string id;
     id_a.encode_hex (id);
-    auto wallet (std::make_shared <rai::wallet> (error, client, path / id));
+    auto wallet (std::make_shared <rai::wallet> (error, node, path / id));
     if (!error)
     {
         items [id_a] = wallet;
@@ -1175,8 +1175,8 @@ void rai::processor_service::stop ()
     condition.notify_all ();
 }
 
-rai::processor::processor (rai::client & client_a) :
-client (client_a)
+rai::processor::processor (rai::node & node_a) :
+node (node_a)
 {
 }
 
@@ -1189,7 +1189,7 @@ void rai::processor::contacted (rai::endpoint const & endpoint_a)
         endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
     }
     assert (endpoint_l.address ().is_v6 ());
-	client.peers.insert (endpoint_l);
+	node.peers.insert (endpoint_l);
 }
 
 void rai::processor::stop ()
@@ -1201,17 +1201,17 @@ bool rai::operation::operator > (rai::operation const & other_a) const
     return wakeup > other_a.wakeup;
 }
 
-rai::client_init::client_init () :
+rai::node_init::node_init () :
 wallet_init (false)
 {
 }
 
-bool rai::client_init::error ()
+bool rai::node_init::error ()
 {
     return !block_store_init.ok () || wallet_init || ledger_init;
 }
 
-rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a) :
+rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a) :
 store (init_a.block_store_init, application_path_a / "data"),
 gap_cache (*this),
 ledger (init_a.ledger_init, init_a.block_store_init, store),
@@ -1324,12 +1324,12 @@ service (processor_a)
     }
 }
 
-rai::client::client (rai::client_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a) :
-client (init_a, service_a, port_a, boost::filesystem::unique_path (), processor_a)
+rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a) :
+node (init_a, service_a, port_a, boost::filesystem::unique_path (), processor_a)
 {
 }
 
-rai::client::~client ()
+rai::node::~node ()
 {
     if (client_lifetime_tracing ())
     {
@@ -1337,7 +1337,7 @@ rai::client::~client ()
     }
 }
 
-void rai::client::send_keepalive (rai::endpoint const & endpoint_a)
+void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 {
     auto endpoint_l (endpoint_a);
     if (endpoint_l.address ().is_v4 ())
@@ -1348,7 +1348,7 @@ void rai::client::send_keepalive (rai::endpoint const & endpoint_a)
     network.send_keepalive (endpoint_l);
 }
 
-void rai::client::work_create (rai::block & block_a)
+void rai::node::work_create (rai::block & block_a)
 {
     auto begin (std::chrono::system_clock::now ());
 	if (work_generation_time ())
@@ -1362,7 +1362,7 @@ void rai::client::work_create (rai::block & block_a)
 	}
 }
 
-void rai::client::vote (rai::vote const & vote_a)
+void rai::node::vote (rai::vote const & vote_a)
 {
     for (auto & i: vote_observers)
     {
@@ -1370,8 +1370,8 @@ void rai::client::vote (rai::vote const & vote_a)
     }
 }
 
-rai::gap_cache::gap_cache (rai::client & client_a) :
-client (client_a)
+rai::gap_cache::gap_cache (rai::node & node_a) :
+node (node_a)
 {
 }
 
@@ -1417,11 +1417,11 @@ void rai::gap_cache::vote (rai::vote const & vote_a)
         auto changed (existing->votes->vote (vote_a));
         if (changed)
         {
-            auto winner (client.ledger.winner (*existing->votes));
+            auto winner (node.ledger.winner (*existing->votes));
             if (winner.first > bootstrap_threshold ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Initiating bootstrap for confirmed gap: %1%") % hash.to_string ());
-                client.bootstrap_initiator.bootstrap_any ();
+                BOOST_LOG (node.log) << boost::str (boost::format ("Initiating bootstrap for confirmed gap: %1%") % hash.to_string ());
+                node.bootstrap_initiator.bootstrap_any ();
             }
         }
     }
@@ -1429,13 +1429,13 @@ void rai::gap_cache::vote (rai::vote const & vote_a)
 
 rai::uint128_t rai::gap_cache::bootstrap_threshold ()
 {
-    return client.ledger.supply () / 16;
+    return node.ledger.supply () / 16;
 }
 
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
 {
     bool result (false);
-    for (auto i (client.wallets.items.begin ()), n (client.wallets.items.end ()); i != n; ++i)
+    for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
     {
         auto & wallet (*i->second);
         if (wallet.store.is_representative ())
@@ -1448,7 +1448,7 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
                 auto hash (block_a->hash ());
                 for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
                 {
-                    if (!client.peers.knows_about (j->endpoint, hash))
+                    if (!node.peers.knows_about (j->endpoint, hash))
                     {
                         confirm_block (prv, pub, block_a->clone (), sequence_a, j->endpoint);
                     }
@@ -1478,16 +1478,16 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
     }
     if (network_publish_logging ())
     {
-        BOOST_LOG (client.log) << boost::str (boost::format ("Confirm %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
+        BOOST_LOG (node.log) << boost::str (boost::format ("Confirm %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
     }
-    auto client_l (client.shared ());
-    client.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size_a)
+    auto node_l (node.shared ());
+    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size_a)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    BOOST_LOG (client_l->log) << boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ());
+                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ());
                 }
             }
         });
@@ -1504,7 +1504,7 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
         {
             case rai::process_result::progress:
             {
-                client.network.republish_block (std::move (block));
+                node.network.republish_block (std::move (block));
                 break;
             }
             default:
@@ -1512,14 +1512,14 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
                 break;
             }
         }
-        block = client.gap_cache.get (hash);
+        block = node.gap_cache.get (hash);
     }
     while (block != nullptr);
 }
 
 rai::process_result rai::processor::process_receive (rai::block const & block_a)
 {
-    auto result (client.ledger.process (block_a));
+    auto result (node.ledger.process (block_a));
     switch (result)
     {
         case rai::process_result::progress:
@@ -1528,7 +1528,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             {
                 std::string block;
                 block_a.serialize_json (block);
-                BOOST_LOG (client.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash().to_string () % block);
+                BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash().to_string () % block);
             }
             break;
         }
@@ -1536,27 +1536,27 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
             }
             auto previous (block_a.previous ());
-            client.gap_cache.add (block_a, previous);
+            node.gap_cache.add (block_a, previous);
             break;
         }
         case rai::process_result::gap_source:
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
             }
             auto source (block_a.source ());
-            client.gap_cache.add (block_a, source);
+            node.gap_cache.add (block_a, source);
             break;
         }
         case rai::process_result::old:
         {
             if (ledger_duplicate_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Old for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
@@ -1564,7 +1564,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Bad signature for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
@@ -1572,7 +1572,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Overspend for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Overspend for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
@@ -1580,7 +1580,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Overreceive for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Overreceive for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
@@ -1588,7 +1588,7 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Not receive from spend for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Not receive from spend for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
@@ -1596,18 +1596,18 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Fork source for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Fork source for: %1%") % block_a.hash ().to_string ());
             }
-            client.conflicts.start (*client.ledger.successor (block_a.root ()), false);
+            node.conflicts.start (*node.ledger.successor (block_a.root ()), false);
             break;
         }
         case rai::process_result::fork_previous:
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (client.log) << boost::str (boost::format ("Fork previous for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Fork previous for: %1%") % block_a.hash ().to_string ());
             }
-            client.conflicts.start (*client.ledger.successor (block_a.root ()), false);
+            node.conflicts.start (*node.ledger.successor (block_a.root ()), false);
             break;
         }
     }
@@ -1683,16 +1683,16 @@ size_t rai::processor_service::size ()
 rai::system::system (uint16_t port_a, size_t count_a) :
 service (new boost::asio::io_service)
 {
-    clients.reserve (count_a);
+    nodes.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
-        rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, port_a + i, processor));
+        rai::node_init init;
+        auto node (std::make_shared <rai::node> (init, service, port_a + i, processor));
         assert (!init.error ());
-        client->start ();
-        clients.push_back (client);
+        node->start ();
+        nodes.push_back (node);
     }
-    for (auto i (clients.begin ()), j (clients.begin () + 1), n (clients.end ()); j != n; ++i, ++j)
+    for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
     {
         auto starting1 ((*i)->peers.size ());
         auto new1 (starting1);
@@ -1709,7 +1709,7 @@ service (new boost::asio::io_service)
 
 rai::system::~system ()
 {
-    for (auto & i: clients)
+    for (auto & i: nodes)
     {
         i->stop ();
     }
@@ -1717,30 +1717,30 @@ rai::system::~system ()
 
 std::shared_ptr <rai::wallet> rai::system::wallet (size_t index_a)
 {
-    assert (clients.size () > index_a);
-    assert (clients [index_a]->wallets.items.size () == 1);
-    return clients [index_a]->wallets.items.begin ()->second;
+    assert (nodes.size () > index_a);
+    assert (nodes [index_a]->wallets.items.size () == 1);
+    return nodes [index_a]->wallets.items.begin ()->second;
 }
 
 void rai::processor::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
-    auto client_l (client.shared ());
-    for (auto i (client.wallets.items.begin ()), n (client.wallets.items.end ()); i != n; ++i)
+    auto node_l (node.shared ());
+    for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 	{
 		if (i->second->store.is_representative ())
         {
             auto representative (i->second->store.representative ());
-			auto weight (client.ledger.weight (representative));
+			auto weight (node.ledger.weight (representative));
 			if (!weight.is_zero ())
             {
                 if (network_message_logging ())
                 {
-                    BOOST_LOG (client.log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
+                    BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
                 }
                 rai::private_key prv;
                 auto error (i->second->store.fetch (representative, prv));
                 assert (!error);
-                client.network.confirm_block (prv, representative, block_a.clone (), 0, sender);
+                node.network.confirm_block (prv, representative, block_a.clone (), 0, sender);
 			}
 		}
 	}
@@ -1846,9 +1846,9 @@ void rai::confirm_req::serialize (rai::stream & stream_a)
     block->serialize (stream_a);
 }
 
-rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, boost::asio::ip::address_v6 const & address_a, uint16_t port_a, rai::client & client_a, bool enable_control_a) :
+rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, boost::asio::ip::address_v6 const & address_a, uint16_t port_a, rai::node & node_a, bool enable_control_a) :
 server (decltype (server)::options (*this).address (address_a.to_string ()).port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
-client (client_a),
+node (node_a),
 enable_control (enable_control_a)
 {
 }
@@ -1887,7 +1887,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             std::string action (request_l.get <std::string> ("action"));
             if (log_rpc ())
             {
-                BOOST_LOG (client.log) << request.body;
+                BOOST_LOG (node.log) << request.body;
             }
             if (action == "account_balance_exact")
             {
@@ -1896,7 +1896,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto balance (client.ledger.account_balance (account));
+                    auto balance (node.ledger.account_balance (account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("balance", balance.convert_to <std::string> ());
                     set_response (response, response_l);
@@ -1914,7 +1914,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto balance (rai::scale_down (client.ledger.account_balance (account)));
+                    auto balance (rai::scale_down (node.ledger.account_balance (account)));
                     boost::property_tree::ptree response_l;
                     response_l.put ("balance", std::to_string (balance));
                     set_response (response, response_l);
@@ -1932,7 +1932,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto balance (client.ledger.weight (account));
+                    auto balance (node.ledger.weight (account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("weight", balance.convert_to <std::string> ());
                     set_response (response, response_l);
@@ -1950,7 +1950,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto balance (rai::scale_down (client.ledger.weight (account)));
+                    auto balance (rai::scale_down (node.ledger.weight (account)));
                     boost::property_tree::ptree response_l;
                     response_l.put ("weight", std::to_string (balance));
                     set_response (response, response_l);
@@ -1970,8 +1970,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto error (wallet.decode_hex (wallet_text));
                     if (!error)
                     {
-                        auto existing (client.wallets.items.find (wallet));
-                        if (existing != client.wallets.items.end ())
+                        auto existing (node.wallets.items.find (wallet));
+                        if (existing != node.wallets.items.end ())
                         {
                             rai::keypair new_key;
                             existing->second->store.insert (new_key.prv);
@@ -2011,8 +2011,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto error (wallet.decode_hex (wallet_text));
                     if (!error)
                     {
-                        auto existing (client.wallets.items.find (wallet));
-                        if (existing != client.wallets.items.end ())
+                        auto existing (node.wallets.items.find (wallet));
+                        if (existing != node.wallets.items.end ())
                         {
                             auto exists (existing->second->store.find (account) != existing->second->store.end ());
                             boost::property_tree::ptree response_l;
@@ -2044,8 +2044,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         boost::property_tree::ptree response_l;
                         boost::property_tree::ptree accounts;
@@ -2086,8 +2086,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         auto error (wallet.decode_hex (wallet_text));
                         if (!error)
                         {
-                            auto existing (client.wallets.items.find (wallet));
-                            if (existing != client.wallets.items.end ())
+                            auto existing (node.wallets.items.find (wallet));
+                            if (existing != node.wallets.items.end ())
                             {
                                 existing->second->store.insert (key);
                                 rai::public_key pub;
@@ -2131,8 +2131,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto error (wallet.decode_hex (wallet_text));
                     if (!error)
                     {
-                        auto existing (client.wallets.items.find (wallet));
-                        if (existing != client.wallets.items.end ())
+                        auto existing (node.wallets.items.find (wallet));
+                        if (existing != node.wallets.items.end ())
                         {
                             auto valid (existing->second->store.valid_password ());
                             boost::property_tree::ptree response_l;
@@ -2175,8 +2175,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto error (wallet.decode_hex (wallet_text));
                     if (!error)
                     {
-                        auto existing (client.wallets.items.find (wallet));
-                        if (existing != client.wallets.items.end ())
+                        auto existing (node.wallets.items.find (wallet));
+                        if (existing != node.wallets.items.end ())
                         {
                             std::string account_text (request_l.get <std::string> ("account"));
                             rai::uint256_union account;
@@ -2232,8 +2232,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto error (wallet.decode_hex (wallet_text));
                     if (!error)
                     {
-                        auto existing (client.wallets.items.find (wallet));
-                        if (existing != client.wallets.items.end ())
+                        auto existing (node.wallets.items.find (wallet));
+                        if (existing != node.wallets.items.end ())
                         {
                             std::string account_text (request_l.get <std::string> ("account"));
                             rai::uint256_union account;
@@ -2287,8 +2287,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         boost::property_tree::ptree response_l;
                         response_l.put ("valid", existing->second->store.valid_password () ? "1" : "0");
@@ -2313,8 +2313,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         boost::property_tree::ptree response_l;
                         std::string password_text (request_l.get <std::string> ("password"));
@@ -2341,8 +2341,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         boost::property_tree::ptree response_l;
                         std::string password_text (request_l.get <std::string> ("password"));
@@ -2369,8 +2369,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         boost::property_tree::ptree response_l;
                         std::string representative;
@@ -2397,8 +2397,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         std::string representative_text (request_l.get <std::string> ("representative"));
                         rai::account representative;
@@ -2422,7 +2422,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             else if (action == "wallet_create")
             {
                 rai::keypair wallet_id;
-                auto wallet (client.wallets.create (wallet_id.prv));
+                auto wallet (node.wallets.create (wallet_id.prv));
                 boost::property_tree::ptree response_l;
                 response_l.put ("wallet", wallet_id.prv.to_string ());
                 set_response (response, response_l);
@@ -2434,8 +2434,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         std::string json;
                         existing->second->store.serialize_json (json);
@@ -2462,10 +2462,10 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
-                        client.wallets.destroy (wallet);
+                        node.wallets.destroy (wallet);
                         boost::property_tree::ptree response_l;
                         set_response (response, response_l);
                     }
@@ -2490,16 +2490,16 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (wallet.decode_hex (wallet_text));
                 if (!error)
                 {
-                    auto existing (client.wallets.items.find (wallet));
-                    if (existing != client.wallets.items.end ())
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
                     {
                         auto wallet (existing->second);
                         rai::uint256_union source;
                         auto error (source.decode_hex (source_text));
                         if (!error)
                         {
-                            auto existing (client.wallets.items.find (source));
-                            if (existing != client.wallets.items.end ())
+                            auto existing (node.wallets.items.find (source));
+                            if (existing != node.wallets.items.end ())
                             {
                                 auto source (existing->second);
                                 std::vector <rai::public_key> accounts;
@@ -2742,14 +2742,14 @@ void rai::bulk_push::visit (rai::message_visitor & visitor_a) const
     visitor_a.bulk_push (*this);
 }
 
-void rai::client::start ()
+void rai::node::start ()
 {
     network.receive ();
     processor.ongoing_keepalive ();
     bootstrap.start ();
 }
 
-void rai::client::stop ()
+void rai::node::stop ()
 {
     BOOST_LOG (log) << "Client stopping";
     network.stop ();
@@ -2759,24 +2759,24 @@ void rai::client::stop ()
 
 void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & completion_action_a)
 {
-    auto processor (std::make_shared <rai::bootstrap_client> (client.shared (), completion_action_a));
+    auto processor (std::make_shared <rai::bootstrap_client> (node.shared (), completion_action_a));
     processor->run (endpoint_a);
 }
 
 void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_a)
 {
-    auto client_l (client.shared ());
-    client.service.add (std::chrono::system_clock::now (), [client_l, peers_a] ()
+    auto node_l (node.shared ());
+    node.service.add (std::chrono::system_clock::now (), [node_l, peers_a] ()
     {
         for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
         {
-            client_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, std::to_string (rai::network::node_port)), [client_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
+            node_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, std::to_string (rai::network::node_port)), [node_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
             {
                 if (!ec)
                 {
                     for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator {}); i != n; ++i)
                     {
-                        client_l->send_keepalive (i->endpoint ());
+                        node_l->send_keepalive (i->endpoint ());
                     }
                 }
             });
@@ -2786,32 +2786,32 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
 
 void rai::processor::search_pending ()
 {
-    auto client_l (client.shared ());
-    client.service.add (std::chrono::system_clock::now (), [client_l] ()
+    auto node_l (node.shared ());
+    node.service.add (std::chrono::system_clock::now (), [node_l] ()
     {
         std::unordered_set <rai::uint256_union> wallet;
-        for (auto i (client_l->wallets.items.begin ()), n (client_l->wallets.items.end ()); i != n; ++i)
+        for (auto i (node_l->wallets.items.begin ()), n (node_l->wallets.items.end ()); i != n; ++i)
         {
             for (auto j (i->second->store.begin ()), m (i->second->store.end ()); j != m; ++j)
             {
                 wallet.insert (j->first);
             }
         }
-        for (auto i (client_l->store.pending_begin ()), n (client_l->store.pending_end ()); i != n; ++i)
+        for (auto i (node_l->store.pending_begin ()), n (node_l->store.pending_end ()); i != n; ++i)
         {
             if (wallet.find (i->second.destination) != wallet.end ())
             {
-                auto block (client_l->store.block_get (i->first));
+                auto block (node_l->store.block_get (i->first));
                 assert (block != nullptr);
                 assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-                client_l->conflicts.start (*block, true);
+                node_l->conflicts.start (*block, true);
             }
         }
     });
 }
 
-rai::bootstrap_initiator::bootstrap_initiator (rai::client & client_a) :
-client (client_a),
+rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
+node (node_a),
 in_progress (false),
 warmed_up (false)
 {
@@ -2839,7 +2839,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 
 void rai::bootstrap_initiator::bootstrap_any ()
 {
-    auto list (client.peers.list ());
+    auto list (node.peers.list ());
     if (!list.empty ())
     {
         bootstrap (list [0].endpoint);
@@ -2848,18 +2848,18 @@ void rai::bootstrap_initiator::bootstrap_any ()
 
 void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)
 {
-	client.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()), [this] ()
+	node.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()), [this] ()
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		in_progress = false;
 	});
 }
 
-rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::client & client_a) :
+rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::node & node_a) :
 acceptor (service_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 service (service_a),
-client (client_a)
+node (node_a)
 {
 }
 
@@ -2892,18 +2892,18 @@ void rai::bootstrap_listener::accept_action (boost::system::error_code const & e
     if (!ec)
     {
         accept_connection ();
-        auto connection (std::make_shared <rai::bootstrap_server> (socket_a, client.shared ()));
+        auto connection (std::make_shared <rai::bootstrap_server> (socket_a, node.shared ()));
         connection->receive ();
     }
     else
     {
-        BOOST_LOG (client.log) << boost::str (boost::format ("Error while accepting bootstrap connections: %1%") % ec.message ());
+        BOOST_LOG (node.log) << boost::str (boost::format ("Error while accepting bootstrap connections: %1%") % ec.message ());
     }
 }
 
-rai::bootstrap_server::bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <rai::client> client_a) :
+rai::bootstrap_server::bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <rai::node> node_a) :
 socket (socket_a),
-client (client_a)
+node (node_a)
 {
 }
 
@@ -2958,7 +2958,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				{
 					if (network_logging ())
 					{
-						BOOST_LOG (client->log) << boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast <uint8_t> (type));
+						BOOST_LOG (node->log) << boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast <uint8_t> (type));
 					}
 					break;
 				}
@@ -2969,7 +2969,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
     {
         if (network_logging ())
         {
-            BOOST_LOG (client->log) << boost::str (boost::format ("Error while receiving type %1%") % ec.message ());
+            BOOST_LOG (node->log) << boost::str (boost::format ("Error while receiving type %1%") % ec.message ());
         }
     }
 }
@@ -2985,7 +2985,7 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
         {
             if (network_logging ())
             {
-                BOOST_LOG (client->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
+                BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
             }
 			add_request (std::unique_ptr <rai::message> (request.release ()));
             receive ();
@@ -3004,7 +3004,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 		{
 			if (network_logging ())
 			{
-				BOOST_LOG (client->log) << boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age);
+				BOOST_LOG (node->log) << boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age);
 			}
 			add_request (std::unique_ptr <rai::message> (request.release ()));
 			receive ();
@@ -3014,7 +3014,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
     {
         if (network_logging ())
         {
-            BOOST_LOG (client->log) << boost::str (boost::format ("Error sending receiving frontier request %1%") % ec.message ());
+            BOOST_LOG (node->log) << boost::str (boost::format ("Error sending receiving frontier request %1%") % ec.message ());
         }
     }
 }
@@ -3094,11 +3094,11 @@ void rai::bootstrap_server::run_next ()
 void rai::bulk_pull_server::set_current_end ()
 {
     assert (request != nullptr);
-    auto end_exists (request->end.is_zero () || connection->client->store.block_exists (request->end));
+    auto end_exists (request->end.is_zero () || connection->node->store.block_exists (request->end));
     if (end_exists)
     {
         rai::frontier frontier;
-        auto no_address (connection->client->store.latest_get (request->start, frontier));
+        auto no_address (connection->node->store.latest_get (request->start, frontier));
         if (no_address)
         {
             current = request->end;
@@ -3107,7 +3107,7 @@ void rai::bulk_pull_server::set_current_end ()
         {
             if (!request->end.is_zero ())
             {
-                auto account (connection->client->ledger.account (request->end));
+                auto account (connection->node->ledger.account (request->end));
                 if (account == request->start)
                 {
                     current = frontier.hash;
@@ -3142,7 +3142,7 @@ void rai::bulk_pull_server::send_next ()
         auto this_l (shared_from_this ());
         if (network_logging ())
         {
-            BOOST_LOG (connection->client->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
         }
         async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
         {
@@ -3160,7 +3160,7 @@ std::unique_ptr <rai::block> rai::bulk_pull_server::get_next ()
     std::unique_ptr <rai::block> result;
     if (current != request->end)
     {
-        result = connection->client->store.block_get (current);
+        result = connection->node->store.block_get (current);
         assert (result != nullptr);
         auto previous (result->previous ());
         if (!previous.is_zero ())
@@ -3190,7 +3190,7 @@ void rai::bulk_pull_server::send_finished ()
     auto this_l (shared_from_this ());
     if (network_logging ())
     {
-        BOOST_LOG (connection->client->log) << "Bulk sending finished";
+        BOOST_LOG (connection->node->log) << "Bulk sending finished";
     }
     async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
     {
@@ -3213,9 +3213,9 @@ rai::account_iterator rai::block_store::latest_begin (rai::account const & accou
     return result;
 }
 
-rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::client> client_a, std::function <void ()> const & completion_action_a) :
-client (client_a),
-socket (client_a->network.service),
+rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::function <void ()> const & completion_action_a) :
+node (node_a),
+socket (node_a->network.service),
 completion_action (completion_action_a)
 {
 }
@@ -3224,7 +3224,7 @@ rai::bootstrap_client::~bootstrap_client ()
 {
 	if (network_logging ())
 	{
-		BOOST_LOG (client->log) << "Exiting bootstrap processor";
+		BOOST_LOG (node->log) << "Exiting bootstrap processor";
 	}
 	completion_action ();
 }
@@ -3233,7 +3233,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 {
     if (network_logging ())
     {
-        BOOST_LOG (client->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint_a);
+        BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint_a);
     }
     auto this_l (shared_from_this ());
     socket.async_connect (endpoint_a, [this_l] (boost::system::error_code const & ec)
@@ -3265,7 +3265,7 @@ void rai::bootstrap_client::connect_action (boost::system::error_code const & ec
     {
         if (network_logging ())
         {
-            BOOST_LOG (client->log) << boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ());
+            BOOST_LOG (node->log) << boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ());
         }
     }
 }
@@ -3282,7 +3282,7 @@ void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, 
     {
         if (network_logging ())
         {
-            BOOST_LOG (client->log) << boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ());
+            BOOST_LOG (node->log) << boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ());
         }
     }
 }
@@ -3309,7 +3309,7 @@ void rai::bulk_pull_client::request ()
                 }
                 else
                 {
-                    BOOST_LOG (this_l->connection->connection->client->log) << boost::str (boost::format ("Error sending bulk pull request %1%") % ec.message ());
+                    BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Error sending bulk pull request %1%") % ec.message ());
                 }
             });
     }
@@ -3331,7 +3331,7 @@ void rai::bulk_pull_client::receive_block ()
         }
         else
         {
-            BOOST_LOG (this_l->connection->connection->client->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
+            BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
         }
     });
 }
@@ -3381,7 +3381,7 @@ void rai::bulk_pull_client::received_type ()
         }
         default:
         {
-            BOOST_LOG (connection->connection->client->log) << "Unknown type received as block type";
+            BOOST_LOG (connection->connection->node->log) << "Unknown type received as block type";
             break;
         }
     }
@@ -3523,26 +3523,26 @@ void rai::bulk_pull_client::process_end ()
 {
 	rai::pull_synchronization synchronization ([this] (rai::block const & block_a)
 	{
-		auto process_result (connection->connection->client->processor.process_receive (block_a));
+		auto process_result (connection->connection->node->processor.process_receive (block_a));
 		switch (process_result)
 		{
 		   case rai::process_result::progress:
 		   case rai::process_result::old:
 			   break;
 		   default:
-			   BOOST_LOG (connection->connection->client->log) << "Error inserting block";
+			   BOOST_LOG (connection->connection->node->log) << "Error inserting block";
 			   break;
 		}
-		connection->connection->client->store.unchecked_del (block_a.hash ());
-	}, connection->connection->client->store);
-    while (connection->connection->client->store.unchecked_begin () != connection->connection->client->store.unchecked_end ())
+		connection->connection->node->store.unchecked_del (block_a.hash ());
+	}, connection->connection->node->store);
+    while (connection->connection->node->store.unchecked_begin () != connection->connection->node->store.unchecked_end ())
     {
-		auto error (synchronization.synchronize (connection->connection->client->store.unchecked_begin ()->first));
+		auto error (synchronization.synchronize (connection->connection->node->store.unchecked_begin ()->first));
         if (error)
         {
             while (!synchronization.blocks.empty ())
             {
-                connection->connection->client->store.unchecked_del (synchronization.blocks.top ());
+                connection->connection->node->store.unchecked_del (synchronization.blocks.top ());
                 synchronization.blocks.pop ();
             }
         }
@@ -3562,14 +3562,14 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
             {
                 std::string block_l;
                 block->serialize_json (block_l);
-                BOOST_LOG (connection->connection->client->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
+                BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
             }
-            connection->connection->client->store.unchecked_put (hash, *block);
+            connection->connection->node->store.unchecked_put (hash, *block);
             receive_block ();
 		}
         else
         {
-            BOOST_LOG (connection->connection->client->log) << "Error deserializing block received from pull request";
+            BOOST_LOG (connection->connection->node->log) << "Error deserializing block received from pull request";
         }
 	}
 }
@@ -3588,7 +3588,7 @@ rai::bootstrap_server::~bootstrap_server ()
 {
     if (network_logging ())
     {
-        BOOST_LOG (client->log) << "Exiting bootstrap connection";
+        BOOST_LOG (node->log) << "Exiting bootstrap connection";
     }
 }
 
@@ -3618,13 +3618,13 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
 
 void rai::processor::ongoing_keepalive ()
 {
-    connect_bootstrap (client.bootstrap_peers);
-    auto peers (client.peers.purge_list (std::chrono::system_clock::now () - cutoff));
+    connect_bootstrap (node.bootstrap_peers);
+    auto peers (node.peers.purge_list (std::chrono::system_clock::now () - cutoff));
     for (auto i (peers.begin ()), j (peers.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
     {
-        client.network.send_keepalive (i->endpoint);
+        node.network.send_keepalive (i->endpoint);
     }
-    client.service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
+    node.service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
 }
 
 std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono::system_clock::time_point const & cutoff)
@@ -3779,7 +3779,7 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
     {
         if (network_packet_logging ())
         {
-            BOOST_LOG (client.log) << "Sending packet";
+            BOOST_LOG (node.log) << "Sending packet";
         }
         socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this] (boost::system::error_code const & ec, size_t size_a)
         {
@@ -3792,7 +3792,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
 {
     if (network_packet_logging ())
     {
-        BOOST_LOG (client.log) << "Packet send complete";
+        BOOST_LOG (node.log) << "Packet send complete";
     }
     std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>> self;
     {
@@ -3807,7 +3807,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
             {
                 if (network_packet_logging ())
                 {
-                    BOOST_LOG (client.log) << "Sending packet";
+                    BOOST_LOG (node.log) << "Sending packet";
                 }
             }
             socket.async_send_to (boost::asio::buffer (std::get <0> (front), std::get <1> (front)), std::get <2> (front), [this] (boost::system::error_code const & ec, size_t size_a)
@@ -3843,7 +3843,7 @@ void rai::bulk_push_server::receive ()
             }
             else
             {
-                BOOST_LOG (this_l->connection->client->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
+                BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
             }
         });
 }
@@ -3893,7 +3893,7 @@ void rai::bulk_push_server::received_type ()
         }
         default:
         {
-            BOOST_LOG (connection->client->log) << "Unknown type received as block type";
+            BOOST_LOG (connection->node->log) << "Unknown type received as block type";
             break;
         }
     }
@@ -3907,12 +3907,12 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
         auto block (rai::deserialize_block (stream));
         if (block != nullptr)
         {
-            connection->client->processor.process_receive_republish (std::move (block));
+            connection->node->processor.process_receive_republish (std::move (block));
             receive ();
         }
         else
         {
-            BOOST_LOG (connection->client->log) << "Error deserializing block received from pull request";
+            BOOST_LOG (connection->node->log) << "Error deserializing block received from pull request";
         }
     }
 }
@@ -3926,7 +3926,7 @@ request (std::move (request_a))
 
 rai::frontier_req_server::frontier_req_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 connection (connection_a),
-iterator (connection_a->client->store.latest_begin (request_a->start)),
+iterator (connection_a->node->store.latest_begin (request_a->start)),
 request (std::move (request_a))
 {
     skip_old ();
@@ -3936,8 +3936,8 @@ void rai::frontier_req_server::skip_old ()
 {
     if (request->age != std::numeric_limits<decltype (request->age)>::max ())
     {
-        auto now (connection->client->store.now ());
-        while (iterator != connection->client->ledger.store.latest_end () && (now - iterator->second.time) >= request->age)
+        auto now (connection->node->store.now ());
+        while (iterator != connection->node->ledger.store.latest_end () && (now - iterator->second.time) >= request->age)
         {
             ++iterator;
         }
@@ -3958,7 +3958,7 @@ void rai::frontier_req_server::send_next ()
         auto this_l (shared_from_this ());
         if (network_logging ())
         {
-            BOOST_LOG (connection->client->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % pair.first.to_string () % pair.second.to_string ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % pair.first.to_string () % pair.second.to_string ());
         }
         async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
         {
@@ -3983,7 +3983,7 @@ void rai::frontier_req_server::send_finished ()
     auto this_l (shared_from_this ());
     if (network_logging ())
     {
-        BOOST_LOG (connection->client->log) << "Frontier sending finished";
+        BOOST_LOG (connection->node->log) << "Frontier sending finished";
     }
     async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
     {
@@ -4001,7 +4001,7 @@ void rai::frontier_req_server::no_block_sent (boost::system::error_code const & 
     {
         if (network_logging ())
         {
-            BOOST_LOG (connection->client->log) << boost::str (boost::format ("Error sending frontier finish %1%") % ec.message ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier finish %1%") % ec.message ());
         }
     }
 }
@@ -4016,7 +4016,7 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
     {
         if (network_logging ())
         {
-            BOOST_LOG (connection->client->log) << boost::str (boost::format ("Error sending frontier pair %1%") % ec.message ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier pair %1%") % ec.message ());
         }
     }
 }
@@ -4024,7 +4024,7 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 std::pair <rai::uint256_union, rai::uint256_union> rai::frontier_req_server::get_next ()
 {
     std::pair <rai::uint256_union, rai::uint256_union> result (0, 0);
-    if (iterator != connection->client->ledger.store.latest_end ())
+    if (iterator != connection->node->ledger.store.latest_end ())
     {
         result.first = iterator->first;
         result.second = iterator->second.hash;
@@ -4088,14 +4088,14 @@ rai::bulk_pull_client::~bulk_pull_client ()
 {
     if (network_logging ())
     {
-        BOOST_LOG (connection->connection->client->log) << "Exiting bulk pull client";
+        BOOST_LOG (connection->connection->node->log) << "Exiting bulk pull client";
     }
 }
 
 rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_client> const & connection_a) :
 connection (connection_a),
-current (connection->client->store.latest_begin ()),
-end (connection->client->store.latest_end ())
+current (connection->node->store.latest_begin ()),
+end (connection->node->store.latest_end ())
 {
 }
 
@@ -4103,7 +4103,7 @@ rai::frontier_req_client::~frontier_req_client ()
 {
     if (network_logging ())
     {
-        BOOST_LOG (connection->client->log) << "Exiting frontier_req initiator";
+        BOOST_LOG (connection->node->log) << "Exiting frontier_req initiator";
     }
 }
 
@@ -4158,7 +4158,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
                     {
                         // In sync
                     }
-                    else if (connection->client->store.block_exists (latest))
+                    else if (connection->node->store.block_exists (latest))
                     {
                         // We know about a block they don't.
                         pushes [account] = latest;
@@ -4197,7 +4197,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
     {
         if (network_logging ())
         {
-            BOOST_LOG (connection->client->log) << boost::str (boost::format ("Error while receiving frontier %1%") % ec.message ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error while receiving frontier %1%") % ec.message ());
         }
     }
 }
@@ -4220,7 +4220,7 @@ end (connection->pushes.end ()),
 synchronization ([this] (rai::block const & block_a)
 {
     push_block (block_a);
-}, connection_a->connection->client->store)
+}, connection_a->connection->node->store)
 {
 }
 
@@ -4228,7 +4228,7 @@ rai::bulk_push_client::~bulk_push_client ()
 {
     if (network_logging ())
     {
-        BOOST_LOG (connection->connection->client->log) << "Exiting bulk push client";
+        BOOST_LOG (connection->connection->node->log) << "Exiting bulk push client";
     }
 }
 
@@ -4249,7 +4249,7 @@ void rai::bulk_push_client::start ()
             }
             else
             {
-                BOOST_LOG (this_l->connection->connection->client->log) << boost::str (boost::format ("Unable to send bulk_push request %1%") % ec.message ());
+                BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Unable to send bulk_push request %1%") % ec.message ());
             }
         });
 }
@@ -4260,7 +4260,7 @@ void rai::bulk_push_client::push ()
     {
         auto hash (current->first);
 		rai::frontier frontier;
-		auto error (connection->connection->client->store.latest_get (hash, frontier));
+		auto error (connection->connection->node->store.latest_get (hash, frontier));
         assert (!error);
         ++current;
         assert (synchronization.blocks.empty ());
@@ -4279,7 +4279,7 @@ void rai::bulk_push_client::send_finished ()
     buffer->push_back (static_cast <uint8_t> (rai::block_type::not_a_block));
     if (network_logging ())
     {
-        BOOST_LOG (connection->connection->client->log) << "Bulk push finished";
+        BOOST_LOG (connection->connection->node->log) << "Bulk push finished";
     }
     auto this_l (shared_from_this ());
     async_write (connection->connection->socket, boost::asio::buffer (buffer->data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
@@ -4311,7 +4311,7 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
             }
             else
             {
-                BOOST_LOG (this_l->connection->connection->client->log) << boost::str (boost::format ("Error sending block during bulk push %1%") % ec.message ());
+                BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Error sending block during bulk push %1%") % ec.message ());
             }
         });
 }
@@ -4328,7 +4328,7 @@ bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
     return existing != peers.end () && existing->last_contact > std::chrono::system_clock::now () - rai::processor::cutoff;
 }
 
-std::shared_ptr <rai::client> rai::client::shared ()
+std::shared_ptr <rai::node> rai::node::shared ()
 {
     return shared_from_this ();
 }
@@ -4338,10 +4338,10 @@ namespace
 class traffic_generator : public std::enable_shared_from_this <traffic_generator>
 {
 public:
-    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <rai::client> client_a, rai::system & system_a) :
+    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <rai::node> node_a, rai::system & system_a) :
     count (count_a),
     wait (wait_a),
-    client (client_a),
+    node (node_a),
     system (system_a)
     {
     }
@@ -4349,23 +4349,23 @@ public:
     {
         auto count_l (count - 1);
         count = count_l - 1;
-        system.generate_activity (*client);
+        system.generate_activity (*node);
         if (count_l > 0)
         {
             auto this_l (shared_from_this ());
-            client->service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
+            node->service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
         }
     }
     uint32_t count;
     uint32_t wait;
-    std::shared_ptr <rai::client> client;
+    std::shared_ptr <rai::node> node;
     rai::system & system;
 };
 }
 
 void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
 {
-    for (size_t i (0), n (clients.size ()); i != n; ++i)
+    for (size_t i (0), n (nodes.size ()); i != n; ++i)
     {
         generate_usage_traffic (count_a, wait_a, i);
     }
@@ -4373,22 +4373,22 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
 
 void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, size_t index_a)
 {
-    assert (clients.size () > index_a);
+    assert (nodes.size () > index_a);
     assert (count_a > 0);
-    auto generate (std::make_shared <traffic_generator> (count_a, wait_a, clients [index_a], *this));
+    auto generate (std::make_shared <traffic_generator> (count_a, wait_a, nodes [index_a], *this));
     generate->run ();
 }
 
-void rai::system::generate_activity (rai::client & client_a)
+void rai::system::generate_activity (rai::node & node_a)
 {
     auto what (random_pool.GenerateByte ());
-    if (what < 0xc0 && client_a.store.latest_begin () != client_a.store.latest_end ())
+    if (what < 0xc0 && node_a.store.latest_begin () != node_a.store.latest_end ())
     {
-        generate_send_existing (client_a);
+        generate_send_existing (node_a);
     }
     else
     {
-        generate_send_new (client_a);
+        generate_send_new (node_a);
     }
     size_t polled;
     do
@@ -4399,9 +4399,9 @@ void rai::system::generate_activity (rai::client & client_a)
     } while (polled != 0);
 }
 
-rai::uint128_t rai::system::get_random_amount (rai::client & client_a)
+rai::uint128_t rai::system::get_random_amount (rai::node & node_a)
 {
-    rai::uint128_t balance (wallet (0)->store.balance (client_a.ledger));
+    rai::uint128_t balance (wallet (0)->store.balance (node_a.ledger));
     std::string balance_text (balance.convert_to <std::string> ());
     rai::uint128_union random_amount;
     random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
@@ -4410,28 +4410,28 @@ rai::uint128_t rai::system::get_random_amount (rai::client & client_a)
     return result;
 }
 
-void rai::system::generate_send_existing (rai::client & client_a)
+void rai::system::generate_send_existing (rai::node & node_a)
 {
     rai::account account;
     random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
-    rai::account_iterator entry (client_a.store.latest_begin (account));
-    if (entry == client_a.store.latest_end ())
+    rai::account_iterator entry (node_a.store.latest_begin (account));
+    if (entry == node_a.store.latest_end ())
     {
-        entry = client_a.store.latest_begin ();
+        entry = node_a.store.latest_begin ();
     }
-    assert (entry != client_a.store.latest_end ());
-    wallet (0)->send (entry->first, get_random_amount (client_a));
+    assert (entry != node_a.store.latest_end ());
+    wallet (0)->send (entry->first, get_random_amount (node_a));
 }
 
-void rai::system::generate_send_new (rai::client & client_a)
+void rai::system::generate_send_new (rai::node & node_a)
 {
-    assert (client_a.wallets.items.size () == 1);
+    assert (node_a.wallets.items.size () == 1);
     rai::keypair key;
-    client_a.wallets.items.begin ()->second->store.insert (key.prv);
-    client_a.wallets.items.begin ()->second->send (key.pub, get_random_amount (client_a));
+    node_a.wallets.items.begin ()->second->store.insert (key.prv);
+    node_a.wallets.items.begin ()->second->send (key.pub, get_random_amount (node_a));
 }
 
-void rai::system::generate_mass_activity (uint32_t count_a, rai::client & client_a)
+void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 {
     auto previous (std::chrono::system_clock::now ());
     for (uint32_t i (0); i < count_a; ++i)
@@ -4443,7 +4443,7 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::client & client
             std::cerr << boost::str (boost::format ("Mass activity iteration %1% ms %2% ms/t %3%\n") % i % ms % (ms / 256));
             previous = now;
         }
-        generate_activity (client_a);
+        generate_activity (node_a);
     }
 }
 
@@ -4459,14 +4459,14 @@ rai::uint128_t rai::wallet_store::balance (rai::ledger & ledger_a)
     return result;
 }
 
-rai::election::election (std::shared_ptr <rai::client> client_a, rai::block const & block_a) :
+rai::election::election (std::shared_ptr <rai::node> node_a, rai::block const & block_a) :
 votes (block_a.root ()),
-client (client_a),
+node (node_a),
 last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
 confirmed (false)
 {
-    assert (client_a->store.block_exists (block_a.hash ()));
+    assert (node_a->store.block_exists (block_a.hash ()));
     rai::keypair anonymous;
     rai::vote vote_l;
     vote_l.account = anonymous.pub;
@@ -4478,10 +4478,10 @@ confirmed (false)
 
 void rai::election::start ()
 {
-	auto client_l (client.lock ());
-	if (client_l != nullptr)
+	auto node_l (node.lock ());
+	if (node_l != nullptr)
 	{
-		auto have_representative (client_l->representative_vote (*this, *last_winner));
+		auto have_representative (node_l->representative_vote (*this, *last_winner));
 		if (have_representative)
 		{
 			announce_vote ();
@@ -4492,19 +4492,19 @@ void rai::election::start ()
 
 void rai::election::timeout_action ()
 {
-	auto client_l (client.lock ());
-	if (client_l != nullptr)
+	auto node_l (node.lock ());
+	if (node_l != nullptr)
 	{
 		auto now (std::chrono::system_clock::now ());
 		if (now - last_vote < std::chrono::seconds (15))
 		{
 			auto this_l (shared_from_this ());
-			client_l->service.add (now + std::chrono::seconds (15), [this_l] () {this_l->timeout_action ();});
+			node_l->service.add (now + std::chrono::seconds (15), [this_l] () {this_l->timeout_action ();});
 		}
 		else
 		{
 			auto root_l (votes.id);
-			client_l->conflicts.stop (root_l);
+			node_l->conflicts.stop (root_l);
 		}
 	}
 }
@@ -4521,35 +4521,35 @@ rai::uint128_t rai::election::contested_threshold (rai::ledger & ledger_a)
 
 void rai::election::vote (rai::vote const & vote_a)
 {
-	auto client_l (client.lock ());
-	if (client_l != nullptr)
+	auto node_l (node.lock ());
+	if (node_l != nullptr)
 	{
 		auto changed (votes.vote (vote_a));
 		if (!confirmed && changed)
 		{
-			auto tally_l (client_l->ledger.tally (votes));
+			auto tally_l (node_l->ledger.tally (votes));
 			assert (tally_l.size () > 0);
 			auto winner (tally_l.begin ()->second->clone ());
 			if (!(*winner == *last_winner))
 			{
-				client_l->ledger.rollback (last_winner->hash ());
-				client_l->ledger.process (*winner);
+				node_l->ledger.rollback (last_winner->hash ());
+				node_l->ledger.process (*winner);
 				last_winner = std::move (winner);
 			}
 			if (tally_l.size () == 1)
 			{
-				if (tally_l.begin ()->first > uncontested_threshold (client_l->ledger))
+				if (tally_l.begin ()->first > uncontested_threshold (node_l->ledger))
 				{
 					confirmed = true;
-					client_l->processor.process_confirmed (*last_winner);
+					node_l->processor.process_confirmed (*last_winner);
 				}
 			}
 			else
 			{
-				if (tally_l.begin ()->first > contested_threshold (client_l->ledger))
+				if (tally_l.begin ()->first > contested_threshold (node_l->ledger))
 				{
 					confirmed = true;
-					client_l->processor.process_confirmed (*last_winner);
+					node_l->processor.process_confirmed (*last_winner);
 				}
 			}
 		}
@@ -4558,31 +4558,31 @@ void rai::election::vote (rai::vote const & vote_a)
 
 void rai::election::start_request (rai::block const & block_a)
 {
-	auto client_l (client.lock ());
-	if (client_l != nullptr)
+	auto node_l (node.lock ());
+	if (node_l != nullptr)
 	{
-		auto list (client_l->peers.list ());
+		auto list (node_l->peers.list ());
 		for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
 		{
-			client_l->network.send_confirm_req (i->endpoint, block_a);
+			node_l->network.send_confirm_req (i->endpoint, block_a);
 		}
 	}
 }
 
 void rai::election::announce_vote ()
 {
-	auto client_l (client.lock ());
-	if (client_l != nullptr)
+	auto node_l (node.lock ());
+	if (node_l != nullptr)
 	{
-		auto winner_l (client_l->ledger.winner (votes));
+		auto winner_l (node_l->ledger.winner (votes));
 		assert (winner_l.second != nullptr);
-		auto list (client_l->peers.list ());
-		client_l->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence);
+		auto list (node_l->peers.list ());
+		node_l->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence);
 		auto now (std::chrono::system_clock::now ());
 		if (now - last_vote < std::chrono::seconds (15))
 		{
 			auto this_l (shared_from_this ());
-			client_l->service.add (now + std::chrono::seconds (15), [this_l] () {this_l->announce_vote ();});
+			node_l->service.add (now + std::chrono::seconds (15), [this_l] () {this_l->announce_vote ();});
 		}
 	}
 }
@@ -4594,8 +4594,8 @@ void rai::conflicts::start (rai::block const & block_a, bool request_a)
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
-        auto election (std::make_shared <rai::election> (client.shared (), block_a));
-		client.service.add (std::chrono::system_clock::now (), [election] () {election->start ();});
+        auto election (std::make_shared <rai::election> (node.shared (), block_a));
+		node.service.add (std::chrono::system_clock::now (), [election] () {election->start ();});
         roots.insert (std::make_pair (root, election));
         if (request_a)
         {
@@ -4642,14 +4642,14 @@ void rai::conflicts::stop (rai::block_hash const & root_a)
     roots.erase (root_a);
 }
 
-rai::conflicts::conflicts (rai::client & client_a) :
-client (client_a)
+rai::conflicts::conflicts (rai::node & node_a) :
+node (node_a)
 {
 }
 
 void rai::processor::process_message (rai::message & message_a, rai::endpoint const & sender_a)
 {
-	network_message_visitor visitor (client, sender_a);
+	network_message_visitor visitor (node, sender_a);
 	message_a.visit (visitor);
 }
 
@@ -4658,14 +4658,14 @@ namespace
 class confirmed_visitor : public rai::block_visitor
 {
 public:
-    confirmed_visitor (rai::client & client_a) :
-    client (client_a)
+    confirmed_visitor (rai::node & node_a) :
+    node (node_a)
     {
     }
     void send_block (rai::send_block const & block_a) override
     {
         rai::private_key prv;
-        for (auto i (client.wallets.items.begin ()), n (client.wallets.items.end ()); i != n; ++i)
+        for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
         {
             if (!i->second->store.fetch (block_a.hashables.destination, prv))
             {
@@ -4674,7 +4674,7 @@ public:
             }
             else
             {
-                BOOST_LOG (client.log) << "While confirming, unable to fetch wallet key";
+                BOOST_LOG (node.log) << "While confirming, unable to fetch wallet key";
             }
         }
     }
@@ -4687,17 +4687,17 @@ public:
     void change_block (rai::change_block const &) override
     {
     }
-    rai::client & client;
+    rai::node & node;
 };
 }
 
 void rai::processor::process_confirmed (rai::block const & confirmed_a)
 {
-    confirmed_visitor visitor (client);
+    confirmed_visitor visitor (node);
     confirmed_a.visit (visitor);
 }
 
-bool rai::client::representative_vote (rai::election & election_a, rai::block const & block_a)
+bool rai::node::representative_vote (rai::election & election_a, rai::block const & block_a)
 {
     bool result (false);
     for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)

@@ -86,11 +86,11 @@ struct hash <rai::endpoint>
 
 namespace rai
 {
-class client;
+class node;
 class election : public std::enable_shared_from_this <rai::election>
 {
 public:
-    election (std::shared_ptr <rai::client>, rai::block const &);
+    election (std::shared_ptr <rai::node>, rai::block const &);
     void start ();
     void vote (rai::vote const &);
     void announce_vote ();
@@ -99,7 +99,7 @@ public:
     rai::uint128_t uncontested_threshold (rai::ledger &);
     rai::uint128_t contested_threshold (rai::ledger &);
     rai::votes votes;
-    std::weak_ptr <rai::client> client;
+    std::weak_ptr <rai::node> node;
     std::chrono::system_clock::time_point last_vote;
 	std::unique_ptr <rai::block> last_winner;
     bool confirmed;
@@ -107,13 +107,13 @@ public:
 class conflicts
 {
 public:
-    conflicts (rai::client &);
+    conflicts (rai::node &);
     void start (rai::block const &, bool);
     bool no_conflict (rai::block_hash const &);
     void update (rai::vote const &);
     void stop (rai::block_hash const &);
     std::unordered_map <rai::block_hash, std::shared_ptr <rai::election>> roots;
-    rai::client & client;
+    rai::node & node;
     std::mutex mutex;
 };
 enum class message_type : uint8_t
@@ -313,25 +313,25 @@ public:
 class wallet
 {
 public:
-    wallet (bool &, rai::client &, boost::filesystem::path const &);
-    wallet (bool &, rai::client &, boost::filesystem::path const &, std::string const &);
+    wallet (bool &, rai::node &, boost::filesystem::path const &);
+    wallet (bool &, rai::node &, boost::filesystem::path const &, std::string const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
     bool send (rai::account const &, rai::uint128_t const &);
     bool import (std::string const &, std::string const &);
     std::mutex mutex;
     rai::wallet_store store;
-    rai::client & client;
+    rai::node & node;
 };
 class wallets
 {
 public:
-    wallets (rai::client &, boost::filesystem::path const &);
+    wallets (rai::node &, boost::filesystem::path const &);
     std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
     std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
     void destroy (rai::uint256_union const &);
     std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
     boost::filesystem::path const path;
-    rai::client & client;
+    rai::node & node;
 };
 class operation
 {
@@ -368,7 +368,7 @@ public:
 class gap_cache
 {
 public:
-    gap_cache (rai::client &);
+    gap_cache (rai::node &);
     void add (rai::block const &, rai::block_hash);
     std::unique_ptr <rai::block> get (rai::block_hash const &);
     void vote (rai::vote const &);
@@ -385,12 +385,12 @@ public:
     > blocks;
     size_t const max = 128;
     std::mutex mutex;
-    rai::client & client;
+    rai::node & node;
 };
 class processor
 {
 public:
-    processor (rai::client &);
+    processor (rai::node &);
     void stop ();
     void contacted (rai::endpoint const &);
     void find_network (std::vector <std::pair <std::string, std::string>> const &);
@@ -403,7 +403,7 @@ public:
     void process_confirmed (rai::block const &);
     void search_pending ();
     void ongoing_keepalive ();
-    rai::client & client;
+    rai::node & node;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
     std::mutex mutex;
@@ -443,12 +443,12 @@ public:
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr <rai::client>, std::function <void ()> const & = [] () {});
+	bootstrap_client (std::shared_ptr <rai::node>, std::function <void ()> const & = [] () {});
     ~bootstrap_client ();
     void run (rai::tcp_endpoint const &);
     void connect_action (boost::system::error_code const &);
     void sent_request (boost::system::error_code const &, size_t);
-    std::shared_ptr <rai::client> client;
+    std::shared_ptr <rai::node> node;
     boost::asio::ip::tcp::socket socket;
 	std::function <void ()> completion_action;
 };
@@ -557,7 +557,7 @@ public:
 class network
 {
 public:
-    network (boost::asio::io_service &, uint16_t, rai::client &);
+    network (boost::asio::io_service &, uint16_t, rai::node &);
     void receive ();
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
@@ -578,7 +578,7 @@ public:
     std::mutex socket_mutex;
     boost::asio::io_service & service;
     boost::asio::ip::udp::resolver resolver;
-    rai::client & client;
+    rai::node & node;
     uint64_t bad_sender_count;
     std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
     bool on;
@@ -594,20 +594,20 @@ public:
 class bootstrap_initiator
 {
 public:
-	bootstrap_initiator (rai::client &);
+	bootstrap_initiator (rai::node &);
 	void warmup (rai::endpoint const &);
 	void bootstrap (rai::endpoint const &);
     void bootstrap_any ();
 	void initiate (rai::endpoint const &);
 	std::mutex mutex;
-	rai::client & client;
+	rai::node & node;
 	bool in_progress;
 	bool warmed_up;
 };
 class bootstrap_listener
 {
 public:
-    bootstrap_listener (boost::asio::io_service &, uint16_t, rai::client &);
+    bootstrap_listener (boost::asio::io_service &, uint16_t, rai::node &);
     void start ();
     void stop ();
     void accept_connection ();
@@ -616,13 +616,13 @@ public:
     boost::asio::ip::tcp::acceptor acceptor;
     rai::tcp_endpoint local;
     boost::asio::io_service & service;
-    rai::client & client;
+    rai::node & node;
     bool on;
 };
 class bootstrap_server : public std::enable_shared_from_this <rai::bootstrap_server>
 {
 public:
-    bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <rai::client>);
+    bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <rai::node>);
     ~bootstrap_server ();
     void receive ();
     void receive_header_action (boost::system::error_code const &, size_t);
@@ -634,7 +634,7 @@ public:
     void run_next ();
     std::array <uint8_t, 128> receive_buffer;
     std::shared_ptr <boost::asio::ip::tcp::socket> socket;
-    std::shared_ptr <rai::client> client;
+    std::shared_ptr <rai::node> node;
     std::mutex mutex;
     std::queue <std::unique_ptr <rai::message>> requests;
 };
@@ -684,35 +684,35 @@ public:
 class rpc
 {
 public:
-    rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, boost::asio::ip::address_v6 const &, uint16_t, rai::client &, bool);
+    rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, boost::asio::ip::address_v6 const &, uint16_t, rai::node &, bool);
     void start ();
     void stop ();
     boost::network::http::server <rai::rpc> server;
     void operator () (boost::network::http::server <rai::rpc>::request const &, boost::network::http::server <rai::rpc>::response &);
     void log (const char *) {}
-    rai::client & client;
+    rai::node & node;
     bool on;
     bool enable_control;
 };
-class client_init
+class node_init
 {
 public:
-    client_init ();
+    node_init ();
     bool error ();
     leveldb::Status block_store_init;
     bool wallet_init;
     bool ledger_init;
 };
-class client : public std::enable_shared_from_this <rai::client>
+class node : public std::enable_shared_from_this <rai::node>
 {
 public:
-    client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &);
-    client (rai::client_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &);
-    ~client ();
+    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &);
+    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &);
+    ~node ();
     void send_keepalive (rai::endpoint const &);
     void start ();
     void stop ();
-    std::shared_ptr <rai::client> shared ();
+    std::shared_ptr <rai::node> shared ();
     bool representative_vote (rai::election &, rai::block const &);
     void work_create (rai::block &);
     void vote (rai::vote const &);
@@ -740,17 +740,17 @@ class system
 public:
     system (uint16_t, size_t);
     ~system ();
-    void generate_activity (rai::client &);
-    void generate_mass_activity (uint32_t, rai::client &);
+    void generate_activity (rai::node &);
+    void generate_mass_activity (uint32_t, rai::node &);
     void generate_usage_traffic (uint32_t, uint32_t, size_t);
     void generate_usage_traffic (uint32_t, uint32_t);
-    rai::uint128_t get_random_amount (rai::client &);
-    void generate_send_new (rai::client &);
-    void generate_send_existing (rai::client &);
+    rai::uint128_t get_random_amount (rai::node &);
+    void generate_send_new (rai::node &);
+    void generate_send_existing (rai::node &);
     std::shared_ptr <rai::wallet> wallet (size_t);
     boost::shared_ptr <boost::asio::io_service> service;
     rai::processor_service processor;
-    std::vector <std::shared_ptr <rai::client>> clients;
+    std::vector <std::shared_ptr <rai::node>> nodes;
 };
 extern std::chrono::milliseconds const confirm_wait;
 }

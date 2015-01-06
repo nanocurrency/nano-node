@@ -4,7 +4,7 @@
 TEST (conflicts, start_stop)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -31,7 +31,7 @@ TEST (conflicts, start_stop)
 TEST (conflicts, add_existing)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -67,7 +67,7 @@ TEST (conflicts, add_existing)
 TEST (conflicts, add_two)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;

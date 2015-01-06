@@ -1,4 +1,4 @@
-#include <rai/core/core.hpp>
+#include <rai/node.hpp>
 #include <rai/cli/daemon.hpp>
 
 #include <boost/program_options.hpp>
@@ -129,7 +129,7 @@ int main (int argc, char * const * argv)
         rai::system system (24000, 1);
         system.wallet (0)->store.insert (rai::test_genesis_key.prv);
         size_t count (10000);
-        system.generate_mass_activity (count, *system.clients [0]);
+        system.generate_mass_activity (count, *system.nodes [0]);
     }
     else if (vm.count ("generate_key"))
     {

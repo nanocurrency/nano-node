@@ -76,7 +76,7 @@ TEST (ledger, checksum_persistence)
 TEST (system, system_genesis)
 {
     rai::system system (24000, 2);
-    for (auto & i: system.clients)
+    for (auto & i: system.nodes)
     {
         ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), i->ledger.account_balance (rai::genesis_account));
     }
@@ -578,13 +578,13 @@ TEST (system, generate_send_existing)
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::frontier frontier1;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
-    system.generate_send_existing (*system.clients [0]);
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
+    system.generate_send_existing (*system.nodes [0]);
     rai::frontier frontier2;
-    ASSERT_FALSE (system.clients [0]->store.latest_get (rai::test_genesis_key.pub, frontier2));
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     ASSERT_NE (frontier1.hash, frontier2.hash);
     auto iterations1 (0);
-    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) == std::numeric_limits <rai::uint128_t>::max ())
+    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) == std::numeric_limits <rai::uint128_t>::max ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -592,7 +592,7 @@ TEST (system, generate_send_existing)
         ASSERT_LT (iterations1, 20);
     }
     auto iterations2 (0);
-    while (system.clients [0]->ledger.account_balance (rai::test_genesis_key.pub) != std::numeric_limits <rai::uint128_t>::max ())
+    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) != std::numeric_limits <rai::uint128_t>::max ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -605,10 +605,10 @@ TEST (system, generate_send_new)
 {
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    auto iterator1 (system.clients [0]->store.latest_begin ());
+    auto iterator1 (system.nodes [0]->store.latest_begin ());
     ++iterator1;
-    ASSERT_EQ (system.clients [0]->store.latest_end (), iterator1);
-    system.generate_send_new (*system.clients [0]);
+    ASSERT_EQ (system.nodes [0]->store.latest_end (), iterator1);
+    system.generate_send_new (*system.nodes [0]);
     rai::account new_account;
     auto iterator2 (system.wallet (0)->store.begin ());
     if (iterator2->first != rai::test_genesis_key.pub)
@@ -624,7 +624,7 @@ TEST (system, generate_send_new)
     ++iterator2;
     ASSERT_EQ (system.wallet (0)->store.end (), iterator2);
     auto iterations (0);
-    while (system.clients [0]->ledger.account_balance (new_account) == 0)
+    while (system.nodes [0]->ledger.account_balance (new_account) == 0)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -795,7 +795,7 @@ TEST (ledegr, double_receive)
 TEST (votes, add_unsigned)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -819,7 +819,7 @@ TEST (votes, add_unsigned)
 TEST (votes, add_one)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -849,7 +849,7 @@ TEST (votes, add_one)
 TEST (votes, add_two)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -890,7 +890,7 @@ TEST (votes, add_two)
 TEST (votes, add_existing)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -929,7 +929,7 @@ TEST (votes, add_existing)
 TEST (votes, add_old)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.clients [0]);
+    auto & client1 (*system.nodes [0]);
 	rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -975,17 +975,17 @@ TEST (ledger, successor)
 	send1.hashables.balance.clear ();
 	send1.hashables.destination = key1.pub;
 	rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
-	ASSERT_EQ (rai::process_result::progress, system.clients [0]->ledger.process (send1));
-	ASSERT_EQ (send1, *system.clients [0]->ledger.successor (genesis.hash ()));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (send1));
+	ASSERT_EQ (send1, *system.nodes [0]->ledger.successor (genesis.hash ()));
 }
 
 TEST (fork, publish)
 {
-    std::weak_ptr <rai::client> client0;
+    std::weak_ptr <rai::node> client0;
     {
         rai::system system (24000, 1);
-        client0 = system.clients [0];
-        auto & client1 (*system.clients [0]);
+        client0 = system.nodes [0];
+        auto & client1 (*system.nodes [0]);
         system.wallet (0)->store.insert (rai::test_genesis_key.prv);
         rai::keypair key1;
 		rai::genesis genesis;
@@ -1032,8 +1032,8 @@ TEST (fork, publish)
 TEST (ledger, fork_keep)
 {
     rai::system system (24000, 2);
-    auto & client1 (*system.clients [0]);
-    auto & client2 (*system.clients [1]);
+    auto & client1 (*system.nodes [0]);
+    auto & client2 (*system.nodes [1]);
 	ASSERT_EQ (1, client1.peers.size ());
 	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
@@ -1068,8 +1068,8 @@ TEST (ledger, fork_keep)
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [1]->store.block_exists (publish1.block->hash ()));
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
@@ -1081,15 +1081,15 @@ TEST (ledger, fork_keep)
     auto winner (client1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
-	ASSERT_TRUE (system.clients [0]->store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (system.clients [1]->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [1]->store.block_exists (publish1.block->hash ()));
 }
 
 TEST (ledger, fork_flip)
 {
     rai::system system (24000, 2);
-    auto & client1 (*system.clients [0]);
-    auto & client2 (*system.clients [1]);
+    auto & client1 (*system.nodes [0]);
+    auto & client2 (*system.nodes [1]);
     ASSERT_EQ (1, client1.peers.size ());
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
@@ -1145,8 +1145,8 @@ TEST (ledger, fork_flip)
 TEST (ledger, fork_multi_flip)
 {
     rai::system system (24000, 2);
-    auto & client1 (*system.clients [0]);
-    auto & client2 (*system.clients [1]);
+    auto & client1 (*system.nodes [0]);
+    auto & client2 (*system.nodes [1]);
 	ASSERT_EQ (1, client1.peers.size ());
 	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;

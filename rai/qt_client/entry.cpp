@@ -95,8 +95,8 @@ int main (int argc, char * const * argv)
         QApplication application (argc, const_cast <char **> (argv));
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
-        rai::client_init init;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor));
+        rai::node_init init;
+        auto client (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
         QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
         {
             client->stop ();

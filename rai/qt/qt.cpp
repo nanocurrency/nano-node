@@ -6,8 +6,8 @@
 
 #include <sstream>
 
-rai_qt::client::client (QApplication & application_a, rai::client & client_a, rai::uint256_union const & wallet_a) :
-client_m (client_a),
+rai_qt::client::client (QApplication & application_a, rai::node & node_a, rai::uint256_union const & wallet_a) :
+node (node_a),
 password_change (*this),
 enter_password (*this),
 advanced (*this),
@@ -34,10 +34,10 @@ send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back"))
 {
-    wallet = client_m.wallets.open (wallet_a);
+    wallet = node.wallets.open (wallet_a);
     if (wallet == nullptr)
     {
-        wallet = client_m.wallets.create (wallet_a);
+        wallet = node.wallets.create (wallet_a);
     }
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
@@ -157,21 +157,21 @@ send_blocks_back (new QPushButton ("Back"))
         wallet->store.insert (key.prv);
         refresh_wallet ();
     });
-    client_m.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
+    node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
     {
         if (wallet->store.exists (account_a))
         {
             refresh_wallet ();
         }
     });
-    client_m.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
+    node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
     {
         if (wallet->store.exists (account_a))
         {
             refresh_wallet ();
         }
     });
-    client_m.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
+    node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
     {
         if (wallet->store.exists (account_a))
         {
@@ -190,7 +190,7 @@ void rai_qt::client::refresh_wallet ()
 		QList <QStandardItem *> items;
         std::string account;
         rai::public_key key (i->first);
-        auto account_balance (client_m.ledger.account_balance (key));
+        auto account_balance (node.ledger.account_balance (key));
 		balance += account_balance;
         auto balance (std::to_string (rai::scale_down (account_balance)));
 		items.push_back (new QStandardItem (balance.c_str ()));
@@ -457,7 +457,7 @@ client (client_a)
     });
     QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
     {
-        client.client_m.processor.search_pending ();
+        client.node.processor.search_pending ();
     });
     QObject::connect (create_block, &QPushButton::released, [this] ()
     {
@@ -473,7 +473,7 @@ client (client_a)
 void rai_qt::advanced_actions::refresh_peers ()
 {
     QStringList peers;
-    for (auto i: client.client_m.peers.list ())
+    for (auto i: client.node.peers.list ())
     {
         std::stringstream endpoint;
         endpoint << i.endpoint.address ().to_string ();
@@ -492,13 +492,13 @@ void rai_qt::advanced_actions::refresh_peers ()
 void rai_qt::advanced_actions::refresh_ledger ()
 {
     ledger_model->removeRows (0, ledger_model->rowCount ());
-    for (auto i (client.client_m.ledger.store.latest_begin()), j (client.client_m.ledger.store.latest_end ()); i != j; ++i)
+    for (auto i (client.node.ledger.store.latest_begin()), j (client.node.ledger.store.latest_end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
         std::string account;
         i->first.encode_base58check (account);
         items.push_back (new QStandardItem (QString (account.c_str ())));
-        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (client.client_m.ledger.balance (i->second.hash))).c_str ())));
+        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (client.node.ledger.balance (i->second.hash))).c_str ())));
         std::string block_hash;
         i->second.hash.encode_hex (block_hash);
         items.push_back (new QStandardItem (QString (block_hash.c_str ())));
@@ -531,7 +531,7 @@ client (client_a)
             auto block_l (rai::deserialize_block_json (tree));
             if (block_l != nullptr)
             {
-                client.client_m.processor.process_receive_republish (std::move (block_l));
+                client.node.processor.process_receive_republish (std::move (block_l));
             }
             else
             {
@@ -729,11 +729,11 @@ void rai_qt::block_creation::create_send ()
                 rai::private_key key;
                 if (!client.wallet->store.fetch (account_l, key))
                 {
-                    auto balance (client.client_m.ledger.account_balance (account_l));
+                    auto balance (client.node.ledger.account_balance (account_l));
                     if (amount_l.number () <= balance)
                     {
                         rai::frontier frontier;
-                        auto error (client.client_m.store.latest_get (account_l, frontier));
+                        auto error (client.node.store.latest_get (account_l, frontier));
                         assert (!error);
                         rai::send_block send;
                         send.hashables.destination = destination_l;
@@ -741,7 +741,7 @@ void rai_qt::block_creation::create_send ()
                         send.hashables.balance = rai::amount (balance - amount_l.number ());
                         rai::sign_message (key, account_l, send.hash (), send.signature);
                         key.clear ();
-                        client.client_m.work_create (send);
+                        client.node.work_create (send);
                         std::string block_l;
                         send.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
@@ -786,10 +786,10 @@ void rai_qt::block_creation::create_receive ()
     if (!error)
     {
         rai::receivable receivable;
-        if (!client.client_m.store.pending_get (source_l, receivable))
+        if (!client.node.store.pending_get (source_l, receivable))
         {
             rai::frontier frontier;
-            auto error (client.client_m.store.latest_get (receivable.destination, frontier));
+            auto error (client.node.store.latest_get (receivable.destination, frontier));
             if (!error)
             {
                 rai::private_key key;
@@ -801,7 +801,7 @@ void rai_qt::block_creation::create_receive ()
                     receive.hashables.source = source_l;
                     rai::sign_message (key, receivable.destination, receive.hash (), receive.signature);
                     key.clear ();
-                    client.client_m.work_create (receive);
+                    client.node.work_create (receive);
                     std::string block_l;
                     receive.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -844,7 +844,7 @@ void rai_qt::block_creation::create_change ()
         if (!error)
         {
             rai::frontier frontier;
-            auto error (client.client_m.store.latest_get (account_l, frontier));
+            auto error (client.node.store.latest_get (account_l, frontier));
             if (!error)
             {
                 rai::private_key key;
@@ -853,7 +853,7 @@ void rai_qt::block_creation::create_change ()
                 {
                     rai::change_block change (representative_l, frontier.hash, key, account_l);
                     key.clear ();
-                    client.client_m.work_create (change);
+                    client.node.work_create (change);
                     std::string block_l;
                     change.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -896,10 +896,10 @@ void rai_qt::block_creation::create_open ()
         if (!error)
         {
             rai::receivable receivable;
-            if (!client.client_m.store.pending_get (source_l, receivable))
+            if (!client.node.store.pending_get (source_l, receivable))
             {
                 rai::frontier frontier;
-                auto error (client.client_m.store.latest_get (receivable.destination, frontier));
+                auto error (client.node.store.latest_get (receivable.destination, frontier));
                 if (error)
                 {
                     rai::private_key key;
@@ -911,7 +911,7 @@ void rai_qt::block_creation::create_open ()
                         open.hashables.representative = representative_l;
                         rai::sign_message (key, receivable.destination, open.hash (), open.signature);
                         key.clear ();
-                        client.client_m.work_create (open);
+                        client.node.work_create (open);
                         std::string block_l;
                         open.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));

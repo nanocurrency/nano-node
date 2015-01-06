@@ -12,7 +12,7 @@ TEST (client, construction)
     rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::client client (application, *system.clients [0], rai::uint256_union ());
+    rai_qt::client client (application, *system.nodes [0], rai::uint256_union ());
 }
 
 TEST (client, main)
@@ -20,7 +20,7 @@ TEST (client, main)
     rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::client client (application, *system.clients [0], rai::uint256_union ());
+    rai_qt::client client (application, *system.nodes [0], rai::uint256_union ());
     ASSERT_EQ (client.entry_window, client.main_stack->currentWidget ());
     QTest::mouseClick (client.send_blocks, Qt::LeftButton);
     ASSERT_EQ (client.send_blocks_window, client.main_stack->currentWidget ());
@@ -48,7 +48,7 @@ TEST (client, password_change)
     rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::client client (application, *system.clients [0], system.clients [0]->wallets.items.begin ()->first);
+    rai_qt::client client (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);
     QTest::mouseClick (client.advanced.change_password, Qt::LeftButton);
     ASSERT_NE (system.wallet (0)->store.derive_key ("1"), system.wallet (0)->store.password.value ());
@@ -65,7 +65,7 @@ TEST (client, password_nochange)
     rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::client client (application, *system.clients [0], system.clients [0]->wallets.items.begin ()->first);
+    rai_qt::client client (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);
     QTest::mouseClick (client.advanced.change_password, Qt::LeftButton);
     ASSERT_EQ (system.wallet (0)->store.derive_key (""), system.wallet (0)->store.password.value ());
@@ -82,7 +82,7 @@ TEST (client, enter_password)
     rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::client client (application, *system.clients [0], system.clients [0]->wallets.items.begin ()->first);
+    rai_qt::client client (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.valid));
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.password));
     ASSERT_NE (-1, client.enter_password.layout->indexOf (client.enter_password.unlock));
@@ -111,17 +111,17 @@ TEST (client, send)
     system.wallet (1)->store.insert (key1.prv);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::client client (application, *system.clients [0], system.clients [0]->wallets.items.begin ()->first);
+    rai_qt::client client (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
     QTest::mouseClick (client.send_blocks, Qt::LeftButton);
     QTest::keyClicks (client.send_account, account.c_str ());
     QTest::keyClicks (client.send_count, "2");
     QTest::mouseClick (client.send_blocks_send, Qt::LeftButton);
-    while (client.client_m.ledger.account_balance (key1.pub).is_zero ())
+    while (client.node.ledger.account_balance (key1.pub).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
     }
-    ASSERT_EQ (rai::scale_up (2), client.client_m.ledger.account_balance (key1.pub));
+    ASSERT_EQ (rai::scale_up (2), client.node.ledger.account_balance (key1.pub));
 	QTest::mouseClick (client.send_blocks_back, Qt::LeftButton);
     QTest::mouseClick (client.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (client.advanced.show_ledger, Qt::LeftButton);
@@ -138,7 +138,7 @@ TEST (client, process_block)
     rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::client client (application, *system.clients [0], system.clients [0]->wallets.items.begin ()->first);
+    rai_qt::client client (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
     ASSERT_EQ ("Process", client.block_entry.process->text ());
     ASSERT_EQ ("Back", client.block_entry.back->text ());
     rai::keypair key1;
@@ -148,9 +148,9 @@ TEST (client, process_block)
     ASSERT_EQ (client.block_entry.window, client.main_stack->currentWidget ());
     rai::send_block send;
     send.hashables.destination = key1.pub;
-    send.hashables.previous = system.clients [0]->ledger.latest (rai::genesis_account);
+    send.hashables.previous = system.nodes [0]->ledger.latest (rai::genesis_account);
     send.hashables.balance = 0;
-    system.clients [0]->work_create (send);
+    system.nodes [0]->work_create (send);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
     std::string destination;
     send.hashables.destination.encode_base58check (destination);
@@ -163,7 +163,7 @@ TEST (client, process_block)
     auto block_json (boost::str (boost::format ("{\"type\": \"send\", \"previous\": \"%1%\", \"balance\": \"%2%\", \"destination\": \"%3%\", \"work\": \"%4%\", \"signature\": \"%5%\"}") % previous % balance % destination % rai::to_string_hex (send.work) % signature));
     QTest::keyClicks (client.block_entry.block, block_json.c_str ());
     QTest::mouseClick (client.block_entry.process, Qt::LeftButton);
-    ASSERT_EQ (send.hash (), system.clients [0]->ledger.latest (rai::genesis_account));
+    ASSERT_EQ (send.hash (), system.nodes [0]->ledger.latest (rai::genesis_account));
     QTest::mouseClick(client.block_entry.back, Qt::LeftButton);
     ASSERT_EQ (client.advanced.window, client.main_stack->currentWidget ());
 }
@@ -176,7 +176,7 @@ TEST (client, create_send)
 	system.wallet (0)->store.insert (key.prv);
 	int argc (0);
 	QApplication application (argc, nullptr);
-	rai_qt::client client (application, *system.clients [0], system.clients [0]->wallets.items.begin ()->first);
+	rai_qt::client client (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
 	QTest::mouseClick (client.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (client.advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (client.block_creation.send, Qt::LeftButton);
@@ -195,6 +195,6 @@ TEST (client, create_send)
 	std::stringstream istream (json);
 	boost::property_tree::read_json (istream, tree1);
 	ASSERT_FALSE (send.deserialize_json (tree1));
-	ASSERT_EQ (rai::process_result::progress, system.clients [0]->ledger.process (send));
-	ASSERT_EQ (rai::process_result::old, system.clients [0]->ledger.process (send));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (send));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (send));
 }

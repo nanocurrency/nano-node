@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/core/core.hpp>
+#include <rai/node.hpp>
 
 #include <boost/thread.hpp>
 
@@ -129,9 +129,9 @@ namespace rai_qt {
     class client
     {
     public:
-        client (QApplication &, rai::client &, rai::uint256_union const &);
+        client (QApplication &, rai::node &, rai::uint256_union const &);
         ~client ();
-        rai::client & client_m;
+        rai::node & node;
         rai_qt::password_change password_change;
         rai_qt::enter_password enter_password;
         rai_qt::advanced_actions advanced;

@@ -4,7 +4,7 @@
 TEST (gap_cache, add_new)
 {
     rai::system system (24000, 1);
-    rai::gap_cache cache (*system.clients [0]);
+    rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1;
     cache.add (rai::send_block (block1), block1.previous ());
     ASSERT_NE (cache.blocks.end (), cache.blocks.find (block1.previous ()));
@@ -13,7 +13,7 @@ TEST (gap_cache, add_new)
 TEST (gap_cache, add_existing)
 {
     rai::system system (24000, 1);
-    rai::gap_cache cache (*system.clients [0]);
+    rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1;
     auto previous (block1.previous ());
     cache.add (block1, previous);
@@ -31,7 +31,7 @@ TEST (gap_cache, add_existing)
 TEST (gap_cache, comparison)
 {
     rai::system system (24000, 1);
-    rai::gap_cache cache (*system.clients [0]);
+    rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1;
     block1.hashables.previous.clear ();
     auto previous1 (block1.previous ());
@@ -54,7 +54,7 @@ TEST (gap_cache, comparison)
 TEST (gap_cache, limit)
 {
     rai::system system (24000, 1);
-    rai::gap_cache cache (*system.clients [0]);
+    rai::gap_cache cache (*system.nodes [0]);
     for (auto i (0); i < cache.max * 2; ++i)
     {
         rai::send_block block1;
@@ -69,7 +69,7 @@ TEST (gap_cache, gap_bootstrap)
 {
     rai::system system (24000, 2);
     auto iterations1 (0);
-    while (system.clients [0]->bootstrap_initiator.in_progress || system.clients [1]->bootstrap_initiator.in_progress)
+    while (system.nodes [0]->bootstrap_initiator.in_progress || system.nodes [1]->bootstrap_initiator.in_progress)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -80,19 +80,19 @@ TEST (gap_cache, gap_bootstrap)
     rai::send_block send;
     send.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 100;
     send.hashables.destination = key.pub;
-    send.hashables.previous = system.clients [0]->ledger.latest (rai::test_genesis_key.pub);
-    system.clients [0]->work_create (send);
+    send.hashables.previous = system.nodes [0]->ledger.latest (rai::test_genesis_key.pub);
+    system.nodes [0]->work_create (send);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
-    ASSERT_EQ (rai::process_result::progress, system.clients [0]->processor.process_receive (send));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 100, system.clients [0]->ledger.account_balance (rai::genesis_account));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.clients [1]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->processor.process_receive (send));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 100, system.nodes [0]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.nodes [1]->ledger.account_balance (rai::genesis_account));
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     system.wallet (0)->store.insert (key.prv);
     system.wallet (0)->send (key.pub, 100);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, system.clients [0]->ledger.account_balance (rai::genesis_account));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.clients [1]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, system.nodes [0]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.nodes [1]->ledger.account_balance (rai::genesis_account));
     auto iterations2 (0);
-    while (system.clients [1]->ledger.account_balance (rai::genesis_account) != std::numeric_limits <rai::uint128_t>::max () - 200)
+    while (system.nodes [1]->ledger.account_balance (rai::genesis_account) != std::numeric_limits <rai::uint128_t>::max () - 200)
     {
         system.service->poll_one ();
         system.processor.poll_one ();

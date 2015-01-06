@@ -132,7 +132,7 @@ namespace landing
             config_a.serialize (config_file);
         }
     }
-    void distribute (rai::client & client_a, std::shared_ptr <rai::wallet> wallet_a, rai::landing::config & config_a, boost::filesystem::path working_path_a)
+    void distribute (rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::landing::config & config_a, boost::filesystem::path working_path_a)
     {
         auto now (rai::landing::minutes_since_epoch ());
         auto error (false);
@@ -152,7 +152,7 @@ namespace landing
             }
         }
         std::cout << "Waiting for next distribution cycle\n";
-        client_a.service.add (std::chrono::system_clock::now () + std::chrono::minutes (1), [&client_a, &config_a, working_path_a, wallet_a] () {rai::landing::distribute (client_a, wallet_a, config_a, working_path_a);});
+        node_a.service.add (std::chrono::system_clock::now () + std::chrono::minutes (1), [&node_a, &config_a, working_path_a, wallet_a] () {rai::landing::distribute (node_a, wallet_a, config_a, working_path_a);});
     }
     rai::landing::config read_config (bool & config_error, boost::filesystem::path working_path_a)
     {
@@ -181,10 +181,10 @@ int main (int argc, char * const * argv)
     rai::landing::config config (rai::landing::read_config (config_error, working));
     if (!config_error)
     {
-        rai::client_init init;
+        rai::node_init init;
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
-        auto client (std::make_shared <rai::client> (init, service, config.peering_port, working, processor));
+        auto client (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
         if (!init.error ())
         {
             client->bootstrap_peers = config.bootstrap_peers;
