@@ -36,18 +36,15 @@ add_library (ed25519
     ed25519-donna/ed25519-hash-custom.h
     ed25519-donna/ed25519-randombytes-custom.h
     ed25519-donna/ed25519.h
-    ed25519-donna/ed25519.c
-    )
+    ed25519-donna/ed25519.c)
 
 add_library (secure
 	rai/secure.hpp
-	rai/secure.cpp
-	)
+	rai/secure.cpp)
 
 add_library (node
 	rai/node.hpp
-	rai/node.cpp
-    )
+	rai/node.cpp)
 
 add_executable (core_test
 	rai/core_test/block.cpp
@@ -67,8 +64,7 @@ add_executable (core_test
     rai/core_test/network.cpp
     rai/core_test/uint256_union.cpp
     rai/core_test/wallet.cpp
-    rai/core_test/wallets.cpp
-    )
+    rai/core_test/wallets.cpp)
 
 add_executable (slow_test
     rai/slow_test/node.cpp)
@@ -95,7 +91,7 @@ add_executable (qt_system
 rai/qt_system/entry.cpp)
 
 set (CPACK_PACKAGE_VERSION_MAJOR "3")
-set (CPACK_PACKAGE_VERSION_MINOR "1")
+set (CPACK_PACKAGE_VERSION_MINOR "2")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
