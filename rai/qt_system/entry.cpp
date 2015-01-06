@@ -8,13 +8,13 @@ int main (int argc, char ** argv)
     static int count (16);
     rai::system system (24000, count);
     std::unique_ptr <QTabWidget> client_tabs (new QTabWidget);
-    std::vector <std::unique_ptr <rai_qt::client>> guis;
+    std::vector <std::unique_ptr <rai_qt::wallet>> guis;
     for (auto i (0); i < count; ++i)
     {
         rai::uint256_union wallet;
         rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
-        guis.push_back (std::unique_ptr <rai_qt::client> (new rai_qt::client (application, *system.nodes [i], wallet)));
-        client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Client %1%") % i).c_str ());
+        guis.push_back (std::unique_ptr <rai_qt::wallet> (new rai_qt::wallet (application, *system.nodes [i], wallet)));
+        client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
     }
     client_tabs->show ();
     std::thread network_thread ([&system] ()

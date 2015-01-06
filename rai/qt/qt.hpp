@@ -8,11 +8,11 @@
 #include <QtWidgets>
 
 namespace rai_qt {
-    class client;
+    class wallet;
     class password_change
     {
     public:
-        password_change (rai_qt::client &);
+        password_change (rai_qt::wallet &);
         void clear ();
         QWidget * window;
         QVBoxLayout * layout;
@@ -22,12 +22,12 @@ namespace rai_qt {
         QLineEdit * retype;
         QPushButton * change;
         QPushButton * back;
-        rai_qt::client & client;
+        rai_qt::wallet & wallet;
     };
     class enter_password
     {
     public:
-        enter_password (rai_qt::client &);
+        enter_password (rai_qt::wallet &);
         void activate ();
         void update_label ();
         QWidget * window;
@@ -37,12 +37,12 @@ namespace rai_qt {
         QPushButton * unlock;
         QPushButton * lock;
         QPushButton * back;
-        rai_qt::client & client;
+        rai_qt::wallet & wallet;
     };
     class advanced_actions
     {
     public:
-        advanced_actions (rai_qt::client &);
+        advanced_actions (rai_qt::wallet &);
         QWidget * window;
         QVBoxLayout * layout;
         QPushButton * enter_password;
@@ -72,7 +72,7 @@ namespace rai_qt {
         QPushButton * peers_refresh;
         QPushButton * peers_back;
                 
-        rai_qt::client & client;
+        rai_qt::wallet & wallet;
     private:
         void refresh_ledger ();
         void refresh_peers ();
@@ -80,19 +80,19 @@ namespace rai_qt {
     class block_entry
     {
     public:
-        block_entry (rai_qt::client &);
+        block_entry (rai_qt::wallet &);
         QWidget * window;
         QVBoxLayout * layout;
         QPlainTextEdit * block;
         QLabel * status;
         QPushButton * process;
         QPushButton * back;
-        rai_qt::client & client;
+        rai_qt::wallet & wallet;
     };
     class block_creation
     {
     public:
-        block_creation (rai_qt::client &);
+        block_creation (rai_qt::wallet &);
         void deactivate_all ();
         void activate_send ();
         void activate_receive ();
@@ -124,13 +124,13 @@ namespace rai_qt {
         QLabel * status;
         QPushButton * create;
         QPushButton * back;
-        rai_qt::client & client;
+        rai_qt::wallet & wallet;
     };
-    class client
+    class wallet
     {
     public:
-        client (QApplication &, rai::node &, rai::uint256_union const &);
-        ~client ();
+        wallet (QApplication &, rai::node &, rai::uint256_union const &);
+        ~wallet ();
         rai::node & node;
         rai_qt::password_change password_change;
         rai_qt::enter_password enter_password;
@@ -165,6 +165,6 @@ namespace rai_qt {
         void pop_main_stack ();
         void push_main_stack (QWidget *);
         void refresh_wallet ();
-        std::shared_ptr <rai::wallet> wallet;
+        std::shared_ptr <rai::wallet> wallet_m;
     };
 }

@@ -5,16 +5,16 @@
 
 #include <thread>
 
-class qt_client_config
+class qt_wallet_config
 {
 public:
-    qt_client_config () :
+    qt_wallet_config () :
     peering_port (rai::network::node_port)
     {
         bootstrap_peers.push_back ("rai.raiblocks.net");
         rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
     }
-    qt_client_config (bool & error_a, std::istream & stream_a)
+    qt_wallet_config (bool & error_a, std::istream & stream_a)
     {
         error_a = false;
         boost::property_tree::ptree tree;
@@ -73,13 +73,13 @@ int main (int argc, char * const * argv)
 {
     auto working (boost::filesystem::system_complete (argv[0]).parent_path ());
     auto config_error (false);
-    qt_client_config config;
+    qt_wallet_config config;
     auto config_path ((working / "config.json").string ());
     std::ifstream config_file;
     config_file.open (config_path);
     if (!config_file.fail ())
     {
-        config = qt_client_config (config_error, config_file);
+        config = qt_wallet_config (config_error, config_file);
     }
     else
     {
@@ -105,7 +105,7 @@ int main (int argc, char * const * argv)
         {
             node->bootstrap_peers = config.bootstrap_peers;
             node->start ();
-            std::unique_ptr <rai_qt::client> gui (new rai_qt::client (application, *node, config.wallet));
+            std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, config.wallet));
             gui->client_window->show ();
             std::thread network_thread ([&service] ()
             {

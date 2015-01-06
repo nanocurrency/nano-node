@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-rai_qt::client::client (QApplication & application_a, rai::node & node_a, rai::uint256_union const & wallet_a) :
+rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, rai::uint256_union const & wallet_a) :
 node (node_a),
 password_change (*this),
 enter_password (*this),
@@ -34,10 +34,10 @@ send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back"))
 {
-    wallet = node.wallets.open (wallet_a);
-    if (wallet == nullptr)
+    wallet_m = node.wallets.open (wallet_a);
+    if (wallet_m == nullptr)
     {
-        wallet = node.wallets.create (wallet_a);
+        wallet_m = node.wallets.create (wallet_a);
     }
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
@@ -105,7 +105,7 @@ send_blocks_back (new QPushButton ("Back"))
                 auto parse_error (account.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-                    auto send_error (wallet->send (account, coins));
+                    auto send_error (wallet_m->send (account, coins));
                     if (!send_error)
                     {
                         QPalette palette;
@@ -154,26 +154,26 @@ send_blocks_back (new QPushButton ("Back"))
     QObject::connect (wallet_add_account, &QPushButton::released, [this] ()
     {
         rai::keypair key;
-        wallet->store.insert (key.prv);
+        wallet_m->store.insert (key.prv);
         refresh_wallet ();
     });
     node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
     {
-        if (wallet->store.exists (account_a))
+        if (wallet_m->store.exists (account_a))
         {
             refresh_wallet ();
         }
     });
     node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
     {
-        if (wallet->store.exists (account_a))
+        if (wallet_m->store.exists (account_a))
         {
             refresh_wallet ();
         }
     });
     node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
     {
-        if (wallet->store.exists (account_a))
+        if (wallet_m->store.exists (account_a))
         {
             refresh_wallet ();
         }
@@ -181,11 +181,11 @@ send_blocks_back (new QPushButton ("Back"))
     refresh_wallet ();
 }
 
-void rai_qt::client::refresh_wallet ()
+void rai_qt::wallet::refresh_wallet ()
 {
     rai::uint128_t balance;
 	wallet_model->removeRows (0, wallet_model->rowCount ());
-    for (auto i (wallet->store.begin ()), j (wallet->store.end ()); i != j; ++i)
+    for (auto i (wallet_m->store.begin ()), j (wallet_m->store.end ()); i != j; ++i)
     {
 		QList <QStandardItem *> items;
         std::string account;
@@ -201,17 +201,17 @@ void rai_qt::client::refresh_wallet ()
     balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (balance))).c_str ()));
 }
 
-rai_qt::client::~client ()
+rai_qt::wallet::~wallet ()
 {
 }
 
-void rai_qt::client::push_main_stack (QWidget * widget_a)
+void rai_qt::wallet::push_main_stack (QWidget * widget_a)
 {
     main_stack->addWidget (widget_a);
     main_stack->setCurrentIndex (main_stack->count () - 1);
 }
 
-void rai_qt::client::pop_main_stack ()
+void rai_qt::wallet::pop_main_stack ()
 {
     main_stack->removeWidget (main_stack->currentWidget ());
 }
@@ -224,7 +224,7 @@ void rai_qt::password_change::clear ()
     retype->clear ();
 }
 
-rai_qt::password_change::password_change (rai_qt::client & client_a) :
+rai_qt::password_change::password_change (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 password_label (new QLabel ("New password:")),
@@ -233,7 +233,7 @@ retype_label (new QLabel ("Retype password:")),
 retype (new QLineEdit),
 change (new QPushButton ("Change password")),
 back (new QPushButton ("Back")),
-client (client_a)
+wallet (wallet_a)
 {
     password->setEchoMode (QLineEdit::EchoMode::Password);
     layout->addWidget (password_label);
@@ -248,11 +248,11 @@ client (client_a)
     window->setLayout (layout);
     QObject::connect (change, &QPushButton::released, [this] ()
     {
-        if (client.wallet->store.valid_password ())
+        if (wallet.wallet_m->store.valid_password ())
         {
             if (password->text () == retype->text ())
             {
-                client.wallet->store.rekey (std::string (password->text ().toLocal8Bit ()));
+                wallet.wallet_m->store.rekey (std::string (password->text ().toLocal8Bit ()));
                 clear ();
             }
             else
@@ -265,11 +265,11 @@ client (client_a)
     QObject::connect (back, &QPushButton::released, [this] ()
     {
         clear ();
-        client.pop_main_stack ();
+        wallet.pop_main_stack ();
     });
 }
 
-rai_qt::enter_password::enter_password (rai_qt::client & client_a) :
+rai_qt::enter_password::enter_password (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 valid (new QLabel),
@@ -277,7 +277,7 @@ password (new QLineEdit),
 unlock (new QPushButton ("Unlock")),
 lock (new QPushButton ("Lock")),
 back (new QPushButton ("Back")),
-client (client_a)
+wallet (wallet_a)
 {
     password->setEchoMode (QLineEdit::EchoMode::Password);
     layout->addWidget (valid);
@@ -289,32 +289,32 @@ client (client_a)
     window->setLayout (layout);
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        assert (client.main_stack->currentWidget () == window);
-        client.pop_main_stack ();
+        assert (wallet.main_stack->currentWidget () == window);
+        wallet.pop_main_stack ();
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-        client.wallet->store.enter_password (std::string (password->text ().toLocal8Bit ()));
+        wallet.wallet_m->store.enter_password (std::string (password->text ().toLocal8Bit ()));
         update_label ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
     {
         rai::uint256_union empty;
         empty.clear ();
-        client.wallet->store.password.value_set (empty);
+        wallet.wallet_m->store.password.value_set (empty);
         update_label ();
     });
 }
 
 void rai_qt::enter_password::activate ()
 {
-    client.push_main_stack (window);
+    wallet.push_main_stack (window);
     update_label ();
 }
 
 void rai_qt::enter_password::update_label ()
 {
-    if (client.wallet->store.valid_password ())
+    if (wallet.wallet_m->store.valid_password ())
     {
         valid->setStyleSheet ("QLabel { color: black }");
         valid->setText ("Password: Valid");
@@ -327,7 +327,7 @@ void rai_qt::enter_password::update_label ()
     }
 }
 
-rai_qt::advanced_actions::advanced_actions (rai_qt::client & client_a) :
+rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 enter_password (new QPushButton ("Enter Password")),
@@ -354,7 +354,7 @@ peers_model (new QStringListModel),
 peers_view (new QListView),
 peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
-client (client_a)
+wallet (wallet_a)
 {
     ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
     ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
@@ -396,31 +396,31 @@ client (client_a)
 
     QObject::connect (enter_password, &QPushButton::released, [this] ()
     {
-        client.enter_password.activate ();
+        wallet.enter_password.activate ();
     });
     QObject::connect (change_password, &QPushButton::released, [this] ()
     {
-        client.push_main_stack (client.password_change.window);
+        wallet.push_main_stack (wallet.password_change.window);
     });
     QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
     {
-        client.refresh_wallet ();
+        wallet.refresh_wallet ();
     });
     QObject::connect (show_peers, &QPushButton::released, [this] ()
     {
-        client.push_main_stack (peers_window);
+        wallet.push_main_stack (peers_window);
     });
     QObject::connect (show_ledger, &QPushButton::released, [this] ()
     {
-        client.push_main_stack (ledger_window);
+        wallet.push_main_stack (ledger_window);
     });
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        client.pop_main_stack ();
+        wallet.pop_main_stack ();
     });
     QObject::connect (peers_back, &QPushButton::released, [this] ()
     {
-        client.pop_main_stack ();
+        wallet.pop_main_stack ();
     });
     QObject::connect (peers_refresh, &QPushButton::released, [this] ()
     {
@@ -432,7 +432,7 @@ client (client_a)
     });
     QObject::connect (ledger_back, &QPushButton::released, [this] ()
     {
-        client.pop_main_stack ();
+        wallet.pop_main_stack ();
     });
     QObject::connect (wallet_add_key_button, &QPushButton::released, [this] ()
     {
@@ -445,8 +445,8 @@ client (client_a)
           palette.setColor (QPalette::Text, Qt::black);
           wallet_key_line->setPalette (palette);
           wallet_key_line->clear ();
-          client.wallet->store.insert (key);
-          client.refresh_wallet ();
+          wallet.wallet_m->store.insert (key);
+          wallet.refresh_wallet ();
       }
       else
       {
@@ -457,15 +457,15 @@ client (client_a)
     });
     QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
     {
-        client.node.processor.search_pending ();
+        wallet.node.processor.search_pending ();
     });
     QObject::connect (create_block, &QPushButton::released, [this] ()
     {
-        client.push_main_stack (client.block_creation.window);
+        wallet.push_main_stack (wallet.block_creation.window);
     });
     QObject::connect (enter_block, &QPushButton::released, [this] ()
     {
-        client.push_main_stack (client.block_entry.window);
+        wallet.push_main_stack (wallet.block_entry.window);
     });
     refresh_ledger ();
 }
@@ -473,7 +473,7 @@ client (client_a)
 void rai_qt::advanced_actions::refresh_peers ()
 {
     QStringList peers;
-    for (auto i: client.node.peers.list ())
+    for (auto i: wallet.node.peers.list ())
     {
         std::stringstream endpoint;
         endpoint << i.endpoint.address ().to_string ();
@@ -492,13 +492,13 @@ void rai_qt::advanced_actions::refresh_peers ()
 void rai_qt::advanced_actions::refresh_ledger ()
 {
     ledger_model->removeRows (0, ledger_model->rowCount ());
-    for (auto i (client.node.ledger.store.latest_begin()), j (client.node.ledger.store.latest_end ()); i != j; ++i)
+    for (auto i (wallet.node.ledger.store.latest_begin()), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
         std::string account;
         i->first.encode_base58check (account);
         items.push_back (new QStandardItem (QString (account.c_str ())));
-        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (client.node.ledger.balance (i->second.hash))).c_str ())));
+        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (wallet.node.ledger.balance (i->second.hash))).c_str ())));
         std::string block_hash;
         i->second.hash.encode_hex (block_hash);
         items.push_back (new QStandardItem (QString (block_hash.c_str ())));
@@ -506,14 +506,14 @@ void rai_qt::advanced_actions::refresh_ledger ()
     }
 }
 
-rai_qt::block_entry::block_entry (rai_qt::client & client_a) :
+rai_qt::block_entry::block_entry (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 block (new QPlainTextEdit),
 status (new QLabel),
 process (new QPushButton ("Process")),
 back (new QPushButton ("Back")),
-client (client_a)
+wallet (wallet_a)
 {
     layout->addWidget (block);
     layout->addWidget (status);
@@ -531,7 +531,7 @@ client (client_a)
             auto block_l (rai::deserialize_block_json (tree));
             if (block_l != nullptr)
             {
-                client.node.processor.process_receive_republish (std::move (block_l));
+                wallet.node.processor.process_receive_republish (std::move (block_l));
             }
             else
             {
@@ -547,11 +547,11 @@ client (client_a)
     });
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        client.pop_main_stack ();
+        wallet.pop_main_stack ();
     });
 }
 
-rai_qt::block_creation::block_creation (rai_qt::client & client_a) :
+rai_qt::block_creation::block_creation (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 group (new QButtonGroup),
@@ -574,7 +574,7 @@ block (new QPlainTextEdit),
 status (new QLabel),
 create (new QPushButton ("Create")),
 back (new QPushButton ("Back")),
-client (client_a)
+wallet (wallet_a)
 {
     group->addButton (send);
     group->addButton (receive);
@@ -661,7 +661,7 @@ client (client_a)
     });
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        client.pop_main_stack ();
+        wallet.pop_main_stack ();
     });
     send->click ();
 }
@@ -727,13 +727,13 @@ void rai_qt::block_creation::create_send ()
             if (!error)
             {
                 rai::private_key key;
-                if (!client.wallet->store.fetch (account_l, key))
+                if (!wallet.wallet_m->store.fetch (account_l, key))
                 {
-                    auto balance (client.node.ledger.account_balance (account_l));
+                    auto balance (wallet.node.ledger.account_balance (account_l));
                     if (amount_l.number () <= balance)
                     {
                         rai::frontier frontier;
-                        auto error (client.node.store.latest_get (account_l, frontier));
+                        auto error (wallet.node.store.latest_get (account_l, frontier));
                         assert (!error);
                         rai::send_block send;
                         send.hashables.destination = destination_l;
@@ -741,7 +741,7 @@ void rai_qt::block_creation::create_send ()
                         send.hashables.balance = rai::amount (balance - amount_l.number ());
                         rai::sign_message (key, account_l, send.hash (), send.signature);
                         key.clear ();
-                        client.node.work_create (send);
+                        wallet.node.work_create (send);
                         std::string block_l;
                         send.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
@@ -786,14 +786,14 @@ void rai_qt::block_creation::create_receive ()
     if (!error)
     {
         rai::receivable receivable;
-        if (!client.node.store.pending_get (source_l, receivable))
+        if (!wallet.node.store.pending_get (source_l, receivable))
         {
             rai::frontier frontier;
-            auto error (client.node.store.latest_get (receivable.destination, frontier));
+            auto error (wallet.node.store.latest_get (receivable.destination, frontier));
             if (!error)
             {
                 rai::private_key key;
-                auto error (client.wallet->store.fetch (receivable.destination, key));
+                auto error (wallet.wallet_m->store.fetch (receivable.destination, key));
                 if (!error)
                 {
                     rai::receive_block receive;
@@ -801,7 +801,7 @@ void rai_qt::block_creation::create_receive ()
                     receive.hashables.source = source_l;
                     rai::sign_message (key, receivable.destination, receive.hash (), receive.signature);
                     key.clear ();
-                    client.node.work_create (receive);
+                    wallet.node.work_create (receive);
                     std::string block_l;
                     receive.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -844,16 +844,16 @@ void rai_qt::block_creation::create_change ()
         if (!error)
         {
             rai::frontier frontier;
-            auto error (client.node.store.latest_get (account_l, frontier));
+            auto error (wallet.node.store.latest_get (account_l, frontier));
             if (!error)
             {
                 rai::private_key key;
-                auto error (client.wallet->store.fetch (account_l, key));
+                auto error (wallet.wallet_m->store.fetch (account_l, key));
                 if (!error)
                 {
                     rai::change_block change (representative_l, frontier.hash, key, account_l);
                     key.clear ();
-                    client.node.work_create (change);
+                    wallet.node.work_create (change);
                     std::string block_l;
                     change.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -896,14 +896,14 @@ void rai_qt::block_creation::create_open ()
         if (!error)
         {
             rai::receivable receivable;
-            if (!client.node.store.pending_get (source_l, receivable))
+            if (!wallet.node.store.pending_get (source_l, receivable))
             {
                 rai::frontier frontier;
-                auto error (client.node.store.latest_get (receivable.destination, frontier));
+                auto error (wallet.node.store.latest_get (receivable.destination, frontier));
                 if (error)
                 {
                     rai::private_key key;
-                    auto error (client.wallet->store.fetch (receivable.destination, key));
+                    auto error (wallet.wallet_m->store.fetch (receivable.destination, key));
                     if (!error)
                     {
                         rai::open_block open;
@@ -911,7 +911,7 @@ void rai_qt::block_creation::create_open ()
                         open.hashables.representative = representative_l;
                         rai::sign_message (key, receivable.destination, open.hash (), open.signature);
                         key.clear ();
-                        client.node.work_create (open);
+                        wallet.node.work_create (open);
                         std::string block_l;
                         open.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
