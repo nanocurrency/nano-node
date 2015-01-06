@@ -429,6 +429,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
             }
             else if (parser.insufficient_work)
             {
+                if (insufficient_work_logging ())
+                {
+                    BOOST_LOG (node.log) << "Insufficient work in message";
+                }
                 ++insufficient_work_count;
             }
         }

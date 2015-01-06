@@ -32,17 +32,17 @@ include_directories (${CPPNETLIB_INCLUDE_DIRS})
 find_package (LevelDB REQUIRED)
 include_directories (${LevelDB_INCLUDE_PATH})
 
-add_library (secure
-	rai/secure.hpp
-	rai/secure.cpp
-	)
-
 add_library (ed25519
     ed25519-donna/ed25519-hash-custom.h
     ed25519-donna/ed25519-randombytes-custom.h
     ed25519-donna/ed25519.h
     ed25519-donna/ed25519.c
     )
+
+add_library (secure
+	rai/secure.hpp
+	rai/secure.cpp
+	)
 
 add_library (node
 	rai/node.hpp
@@ -101,7 +101,7 @@ set (CPACK_PACKAGE_VERSION_PATCH "0")
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
-set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-DED25519_CUSTOMHASH -DED25519_CUSTOMRNG ")
+set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (secure node core_test slow_test qt_test cli qt qt_wallet qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
 set_target_properties (qt_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_GUI_EXE_LINK_FLAGS}")
 
