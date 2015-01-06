@@ -7,14 +7,4 @@
 	to create random scalars
 */
 
-#include <cryptopp/osrng.h>
-
-namespace rai
-{
-extern CryptoPP::AutoSeededRandomPool random_pool;
-}
-
-void ed25519_randombytes_unsafe (void * out, size_t outlen)
-{
-    rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (out), outlen);
-}
+void ed25519_randombytes_unsafe (void * out, size_t outlen);

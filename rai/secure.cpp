@@ -5,6 +5,38 @@
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
 
+extern "C"
+{
+#include <ed25519-donna/ed25519-hash-custom.h>
+void ed25519_randombytes_unsafe (void * out, size_t outlen)
+{
+    rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (out), outlen);
+}
+void ed25519_hash_init (ed25519_hash_context * ctx)
+{
+    ctx->sha = new CryptoPP::SHA3 (64);
+}
+
+void ed25519_hash_update (ed25519_hash_context * ctx, uint8_t const * in, size_t inlen)
+{
+    reinterpret_cast <CryptoPP::SHA3 *> (ctx->sha)->Update (in, inlen);
+}
+
+void ed25519_hash_final (ed25519_hash_context * ctx, uint8_t * out)
+{
+    reinterpret_cast <CryptoPP::SHA3 *> (ctx->sha)->Final (out);
+    delete reinterpret_cast <CryptoPP::SHA3 *> (ctx->sha);
+}
+
+void ed25519_hash (uint8_t * out, uint8_t const * in, size_t inlen)
+{
+    ed25519_hash_context ctx;
+    ed25519_hash_init (&ctx);
+    ed25519_hash_update (&ctx, in, inlen);
+    ed25519_hash_final (&ctx, out);
+}
+}
+
 namespace
 {
     std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
