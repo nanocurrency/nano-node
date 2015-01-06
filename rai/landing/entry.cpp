@@ -1,4 +1,4 @@
-#include <rai/core/core.hpp>
+#include <rai/node.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

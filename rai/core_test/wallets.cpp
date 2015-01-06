@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <rai/core/core.hpp>
+#include <rai/node.hpp>
 
 TEST (wallets, open_create)
 {

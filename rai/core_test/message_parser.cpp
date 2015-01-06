@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <rai/core/core.hpp>
+#include <rai/node.hpp>
 
 namespace {
 class test_visitor : public rai::message_visitor
