@@ -418,6 +418,8 @@ public:
     virtual std::unique_ptr <rai::block> retrieve (rai::block_hash const &) = 0;
     // return true if all dependencies are synchronized
     bool add_dependency (rai::block const &);
+    bool fill_dependencies ();
+    bool synchronize_one ();
     bool synchronize (rai::block_hash const &);
     std::stack <rai::block_hash> blocks;
     std::unordered_set <rai::block_hash> sent;

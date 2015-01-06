@@ -3446,29 +3446,45 @@ bool rai::block_synchronization::add_dependency (rai::block const & block_a)
     return visitor.result;
 }
 
+bool rai::block_synchronization::fill_dependencies ()
+{
+    auto result (false);
+    auto done (false);
+    while (!result && !done)
+    {
+        auto block (retrieve (blocks.top ()));
+        if (block != nullptr)
+        {
+            done = add_dependency (*block);
+        }
+        else
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
+bool rai::block_synchronization::synchronize_one ()
+{
+    auto result (fill_dependencies ());
+    if (!result)
+    {
+        auto block (retrieve (blocks.top ()));
+        assert (block != nullptr);
+        target (*block);
+        blocks.pop ();
+    }
+    return result;
+}
+
 bool rai::block_synchronization::synchronize (rai::block_hash const & hash_a)
 {
     auto result (false);
     blocks.push (hash_a);
     while (!result && !blocks.empty ())
     {
-        auto block (retrieve (blocks.top ()));
-        if (block != nullptr)
-        {
-            if (add_dependency (*block))
-            {
-                target (*block);
-                blocks.pop ();
-            }
-            else
-            {
-                // Dependency was added to 'blocks'
-            }
-        }
-        else
-        {
-            result = true;
-        }
+        result = synchronize_one ();
     }
     return result;
 }
