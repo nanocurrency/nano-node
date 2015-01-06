@@ -96,16 +96,16 @@ int main (int argc, char * const * argv)
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
         rai::node_init init;
-        auto client (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
+        auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
         QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
         {
-            client->stop ();
+            node->stop ();
         });
         if (!init.error ())
         {
-            client->bootstrap_peers = config.bootstrap_peers;
-            client->start ();
-            std::unique_ptr <rai_qt::client> gui (new rai_qt::client (application, *client, config.wallet));
+            node->bootstrap_peers = config.bootstrap_peers;
+            node->start ();
+            std::unique_ptr <rai_qt::client> gui (new rai_qt::client (application, *node, config.wallet));
             gui->client_window->show ();
             std::thread network_thread ([&service] ()
             {
@@ -145,7 +145,7 @@ int main (int argc, char * const * argv)
         }
         else
         {
-            std::cerr << "Error initializing client\n";
+            std::cerr << "Error initializing node\n";
         }
     }
 }

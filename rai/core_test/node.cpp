@@ -175,12 +175,12 @@ TEST (node, auto_bootstrap)
         ASSERT_LT (iterations1, 200);
     } while (system.nodes [0]->ledger.account_balance (key2.pub) != 100);
     rai::node_init init1;
-    auto client1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
-    client1->network.send_keepalive (system.nodes [0]->network.endpoint ());
-    client1->start ();
-    ASSERT_FALSE (client1->bootstrap_initiator.warmed_up);
-	ASSERT_FALSE (client1->bootstrap_initiator.in_progress);
+    node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
+    node1->start ();
+    ASSERT_FALSE (node1->bootstrap_initiator.warmed_up);
+	ASSERT_FALSE (node1->bootstrap_initiator.in_progress);
 	ASSERT_FALSE (system.nodes [0]->bootstrap_initiator.warmed_up);
 	ASSERT_FALSE (system.nodes [0]->bootstrap_initiator.in_progress);
     auto iterations2 (0);
@@ -190,8 +190,8 @@ TEST (node, auto_bootstrap)
         system.processor.poll_one ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
-	} while (!client1->bootstrap_initiator.in_progress || !system.nodes [0]->bootstrap_initiator.in_progress);
-	ASSERT_TRUE (client1->bootstrap_initiator.warmed_up);
+	} while (!node1->bootstrap_initiator.in_progress || !system.nodes [0]->bootstrap_initiator.in_progress);
+	ASSERT_TRUE (node1->bootstrap_initiator.warmed_up);
 	ASSERT_TRUE (system.nodes [0]->bootstrap_initiator.warmed_up);
 	auto iterations3 (0);
 	do
@@ -200,7 +200,7 @@ TEST (node, auto_bootstrap)
 		system.processor.poll_one ();
 		++iterations3;
 		ASSERT_LT (iterations3, 200);
-	} while (client1->ledger.account_balance (key2.pub) != 100);
+	} while (node1->ledger.account_balance (key2.pub) != 100);
 	auto iterations4 (0);
 	do
 	{
@@ -208,8 +208,8 @@ TEST (node, auto_bootstrap)
 		system.processor.poll_one ();
 		++iterations4;
 		ASSERT_LT (iterations4, 200);
-	} while (client1->bootstrap_initiator.in_progress || system.nodes [0]->bootstrap_initiator.in_progress);
-    client1->stop ();
+	} while (node1->bootstrap_initiator.in_progress || system.nodes [0]->bootstrap_initiator.in_progress);
+    node1->stop ();
 }
 
 TEST (node, auto_bootstrap_reverse)
@@ -217,13 +217,13 @@ TEST (node, auto_bootstrap_reverse)
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::node_init init1;
-    auto client1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
     ASSERT_FALSE (init1.error ());
     rai::keypair key2;
     system.wallet (0)->store.insert (key2.prv);
     ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
-    system.nodes [0]->network.send_keepalive (client1->network.endpoint ());
-    client1->start ();
+    system.nodes [0]->network.send_keepalive (node1->network.endpoint ());
+    node1->start ();
     auto iterations (0);
     do
     {
@@ -231,8 +231,8 @@ TEST (node, auto_bootstrap_reverse)
         system.processor.poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
-    } while (client1->ledger.account_balance (key2.pub) != 100);
-    client1->stop ();
+    } while (node1->ledger.account_balance (key2.pub) != 100);
+    node1->stop ();
 }
 
 TEST (node, multi_account_send_atomicness)
@@ -248,13 +248,13 @@ TEST (node, multi_account_send_atomicness)
 TEST (node, receive_gap)
 {
     rai::system system (24000, 1);
-    auto & client (*system.nodes [0]);
-    ASSERT_EQ (0, client.gap_cache.blocks.size ());
+    auto & node1 (*system.nodes [0]);
+    ASSERT_EQ (0, node1.gap_cache.blocks.size ());
     rai::send_block block;
     rai::confirm_req message;
     message.block = block.clone ();
-    client.processor.process_message (message, client.network.endpoint ());
-    ASSERT_EQ (1, client.gap_cache.blocks.size ());
+    node1.processor.process_message (message, node1.network.endpoint ());
+    ASSERT_EQ (1, node1.gap_cache.blocks.size ());
 }
 
 TEST (node, scaling)
@@ -318,9 +318,9 @@ TEST (node, connect_after_junk)
 {
     rai::system system (24000, 1);
     rai::node_init init1;
-    auto client1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
     uint64_t junk;
-    client1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
+    node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);
     while (system.nodes [0]->network.error_count == 0)
     {
@@ -329,14 +329,14 @@ TEST (node, connect_after_junk)
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
-    client1->start ();
-    client1->network.send_keepalive (system.nodes [0]->network.endpoint ());
+    node1->start ();
+    node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);
-    while (client1->peers.empty ())
+    while (node1->peers.empty ())
     {
         system.service->poll_one ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
     }
-    client1->stop ();
+    node1->stop ();
 }

@@ -184,11 +184,11 @@ int main (int argc, char * const * argv)
         rai::node_init init;
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
-        auto client (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
+        auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
         if (!init.error ())
         {
-            client->bootstrap_peers = config.bootstrap_peers;
-            client->start ();
+            node->bootstrap_peers = config.bootstrap_peers;
+            node->start ();
             std::thread network_thread ([&service] ()
                 {
                     try
@@ -220,10 +220,10 @@ int main (int argc, char * const * argv)
             {
                 std::cout << boost::str (boost::format ("Distribution will begin in %1% minutes\n") % (config.last - now));
             }
-            auto wallet (client->wallets.open (config.wallet));
+            auto wallet (node->wallets.open (config.wallet));
             if (wallet == nullptr)
             {
-                wallet = client->wallets.create (config.wallet);
+                wallet = node->wallets.create (config.wallet);
             }
             auto wallet_entry (wallet->store.begin ());
             if (wallet_entry == wallet->store.end ())
@@ -241,13 +241,13 @@ int main (int argc, char * const * argv)
             std::cout << "Type a line to start\n";
             std::string line;
             std::cin >> line;
-            rai::landing::distribute (*client, wallet, config, working);
+            rai::landing::distribute (*node, wallet, config, working);
             network_thread.join ();
             processor_thread.join ();
         }
         else
         {
-            std::cerr << "Error initializing client\n";
+            std::cerr << "Error initializing node\n";
         }
     }
     else

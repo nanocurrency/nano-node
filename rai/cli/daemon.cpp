@@ -106,12 +106,12 @@ void rai_daemon::daemon::run (int argc, char * const * argv)
         auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
         rai::processor_service processor;
         rai::node_init init;
-        auto client (std::make_shared <rai::node> (init, service, config.peering_port,  working, processor));
+        auto node (std::make_shared <rai::node> (init, service, config.peering_port,  working, processor));
         if (!init.error ())
         {
-            client->bootstrap_peers = config.bootstrap_peers;
-            client->start ();
-            rai::rpc rpc (service, pool, config.rpc_address, config.rpc_port, *client, config.rpc_enable_control);
+            node->bootstrap_peers = config.bootstrap_peers;
+            node->start ();
+            rai::rpc rpc (service, pool, config.rpc_address, config.rpc_port, *node, config.rpc_enable_control);
             if (config.rpc_enable)
             {
                 rpc.start ();
@@ -143,7 +143,7 @@ void rai_daemon::daemon::run (int argc, char * const * argv)
         }
         else
         {
-            std::cerr << "Error initializing client\n";
+            std::cerr << "Error initializing node\n";
         }
     }
     else

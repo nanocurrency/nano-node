@@ -795,7 +795,7 @@ TEST (ledegr, double_receive)
 TEST (votes, add_unsigned)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.nodes [0]);
+    auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -803,9 +803,9 @@ TEST (votes, add_unsigned)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
-    ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
-    client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
+    ASSERT_EQ (rai::process_result::progress, node1.ledger.process (send1));
+    node1.conflicts.start (send1, false);
+    auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     rai::vote vote1;
@@ -819,7 +819,7 @@ TEST (votes, add_unsigned)
 TEST (votes, add_one)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.nodes [0]);
+    auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -827,9 +827,9 @@ TEST (votes, add_one)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
-    ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
-    client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
+    ASSERT_EQ (rai::process_result::progress, node1.ledger.process (send1));
+    node1.conflicts.start (send1, false);
+    auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
     rai::vote vote1;
     vote1.sequence = 1;
@@ -841,7 +841,7 @@ TEST (votes, add_one)
     auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
     ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
     ASSERT_EQ (send1, *existing1->second.second);
-    auto winner (client1.ledger.winner (votes1->votes));
+    auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (send1, *winner.second);
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
 }
@@ -849,7 +849,7 @@ TEST (votes, add_one)
 TEST (votes, add_two)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.nodes [0]);
+    auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -857,9 +857,9 @@ TEST (votes, add_two)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
-    ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
-    client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
+    ASSERT_EQ (rai::process_result::progress, node1.ledger.process (send1));
+    node1.conflicts.start (send1, false);
+    auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
@@ -883,14 +883,14 @@ TEST (votes, add_two)
     ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (key2.pub));
     ASSERT_EQ (send2, *votes1->votes.rep_votes [key2.pub].second);
-    auto winner (client1.ledger.winner (votes1->votes));
+    auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (send1, *winner.second);
 }
 
 TEST (votes, add_existing)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.nodes [0]);
+    auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -898,9 +898,9 @@ TEST (votes, add_existing)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
-    ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
-    client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
+    ASSERT_EQ (rai::process_result::progress, node1.ledger.process (send1));
+    node1.conflicts.start (send1, false);
+    auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
     rai::vote vote1;
     vote1.sequence = 1;
     vote1.block = send1.clone ();
@@ -922,14 +922,14 @@ TEST (votes, add_existing)
     ASSERT_EQ (2, votes1->votes.rep_votes.size ());
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
     ASSERT_EQ (send2, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
-    auto winner (client1.ledger.winner (votes1->votes));
+    auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (send2, *winner.second);
 }
 
 TEST (votes, add_old)
 {
     rai::system system (24000, 1);
-    auto & client1 (*system.nodes [0]);
+    auto & node1 (*system.nodes [0]);
 	rai::genesis genesis;
     rai::send_block send1;
     rai::keypair key1;
@@ -937,9 +937,9 @@ TEST (votes, add_old)
     send1.hashables.balance.clear ();
     send1.hashables.destination = key1.pub;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
-    ASSERT_EQ (rai::process_result::progress, client1.ledger.process (send1));
-    client1.conflicts.start (send1, false);
-    auto votes1 (client1.conflicts.roots.find (send1.root ())->second);
+    ASSERT_EQ (rai::process_result::progress, node1.ledger.process (send1));
+    node1.conflicts.start (send1, false);
+    auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
     rai::vote vote1;
     vote1.sequence = 2;
     vote1.block = send1.clone ();
@@ -961,7 +961,7 @@ TEST (votes, add_old)
     ASSERT_EQ (2, votes1->votes.rep_votes.size ());
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
     ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
-    auto winner (client1.ledger.winner (votes1->votes));
+    auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (send1, *winner.second);
 }
 
@@ -981,11 +981,11 @@ TEST (ledger, successor)
 
 TEST (fork, publish)
 {
-    std::weak_ptr <rai::node> client0;
+    std::weak_ptr <rai::node> node0;
     {
         rai::system system (24000, 1);
-        client0 = system.nodes [0];
-        auto & client1 (*system.nodes [0]);
+        node0 = system.nodes [0];
+        auto & node1 (*system.nodes [0]);
         system.wallet (0)->store.insert (rai::test_genesis_key.prv);
         rai::keypair key1;
 		rai::genesis genesis;
@@ -1004,12 +1004,12 @@ TEST (fork, publish)
         rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
         rai::publish publish2;
         publish2.block = std::move (send2);
-        client1.processor.process_message (publish1, client1.network.endpoint ());
-        ASSERT_EQ (0, client1.conflicts.roots.size ());
-        client1.processor.process_message (publish2, client1.network.endpoint ());
-        ASSERT_EQ (1, client1.conflicts.roots.size ());
-        auto conflict1 (client1.conflicts.roots.find (publish1.block->root ()));
-        ASSERT_NE (client1.conflicts.roots.end (), conflict1);
+        node1.processor.process_message (publish1, node1.network.endpoint ());
+        ASSERT_EQ (0, node1.conflicts.roots.size ());
+        node1.processor.process_message (publish2, node1.network.endpoint ());
+        ASSERT_EQ (1, node1.conflicts.roots.size ());
+        auto conflict1 (node1.conflicts.roots.find (publish1.block->root ()));
+        ASSERT_NE (node1.conflicts.roots.end (), conflict1);
         auto votes1 (conflict1->second);
         ASSERT_NE (nullptr, votes1);
         ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -1022,19 +1022,19 @@ TEST (fork, publish)
         auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
         ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
         ASSERT_EQ (*publish1.block, *existing1->second.second);
-        auto winner (client1.ledger.winner (votes1->votes));
+        auto winner (node1.ledger.winner (votes1->votes));
         ASSERT_EQ (*publish1.block, *winner.second);
         ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
     }
-    ASSERT_TRUE (client0.expired ());
+    ASSERT_TRUE (node0.expired ());
 }
 
 TEST (ledger, fork_keep)
 {
     rai::system system (24000, 2);
-    auto & client1 (*system.nodes [0]);
-    auto & client2 (*system.nodes [1]);
-	ASSERT_EQ (1, client1.peers.size ());
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+	ASSERT_EQ (1, node1.peers.size ());
 	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
@@ -1042,7 +1042,7 @@ TEST (ledger, fork_keep)
     send1->hashables.previous = genesis.hash ();
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
-    client1.work_create (*send1);
+    node1.work_create (*send1);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
     rai::publish publish1;
     publish1.block = std::move (send1);
@@ -1051,20 +1051,20 @@ TEST (ledger, fork_keep)
     send2->hashables.previous = genesis.hash ();
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
-    client1.work_create (*send2);
+    node1.work_create (*send2);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
     rai::publish publish2;
     publish2.block = std::move (send2);
-    client1.processor.process_message (publish1, client1.network.endpoint ());
-	client2.processor.process_message (publish1, client2.network.endpoint ());
-    ASSERT_EQ (0, client1.conflicts.roots.size ());
-    ASSERT_EQ (0, client2.conflicts.roots.size ());
-    client1.processor.process_message (publish2, client1.network.endpoint ());
-	client2.processor.process_message (publish2, client2.network.endpoint ());
-    ASSERT_EQ (1, client1.conflicts.roots.size ());
-    ASSERT_EQ (1, client2.conflicts.roots.size ());
-    auto conflict (client2.conflicts.roots.find (genesis.hash ()));
-    ASSERT_NE (client2.conflicts.roots.end (), conflict);
+    node1.processor.process_message (publish1, node1.network.endpoint ());
+	node2.processor.process_message (publish1, node2.network.endpoint ());
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    node1.processor.process_message (publish2, node1.network.endpoint ());
+	node2.processor.process_message (publish2, node2.network.endpoint ());
+    ASSERT_EQ (1, node1.conflicts.roots.size ());
+    ASSERT_EQ (1, node2.conflicts.roots.size ());
+    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -1078,7 +1078,7 @@ TEST (ledger, fork_keep)
         ++iterations;
         ASSERT_LT (iterations, 200);
 	}
-    auto winner (client1.ledger.winner (votes1->votes));
+    auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
 	ASSERT_TRUE (system.nodes [0]->store.block_exists (publish1.block->hash ()));
@@ -1088,9 +1088,9 @@ TEST (ledger, fork_keep)
 TEST (ledger, fork_flip)
 {
     rai::system system (24000, 2);
-    auto & client1 (*system.nodes [0]);
-    auto & client2 (*system.nodes [1]);
-    ASSERT_EQ (1, client1.peers.size ());
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+    ASSERT_EQ (1, node1.peers.size ());
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
@@ -1098,7 +1098,7 @@ TEST (ledger, fork_flip)
     send1->hashables.previous = genesis.hash ();
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
-    client1.work_create (*send1);
+    node1.work_create (*send1);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
     rai::publish publish1;
     publish1.block = std::move (send1);
@@ -1107,25 +1107,25 @@ TEST (ledger, fork_flip)
     send2->hashables.previous = genesis.hash ();
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
-    client1.work_create (*send2);
+    node1.work_create (*send2);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
     rai::publish publish2;
     publish2.block = std::move (send2);
-    client1.processor.process_message (publish1, client1.network.endpoint ());
-    client2.processor.process_message (publish2, client1.network.endpoint ());
-    ASSERT_EQ (0, client1.conflicts.roots.size ());
-    ASSERT_EQ (0, client2.conflicts.roots.size ());
-    client1.processor.process_message (publish2, client1.network.endpoint ());
-    client2.processor.process_message (publish1, client2.network.endpoint ());
-    ASSERT_EQ (1, client1.conflicts.roots.size ());
-    ASSERT_EQ (1, client2.conflicts.roots.size ());
-    auto conflict (client2.conflicts.roots.find (genesis.hash ()));
-    ASSERT_NE (client2.conflicts.roots.end (), conflict);
+    node1.processor.process_message (publish1, node1.network.endpoint ());
+    node2.processor.process_message (publish2, node1.network.endpoint ());
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    node1.processor.process_message (publish2, node1.network.endpoint ());
+    node2.processor.process_message (publish1, node2.network.endpoint ());
+    ASSERT_EQ (1, node1.conflicts.roots.size ());
+    ASSERT_EQ (1, node2.conflicts.roots.size ());
+    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-    ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
-    ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
+    ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (publish2.block->hash ()));
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
     {
@@ -1134,20 +1134,20 @@ TEST (ledger, fork_flip)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    auto winner (client1.ledger.winner (votes1->votes));
+    auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
-    ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
-    ASSERT_TRUE (client2.store.block_exists (publish1.block->hash ()));
-    ASSERT_FALSE (client2.store.block_exists (publish2.block->hash ()));
+    ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (publish1.block->hash ()));
+    ASSERT_FALSE (node2.store.block_exists (publish2.block->hash ()));
 }
 
 TEST (ledger, fork_multi_flip)
 {
     rai::system system (24000, 2);
-    auto & client1 (*system.nodes [0]);
-    auto & client2 (*system.nodes [1]);
-	ASSERT_EQ (1, client1.peers.size ());
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+	ASSERT_EQ (1, node1.peers.size ());
 	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
@@ -1155,7 +1155,7 @@ TEST (ledger, fork_multi_flip)
     send1->hashables.previous = genesis.hash ();
     send1->hashables.balance.clear ();
     send1->hashables.destination = key1.pub;
-    client1.work_create (*send1);
+    node1.work_create (*send1);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
     rai::publish publish1;
     publish1.block = std::move (send1);
@@ -1164,7 +1164,7 @@ TEST (ledger, fork_multi_flip)
     send2->hashables.previous = genesis.hash ();
     send2->hashables.balance.clear ();
     send2->hashables.destination = key2.pub;
-    client1.work_create (*send2);
+    node1.work_create (*send2);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
     rai::publish publish2;
     publish2.block = std::move (send2);
@@ -1172,28 +1172,28 @@ TEST (ledger, fork_multi_flip)
     send3->hashables.previous = publish2.block->hash ();
     send3->hashables.balance.clear ();
     send3->hashables.destination = key2.pub;
-    client1.work_create (*send3);
+    node1.work_create (*send3);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send3->hash (), send3->signature);
     rai::publish publish3;
     publish3.block = std::move (send3);
-    client1.processor.process_message (publish1, client1.network.endpoint ());
-	client2.processor.process_message (publish2, client2.network.endpoint ());
-    client2.processor.process_message (publish3, client2.network.endpoint ());
-    ASSERT_EQ (0, client1.conflicts.roots.size ());
-    ASSERT_EQ (0, client2.conflicts.roots.size ());
-    client1.processor.process_message (publish2, client1.network.endpoint ());
-    client1.processor.process_message (publish3, client1.network.endpoint ());
-	client2.processor.process_message (publish1, client2.network.endpoint ());
-    ASSERT_EQ (1, client1.conflicts.roots.size ());
-    ASSERT_EQ (1, client2.conflicts.roots.size ());
-    auto conflict (client2.conflicts.roots.find (genesis.hash ()));
-    ASSERT_NE (client2.conflicts.roots.end (), conflict);
+    node1.processor.process_message (publish1, node1.network.endpoint ());
+	node2.processor.process_message (publish2, node2.network.endpoint ());
+    node2.processor.process_message (publish3, node2.network.endpoint ());
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    node1.processor.process_message (publish2, node1.network.endpoint ());
+    node1.processor.process_message (publish3, node1.network.endpoint ());
+	node2.processor.process_message (publish1, node2.network.endpoint ());
+    ASSERT_EQ (1, node1.conflicts.roots.size ());
+    ASSERT_EQ (1, node2.conflicts.roots.size ());
+    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (client2.store.block_exists (publish2.block->hash ()));
-    ASSERT_TRUE (client2.store.block_exists (publish3.block->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (publish2.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (publish3.block->hash ()));
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
@@ -1202,13 +1202,13 @@ TEST (ledger, fork_multi_flip)
         ++iterations;
         ASSERT_LT (iterations, 200);
 	}
-    auto winner (client1.ledger.winner (votes1->votes));
+    auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
-	ASSERT_TRUE (client1.store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (client2.store.block_exists (publish1.block->hash ()));
-	ASSERT_FALSE (client2.store.block_exists (publish2.block->hash ()));
-    ASSERT_FALSE (client2.store.block_exists (publish3.block->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (publish1.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (publish2.block->hash ()));
+    ASSERT_FALSE (node2.store.block_exists (publish3.block->hash ()));
 }
 
 TEST (ledger, fail_change_old)

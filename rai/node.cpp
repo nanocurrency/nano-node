@@ -43,7 +43,7 @@ namespace
     {
         return network_logging () && false;
     }
-    bool constexpr client_lifetime_tracing ()
+    bool constexpr node_lifetime_tracing ()
     {
         return false;
     }
@@ -265,14 +265,14 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_a);
     }
-    auto client_l (node.shared ());
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l, endpoint_a] (boost::system::error_code const & ec, size_t)
+    auto node_l (node.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    BOOST_LOG (client_l->log) << boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % client_l->network.endpoint () % endpoint_a % ec.message ());
+                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % node_l->network.endpoint () % endpoint_a % ec.message ());
                 }
             }
         });
@@ -326,14 +326,14 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
     }
-    auto client_l (node.shared ());
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, client_l] (boost::system::error_code const & ec, size_t size)
+    auto node_l (node.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
         {
             if (network_logging ())
             {
                 if (ec)
                 {
-                    BOOST_LOG (client_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
                 }
             }
         });
@@ -1249,7 +1249,7 @@ service (processor_a)
     }
     boost::log::add_common_attributes ();
     boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = rai::rai_network != rai::rai_networks::rai_test_network, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-    BOOST_LOG (log) << "Client starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
+    BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
     ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {
         for (auto & i: send_observers)
@@ -1311,9 +1311,9 @@ service (processor_a)
     });
     if (!init_a.error ())
     {
-        if (client_lifetime_tracing ())
+        if (node_lifetime_tracing ())
         {
-            std::cerr << "Constructing client\n";
+            std::cerr << "Constructing node\n";
         }
         if (store.latest_begin () == store.latest_end ())
         {
@@ -1331,9 +1331,9 @@ node (init_a, service_a, port_a, boost::filesystem::unique_path (), processor_a)
 
 rai::node::~node ()
 {
-    if (client_lifetime_tracing ())
+    if (node_lifetime_tracing ())
     {
-        std::cerr << "Destructing client\n";
+        std::cerr << "Destructing node\n";
     }
 }
 
@@ -2751,7 +2751,7 @@ void rai::node::start ()
 
 void rai::node::stop ()
 {
-    BOOST_LOG (log) << "Client stopping";
+    BOOST_LOG (log) << "Node stopping";
     network.stop ();
     bootstrap.stop ();
     service.stop ();
