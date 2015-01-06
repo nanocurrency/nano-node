@@ -48,7 +48,6 @@ add_library (core
 
 add_executable (core_test
 	rai/core_test/block.cpp
-    rai/core_test/block_path.cpp
     rai/core_test/block_store.cpp
     rai/core_test/block_synchronization.cpp
     rai/core_test/client.cpp

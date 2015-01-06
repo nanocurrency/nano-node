@@ -3519,65 +3519,6 @@ std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_has
     return store.block_get (hash_a);
 }
 
-rai::block_path::block_path (std::vector <std::unique_ptr <rai::block>> & path_a, std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> const & retrieve_a) :
-path (path_a),
-retrieve (retrieve_a)
-{
-}
-
-void rai::block_path::send_block (rai::send_block const & block_a)
-{
-    auto block (retrieve (block_a.hashables.previous));
-    if (block != nullptr)
-    {
-        path.push_back (std::move (block));
-    }
-}
-
-void rai::block_path::receive_block (rai::receive_block const & block_a)
-{
-	rai::block_path path_l (path, retrieve);
-	path_l.generate (block_a.hashables.source);
-    auto block (retrieve (block_a.hashables.previous));
-    if (block != nullptr)
-	{
-        path.push_back (std::move (block));
-	}
-}
-
-void rai::block_path::open_block (rai::open_block const & block_a)
-{
-    auto block (retrieve (block_a.hashables.source));
-    if (block != nullptr)
-    {
-        path.push_back (std::move (block));
-    }
-}
-
-void rai::block_path::change_block (rai::change_block const & block_a)
-{
-    auto block (retrieve (block_a.hashables.previous));
-    if (block != nullptr)
-    {
-        path.push_back (std::move (block));
-    }
-}
-
-void rai::block_path::generate (rai::block_hash const & hash_a)
-{
-    auto block (retrieve (hash_a));
-	if (block != nullptr)
-	{
-		path.push_back (std::move (block));
-		auto previous_size (0);
-		while (previous_size != path.size ())
-		{
-			previous_size = path.size ();
-			path.back ()->visit (*this);
-		}
-	}
-}
-
 void rai::bulk_pull_client::process_end ()
 {
 	rai::pull_synchronization synchronization ([this] (rai::block const & block_a)
@@ -4275,7 +4216,11 @@ void rai::frontier_req_client::completed_pushes ()
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
 connection (connection_a),
 current (connection->pushes.begin ()),
-end (connection->pushes.end ())
+end (connection->pushes.end ()),
+synchronization ([this] (rai::block const & block_a)
+{
+    push_block (block_a);
+}, connection_a->connection->client->store)
 {
 }
 
@@ -4313,24 +4258,14 @@ void rai::bulk_push_client::push ()
 {
     if (current != end)
     {
-        path.clear ();
-        rai::block_path filler (path, [this] (rai::block_hash const & hash_a)
-        {
-            std::unique_ptr <rai::block> result;
-            auto block (connection->connection->client->store.block_get (hash_a));
-            if (block != nullptr)
-            {
-                result = std::move (block);
-            }
-            return result;
-        });
         auto hash (current->first);
 		rai::frontier frontier;
 		auto error (connection->connection->client->store.latest_get (hash, frontier));
         assert (!error);
         ++current;
-        filler.generate (frontier.hash);
-        push_block ();
+        assert (synchronization.blocks.empty ());
+        synchronization.blocks.push (frontier.hash);
+        synchronization.synchronize_one ();
     }
     else
     {
@@ -4353,23 +4288,21 @@ void rai::bulk_push_client::send_finished ()
         });
 }
 
-void rai::bulk_push_client::push_block ()
+void rai::bulk_push_client::push_block (rai::block const & block_a)
 {
-    assert (!path.empty ());
     auto buffer (std::make_shared <std::vector <uint8_t>> ());
     {
         rai::vectorstream stream (*buffer);
-        rai::serialize_block (stream, *path.back ());
+        rai::serialize_block (stream, block_a);
     }
-    path.pop_back ();
     auto this_l (shared_from_this ());
     boost::asio::async_write (connection->connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
         {
             if (!ec)
             {
-                if (!this_l->path.empty ())
+                if (!this_l->synchronization.blocks.empty ())
                 {
-                    this_l->push_block ();
+                    this_l->synchronization.synchronize_one ();
                 }
                 else
                 {

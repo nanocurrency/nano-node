@@ -440,18 +440,6 @@ public:
     bool synchronized (rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
 };
-class block_path : public rai::block_visitor
-{
-public:
-    block_path (std::vector <std::unique_ptr <rai::block>> &, std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> const &);
-    void generate (rai::block_hash const &);
-    void send_block (rai::send_block const &);
-    void receive_block (rai::receive_block const &);
-    void open_block (rai::open_block const &);
-    void change_block (rai::change_block const &);
-    std::vector <std::unique_ptr <rai::block>> & path;
-    std::function <std::unique_ptr <rai::block> (rai::block_hash const &)> retrieve;
-};
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
 public:
@@ -504,12 +492,12 @@ public:
     ~bulk_push_client ();
     void start ();
     void push ();
-    void push_block ();
+    void push_block (rai::block const &);
     void send_finished ();
     std::shared_ptr <rai::frontier_req_client> connection;
     std::unordered_map <rai::account, rai::block_hash>::iterator current;
     std::unordered_map <rai::account, rai::block_hash>::iterator end;
-    std::vector <std::unique_ptr <rai::block>> path;
+    rai::push_synchronization synchronization;
 };
 class message_parser
 {
