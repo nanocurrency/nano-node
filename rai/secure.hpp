@@ -598,6 +598,7 @@ namespace rai
 		void move_representation (rai::account const &, rai::account const &, rai::uint128_t const &);
 		void checksum_update (rai::block_hash const &);
 		rai::checksum checksum (rai::account const &, rai::account const &);
+        void dump_account_chain (rai::account const &);
         rai::block_store & store;
         std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)> send_observer;
         std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)> receive_observer;

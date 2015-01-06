@@ -2786,6 +2786,18 @@ rai::checksum rai::ledger::checksum (rai::account const & begin_a, rai::account 
     return result;
 }
 
+void rai::ledger::dump_account_chain (rai::account const & account_a)
+{
+    auto hash (latest (account_a));
+    while (!hash.is_zero ())
+    {
+        auto block (store.block_get (hash));
+        assert (block != nullptr);
+        std::cerr << hash.to_string () << std::endl;
+        hash = block->previous ();
+    }
+}
+
 void rai::ledger::checksum_update (rai::block_hash const & hash_a)
 {
     rai::checksum value;
