@@ -6,23 +6,31 @@
 
 #include <sstream>
 
-rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a) :
+rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & account_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-your_address_label (new QLabel ("Your RaiBlocks address:")),
-address_label (new QLabel),
+your_account_label (new QLabel ("Your RaiBlocks account:")),
+account_button (new QPushButton),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
-	layout->addWidget (your_address_label);
-	layout->addWidget (address_label);
+    std::string account_text;
+    account_a.encode_base58check (account_text);
+    account_button->setText (QString (account_text.c_str ()));
+    account_button->setFlat (true);
+	layout->addWidget (your_account_label);
+	layout->addWidget (account_button);
 	layout->addWidget (balance_label);
 	window->setLayout (layout);
+    QObject::connect (account_button, &QPushButton::clicked, [this] ()
+    {
+        wallet.application.clipboard ()->setText (account_button->text ());
+    });
 }
 
-rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a) :
+rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account const & account_a) :
 node (node_a),
-self (*this),
+self (*this, account_a),
 password_change (*this),
 enter_password (*this),
 advanced (*this),
@@ -47,8 +55,10 @@ send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back")),
-wallet_m (wallet_a)
+wallet_m (wallet_a),
+account (account_a)
 {
+    assert (wallet_a->store.exists (account_a));
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
     send_blocks_layout->addWidget (send_count_label);

@@ -748,6 +748,7 @@ public:
     void generate_send_new (rai::node &);
     void generate_send_existing (rai::node &);
     std::shared_ptr <rai::wallet> wallet (size_t);
+    rai::account account (size_t);
     boost::shared_ptr <boost::asio::io_service> service;
     rai::processor_service processor;
     std::vector <std::shared_ptr <rai::node>> nodes;

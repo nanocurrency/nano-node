@@ -1727,6 +1727,16 @@ std::shared_ptr <rai::wallet> rai::system::wallet (size_t index_a)
     return nodes [index_a]->wallets.items.begin ()->second;
 }
 
+rai::account rai::system::account (size_t index_a)
+{
+    auto wallet_l (wallet (index_a));
+    auto keys (wallet_l->store.begin ());
+    assert (keys != wallet_l->store.end ());
+    auto result (keys->first);
+    assert (++keys == wallet_l->store.end ());
+    return result;
+}
+
 void rai::processor::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
     auto node_l (node.shared ());

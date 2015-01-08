@@ -129,18 +129,18 @@ namespace rai_qt {
     class self_pane
     {
     public:
-        self_pane (rai_qt::wallet &);
+        self_pane (rai_qt::wallet &, rai::account const &);
         QWidget * window;
         QVBoxLayout * layout;
-        QLabel * your_address_label;
-        QLabel * address_label;
+        QLabel * your_account_label;
+        QPushButton * account_button;
         QLabel * balance_label;
         rai_qt::wallet & wallet;
     };
     class wallet
     {
     public:
-        wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>);
+        wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account const &);
         ~wallet ();
         rai::node & node;
 		rai_qt::self_pane self;
@@ -177,5 +177,6 @@ namespace rai_qt {
         void push_main_stack (QWidget *);
         void refresh_wallet ();
         std::shared_ptr <rai::wallet> wallet_m;
+        rai::account account;
     };
 }

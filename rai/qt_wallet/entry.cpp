@@ -25,6 +25,7 @@ public:
             auto peering_port_l (tree.get <std::string> ("peering_port"));
             auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
             auto wallet_l (tree.get <std::string> ("wallet"));
+            auto account_l (tree.get <std::string> ("account"));
             bootstrap_peers.clear ();
             for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
             {
@@ -36,6 +37,7 @@ public:
                 peering_port = std::stoul (peering_port_l);
                 error_a = peering_port > std::numeric_limits <uint16_t>::max ();
                 error_a = error_a | wallet.decode_hex (wallet_l);
+                error_a = error_a | account.decode_base58check (account_l);
             }
             catch (std::logic_error const &)
             {
@@ -55,6 +57,9 @@ public:
         std::string wallet_string;
         wallet.encode_hex (wallet_string);
         tree.put ("wallet", wallet_string);
+        std::string account_string;
+        account.encode_base58check (account_string);
+        tree.put ("account", account_string);
         boost::property_tree::ptree bootstrap_peers_l;
         for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
         {
@@ -116,7 +121,7 @@ int main (int argc, char * const * argv)
             auto wallet (node->wallets.open (config.wallet));
             if (wallet != nullptr)
             {
-                if (!wallet->store.exists (config.account))
+                if (wallet->store.exists (config.account))
                 {
                     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
                     {
@@ -124,7 +129,7 @@ int main (int argc, char * const * argv)
                     });
                     node->bootstrap_peers = config.bootstrap_peers;
                     node->start ();
-                    std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet));
+                    std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
                     gui->client_window->show ();
                     std::thread network_thread ([&service] ()
                     {
@@ -176,5 +181,9 @@ int main (int argc, char * const * argv)
         {
             std::cerr << "Error initializing node\n";
         }
+    }
+    else
+    {
+        std::cerr << "Error in config file";
     }
 }
