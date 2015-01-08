@@ -19,8 +19,8 @@ TEST (wallet, construction)
     std::string account_string;
     key.pub.encode_base58check (account_string);
     ASSERT_EQ (account_string, wallet.self.account_button->text ().toStdString ());
-    ASSERT_EQ (1, wallet.wallet_model->rowCount ());
-    auto item1 (wallet.wallet_model->item (0, 1));
+    ASSERT_EQ (1, wallet.accounts.model->rowCount ());
+    auto item1 (wallet.accounts.model->item (0, 1));
     ASSERT_EQ (account_string, item1->text ().toStdString ());
 }
 
