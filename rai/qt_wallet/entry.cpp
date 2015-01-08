@@ -9,10 +9,11 @@ class qt_wallet_config
 {
 public:
     qt_wallet_config () :
-    peering_port (rai::network::node_port)
+    peering_port (rai::network::node_port),
+    wallet (0),
+    account (0)
     {
         bootstrap_peers.push_back ("rai.raiblocks.net");
-        rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
     }
     qt_wallet_config (bool & error_a, std::istream & stream_a)
     {
@@ -64,9 +65,16 @@ public:
         tree.add_child ("bootstrap_peers", bootstrap_peers_l);
         boost::property_tree::write_json (stream_a, tree);
     }
+    bool uninitialized ()
+    {
+        auto result (wallet.is_zero ());
+        assert (result == account.is_zero ());
+        return result;
+    }
     std::vector <std::string> bootstrap_peers;
     uint16_t peering_port;
     rai::uint256_union wallet;
+    rai::account account;
 };
 
 int main (int argc, char * const * argv)
@@ -81,15 +89,6 @@ int main (int argc, char * const * argv)
     {
         config = qt_wallet_config (config_error, config_file);
     }
-    else
-    {
-        std::ofstream config_file;
-        config_file.open (config_path);
-        if (!config_file.fail ())
-        {
-            config.serialize (config_file);
-        }
-    }
     if (!config_error)
     {
         QApplication application (argc, const_cast <char **> (argv));
@@ -97,51 +96,82 @@ int main (int argc, char * const * argv)
         rai::processor_service processor;
         rai::node_init init;
         auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
-        QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-        {
-            node->stop ();
-        });
         if (!init.error ())
         {
-            node->bootstrap_peers = config.bootstrap_peers;
-            node->start ();
-            std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, config.wallet));
-            gui->client_window->show ();
-            std::thread network_thread ([&service] ()
+            auto existing_wallet (node->wallets.items.find (config.wallet));
+            assert (existing_wallet != node->wallets.items.end ());
+            if (config.uninitialized ())
             {
-                try
+                rai::random_pool.GenerateBlock (config.wallet.bytes.data (), config.wallet.bytes.size ());
+                node->wallets.create (config.wallet);
+                rai::keypair key;
+                config.account = key.pub;
+                existing_wallet->second->store.insert (key.prv);
+                std::ofstream config_file;
+                config_file.open (config_path);
+                if (!config_file.fail ())
                 {
-                    service->run ();
+                    config.serialize (config_file);
                 }
-                catch (...)
-                {
-                    assert (false);
-                }
-            });
-            std::thread processor_thread ([&processor] ()
-            {
-                try
-                {
-                    processor.run ();
-                }
-                catch (...)
-                {
-                    assert (false);
-                }
-            });
-            int result;
-            try
-            {
-                result = application.exec ();
             }
-            catch (...)
+            auto wallet (node->wallets.open (config.wallet));
+            if (wallet != nullptr)
             {
-                result = -1;
-                assert (false);
+                if (wallet->store.exists (config.account))
+                {
+                    QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+                    {
+                        node->stop ();
+                    });
+                    node->bootstrap_peers = config.bootstrap_peers;
+                    node->start ();
+                    std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet));
+                    gui->client_window->show ();
+                    std::thread network_thread ([&service] ()
+                    {
+                        try
+                        {
+                            service->run ();
+                        }
+                        catch (...)
+                        {
+                            assert (false);
+                        }
+                    });
+                    std::thread processor_thread ([&processor] ()
+                    {
+                        try
+                        {
+                            processor.run ();
+                        }
+                        catch (...)
+                        {
+                            assert (false);
+                        }
+                    });
+                    int result;
+                    try
+                    {
+                        result = application.exec ();
+                    }
+                    catch (...)
+                    {
+                        result = -1;
+                        assert (false);
+                    }
+                    network_thread.join ();
+                    processor_thread.join ();
+                    return result;
+                }
+                else
+                {
+                    std::cerr << "Wallet account doesn't exist";
+                }
             }
-            network_thread.join ();
-            processor_thread.join ();
-            return result;
+            else
+            {
+                std::cerr << "Wallet id doesn't exist";
+            }
         }
         else
         {

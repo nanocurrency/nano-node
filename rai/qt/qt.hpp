@@ -126,10 +126,21 @@ namespace rai_qt {
         QPushButton * back;
         rai_qt::wallet & wallet;
     };
+    class self
+    {
+    public:
+        self (rai_qt::wallet &);
+        QWidget * window;
+        QVBoxLayout * layout;
+        QLabel * your_address_label;
+        QLabel * address_label;
+        QLabel * balance_label;
+        rai_qt::wallet & wallet;
+    };
     class wallet
     {
     public:
-        wallet (QApplication &, rai::node &, rai::uint256_union const &);
+        wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>);
         ~wallet ();
         rai::node & node;
         rai_qt::password_change password_change;

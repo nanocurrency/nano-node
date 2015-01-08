@@ -6,7 +6,17 @@
 
 #include <sstream>
 
-rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, rai::uint256_union const & wallet_a) :
+rai_qt::self::self (rai_qt::wallet & wallet_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+your_address_label (new QLabel ("Your RaiBlocks address:")),
+address_label (new QLabel),
+balance_label (new QLabel),
+wallet (wallet_a)
+{
+}
+
+rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a) :
 node (node_a),
 password_change (*this),
 enter_password (*this),
@@ -32,13 +42,9 @@ send_account (new QLineEdit),
 send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
-send_blocks_back (new QPushButton ("Back"))
+send_blocks_back (new QPushButton ("Back")),
+wallet_m (wallet_a)
 {
-    wallet_m = node.wallets.open (wallet_a);
-    if (wallet_m == nullptr)
-    {
-        wallet_m = node.wallets.create (wallet_a);
-    }
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
     send_blocks_layout->addWidget (send_count_label);
