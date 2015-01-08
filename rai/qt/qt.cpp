@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-rai_qt::self::self (rai_qt::wallet & wallet_a) :
+rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 your_address_label (new QLabel ("Your RaiBlocks address:")),
@@ -14,10 +14,15 @@ address_label (new QLabel),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
+	layout->addWidget (your_address_label);
+	layout->addWidget (address_label);
+	layout->addWidget (balance_label);
+	window->setLayout (layout);
 }
 
 rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a) :
 node (node_a),
+self (*this),
 password_change (*this),
 enter_password (*this),
 advanced (*this),
@@ -27,7 +32,6 @@ application (application_a),
 main_stack (new QStackedWidget),
 client_window (new QWidget),
 client_layout (new QVBoxLayout),
-balance_label (new QLabel),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
 wallet_model (new QStandardItemModel),
@@ -74,8 +78,7 @@ wallet_m (wallet_a)
 
     main_stack->addWidget (entry_window);
 
-    balance_label->setAlignment (Qt::AlignCenter);
-    client_layout->addWidget (balance_label);
+    client_layout->addWidget (self.window);
     client_layout->addWidget (main_stack);
     client_layout->setSpacing (0);
     client_layout->setContentsMargins (0, 0, 0, 0);
@@ -204,7 +207,7 @@ void rai_qt::wallet::refresh_wallet ()
 		items.push_back (new QStandardItem (QString (account.c_str ())));
 		wallet_model->appendRow (items);
     }
-    balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (balance))).c_str ()));
+    self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (balance))).c_str ()));
 }
 
 rai_qt::wallet::~wallet ()

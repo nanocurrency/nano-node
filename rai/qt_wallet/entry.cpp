@@ -105,6 +105,7 @@ int main (int argc, char * const * argv)
                 rai::keypair key;
                 config.account = key.pub;
                 wallet->store.insert (key.prv);
+				assert (wallet->store.exists (config.account));
                 std::ofstream config_file;
                 config_file.open (config_path);
                 if (!config_file.fail ())
@@ -115,7 +116,7 @@ int main (int argc, char * const * argv)
             auto wallet (node->wallets.open (config.wallet));
             if (wallet != nullptr)
             {
-                if (wallet->store.exists (config.account))
+                if (!wallet->store.exists (config.account))
                 {
                     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
                     {
