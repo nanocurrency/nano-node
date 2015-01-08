@@ -12,15 +12,17 @@ TEST (wallet, construction)
     rai::system system (24000, 1);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], rai::uint256_union ());
+	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
+    rai_qt::wallet wallet (application, *system.nodes [0], wallet_l);
 }
 
 TEST (wallet, main)
 {
     rai::system system (24000, 1);
     int argc (0);
-    QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], rai::uint256_union ());
+	QApplication application (argc, nullptr);
+	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
+    rai_qt::wallet wallet (application, *system.nodes [0], wallet_l);
     ASSERT_EQ (wallet.entry_window, wallet.main_stack->currentWidget ());
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
     ASSERT_EQ (wallet.send_blocks_window, wallet.main_stack->currentWidget ());
@@ -47,8 +49,8 @@ TEST (wallet, password_change)
 {
     rai::system system (24000, 1);
     int argc (0);
-    QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
+	QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0));
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
     QTest::mouseClick (wallet.advanced.change_password, Qt::LeftButton);
     ASSERT_NE (system.wallet (0)->store.derive_key ("1"), system.wallet (0)->store.password.value ());
@@ -64,8 +66,8 @@ TEST (client, password_nochange)
 {
     rai::system system (24000, 1);
     int argc (0);
-    QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
+	QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0));
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
     QTest::mouseClick (wallet.advanced.change_password, Qt::LeftButton);
     ASSERT_EQ (system.wallet (0)->store.derive_key (""), system.wallet (0)->store.password.value ());
@@ -81,8 +83,8 @@ TEST (wallet, enter_password)
 {
     rai::system system (24000, 1);
     int argc (0);
-    QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
+	QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0));
     ASSERT_NE (-1, wallet.enter_password.layout->indexOf (wallet.enter_password.valid));
     ASSERT_NE (-1, wallet.enter_password.layout->indexOf (wallet.enter_password.password));
     ASSERT_NE (-1, wallet.enter_password.layout->indexOf (wallet.enter_password.unlock));
@@ -110,8 +112,8 @@ TEST (wallet, send)
     key1.pub.encode_base58check (account);
     system.wallet (1)->store.insert (key1.prv);
     int argc (0);
-    QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
+	QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0));
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
     QTest::keyClicks (wallet.send_account, account.c_str ());
     QTest::keyClicks (wallet.send_count, "2");
@@ -137,8 +139,8 @@ TEST (wallet, process_block)
 {
     rai::system system (24000, 1);
     int argc (0);
-    QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
+	QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0));
     ASSERT_EQ ("Process", wallet.block_entry.process->text ());
     ASSERT_EQ ("Back", wallet.block_entry.back->text ());
     rai::keypair key1;
@@ -176,7 +178,7 @@ TEST (wallet, create_send)
 	system.wallet (0)->store.insert (key.prv);
 	int argc (0);
 	QApplication application (argc, nullptr);
-	rai_qt::wallet wallet (application, *system.nodes [0], system.nodes [0]->wallets.items.begin ()->first);
+	rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0));
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet.block_creation.send, Qt::LeftButton);

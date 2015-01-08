@@ -98,15 +98,13 @@ int main (int argc, char * const * argv)
         auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
         if (!init.error ())
         {
-            auto existing_wallet (node->wallets.items.find (config.wallet));
-            assert (existing_wallet != node->wallets.items.end ());
             if (config.uninitialized ())
             {
                 rai::random_pool.GenerateBlock (config.wallet.bytes.data (), config.wallet.bytes.size ());
-                node->wallets.create (config.wallet);
+                auto wallet (node->wallets.create (config.wallet));
                 rai::keypair key;
                 config.account = key.pub;
-                existing_wallet->second->store.insert (key.prv);
+                wallet->store.insert (key.prv);
                 std::ofstream config_file;
                 config_file.open (config_path);
                 if (!config_file.fail ())
