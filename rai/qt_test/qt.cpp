@@ -19,7 +19,7 @@ TEST (wallet, construction)
     ASSERT_EQ (key.pub.to_base58check (), wallet.self.account_button->text ().toStdString ());
     ASSERT_EQ (1, wallet.accounts.model->rowCount ());
     auto item1 (wallet.accounts.model->item (0, 1));
-    ASSERT_EQ (account_string, item1->text ().toStdString ());
+    ASSERT_EQ (key.pub.to_base58check (), item1->text ().toStdString ());
 }
 
 TEST (wallet, main)
@@ -119,14 +119,12 @@ TEST (wallet, send)
     rai::system system (24000, 2);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key1;
-    std::string account;
-    key1.pub.encode_base58check (account);
     system.wallet (1)->store.insert (key1.prv);
     int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), system.account (0));
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
-    QTest::keyClicks (wallet.send_account, account.c_str ());
+    QTest::keyClicks (wallet.send_account, key1.pub.to_base58check ().c_str ());
     QTest::keyClicks (wallet.send_count, "2");
     QTest::mouseClick (wallet.send_blocks_send, Qt::LeftButton);
     while (wallet.node.ledger.account_balance (key1.pub).is_zero ())

@@ -152,9 +152,7 @@ TEST (uint256_union, big_endian_union_function)
 
 TEST (uint256_union, transcode_test_key_base58check)
 {
-    std::string string;
-    rai::test_genesis_key.pub.encode_base58check (string);
     rai::uint256_union value;
-    ASSERT_FALSE (value.decode_base58check (string));
+    ASSERT_FALSE (value.decode_base58check (rai::test_genesis_key.pub.to_base58check ()));
     ASSERT_EQ (rai::test_genesis_key.pub, value);
 }

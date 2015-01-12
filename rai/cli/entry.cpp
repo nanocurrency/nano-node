@@ -134,7 +134,7 @@ int main (int argc, char * const * argv)
     else if (vm.count ("generate_key"))
     {
         rai::keypair pair;
-        std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.encode_base58check.to_base58check () << std::endl;
+        std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_base58check () << std::endl;
     }
     else if (vm.count ("get_account"))
     {

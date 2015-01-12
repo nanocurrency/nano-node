@@ -458,9 +458,7 @@ void rai::send_block::serialize_json (std::string & string_a) const
 {
     boost::property_tree::ptree tree;
     tree.put ("type", "send");
-    std::string destination;
-    hashables.destination.encode_base58check (destination);
-    tree.put ("destination", destination);
+    tree.put ("destination", hashables.destination.to_base58check ());
     std::string previous;
     hashables.previous.encode_hex (previous);
     tree.put ("previous", previous);

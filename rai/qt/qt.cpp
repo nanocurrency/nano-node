@@ -15,9 +15,7 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	assert (wallet_a.wallet_m->store.exists (account_a));
-    std::string account_text;
-    account_a.encode_base58check (account_text);
-    account_button->setText (QString (account_text.c_str ()));
+    account_button->setText (QString (account_a.to_base58check ().c_str ()));
     account_button->setFlat (true);
 	layout->addWidget (your_account_label);
 	layout->addWidget (account_button);
@@ -77,14 +75,12 @@ void rai_qt::accounts::refresh ()
     for (auto i (wallet.wallet_m->store.begin ()), j (wallet.wallet_m->store.end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
-        std::string account;
         rai::public_key key (i->first);
         auto account_balance (wallet.node.ledger.account_balance (key));
         balance += account_balance;
         auto balance (std::to_string (rai::scale_down (account_balance)));
         items.push_back (new QStandardItem (balance.c_str ()));
-        key.encode_base58check (account);
-        items.push_back (new QStandardItem (QString (account.c_str ())));
+        items.push_back (new QStandardItem (QString (key.to_base58check ().c_str ())));
         model->appendRow (items);
     }
     wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (balance))).c_str ()));
@@ -599,9 +595,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
     for (auto i (wallet.node.ledger.store.latest_begin()), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
-        std::string account;
-        i->first.encode_base58check (account);
-        items.push_back (new QStandardItem (QString (account.c_str ())));
+        items.push_back (new QStandardItem (QString (i->first.to_base58check ().c_str ())));
         items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (wallet.node.ledger.balance (i->second.hash))).c_str ())));
         std::string block_hash;
         i->second.hash.encode_hex (block_hash);
