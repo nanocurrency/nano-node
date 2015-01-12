@@ -57,9 +57,7 @@ public:
         std::string wallet_string;
         wallet.encode_hex (wallet_string);
         tree.put ("wallet", wallet_string);
-        std::string account_string;
-        account.encode_base58check (account_string);
-        tree.put ("account", account_string);
+        tree.put ("account", account.to_base58check ());
         boost::property_tree::ptree bootstrap_peers_l;
         for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
         {

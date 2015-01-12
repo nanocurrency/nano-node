@@ -134,17 +134,13 @@ int main (int argc, char * const * argv)
     else if (vm.count ("generate_key"))
     {
         rai::keypair pair;
-        std::string account;
-        pair.pub.encode_base58check (account);
-        std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << account << std::endl;
+        std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.encode_base58check.to_base58check () << std::endl;
     }
     else if (vm.count ("get_account"))
     {
         rai::uint256_union pub;
         pub.decode_hex (vm ["get_account"].as <std::string> ());
-        std::string account;
-        pub.encode_base58check (account);
-        std::cout << "Account: " << account << std::endl;
+        std::cout << "Account: " << pub.to_base58check () << std::endl;
     }
     else if (vm.count ("profile_work"))
     {

@@ -72,9 +72,7 @@ namespace landing
             std::string wallet_l;
             wallet.encode_hex (wallet_l);
             tree.put ("wallet", wallet_l);
-            std::string check;
-            distribution_account.encode_base58check (check);
-            tree.put ("distribution_account", check);
+            tree.put ("distribution_account", distribution_account.to_base58check ());
             boost::property_tree::ptree bootstrap_peers_l;
             for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
             {
@@ -233,11 +231,9 @@ int main (int argc, char * const * argv)
                 wallet_entry = wallet->store.begin ();
             }
             assert (wallet_entry != wallet->store.end ());
-            std::string landing_account;
-            wallet_entry->first.encode_base58check (landing_account);
+            std::cout << boost::str (boost::format ("Landing account: %1%\n") % wallet_entry->first.to_base58check ());
             ++wallet_entry;
             assert (wallet_entry == wallet->store.end ());
-            std::cout << boost::str (boost::format ("Landing account: %1%\n") % landing_account);
             std::cout << "Type a line to start\n";
             std::string line;
             std::cin >> line;

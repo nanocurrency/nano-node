@@ -1991,9 +1991,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                             rai::keypair new_key;
                             existing->second->store.insert (new_key.prv);
                             boost::property_tree::ptree response_l;
-                            std::string account;
-                            new_key.pub.encode_base58check (account);
-                            response_l.put ("account", account);
+                            response_l.put ("account", new_key.pub.to_base58check ());
                             set_response (response, response_l);
                         }
                         else
@@ -2066,10 +2064,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         boost::property_tree::ptree accounts;
                         for (auto i (existing->second->store.begin ()), j (existing->second->store.end ()); i != j; ++i)
                         {
-                            std::string account;
-                            i->first.encode_base58check (account);
                             boost::property_tree::ptree entry;
-                            entry.put ("", account);
+                            entry.put ("", i->first.to_base58check ());
                             accounts.push_back (std::make_pair ("", entry));
                         }
                         response_l.add_child ("accounts", accounts);
@@ -2107,10 +2103,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                                 existing->second->store.insert (key);
                                 rai::public_key pub;
                                 ed25519_publickey (key.bytes.data (), pub.bytes.data ());
-                                std::string account;
-                                pub.encode_base58check (account);
                                 boost::property_tree::ptree response_l;
-                                response_l.put ("account", account);
+                                response_l.put ("account", pub.to_base58check ());
                                 set_response (response, response_l);
                             }
                             else
@@ -2388,9 +2382,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     if (existing != node.wallets.items.end ())
                     {
                         boost::property_tree::ptree response_l;
-                        std::string representative;
-                        existing->second->store.representative ().encode_base58check (representative);
-                        response_l.put ("representative", representative);
+                        response_l.put ("representative", existing->second->store.representative ().to_base58check ());
                         set_response (response, response_l);
                     }
                     else
