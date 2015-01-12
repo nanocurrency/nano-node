@@ -14,6 +14,7 @@ account_button (new QPushButton),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
+	assert (wallet_a.wallet_m->store.exists (account_a));
     std::string account_text;
     account_a.encode_base58check (account_text);
     account_button->setText (QString (account_text.c_str ()));
@@ -21,6 +22,7 @@ wallet (wallet_a)
 	layout->addWidget (your_account_label);
 	layout->addWidget (account_button);
 	layout->addWidget (balance_label);
+	layout->setContentsMargins (5, 5, 5, 5);
     window->setLayout (layout);
     
     QObject::connect (account_button, &QPushButton::clicked, [this] ()
@@ -34,6 +36,7 @@ window (new QWidget),
 layout (new QVBoxLayout),
 model (new QStandardItemModel),
 view (new QTableView),
+create_account (new QPushButton ("Create account")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
@@ -45,13 +48,20 @@ wallet (wallet_a)
     view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::Stretch);
     view->verticalHeader ()->hide ();
     view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
-    layout->addWidget (view);
+	layout->addWidget (view);
+	layout->addWidget (create_account);
     layout->addWidget (back);
     window->setLayout (layout);
     QObject::connect (back, &QPushButton::clicked, [this] ()
     {
         wallet.pop_main_stack ();
-    });
+	});
+	QObject::connect (create_account, &QPushButton::released, [this] ()
+	{
+        rai::keypair key;
+        wallet.wallet_m->store.insert (key.prv);
+        refresh ();
+	});
     QObject::connect (view, &QTableView::clicked, [this] (QModelIndex const & index_a)
     {
         auto item (model->item (index_a.row (), 1));
@@ -80,8 +90,70 @@ void rai_qt::accounts::refresh ()
     wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (balance))).c_str ()));
 }
 
+rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a) :
+model (new QStandardItemModel),
+view (new QTableView),
+ledger (ledger_a),
+account (account_a)
+{
+	view->setModel (model);
+}
+
+
+namespace
+{
+class short_text_visitor : public rai::block_visitor
+{
+public:
+	short_text_visitor (rai::ledger & ledger_a) :
+	ledger (ledger_a)
+	{
+	}
+	void send_block (rai::send_block const & block_a)
+	{
+		auto amount (ledger.amount (block_a.hash ()));
+		text = boost::str (boost::format ("Sent %1%") % std::to_string (rai::scale_down (amount)));
+	}
+	void receive_block (rai::receive_block const & block_a)
+	{
+		auto amount (ledger.amount (block_a.source ()));
+		text = boost::str (boost::format ("Received %1%") % std::to_string (rai::scale_down (amount)));
+	}
+	void open_block (rai::open_block const & block_a)
+	{
+		text = boost::str (boost::format ("Opened"));
+	}
+	void change_block (rai::change_block const & block_a)
+	{
+		text = boost::str (boost::format ("Changed: %1%") % block_a.hashables.representative.to_base58check ());
+	}
+	rai::ledger & ledger;
+	std::string text;
+};
+}
+
+void rai_qt::history::refresh ()
+{
+	model->removeRows (0, model->rowCount ());
+	auto hash (ledger.latest (account));
+	short_text_visitor visitor (ledger);
+	while (!hash.is_zero ())
+	{
+		QList <QStandardItem *> items;
+		auto block (ledger.store.block_get (hash));
+		assert (block != nullptr);
+		block->visit (visitor);
+		items.push_back (new QStandardItem (QString (visitor.text.c_str ())));
+		hash = block->previous ();
+		model->appendRow (items);
+	}
+}
+
 rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account const & account_a) :
 node (node_a),
+wallet_m (wallet_a),
+account (account_a),
+history (node.ledger, account_a),
 accounts (*this),
 self (*this, account_a),
 password_change (*this),
@@ -95,8 +167,8 @@ client_window (new QWidget),
 client_layout (new QVBoxLayout),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
+account_history_label (new QLabel ("Account history:")),
 send_blocks (new QPushButton ("Send")),
-wallet_add_account (new QPushButton ("Create account")),
 show_advanced (new QPushButton ("Advanced")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
@@ -105,11 +177,8 @@ send_account (new QLineEdit),
 send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
-send_blocks_back (new QPushButton ("Back")),
-wallet_m (wallet_a),
-account (account_a)
+send_blocks_back (new QPushButton ("Back"))
 {
-    assert (wallet_a->store.exists (account_a));
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
     send_blocks_layout->addWidget (send_count_label);
@@ -119,9 +188,10 @@ account (account_a)
     send_blocks_layout->addWidget (send_blocks_back);
     send_blocks_layout->setContentsMargins (0, 0, 0, 0);
     send_blocks_window->setLayout (send_blocks_layout);
-    
+	
+	entry_window_layout->addWidget (account_history_label);
+	entry_window_layout->addWidget (history.view);
     entry_window_layout->addWidget (send_blocks);
-    entry_window_layout->addWidget (wallet_add_account);
     entry_window_layout->addWidget (show_advanced);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window_layout->setSpacing (5);
@@ -204,12 +274,6 @@ account (account_a)
     QObject::connect (send_blocks, &QPushButton::released, [this] ()
     {
         push_main_stack (send_blocks_window);
-    });
-    QObject::connect (wallet_add_account, &QPushButton::released, [this] ()
-    {
-        rai::keypair key;
-        wallet_m->store.insert (key.prv);
-        accounts.refresh ();
     });
     node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
     {

@@ -863,6 +863,13 @@ void rai::uint256_union::encode_base58check (std::string & destination_a) const
     std::reverse (destination_a.begin (), destination_a.end ());
 }
 
+std::string rai::uint256_union::to_base58check () const
+{
+	std::string result;
+	encode_base58check (result);
+	return result;
+}
+
 bool rai::uint256_union::decode_base58check (std::string const & source_a)
 {
     auto result (source_a.size () != 50);
@@ -2806,8 +2813,7 @@ rai::block_hash rai::ledger::latest (rai::account const & account_a)
 {
     rai::frontier frontier;
     auto latest_error (store.latest_get (account_a, frontier));
-    assert (!latest_error);
-    return frontier.hash;
+	return latest_error ? 0 : frontier.hash;
 }
 
 rai::checksum rai::ledger::checksum (rai::account const & begin_a, rai::account const & end_a)

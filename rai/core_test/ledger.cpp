@@ -1812,3 +1812,16 @@ TEST (ledger, fail_receive_fork_previous)
     auto result5 (ledger.process (block5));
     ASSERT_EQ (rai::process_result::fork_previous, result5);
 }
+
+TEST (ledger, latest_empty)
+{
+	leveldb::Status init;
+	rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
+	bool init1;
+	rai::ledger ledger (init1, init, store);
+	ASSERT_FALSE (init1);
+	rai::keypair key;
+	auto latest (ledger.latest (key.pub));
+	ASSERT_TRUE (latest.is_zero ());
+}

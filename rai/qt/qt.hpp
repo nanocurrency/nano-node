@@ -146,16 +146,30 @@ namespace rai_qt {
         QWidget * window;
         QVBoxLayout * layout;
         QStandardItemModel * model;
-        QTableView * view;
+		QTableView * view;
+		QPushButton * create_account;
         QPushButton * back;
         rai_qt::wallet & wallet;
     };
+	class history
+	{
+	public:
+		history (rai::ledger &, rai::account const &);
+		void refresh ();
+		QStandardItemModel * model;
+		QTableView * view;
+		rai::ledger & ledger;
+		rai::account const & account;
+	};
     class wallet
     {
     public:
         wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account const &);
         ~wallet ();
-        rai::node & node;
+		rai::node & node;
+		std::shared_ptr <rai::wallet> wallet_m;
+		rai::account account;
+		rai_qt::history history;
         rai_qt::accounts accounts;
 		rai_qt::self_pane self;
         rai_qt::password_change password_change;
@@ -172,8 +186,8 @@ namespace rai_qt {
         
         QWidget * entry_window;
         QVBoxLayout * entry_window_layout;
+		QLabel * account_history_label;
         QPushButton * send_blocks;
-        QPushButton * wallet_add_account;
         QPushButton * show_advanced;
         
         QWidget * send_blocks_window;
@@ -187,7 +201,5 @@ namespace rai_qt {
 		
         void pop_main_stack ();
         void push_main_stack (QWidget *);
-        std::shared_ptr <rai::wallet> wallet_m;
-        rai::account account;
     };
 }

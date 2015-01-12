@@ -93,6 +93,7 @@ namespace rai
 		void encode_dec (std::string &) const;
 		bool decode_dec (std::string const &);
 		void encode_base58check (std::string &) const;
+		std::string to_base58check () const;
 		bool decode_base58check (std::string const &);
 		std::array <uint8_t, 32> bytes;
 		std::array <char, 32> chars;

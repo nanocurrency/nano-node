@@ -214,3 +214,34 @@ TEST (wallet, create_send)
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (send));
 	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (send));
 }
+
+TEST (history, short_text)
+{
+	leveldb::Status init;
+	rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
+	rai::genesis genesis;
+	genesis.initialize (store);
+	bool init1;
+	rai::ledger ledger (init1, init, store);
+	ASSERT_FALSE (init1);
+	rai::keypair key;
+	rai::send_block send;
+	send.hashables.previous = ledger.latest (rai::test_genesis_key.pub);
+	send.hashables.balance = 0;
+	send.hashables.destination = rai::test_genesis_key.pub;
+	rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (send));
+	rai::receive_block receive;
+	receive.hashables.previous = send.hash ();
+	receive.hashables.source = send.hash ();
+	rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, receive.hash (), receive.signature);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (receive));
+	rai::change_block change (key.pub, receive.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (change));
+	int argc (0);
+	QApplication application (argc, nullptr);
+	rai_qt::history history (ledger, rai::test_genesis_key.pub);
+	history.refresh ();
+	ASSERT_EQ (4, history.model->rowCount ());
+}
