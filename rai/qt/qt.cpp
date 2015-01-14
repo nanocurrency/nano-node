@@ -92,7 +92,9 @@ view (new QTableView),
 ledger (ledger_a),
 account (account_a)
 {
-	view->setModel (model);
+    model->setHorizontalHeaderItem (0, new QStandardItem ("History"));
+    view->setModel (model);
+    view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
 }
 
 
@@ -292,7 +294,36 @@ send_blocks_back (new QPushButton ("Back"))
             accounts.refresh ();
         }
     });
+    node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
+    {
+        if (account == account_a)
+        {
+            history.refresh ();
+        }
+    });
+    node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
+    {
+        if (account == account_a)
+        {
+            history.refresh ();
+        }
+    });
+    node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
+    {
+        if (account == account_a)
+        {
+            history.refresh ();
+        }
+    });
+    node.change_observers.push_back ([this] (rai::change_block const &, rai::account const & account_a, rai::account const &)
+    {
+        if (account == account_a)
+        {
+            history.refresh ();
+        }
+    });
     accounts.refresh ();
+    history.refresh ();
 }
 
 rai_qt::wallet::~wallet ()
@@ -547,6 +578,7 @@ wallet (wallet_a)
           wallet_key_line->clear ();
           wallet.wallet_m->store.insert (key);
           wallet.accounts.refresh ();
+          wallet.history.refresh ();
       }
       else
       {
