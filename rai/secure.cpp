@@ -1383,10 +1383,8 @@ rai::block_hash rai::open_block::source () const
 
 rai::block_hash rai::open_block::root () const
 {
-	return hashables.source ^ root_mask;
+	return hashables.account;
 }
-
-rai::uint256_union const rai::open_block::root_mask = rai::uint256_union (~0, ~0, ~0, ~0);
 
 rai::change_hashables::change_hashables (rai::account const & representative_a, rai::block_hash const & previous_a) :
 representative (representative_a),
@@ -2500,32 +2498,20 @@ public:
     }
     void receive_block (rai::receive_block const & block_a) override
     {
-        from_previous (block_a.hashables.source);
+        auto block (store.block_get (block_a.hashables.source));
+        assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
+        auto send (static_cast <rai::send_block *> (block.get ()));
+        result = send->hashables.destination;
     }
     void open_block (rai::open_block const & block_a) override
     {
-        from_previous (block_a.hashables.source);
+        result = block_a.hashables.account;
     }
     void change_block (rai::change_block const & block_a) override
     {
         account_visitor prev (store);
         prev.compute (block_a.hashables.previous);
         result = prev.result;
-    }
-    void from_previous (rai::block_hash const & hash_a)
-    {
-        auto block (store.block_get (hash_a));
-        if (block != nullptr)
-        {
-            assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-            auto send (static_cast <rai::send_block *> (block.get ()));
-            result = send->hashables.destination;
-        }
-        else
-        {
-            assert (hash_a == rai::genesis_account);
-            result = rai::genesis_account;
-        }
     }
     rai::block_store & store;
     rai::account result;

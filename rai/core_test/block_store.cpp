@@ -428,7 +428,7 @@ TEST (block_store, roots)
 	rai::receive_block receive_block;
 	ASSERT_EQ (receive_block.hashables.previous, receive_block.root ());
 	rai::open_block open_block;
-	ASSERT_EQ (open_block.hashables.source ^ rai::open_block::root_mask, open_block.root ());
+	ASSERT_EQ (open_block.hashables.account, open_block.root ());
 }
 
 TEST (block_store, pending_exists)

@@ -313,7 +313,6 @@ namespace rai
         rai::open_hashables hashables;
 		rai::signature signature;
 		uint64_t work;
-		static rai::uint256_union const root_mask;
 	};
 	class change_hashables
 	{
