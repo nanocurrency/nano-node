@@ -1877,3 +1877,24 @@ TEST (ledger, latest_empty)
 	auto latest (ledger.latest (key.pub));
 	ASSERT_TRUE (latest.is_zero ());
 }
+
+TEST (ledger, latest_root)
+{
+    leveldb::Status init;
+    rai::block_store store (init, rai::block_store_temp);
+    ASSERT_TRUE (init.ok ());
+    bool init1;
+    rai::ledger ledger (init1, init, store);
+    ASSERT_FALSE (init1);
+    rai::genesis genesis;
+    genesis.initialize (store);
+    rai::keypair key;
+    ASSERT_EQ (key.pub, ledger.latest_root (key.pub));
+    auto hash1 (ledger.latest (rai::test_genesis_key.pub));
+    rai::send_block send;
+    send.hashables.previous = hash1;
+    send.hashables.balance = 1;
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+    ASSERT_EQ (rai::process_result::progress, ledger.process (send));
+    ASSERT_EQ (hash1, ledger.latest_root (rai::test_genesis_key.pub));
+}

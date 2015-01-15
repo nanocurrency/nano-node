@@ -594,6 +594,7 @@ namespace rai
         rai::uint128_t weight (rai::account const &);
 		std::unique_ptr <rai::block> successor (rai::block_hash const &);
 		rai::block_hash latest (rai::account const &);
+        rai::block_hash latest_root (rai::account const &);
 		rai::account representative (rai::block_hash const &);
 		rai::account representative_calculated (rai::block_hash const &);
 		rai::account representative_cached (rai::block_hash const &);

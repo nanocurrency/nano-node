@@ -2813,6 +2813,24 @@ rai::block_hash rai::ledger::latest (rai::account const & account_a)
 	return latest_error ? 0 : frontier.hash;
 }
 
+rai::block_hash rai::ledger::latest_root (rai::account const & account_a)
+{
+    rai::frontier frontier;
+    auto latest_error (store.latest_get (account_a, frontier));
+    rai::block_hash result;
+    if (latest_error)
+    {
+        result = account_a;
+    }
+    else
+    {
+        auto block (store.block_get (frontier.hash));
+        assert (block != nullptr);
+        result = block->root ();
+    }
+    return result;
+}
+
 rai::checksum rai::ledger::checksum (rai::account const & begin_a, rai::account const & end_a)
 {
     rai::checksum result;
