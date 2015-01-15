@@ -945,7 +945,7 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
     return result;
 }
 
-void rai::wallet::update_work (rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
+void rai::wallet::work_update (rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {
     assert (!rai::work_validate (root_a, work_a));
     std::lock_guard <std::mutex> lock (mutex);
@@ -959,6 +959,18 @@ void rai::wallet::update_work (rai::account const & account_a, rai::block_hash c
     {
         BOOST_LOG (node.log) << "Cached work changed";
     }
+}
+
+uint64_t rai::wallet::work_fetch (rai::account const & account_a, rai::block_hash const & root_a)
+{
+    assert (!mutex.try_lock ());
+    uint64_t result;
+    auto error (work.get (account_a, result));
+    if (error)
+    {
+        result = rai::work_generate (root_a);
+    }
+    return result;
 }
 
 rai::wallets::wallets (rai::node & node_a, boost::filesystem::path const & path_a) :

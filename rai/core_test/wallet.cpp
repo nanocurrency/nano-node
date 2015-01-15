@@ -425,12 +425,22 @@ TEST (wallet, work)
     uint64_t work1;
     ASSERT_TRUE (wallet->work.get (account1, work1));
     ASSERT_TRUE (wallet->store.exists (system.account (0)));
-    wallet->update_work (account1, 0, rai::work_generate (0));
+    wallet->work_update (account1, 0, rai::work_generate (0));
+    {
+        std::lock_guard <std::mutex> lock (wallet->mutex);
+        ASSERT_FALSE (rai::work_validate (0, wallet->work_fetch(account1, 0)));
+    }
     ASSERT_TRUE (wallet->work.get (system.account (0), work1));
     auto root1 (system.nodes [0]->ledger.latest_root (account1));
     auto work2 (rai::work_generate (root1));
-    wallet->update_work (account1, root1, work2);
+    wallet->work_update (account1, root1, work2);
     uint64_t work3;
     ASSERT_FALSE (wallet->work.get (account1, work3));
+    {
+        std::lock_guard <std::mutex> lock (wallet->mutex);
+        auto work4 (wallet->work_fetch (account1, root1));
+        ASSERT_FALSE (rai::work_validate (root1, work4));
+        ASSERT_EQ (work3, work4);
+    }
     ASSERT_EQ (work2, work3);
 }

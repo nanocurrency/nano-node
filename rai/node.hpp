@@ -326,7 +326,8 @@ public:
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
     bool send (rai::account const &, rai::uint128_t const &);
     bool import (std::string const &, std::string const &);
-    void update_work (rai::account const &, rai::block_hash const &, uint64_t);
+    void work_update (rai::account const &, rai::block_hash const &, uint64_t);
+    uint64_t work_fetch (rai::account const &, rai::block_hash const &);
     std::mutex mutex;
     rai::wallet_store store;
     rai::work_store work;
