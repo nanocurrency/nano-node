@@ -1042,35 +1042,42 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
     block_a.serialize (stream_a);
 }
 
-void rai::work_generate (rai::block & block_a)
+uint64_t rai::work_generate (rai::block_hash const & root_a)
 {
     xorshift1024star rng;
     rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
     CryptoPP::SHA3 hash (8);
-    auto root (block_a.root ());
     uint64_t work;
     uint64_t output;
     do
     {
         work = rng.next ();
         hash.Update (reinterpret_cast <uint8_t *> (&work), sizeof (work));
-        hash.Update (root.bytes.data (), root.bytes.size ());
+        hash.Update (root_a.bytes.data (), root_a.bytes.size ());
         hash.Final (reinterpret_cast <uint8_t *> (&output));
         hash.Restart ();
     } while (output < rai::block::publish_threshold);
-    block_a.block_work_set (work);
+    return work;
+}
+
+void rai::work_generate (rai::block & block_a)
+{
+    block_a.block_work_set (rai::work_generate (block_a.root ()));
+}
+
+bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+{
+    CryptoPP::SHA3 hash (8);
+    hash.Update (reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
+    hash.Update (root_a.bytes.data (), root_a.bytes.size ());
+    uint64_t result;
+    hash.Final (reinterpret_cast <uint8_t *> (&result));
+    return result < rai::block::publish_threshold;
 }
 
 bool rai::work_validate (rai::block & block_a)
 {
-    CryptoPP::SHA3 hash (8);
-    auto root (block_a.root ());
-    uint64_t work (block_a.block_work ());
-    hash.Update (reinterpret_cast <uint8_t *> (&work), sizeof (work));
-    hash.Update (root.bytes.data (), root.bytes.size ());
-    uint64_t result;
-    hash.Final (reinterpret_cast <uint8_t *> (&result));
-    return result < rai::block::publish_threshold;
+    return rai::work_validate (block_a.root (), block_a.block_work ());
 }
 
 std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a)

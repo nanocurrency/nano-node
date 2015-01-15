@@ -421,9 +421,16 @@ TEST (wallet, work)
     rai::system system (24000, 1);
     auto wallet (system.wallet (0));
     wallet->store.insert (rai::test_genesis_key.prv);
+    auto account1 (system.account (0));
     uint64_t work1;
-    ASSERT_TRUE (wallet->work.get (system.account (0), work1));
+    ASSERT_TRUE (wallet->work.get (account1, work1));
     ASSERT_TRUE (wallet->store.exists (system.account (0)));
-    wallet->update_work (system.account (0), 0, 0);
+    wallet->update_work (account1, 0, rai::work_generate (0));
     ASSERT_TRUE (wallet->work.get (system.account (0), work1));
+    auto root1 (system.nodes [0]->ledger.latest_root (account1));
+    auto work2 (rai::work_generate (root1));
+    wallet->update_work (account1, root1, work2);
+    uint64_t work3;
+    ASSERT_FALSE (wallet->work.get (account1, work3));
+    ASSERT_EQ (work2, work3);
 }

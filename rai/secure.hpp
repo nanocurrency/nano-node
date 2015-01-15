@@ -216,7 +216,9 @@ namespace rai
     std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
     void serialize_block (rai::stream &, rai::block const &);
     void work_generate (rai::block &);
+    uint64_t work_generate (rai::block_hash const &);
     bool work_validate (rai::block &);
+    bool work_validate (rai::block_hash const &, uint64_t);
 	class send_hashables
 	{
 	public:

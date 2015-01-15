@@ -945,12 +945,13 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
     return result;
 }
 
-void rai::wallet::update_work (rai::account const & account_a, rai::block_hash const & hash_a, uint64_t work_a)
+void rai::wallet::update_work (rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {
+    assert (!rai::work_validate (root_a, work_a));
     std::lock_guard <std::mutex> lock (mutex);
     assert (store.exists (account_a));
-    auto latest (node.ledger.latest (account_a));
-    if (latest == hash_a)
+    auto latest (node.ledger.latest_root (account_a));
+    if (latest == root_a)
     {
         work.put (account_a, work_a);
     }
