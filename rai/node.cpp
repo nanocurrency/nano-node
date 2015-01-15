@@ -841,6 +841,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
         if (new_account)
         {
             auto open (new rai::open_block);
+            open->hashables.account = send_a.hashables.destination;
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
             node.work_create (*open);
@@ -1677,6 +1678,13 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             }
             node.conflicts.start (*node.ledger.successor (block_a.root ()), false);
             break;
+        }
+        case rai::process_result::account_mismatch:
+        {
+            if (ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a.hash ().to_string ());
+            }
         }
     }
     return result;

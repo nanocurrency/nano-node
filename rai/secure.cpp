@@ -1236,6 +1236,7 @@ rai::block_hash rai::send_block::root () const
 
 void rai::open_hashables::hash (CryptoPP::SHA3 & hash_a) const
 {
+    hash_a.Update (account.bytes.data (), sizeof (account.bytes));
     hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
     hash_a.Update (source.bytes.data (), sizeof (source.bytes));
 }
@@ -1263,6 +1264,7 @@ rai::block_hash rai::open_block::previous () const
 
 void rai::open_block::serialize (rai::stream & stream_a) const
 {
+    write (stream_a, hashables.account);
     write (stream_a, hashables.representative);
     write (stream_a, hashables.source);
     write (stream_a, signature);
@@ -1273,12 +1275,9 @@ void rai::open_block::serialize_json (std::string & string_a) const
 {
     boost::property_tree::ptree tree;
     tree.put ("type", "open");
-    std::string representative;
-    hashables.representative.encode_hex (representative);
-    tree.put ("representative", representative);
-    std::string source;
-    hashables.source.encode_hex (source);
-    tree.put ("source", source);
+    tree.put ("account", hashables.account.to_string ());
+    tree.put ("representative", hashables.representative.to_string ());
+    tree.put ("source", hashables.source.to_string ());
     std::string signature_l;
     signature.encode_hex (signature_l);
     tree.put ("work", rai::to_string_hex (work));
@@ -1290,16 +1289,20 @@ void rai::open_block::serialize_json (std::string & string_a) const
 
 bool rai::open_block::deserialize (rai::stream & stream_a)
 {
-    auto result = read (stream_a, hashables.representative);
+    auto result (read (stream_a, hashables.account));
     if (!result)
     {
-        result = read (stream_a, hashables.source);
+        result = read (stream_a, hashables.representative);
         if (!result)
         {
-            result = read (stream_a, signature);
+            result = read (stream_a, hashables.source);
             if (!result)
             {
-                result = read (stream_a, work);
+                result = read (stream_a, signature);
+                if (!result)
+                {
+                    result = read (stream_a, work);
+                }
             }
         }
     }
@@ -1312,20 +1315,25 @@ bool rai::open_block::deserialize_json (boost::property_tree::ptree const & tree
     try
     {
         assert (tree_a.get <std::string> ("type") == "open");
+        auto account_l (tree_a.get <std::string> ("account"));
         auto representative_l (tree_a.get <std::string> ("representative"));
         auto source_l (tree_a.get <std::string> ("source"));
         auto work_l (tree_a.get <std::string> ("work"));
         auto signature_l (tree_a.get <std::string> ("signature"));
-        result = hashables.representative.decode_hex (representative_l);
+        result = hashables.account.decode_hex (account_l);
         if (!result)
         {
-            result = hashables.source.decode_hex (source_l);
+            result = hashables.representative.decode_hex (representative_l);
             if (!result)
             {
-                result = rai::from_string_hex (work_l, work);
+                result = hashables.source.decode_hex (source_l);
                 if (!result)
                 {
-                    result = signature.decode_hex (signature_l);
+                    result = rai::from_string_hex (work_l, work);
+                    if (!result)
+                    {
+                        result = signature.decode_hex (signature_l);
+                    }
                 }
             }
         }
@@ -1365,7 +1373,7 @@ bool rai::open_block::operator == (rai::block const & other_a) const
 
 bool rai::open_block::operator == (rai::open_block const & other_a) const
 {
-    return hashables.representative == other_a.hashables.representative && hashables.source == other_a.hashables.source && work == other_a.work && signature == other_a.signature;
+    return hashables.account == other_a.hashables.account && hashables.representative == other_a.hashables.representative && hashables.source == other_a.hashables.source && work == other_a.work && signature == other_a.signature;
 }
 
 rai::block_hash rai::open_block::source () const
@@ -3015,21 +3023,25 @@ void ledger_processor::open_block (rai::open_block const & block_a)
             result = ledger.store.pending_get (block_a.hashables.source, receivable) ? rai::process_result::fork_source : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
             {
-                result = rai::validate_message (receivable.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+                result = receivable.destination == block_a.hashables.account ? rai::process_result::progress : rai::process_result::account_mismatch;
                 if (result == rai::process_result::progress)
                 {
-                    rai::frontier frontier;
-                    result = ledger.store.latest_get (receivable.destination, frontier) ? rai::process_result::progress : rai::process_result::fork_previous; // Has this account already been opened? (Malicious)
+                    result = rai::validate_message (receivable.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
                     if (result == rai::process_result::progress)
                     {
-                        rai::frontier source_frontier;
-                        auto error (ledger.store.latest_get (receivable.source, source_frontier));
-                        assert (!error);
-                        ledger.store.pending_del (block_a.hashables.source);
-                        ledger.store.block_put (hash, block_a);
-                        ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
-                        ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
-                        ledger.open_observer (block_a, receivable.destination, receivable.amount, block_a.hashables.representative);
+                        rai::frontier frontier;
+                        result = ledger.store.latest_get (receivable.destination, frontier) ? rai::process_result::progress : rai::process_result::fork_previous; // Has this account already been opened? (Malicious)
+                        if (result == rai::process_result::progress)
+                        {
+                            rai::frontier source_frontier;
+                            auto error (ledger.store.latest_get (receivable.source, source_frontier));
+                            assert (!error);
+                            ledger.store.pending_del (block_a.hashables.source);
+                            ledger.store.block_put (hash, block_a);
+                            ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
+                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
+                            ledger.open_observer (block_a, receivable.destination, receivable.amount, block_a.hashables.representative);
+                        }
                     }
                 }
             }
@@ -3061,6 +3073,7 @@ rai::uint256_union rai::vote::hash () const
 
 rai::genesis::genesis ()
 {
+    open.hashables.account = genesis_account;
 	open.hashables.source = genesis_account;
 	open.hashables.representative = genesis_account;
 	open.signature.clear ();

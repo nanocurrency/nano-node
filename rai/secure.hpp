@@ -286,6 +286,7 @@ namespace rai
 	{
 	public:
 		void hash (CryptoPP::SHA3 &) const;
+        rai::account account;
 		rai::account representative;
 		rai::block_hash source;
 	};
@@ -308,7 +309,7 @@ namespace rai
 		rai::block_type type () const override;
 		bool operator == (rai::block const &) const override;
         bool operator == (rai::open_block const &) const;
-        static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
+        static size_t constexpr size = sizeof (rai::account) + sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
         rai::open_hashables hashables;
 		rai::signature signature;
 		uint64_t work;
@@ -552,7 +553,8 @@ namespace rai
         fork_source, // Malicious fork based on source
 		gap_previous, // Block marked as previous isn't in store
 		gap_source, // Block marked as source isn't in store
-		not_receive_from_send // Receive does not have a send source
+		not_receive_from_send, // Receive does not have a send source
+        account_mismatch // Account number in open block doesn't match send destination
     };
 	class vote
 	{
