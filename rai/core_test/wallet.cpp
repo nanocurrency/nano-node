@@ -415,3 +415,15 @@ TEST (wallet_store, move)
     ASSERT_TRUE (wallet1.exists (key2.pub));
     ASSERT_FALSE (wallet2.exists (key2.pub));
 }
+
+TEST (wallet, work)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+    wallet->store.insert (rai::test_genesis_key.prv);
+    uint64_t work1;
+    ASSERT_TRUE (wallet->work.get (system.account (0), work1));
+    ASSERT_TRUE (wallet->store.exists (system.account (0)));
+    wallet->update_work (system.account (0), 0, 0);
+    ASSERT_TRUE (wallet->work.get (system.account (0), work1));
+}

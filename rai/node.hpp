@@ -270,6 +270,14 @@ public:
     void value_set (rai::uint256_union const &);
     std::vector <std::unique_ptr <rai::uint256_union>> values;
 };
+class work_store
+{
+public:
+    work_store (bool &, boost::filesystem::path const &);
+    void put (rai::public_key const &, uint64_t);
+    bool get (rai::public_key const &, uint64_t &);
+    std::unique_ptr <leveldb::DB> handle;
+};
 class wallet_store
 {
 public:
@@ -318,8 +326,10 @@ public:
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
     bool send (rai::account const &, rai::uint128_t const &);
     bool import (std::string const &, std::string const &);
+    void update_work (rai::account const &, rai::block_hash const &, uint64_t);
     std::mutex mutex;
     rai::wallet_store store;
+    rai::work_store work;
     rai::node & node;
 };
 class wallets

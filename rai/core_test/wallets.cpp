@@ -10,6 +10,7 @@ TEST (wallets, open_create)
     rai::uint256_union id;
     ASSERT_EQ (nullptr, wallets.open (id));
     auto wallet (wallets.create (id));
+    ASSERT_NE (nullptr, wallet);
     ASSERT_EQ (wallet, wallets.open (id));
 }
 
@@ -22,6 +23,7 @@ TEST (wallets, open_existing)
         rai::wallets wallets (*system.nodes [0], path);
         ASSERT_EQ (0, wallets.items.size ());
         auto wallet (wallets.create (id));
+        ASSERT_NE (nullptr, wallet);
         ASSERT_EQ (wallet, wallets.open (id));
     }
     {
@@ -40,6 +42,7 @@ TEST (wallets, remove)
         rai::wallets wallets (*system.nodes [0], path);
         ASSERT_EQ (0, wallets.items.size ());
         auto wallet (wallets.create (one));
+        ASSERT_NE (nullptr, wallet);
         ASSERT_EQ (1, wallets.items.size ());
         wallets.destroy (one);
         ASSERT_EQ (0, wallets.items.size ());
