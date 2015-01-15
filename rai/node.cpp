@@ -3351,7 +3351,7 @@ void rai::bulk_pull_client::received_type ()
     {
         case rai::block_type::send:
         {
-            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
             {
                 this_l->received_block (ec, size_a);
             });
@@ -3359,7 +3359,7 @@ void rai::bulk_pull_client::received_type ()
         }
         case rai::block_type::receive:
         {
-            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::block_hash) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
             {
                 this_l->received_block (ec, size_a);
             });
@@ -3367,7 +3367,7 @@ void rai::bulk_pull_client::received_type ()
         }
         case rai::block_type::open:
         {
-            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
             {
                 this_l->received_block (ec, size_a);
             });
@@ -3375,7 +3375,7 @@ void rai::bulk_pull_client::received_type ()
         }
         case rai::block_type::change:
         {
-            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (connection->connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
             {
                 this_l->received_block (ec, size_a);
             });
@@ -3863,7 +3863,7 @@ void rai::bulk_push_server::received_type ()
     {
         case rai::block_type::send:
         {
-            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
                                      {
                                          this_l->received_block (ec, size_a);
                                      });
@@ -3871,7 +3871,7 @@ void rai::bulk_push_server::received_type ()
         }
         case rai::block_type::receive:
         {
-            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::block_hash) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
                                      {
                                          this_l->received_block (ec, size_a);
                                      });
@@ -3879,7 +3879,7 @@ void rai::bulk_push_server::received_type ()
         }
         case rai::block_type::open:
         {
-            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
                                      {
                                          this_l->received_block (ec, size_a);
                                      });
@@ -3887,7 +3887,7 @@ void rai::bulk_push_server::received_type ()
         }
         case rai::block_type::change:
         {
-            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (uint64_t) + sizeof (rai::signature)), [this_l] (boost::system::error_code const & ec, size_t size_a)
+            boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
                                      {
                                          this_l->received_block (ec, size_a);
                                      });

@@ -243,9 +243,10 @@ namespace rai
         bool deserialize_json (boost::property_tree::ptree const &);
 		void visit (rai::block_visitor &) const override;
 		std::unique_ptr <rai::block> clone () const override;
-		rai::block_type type () const override;
+        rai::block_type type () const override;
 		bool operator == (rai::block const &) const override;
 		bool operator == (rai::send_block const &) const;
+        static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (rai::signature) + sizeof (uint64_t);
 		send_hashables hashables;
 		rai::signature signature;
         uint64_t work;
@@ -275,7 +276,8 @@ namespace rai
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
 		bool operator == (rai::block const &) const override;
-		bool operator == (rai::receive_block const &) const;
+        bool operator == (rai::receive_block const &) const;
+        static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
         receive_hashables hashables;
         rai::signature signature;
         uint64_t work;
@@ -305,7 +307,8 @@ namespace rai
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
 		bool operator == (rai::block const &) const override;
-		bool operator == (rai::open_block const &) const;
+        bool operator == (rai::open_block const &) const;
+        static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
         rai::open_hashables hashables;
 		rai::signature signature;
 		uint64_t work;
@@ -343,7 +346,8 @@ namespace rai
 		std::unique_ptr <rai::block> clone () const override;
 		rai::block_type type () const override;
 		bool operator == (rai::block const &) const override;
-		bool operator == (rai::change_block const &) const;
+        bool operator == (rai::change_block const &) const;
+        static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
         rai::change_hashables hashables;
 		rai::signature signature;
         uint64_t work;

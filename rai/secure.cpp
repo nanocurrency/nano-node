@@ -45,6 +45,11 @@ namespace
     std::string rai_live_public_key = "0";
 }
 
+size_t constexpr rai::send_block::size;
+size_t constexpr rai::receive_block::size;
+size_t constexpr rai::open_block::size;
+size_t constexpr rai::change_block::size;
+
 rai::keypair const rai::test_genesis_key (rai_test_private_key);
 rai::account const rai::rai_test_account (rai_test_public_key);
 rai::account const rai::rai_beta_account (rai_beta_public_key);
@@ -1285,7 +1290,7 @@ void rai::open_block::serialize_json (std::string & string_a) const
 
 bool rai::open_block::deserialize (rai::stream & stream_a)
 {
-    auto result (read (stream_a, hashables.representative));
+    auto result = read (stream_a, hashables.representative);
     if (!result)
     {
         result = read (stream_a, hashables.source);

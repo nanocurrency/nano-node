@@ -50,25 +50,6 @@ TEST (block, send_serialize)
     ASSERT_EQ (block1, block2);
 }
 
-TEST (block, change_serialize)
-{
-    rai::change_block block1 (1, 2, 3, 4, 5);
-    std::vector <uint8_t> bytes;
-    {
-        rai::vectorstream stream1 (bytes);
-        block1.serialize (stream1);
-    }
-    auto data (bytes.data ());
-    auto size (bytes.size ());
-    ASSERT_NE (nullptr, data);
-    ASSERT_NE (0, size);
-    rai::bufferstream stream2 (data, size);
-    bool error;
-    rai::change_block block2 (error, stream2);
-    ASSERT_FALSE (error);
-    ASSERT_EQ (block1, block2);
-}
-
 TEST (block, send_serialize_json)
 {
     rai::send_block block1;
@@ -215,12 +196,13 @@ TEST (send_block, deserialize)
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);
-        rai::serialize_block (stream1, block1);
+        block1.serialize (stream1);
     }
+    ASSERT_EQ (rai::send_block::size, bytes.size ());
     rai::bufferstream stream2 (bytes.data (), bytes.size ());
-    auto block2 (rai::deserialize_block (stream2));
-    ASSERT_NE (nullptr, block2);
-    ASSERT_EQ (block1, *block2);
+    rai::send_block block2;
+    ASSERT_FALSE (block2.deserialize (stream2));
+    ASSERT_EQ (block1, block2);
 }
 
 TEST (receive_block, deserialize)
@@ -231,12 +213,48 @@ TEST (receive_block, deserialize)
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);
-        rai::serialize_block (stream1, block1);
+        block1.serialize (stream1);
     }
+    ASSERT_EQ (rai::receive_block::size, bytes.size ());
     rai::bufferstream stream2 (bytes.data (), bytes.size ());
-    auto block2 (rai::deserialize_block (stream2));
-    ASSERT_NE (nullptr, block2);
-    ASSERT_EQ (block1, *block2);
+    rai::receive_block block2;
+    ASSERT_FALSE (block2.deserialize (stream2));
+    ASSERT_EQ (block1, block2);
+}
+
+TEST (open_block, deserialize)
+{
+    rai::open_block block1;
+    std::vector <uint8_t> bytes;
+    {
+        rai::vectorstream stream (bytes);
+        block1.serialize (stream);
+    }
+    ASSERT_EQ (rai::open_block::size, bytes.size ());
+    rai::bufferstream stream (bytes.data (), bytes.size ());
+    rai::open_block block2;
+    ASSERT_FALSE (block2.deserialize (stream));
+    ASSERT_EQ (block1, block2);
+}
+
+TEST (change_block, deserialize)
+{
+    rai::change_block block1 (1, 2, 3, 4, 5);
+    std::vector <uint8_t> bytes;
+    {
+        rai::vectorstream stream1 (bytes);
+        block1.serialize (stream1);
+    }
+    ASSERT_EQ (rai::change_block::size, bytes.size ());
+    auto data (bytes.data ());
+    auto size (bytes.size ());
+    ASSERT_NE (nullptr, data);
+    ASSERT_NE (0, size);
+    rai::bufferstream stream2 (data, size);
+    bool error;
+    rai::change_block block2 (error, stream2);
+    ASSERT_FALSE (error);
+    ASSERT_EQ (block1, block2);
 }
 
 TEST (send_block, copy)
