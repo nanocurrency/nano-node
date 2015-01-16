@@ -576,7 +576,7 @@ wallet (wallet_a)
           palette.setColor (QPalette::Text, Qt::black);
           wallet_key_line->setPalette (palette);
           wallet_key_line->clear ();
-          wallet.wallet_m->store.insert (key);
+          wallet.wallet_m->insert (key);
           wallet.accounts.refresh ();
           wallet.history.refresh ();
       }
