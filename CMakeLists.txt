@@ -13,12 +13,6 @@ else (WIN32)
 	set (PLATFORM_GUI_EXE_LINK_FLAGS "")
 endif (WIN32)
 
-if (APPLE)
-	set (PLATFORM_LINK_FLAGS "-framework Foundation")
-else (APPLE)
-	set (PLATFORM_LINK_FLAGS "")
-endif (APPLE)
-
 include_directories (${CMAKE_SOURCE_DIR})
 
 find_package (Boost REQUIRED COMPONENTS filesystem system log log_setup thread program_options)
@@ -48,13 +42,7 @@ add_library (secure
 	rai/secure.hpp
 	rai/secure.cpp)
 
-if (APPLE)
-	set (PLATFORM_NODE_SOURCE rai/plat/osx/home.mm)
-endif (APPLE)
-
 add_library (node
-	rai/home.hpp
-	${PLATFORM_NODE_SOURCE}
 	rai/node.hpp
 	rai/node.cpp)
 
@@ -112,7 +100,6 @@ set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_ne
 
 set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (secure node core_test slow_test qt_test cli qt qt_wallet qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
-set_target_properties (secure node core_test slow_test qt_test cli qt qt_wallet qt_system landing PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 set_target_properties (qt_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_GUI_EXE_LINK_FLAGS}")
 
 if (WIN32)
