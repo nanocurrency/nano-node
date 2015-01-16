@@ -293,7 +293,7 @@ public:
     bool is_representative ();
     rai::account representative ();
     void representative_set (rai::account const &);
-    void insert (rai::private_key const &);
+    rai::public_key insert (rai::private_key const &);
     void erase (rai::public_key const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
@@ -318,11 +318,12 @@ public:
     static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
     std::unique_ptr <leveldb::DB> handle;
 };
-class wallet
+class wallet : public std::enable_shared_from_this <rai::wallet>
 {
 public:
     wallet (bool &, rai::node &, boost::filesystem::path const &);
     wallet (bool &, rai::node &, boost::filesystem::path const &, std::string const &);
+	void insert (rai::private_key const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
     bool send (rai::account const &, rai::uint128_t const &);
     bool import (std::string const &, std::string const &);

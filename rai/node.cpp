@@ -727,13 +727,14 @@ rai::account rai::wallet_store::representative ()
     return result;
 }
 
-void rai::wallet_store::insert (rai::private_key const & prv)
+rai::public_key rai::wallet_store::insert (rai::private_key const & prv)
 {
     rai::public_key pub;
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
     rai::uint256_union encrypted (prv, wallet_key (), salt ().owords [0]);
     auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (pub.chars.data (), pub.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
     assert (status.ok ());
+	return pub;
 }
 
 void rai::wallet_store::erase (rai::public_key const & pub)
@@ -826,6 +827,18 @@ store (init_a, path_a / "wallet", json),
 work (init_a, path_a / "work"),
 node (node_a)
 {
+}
+
+void rai::wallet::insert (rai::private_key const & key_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	auto key (store.insert (key_a));
+	auto this_l (shared_from_this ());
+	auto root (node.ledger.latest_root (key));
+	node.service.add (std::chrono::system_clock::now (), [this_l, key, root] ()
+	{
+		this_l->work_generate (key, root);
+	});
 }
 
 bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)

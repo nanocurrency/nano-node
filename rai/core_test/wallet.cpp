@@ -473,3 +473,21 @@ TEST (wallet, work_generate)
         ASSERT_LT (iterations2, 200);
     }
 }
+
+TEST (wallet, startup_work)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+    wallet->insert (rai::test_genesis_key.prv);
+    auto account1 (system.account (0));
+    uint64_t work1;
+    ASSERT_TRUE (wallet->work.get (account1, work1));
+    auto iterations2 (0);
+    while (wallet->work.get (account1, work1))
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}
