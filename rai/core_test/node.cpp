@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <rai/node.hpp>
+#include <rai/home.hpp>
 
 TEST (node, stop)
 {
@@ -339,4 +340,10 @@ TEST (node, connect_after_junk)
         ASSERT_LT (iterations2, 200);
     }
     node1->stop ();
+}
+
+TEST (node, home)
+{
+	auto path (rai::home_path ());
+	ASSERT_FALSE (path.empty ());
 }
