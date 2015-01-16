@@ -444,3 +444,32 @@ TEST (wallet, work)
     }
     ASSERT_EQ (work2, work3);
 }
+
+TEST (wallet, work_generate)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+    wallet->store.insert (rai::test_genesis_key.prv);
+    auto account1 (system.account (0));
+    uint64_t work1;
+    ASSERT_TRUE (wallet->work.get (account1, work1));
+    auto amount1 (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
+    rai::keypair key;
+    wallet->send (key.pub, 100);
+    auto iterations1 (0);
+    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) == amount1)
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
+    }
+    auto iterations2 (0);
+    while (wallet->work.get (account1, work1))
+    {
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}

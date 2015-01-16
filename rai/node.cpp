@@ -953,11 +953,12 @@ void rai::wallet::work_update (rai::account const & account_a, rai::block_hash c
     auto latest (node.ledger.latest_root (account_a));
     if (latest == root_a)
     {
+        BOOST_LOG (node.log) << "Successfully cached work";
         work.put (account_a, work_a);
     }
     else
     {
-        BOOST_LOG (node.log) << "Cached work changed";
+        BOOST_LOG (node.log) << "Cached work no longer valid, discarding";
     }
 }
 
@@ -971,6 +972,12 @@ uint64_t rai::wallet::work_fetch (rai::account const & account_a, rai::block_has
         result = rai::work_generate (root_a);
     }
     return result;
+}
+
+void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
+{
+    auto work (rai::work_generate (root_a));
+    work_update (account_a, root_a, work);
 }
 
 rai::wallets::wallets (rai::node & node_a, boost::filesystem::path const & path_a) :
@@ -1391,6 +1398,66 @@ service (processor_a)
             }
         }
     });
+    send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const &)
+    {
+        for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+        {
+            auto wallet (i->second);
+            if (wallet->store.exists (account_a))
+            {
+                auto root (block_a.root ());
+                service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
+                {
+                    wallet->work_generate (account_a, root);
+                });
+            }
+        }
+    });
+    receive_observers.push_back ([this] (rai::receive_block const & block_a, rai::account const & account_a, rai::amount const &)
+	{
+		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+		{
+			auto wallet (i->second);
+			if (wallet->store.exists (account_a))
+			{
+				auto root (block_a.root ());
+				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
+				{
+					wallet->work_generate (account_a, root);
+				});
+			}
+		}
+	});
+    open_observers.push_back ([this] (rai::open_block const & block_a, rai::account const & account_a, rai::amount const &, rai::account const &)
+	{
+		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+		{
+			auto wallet (i->second);
+			if (wallet->store.exists (account_a))
+			{
+				auto root (block_a.root ());
+				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
+				{
+					wallet->work_generate (account_a, root);
+				});
+			}
+		}
+	});
+    change_observers.push_back ([this] (rai::change_block const & block_a, rai::account const & account_a, rai::account const &)
+	{
+		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+		{
+			auto wallet (i->second);
+			if (wallet->store.exists (account_a))
+			{
+				auto root (block_a.root ());
+				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
+				{
+					wallet->work_generate (account_a, root);
+				});
+			}
+		}
+	});
     if (!init_a.error ())
     {
         if (node_lifetime_tracing ())
