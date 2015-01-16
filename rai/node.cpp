@@ -1337,7 +1337,7 @@ service (processor_a)
         boost::log::add_console_log (std::cerr);
     }
     boost::log::add_common_attributes ();
-    boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = rai::rai_network != rai::rai_networks::rai_test_network, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+    boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
     ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {
@@ -4826,14 +4826,18 @@ public:
         rai::private_key prv;
         for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
         {
-            if (!i->second->store.fetch (block_a.hashables.destination, prv))
+			auto wallet (i->second);
+            if (!wallet->store.fetch (block_a.hashables.destination, prv))
             {
-                auto error (i->second->receive (block_a, prv, i->second->store.representative ()));
+                auto error (wallet->receive (block_a, prv, wallet->store.representative ()));
                 prv.clear ();
             }
             else
             {
-                BOOST_LOG (node.log) << "While confirming, unable to fetch wallet key";
+				if (wallet->store.exists (block_a.hashables.destination))
+				{
+					BOOST_LOG (node.log) << "While confirming, unable to fetch wallet key";
+				}
             }
         }
     }
