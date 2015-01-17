@@ -10,6 +10,7 @@ boost::filesystem::path home_path ()
 	char const * dir_chars = [dir_string UTF8String];
 	boost::filesystem::path result (dir_chars);
 	[dir_string release];
+	result /= "RaiBlocks";
 	return result;
 }
 }
