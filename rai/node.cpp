@@ -1339,12 +1339,6 @@ service (processor_a)
     {
         gap_cache.vote (vote_a);
     });
-    if (wallets.items.empty ())
-    {
-        rai::uint256_union id;
-        rai::random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
-        wallets.create (id);
-    }
     if (log_to_cerr ())
     {
         boost::log::add_console_log (std::cerr);
@@ -1859,6 +1853,9 @@ service (new boost::asio::io_service)
         auto node (std::make_shared <rai::node> (init, service, port_a + i, processor));
         assert (!init.error ());
         node->start ();
+		rai::uint256_union wallet;
+		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+		node->wallets.create (wallet);
         nodes.push_back (node);
     }
     for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)

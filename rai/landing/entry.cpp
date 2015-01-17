@@ -25,6 +25,7 @@ namespace landing
         {
             bootstrap_peers.push_back ("rai.raiblocks.net");
             rai::random_pool.GenerateBlock (wallet.bytes.begin (), wallet.bytes.size ());
+			assert (!wallet.is_zero ());
         }
         config (bool & error_a, std::istream & stream_a)
         {

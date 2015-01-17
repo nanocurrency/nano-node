@@ -11,10 +11,11 @@ class qt_wallet_config
 public:
     qt_wallet_config () :
     peering_port (rai::network::node_port),
-    wallet (0),
     account (0)
     {
+		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
         bootstrap_peers.push_back ("rai.raiblocks.net");
+		assert (!wallet.is_zero ());
     }
     qt_wallet_config (bool & error_a, std::istream & stream_a)
     {
@@ -69,12 +70,6 @@ public:
         tree.add_child ("bootstrap_peers", bootstrap_peers_l);
         boost::property_tree::write_json (stream_a, tree);
     }
-    bool uninitialized ()
-    {
-        auto result (wallet.is_zero ());
-        assert (result == account.is_zero ());
-        return result;
-    }
     std::vector <std::string> bootstrap_peers;
     uint16_t peering_port;
     rai::uint256_union wallet;
@@ -89,9 +84,11 @@ int main (int argc, char * const * argv)
     auto config_path ((working / "config.json").string ());
     std::ifstream config_file;
     config_file.open (config_path);
+	auto uninitialized (true);
     if (!config_file.fail ())
     {
         config = qt_wallet_config (config_error, config_file);
+		uninitialized = false;
     }
     if (!config_error)
     {
@@ -102,9 +99,8 @@ int main (int argc, char * const * argv)
         auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
         if (!init.error ())
         {
-            if (config.uninitialized ())
+            if (uninitialized)
             {
-                rai::random_pool.GenerateBlock (config.wallet.bytes.data (), config.wallet.bytes.size ());
                 auto wallet (node->wallets.create (config.wallet));
                 rai::keypair key;
                 config.account = key.pub;
