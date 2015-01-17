@@ -1,10 +1,10 @@
-#include <rai/home.hpp>
+#include <rai/working.hpp>
 
 #include <shlobj.h>
 
 namespace rai
 {
-boost::filesystem::path home_path ()
+boost::filesystem::path working_path ()
 {
 	boost::filesystem::path result;
 	WCHAR path[MAX_PATH];

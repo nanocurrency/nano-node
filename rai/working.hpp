@@ -4,5 +4,5 @@
 
 namespace rai
 {
-boost::filesystem::path home_path ();
+boost::filesystem::path working_path ();
 }

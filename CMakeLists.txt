@@ -49,15 +49,15 @@ add_library (secure
 	rai/secure.cpp)
 
 if (APPLE)
-	set (PLATFORM_NODE_SOURCE rai/plat/osx/home.mm)
+	set (PLATFORM_NODE_SOURCE rai/plat/osx/working.mm)
 elseif (WIN32)
-	set (PLATFORM_NODE_SOURCE rai/plat/windows/home.cpp)
+	set (PLATFORM_NODE_SOURCE rai/plat/windows/working.cpp)
 elseif (UNIX)
-	set (PLATFORM_NODE_SOURCE rai/plat/posix/home.cpp)
+	set (PLATFORM_NODE_SOURCE rai/plat/posix/working.cpp)
 endif (APPLE)
 
 add_library (node
-	rai/home.hpp
+	rai/working.hpp
 	${PLATFORM_NODE_SOURCE}
 	rai/node.hpp
 	rai/node.cpp)

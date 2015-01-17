@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <rai/node.hpp>
-#include <rai/home.hpp>
+#include <rai/working.hpp>
 
 TEST (node, stop)
 {
@@ -342,8 +342,8 @@ TEST (node, connect_after_junk)
     node1->stop ();
 }
 
-TEST (node, home)
+TEST (node, working)
 {
-	auto path (rai::home_path ());
+	auto path (rai::working_path ());
 	ASSERT_FALSE (path.empty ());
 }

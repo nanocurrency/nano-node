@@ -1,11 +1,11 @@
-#include <rai/home.hpp>
+#include <rai/working.hpp>
 
 #include <sys/types.h>
 #include <pwd.h>
 
 namespace rai
 {
-boost::filesystem::path home_path ()
+boost::filesystem::path working_path ()
 {
 	auto entry (getpwuid (getuid ()));
 	assert (entry != nullptr);
