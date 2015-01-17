@@ -91,8 +91,8 @@ add_executable (qt_wallet
 add_executable (qt_system
 rai/qt_system/entry.cpp)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "3")
-set (CPACK_PACKAGE_VERSION_MINOR "2")
+set (CPACK_PACKAGE_VERSION_MAJOR "4")
+set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
