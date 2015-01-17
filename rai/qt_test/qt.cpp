@@ -190,6 +190,7 @@ TEST (wallet, create_send)
 	int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
+	wallet.client_window->show ();
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet.block_creation.send, Qt::LeftButton);
@@ -206,6 +207,79 @@ TEST (wallet, create_send)
 	ASSERT_FALSE (send.deserialize_json (tree1));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (send));
 	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (send));
+}
+
+TEST (wallet, create_open_receive)
+{
+	rai::keypair key;
+	rai::system system (24000, 1);
+	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	system.wallet (0)->send (key.pub, 100);
+	auto latest1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
+	system.wallet (0)->send (key.pub, 100);
+	auto latest2 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
+	ASSERT_NE (latest1, latest2);
+	system.wallet (0)->store.insert (key.prv);
+	int argc (0);
+    QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
+	wallet.client_window->show ();
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
+	QTest::mouseClick (wallet.block_creation.open, Qt::LeftButton);
+	QTest::keyClicks (wallet.block_creation.source, latest1.to_string ().c_str ());
+	QTest::keyClicks (wallet.block_creation.representative, rai::test_genesis_key.pub.to_base58check ().c_str ());
+	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
+	std::string json1 (wallet.block_creation.block->toPlainText ().toStdString ());
+	ASSERT_FALSE (json1.empty ());
+	rai::open_block open;
+	boost::property_tree::ptree tree1;
+	std::stringstream istream1 (json1);
+	boost::property_tree::read_json (istream1, tree1);
+	ASSERT_FALSE (open.deserialize_json (tree1));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (open));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (open));
+	wallet.block_creation.block->clear ();
+	wallet.block_creation.source->clear ();
+	QTest::mouseClick (wallet.block_creation.receive, Qt::LeftButton);
+	QTest::keyClicks (wallet.block_creation.source, latest2.to_string ().c_str ());
+	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
+	std::string json2 (wallet.block_creation.block->toPlainText ().toStdString ());
+	ASSERT_FALSE (json2.empty ());
+	rai::receive_block receive;
+	boost::property_tree::ptree tree2;
+	std::stringstream istream2 (json2);
+	boost::property_tree::read_json (istream2, tree2);
+	ASSERT_FALSE (receive.deserialize_json (tree2));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (receive));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (receive));
+}
+
+TEST (wallet, create_change)
+{
+	rai::keypair key;
+	rai::system system (24000, 1);
+	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	int argc (0);
+    QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
+	wallet.client_window->show ();
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
+	QTest::mouseClick (wallet.block_creation.change, Qt::LeftButton);
+	QTest::keyClicks (wallet.block_creation.account, rai::test_genesis_key.pub.to_base58check ().c_str ());
+	QTest::keyClicks (wallet.block_creation.representative, key.pub.to_base58check ().c_str ());
+	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
+	std::string json (wallet.block_creation.block->toPlainText ().toStdString ());
+	ASSERT_FALSE (json.empty ());
+	boost::property_tree::ptree tree1;
+	std::stringstream istream (json);
+	boost::property_tree::read_json (istream, tree1);
+	bool error (false);
+	rai::change_block change (error, tree1);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (change));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (change));
 }
 
 TEST (history, short_text)

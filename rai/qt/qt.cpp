@@ -859,6 +859,7 @@ void rai_qt::block_creation::create_send ()
                 rai::private_key key;
                 if (!wallet.wallet_m->store.fetch (account_l, key))
                 {
+					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     auto balance (wallet.node.ledger.account_balance (account_l));
                     if (amount_l.number () <= balance)
                     {
@@ -871,7 +872,7 @@ void rai_qt::block_creation::create_send ()
                         send.hashables.balance = rai::amount (balance - amount_l.number ());
                         rai::sign_message (key, account_l, send.hash (), send.signature);
                         key.clear ();
-                        wallet.node.work_create (send);
+                        send.block_work_set (wallet.wallet_m->work_fetch (account_l, send.root ()));
                         std::string block_l;
                         send.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
@@ -926,12 +927,13 @@ void rai_qt::block_creation::create_receive ()
                 auto error (wallet.wallet_m->store.fetch (receivable.destination, key));
                 if (!error)
                 {
+					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     rai::receive_block receive;
                     receive.hashables.previous = frontier.hash;
                     receive.hashables.source = source_l;
                     rai::sign_message (key, receivable.destination, receive.hash (), receive.signature);
                     key.clear ();
-                    wallet.node.work_create (receive);
+                    receive.block_work_set (wallet.wallet_m->work_fetch (receivable.destination, receive.root ()));
                     std::string block_l;
                     receive.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -981,9 +983,10 @@ void rai_qt::block_creation::create_change ()
                 auto error (wallet.wallet_m->store.fetch (account_l, key));
                 if (!error)
                 {
+					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     rai::change_block change (representative_l, frontier.hash, key, account_l);
                     key.clear ();
-                    wallet.node.work_create (change);
+                    change.block_work_set (wallet.wallet_m->work_fetch (account_l, change.root ()));
                     std::string block_l;
                     change.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -1036,12 +1039,14 @@ void rai_qt::block_creation::create_open ()
                     auto error (wallet.wallet_m->store.fetch (receivable.destination, key));
                     if (!error)
                     {
+						std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                         rai::open_block open;
+						open.hashables.account = receivable.destination;
                         open.hashables.source = source_l;
                         open.hashables.representative = representative_l;
                         rai::sign_message (key, receivable.destination, open.hash (), open.signature);
                         key.clear ();
-                        wallet.node.work_create (open);
+                        open.block_work_set (wallet.wallet_m->work_fetch (receivable.destination, open.root ()));
                         std::string block_l;
                         open.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
