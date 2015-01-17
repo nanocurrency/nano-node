@@ -246,7 +246,7 @@ int main (int argc, char * const * argv)
     else
     {
         rai_daemon::daemon daemon;
-        daemon.run (argc, argv);
+        daemon.run ();
     }
     return result;
 }

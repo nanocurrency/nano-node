@@ -1,5 +1,6 @@
 #include <rai/node.hpp>
 
+#include <rai/working.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <chrono>
@@ -174,7 +175,7 @@ namespace landing
 
 int main (int argc, char * const * argv)
 {
-    auto working (boost::filesystem::system_complete (argv[0]).parent_path ());
+    auto working (rai::working_path ());
     auto config_error (false);
     rai::landing::config config (rai::landing::read_config (config_error, working));
     if (!config_error)

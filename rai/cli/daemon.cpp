@@ -1,5 +1,6 @@
 #include <rai/cli/daemon.hpp>
 
+#include <rai/working.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <iostream>
 #include <fstream>
@@ -79,9 +80,9 @@ rai_daemon::daemon::daemon ()
 {
 }
 
-void rai_daemon::daemon::run (int argc, char * const * argv)
+void rai_daemon::daemon::run ()
 {
-    auto working (boost::filesystem::system_complete (argv[0]).parent_path ());
+    auto working (rai::working_path ());
     auto config_error (false);
     rai_daemon::daemon_config config;
     auto config_path ((working / "config.json").string ());
