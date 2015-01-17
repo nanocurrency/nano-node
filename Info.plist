@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>qt_client</string>
+	<string>qt_wallet</string>
 	<key>CFBundleName</key>
 	<string>RaiBlocks</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleIdentifier</key>
-	<string>net.raiblocks.qt_client</string>
+	<string>net.raiblocks.qt_wallet</string>
 </dict>
 </plist>
