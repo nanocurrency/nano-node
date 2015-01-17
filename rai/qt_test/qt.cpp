@@ -127,10 +127,13 @@ TEST (wallet, send)
     QTest::keyClicks (wallet.send_account, key1.pub.to_base58check ().c_str ());
     QTest::keyClicks (wallet.send_count, "2");
     QTest::mouseClick (wallet.send_blocks_send, Qt::LeftButton);
+	auto iterations1 (0);
     while (wallet.node.ledger.account_balance (key1.pub).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
+		++iterations1;
+		ASSERT_LT (iterations1, 200);
     }
     ASSERT_EQ (rai::scale_up (2), wallet.node.ledger.account_balance (key1.pub));
 	QTest::mouseClick (wallet.send_blocks_back, Qt::LeftButton);
@@ -250,12 +253,12 @@ TEST (wallet, startup_work)
     ASSERT_TRUE (wallet.wallet_m->work.get (rai::test_genesis_key.pub, work1));
 	QTest::keyClicks (wallet.advanced.wallet_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
     QTest::mouseClick (wallet.advanced.wallet_add_key_button, Qt::LeftButton);
-    auto iterations2 (0);
+    auto iterations1 (0);
     while (wallet.wallet_m->work.get (rai::test_genesis_key.pub, work1))
     {
         system.service->poll_one ();
         system.processor.poll_one ();
-        ++iterations2;
-        ASSERT_LT (iterations2, 200);
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
     }
 }

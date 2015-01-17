@@ -851,24 +851,24 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
         rai::frontier frontier;
         auto new_account (node.ledger.store.latest_get (send_a.hashables.destination, frontier));
         std::unique_ptr <rai::block> block;
-        if (new_account)
+        if (!new_account)
+        {
+            auto receive (new rai::receive_block);
+            receive->hashables.previous = frontier.hash;
+            receive->hashables.source = hash;
+            receive->block_work_set (work_fetch (send_a.hashables.destination, receive->root ()));
+            rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
+            block.reset (receive);
+        }
+        else
         {
             auto open (new rai::open_block);
             open->hashables.account = send_a.hashables.destination;
             open->hashables.source = hash;
             open->hashables.representative = representative_a;
-            node.work_create (*open);
+            open->block_work_set (work_fetch (send_a.hashables.destination, open->root ()));
             rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
             block.reset (open);
-        }
-        else
-        {
-            auto receive (new rai::receive_block);
-            receive->hashables.previous = frontier.hash;
-            receive->hashables.source = hash;
-            node.work_create (*receive);
-            rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
-            block.reset (receive);
         }
         node.processor.process_receive_republish (std::move (block));
         result = false;
@@ -904,7 +904,7 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
                 block->hashables.destination = account_a;
                 block->hashables.previous = frontier.hash;
                 block->hashables.balance = balance - amount;
-                node.work_create (*block);
+                block->block_work_set (work_fetch (account, block->root ()));
                 rai::private_key prv;
                 result = store.fetch (account, prv);
                 assert (!result);
