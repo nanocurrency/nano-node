@@ -50,6 +50,8 @@ add_library (secure
 
 if (APPLE)
 	set (PLATFORM_NODE_SOURCE rai/plat/osx/home.mm)
+elseif (WIN32)
+	set (PLATFORM_NODE_SOURCE rai/plat/windows/home.cpp)
 endif (APPLE)
 
 add_library (node
