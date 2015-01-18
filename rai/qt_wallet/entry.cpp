@@ -79,6 +79,7 @@ public:
 int main (int argc, char * const * argv)
 {
     auto working (rai::working_path ());
+	boost::filesystem::create_directories (working);
     auto config_error (false);
     qt_wallet_config config;
     auto config_path ((working / "config.json").string ());

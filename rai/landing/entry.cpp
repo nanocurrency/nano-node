@@ -177,6 +177,7 @@ namespace landing
 int main (int argc, char * const * argv)
 {
     auto working (rai::working_path ());
+	boost::filesystem::create_directories (working);
     auto config_error (false);
     rai::landing::config config (rai::landing::read_config (config_error, working));
     if (!config_error)

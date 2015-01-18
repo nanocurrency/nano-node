@@ -83,6 +83,7 @@ rai_daemon::daemon::daemon ()
 void rai_daemon::daemon::run ()
 {
     auto working (rai::working_path ());
+	boost::filesystem::create_directories (working);
     auto config_error (false);
     rai_daemon::daemon_config config;
     auto config_path ((working / "config.json").string ());
