@@ -8,7 +8,7 @@ boost::filesystem::path working_path ()
 {
 	boost::filesystem::path result;
 	WCHAR path[MAX_PATH];
-	if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROFILE, NULL, 0, path)))
+	if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, path)))
 	{
 		result = boost::filesystem::path (path);
 		result /= "RaiBlocks";
@@ -17,5 +17,6 @@ boost::filesystem::path working_path ()
 	{
 		assert (false);
 	}
+	return result;
 }
 }
