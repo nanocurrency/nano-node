@@ -85,25 +85,25 @@ add_executable (core_test
 
 add_executable (slow_test
 	rai/slow_test/node.cpp)
-    
+
 add_executable (qt_test
 	rai/qt_test/qt.cpp)
-    
+
 add_executable (cli
 	rai/cli/daemon.cpp
 	rai/cli/daemon.hpp
 	rai/cli/entry.cpp)
-    
+
 add_library (qt
 	rai/qt/qt.cpp
 	rai/qt/qt.hpp)
 
 add_executable (landing
 	rai/landing/entry.cpp)
-    
+
 add_executable (qt_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 	rai/qt_wallet/entry.cpp)
-    
+
 add_executable (qt_system
 	rai/qt_system/entry.cpp)
 
