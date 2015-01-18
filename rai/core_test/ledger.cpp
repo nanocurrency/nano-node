@@ -1896,5 +1896,5 @@ TEST (ledger, latest_root)
     send.hashables.balance = 1;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (send));
-    ASSERT_EQ (hash1, ledger.latest_root (rai::test_genesis_key.pub));
+    ASSERT_EQ (send.hash (), ledger.latest_root (rai::test_genesis_key.pub));
 }

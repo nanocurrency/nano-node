@@ -3974,10 +3974,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
             auto & front (sends.front ());
             if (network_packet_logging ())
             {
-                if (network_packet_logging ())
-                {
-                    BOOST_LOG (node.log) << "Sending packet";
-                }
+				BOOST_LOG (node.log) << "Sending packet";
             }
             socket.async_send_to (boost::asio::buffer (std::get <0> (front), std::get <1> (front)), std::get <2> (front), [this] (boost::system::error_code const & ec, size_t size_a)
             {

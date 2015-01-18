@@ -440,6 +440,7 @@ uint64_t rai::send_block::block_work () const
 
 void rai::send_block::block_work_set (uint64_t work_a)
 {
+	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 
@@ -2831,9 +2832,7 @@ rai::block_hash rai::ledger::latest_root (rai::account const & account_a)
     }
     else
     {
-        auto block (store.block_get (frontier.hash));
-        assert (block != nullptr);
-        result = block->root ();
+        result = frontier.hash;
     }
     return result;
 }
