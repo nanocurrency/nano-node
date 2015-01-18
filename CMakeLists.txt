@@ -8,9 +8,9 @@ else (WIN32)
 endif (WIN32)
 
 if (WIN32)
-	set (PLATFORM_GUI_EXE_LINK_FLAGS "-mwindows")
+	set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
 else (WIN32)
-	set (PLATFORM_GUI_EXE_LINK_FLAGS "")
+	set (PLATFORM_GUI_TARGET_PROPERTIES "")
 endif (WIN32)
 
 if (APPLE)
@@ -101,7 +101,7 @@ add_library (qt
 add_executable (landing
 	rai/landing/entry.cpp)
     
-add_executable (qt_wallet
+add_executable (qt_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 	rai/qt_wallet/entry.cpp)
     
 add_executable (qt_system
@@ -117,7 +117,7 @@ set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_ne
 set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (secure node core_test slow_test qt_test cli qt qt_wallet qt_system landing PROPERTIES COMPILE_FLAGS "-std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
 set_target_properties (secure node core_test slow_test cli qt qt_system landing PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
-set_target_properties (qt_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS} ${PLATFORM_GUI_EXE_LINK_FLAGS}")
+set_target_properties (qt_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
 if (WIN32)
 	set (PLATFORM_LIBS ws2_32 mswsock)
