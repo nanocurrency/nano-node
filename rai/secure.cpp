@@ -639,6 +639,7 @@ uint64_t rai::receive_block::block_work () const
 
 void rai::receive_block::block_work_set (uint64_t work_a)
 {
+	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 
@@ -1261,6 +1262,7 @@ uint64_t rai::open_block::block_work () const
 
 void rai::open_block::block_work_set (uint64_t work_a)
 {
+	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 
@@ -1493,6 +1495,7 @@ uint64_t rai::change_block::block_work () const
 
 void rai::change_block::block_work_set (uint64_t work_a)
 {
+	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 

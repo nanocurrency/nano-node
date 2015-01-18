@@ -984,6 +984,14 @@ uint64_t rai::wallet::work_fetch (rai::account const & account_a, rai::block_has
     {
         result = rai::work_generate (root_a);
     }
+	else
+	{
+		if (rai::work_validate (root_a, result))
+		{
+			result = rai::work_generate (root_a);
+			BOOST_LOG (node.log) << "Cached work invalid, regenerating";
+		}
+	}
     return result;
 }
 
@@ -1412,7 +1420,7 @@ service (processor_a)
             auto wallet (i->second);
             if (wallet->store.exists (account_a))
             {
-                auto root (block_a.root ());
+                auto root (ledger.latest_root (account_a));
                 service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
                 {
                     wallet->work_generate (account_a, root);
@@ -1427,7 +1435,7 @@ service (processor_a)
 			auto wallet (i->second);
 			if (wallet->store.exists (account_a))
 			{
-				auto root (block_a.root ());
+				auto root (ledger.latest_root (account_a));
 				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
 				{
 					wallet->work_generate (account_a, root);
@@ -1442,7 +1450,7 @@ service (processor_a)
 			auto wallet (i->second);
 			if (wallet->store.exists (account_a))
 			{
-				auto root (block_a.root ());
+				auto root (ledger.latest_root (account_a));
 				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
 				{
 					wallet->work_generate (account_a, root);
@@ -1457,7 +1465,7 @@ service (processor_a)
 			auto wallet (i->second);
 			if (wallet->store.exists (account_a))
 			{
-				auto root (block_a.root ());
+				auto root (ledger.latest_root (account_a));
 				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
 				{
 					wallet->work_generate (account_a, root);

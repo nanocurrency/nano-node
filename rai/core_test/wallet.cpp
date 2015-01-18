@@ -465,7 +465,7 @@ TEST (wallet, work_generate)
         ASSERT_LT (iterations1, 200);
     }
     auto iterations2 (0);
-    while (wallet->work.get (account1, work1))
+    while (wallet->work.get (account1, work1) || rai::work_validate (system.nodes [0]->ledger.latest_root (account1), work1))
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -490,4 +490,14 @@ TEST (wallet, startup_work)
         ++iterations2;
         ASSERT_LT (iterations2, 200);
     }
+}
+
+TEST (wallet, unsynced_work)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+	wallet->work.put (0, 0);
+	std::lock_guard <std::mutex> lock (wallet->mutex);
+	auto work1 (wallet->work_fetch (0, 0));
+	ASSERT_FALSE (rai::work_validate (0, work1));
 }
