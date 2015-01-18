@@ -86,6 +86,7 @@ struct hash <rai::endpoint>
 
 namespace rai
 {
+boost::filesystem::path working_path ();
 class node;
 class election : public std::enable_shared_from_this <rai::election>
 {

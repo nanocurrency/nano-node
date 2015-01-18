@@ -435,6 +435,7 @@ TEST (block_store, pending_exists)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
     rai::block_hash two (2);
     rai::receivable receivable;
     store.pending_put (two, receivable);
@@ -446,6 +447,7 @@ TEST (block_store, latest_exists)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
     rai::block_hash two (2);
     rai::frontier frontier;
     store.latest_put (two, frontier);
@@ -457,6 +459,7 @@ TEST (block_store, stack)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
     rai::block_hash hash1 (1);
     store.stack_push (0, hash1);
     rai::block_hash hash2 (2);
@@ -471,6 +474,7 @@ TEST (block_store, unsynced)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
     rai::block_hash hash1;
     ASSERT_FALSE (store.unsynced_exists (hash1));
@@ -487,6 +491,7 @@ TEST (block_store, unsynced_iteration)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
+	ASSERT_TRUE (init.ok ());
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
     rai::block_hash hash1 (1);
     store.unsynced_put (hash1);

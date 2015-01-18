@@ -5,12 +5,11 @@
 
 namespace rai
 {
-boost::filesystem::path working_path ()
+boost::filesystem::path app_path ()
 {
 	auto entry (getpwuid (getuid ()));
 	assert (entry != nullptr);
 	boost::filesystem::path result (entry->pw_dir);
-	result /= "RaiBlocks";
 	return result;
 }
 }

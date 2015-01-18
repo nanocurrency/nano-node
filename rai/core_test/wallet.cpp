@@ -188,6 +188,7 @@ TEST (wallet, rekey)
 {
     bool init;
     rai::wallet_store wallet (init, boost::filesystem::unique_path ());
+	ASSERT_FALSE (init);
     ASSERT_EQ (wallet.password.value (), wallet.derive_key (""));
     ASSERT_FALSE (init);
     rai::keypair key1;
@@ -340,6 +341,7 @@ TEST (wallet, serialize_json_empty)
 {
     auto error (false);
     rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
+	ASSERT_FALSE (error);
     std::string serialized;
     wallet1.serialize_json (serialized);
     rai::wallet_store wallet2 (error, boost::filesystem::unique_path (), serialized);
@@ -356,6 +358,7 @@ TEST (wallet, serialize_json_one)
 {
     auto error (false);
     rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
+	ASSERT_FALSE (error);
     rai::keypair key;
     wallet1.insert (key.prv);
     std::string serialized;
@@ -376,6 +379,7 @@ TEST (wallet, serialize_json_password)
 {
     auto error (false);
     rai::wallet_store wallet1 (error, boost::filesystem::unique_path ());
+	ASSERT_FALSE (error);
     rai::keypair key;
     wallet1.rekey ("password");
     wallet1.insert (key.prv);

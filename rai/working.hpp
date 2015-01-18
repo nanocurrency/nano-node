@@ -1,8 +1,8 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
+#include <rai/secure.hpp>
 
 namespace rai
 {
-boost::filesystem::path working_path ();
+boost::filesystem::path app_path ();
 }
