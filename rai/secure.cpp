@@ -1,5 +1,7 @@
 #include <rai/secure.hpp>
 
+#include <rai/working.hpp>
+
 #include <boost/property_tree/json_parser.hpp>
 
 #include <cryptopp/aes.h>
@@ -56,6 +58,30 @@ rai::account const rai::rai_beta_account (rai_beta_public_key);
 rai::account const rai::rai_live_account (rai_live_public_key);
 
 rai::account const rai::genesis_account = rai_network == rai_networks::rai_test_network ? rai_test_account : rai_network == rai_networks::rai_beta_network ? rai_beta_account : rai_live_account;
+
+boost::filesystem::path rai::working_path ()
+{
+	auto result (rai::app_path ());
+	switch (rai::rai_network)
+	{
+		case rai::rai_networks::rai_test_network:
+			result /= "RaiBlocksTest";
+			break;
+		case rai::rai_networks::rai_beta_network:
+			result /= "RaiBlocksBeta";
+			break;
+		case rai::rai_networks::rai_live_network:
+			result /= "RaiBlocks";
+			break;
+	}
+	return result;
+}
+
+boost::filesystem::path rai::unique_path ()
+{
+	auto result (working_path () / boost::filesystem::unique_path ());
+	return result;
+}
 
 CryptoPP::AutoSeededRandomPool rai::random_pool;
 
@@ -1834,7 +1860,7 @@ void rai::hash_iterator::set_current ()
 rai::block_store_temp_t rai::block_store_temp;
 
 rai::block_store::block_store (leveldb::Status & result, block_store_temp_t const &) :
-block_store (result, boost::filesystem::unique_path ())
+block_store (result, rai::working_path () / boost::filesystem::unique_path ())
 {
 }
 

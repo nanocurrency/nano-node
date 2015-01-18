@@ -33,6 +33,8 @@ namespace rai
     using stream = std::basic_streambuf <uint8_t>;
     using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
     using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_insert_device <std::vector <uint8_t>>>;
+	boost::filesystem::path working_path ();
+	boost::filesystem::path unique_path ();
 	template <typename T>
 	bool read (rai::stream & stream_a, T & value)
 	{

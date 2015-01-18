@@ -385,7 +385,7 @@ TEST (block_store, bad_path)
 
 TEST (block_store, already_open)
 {
-    auto path (boost::filesystem::unique_path ());
+    auto path (rai::unique_path ());
     boost::filesystem::create_directories (path);
     std::ofstream file;
     file.open ((path / "accounts.ldb").string ().c_str ());

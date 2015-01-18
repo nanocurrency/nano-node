@@ -17,7 +17,7 @@ TEST (node, block_store_path_failure)
     rai::node_init init;
     rai::processor_service processor;
     auto service (boost::make_shared <boost::asio::io_service> ());
-    auto node (std::make_shared <rai::node> (init, service, 0, boost::filesystem::unique_path (), processor));
+    auto node (std::make_shared <rai::node> (init, service, 0, rai::unique_path (), processor));
 	ASSERT_TRUE (node->wallets.items.empty ());
     node->stop ();
 }
