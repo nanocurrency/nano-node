@@ -39,6 +39,7 @@ void ed25519_hash (uint8_t * out, uint8_t const * in, size_t inlen)
 }
 }
 
+// Genesis keys for network variants
 namespace
 {
     std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
@@ -141,8 +142,10 @@ bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const
 bool rai::votes::vote (rai::vote const & vote_a)
 {
 	auto result (false);
+	// Reject unsigned votes
 	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
 	{
+		// Check if we're adding a new vote entry or modifying an existing one.
 		auto existing (rep_votes.find (vote_a.account));
 		if (existing == rep_votes.end ())
 		{
@@ -151,6 +154,7 @@ bool rai::votes::vote (rai::vote const & vote_a)
 		}
 		else
 		{
+			// Only accept votes with an increasing sequence number
 			if (existing->second.first < vote_a.sequence)
 			{
 				result = !(*existing->second.second == *vote_a.block);
@@ -175,6 +179,7 @@ std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::ledger::winner (ra
 std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::ledger::tally (rai::votes const & votes_a)
 {
 	std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash, rai::unique_ptr_block_hash> totals;
+	// Construct a map of blocks -> vote total.
 	for (auto & i: votes_a.rep_votes)
 	{
 		auto existing (totals.find (i.second.second));
@@ -187,6 +192,7 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 		auto weight_l (weight (i.first));
 		existing->second += weight_l;
 	}
+	// Construction a map of vote total -> block in decreasing order.
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> result;
 	for (auto & i: totals)
 	{
@@ -253,6 +259,7 @@ data (new uint64_t [entries_a])
     assert ((entries_a & (stepping - 1)) == 0);
 }
 
+// Derive a wallet key from a password and salt.
 rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint256_union const & salt_a)
 {
     rai::uint256_union input;
@@ -284,6 +291,7 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
     {
         auto index (previous & mask);
         auto value (rng.next ());
+		// Use the index from the previous random value so LSB (data[index]) != value
         data [index] = value;
     }
     // Random-read buffer to prevent partial memorization
@@ -292,6 +300,7 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
         std::array <uint64_t, stepping> qwords;
         std::array <uint8_t, stepping * sizeof (uint64_t)> bytes;
     } value;
+	// Hash the memory buffer to derive encryption key
     for (size_t i (0), n (entries); i != n; i += stepping)
     {
         for (size_t j (0), m (stepping); j != m; ++j)
@@ -432,14 +441,16 @@ bool rai::uint512_union::operator == (rai::uint512_union const & other_a) const
 	return bytes == other_a.bytes;
 }
 
-rai::uint256_union::uint256_union (rai::private_key const & prv, rai::secret_key const & key, uint128_union const & iv)
+// Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
+rai::uint256_union::uint256_union (rai::private_key const & cleartext, rai::secret_key const & key, uint128_union const & iv)
 {
-	rai::uint256_union exponent (prv);
+	rai::uint256_union exponent (cleartext);
 	CryptoPP::AES::Encryption alg (key.bytes.data (), sizeof (key.bytes));
     CryptoPP::CTR_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
 	enc.ProcessData (bytes.data (), exponent.bytes.data (), sizeof (exponent.bytes));
 }
 
+// Return a uint256_union = AES_DEC_CTR (this, key, iv)
 rai::private_key rai::uint256_union::prv (rai::secret_key const & key_a, uint128_union const & iv) const
 {
 	CryptoPP::AES::Encryption alg (key_a.bytes.data (), sizeof (key_a.bytes));
@@ -2749,6 +2760,7 @@ void balance_visitor::compute (rai::block_hash const & block_hash)
     block->visit (*this);
 }
 
+// Balance for account containing hash
 rai::uint128_t rai::ledger::balance (rai::block_hash const & hash_a)
 {
     balance_visitor visitor (store);
@@ -2756,6 +2768,7 @@ rai::uint128_t rai::ledger::balance (rai::block_hash const & hash_a)
     return visitor.result;
 }
 
+// Balance for an account by account number
 rai::uint128_t rai::ledger::account_balance (rai::account const & account_a)
 {
     rai::uint128_t result (0);
@@ -2775,6 +2788,7 @@ rai::process_result rai::ledger::process (rai::block const & block_a)
     return processor.result;
 }
 
+// Money supply for heuristically calculating vote percentages
 rai::uint128_t rai::ledger::supply ()
 {
     return std::numeric_limits <rai::uint128_t>::max ();
@@ -2799,6 +2813,7 @@ rai::account rai::ledger::representative_cached (rai::block_hash const & hash_a)
     assert (false);
 }
 
+// Vote weight of an account
 rai::uint128_t rai::ledger::weight (rai::account const & account_a)
 {
     return store.representation_get (account_a);
@@ -2820,6 +2835,7 @@ void rai::ledger::rollback (rai::block_hash const & frontier_a)
     } while (frontier.hash != frontier_a);
 }
 
+// Return account containing hash
 rai::account rai::ledger::account (rai::block_hash const & hash_a)
 {
     account_visitor account (store);
@@ -2827,6 +2843,7 @@ rai::account rai::ledger::account (rai::block_hash const & hash_a)
     return account.result;
 }
 
+// Return amount decrease or increase for block
 rai::uint128_t rai::ledger::amount (rai::block_hash const & hash_a)
 {
     amount_visitor amount (store);
@@ -2843,6 +2860,7 @@ void rai::ledger::move_representation (rai::account const & source_a, rai::accou
     store.representation_put (destination_a, destination_previous + amount_a);
 }
 
+// Return latest block for account
 rai::block_hash rai::ledger::latest (rai::account const & account_a)
 {
     rai::frontier frontier;
@@ -2850,6 +2868,7 @@ rai::block_hash rai::ledger::latest (rai::account const & account_a)
 	return latest_error ? 0 : frontier.hash;
 }
 
+// Return latest root for account, account number of there are no blocks for this account.
 rai::block_hash rai::ledger::latest_root (rai::account const & account_a)
 {
     rai::frontier frontier;
@@ -2943,7 +2962,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
     if (result == rai::process_result::progress)
     {
         auto previous (ledger.store.block_exists (block_a.hashables.previous));
-        result = previous ? rai::process_result::progress : rai::process_result::gap_previous;  // Have we seen the previous block before? (Harmless)
+        result = previous ? rai::process_result::progress : rai::process_result::gap_previous;  // Have we seen the previous block already? (Harmless)
         if (result == rai::process_result::progress)
         {
             auto account (ledger.account (block_a.hashables.previous));
@@ -2974,7 +2993,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
     if (result == rai::process_result::progress)
     {
         auto previous (ledger.store.block_exists (block_a.hashables.previous));
-        result = previous ? rai::process_result::progress : rai::process_result::gap_previous; // Have we seen the previous block before? (Harmless)
+        result = previous ? rai::process_result::progress : rai::process_result::gap_previous; // Have we seen the previous block already? (Harmless)
         if (result == rai::process_result::progress)
         {
             auto account (ledger.account (block_a.hashables.previous));
@@ -3009,7 +3028,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
     if (result == rai::process_result::progress)
     {
         auto source_missing (!ledger.store.block_exists (block_a.hashables.source));
-        result = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
+        result = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block already? (Harmless)
         if (result == rai::process_result::progress)
         {
             rai::receivable receivable;
@@ -3104,7 +3123,6 @@ rai::uint256_union rai::vote::hash () const
         std::array <uint8_t, 8> bytes;
     };
     qword = sequence;
-    //std::reverse (bytes.begin (), bytes.end ());
     hash.Update (bytes.data (), sizeof (bytes));
     hash.Final (result.bytes.data ());
     return result;

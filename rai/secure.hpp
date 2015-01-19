@@ -22,6 +22,7 @@ namespace CryptoPP
 
 namespace rai
 {
+	// Network variants with different genesis blocks and network parameters
     enum class rai_networks
     {
         rai_test_network,
@@ -187,12 +188,16 @@ namespace rai
 	class block
 	{
 	public:
+		// Return a digest of the hashables in this block.
 		rai::uint256_union hash () const;
 		virtual void hash (CryptoPP::SHA3 &) const = 0;
         virtual uint64_t block_work () const = 0;
         virtual void block_work_set (uint64_t) = 0;
+		// Previous block in account's chain, zero for open block
 		virtual rai::block_hash previous () const = 0;
+		// Source block for open/receive blocks, zero otherwise.
 		virtual rai::block_hash source () const = 0;
+		// Previous block or account number for open blocks
 		virtual rai::block_hash root () const = 0;
 		virtual void serialize (rai::stream &) const = 0;
         virtual void serialize_json (std::string &) const = 0;
@@ -200,9 +205,7 @@ namespace rai
 		virtual bool operator == (rai::block const &) const = 0;
 		virtual std::unique_ptr <rai::block> clone () const = 0;
         virtual rai::block_type type () const = 0;
-        static size_t const publish_test_work = 1024;
-        static size_t const publish_full_work = 8 * 1024; // 8 * 8 * 1024 = 64k to generate work
-        static size_t const publish_work = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_work : publish_full_work;
+		// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
         static uint64_t const publish_test_threshold = 0xff00000000000000;
         static uint64_t const publish_full_threshold = 0xfffffc0000000000;
         static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
@@ -369,6 +372,7 @@ namespace rai
 	struct block_store_temp_t
 	{
 	};
+	// Latest information about an account, latest block, current representative, balance
 	class frontier
 	{
 	public:
@@ -425,6 +429,7 @@ namespace rai
 		std::unique_ptr <leveldb::Iterator> iterator;
 		rai::block_entry current;
     };
+	// Information on an uncollected send, source account, amount, target account.
     class receivable
     {
     public:
@@ -550,14 +555,14 @@ namespace rai
 	enum class process_result
 	{
 		progress, // Hasn't been seen before, signed correctly
-		bad_signature, // One or more signatures was bad, forged or transmission error
+		bad_signature, // Signature was bad, forged or transmission error
 		old, // Already seen and was valid
 		overspend, // Malicious attempt to overspend
 		overreceive, // Malicious attempt to receive twice
 		fork_previous, // Malicious fork based on previous
         fork_source, // Malicious fork based on source
-		gap_previous, // Block marked as previous isn't in store
-		gap_source, // Block marked as source isn't in store
+		gap_previous, // Block marked as previous is unknown
+		gap_source, // Block marked as source is unknown
 		not_receive_from_send, // Receive does not have a send source
         account_mismatch // Account number in open block doesn't match send destination
     };
@@ -565,8 +570,11 @@ namespace rai
 	{
 	public:
 		rai::uint256_union hash () const;
+		// Account that's voting
 		rai::account account;
+		// Signature of sequence + block hash
 		rai::signature signature;
+		// Vote round sequence number
 		uint64_t sequence;
 		std::unique_ptr <rai::block> block;
 	};
@@ -575,8 +583,11 @@ namespace rai
 	public:
 		votes (rai::block_hash const &);
 		bool vote (rai::vote const &);
+		// Our vote round sequence number
 		uint64_t sequence;
+		// Root block of fork
 		rai::block_hash id;
+		// All votes received by account
 		std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
     };
     class kdf

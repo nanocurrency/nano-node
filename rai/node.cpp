@@ -212,6 +212,7 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
 
 std::chrono::seconds constexpr rai::processor::period;
 std::chrono::seconds constexpr rai::processor::cutoff;
+// Cutoff for receiving a block if no forks are observed.
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
@@ -282,7 +283,8 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
 {
 	auto hash (block->hash ());
     auto list (node.peers.list ());
-    if (!confirm_broadcast (list, block->clone(), 0))
+	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
+    if (!confirm_broadcast (list, block->clone (), 0))
     {
         rai::publish message (std::move (block));
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -958,6 +960,7 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
     return result;
 }
 
+// Update work for account if latest root is root_a
 void rai::wallet::work_update (rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {
     assert (!rai::work_validate (root_a, work_a));
@@ -975,6 +978,7 @@ void rai::wallet::work_update (rai::account const & account_a, rai::block_hash c
     }
 }
 
+// Fetch work for root_a, use cached value if possible
 uint64_t rai::wallet::work_fetch (rai::account const & account_a, rai::block_hash const & root_a)
 {
     assert (!mutex.try_lock ());
