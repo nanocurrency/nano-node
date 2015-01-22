@@ -34,7 +34,7 @@ TEST (node, send_unkeyed)
     rai::system system (24000, 1);
     rai::keypair key2;
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    system.wallet (0)->store.password.value_set (rai::uint256_union (0));
+    system.wallet (0)->store.password.value_set (rai::uint256_union (1));
     ASSERT_TRUE (system.wallet (0)->send (key2.pub, 1000));
 }
 

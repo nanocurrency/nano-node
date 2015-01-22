@@ -189,7 +189,7 @@ TEST (wallet, rekey)
     bool init;
     rai::wallet_store wallet (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-    ASSERT_EQ (wallet.password.value (), wallet.derive_key (""));
+    ASSERT_TRUE (wallet.password.value ().is_zero ());
     ASSERT_FALSE (init);
     rai::keypair key1;
     wallet.insert (key1.prv);
@@ -299,13 +299,14 @@ TEST (wallet, already_open)
     ASSERT_TRUE (init);
 }
 
-TEST (wallet, repoen_default_password)
+TEST (wallet, reopen_default_password)
 {
     auto path (rai::unique_path ());
     {
         bool init;
         rai::wallet_store wallet (init, path);
         ASSERT_FALSE (init);
+		wallet.rekey ("");
         ASSERT_TRUE (wallet.valid_password ());
     }
     {

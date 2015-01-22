@@ -25,6 +25,14 @@ TEST (wallets, open_existing)
         auto wallet (wallets.create (id));
         ASSERT_NE (nullptr, wallet);
         ASSERT_EQ (wallet, wallets.open (id));
+		auto iterations (0);
+		while (wallet->store.password.value () == 0)
+		{
+			system.service->poll_one ();
+			system.processor.poll_one ();
+			++iterations;
+			ASSERT_LT (iterations, 200);
+		}
     }
     {
         rai::wallets wallets (*system.nodes [0], path);

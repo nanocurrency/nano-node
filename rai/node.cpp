@@ -613,7 +613,7 @@ password (0, 1024)
                             auto status4 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), &junk));
                             if (status4.ok ())
                             {
-                                enter_password ("");
+								password.value_set (0);
                             }
                             else
                             {
@@ -663,10 +663,9 @@ password (0, 1024)
             // Wallet key is a fixed random key that encrypts all entries
             rai::uint256_union wallet_key;
             random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-            auto password_l (derive_key (""));
-            password.value_set (password_l);
+            password.value_set (0);
             // Wallet key is encrypted by the user's password
-            rai::uint256_union encrypted (wallet_key, password_l, salt_l.owords [0]);
+            rai::uint256_union encrypted (wallet_key, 0, salt_l.owords [0]);
             auto status1 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (wallet_key_special.chars.data (), wallet_key_special.chars.size ()), leveldb::Slice (encrypted.chars.data (), encrypted.chars.size ())));
             assert (status1.ok ());
             rai::uint256_union zero (0);
@@ -674,7 +673,6 @@ password (0, 1024)
             auto status3 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (check_special.chars.data (), check_special.chars.size ()), leveldb::Slice (check.chars.data (), check.chars.size ())));
             assert (status3.ok ());
             wallet_key.clear ();
-            password_l.clear ();
             auto status4 (handle->Put (leveldb::WriteOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), leveldb::Slice (rai::genesis_account.chars.data (), rai::genesis_account.chars.size ())));
             assert (status4.ok ());
         }
@@ -829,6 +827,23 @@ store (init_a, path_a / "wallet", json),
 work (init_a, path_a / "work"),
 node (node_a)
 {
+}
+
+void rai::wallet::enter_initial_password ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	if (store.password.value ().is_zero ())
+	{
+		if (store.valid_password ())
+		{
+			// Newly created wallets have a zero key
+			store.rekey ("");
+		}
+		else
+		{
+			store.enter_password ("");
+		}
+	}
 }
 
 void rai::wallet::insert (rai::private_key const & key_a)
@@ -1024,6 +1039,10 @@ node (node_a)
                 auto wallet (std::make_shared <rai::wallet> (error, node_a, i->path ()));
                 if (!error)
                 {
+					node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
+					{
+						wallet->enter_initial_password ();
+					});
                     items [id] = wallet;
                 }
                 else
@@ -1064,6 +1083,10 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
     auto wallet (std::make_shared <rai::wallet> (error, node, path / id));
     if (!error)
     {
+		node.service.add (std::chrono::system_clock::now (), [wallet] ()
+		{
+			wallet->enter_initial_password ();
+		});
         items [id_a] = wallet;
         result = wallet;
     }

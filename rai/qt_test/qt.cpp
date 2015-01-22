@@ -80,6 +80,14 @@ TEST (client, password_nochange)
     rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), system.account (0));
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
     QTest::mouseClick (wallet.advanced.change_password, Qt::LeftButton);
+	auto iterations (0);
+	while (system.wallet (0)->store.password.value () == 0)
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
     ASSERT_EQ (system.wallet (0)->store.derive_key (""), system.wallet (0)->store.password.value ());
     QTest::keyClicks (wallet.password_change.password, "1");
     QTest::keyClicks (wallet.password_change.retype, "2");

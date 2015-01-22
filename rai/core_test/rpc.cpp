@@ -419,6 +419,14 @@ TEST (rpc, wallet_password_change)
 TEST (rpc, wallet_password_enter)
 {
     rai::system system (24000, 1);
+	auto iterations (0);
+	while (system.wallet (0)->store.password.value () == 0)
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     boost::network::http::server <rai::rpc>::request request;
