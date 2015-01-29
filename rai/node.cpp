@@ -299,7 +299,7 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
 			{
 				if (network_publish_logging ())
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % message.block->hash ().to_string () % i->endpoint);
+					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % i->endpoint);
 				}
 				send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
 					{
@@ -313,7 +313,12 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
 					});
 			}
         }
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was published") % hash.to_string ());
     }
+	else
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed") % hash.to_string ());
+	}
 }
 
 void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, rai::block const & block)
@@ -939,7 +944,6 @@ bool rai::wallet::send (rai::account const & account_a, rai::uint128_t const & a
         }
         else
         {
-            BOOST_LOG (node.log) << "Publishing blocks";
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
             {
                 node.processor.process_receive_republish (std::move (*i));
@@ -1647,10 +1651,11 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
             }
             else
             {
+				BOOST_LOG (node.log) << "Representative unable to broadcast confirmation, wallet locked";
                 // Wallet is locked
             }
+			result = true;
             prv.clear ();
-            result = true;
         }
     }
     return result;
@@ -2606,10 +2611,19 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     {
                         std::string representative_text (request_l.get <std::string> ("representative"));
                         rai::account representative;
-                        representative.decode_base58check (representative_text);
-                        existing->second->store.representative_set (representative);
-                        boost::property_tree::ptree response_l;
-                        set_response (response, response_l);
+                        auto error (representative.decode_base58check (representative_text));
+						if (!error)
+						{
+							existing->second->store.representative_set (representative);
+							boost::property_tree::ptree response_l;
+							response_l.put ("set", "1");
+							set_response (response, response_l);
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Invalid account number";
+						}
                     }
                     else
                     {

@@ -1,3 +1,5 @@
+#include <ed25519-donna/ed25519.h>
+
 #include <gtest/gtest.h>
 
 #include <rai/secure.hpp>

@@ -2,6 +2,12 @@
 
 #include <rai/secure.hpp>
 
+#include <unordered_set>
+#include <memory>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+
 #include <boost/asio.hpp>
 #include <boost/network/include/http/server.hpp>
 #include <boost/network/utils/thread_pool.hpp>
@@ -15,11 +21,7 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/circular_buffer.hpp>
 
-#include <unordered_set>
-#include <memory>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
+#include <leveldb/db.h>
 
 std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
 namespace rai

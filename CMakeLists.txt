@@ -51,8 +51,11 @@ add_library (blake2
 	blake2/blake2b.c)
 
 add_library (secure
+	rai/config.hpp
+	rai/secure.cpp
 	rai/secure.hpp
-	rai/secure.cpp)
+	rai/utility.cpp
+	rai/utility.hpp)
 
 if (APPLE)
 	set (PLATFORM_NODE_SOURCE rai/plat/osx/working.mm)
