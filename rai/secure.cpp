@@ -16,18 +16,19 @@ void ed25519_randombytes_unsafe (void * out, size_t outlen)
 }
 void ed25519_hash_init (ed25519_hash_context * ctx)
 {
-    ctx->sha = new CryptoPP::SHA3 (64);
+    ctx->blake2 = new blake2b_state;
+	blake2b_init (reinterpret_cast <blake2b_state *> (ctx->blake2), 64);
 }
 
 void ed25519_hash_update (ed25519_hash_context * ctx, uint8_t const * in, size_t inlen)
 {
-    reinterpret_cast <CryptoPP::SHA3 *> (ctx->sha)->Update (in, inlen);
+    blake2b_update (reinterpret_cast <blake2b_state *> (ctx->blake2), in, inlen);
 }
 
 void ed25519_hash_final (ed25519_hash_context * ctx, uint8_t * out)
 {
-    reinterpret_cast <CryptoPP::SHA3 *> (ctx->sha)->Final (out);
-    delete reinterpret_cast <CryptoPP::SHA3 *> (ctx->sha);
+    blake2b_final (reinterpret_cast <blake2b_state *> (ctx->blake2), out, 64);
+    delete reinterpret_cast <blake2b_state *> (ctx->blake2);
 }
 
 void ed25519_hash (uint8_t * out, uint8_t const * in, size_t inlen)
@@ -43,7 +44,7 @@ void ed25519_hash (uint8_t * out, uint8_t const * in, size_t inlen)
 namespace
 {
     std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
-    std::string rai_test_public_key = "B241CC17B3684D22F304C7AF063D1B833124F7F1A4DAD07E6DA60D7D8F334911"; // U63Kt3B7yp2iQB4GsVWriGv34kk2qwhT7acKvn8yWZGdNVesJ8
+    std::string rai_test_public_key = "FA5B51D063BADDF345EFD7EF0D3C5FB115C85B1EF4CDE89D8B7DF3EAF60A04A4"; // U63Kt3B7yp2iQB4GsVWriGv34kk2qwhT7acKvn8yWZGdNVesJ8
     std::string rai_beta_public_key = "1A99D99731BC08252C8762FBB2CBB7BA3520039109FCE869C75406E722C636E3"; // TV67A7XWyLF7njTjTZC9zQ4iLftsVDRQUDmW7LieZzqZm2gMnz
     std::string rai_live_public_key = "0";
 }
@@ -263,11 +264,12 @@ data (new uint64_t [entries_a])
 rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint256_union const & salt_a)
 {
     rai::uint256_union input;
-    CryptoPP::SHA3 hash (32);
-    hash.Update (reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-    hash.Final (input.bytes.data ());
+    blake2b_state hash;
+	blake2b_init (&hash, 32);
+    blake2b_update (&hash, reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+    blake2b_final (&hash, input.bytes.data (), input.bytes.size ());
     input ^= salt_a;
-    hash.Restart ();
+    blake2b_init (&hash, 32);
     auto entries_l (entries);
     auto mask (entries_l - 1);
     xorshift1024star rng;
@@ -309,10 +311,10 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
             value.qwords [j] = data [index];
             data [index] = data [entries_l - (i + j) - 1];
         }
-        hash.Update (reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
+        blake2b_update (&hash, reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
     }
     rai::uint256_union result;
-    hash.Final (result.bytes.data ());
+    blake2b_final (&hash, result.bytes.data (), result.bytes.size ());
     return result;
 }
 
@@ -465,7 +467,7 @@ void rai::send_block::visit (rai::block_visitor & visitor_a) const
 	visitor_a.send_block (*this);
 }
 
-void rai::send_block::hash (CryptoPP::SHA3 & hash_a) const
+void rai::send_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
@@ -481,11 +483,14 @@ void rai::send_block::block_work_set (uint64_t work_a)
     work = work_a;
 }
 
-void rai::send_hashables::hash (CryptoPP::SHA3 & hash_a) const
+void rai::send_hashables::hash (blake2b_state & hash_a) const
 {
-	hash_a.Update (destination.bytes.data (), sizeof (destination.bytes));
-	hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
-	hash_a.Update (balance.bytes.data (), sizeof (balance.bytes));
+	auto status (blake2b_update (&hash_a, destination.bytes.data (), sizeof (destination.bytes)));
+	assert (status == 0);
+	status = blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
+	assert (status == 0);
+	status = blake2b_update (&hash_a, balance.bytes.data (), sizeof (balance.bytes));
+	assert (status == 0);
 }
 
 void rai::send_block::serialize (rai::stream & stream_a) const
@@ -664,7 +669,7 @@ void rai::receive_block::serialize_json (std::string & string_a) const
     string_a = ostream.str ();
 }
 
-void rai::receive_block::hash (CryptoPP::SHA3 & hash_a) const
+void rai::receive_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
@@ -716,10 +721,10 @@ rai::block_type rai::receive_block::type () const
     return rai::block_type::receive;
 }
 
-void rai::receive_hashables::hash (CryptoPP::SHA3 & hash_a) const
+void rai::receive_hashables::hash (blake2b_state & hash_a) const
 {
-	hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
-	hash_a.Update (source.bytes.data (), sizeof (source.bytes));
+	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
+	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
 bool rai::uint256_union::is_zero () const
@@ -890,9 +895,10 @@ void rai::uint256_union::encode_base58check (std::string & destination_a) const
     assert (destination_a.empty ());
     destination_a.reserve (50);
     uint32_t check;
-    CryptoPP::SHA3 hash (4);
-    hash.Update (bytes.data (), sizeof (bytes));
-    hash.Final (reinterpret_cast <uint8_t *> (&check));
+    blake2b_state hash;
+	blake2b_init (&hash, sizeof (check));
+    blake2b_update (&hash, bytes.data (), sizeof (bytes));
+    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&check), sizeof (check));
     rai::uint512_t number_l (number ());
     number_l |= rai::uint512_t (check) << 256;
     number_l |= rai::uint512_t (13) << (256 + 32);
@@ -936,9 +942,10 @@ bool rai::uint256_union::decode_base58check (std::string const & source_a)
             if (!result)
             {
                 uint32_t validation;
-                CryptoPP::SHA3 hash (4);
-                hash.Update (bytes.data (), sizeof (bytes));
-                hash.Final (reinterpret_cast <uint8_t *> (&validation));
+                blake2b_state hash;
+				blake2b_init (&hash, sizeof (validation));
+                blake2b_update (&hash, bytes.data (), sizeof (bytes));
+                blake2b_final (&hash, reinterpret_cast <uint8_t *> (&validation), sizeof (validation));
                 result = check != validation;
             }
         }
@@ -1067,10 +1074,13 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 
 rai::uint256_union rai::block::hash () const
 {
-    CryptoPP::SHA3 hash_l (32);
-    hash (hash_l);
     rai::uint256_union result;
-    hash_l.Final (result.bytes.data ());
+    blake2b_state hash_l;
+	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
+	assert (status == 0);
+    hash (hash_l);
+    status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
+	assert (status == 0);
     return result;
 }
 
@@ -1085,16 +1095,17 @@ uint64_t rai::work_generate (rai::block_hash const & root_a)
 {
     xorshift1024star rng;
     rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
-    CryptoPP::SHA3 hash (8);
     uint64_t work;
+    blake2b_state hash;
+	blake2b_init (&hash, sizeof (work));
     uint64_t output;
     do
     {
         work = rng.next ();
-        hash.Update (reinterpret_cast <uint8_t *> (&work), sizeof (work));
-        hash.Update (root_a.bytes.data (), root_a.bytes.size ());
-        hash.Final (reinterpret_cast <uint8_t *> (&output));
-        hash.Restart ();
+        blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work), sizeof (work));
+        blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
+        blake2b_final (&hash, reinterpret_cast <uint8_t *> (&output), sizeof (work));
+        blake2b_init (&hash, sizeof (work));
     } while (output < rai::block::publish_threshold);
     return work;
 }
@@ -1106,11 +1117,12 @@ void rai::work_generate (rai::block & block_a)
 
 bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
 {
-    CryptoPP::SHA3 hash (8);
-    hash.Update (reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
-    hash.Update (root_a.bytes.data (), root_a.bytes.size ());
     uint64_t result;
-    hash.Final (reinterpret_cast <uint8_t *> (&result));
+    blake2b_state hash;
+	blake2b_init (&hash, sizeof (result));
+    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
+    blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
+    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
     return result < rai::block::publish_threshold;
 }
 
@@ -1280,14 +1292,14 @@ rai::block_hash rai::send_block::root () const
 	return hashables.previous;
 }
 
-void rai::open_hashables::hash (CryptoPP::SHA3 & hash_a) const
+void rai::open_hashables::hash (blake2b_state & hash_a) const
 {
-    hash_a.Update (account.bytes.data (), sizeof (account.bytes));
-    hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
-    hash_a.Update (source.bytes.data (), sizeof (source.bytes));
+    blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
+    blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
+    blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
-void rai::open_block::hash (CryptoPP::SHA3 & hash_a) const
+void rai::open_block::hash (blake2b_state & hash_a) const
 {
     hashables.hash (hash_a);
 }
@@ -1466,10 +1478,10 @@ rai::change_hashables::change_hashables (bool & error_a, boost::property_tree::p
     }
 }
 
-void rai::change_hashables::hash (CryptoPP::SHA3 & hash_a) const
+void rai::change_hashables::hash (blake2b_state & hash_a) const
 {
-    hash_a.Update (representative.bytes.data (), sizeof (representative.bytes));
-    hash_a.Update (previous.bytes.data (), sizeof (previous.bytes));
+    blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
+    blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 }
 
 rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, uint64_t work_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
@@ -1520,7 +1532,7 @@ hashables (error_a, tree_a)
     }
 }
 
-void rai::change_block::hash (CryptoPP::SHA3 & hash_a) const
+void rai::change_block::hash (blake2b_state & hash_a) const
 {
     hashables.hash (hash_a);
 }
@@ -3116,15 +3128,16 @@ result (rai::process_result::progress)
 rai::uint256_union rai::vote::hash () const
 {
     rai::uint256_union result;
-    CryptoPP::SHA3 hash (32);
-    hash.Update (block->hash ().bytes.data (), sizeof (result.bytes));
+    blake2b_state hash;
+	blake2b_init (&hash, sizeof (result.bytes));
+    blake2b_update (&hash, block->hash ().bytes.data (), sizeof (result.bytes));
     union {
         uint64_t qword;
         std::array <uint8_t, 8> bytes;
     };
     qword = sequence;
-    hash.Update (bytes.data (), sizeof (bytes));
-    hash.Final (result.bytes.data ());
+    blake2b_update (&hash, bytes.data (), sizeof (bytes));
+    blake2b_final (&hash, result.bytes.data (), sizeof (result.bytes));
     return result;
 }
 

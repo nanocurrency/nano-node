@@ -391,7 +391,9 @@ TEST (ledger, representative_genesis)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    ASSERT_EQ (rai::test_genesis_key.pub, ledger.representative (ledger.latest (rai::test_genesis_key.pub)));
+	auto latest (ledger.latest (rai::test_genesis_key.pub));
+	ASSERT_FALSE (latest.is_zero ());
+    ASSERT_EQ (rai::test_genesis_key.pub, ledger.representative (latest));
 }
 
 TEST (ledger, weight)
@@ -404,7 +406,7 @@ TEST (ledger, weight)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::test_genesis_key.pub));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::genesis_account));
 }
 
 TEST (ledger, representative_change)

@@ -193,6 +193,7 @@ TEST (uint512_union, parse_error_overflow)
 TEST (send_block, deserialize)
 {
     rai::send_block block1;
+	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);
@@ -208,6 +209,7 @@ TEST (send_block, deserialize)
 TEST (receive_block, deserialize)
 {
     rai::receive_block block1;
+	ASSERT_EQ (block1.hash (), block1.hash ());
     block1.hashables.previous = 2;
     block1.hashables.source = 4;
     std::vector <uint8_t> bytes;
@@ -225,6 +227,7 @@ TEST (receive_block, deserialize)
 TEST (open_block, deserialize)
 {
     rai::open_block block1;
+	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream (bytes);
@@ -240,6 +243,7 @@ TEST (open_block, deserialize)
 TEST (change_block, deserialize)
 {
     rai::change_block block1 (1, 2, 3, 4, 5);
+	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);

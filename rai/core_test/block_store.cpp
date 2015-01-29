@@ -127,7 +127,7 @@ TEST (block_store, pending_iterator)
     ASSERT_EQ (rai::account (4), current->second.destination);
 }
 
-TEST (block_store, add_genesis)
+TEST (block_store, genesis)
 {
     leveldb::Status init;
     rai::block_store db (init, rai::block_store_temp);
@@ -143,6 +143,10 @@ TEST (block_store, add_genesis)
     auto receive1 (dynamic_cast <rai::open_block *> (block1.get ()));
     ASSERT_NE (nullptr, receive1);
     ASSERT_LE (frontier.time, db.now ());
+	auto test_pub_text (rai::test_genesis_key.pub.to_string ());
+	auto test_pub_account (rai::test_genesis_key.pub.to_base58check ());
+	auto test_prv_text (rai::test_genesis_key.prv.to_string ());
+	ASSERT_EQ (rai::genesis_account, rai::test_genesis_key.pub);
 }
 
 TEST (representation, changes)

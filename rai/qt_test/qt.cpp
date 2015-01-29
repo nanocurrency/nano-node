@@ -150,7 +150,7 @@ TEST (wallet, send)
 	QTest::mouseClick (wallet.advanced.ledger_refresh, Qt::LeftButton);
 	ASSERT_EQ (2, wallet.advanced.ledger_model->rowCount ());
 	ASSERT_EQ (3, wallet.advanced.ledger_model->columnCount ());
-	auto item (wallet.advanced.ledger_model->itemFromIndex (wallet.advanced.ledger_model->index (1, 1)));
+	auto item (wallet.advanced.ledger_model->itemFromIndex (wallet.advanced.ledger_model->index (0, 1)));
 	ASSERT_EQ ("2", item->text ().toStdString ());
 }
 

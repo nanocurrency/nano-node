@@ -6,19 +6,15 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include <blake2/blake2.h>
+
 #include <cryptopp/osrng.h>
-#include <cryptopp/sha3.h>
 
 #include <leveldb/db.h>
 
 #include <ed25519-donna/ed25519.h>
 
 #include <unordered_map>
-
-namespace CryptoPP
-{
-    class SHA3;
-}
 
 namespace rai
 {
@@ -190,7 +186,7 @@ namespace rai
 	public:
 		// Return a digest of the hashables in this block.
 		rai::uint256_union hash () const;
-		virtual void hash (CryptoPP::SHA3 &) const = 0;
+		virtual void hash (blake2b_state &) const = 0;
         virtual uint64_t block_work () const = 0;
         virtual void block_work_set (uint64_t) = 0;
 		// Previous block in account's chain, zero for open block
@@ -229,7 +225,7 @@ namespace rai
 	class send_hashables
 	{
 	public:
-		void hash (CryptoPP::SHA3 &) const;
+		void hash (blake2b_state &) const;
 		rai::account destination;
 		rai::block_hash previous;
 		rai::amount balance;
@@ -240,7 +236,7 @@ namespace rai
 		send_block () = default;
 		send_block (send_block const &);
 		using rai::block::hash;
-        void hash (CryptoPP::SHA3 &) const override;
+        void hash (blake2b_state &) const override;
         uint64_t block_work () const override;
         void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;
@@ -263,7 +259,7 @@ namespace rai
 	class receive_hashables
 	{
 	public:
-		void hash (CryptoPP::SHA3 &) const;
+		void hash (blake2b_state &) const;
 		rai::block_hash previous;
 		rai::block_hash source;
 	};
@@ -271,7 +267,7 @@ namespace rai
 	{
 	public:
 		using rai::block::hash;
-        void hash (CryptoPP::SHA3 &) const override;
+        void hash (blake2b_state &) const override;
         uint64_t block_work () const override;
         void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;
@@ -294,7 +290,7 @@ namespace rai
 	class open_hashables
 	{
 	public:
-		void hash (CryptoPP::SHA3 &) const;
+		void hash (blake2b_state &) const;
         rai::account account;
 		rai::account representative;
 		rai::block_hash source;
@@ -303,7 +299,7 @@ namespace rai
 	{
 	public:
 		using rai::block::hash;
-        void hash (CryptoPP::SHA3 &) const override;
+        void hash (blake2b_state &) const override;
         uint64_t block_work () const override;
         void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;
@@ -329,7 +325,7 @@ namespace rai
         change_hashables (rai::account const &, rai::block_hash const &);
         change_hashables (bool &, rai::stream &);
         change_hashables (bool &, boost::property_tree::ptree const &);
-		void hash (CryptoPP::SHA3 &) const;
+		void hash (blake2b_state &) const;
 		rai::account representative;
 		rai::block_hash previous;
 	};
@@ -341,7 +337,7 @@ namespace rai
         change_block (bool &, rai::stream &);
         change_block (bool &, boost::property_tree::ptree const &);
 		using rai::block::hash;
-        void hash (CryptoPP::SHA3 &) const override;
+        void hash (blake2b_state &) const override;
         uint64_t block_work () const override;
         void block_work_set (uint64_t) override;
 		rai::block_hash previous () const override;

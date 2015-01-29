@@ -2,8 +2,6 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
-#include <cryptopp/sha3.h>
-
 #include <sstream>
 
 rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & account_a) :
