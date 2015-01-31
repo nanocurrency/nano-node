@@ -34,6 +34,23 @@ TEST (wallet, startup_balance)
 	ASSERT_EQ ("Balance: 0", wallet.self.balance_label->text().toStdString ());
 }
 
+TEST (wallet, select_account)
+{
+    rai::system system (24000, 1);
+    int argc (0);
+    QApplication application (argc, nullptr);
+	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
+    auto key1 (wallet_l->store.insert (1));
+	auto key2 (wallet_l->store.insert (2));
+    rai_qt::wallet wallet (application, *system.nodes [0], wallet_l, key1);
+	ASSERT_EQ (key1, wallet.account);
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
+	wallet.accounts.view->selectionModel ()->setCurrentIndex (wallet.accounts.model->index (0, 1), QItemSelectionModel::SelectionFlag::Select);
+	QTest::mouseClick (wallet.accounts.use_account, Qt::LeftButton);
+	ASSERT_EQ (key2, wallet.account);
+}
+
 TEST (wallet, main)
 {
     rai::system system (24000, 1);
@@ -138,31 +155,30 @@ TEST (wallet, send)
 {
     rai::system system (24000, 2);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    rai::keypair key1;
-    system.wallet (1)->store.insert (key1.prv);
+    auto key1 (system.wallet (1)->store.insert (1));
     int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
-    QTest::keyClicks (wallet.send_account, key1.pub.to_base58check ().c_str ());
+    QTest::keyClicks (wallet.send_account, key1.to_base58check ().c_str ());
     QTest::keyClicks (wallet.send_count, "2");
     QTest::mouseClick (wallet.send_blocks_send, Qt::LeftButton);
 	auto iterations1 (0);
-    while (wallet.node.ledger.account_balance (key1.pub).is_zero ())
+    while (wallet.node.ledger.account_balance (key1).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
 		++iterations1;
 		ASSERT_LT (iterations1, 200);
     }
-    ASSERT_EQ (rai::scale_up (2), wallet.node.ledger.account_balance (key1.pub));
+    ASSERT_EQ (rai::scale_up (2), wallet.node.ledger.account_balance (key1));
 	QTest::mouseClick (wallet.send_blocks_back, Qt::LeftButton);
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.show_ledger, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.ledger_refresh, Qt::LeftButton);
 	ASSERT_EQ (2, wallet.advanced.ledger_model->rowCount ());
 	ASSERT_EQ (3, wallet.advanced.ledger_model->columnCount ());
-	auto item (wallet.advanced.ledger_model->itemFromIndex (wallet.advanced.ledger_model->index (0, 1)));
+	auto item (wallet.advanced.ledger_model->itemFromIndex (wallet.advanced.ledger_model->index (1, 1)));
 	ASSERT_EQ ("2", item->text ().toStdString ());
 }
 

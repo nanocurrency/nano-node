@@ -12,15 +12,13 @@ account_button (new QPushButton),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
-	assert (wallet_a.wallet_m->store.exists (account_a));
-    account_button->setText (QString (account_a.to_base58check ().c_str ()));
     account_button->setFlat (true);
 	layout->addWidget (your_account_label);
 	layout->addWidget (account_button);
 	layout->addWidget (balance_label);
 	layout->setContentsMargins (5, 5, 5, 5);
     window->setLayout (layout);
-    
+
     QObject::connect (account_button, &QPushButton::clicked, [this] ()
     {
         wallet.application.clipboard ()->setText (account_button->text ());
@@ -37,6 +35,7 @@ window (new QWidget),
 layout (new QVBoxLayout),
 model (new QStandardItemModel),
 view (new QTableView),
+use_account (new QPushButton ("Use account")),
 create_account (new QPushButton ("Create account")),
 separator (new QFrame),
 account_key_line (new QLineEdit),
@@ -55,12 +54,23 @@ wallet (wallet_a)
     view->verticalHeader ()->hide ();
     view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
 	layout->addWidget (view);
+	layout->addWidget (use_account);
 	layout->addWidget (create_account);
 	layout->addWidget (separator);
 	layout->addWidget (account_key_line);
 	layout->addWidget (account_key_button);
     layout->addWidget (back);
     window->setLayout (layout);
+	QObject::connect (use_account, &QPushButton::released, [this] ()
+	{
+		auto selection (view->selectionModel ()->selection ().indexes ());
+		if (selection.size () == 1)
+		{
+			auto error (wallet.account.decode_base58check (model->item (selection [0].row (), 1)->text ().toStdString ()));
+			assert (!error);
+			wallet.refresh ();
+		}
+	});
     QObject::connect (account_key_button, &QPushButton::released, [this] ()
     {
       QString key_text_wide (account_key_line->text ());
@@ -346,13 +356,16 @@ send_blocks_back (new QPushButton ("Back"))
             history.refresh ();
         }
     });
+	refresh ();
+}
+
+void rai_qt::wallet::refresh ()
+{
+	assert (wallet_m->store.exists (account));
+    self.account_button->setText (QString (account.to_base58check ().c_str ()));
 	self.refresh_balance ();
     accounts.refresh ();
     history.refresh ();
-}
-
-rai_qt::wallet::~wallet ()
-{
 }
 
 void rai_qt::wallet::push_main_stack (QWidget * widget_a)

@@ -145,6 +145,7 @@ namespace rai_qt {
         QVBoxLayout * layout;
         QStandardItemModel * model;
 		QTableView * view;
+		QPushButton * use_account;
 		QPushButton * create_account;
 		QFrame * separator;
         QLineEdit * account_key_line;
@@ -166,7 +167,7 @@ namespace rai_qt {
     {
     public:
         wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account const &);
-        ~wallet ();
+        void refresh ();
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;
 		rai::account account;
