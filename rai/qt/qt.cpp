@@ -117,7 +117,8 @@ public:
 	}
 	void open_block (rai::open_block const & block_a)
 	{
-		text = boost::str (boost::format ("Opened"));
+		auto amount (ledger.amount (block_a.source ()));
+		text = boost::str (boost::format ("Opened %1%") % std::to_string (rai::scale_down (amount)));
 	}
 	void change_block (rai::change_block const & block_a)
 	{

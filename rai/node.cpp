@@ -1353,6 +1353,7 @@ bool rai::node_init::error ()
 }
 
 rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a) :
+service (processor_a),
 store (init_a.block_store_init, application_path_a / "data"),
 gap_cache (*this),
 ledger (init_a.ledger_init, init_a.block_store_init, store),
@@ -1362,8 +1363,7 @@ network (*service_a, port_a, *this),
 bootstrap_initiator (*this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
-peers (network.endpoint ()),
-service (processor_a)
+peers (network.endpoint ())
 {
 	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
 	{

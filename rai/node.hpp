@@ -732,6 +732,7 @@ public:
     bool representative_vote (rai::election &, rai::block const &);
     void work_create (rai::block &);
     void vote (rai::vote const &);
+    rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;
     rai::gap_cache gap_cache;
@@ -743,7 +744,6 @@ public:
     rai::bootstrap_listener bootstrap;
     rai::processor processor;
     rai::peer_container peers;
-    rai::processor_service & service;
     std::vector <std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)>> send_observers;
     std::vector <std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)>> receive_observers;
     std::vector <std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)>> open_observers;
