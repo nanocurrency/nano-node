@@ -78,21 +78,21 @@ TEST (gap_cache, gap_bootstrap)
     }
     rai::keypair key;
     rai::send_block send;
-    send.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 100;
+    send.hashables.balance = rai::genesis_amount - 100;
     send.hashables.destination = key.pub;
     send.hashables.previous = system.nodes [0]->ledger.latest (rai::test_genesis_key.pub);
     system.nodes [0]->work_create (send);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->processor.process_receive (send));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 100, system.nodes [0]->ledger.account_balance (rai::genesis_account));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.nodes [1]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (rai::genesis_account));
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     system.wallet (0)->store.insert (key.prv);
     system.wallet (0)->send (key.pub, 100);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, system.nodes [0]->ledger.account_balance (rai::genesis_account));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.nodes [1]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount - 200, system.nodes [0]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (rai::genesis_account));
     auto iterations2 (0);
-    while (system.nodes [1]->ledger.account_balance (rai::genesis_account) != std::numeric_limits <rai::uint128_t>::max () - 200)
+    while (system.nodes [1]->ledger.account_balance (rai::genesis_account) != rai::genesis_amount - 200)
     {
         system.service->poll_one ();
         system.processor.poll_one ();

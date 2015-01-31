@@ -51,6 +51,7 @@ add_library (blake2
 	blake2/blake2b.c)
 
 add_library (secure
+	rai/config.cpp
 	rai/config.hpp
 	rai/secure.cpp
 	rai/secure.hpp

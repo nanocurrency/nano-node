@@ -511,6 +511,7 @@ extern rai::account const rai_test_account;
 extern rai::account const rai_beta_account;
 extern rai::account const rai_live_account;
 extern rai::account const genesis_account;
+extern rai::uint128_t const genesis_amount;
 class genesis
 {
 public:

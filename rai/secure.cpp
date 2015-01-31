@@ -30,6 +30,7 @@ rai::account const rai::rai_beta_account (rai_beta_public_key);
 rai::account const rai::rai_live_account (rai_live_public_key);
 
 rai::account const rai::genesis_account = rai_network == rai_networks::rai_test_network ? rai_test_account : rai_network == rai_networks::rai_beta_network ? rai_beta_account : rai_live_account;
+rai::uint128_t const rai::genesis_amount = std::numeric_limits <rai::uint128_t>::max ();
 
 boost::filesystem::path rai::working_path ()
 {
@@ -553,7 +554,7 @@ uint64_t rai::work_generate (rai::block_hash const & root_a)
         work = rng.next ();
         blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work), sizeof (work));
         blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-        blake2b_final (&hash, reinterpret_cast <uint8_t *> (&output), sizeof (work));
+        blake2b_final (&hash, reinterpret_cast <uint8_t *> (&output), sizeof (output));
         blake2b_init (&hash, sizeof (work));
     } while (output < rai::block::publish_threshold);
     return work;

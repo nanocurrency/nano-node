@@ -3,6 +3,7 @@
 #include <cryptopp/filters.h>
 #include <cryptopp/randpool.h>
 
+// Init returns an error if it can't open files at the path
 TEST (ledger, store_error)
 {
     leveldb::Status init;
@@ -13,6 +14,7 @@ TEST (ledger, store_error)
     ASSERT_TRUE (init1);
 }
 
+// Ledger can be initialized and retuns a basic query for an empty account
 TEST (ledger, empty)
 {
     leveldb::Status init;
@@ -26,6 +28,7 @@ TEST (ledger, empty)
     ASSERT_TRUE (balance.is_zero ());
 }
 
+// Genesis account should have the max balance on empty initialization
 TEST (ledger, genesis_balance)
 {
     leveldb::Status init;
@@ -37,13 +40,15 @@ TEST (ledger, genesis_balance)
     rai::genesis genesis;
     genesis.initialize (store);
     auto balance (ledger.account_balance (rai::genesis_account));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), balance);
+    ASSERT_EQ (rai::genesis_amount, balance);
     rai::frontier frontier;
     ASSERT_FALSE (store.latest_get (rai::genesis_account, frontier));
+	// Frontier time should have been updated when genesis balance was added
     ASSERT_GE (store.now (), frontier.time);
     ASSERT_LT (store.now () - frontier.time, 10);
 }
 
+// Make sure the checksum is the same when ledger reloaded
 TEST (ledger, checksum_persistence)
 {
     leveldb::Status init;
@@ -73,15 +78,17 @@ TEST (ledger, checksum_persistence)
     ASSERT_EQ (checksum1, ledger.checksum (0, max));
 }
 
+// All nodes in the system should agree on the genesis balance
 TEST (system, system_genesis)
 {
     rai::system system (24000, 2);
     for (auto & i: system.nodes)
     {
-        ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), i->ledger.account_balance (rai::genesis_account));
+        ASSERT_EQ (rai::genesis_amount, i->ledger.account_balance (rai::genesis_account));
     }
 }
 
+// Create a send block and publish it.
 TEST (ledger, process_send)
 {
     leveldb::Status init;
@@ -103,14 +110,18 @@ TEST (ledger, process_send)
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash1, send.signature);
     rai::account account1;
     rai::amount amount1;
+	// Hook the send observer and make sure it's the one we just created
     ledger.send_observer = [&account1, &amount1, &send] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
     {
-        account1 = account_a;
+	    account1 = account_a;
         amount1 = amount_a;
         ASSERT_EQ (send, block_a);
     };
+	// This was a valid block, it should progress.
     ASSERT_EQ (rai::process_result::progress, ledger.process (send));
+	// Account from send observer should have been the genesis account
     ASSERT_EQ (rai::test_genesis_key.pub, account1);
+	// Amount from the send observer should be how much we just sent
     ASSERT_EQ (rai::amount (50), amount1);
     ASSERT_EQ (50, ledger.account_balance (rai::test_genesis_key.pub));
     rai::frontier frontier2;
@@ -120,16 +131,18 @@ TEST (ledger, process_send)
     auto latest7 (dynamic_cast <rai::send_block *> (latest6.get ()));
     ASSERT_NE (nullptr, latest7);
     ASSERT_EQ (send, *latest7);
+	// Create an open block opening an account accepting the send we just created
     rai::open_block open;
     open.hashables.account = key2.pub;
     open.hashables.source = hash1;
     open.hashables.representative = key2.pub;
     rai::block_hash hash2 (open.hash ());
     rai::sign_message (key2.prv, key2.pub, hash2, open.signature);
+	// This was a valid block, it should progress.
     ASSERT_EQ (rai::process_result::progress, ledger.process (open));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.account_balance (key2.pub));
+    ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (key2.pub));
     ASSERT_EQ (50, ledger.weight (rai::test_genesis_key.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.weight (key2.pub));
+    ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key2.pub));
     rai::frontier frontier3;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier3));
     auto latest2 (store.block_get (frontier3.hash));
@@ -151,10 +164,10 @@ TEST (ledger, process_send)
 	ASSERT_FALSE (ledger.store.pending_get (hash1, receivable1));
     ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
     ASSERT_EQ (key2.pub, receivable1.destination);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, receivable1.amount.number ());
+    ASSERT_EQ (rai::genesis_amount - 50, receivable1.amount.number ());
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount, ledger.weight (rai::test_genesis_key.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     rai::frontier frontier6;
 	ASSERT_FALSE (ledger.store.latest_get (rai::test_genesis_key.pub, frontier6));
@@ -165,7 +178,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (frontier1.hash, frontier7.hash);
     rai::receivable receivable2;
 	ASSERT_TRUE (ledger.store.pending_get (hash1, receivable2));
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.account_balance (rai::test_genesis_key.pub));
+	ASSERT_EQ (rai::genesis_amount, ledger.account_balance (rai::test_genesis_key.pub));
 }
 
 TEST (ledger, process_receive)
@@ -207,9 +220,9 @@ TEST (ledger, process_receive)
     };
     ASSERT_EQ (rai::process_result::progress, ledger.process (open));
     ASSERT_EQ (key2.pub, account2);
-    ASSERT_EQ (rai::amount (std::numeric_limits <rai::uint128_t>::max () - 50), amount2);
+    ASSERT_EQ (rai::amount (rai::genesis_amount - 50), amount2);
     ASSERT_EQ (key3.pub, account3);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.weight (key3.pub));
+    ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key3.pub));
 	rai::send_block send2;
 	send2.hashables.balance = 25;
 	send2.hashables.previous = hash1;
@@ -231,16 +244,16 @@ TEST (ledger, process_receive)
         ASSERT_EQ (receive, block_a);
     };
 	ASSERT_EQ (rai::process_result::progress, ledger.process (receive));
-    ASSERT_EQ (rai::uint128_union (std::numeric_limits <rai::uint128_t>::max () - 25), amount1);
+    ASSERT_EQ (rai::uint128_union (rai::genesis_amount - 25), amount1);
     ASSERT_EQ (key2.pub, account1);
 	ASSERT_EQ (hash4, ledger.latest (key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (rai::test_genesis_key.pub));
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 25, ledger.account_balance (key2.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 25, ledger.weight (key3.pub));
+	ASSERT_EQ (rai::genesis_amount - 25, ledger.account_balance (key2.pub));
+    ASSERT_EQ (rai::genesis_amount - 25, ledger.weight (key3.pub));
 	ledger.rollback (hash4);
 	ASSERT_EQ (25, ledger.account_balance (rai::test_genesis_key.pub));
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.account_balance (key2.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.weight (key3.pub));
+	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (key2.pub));
+    ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
     rai::receivable receivable1;
 	ASSERT_FALSE (ledger.store.pending_get (hash3, receivable1));
@@ -278,14 +291,14 @@ TEST (ledger, rollback_receiver)
     ASSERT_EQ (rai::process_result::progress, ledger.process (open));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (rai::test_genesis_key.pub));
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.account_balance (key2.pub));
+	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (key2.pub));
     ASSERT_EQ (50, ledger.weight (rai::test_genesis_key.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.weight (key3.pub));
+    ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key3.pub));
 	ledger.rollback (hash1);
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.account_balance (rai::test_genesis_key.pub));
+	ASSERT_EQ (rai::genesis_amount, ledger.account_balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, ledger.account_balance (key2.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount, ledger.weight (rai::test_genesis_key.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     ASSERT_EQ (0, ledger.weight (key3.pub));
 	rai::frontier frontier2;
@@ -338,15 +351,15 @@ TEST (ledger, rollback_representation)
     rai::sign_message (key2.prv, key2.pub, receive1.hash (), receive1.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (receive1));
     ASSERT_EQ (1, ledger.weight (key3.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1, ledger.weight (key4.pub));
+    ASSERT_EQ (rai::genesis_amount - 1, ledger.weight (key4.pub));
     ledger.rollback (receive1.hash ());
     ASSERT_EQ (50, ledger.weight (key3.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 50, ledger.weight (key4.pub));
+    ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key4.pub));
     ledger.rollback (open.hash ());
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (key3.pub));
+    ASSERT_EQ (rai::genesis_amount, ledger.weight (key3.pub));
     ASSERT_EQ (0, ledger.weight (key4.pub));
     ledger.rollback (change2.hash ());
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (key5.pub));
+    ASSERT_EQ (rai::genesis_amount, ledger.weight (key5.pub));
     ASSERT_EQ (0, ledger.weight (key3.pub));
 }
 
@@ -406,7 +419,7 @@ TEST (ledger, weight)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount, ledger.weight (rai::genesis_account));
 }
 
 TEST (ledger, representative_change)
@@ -420,7 +433,7 @@ TEST (ledger, representative_change)
     rai::keypair key2;
     rai::genesis genesis;
     genesis.initialize (store);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount, ledger.weight (rai::test_genesis_key.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
@@ -437,7 +450,7 @@ TEST (ledger, representative_change)
     ASSERT_EQ (rai::test_genesis_key.pub, account1);
     ASSERT_EQ (key2.pub, account2);
     ASSERT_EQ (0, ledger.weight (rai::test_genesis_key.pub));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (key2.pub));
+    ASSERT_EQ (rai::genesis_amount, ledger.weight (key2.pub));
 	rai::frontier frontier2;
 	ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier2));
 	ASSERT_EQ (block.hash (), frontier2.hash);
@@ -445,7 +458,7 @@ TEST (ledger, representative_change)
 	rai::frontier frontier3;
 	ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier3));
 	ASSERT_EQ (frontier1.hash, frontier3.hash);
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), ledger.weight (rai::test_genesis_key.pub));
+	ASSERT_EQ (rai::genesis_amount, ledger.weight (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, ledger.weight (key2.pub));
 }
 
@@ -593,7 +606,7 @@ TEST (system, generate_send_existing)
     ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     ASSERT_NE (frontier1.hash, frontier2.hash);
     auto iterations1 (0);
-    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) == std::numeric_limits <rai::uint128_t>::max ())
+    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) == rai::genesis_amount)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -601,7 +614,7 @@ TEST (system, generate_send_existing)
         ASSERT_LT (iterations1, 20);
     }
     auto iterations2 (0);
-    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) != std::numeric_limits <rai::uint128_t>::max ())
+    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) != rai::genesis_amount)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -652,15 +665,15 @@ TEST (ledger, representation)
     ASSERT_FALSE (init1);
     rai::genesis genesis;
     genesis.initialize (store);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount, store.representation_get (rai::test_genesis_key.pub));
     rai::keypair key2;
     rai::send_block block1;
-    block1.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 100;
+    block1.hashables.balance = rai::genesis_amount - 100;
     block1.hashables.destination = key2.pub;
     block1.hashables.previous = genesis.hash ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount, store.representation_get (rai::test_genesis_key.pub));
     rai::keypair key3;
     rai::open_block block2;
     block2.hashables.account = key2.pub;
@@ -668,16 +681,16 @@ TEST (ledger, representation)
     block2.hashables.source = block1.hash ();
     rai::sign_message (key2.prv, key2.pub, block2.hash (), block2.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block2));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 100, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 100, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (100, store.representation_get (key3.pub));
     rai::send_block block3;
-    block3.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 200;
+    block3.hashables.balance = rai::genesis_amount - 200;
     block3.hashables.destination = key2.pub;
     block3.hashables.previous = block1.hash ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block3.hash (), block3.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block3));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 100, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 100, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (100, store.representation_get (key3.pub));
     rai::receive_block block4;
@@ -685,13 +698,13 @@ TEST (ledger, representation)
     block4.hashables.source = block3.hash ();
     rai::sign_message (key2.prv, key2.pub, block4.hash (), block4.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block4));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 200, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (200, store.representation_get (key3.pub));
     rai::keypair key4;
     rai::change_block block5 (key4.pub, block4.hash (), 0, key2.prv, key2.pub);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block5));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 200, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (0, store.representation_get (key3.pub));
     ASSERT_EQ (200, store.representation_get (key4.pub));
@@ -702,7 +715,7 @@ TEST (ledger, representation)
     block6.hashables.previous = block5.hash ();
     rai::sign_message (key2.prv, key2.pub, block6.hash (), block6.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block6));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 200, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (0, store.representation_get (key3.pub));
     ASSERT_EQ (200, store.representation_get (key4.pub));
@@ -714,7 +727,7 @@ TEST (ledger, representation)
     block7.hashables.source = block6.hash ();
     rai::sign_message (key5.prv, key5.pub, block7.hash (), block7.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block7));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 200, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (0, store.representation_get (key3.pub));
     ASSERT_EQ (100, store.representation_get (key4.pub));
@@ -726,7 +739,7 @@ TEST (ledger, representation)
     block8.hashables.previous = block6.hash ();
     rai::sign_message (key2.prv, key2.pub, block8.hash (), block8.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block8));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 200, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (0, store.representation_get (key3.pub));
     ASSERT_EQ (100, store.representation_get (key4.pub));
@@ -737,7 +750,7 @@ TEST (ledger, representation)
     block9.hashables.source = block8.hash ();
     rai::sign_message (key5.prv, key5.pub, block9.hash (), block9.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block9));
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 200, store.representation_get (rai::test_genesis_key.pub));
+    ASSERT_EQ (rai::genesis_amount - 200, store.representation_get (rai::test_genesis_key.pub));
     ASSERT_EQ (0, store.representation_get (key2.pub));
     ASSERT_EQ (0, store.representation_get (key3.pub));
     ASSERT_EQ (0, store.representation_get (key4.pub));
@@ -857,7 +870,7 @@ TEST (votes, add_one)
     ASSERT_EQ (send1, *existing1->second.second);
     auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (send1, *winner.second);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
+    ASSERT_EQ (rai::genesis_amount, winner.first);
 }
 
 TEST (votes, add_two)
@@ -1038,7 +1051,7 @@ TEST (fork, publish)
         ASSERT_EQ (*publish1.block, *existing1->second.second);
         auto winner (node1.ledger.winner (votes1->votes));
         ASSERT_EQ (*publish1.block, *winner.second);
-        ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
+        ASSERT_EQ (rai::genesis_amount, winner.first);
     }
     ASSERT_TRUE (node0.expired ());
 }
@@ -1094,7 +1107,7 @@ TEST (ledger, fork_keep)
 	}
     auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
+    ASSERT_EQ (rai::genesis_amount, winner.first);
 	ASSERT_TRUE (system.nodes [0]->store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (system.nodes [1]->store.block_exists (publish1.block->hash ()));
 }
@@ -1150,7 +1163,7 @@ TEST (ledger, fork_flip)
     }
     auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
+    ASSERT_EQ (rai::genesis_amount, winner.first);
     ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
     ASSERT_TRUE (node2.store.block_exists (publish1.block->hash ()));
     ASSERT_FALSE (node2.store.block_exists (publish2.block->hash ()));
@@ -1218,7 +1231,7 @@ TEST (ledger, fork_multi_flip)
 	}
     auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), winner.first);
+    ASSERT_EQ (rai::genesis_amount, winner.first);
 	ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
 	ASSERT_TRUE (node2.store.block_exists (publish1.block->hash ()));
 	ASSERT_FALSE (node2.store.block_exists (publish2.block->hash ()));
