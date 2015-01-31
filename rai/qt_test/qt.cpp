@@ -22,6 +22,18 @@ TEST (wallet, construction)
     ASSERT_EQ (key.pub.to_base58check (), item1->text ().toStdString ());
 }
 
+TEST (wallet, startup_balance)
+{
+    rai::system system (24000, 1);
+    int argc (0);
+    QApplication application (argc, nullptr);
+	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
+    rai::keypair key;
+    wallet_l->store.insert (key.prv);
+    rai_qt::wallet wallet (application, *system.nodes [0], wallet_l, key.pub);
+	ASSERT_EQ ("Balance: 0", wallet.self.balance_label->text().toStdString ());
+}
+
 TEST (wallet, main)
 {
     rai::system system (24000, 1);
@@ -222,9 +234,9 @@ TEST (wallet, create_open_receive)
 	rai::keypair key;
 	rai::system system (24000, 1);
 	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-	system.wallet (0)->send (key.pub, 100);
+	system.wallet (0)->send_all (key.pub, 100);
 	auto latest1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-	system.wallet (0)->send (key.pub, 100);
+	system.wallet (0)->send_all (key.pub, 100);
 	auto latest2 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
 	ASSERT_NE (latest1, latest2);
 	system.wallet (0)->store.insert (key.prv);

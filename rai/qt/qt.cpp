@@ -27,6 +27,11 @@ wallet (wallet_a)
     });
 }
 
+void rai_qt::self_pane::refresh_balance ()
+{
+	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (wallet.node.ledger.account_balance (wallet.account)))).c_str ()));
+}
+
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
@@ -98,20 +103,16 @@ wallet (wallet_a)
 
 void rai_qt::accounts::refresh ()
 {
-    rai::uint128_t balance;
     model->removeRows (0, model->rowCount ());
     for (auto i (wallet.wallet_m->store.begin ()), j (wallet.wallet_m->store.end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
         rai::public_key key (i->first);
-        auto account_balance (wallet.node.ledger.account_balance (key));
-        balance += account_balance;
-        auto balance (std::to_string (rai::scale_down (account_balance)));
+        auto balance (std::to_string (rai::scale_down (wallet.node.ledger.account_balance (key))));
         items.push_back (new QStandardItem (balance.c_str ()));
         items.push_back (new QStandardItem (QString (key.to_base58check ().c_str ())));
         model->appendRow (items);
     }
-    wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (balance))).c_str ()));
 }
 
 rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a) :
@@ -256,7 +257,7 @@ send_blocks_back (new QPushButton ("Back"))
                 auto parse_error (account.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-                    auto send_error (wallet_m->send (account, coins));
+                    auto send_error (wallet_m->send_all (account, coins));
                     if (!send_error)
                     {
                         QPalette palette;
@@ -308,6 +309,11 @@ send_blocks_back (new QPushButton ("Back"))
         {
             accounts.refresh ();
         }
+		if (account_a == account)
+		{
+            history.refresh ();
+			self.refresh_balance ();
+		}
     });
     node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
     {
@@ -315,6 +321,11 @@ send_blocks_back (new QPushButton ("Back"))
         {
             accounts.refresh ();
         }
+		if (account_a == account)
+		{
+            history.refresh ();
+			self.refresh_balance ();
+		}
     });
     node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
     {
@@ -322,27 +333,11 @@ send_blocks_back (new QPushButton ("Back"))
         {
             accounts.refresh ();
         }
-    });
-    node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
-    {
-        if (account == account_a)
-        {
+		if (account_a == account)
+		{
             history.refresh ();
-        }
-    });
-    node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
-    {
-        if (account == account_a)
-        {
-            history.refresh ();
-        }
-    });
-    node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
-    {
-        if (account == account_a)
-        {
-            history.refresh ();
-        }
+			self.refresh_balance ();
+		}
     });
     node.change_observers.push_back ([this] (rai::change_block const &, rai::account const & account_a, rai::account const &)
     {
@@ -351,6 +346,7 @@ send_blocks_back (new QPushButton ("Back"))
             history.refresh ();
         }
     });
+	self.refresh_balance ();
     accounts.refresh ();
     history.refresh ();
 }

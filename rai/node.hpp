@@ -320,6 +320,7 @@ public:
     static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
     std::unique_ptr <leveldb::DB> handle;
 };
+// A wallet is a set of account keys encrypted by a common encryption key
 class wallet : public std::enable_shared_from_this <rai::wallet>
 {
 public:
@@ -328,7 +329,10 @@ public:
 	void enter_initial_password ();
 	void insert (rai::private_key const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
-    bool send (rai::account const &, rai::uint128_t const &);
+	// Send from a specific account in the wallet
+	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
+	// Send from any of the accounts in the wallet
+    bool send_all (rai::account const &, rai::uint128_t const &);
     bool import (std::string const &, std::string const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (rai::account const &, rai::block_hash const &, uint64_t);
@@ -338,6 +342,7 @@ public:
     rai::work_store work;
     rai::node & node;
 };
+// The wallets set is all the wallets a node controls.  A node may contain multiple wallets independently encrypted and operated.
 class wallets
 {
 public:

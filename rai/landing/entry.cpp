@@ -140,7 +140,7 @@ namespace landing
         {
             ++config_a.last;
             auto amount (distribution_amount (config_a.last - config_a.start));
-            error = wallet_a->send (config_a.distribution_account, rai::scale_up (amount));
+            error = wallet_a->send_all (config_a.distribution_account, rai::scale_up (amount));
             if (!error)
             {
                 std::cout << boost::str (boost::format ("Successfully distributed %1%\n") % amount);

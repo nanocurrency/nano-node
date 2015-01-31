@@ -363,7 +363,7 @@ TEST (network, receive_weight_change)
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
     system.wallet (1)->store.representative_set (key2.pub);
-    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 2));
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 2));
 	auto iterations (0);
     while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->ledger.weight (key2.pub) != 2;}))
     {
@@ -469,7 +469,7 @@ TEST (bulk_pull, end_not_owned)
     rai::system system (24000, 1);
     rai::keypair key2;
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     rai::open_block open;
     open.hashables.account = key2.pub;
     open.hashables.representative = key2.pub;
@@ -548,7 +548,7 @@ TEST (bootstrap_processor, process_one)
 {
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, 100));
+    ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 100));
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
     auto hash1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
@@ -572,9 +572,9 @@ TEST (bootstrap_processor, process_two)
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     auto hash1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, 50));
+    ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 50));
     auto hash2 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, 50));
+    ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 50));
     auto hash3 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
     ASSERT_NE (hash1, hash3);
@@ -601,7 +601,7 @@ TEST (bootstrap_processor, process_new)
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     auto iterations1 (0);
     while (system.nodes [0]->ledger.account_balance (key2.pub).is_zero ())
     {
@@ -684,7 +684,7 @@ TEST (bootstrap_processor, push_one)
     ASSERT_NE (nullptr, wallet);
     wallet->store.insert (rai::test_genesis_key.prv);
     auto balance (node1->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_FALSE (wallet->send (key1.pub, 100));
+    ASSERT_FALSE (wallet->send_all (key1.pub, 100));
     ASSERT_NE (balance, node1->ledger.account_balance (rai::test_genesis_key.pub));
     node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
     auto iterations (0);
@@ -792,7 +792,7 @@ TEST (bulk, genesis)
     ASSERT_FALSE (node1->store.latest_get (rai::test_genesis_key.pub, frontier2));
     ASSERT_EQ (frontier1.hash, frontier2.hash);
     rai::keypair key2;
-    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     rai::frontier frontier3;
     ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier3));
     ASSERT_NE (frontier1.hash, frontier3.hash);
@@ -828,7 +828,7 @@ TEST (bulk, offline_send)
     rai::keypair key2;
     auto wallet (node1->wallets.create (rai::uint256_union ()));
     wallet->store.insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send (key2.pub, 100));
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
     node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
     auto iterations2 (0);

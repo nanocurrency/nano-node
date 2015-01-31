@@ -128,6 +128,7 @@ namespace rai_qt {
     {
     public:
         self_pane (rai_qt::wallet &, rai::account const &);
+		void refresh_balance ();
         QWidget * window;
         QVBoxLayout * layout;
         QLabel * your_account_label;
