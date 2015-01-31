@@ -47,12 +47,9 @@ namespace rai_qt {
         QVBoxLayout * layout;
         QPushButton * enter_password;
         QPushButton * change_password;
-        QPushButton * select_account;
+        QPushButton * accounts;
         QPushButton * show_ledger;
         QPushButton * show_peers;
-        QLabel * wallet_key_text;
-        QLineEdit * wallet_key_line;
-        QPushButton * wallet_add_key_button;
         QPushButton * search_for_receivables;
         QPushButton * wallet_refresh;
         QPushButton * create_block;
@@ -148,6 +145,9 @@ namespace rai_qt {
         QStandardItemModel * model;
 		QTableView * view;
 		QPushButton * create_account;
+		QFrame * separator;
+        QLineEdit * account_key_line;
+        QPushButton * account_key_button;
         QPushButton * back;
         rai_qt::wallet & wallet;
     };

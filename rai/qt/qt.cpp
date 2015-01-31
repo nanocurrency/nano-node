@@ -33,9 +33,14 @@ layout (new QVBoxLayout),
 model (new QStandardItemModel),
 view (new QTableView),
 create_account (new QPushButton ("Create account")),
+separator (new QFrame),
+account_key_line (new QLineEdit),
+account_key_button (new QPushButton ("Create custom account")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
+	separator->setFrameShape (QFrame::HLine);
+	separator->setFrameShadow (QFrame::Sunken);
     model->setHorizontalHeaderItem (0, new QStandardItem ("Balance"));
     model->setHorizontalHeaderItem (1, new QStandardItem ("Account"));
     view->setEditTriggers (QAbstractItemView::NoEditTriggers);
@@ -46,8 +51,33 @@ wallet (wallet_a)
     view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
 	layout->addWidget (view);
 	layout->addWidget (create_account);
+	layout->addWidget (separator);
+	layout->addWidget (account_key_line);
+	layout->addWidget (account_key_button);
     layout->addWidget (back);
     window->setLayout (layout);
+    QObject::connect (account_key_button, &QPushButton::released, [this] ()
+    {
+      QString key_text_wide (account_key_line->text ());
+      std::string key_text (key_text_wide.toLocal8Bit ());
+      rai::private_key key;
+      if (!key.decode_hex (key_text))
+      {
+          QPalette palette;
+          palette.setColor (QPalette::Text, Qt::black);
+          account_key_line->setPalette (palette);
+          account_key_line->clear ();
+          wallet.wallet_m->insert (key);
+          wallet.accounts.refresh ();
+          wallet.history.refresh ();
+      }
+      else
+      {
+          QPalette palette;
+          palette.setColor (QPalette::Text, Qt::red);
+          account_key_line->setPalette (palette);
+      }
+    });
     QObject::connect (back, &QPushButton::clicked, [this] ()
     {
         wallet.pop_main_stack ();
@@ -456,12 +486,9 @@ window (new QWidget),
 layout (new QVBoxLayout),
 enter_password (new QPushButton ("Enter Password")),
 change_password (new QPushButton ("Change Password")),
-select_account (new QPushButton ("Select account")),
+accounts (new QPushButton ("Accounts")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
-wallet_key_text (new QLabel ("Account key:")),
-wallet_key_line (new QLineEdit),
-wallet_add_key_button (new QPushButton ("Add account key")),
 search_for_receivables (new QPushButton ("Search for receivables")),
 wallet_refresh (new QPushButton ("Refresh Wallet")),
 create_block (new QPushButton ("Create Block")),
@@ -506,12 +533,9 @@ wallet (wallet_a)
 
     layout->addWidget (enter_password);
     layout->addWidget (change_password);
-    layout->addWidget (select_account);
+    layout->addWidget (accounts);
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
-    layout->addWidget (wallet_key_text);
-    layout->addWidget (wallet_key_line);
-    layout->addWidget (wallet_add_key_button);
     layout->addWidget (search_for_receivables);
     layout->addWidget (wallet_refresh);
     layout->addWidget (create_block);
@@ -520,7 +544,7 @@ wallet (wallet_a)
     layout->addWidget (back);
     window->setLayout (layout);
 
-    QObject::connect (select_account, &QPushButton::released, [this] ()
+    QObject::connect (accounts, &QPushButton::released, [this] ()
     {
         wallet.push_main_stack (wallet.accounts.window);
     });
@@ -563,28 +587,6 @@ wallet (wallet_a)
     QObject::connect (ledger_back, &QPushButton::released, [this] ()
     {
         wallet.pop_main_stack ();
-    });
-    QObject::connect (wallet_add_key_button, &QPushButton::released, [this] ()
-    {
-      QString key_text_wide (wallet_key_line->text ());
-      std::string key_text (key_text_wide.toLocal8Bit ());
-      rai::private_key key;
-      if (!key.decode_hex (key_text))
-      {
-          QPalette palette;
-          palette.setColor (QPalette::Text, Qt::black);
-          wallet_key_line->setPalette (palette);
-          wallet_key_line->clear ();
-          wallet.wallet_m->insert (key);
-          wallet.accounts.refresh ();
-          wallet.history.refresh ();
-      }
-      else
-      {
-          QPalette palette;
-          palette.setColor (QPalette::Text, Qt::red);
-          wallet_key_line->setPalette (palette);
-      }
     });
     QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
     {

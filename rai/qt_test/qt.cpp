@@ -333,8 +333,9 @@ TEST (wallet, startup_work)
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	uint64_t work1;
     ASSERT_TRUE (wallet.wallet_m->work.get (rai::test_genesis_key.pub, work1));
-	QTest::keyClicks (wallet.advanced.wallet_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
-    QTest::mouseClick (wallet.advanced.wallet_add_key_button, Qt::LeftButton);
+	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
+	QTest::keyClicks (wallet.accounts.account_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
+    QTest::mouseClick (wallet.accounts.account_key_button, Qt::LeftButton);
     auto iterations1 (0);
     while (wallet.wallet_m->work.get (rai::test_genesis_key.pub, work1))
     {
