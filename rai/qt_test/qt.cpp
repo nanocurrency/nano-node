@@ -142,7 +142,7 @@ TEST (wallet, send)
     system.wallet (1)->store.insert (key1.prv);
     int argc (0);
     QApplication application (argc, nullptr);
-    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), system.account (0));
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
     QTest::keyClicks (wallet.send_account, key1.pub.to_base58check ().c_str ());
     QTest::keyClicks (wallet.send_count, "2");

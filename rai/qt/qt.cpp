@@ -253,11 +253,11 @@ send_blocks_back (new QPushButton ("Back"))
                 send_count->setPalette (palette);
                 QString account_text (send_account->text ());
                 std::string account_text_narrow (account_text.toLocal8Bit ());
-                rai::account account;
-                auto parse_error (account.decode_base58check (account_text_narrow));
+                rai::account account_l;
+                auto parse_error (account_l.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-                    auto send_error (wallet_m->send_all (account, coins));
+                    auto send_error (wallet_m->send (account, account_l, coins));
                     if (!send_error)
                     {
                         QPalette palette;
