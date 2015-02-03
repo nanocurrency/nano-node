@@ -992,6 +992,7 @@ TEST (votes, add_old)
     ASSERT_EQ (send1, *winner.second);
 }
 
+// Successor of a block needs to be calculated since it's not stored
 TEST (ledger, successor)
 {
     rai::system system (24000, 1);
@@ -1236,6 +1237,41 @@ TEST (ledger, fork_multi_flip)
 	ASSERT_TRUE (node2.store.block_exists (publish1.block->hash ()));
 	ASSERT_FALSE (node2.store.block_exists (publish2.block->hash ()));
     ASSERT_FALSE (node2.store.block_exists (publish3.block->hash ()));
+}
+
+// Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
+TEST (ledger, fork_bootstrap_flip)
+{
+    rai::system system (24000, 2);
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+	system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	auto latest (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
+    rai::keypair key1;
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block);
+    send1->hashables.previous = latest;
+    send1->hashables.balance = rai::genesis_amount - 100;
+    send1->hashables.destination = key1.pub;
+    node1.work_create (*send1);
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
+    rai::keypair key2;
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block);
+    send2->hashables.previous = latest;
+    send2->hashables.balance = rai::genesis_amount - 100;
+    send2->hashables.destination = key2.pub;
+    node1.work_create (*send2);
+    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
+	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (*send1));
+	ASSERT_EQ (rai::process_result::progress, node2.ledger.process (*send2));
+	system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, 100);
+	auto iterations2 (0);
+	while (!node2.store.block_exists (send1->hash ()))
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+		++iterations2;
+		ASSERT_LT (iterations2, 200);
+	}
 }
 
 TEST (ledger, fail_change_old)

@@ -425,6 +425,7 @@ TEST (parse_endpoint, no_colon)
     ASSERT_TRUE (rai::parse_endpoint (string, endpoint));
 }
 
+// If the account doesn't exist, current == end so there's no iteration
 TEST (bulk_pull, no_address)
 {
     rai::system system (24000, 1);
@@ -435,7 +436,7 @@ TEST (bulk_pull, no_address)
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
     ASSERT_EQ (request->current, request->request->end);
-    ASSERT_FALSE (request->current.is_zero ());
+    ASSERT_TRUE (request->current.is_zero ());
 }
 
 TEST (bulk_pull, genesis_to_end)
@@ -451,6 +452,7 @@ TEST (bulk_pull, genesis_to_end)
     ASSERT_EQ (request->request->end, request->request->end);
 }
 
+// If we can't find the end block, send everything
 TEST (bulk_pull, no_end)
 {
     rai::system system (24000, 1);
@@ -460,8 +462,8 @@ TEST (bulk_pull, no_end)
     req->end = 1;
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
-    ASSERT_EQ (request->current, request->request->end);
-    ASSERT_FALSE (request->current.is_zero ());
+    ASSERT_EQ (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), request->current);
+	ASSERT_TRUE (request->request->end.is_zero ());
 }
 
 TEST (bulk_pull, end_not_owned)
@@ -544,6 +546,7 @@ TEST (bootstrap_processor, DISABLED_process_incomplete)
     bulk_pull_client->process_end ();
 }
 
+// Bootstrap can pull one basic block
 TEST (bootstrap_processor, process_one)
 {
     rai::system system (24000, 1);
@@ -562,8 +565,6 @@ TEST (bootstrap_processor, process_one)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    auto hash3 (node1->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_EQ (hash1, hash3);
     node1->stop ();
 }
 
@@ -590,8 +591,6 @@ TEST (bootstrap_processor, process_two)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    auto hash4 (node1->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_EQ (hash3, hash4);
     node1->stop ();
 }
 

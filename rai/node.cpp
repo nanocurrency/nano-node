@@ -321,6 +321,15 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
 	}
 }
 
+void rai::network::broadcast_confirm_req (rai::block const & block_a)
+{
+	auto list (node.peers.list ());
+	for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+	{
+		node.network.send_confirm_req (i->endpoint, block_a);
+	}
+}
+
 void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, rai::block const & block)
 {
     rai::confirm_req message (block.clone ());
@@ -3363,39 +3372,43 @@ void rai::bootstrap_server::run_next ()
 void rai::bulk_pull_server::set_current_end ()
 {
     assert (request != nullptr);
-    auto end_exists (request->end.is_zero () || connection->node->store.block_exists (request->end));
-    if (end_exists)
-    {
-        rai::frontier frontier;
-        auto no_address (connection->node->store.latest_get (request->start, frontier));
-        if (no_address)
-        {
-            current = request->end;
-        }
-        else
-        {
-            if (!request->end.is_zero ())
-            {
-                auto account (connection->node->ledger.account (request->end));
-                if (account == request->start)
-                {
-                    current = frontier.hash;
-                }
-                else
-                {
-                    current = request->end;
-                }
-            }
-            else
-            {
-                current = frontier.hash;
-            }
-        }
-    }
-    else
-    {
-        current = request->end;
-    }
+	if (!connection->node->store.block_exists (request->end))
+	{
+		if (bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block doesn't exist: %1%, sending everything") % request->end.to_string ());
+		}
+		request->end.clear ();
+	}
+	rai::frontier frontier;
+	auto no_address (connection->node->store.latest_get (request->start, frontier));
+	if (no_address)
+	{
+		if (bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_string ());
+		}
+		current = request->end;
+	}
+	else
+	{
+		if (!request->end.is_zero ())
+		{
+			auto account (connection->node->ledger.account (request->end));
+			if (account == request->start)
+			{
+				current = frontier.hash;
+			}
+			else
+			{
+				current = request->end;
+			}
+		}
+		else
+		{
+			current = frontier.hash;
+		}
+	}
 }
 
 void rai::bulk_pull_server::send_next ()
@@ -3795,12 +3808,17 @@ void rai::bulk_pull_client::process_end ()
 		auto process_result (connection->connection->node->processor.process_receive (block_a));
 		switch (process_result)
 		{
-		   case rai::process_result::progress:
-		   case rai::process_result::old:
-			   break;
-		   default:
-			   BOOST_LOG (connection->connection->node->log) << "Error inserting block";
-			   break;
+			case rai::process_result::progress:
+			case rai::process_result::old:
+				break;
+			case rai::process_result::fork_previous:
+			case rai::process_result::fork_source:
+				connection->connection->node->network.broadcast_confirm_req (block_a);
+				BOOST_LOG (connection->connection->node->log) << "Fork received in bootstrap";
+				break;
+			default:
+				BOOST_LOG (connection->connection->node->log) << "Error inserting block in bootstrap";
+				break;
 		}
 		connection->connection->node->store.unchecked_del (block_a.hash ());
 	}, connection->connection->node->store);
@@ -4827,11 +4845,7 @@ void rai::election::start_request (rai::block const & block_a)
 	auto node_l (node.lock ());
 	if (node_l != nullptr)
 	{
-		auto list (node_l->peers.list ());
-		for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
-		{
-			node_l->network.send_confirm_req (i->endpoint, block_a);
-		}
+		node_l->network.broadcast_confirm_req (block_a);
 	}
 }
 
