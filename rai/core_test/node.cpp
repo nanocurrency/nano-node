@@ -123,17 +123,20 @@ TEST (node, send_out_of_order)
     send1.hashables.destination = key2.pub;
     send1.hashables.previous = genesis.hash ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
+	rai::work_generate (send1);
     rai::send_block send2;
     send2.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 2000;
     send2.hashables.destination = key2.pub;
     send2.hashables.previous = send1.hash ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2.hash (), send2.signature);
+	rai::work_generate (send2);
     system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)));
     system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)));
     auto iterations (0);
-    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->ledger.account_balance (rai::test_genesis_key.pub) != std::numeric_limits <rai::uint128_t>::max () - 2000;}))
+    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->ledger.account_balance (rai::test_genesis_key.pub) != rai::genesis_amount - 2000;}))
     {
         system.service->poll_one ();
+		system.processor.poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }

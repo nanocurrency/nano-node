@@ -1954,6 +1954,14 @@ service (new boost::asio::io_service)
             new2 = (*j)->peers.size ();
         } while (new1 == starting1 || new2 == starting2);
     }
+	auto iterations1 (0);
+	while (std::any_of (nodes.begin (), nodes.end (), [] (std::shared_ptr <rai::node> const & node_a) {return node_a->bootstrap_initiator.in_progress;}))
+	{
+		service->poll_one ();
+		processor.poll_one ();
+		++iterations1;
+		assert (iterations1 < 1000);
+	}
 }
 
 rai::system::~system ()
