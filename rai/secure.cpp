@@ -2434,7 +2434,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
             result = validate_message (account, message, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == rai::process_result::progress)
             {
-                result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork_previous; // Is the previous block the latest (Malicious)
+                result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the latest (Malicious)
                 if (result == rai::process_result::progress)
                 {
                     ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
@@ -2468,7 +2468,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
                 result = frontier.balance.number () >= block_a.hashables.balance.number () ? rai::process_result::progress : rai::process_result::overspend; // Is this trying to spend more than they have (Malicious)
                 if (result == rai::process_result::progress)
                 {
-                    result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork_previous;
+                    result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork;
                     if (result == rai::process_result::progress)
                     {
                         ledger.store.block_put (message, block_a);
@@ -2494,7 +2494,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
         if (result == rai::process_result::progress)
         {
             rai::receivable receivable;
-            result = ledger.store.pending_get (block_a.hashables.source, receivable) ? rai::process_result::overreceive : rai::process_result::progress; // Has this source already been received (Malformed)
+            result = ledger.store.pending_get (block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
             {
                 result = rai::validate_message (receivable.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
@@ -2519,7 +2519,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                         }
                         else
                         {
-                            result = ledger.store.block_exists (block_a.hashables.previous) ? rai::process_result::fork_previous : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
+                            result = ledger.store.block_exists (block_a.hashables.previous) ? rai::process_result::fork : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
                         }
                     }
                 }
@@ -2540,7 +2540,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
         if (result == rai::process_result::progress)
         {
             rai::receivable receivable;
-            result = ledger.store.pending_get (block_a.hashables.source, receivable) ? rai::process_result::fork_source : rai::process_result::progress; // Has this source already been received (Malformed)
+            result = ledger.store.pending_get (block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
             {
                 result = receivable.destination == block_a.hashables.account ? rai::process_result::progress : rai::process_result::account_mismatch;
@@ -2550,7 +2550,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
                     if (result == rai::process_result::progress)
                     {
                         rai::frontier frontier;
-                        result = ledger.store.latest_get (receivable.destination, frontier) ? rai::process_result::progress : rai::process_result::fork_previous; // Has this account already been opened? (Malicious)
+                        result = ledger.store.latest_get (receivable.destination, frontier) ? rai::process_result::progress : rai::process_result::fork; // Has this account already been opened? (Malicious)
                         if (result == rai::process_result::progress)
                         {
                             rai::frontier source_frontier;

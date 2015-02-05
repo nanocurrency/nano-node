@@ -435,9 +435,8 @@ enum class process_result
 	bad_signature, // Signature was bad, forged or transmission error
 	old, // Already seen and was valid
 	overspend, // Malicious attempt to overspend
-	overreceive, // Malicious attempt to receive twice
-	fork_previous, // Malicious fork based on previous
-	fork_source, // Malicious fork based on source
+	fork, // Malicious fork based on previous
+	unreceivable, // Source block doesn't exist or has already been received
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	not_receive_from_send, // Receive does not have a send source

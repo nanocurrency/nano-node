@@ -1824,11 +1824,11 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             }
             break;
         }
-        case rai::process_result::overreceive:
+        case rai::process_result::unreceivable:
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Overreceive for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
@@ -1840,20 +1840,11 @@ rai::process_result rai::processor::process_receive (rai::block const & block_a)
             }
             break;
         }
-        case rai::process_result::fork_source:
+        case rai::process_result::fork:
         {
             if (ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Fork source for: %1%") % block_a.hash ().to_string ());
-            }
-            node.conflicts.start (*node.ledger.successor (block_a.root ()), false);
-            break;
-        }
-        case rai::process_result::fork_previous:
-        {
-            if (ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Fork previous for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
             }
             node.conflicts.start (*node.ledger.successor (block_a.root ()), false);
             break;
@@ -3811,8 +3802,7 @@ void rai::bulk_pull_client::process_end ()
 			case rai::process_result::progress:
 			case rai::process_result::old:
 				break;
-			case rai::process_result::fork_previous:
-			case rai::process_result::fork_source:
+			case rai::process_result::fork:
 				connection->connection->node->network.broadcast_confirm_req (block_a);
 				BOOST_LOG (connection->connection->node->log) << "Fork received in bootstrap";
 				break;

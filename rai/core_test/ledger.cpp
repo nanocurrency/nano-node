@@ -487,7 +487,7 @@ TEST (ledger, send_fork)
     block2.hashables.previous = frontier1.hash;
     block2.hashables.balance.clear ();
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block2.hash (), block2.signature);
-    ASSERT_EQ (rai::process_result::fork_previous, ledger.process (block2));
+    ASSERT_EQ (rai::process_result::fork, ledger.process (block2));
 }
 
 TEST (ledger, receive_fork)
@@ -528,7 +528,7 @@ TEST (ledger, receive_fork)
     block5.hashables.previous = block2.hash ();
     block5.hashables.source = block4.hash ();
     rai::sign_message (key2.prv, key2.pub, block5.hash (), block5.signature);
-    ASSERT_EQ (rai::process_result::fork_previous, ledger.process (block5));
+    ASSERT_EQ (rai::process_result::fork, ledger.process (block5));
 }
 
 TEST (ledger, checksum_single)
@@ -786,7 +786,7 @@ TEST (ledger, double_open)
     open2.hashables.representative = rai::test_genesis_key.pub;
     open2.hashables.source = send1.hash ();
     rai::sign_message (key2.prv, key2.pub, open2.hash (), open2.signature);
-    ASSERT_EQ (rai::process_result::fork_source, ledger.process (open2));
+    ASSERT_EQ (rai::process_result::unreceivable, ledger.process (open2));
 }
 
 TEST (ledegr, double_receive)
@@ -816,7 +816,7 @@ TEST (ledegr, double_receive)
     receive1.hashables.previous = open1.hash ();
     receive1.hashables.source = send1.hash ();
     rai::sign_message (key2.prv, key2.pub, receive1.hash (), receive1.signature);
-    ASSERT_EQ (rai::process_result::overreceive, ledger.process (receive1));
+    ASSERT_EQ (rai::process_result::unreceivable, ledger.process (receive1));
 }
 
 TEST (votes, add_unsigned)
@@ -1341,7 +1341,7 @@ TEST (ledger, fail_change_fork)
     rai::keypair key2;
     rai::change_block block2 (key2.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
     auto result2 (ledger.process (block2));
-    ASSERT_EQ (rai::process_result::fork_previous, result2);
+    ASSERT_EQ (rai::process_result::fork, result2);
 }
 
 TEST (ledger, fail_send_old)
@@ -1459,7 +1459,7 @@ TEST (ledger, fail_send_fork)
     block2.hashables.balance = 1;
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block2.hash (), block2.signature);
     auto result2 (ledger.process (block2));
-    ASSERT_EQ (rai::process_result::fork_previous, result2);
+    ASSERT_EQ (rai::process_result::fork, result2);
 }
 
 TEST (ledger, fail_open_old)
@@ -1542,7 +1542,7 @@ TEST (ledger, fail_open_overreceive)
     block3.hashables.source = block1.hash ();;
     rai::sign_message (key1.prv, key1.pub, block3.hash (), block3.signature);
     auto result3 (ledger.process (block3));
-    ASSERT_EQ (rai::process_result::fork_source, result3);
+    ASSERT_EQ (rai::process_result::unreceivable, result3);
 }
 
 TEST (ledger, fail_open_bad_signature)
@@ -1610,7 +1610,7 @@ TEST (ledger, fail_open_fork_previous)
     block4.hashables.source = block2.hash ();
     rai::sign_message (key1.prv, key1.pub, block4.hash (), block4.signature);
     auto result4 (ledger.process (block4));
-    ASSERT_EQ (rai::process_result::fork_previous, result4);
+    ASSERT_EQ (rai::process_result::fork, result4);
 }
 
 TEST (ledger, fail_open_account_mismatch)
@@ -1752,7 +1752,7 @@ TEST (ledger, fail_receive_overreceive)
     block3.hashables.source = block1.hash ();
     rai::sign_message (key1.prv, key1.pub, block3.hash (), block3.signature);
     auto result4 (ledger.process (block3));
-    ASSERT_EQ (rai::process_result::overreceive, result4);
+    ASSERT_EQ (rai::process_result::unreceivable, result4);
 }
 
 TEST (ledger, fail_receive_bad_signature)
@@ -1913,7 +1913,7 @@ TEST (ledger, fail_receive_fork_previous)
     block5.hashables.source = block2.hash ();
     rai::sign_message (key1.prv, key1.pub, block5.hash (), block5.signature);
     auto result5 (ledger.process (block5));
-    ASSERT_EQ (rai::process_result::fork_previous, result5);
+    ASSERT_EQ (rai::process_result::fork, result5);
 }
 
 TEST (ledger, latest_empty)
