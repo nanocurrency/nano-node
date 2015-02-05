@@ -11,15 +11,15 @@ namespace rai
 {
 namespace landing
 {
-    uint64_t minutes_since_epoch ()
+    uint64_t seconds_since_epoch ()
     {
-        return std::chrono::duration_cast <std::chrono::minutes> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+        return std::chrono::duration_cast <std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
     }
     class config
     {
     public:
         config () :
-        start (minutes_since_epoch ()),
+        start (seconds_since_epoch ()),
         last (start),
         peering_port (rai::network::node_port)
         {
@@ -94,27 +94,43 @@ namespace landing
     };
     uint64_t distribution_amount (uint64_t interval)
     {
-        uint64_t minutes_per_year (60 * 24 * 365);
+		// Halfing period ~= Exponent of 2 in secounds approixmately 1 year = 2^25 = 33554432
+		// Interval = Exponent of 2 in seconds approximately 1 minute = 2^6 = 64
+		uint64_t intervals_per_period (2^25 / 2^6);
         uint64_t result;
-        if (interval < minutes_per_year * 1)
+        if (interval < intervals_per_period * 1)
         {
-            result = 3237084921241;
+			// Total supply / 2^halfing period / intervals per period / user scaling
+			// 2^128 / 2^1 / (2^25 / 2^6) / 10^20
+            result = 3245185536584; // 50%
         }
-        else if (interval < minutes_per_year * 2)
+        else if (interval < intervals_per_period * 2)
         {
-            result = 1618542460620;
+            result = 1622592768292; // 25%
         }
-        else if (interval < minutes_per_year * 3)
+        else if (interval < intervals_per_period * 3)
         {
-            result = 809271230310;
+            result = 811296384146; // 13%
         }
-        else if (interval < minutes_per_year * 4)
+        else if (interval < intervals_per_period * 4)
         {
-            result = 404635615155;
+            result = 405648192073; // 6.3%
         }
-        else if (interval < minutes_per_year * 5)
+        else if (interval < intervals_per_period * 5)
         {
-            result = 404635615155;
+            result = 202824096036; // 3.1%
+        }
+        else if (interval < intervals_per_period * 6)
+        {
+            result = 101412048018; // 1.6%
+        }
+        else if (interval < intervals_per_period * 7)
+        {
+            result = 50706024009; // 0.8%
+        }
+        else if (interval < intervals_per_period * 8)
+        {
+            result = 50706024009; // 0.8*
         }
         else
         {
@@ -134,7 +150,7 @@ namespace landing
     }
     void distribute (rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::landing::config & config_a, boost::filesystem::path working_path_a)
     {
-        auto now (rai::landing::minutes_since_epoch ());
+        auto now (rai::landing::seconds_since_epoch ());
         auto error (false);
         while (!error && config_a.last < now)
         {
@@ -152,7 +168,7 @@ namespace landing
             }
         }
         std::cout << "Waiting for next distribution cycle\n";
-        node_a.service.add (std::chrono::system_clock::now () + std::chrono::minutes (1), [&node_a, &config_a, working_path_a, wallet_a] () {rai::landing::distribute (node_a, wallet_a, config_a, working_path_a);});
+        node_a.service.add (std::chrono::system_clock::now () + std::chrono::seconds (16), [&node_a, &config_a, working_path_a, wallet_a] () {rai::landing::distribute (node_a, wallet_a, config_a, working_path_a);});
     }
     rai::landing::config read_config (bool & config_error, boost::filesystem::path working_path_a)
     {
@@ -212,7 +228,7 @@ int main (int argc, char * const * argv)
                         assert (false);
                     }
                 });
-            auto now (rai::landing::minutes_since_epoch ());
+            auto now (rai::landing::seconds_since_epoch ());
             if (now - config.last > 0)
             {
                 std::cout << boost::str (boost::format ("The last distribution was %1% minutes ago\n") % (now - config.last));
