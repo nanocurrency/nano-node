@@ -362,7 +362,10 @@ public:
 	block_store (leveldb::Status &, boost::filesystem::path const &);
 	uint64_t now ();
 	
+	void block_put_raw (rai::block_hash const &, leveldb::Slice const &);
 	void block_put (rai::block_hash const &, rai::block const &);
+	std::string block_get_raw (rai::block_hash const &);
+	rai::block_hash block_successor (rai::block_hash const &);
 	std::unique_ptr <rai::block> block_get (rai::block_hash const &);
 	void block_del (rai::block_hash const &);
 	bool block_exists (rai::block_hash const &);
@@ -424,8 +427,6 @@ private:
 	std::unique_ptr <leveldb::DB> unsynced;
 	// uint64_t -> block_hash                                       // Block dependency stack while bootstrapping
 	std::unique_ptr <leveldb::DB> stack;
-	// block_hash -> block_hash                                     // Tracking successors for bootstrapping
-	std::unique_ptr <leveldb::DB> successors;
 	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
 	std::unique_ptr <leveldb::DB> checksum;
 };

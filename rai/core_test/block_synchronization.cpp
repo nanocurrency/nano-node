@@ -20,8 +20,7 @@ TEST (pull_synchronization, one)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
-    block1.hashables.previous = 1;
+    rai::open_block block1;
     rai::send_block block2;
     block2.hashables.previous = block1.hash ();
     std::vector <std::unique_ptr <rai::block>> blocks;
@@ -41,8 +40,7 @@ TEST (pull_synchronization, send_dependencies)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
-    block1.hashables.previous = 1;
+    rai::open_block block1;
     rai::send_block block2;
     block2.hashables.previous = block1.hash ();
     rai::send_block block3;
@@ -67,8 +65,7 @@ TEST (pull_synchronization, change_dependencies)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
-    block1.hashables.previous = 1;
+    rai::open_block block1;
     rai::send_block block2;
     block2.hashables.previous = block1.hash ();
     rai::change_block block3 (0, block2.hash (), 0, 0);
@@ -92,8 +89,7 @@ TEST (pull_synchronization, open_dependencies)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
-    block1.hashables.previous = 1;
+    rai::open_block block1;
     rai::send_block block2;
     block2.hashables.previous = block1.hash ();
     rai::open_block block3;
@@ -118,8 +114,7 @@ TEST (pull_synchronization, receive_dependencies)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
-    block1.hashables.previous = 1;
+    rai::open_block block1;
     rai::send_block block2;
     block2.hashables.previous = block1.hash ();
     rai::open_block block3;
@@ -153,8 +148,7 @@ TEST (pull_synchronization, ladder_dependencies)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
-    block1.hashables.previous = 1;
+    rai::open_block block1;
     rai::send_block block2;
     block2.hashables.previous = block1.hash ();
     rai::open_block block3;
@@ -211,8 +205,7 @@ TEST (push_synchronization, one)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
-    block1.hashables.previous = 1;
+    rai::open_block block1;
     rai::send_block block2;
     block2.hashables.previous = block1.hash ();
     std::vector <std::unique_ptr <rai::block>> blocks;

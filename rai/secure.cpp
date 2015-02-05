@@ -1441,24 +1441,96 @@ void rai::block_store::clear (leveldb::DB & db_a)
     db_a.ReleaseSnapshot (snapshot);
 }
 
+namespace
+{
+// Fill in our predecessors
+class set_predecessor : public rai::block_visitor
+{
+public:
+	set_predecessor (rai::block_store & store_a) :
+	store (store_a)
+	{
+	}
+	void fill_value (rai::block const & block_a)
+	{
+		auto hash (block_a.hash ());
+		auto value (store.block_get_raw (block_a.previous ()));
+		assert (!value.empty ());
+		std::copy (hash.chars.begin (), hash.chars.end (), value.end () - hash.chars.size ());
+		store.block_put_raw (block_a.previous (), value);
+		assert (store.block_successor (block_a.previous ()) == hash);
+	}
+	void send_block (rai::send_block const & block_a) override
+	{
+		fill_value (block_a);
+	}
+	void receive_block (rai::receive_block const & block_a) override
+	{
+		fill_value (block_a);
+	}
+	void open_block (rai::open_block const & block_a) override
+	{
+		// Open blocks don't have a predecessor
+	}
+	void change_block (rai::change_block const & block_a) override
+	{
+		fill_value (block_a);
+	}
+	rai::block_store & store;
+};
+}
+
+void rai::block_store::block_put_raw (rai::block_hash const & hash_a, leveldb::Slice const & value_a)
+{
+    auto status (blocks->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), value_a));
+    assert (status.ok ());
+}
+
 void rai::block_store::block_put (rai::block_hash const & hash_a, rai::block const & block_a)
 {
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
         rai::serialize_block (stream, block_a);
+		rai::block_hash successor (0);
+		rai::write (stream, successor.bytes);
     }
-    auto status (blocks->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok ());
+	block_put_raw (hash_a, leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ()));
+	set_predecessor predecessor (*this);
+	block_a.visit (predecessor);
 }
 
-std::unique_ptr <rai::block> rai::block_store::block_get (rai::block_hash const & hash_a)
+std::string rai::block_store::block_get_raw (rai::block_hash const & hash_a)
 {
     std::string value;
     auto status (blocks->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
     assert (status.ok () || status.IsNotFound ());
+	return value;
+}
+
+rai::block_hash rai::block_store::block_successor (rai::block_hash const & hash_a)
+{
+	auto value (block_get_raw (hash_a));
+	rai::block_hash result;
+	if (!value.empty ())
+	{
+		assert (value.size () >= result.bytes.size ());
+		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data () + value.size () - result.bytes.size ()), result.bytes.size ());
+		auto error (rai::read (stream, result.bytes));
+		assert (!error);
+	}
+	else
+	{
+		result.clear ();
+	}
+	return result;
+}
+
+std::unique_ptr <rai::block> rai::block_store::block_get (rai::block_hash const & hash_a)
+{
+	auto value (block_get_raw (hash_a));
     std::unique_ptr <rai::block> result;
-    if (status.ok ())
+    if (!value.empty ())
     {
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
         result = rai::deserialize_block (stream);
@@ -2402,17 +2474,11 @@ void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash
 std::unique_ptr <rai::block> rai::ledger::successor (rai::block_hash const & block_a)
 {
     assert (store.block_exists (block_a));
-    auto account_l (account (block_a));
-    auto latest_l (latest (account_l));
-    assert (latest_l != block_a);
-    std::unique_ptr <rai::block> result (store.block_get (latest_l));
-    assert (result != nullptr);
-    while (result->previous () != block_a)
-    {
-        auto previous_hash (result->previous ());
-        result = store.block_get (previous_hash);
-        assert (result != nullptr);
-    } 
+    assert (latest (account (block_a)) != block_a);
+	auto successor (store.block_successor (block_a));
+	assert (!successor.is_zero ());
+	auto result (store.block_get (successor));
+	assert (result != nullptr);
     return result;
 }
 
