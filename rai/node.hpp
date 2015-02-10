@@ -721,58 +721,33 @@ public:
 class logging
 {
 public:
-    bool ledger_logging () const
-    {
-        return true;
-    }
-    bool ledger_duplicate_logging ()
-    {
-        return ledger_logging () && false;
-    }
-    bool network_logging () const
-    {
-        return true;
-    }
-    bool network_message_logging () const
-    {
-        return network_logging () && true;
-    }
-    bool network_publish_logging () const
-    {
-        return network_logging () && false;
-    }
-    bool network_packet_logging () const
-    {
-        return network_logging () && false;
-    }
-    bool network_keepalive_logging () const
-    {
-        return network_logging () && false;
-    }
-    bool node_lifetime_tracing () const
-    {
-        return false;
-    }
-    bool insufficient_work_logging () const
-    {
-        return network_logging () && true;
-    }
-    bool log_rpc () const
-    {
-        return network_logging () && true;
-    }
-    bool bulk_pull_logging () const
-    {
-        return network_logging () && true;
-    }
-    bool work_generation_time () const
-    {
-        return true;
-    }
-    bool log_to_cerr () const
-    {
-        return false;
-    }
+	logging ();
+    bool ledger_logging () const;
+    bool ledger_duplicate_logging () const;
+    bool network_logging () const;
+    bool network_message_logging () const;
+    bool network_publish_logging () const;
+    bool network_packet_logging () const;
+    bool network_keepalive_logging () const;
+    bool node_lifetime_tracing () const;
+    bool insufficient_work_logging () const;
+    bool log_rpc () const;
+    bool bulk_pull_logging () const;
+    bool work_generation_time () const;
+    bool log_to_cerr () const;
+	bool ledger_logging_value;
+	bool ledger_duplicate_logging_value;
+	bool network_logging_value;
+	bool network_message_logging_value;
+	bool network_publish_logging_value;
+	bool network_packet_logging_value;
+	bool network_keepalive_logging_value;
+	bool node_lifetime_tracing_value;
+	bool insufficient_work_logging_value;
+	bool log_rpc_value;
+	bool bulk_pull_logging_value;
+	bool work_generation_time_value;
+	bool log_to_cerr_value;
 };
 class node_init
 {

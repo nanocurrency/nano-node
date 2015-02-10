@@ -1338,6 +1338,87 @@ bool rai::operation::operator > (rai::operation const & other_a) const
     return wakeup > other_a.wakeup;
 }
 
+rai::logging::logging () :
+ledger_logging_value (true),
+ledger_duplicate_logging_value (false),
+network_logging_value (true),
+network_message_logging_value (true),
+network_publish_logging_value (false),
+network_packet_logging_value (false),
+network_keepalive_logging_value (false),
+node_lifetime_tracing_value (false),
+insufficient_work_logging_value (true),
+log_rpc_value (true),
+bulk_pull_logging_value (true),
+work_generation_time_value (true),
+log_to_cerr_value (false)
+{
+}
+
+bool rai::logging::ledger_logging () const
+{
+	return ledger_logging_value;
+}
+
+bool rai::logging::ledger_duplicate_logging () const
+{
+	return ledger_logging () && ledger_duplicate_logging_value;
+}
+bool rai::logging::network_logging () const
+{
+	return network_logging_value;
+}
+
+bool rai::logging::network_message_logging () const
+{
+	return network_logging () && network_message_logging_value;
+}
+
+bool rai::logging::network_publish_logging () const
+{
+	return network_logging () && network_publish_logging_value;
+}
+
+bool rai::logging::network_packet_logging () const
+{
+	return network_logging () && network_packet_logging_value;
+}
+
+bool rai::logging::network_keepalive_logging () const
+{
+	return network_logging () && network_keepalive_logging_value;
+}
+
+bool rai::logging::node_lifetime_tracing () const
+{
+	return node_lifetime_tracing_value;
+}
+
+bool rai::logging::insufficient_work_logging () const
+{
+	return network_logging () && insufficient_work_logging_value;
+}
+
+bool rai::logging::log_rpc () const
+{
+	return network_logging () && log_rpc_value;
+}
+
+bool rai::logging::bulk_pull_logging () const
+{
+	return network_logging () && bulk_pull_logging_value;
+}
+
+bool rai::logging::work_generation_time () const
+{
+	return work_generation_time_value;
+}
+
+bool rai::logging::log_to_cerr () const
+{
+	return log_to_cerr_value;
+}
+
 rai::node_init::node_init () :
 wallet_init (false)
 {
