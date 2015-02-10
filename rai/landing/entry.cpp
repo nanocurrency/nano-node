@@ -229,13 +229,14 @@ int main (int argc, char * const * argv)
                     }
                 });
             auto now (rai::landing::seconds_since_epoch ());
+			std::cout << boost::str (boost::format ("Current time: %1%\n") % now);
             if (now - config.last > 0)
             {
-                std::cout << boost::str (boost::format ("The last distribution was %1% minutes ago\n") % (now - config.last));
+                std::cout << boost::str (boost::format ("The last distribution was %1% seconds ago\n") % (now - config.last));
             }
             else
             {
-                std::cout << boost::str (boost::format ("Distribution will begin in %1% minutes\n") % (config.last - now));
+                std::cout << boost::str (boost::format ("Distribution will begin in %1% seconds\n") % (config.last - now));
             }
             auto wallet (node->wallets.open (config.wallet));
             if (wallet == nullptr)
@@ -251,6 +252,7 @@ int main (int argc, char * const * argv)
             }
             assert (wallet_entry != wallet->store.end ());
             std::cout << boost::str (boost::format ("Landing account: %1%\n") % wallet_entry->first.to_base58check ());
+			std::cout << boost::str (boost::format ("Destination account: %1%\n") % config.distribution_account.to_base58check ());
             ++wallet_entry;
             assert (wallet_entry == wallet->store.end ());
             std::cout << "Type a line to start\n";

@@ -11,11 +11,19 @@ TEST (peer_container, empty_peers)
 TEST (peer_container, no_recontact)
 {
     rai::peer_container peers (rai::endpoint {});
+	auto observed_peer (0);
+	auto observed_disconnect (false);
     rai::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
     ASSERT_EQ (0, peers.size ());
+	peers.peer_observer = [&observed_peer] (rai::endpoint const &) {++observed_peer;};
+	peers.disconnect_observer = [&observed_disconnect] () {observed_disconnect = true;};
     ASSERT_FALSE (peers.insert (endpoint1));
     ASSERT_EQ (1, peers.size ());
     ASSERT_TRUE (peers.insert (endpoint1));
+	auto remaining (peers.purge_list (std::chrono::system_clock::now () + std::chrono::seconds (5)));
+	ASSERT_TRUE (remaining.empty ());
+	ASSERT_EQ (1, observed_peer);
+	ASSERT_TRUE (observed_disconnect);
 }
 
 TEST (peer_container, no_self_incoming)

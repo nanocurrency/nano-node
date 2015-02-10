@@ -200,6 +200,7 @@ advanced (*this),
 block_creation (*this),
 block_entry (*this),
 application (application_a),
+status (new QLabel ("Status: Disconnected")),
 main_stack (new QStackedWidget),
 client_window (new QWidget),
 client_layout (new QVBoxLayout),
@@ -215,7 +216,8 @@ send_account (new QLineEdit),
 send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
-send_blocks_back (new QPushButton ("Back"))
+send_blocks_back (new QPushButton ("Back")),
+last_status (rai_qt::status::disconnected)
 {
     send_blocks_layout->addWidget (send_account_label);
     send_blocks_layout->addWidget (send_account);
@@ -237,6 +239,9 @@ send_blocks_back (new QPushButton ("Back"))
 
     main_stack->addWidget (entry_window);
 
+	status->setAlignment (Qt::AlignHCenter);
+	
+	client_layout->addWidget (status);
     client_layout->addWidget (self.window);
     client_layout->addWidget (main_stack);
     client_layout->setSpacing (0);
@@ -356,6 +361,22 @@ send_blocks_back (new QPushButton ("Back"))
             history.refresh ();
         }
     });
+	node.endpoint_observers.push_back ([this] (rai::endpoint const &)
+	{
+		if (last_status == rai_qt::status::disconnected)
+		{
+			last_status = rai_qt::status::connected;
+			status->setText ("Status: Connected");
+		}
+	});
+	node.disconnect_observers.push_back ([this] ()
+	{
+		if (last_status == rai_qt::status::connected)
+		{
+			last_status = rai_qt::status::disconnected;
+			status->setText ("Status: Disconnected");
+		}
+	});
 	refresh ();
 }
 

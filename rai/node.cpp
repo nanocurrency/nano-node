@@ -1419,9 +1419,23 @@ peers (network.endpoint ())
 {
 	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
 	{
+		for (auto i: endpoint_observers)
+		{
+			i (endpoint_a);
+		}
+	};
+	peers.disconnect_observer = [this] ()
+	{
+		for (auto i: disconnect_observers)
+		{
+			i ();
+		}
+	};
+	endpoint_observers.push_back ([this] (rai::endpoint const & endpoint_a)
+	{
 		network.send_keepalive (endpoint_a);
 		bootstrap_initiator.warmup (endpoint_a);
-	};
+	});
     vote_observers.push_back ([this] (rai::vote const & vote_a)
     {
         conflicts.update (vote_a);
@@ -3906,14 +3920,21 @@ void rai::processor::ongoing_keepalive ()
 
 std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono::system_clock::time_point const & cutoff)
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    auto pivot (peers.get <1> ().lower_bound (cutoff));
-    std::vector <rai::peer_information> result (pivot, peers.get <1> ().end ());
-    peers.get <1> ().erase (peers.get <1> ().begin (), pivot);
-    for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
-    {
-        peers.modify (i, [] (rai::peer_information & info) {info.last_attempt = std::chrono::system_clock::now ();});
-    }
+	std::vector <rai::peer_information> result;
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		auto pivot (peers.get <1> ().lower_bound (cutoff));
+		result.assign (pivot, peers.get <1> ().end ());
+		peers.get <1> ().erase (peers.get <1> ().begin (), pivot);
+		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
+		{
+			peers.modify (i, [] (rai::peer_information & info) {info.last_attempt = std::chrono::system_clock::now ();});
+		}
+	}
+	if (result.empty ())
+	{
+		disconnect_observer ();
+	}
     return result;
 }
 
@@ -4034,7 +4055,8 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 
 rai::peer_container::peer_container (rai::endpoint const & self_a) :
 self (self_a),
-peer_observer ([] (rai::endpoint const &) {})
+peer_observer ([] (rai::endpoint const &) {}),
+disconnect_observer ([] () {})
 {
 }
 

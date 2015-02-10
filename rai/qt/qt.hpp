@@ -163,6 +163,12 @@ namespace rai_qt {
 		rai::ledger & ledger;
 		rai::account const & account;
 	};
+	enum class status
+	{
+		not_a_status,
+		disconnected,
+		connected
+	};
     class wallet
     {
     public:
@@ -181,6 +187,7 @@ namespace rai_qt {
         rai_qt::block_entry block_entry;
     
         QApplication & application;
+		QLabel * status;
         QStackedWidget * main_stack;
         
         QWidget * client_window;
@@ -201,6 +208,7 @@ namespace rai_qt {
         QPushButton * send_blocks_send;
         QPushButton * send_blocks_back;
 		
+		rai_qt::status last_status;
         void pop_main_stack ();
         void push_main_stack (QWidget *);
     };

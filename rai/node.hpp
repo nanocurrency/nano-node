@@ -558,6 +558,7 @@ public:
 	bool knows_about (rai::endpoint const &, rai::block_hash const &);
 	void random_fill (std::array <rai::endpoint, 8> &);
 	std::vector <peer_information> list ();
+	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
 	size_t size ();
 	bool empty ();
@@ -574,6 +575,7 @@ public:
 		>
 	> peers;
 	std::function <void (rai::endpoint const &)> peer_observer;
+	std::function <void ()> disconnect_observer;
 };
 class network
 {
@@ -756,6 +758,8 @@ public:
     std::vector <std::function <void (rai::change_block const &, rai::account const &, rai::account const &)>> change_observers;
     std::vector <std::function <void (rai::vote const &)>> vote_observers;
     std::vector <std::string> bootstrap_peers;
+	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;
+	std::vector <std::function <void ()>> disconnect_observers;
 };
 class system
 {
