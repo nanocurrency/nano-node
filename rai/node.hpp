@@ -718,6 +718,62 @@ public:
     bool on;
     bool enable_control;
 };
+class logging
+{
+public:
+    bool ledger_logging () const
+    {
+        return true;
+    }
+    bool ledger_duplicate_logging ()
+    {
+        return ledger_logging () && false;
+    }
+    bool network_logging () const
+    {
+        return true;
+    }
+    bool network_message_logging () const
+    {
+        return network_logging () && true;
+    }
+    bool network_publish_logging () const
+    {
+        return network_logging () && false;
+    }
+    bool network_packet_logging () const
+    {
+        return network_logging () && false;
+    }
+    bool network_keepalive_logging () const
+    {
+        return network_logging () && false;
+    }
+    bool node_lifetime_tracing () const
+    {
+        return false;
+    }
+    bool insufficient_work_logging () const
+    {
+        return network_logging () && true;
+    }
+    bool log_rpc () const
+    {
+        return network_logging () && true;
+    }
+    bool bulk_pull_logging () const
+    {
+        return network_logging () && true;
+    }
+    bool work_generation_time () const
+    {
+        return true;
+    }
+    bool log_to_cerr () const
+    {
+        return false;
+    }
+};
 class node_init
 {
 public:
@@ -752,6 +808,7 @@ public:
     rai::bootstrap_listener bootstrap;
     rai::processor processor;
     rai::peer_container peers;
+	rai::logging logging;
     std::vector <std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)>> send_observers;
     std::vector <std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)>> receive_observers;
     std::vector <std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)>> open_observers;
