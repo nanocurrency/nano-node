@@ -40,6 +40,7 @@ namespace landing
                 auto distribution_account_l (tree.get <std::string> ("distribution_account"));
                 auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
                 auto wallet_l (tree.get <std::string> ("wallet"));
+				auto logging_l (tree.get_child ("logging"));
                 bootstrap_peers.clear ();
                 for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
                 {
@@ -58,6 +59,7 @@ namespace landing
                 {
                     error_a = true;
                 }
+				error_a = error_a | logging.deserialize_json (logging_l);
                 error_a = error_a | distribution_account.decode_base58check (distribution_account_l);
             }
             catch (std::runtime_error const &)
@@ -83,6 +85,9 @@ namespace landing
                 bootstrap_peers_l.push_back (std::make_pair ("", entry));
             }
             tree.add_child ("bootstrap_peers", bootstrap_peers_l);
+			boost::property_tree::ptree logging_l;
+			logging.serialize_json (logging_l);
+			tree.add_child ("logging", logging_l);
             boost::property_tree::write_json (stream_a, tree);
         }
         std::vector <std::string> bootstrap_peers;
@@ -91,6 +96,7 @@ namespace landing
         uint64_t last;
         uint16_t peering_port;
         rai::uint256_union wallet;
+		rai::logging logging;
     };
     uint64_t distribution_amount (uint64_t interval)
     {
@@ -201,7 +207,7 @@ int main (int argc, char * const * argv)
         rai::node_init init;
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
-        auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
+        auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor, config.logging));
         if (!init.error ())
         {
             node->bootstrap_peers = config.bootstrap_peers;

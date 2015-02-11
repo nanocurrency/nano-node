@@ -23,5 +23,6 @@ namespace rai_daemon
         boost::asio::ip::address_v6 rpc_address;
         uint16_t rpc_port;
         bool rpc_enable_control;
+		rai::logging logging;
     };
 }

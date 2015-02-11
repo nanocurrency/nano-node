@@ -28,6 +28,7 @@ public:
             auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
             auto wallet_l (tree.get <std::string> ("wallet"));
             auto account_l (tree.get <std::string> ("account"));
+			auto logging_l (tree.get_child ("logging"));
             bootstrap_peers.clear ();
             for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
             {
@@ -40,6 +41,7 @@ public:
                 error_a = peering_port > std::numeric_limits <uint16_t>::max ();
                 error_a = error_a | wallet.decode_hex (wallet_l);
                 error_a = error_a | account.decode_base58check (account_l);
+				error_a = error_a | logging.deserialize_json (logging_l);
             }
             catch (std::logic_error const &)
             {
@@ -68,12 +70,16 @@ public:
             bootstrap_peers_l.push_back (std::make_pair ("", entry));
         }
         tree.add_child ("bootstrap_peers", bootstrap_peers_l);
+		boost::property_tree::ptree logging_l;
+		logging.serialize_json (logging_l);
+		tree.add_child ("logging", logging_l);
         boost::property_tree::write_json (stream_a, tree);
     }
     std::vector <std::string> bootstrap_peers;
     uint16_t peering_port;
     rai::uint256_union wallet;
     rai::account account;
+	rai::logging logging;
 };
 
 int main (int argc, char * const * argv)
@@ -97,7 +103,7 @@ int main (int argc, char * const * argv)
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
         rai::node_init init;
-        auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor));
+        auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor, config.logging));
         if (!init.error ())
         {
             if (uninitialized)

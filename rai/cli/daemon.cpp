@@ -32,6 +32,9 @@ void rai_daemon::daemon_config::serialize (std::ostream & output_a)
     tree.put ("rpc_port", std::to_string (rpc_port));
     tree.put ("rpc_enable", rpc_enable);
     tree.put ("rpc_enable_control", rpc_enable_control);
+	boost::property_tree::ptree logging_l;
+	logging.serialize_json (logging_l);
+	tree.add_child ("logging", logging_l);
     boost::property_tree::write_json (output_a, tree);
 }
 
@@ -48,6 +51,7 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
         rpc_enable = tree.get <bool> ("rpc_enable");
         rpc_enable_control = tree.get <bool> ("rpc_enable_control");
         auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
+		auto logging_l (tree.get_child ("logging"));
         for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
         {
             auto bootstrap_peer (i->second.get <std::string> (""));
@@ -108,7 +112,7 @@ void rai_daemon::daemon::run ()
         auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
         rai::processor_service processor;
         rai::node_init init;
-        auto node (std::make_shared <rai::node> (init, service, config.peering_port,  working, processor));
+        auto node (std::make_shared <rai::node> (init, service, config.peering_port,  working, processor, config.logging));
         if (!init.error ())
         {
             node->bootstrap_peers = config.bootstrap_peers;

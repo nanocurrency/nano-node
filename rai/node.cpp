@@ -1355,6 +1355,49 @@ log_to_cerr_value (false)
 {
 }
 
+void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
+{
+	tree_a.put ("ledger", ledger_logging_value);
+	tree_a.put ("ledger_duplicate", ledger_duplicate_logging_value);
+	tree_a.put ("network", network_logging_value);
+	tree_a.put ("network_message", network_message_logging_value);
+	tree_a.put ("network_publish", network_publish_logging_value);
+	tree_a.put ("network_packet", network_packet_logging_value);
+	tree_a.put ("network_keepalive", network_keepalive_logging_value);
+	tree_a.put ("node_lifetime_tracing", node_lifetime_tracing_value);
+	tree_a.put ("insufficient_work", insufficient_work_logging_value);
+	tree_a.put ("log_rpc", log_rpc_value);
+	tree_a.put ("bulk_pull", bulk_pull_logging_value);
+	tree_a.put ("work_generation_time", work_generation_time_value);
+	tree_a.put ("log_to_cerr", log_to_cerr_value);
+}
+
+bool rai::logging::deserialize_json (boost::property_tree::ptree const & tree_a)
+{
+	auto result (false);
+	try
+	{
+		ledger_logging_value = tree_a.get <bool> ("ledger");
+		ledger_duplicate_logging_value = tree_a.get <bool> ("ledger_duplicate");
+		network_logging_value = tree_a.get <bool> ("network");
+		network_message_logging_value = tree_a.get <bool> ("network_message");
+		network_publish_logging_value = tree_a.get <bool> ("network_publish");
+		network_packet_logging_value = tree_a.get <bool> ("network_packet");
+		network_keepalive_logging_value = tree_a.get <bool> ("network_keepalive");
+		node_lifetime_tracing_value = tree_a.get <bool> ("node_lifetime_tracing");
+		insufficient_work_logging_value = tree_a.get <bool> ("insufficient_work");
+		log_rpc_value = tree_a.get <bool> ("log_rpc");
+		bulk_pull_logging_value = tree_a.get <bool> ("bulk_pull");
+		work_generation_time_value = tree_a.get <bool> ("work_generation_time");
+		log_to_cerr_value = tree_a.get <bool> ("log_to_cerr");
+	}
+	catch (std::runtime_error const &)
+	{
+		result = true;
+	}
+	return result;
+}
+
 bool rai::logging::ledger_logging () const
 {
 	return ledger_logging_value;
@@ -1429,7 +1472,7 @@ bool rai::node_init::error ()
     return !block_store_init.ok () || wallet_init || ledger_init;
 }
 
-rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a) :
+rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
 service (processor_a),
 store (init_a.block_store_init, application_path_a / "data"),
 gap_cache (*this),
@@ -1440,7 +1483,8 @@ network (*service_a, port_a, *this),
 bootstrap_initiator (*this),
 bootstrap (*service_a, port_a, *this),
 processor (*this),
-peers (network.endpoint ())
+peers (network.endpoint ()),
+logging (logging_a)
 {
 	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
 	{
@@ -1967,7 +2011,7 @@ service (new boost::asio::io_service)
     for (size_t i (0); i < count_a; ++i)
     {
         rai::node_init init;
-        auto node (std::make_shared <rai::node> (init, service, port_a + i, rai::unique_path (), processor));
+        auto node (std::make_shared <rai::node> (init, service, port_a + i, rai::unique_path (), processor, logging));
         assert (!init.error ());
         node->start ();
 		rai::uint256_union wallet;

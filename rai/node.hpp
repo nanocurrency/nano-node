@@ -722,6 +722,8 @@ class logging
 {
 public:
 	logging ();
+    void serialize_json (boost::property_tree::ptree &) const;
+	bool deserialize_json (boost::property_tree::ptree const &);
     bool ledger_logging () const;
     bool ledger_duplicate_logging () const;
     bool network_logging () const;
@@ -761,7 +763,7 @@ public:
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
-    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &);
+    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &);
     ~node ();
     void send_keepalive (rai::endpoint const &);
     void start ();
@@ -782,7 +784,7 @@ public:
     rai::bootstrap_listener bootstrap;
     rai::processor processor;
     rai::peer_container peers;
-	rai::logging logging;
+	rai::logging const & logging;
     std::vector <std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)>> send_observers;
     std::vector <std::function <void (rai::receive_block const &, rai::account const &, rai::amount const &)>> receive_observers;
     std::vector <std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)>> open_observers;
@@ -809,6 +811,7 @@ public:
     boost::shared_ptr <boost::asio::io_service> service;
     rai::processor_service processor;
     std::vector <std::shared_ptr <rai::node>> nodes;
+	rai::logging logging;
 };
 extern std::chrono::milliseconds const confirm_wait;
 }

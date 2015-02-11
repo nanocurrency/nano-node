@@ -17,7 +17,8 @@ TEST (node, block_store_path_failure)
     rai::node_init init;
     rai::processor_service processor;
     auto service (boost::make_shared <boost::asio::io_service> ());
-    auto node (std::make_shared <rai::node> (init, service, 0, rai::unique_path (), processor));
+	rai::logging logging;
+    auto node (std::make_shared <rai::node> (init, service, 0, rai::unique_path (), processor, logging));
 	ASSERT_TRUE (node->wallets.items.empty ());
     node->stop ();
 }
@@ -180,7 +181,7 @@ TEST (node, auto_bootstrap)
         ASSERT_LT (iterations1, 200);
     } while (system.nodes [0]->ledger.account_balance (key2.pub) != 100);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
     node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
     node1->start ();
@@ -222,7 +223,7 @@ TEST (node, auto_bootstrap_reverse)
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
     rai::keypair key2;
     system.wallet (0)->store.insert (key2.prv);
@@ -323,7 +324,7 @@ TEST (node, connect_after_junk)
 {
     rai::system system (24000, 1);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     uint64_t junk;
     node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);
@@ -350,4 +351,39 @@ TEST (node, working)
 {
 	auto path (rai::working_path ());
 	ASSERT_FALSE (path.empty ());
+}
+
+TEST (logging, serialization)
+{
+	rai::logging logging1;
+	logging1.ledger_logging_value = !logging1.ledger_logging_value;
+	logging1.ledger_duplicate_logging_value = !logging1.ledger_duplicate_logging_value;
+	logging1.network_logging_value = !logging1.network_logging_value;
+	logging1.network_message_logging_value = !logging1.network_message_logging_value;
+	logging1.network_publish_logging_value = !logging1.network_publish_logging_value;
+	logging1.network_packet_logging_value = !logging1.network_packet_logging_value;
+	logging1.network_keepalive_logging_value = !logging1.network_keepalive_logging_value;
+	logging1.node_lifetime_tracing_value = !logging1.node_lifetime_tracing_value;
+	logging1.insufficient_work_logging_value = !logging1.insufficient_work_logging_value;
+	logging1.log_rpc_value = !logging1.log_rpc_value;
+	logging1.bulk_pull_logging_value = !logging1.bulk_pull_logging_value;
+	logging1.work_generation_time_value = !logging1.work_generation_time_value;
+	logging1.log_to_cerr_value = !logging1.log_to_cerr_value;
+	boost::property_tree::ptree tree;
+	logging1.serialize_json (tree);
+	rai::logging logging2;
+	ASSERT_FALSE (logging2.deserialize_json (tree));
+	ASSERT_EQ (logging1.ledger_logging_value, logging2.ledger_logging_value);
+	ASSERT_EQ (logging1.ledger_duplicate_logging_value, logging2.ledger_duplicate_logging_value);
+	ASSERT_EQ (logging1.network_logging_value, logging2.network_logging_value);
+	ASSERT_EQ (logging1.network_message_logging_value, logging2.network_message_logging_value);
+	ASSERT_EQ (logging1.network_publish_logging_value, logging2.network_publish_logging_value);
+	ASSERT_EQ (logging1.network_packet_logging_value, logging2.network_packet_logging_value);
+	ASSERT_EQ (logging1.network_keepalive_logging_value, logging2.network_keepalive_logging_value);
+	ASSERT_EQ (logging1.node_lifetime_tracing_value, logging2.node_lifetime_tracing_value);
+	ASSERT_EQ (logging1.insufficient_work_logging_value, logging2.insufficient_work_logging_value);
+	ASSERT_EQ (logging1.log_rpc_value, logging2.log_rpc_value);
+	ASSERT_EQ (logging1.bulk_pull_logging_value, logging2.bulk_pull_logging_value);
+	ASSERT_EQ (logging1.work_generation_time_value, logging2.work_generation_time_value);
+	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
 }
