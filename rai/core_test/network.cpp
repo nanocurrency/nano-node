@@ -67,7 +67,7 @@ TEST (network, send_keepalive)
     auto list1 (system.nodes [0]->peers.list ());
     ASSERT_EQ (0, list1.size ());
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     node1->start ();
     system.nodes [0]->network.send_keepalive (node1->network.endpoint ());
     auto initial (system.nodes [0]->network.keepalive_count);
@@ -95,7 +95,7 @@ TEST (network, keepalive_ipv4)
     auto list1 (system.nodes [0]->peers.list ());
     ASSERT_EQ (0, list1.size ());
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     node1->start ();
     node1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
     auto initial (system.nodes [0]->network.keepalive_count);
@@ -115,7 +115,7 @@ TEST (network, multi_keepalive)
     auto list1 (system.nodes [0]->peers.list ());
     ASSERT_EQ (0, list1.size ());
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     node1->start ();
     ASSERT_EQ (0, node1->peers.size ());
@@ -130,7 +130,7 @@ TEST (network, multi_keepalive)
         ASSERT_LT (iterations1, 200);
     }
     rai::node_init init2;
-    auto node2 (std::make_shared <rai::node> (init2, system.service, 24002, system.processor));
+    auto node2 (std::make_shared <rai::node> (init2, system.service, 24002, rai::unique_path (), system.processor));
     ASSERT_FALSE (init2.error ());
     node2->start ();
     node2->network.send_keepalive (system.nodes [0]->network.endpoint ());
@@ -523,7 +523,7 @@ TEST (bootstrap_processor, DISABLED_process_none)
 {
     rai::system system (24000, 1);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     auto done (false);
 	node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
@@ -553,7 +553,7 @@ TEST (bootstrap_processor, process_one)
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 100));
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     auto hash1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
     auto hash2 (node1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
@@ -581,7 +581,7 @@ TEST (bootstrap_processor, process_two)
     ASSERT_NE (hash1, hash3);
     ASSERT_NE (hash2, hash3);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
     auto iterations (0);
@@ -612,7 +612,7 @@ TEST (bootstrap_processor, process_new)
     auto balance1 (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
     auto balance2 (system.nodes [0]->ledger.account_balance (key2.pub));
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
     auto iterations2 (0);
@@ -658,7 +658,7 @@ TEST (bootstrap_processor, diamond)
     system.nodes [0]->work_create (*receive);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*receive));
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
     auto iterations (0);
@@ -678,7 +678,7 @@ TEST (bootstrap_processor, push_one)
     rai::system system (24000, 1);
     rai::node_init init1;
     rai::keypair key1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     auto wallet (node1->wallets.create (rai::uint256_union ()));
     ASSERT_NE (nullptr, wallet);
     wallet->store.insert (rai::test_genesis_key.prv);
@@ -783,7 +783,7 @@ TEST (bulk, genesis)
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     rai::frontier frontier1;
     ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
@@ -812,7 +812,7 @@ TEST (bulk, offline_send)
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
     node1->start ();

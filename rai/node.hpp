@@ -762,7 +762,6 @@ class node : public std::enable_shared_from_this <rai::node>
 {
 public:
     node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &);
-    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, rai::processor_service &);
     ~node ();
     void send_keepalive (rai::endpoint const &);
     void start ();

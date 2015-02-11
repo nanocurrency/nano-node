@@ -180,7 +180,7 @@ TEST (node, auto_bootstrap)
         ASSERT_LT (iterations1, 200);
     } while (system.nodes [0]->ledger.account_balance (key2.pub) != 100);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
     node1->start ();
@@ -222,7 +222,7 @@ TEST (node, auto_bootstrap_reverse)
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     ASSERT_FALSE (init1.error ());
     rai::keypair key2;
     system.wallet (0)->store.insert (key2.prv);
@@ -323,7 +323,7 @@ TEST (node, connect_after_junk)
 {
     rai::system system (24000, 1);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, system.processor));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor));
     uint64_t junk;
     node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);

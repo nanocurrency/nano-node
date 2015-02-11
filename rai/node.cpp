@@ -1610,11 +1610,6 @@ peers (network.endpoint ())
     }
 }
 
-rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, rai::processor_service & processor_a) :
-node (init_a, service_a, port_a, rai::unique_path (), processor_a)
-{
-}
-
 rai::node::~node ()
 {
     if (logging.node_lifetime_tracing ())
@@ -1972,7 +1967,7 @@ service (new boost::asio::io_service)
     for (size_t i (0); i < count_a; ++i)
     {
         rai::node_init init;
-        auto node (std::make_shared <rai::node> (init, service, port_a + i, processor));
+        auto node (std::make_shared <rai::node> (init, service, port_a + i, rai::unique_path (), processor));
         assert (!init.error ());
         node->start ();
 		rai::uint256_union wallet;
