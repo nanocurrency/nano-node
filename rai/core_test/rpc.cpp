@@ -676,3 +676,26 @@ TEST (rpc, account_move)
     ASSERT_NE (destination->store.end (), destination->store.find (rai::test_genesis_key.pub));
     ASSERT_EQ (source->store.end (), source->store.begin ());
 }
+
+TEST (rpc, block)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "block");
+    request_tree.put ("hash", system.nodes [0]->ledger.latest (rai::genesis_account).to_string ());
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+	auto contents (response_tree.get <std::string> ("contents"));
+    ASSERT_FALSE (contents.empty ());
+}

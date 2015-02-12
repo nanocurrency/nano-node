@@ -2885,6 +2885,34 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad wallet number";
                 }
             }
+            else if (action == "block")
+            {
+                std::string hash_text (request_l.get <std::string> ("hash"));
+				rai::uint256_union hash;
+                auto error (hash.decode_hex (hash_text));
+                if (!error)
+                {
+					auto block (node.store.block_get (hash));
+					if (block != nullptr)
+                    {
+                        boost::property_tree::ptree response_l;
+						std::string contents;
+						block->serialize_json (contents);
+						response_l.put ("contents", contents);
+                        set_response (response, response_l);
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Block not found";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad hash number";
+                }
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
