@@ -4346,7 +4346,7 @@ void rai::frontier_req_server::send_next ()
         auto this_l (shared_from_this ());
         if (connection->node->logging.network_logging ())
         {
-            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % pair.first.to_string () % pair.second.to_string ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % pair.first.to_base58check () % pair.second.to_string ());
         }
         async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
         {
