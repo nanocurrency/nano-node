@@ -5,6 +5,8 @@
 
 #include <emmintrin.h>
 
+#include <ed25519-donna/ed25519.h>
+
 class xorshift128
 {
 public:
@@ -112,6 +114,7 @@ int main (int argc, char * const * argv)
         ("profile_work", "Profile the work function")
         ("profile_kdf", "Profile kdf function")
         ("generate_key", "Generates a random keypair")
+		("expand_key", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
         ("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
         ("xorshift_profile", "Profile xorshift algorithms")
         ("verify_profile", "Profile signature verification");
@@ -136,6 +139,14 @@ int main (int argc, char * const * argv)
         rai::keypair pair;
         std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_base58check () << std::endl;
     }
+	else if (vm.count ("expand_key"))
+	{
+		rai::uint256_union prv;
+		prv.decode_hex (vm ["expand_key"].as <std::string> ());
+		rai::uint256_union pub;
+		ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+		std::cout << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_base58check () << std::endl;
+	}
     else if (vm.count ("get_account"))
     {
         rai::uint256_union pub;
