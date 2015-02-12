@@ -54,6 +54,7 @@ namespace rai_qt {
         QPushButton * wallet_refresh;
         QPushButton * create_block;
         QPushButton * enter_block;
+		QPushButton * block_viewer;
         QPushButton * back;
         
         QWidget * ledger_window;
@@ -163,6 +164,20 @@ namespace rai_qt {
 		rai::ledger & ledger;
 		rai::account const & account;
 	};
+	class block_viewer
+	{
+	public:
+		block_viewer (rai_qt::wallet &);
+		QWidget * window;
+		QVBoxLayout * layout;
+		QLabel * hash_label;
+		QLineEdit * hash;
+		QLabel * block_label;
+        QPlainTextEdit * block;
+		QPushButton * retrieve;
+		QPushButton * back;
+		rai_qt::wallet & wallet;
+	};
 	enum class status
 	{
 		not_a_status,
@@ -185,6 +200,7 @@ namespace rai_qt {
         rai_qt::advanced_actions advanced;
         rai_qt::block_creation block_creation;
         rai_qt::block_entry block_entry;
+		rai_qt::block_viewer block_viewer;
     
         QApplication & application;
 		QLabel * status;

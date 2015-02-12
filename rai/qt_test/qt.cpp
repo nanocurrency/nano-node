@@ -389,3 +389,22 @@ TEST (wallet, startup_work)
         ASSERT_LT (iterations1, 200);
     }
 }
+
+TEST (wallet, block_viewer)
+{
+	rai::keypair key;
+    rai::system system (24000, 1);
+    system.wallet (0)->store.insert (key.prv);
+    int argc (0);
+    QApplication application (argc, nullptr);
+    rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), system.account (0));
+    QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	ASSERT_NE (-1, wallet.advanced.layout->indexOf (wallet.advanced.block_viewer));
+	QTest::mouseClick (wallet.advanced.block_viewer, Qt::LeftButton);
+	ASSERT_EQ (wallet.block_viewer.window, wallet.main_stack->currentWidget ());
+	QTest::keyClicks (wallet.block_viewer.hash, system.nodes [0]->ledger.latest (rai::genesis_account).to_string ().c_str ());
+	QTest::mouseClick (wallet.block_viewer.retrieve, Qt::LeftButton);
+	ASSERT_FALSE (wallet.block_viewer.block->toPlainText ().toStdString ().empty ());
+	QTest::mouseClick (wallet.block_viewer.back, Qt::LeftButton);
+	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
+}

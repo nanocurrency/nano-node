@@ -187,6 +187,52 @@ void rai_qt::history::refresh ()
 	}
 }
 
+rai_qt::block_viewer::block_viewer (rai_qt::wallet & wallet_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+hash_label (new QLabel ("Hash:")),
+hash (new QLineEdit),
+block_label (new QLabel ("Block:")),
+block (new QPlainTextEdit),
+retrieve (new QPushButton ("Retrieve")),
+back (new QPushButton ("Back")),
+wallet (wallet_a)
+{
+	layout->addWidget (hash_label);
+	layout->addWidget (hash);
+	layout->addWidget (block_label);
+	layout->addWidget (block);
+	layout->addWidget (retrieve);
+	layout->addWidget (back);
+	window->setLayout (layout);
+	QObject::connect (back, &QPushButton::released, [this] ()
+	{
+		wallet.pop_main_stack ();
+	});
+	QObject::connect (retrieve, &QPushButton::released, [this] ()
+	{
+		rai::block_hash hash_l;
+		if (!hash_l.decode_hex (hash->text ().toStdString ()))
+		{
+			auto block_l (wallet.node.store.block_get (hash_l));
+			if (block_l != nullptr)
+			{
+				std::string contents;
+				block_l->serialize_json (contents);
+				block->setPlainText (contents.c_str ());
+			}
+			else
+			{
+				block->setPlainText ("Block not found");
+			}
+		}
+		else
+		{
+			block->setPlainText ("Bad block hash");
+		}
+	});
+}
+
 rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account const & account_a) :
 node (node_a),
 wallet_m (wallet_a),
@@ -199,6 +245,7 @@ enter_password (*this),
 advanced (*this),
 block_creation (*this),
 block_entry (*this),
+block_viewer (*this),
 application (application_a),
 status (new QLabel ("Status: Disconnected")),
 main_stack (new QStackedWidget),
@@ -523,6 +570,7 @@ search_for_receivables (new QPushButton ("Search for receivables")),
 wallet_refresh (new QPushButton ("Refresh Wallet")),
 create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
+block_viewer (new QPushButton ("Block Viewer")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -570,6 +618,7 @@ wallet (wallet_a)
     layout->addWidget (wallet_refresh);
     layout->addWidget (create_block);
     layout->addWidget (enter_block);
+	layout->addWidget (block_viewer);
     layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
@@ -630,6 +679,10 @@ wallet (wallet_a)
     {
         wallet.push_main_stack (wallet.block_entry.window);
     });
+	QObject::connect (block_viewer, &QPushButton::released, [this] ()
+	{
+		wallet.push_main_stack (wallet.block_viewer.window);
+	});
     refresh_ledger ();
 }
 
