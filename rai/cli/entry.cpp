@@ -145,7 +145,7 @@ int main (int argc, char * const * argv)
 		prv.decode_hex (vm ["expand_key"].as <std::string> ());
 		rai::uint256_union pub;
 		ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-		std::cout << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_base58check () << std::endl;
+		std::cout << "Private: " << prv.to_string () << std::endl << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_base58check () << std::endl;
 	}
     else if (vm.count ("get_account"))
     {
