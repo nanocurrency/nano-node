@@ -57,6 +57,7 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
             auto bootstrap_peer (i->second.get <std::string> (""));
             bootstrap_peers.push_back (bootstrap_peer);
         }
+		error_a = error_a | logging.deserialize_json (logging_l);
         try
         {
             peering_port = std::stoul (peering_port_l);
