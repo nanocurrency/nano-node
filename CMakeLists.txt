@@ -55,6 +55,7 @@ add_library (blake2
 	blake2/blake2b.c)
 
 add_library (secure
+	${PLATFORM_NODE_SOURCE}
 	rai/config.cpp
 	rai/config.hpp
 	rai/secure.cpp
@@ -72,7 +73,6 @@ endif (APPLE)
 
 add_library (node
 	rai/working.hpp
-	${PLATFORM_NODE_SOURCE}
 	rai/node.hpp
 	rai/node.cpp)
 
