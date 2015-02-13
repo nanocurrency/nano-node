@@ -3217,7 +3217,7 @@ void rai::bootstrap_initiator::bootstrap_any ()
     auto list (node.peers.list ());
     if (!list.empty ())
     {
-        bootstrap (list [0].endpoint);
+        bootstrap (list [random_pool.GenerateWord32 (0, list.size () - 1)].endpoint);
     }
 }
 

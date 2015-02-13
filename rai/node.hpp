@@ -21,6 +21,8 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/circular_buffer.hpp>
 
+#include <xxhash/xxhash.h>
+
 #include <leveldb/db.h>
 
 std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
@@ -33,6 +35,20 @@ bool parse_tcp_endpoint (std::string const &, rai::tcp_endpoint &);
 bool reserved_address (rai::endpoint const &);
 }
 
+static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
+{
+	assert (endpoint_a.address ().is_v6 ());
+	rai::uint128_union address;
+	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
+	XXH64_state_t hash;
+	XXH64_reset (&hash, 0);
+	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
+	auto port (endpoint_a.port ());
+	XXH64_update (&hash, &port, sizeof (port));
+	auto result (XXH64_digest (&hash));
+	return result;
+}
+
 namespace std
 {
 template <size_t size>
@@ -40,27 +56,21 @@ struct endpoint_hash
 {
 };
 template <>
-struct endpoint_hash <4>
-{
-    size_t operator () (rai::endpoint const & endpoint_a) const
-    {
-        assert (endpoint_a.address ().is_v6 ());
-        rai::uint128_union address;
-        address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-        auto result (address.dwords [0] ^ address.dwords [1] ^ address.dwords [2] ^ address.dwords [3] ^ endpoint_a.port ());
-        return result;
-    }
-};
-template <>
 struct endpoint_hash <8>
 {
     size_t operator () (rai::endpoint const & endpoint_a) const
     {
-        assert (endpoint_a.address ().is_v6 ());
-        rai::uint128_union address;
-        address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-        auto result (address.qwords [0] ^ address.qwords [1] ^ endpoint_a.port ());
-        return result;
+		return endpoint_hash_raw (endpoint_a);
+    }
+};
+template <>
+struct endpoint_hash <4>
+{
+    size_t operator () (rai::endpoint const & endpoint_a) const
+    {
+		uint64_t big (endpoint_hash_raw (endpoint_a));
+		uint32_t result (static_cast <uint32_t> (big) ^ static_cast <uint32_t> (big >> 32));
+		return result;
     }
 };
 template <>
