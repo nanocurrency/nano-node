@@ -39,6 +39,7 @@ find_package (LevelDB REQUIRED)
 include_directories (${LevelDB_INCLUDE_PATH})
 
 add_library (ed25519
+	ed25519-donna/ed25519-donna-portable.h
 	ed25519-donna/ed25519-hash-custom.h
 	ed25519-donna/ed25519-randombytes-custom.h
 	ed25519-donna/ed25519.h
@@ -64,7 +65,6 @@ endif (APPLE)
 
 add_library (secure
 	${PLATFORM_NODE_SOURCE}
-	rai/config.cpp
 	rai/config.hpp
 	rai/secure.cpp
 	rai/secure.hpp
