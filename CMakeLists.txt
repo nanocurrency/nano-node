@@ -54,6 +54,14 @@ add_library (blake2
 	blake2/blake2.h
 	blake2/blake2b.c)
 
+if (APPLE)
+	set (PLATFORM_NODE_SOURCE rai/plat/osx/working.mm)
+elseif (WIN32)
+	set (PLATFORM_NODE_SOURCE rai/plat/windows/working.cpp)
+elseif (UNIX)
+	set (PLATFORM_NODE_SOURCE rai/plat/posix/working.cpp)
+endif (APPLE)
+
 add_library (secure
 	${PLATFORM_NODE_SOURCE}
 	rai/config.cpp
@@ -62,14 +70,6 @@ add_library (secure
 	rai/secure.hpp
 	rai/utility.cpp
 	rai/utility.hpp)
-
-if (APPLE)
-	set (PLATFORM_NODE_SOURCE rai/plat/osx/working.mm)
-elseif (WIN32)
-	set (PLATFORM_NODE_SOURCE rai/plat/windows/working.cpp)
-elseif (UNIX)
-	set (PLATFORM_NODE_SOURCE rai/plat/posix/working.cpp)
-endif (APPLE)
 
 add_library (node
 	rai/working.hpp
