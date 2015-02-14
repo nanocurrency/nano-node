@@ -934,15 +934,9 @@ void rai::change_hashables::hash (blake2b_state & hash_a) const
     blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 }
 
-rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, uint64_t work_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
-hashables (representative_a, previous_a),
-work (work_a)
-{
-    rai::sign_message (prv_a, pub_a, hash (), signature);
-}
-
 rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
-hashables (representative_a, previous_a)
+hashables (representative_a, previous_a),
+work (rai::work_generate (root ()))
 {
     rai::sign_message (prv_a, pub_a, hash (), signature);
 }

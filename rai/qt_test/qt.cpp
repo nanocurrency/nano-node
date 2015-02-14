@@ -356,7 +356,7 @@ TEST (history, short_text)
 	receive.hashables.source = send.hash ();
 	rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, receive.hash (), receive.signature);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (receive));
-	rai::change_block change (key.pub, receive.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub);
+	rai::change_block change (key.pub, receive.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (change));
 	int argc (0);
 	QApplication application (argc, nullptr);
