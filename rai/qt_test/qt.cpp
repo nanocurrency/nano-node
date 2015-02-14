@@ -284,11 +284,12 @@ TEST (wallet, create_open_receive)
 	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
 	std::string json1 (wallet.block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json1.empty ());
-	rai::open_block open;
 	boost::property_tree::ptree tree1;
 	std::stringstream istream1 (json1);
 	boost::property_tree::read_json (istream1, tree1);
-	ASSERT_FALSE (open.deserialize_json (tree1));
+	bool error;
+	rai::open_block open (error, tree1);
+	ASSERT_FALSE (error);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (open));
 	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (open));
 	wallet.block_creation.block->clear ();

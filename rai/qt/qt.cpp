@@ -1124,13 +1124,8 @@ void rai_qt::block_creation::create_open ()
                     if (!error)
                     {
 						std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
-                        rai::open_block open;
-						open.hashables.account = receivable.destination;
-                        open.hashables.source = source_l;
-                        open.hashables.representative = representative_l;
-                        rai::sign_message (key, receivable.destination, open.hash (), open.signature);
+                        rai::open_block open (receivable.destination, representative_l, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (receivable.destination, receivable.destination));
                         key.clear ();
-                        open.block_work_set (wallet.wallet_m->work_fetch (receivable.destination, open.root ()));
                         std::string block_l;
                         open.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));

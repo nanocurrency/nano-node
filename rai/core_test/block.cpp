@@ -100,15 +100,16 @@ TEST (block, receive_serialize_json)
 
 TEST (block, open_serialize_json)
 {
-    rai::open_block block1;
+    rai::open_block block1 (0, 0, 0, 0, 0, 0);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
-    rai::open_block block2;
     boost::property_tree::ptree tree1;
     std::stringstream istream (string1);
     boost::property_tree::read_json (istream, tree1);
-    ASSERT_FALSE (block2.deserialize_json (tree1));
+	bool error;
+    rai::open_block block2 (error, tree1);
+	ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }
 
@@ -231,7 +232,7 @@ TEST (receive_block, deserialize)
 
 TEST (open_block, deserialize)
 {
-    rai::open_block block1;
+    rai::open_block block1 (0, 0, 0, 0, 0, 0);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
@@ -240,8 +241,9 @@ TEST (open_block, deserialize)
     }
     ASSERT_EQ (rai::open_block::size, bytes.size ());
     rai::bufferstream stream (bytes.data (), bytes.size ());
-    rai::open_block block2;
-    ASSERT_FALSE (block2.deserialize (stream));
+	bool error;
+    rai::open_block block2 (error, stream);
+	ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }
 

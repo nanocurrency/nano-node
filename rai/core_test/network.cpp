@@ -472,7 +472,7 @@ TEST (bulk_pull, end_not_owned)
     rai::keypair key2;
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
-    rai::open_block open;
+    rai::open_block open (0, 1, 2, 3, 4, 5);
     open.hashables.account = key2.pub;
     open.hashables.representative = key2.pub;
     open.hashables.source = system.nodes [0]->ledger.latest (rai::test_genesis_key.pub);
@@ -645,11 +645,8 @@ TEST (bootstrap_processor, diamond)
     system.nodes [0]->work_create (*send2);
     rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*send2));
-    std::unique_ptr <rai::open_block> open (new rai::open_block);
-    open->hashables.account = key.pub;
-    open->hashables.source = send1->hash ();
+    std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, 5));
     system.nodes [0]->work_create (*open);
-    rai::sign_message (key.prv, key.pub, open->hash (), open->signature);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*open));
     std::unique_ptr <rai::receive_block> receive (new rai::receive_block);
     receive->hashables.previous = open->hash ();

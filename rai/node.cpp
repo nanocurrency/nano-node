@@ -837,13 +837,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
         }
         else
         {
-            auto open (new rai::open_block);
-            open->hashables.account = send_a.hashables.destination;
-            open->hashables.source = hash;
-            open->hashables.representative = representative_a;
-            open->block_work_set (work_fetch (send_a.hashables.destination, open->root ()));
-            rai::sign_message (prv_a, send_a.hashables.destination, open->hash (), open->signature);
-            block.reset (open);
+            block.reset (new rai::open_block (send_a.hashables.destination, representative_a, hash, prv_a, send_a.hashables.destination, work_fetch (send_a.hashables.destination, send_a.hashables.destination)));
         }
         node.processor.process_receive_republish (std::move (block));
         result = false;

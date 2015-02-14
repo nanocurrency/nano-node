@@ -608,8 +608,8 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai
         }
         case rai::block_type::open:
         {
-            std::unique_ptr <rai::open_block> obj (new rai::open_block);
-            auto error (obj->deserialize (stream_a));
+			bool error;
+            std::unique_ptr <rai::open_block> obj (new rai::open_block (error, stream_a));
             if (!error)
             {
                 result = std::move (obj);
@@ -658,8 +658,8 @@ std::unique_ptr <rai::block> rai::deserialize_block_json (boost::property_tree::
         }
         else if (type == "open")
         {
-            std::unique_ptr <rai::open_block> obj (new rai::open_block);
-            auto error (obj->deserialize_json (tree_a));
+			bool error;
+            std::unique_ptr <rai::open_block> obj (new rai::open_block (error, tree_a));
             if (!error)
             {
                 result = std::move (obj);
@@ -742,11 +742,103 @@ rai::block_hash rai::send_block::root () const
 	return hashables.previous;
 }
 
+rai::open_hashables::open_hashables (rai::account const & account_a, rai::account const & representative_a, rai::block_hash const & source_a) :
+account (account_a),
+representative (representative_a),
+source (source_a)
+{
+}
+
+rai::open_hashables::open_hashables (bool & error_a, rai::stream & stream_a)
+{
+	error_a = rai::read (stream_a, account.bytes);
+	if (!error_a)
+	{
+		error_a = rai::read (stream_a, representative.bytes);
+		if (!error_a)
+		{
+			error_a = rai::read (stream_a, source.bytes);
+		}
+	}
+}
+
+rai::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+{
+    try
+    {
+		auto account_l (tree_a.get <std::string> ("account"));
+        auto representative_l (tree_a.get <std::string> ("representative"));
+        auto source_l (tree_a.get <std::string> ("source"));
+		error_a = account.decode_hex (account_l);
+		if (!error_a)
+		{
+			error_a = representative.decode_hex (representative_l);
+			if (!error_a)
+			{
+				error_a = source.decode_hex (source_l);
+			}
+		}
+    }
+    catch (std::runtime_error const &)
+    {
+        error_a = true;
+    }
+}
+
 void rai::open_hashables::hash (blake2b_state & hash_a) const
 {
     blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
     blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
     blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
+}
+
+rai::open_block::open_block (rai::account const & account_a, rai::account const & representative_a, rai::block_hash const & source_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+hashables (account_a, representative_a, source_a),
+work (work_a)
+{
+	rai::sign_message (prv_a, pub_a, hash (), signature);
+}
+
+rai::open_block::open_block (rai::account const & account_a, rai::account const & representative_a, rai::block_hash const & source_a, std::nullptr_t) :
+hashables (account_a, representative_a, source_a),
+work (rai::work_generate (root ()))
+{
+	signature.clear ();
+}
+
+rai::open_block::open_block (bool & error_a, rai::stream & stream_a) :
+hashables (error_a, stream_a)
+{
+	if (!error_a)
+	{
+		error_a = rai::read (stream_a, signature);
+		if (!error_a)
+		{
+			error_a = rai::read (stream_a, work);
+		}
+	}
+}
+
+rai::open_block::open_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+hashables (error_a, tree_a)
+{
+	if (!error_a)
+	{
+		try
+		{
+			auto work_l (tree_a.get <std::string> ("work"));
+			auto signature_l (tree_a.get <std::string> ("signature"));
+			error_a = rai::from_string_hex (work_l, work);
+			if (!error_a)
+			{
+				error_a = signature.decode_hex (signature_l);
+			}
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
+		}
+	}
 }
 
 void rai::open_block::hash (blake2b_state & hash_a) const
@@ -2651,12 +2743,9 @@ rai::uint256_union rai::vote::hash () const
     return result;
 }
 
-rai::genesis::genesis ()
+rai::genesis::genesis () :
+open (genesis_account, genesis_account, genesis_account, nullptr)
 {
-    open.hashables.account = genesis_account;
-	open.hashables.source = genesis_account;
-	open.hashables.representative = genesis_account;
-	open.signature.clear ();
 }
 
 void rai::genesis::initialize (rai::block_store & store_a) const

@@ -171,6 +171,9 @@ public:
 class open_hashables
 {
 public:
+	open_hashables (rai::account const &, rai::account const &, rai::block_hash const &);
+	open_hashables (bool &, rai::stream &);
+	open_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
 	rai::account account;
 	rai::account representative;
@@ -179,6 +182,10 @@ public:
 class open_block : public rai::block
 {
 public:
+	open_block (rai::account const &, rai::account const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	open_block (rai::account const &, rai::account const &, rai::block_hash const &, std::nullptr_t);
+	open_block (bool &, rai::stream &);
+	open_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
