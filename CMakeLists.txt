@@ -49,11 +49,17 @@ add_library (xxhash
 	xxhash/xxhash.c
 	xxhash/xxhash.h)
 
+if (WIN32)
+	set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
+else (WIN32)
+	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+endif (WIN32)
+
 add_library (blake2
 	blake2/blake2-config.h
 	blake2/blake2-impl.h
 	blake2/blake2.h
-	blake2/blake2b.c)
+	${BLAKE2_IMPLEMENTATION})
 
 if (APPLE)
 	set (PLATFORM_NODE_SOURCE rai/plat/osx/working.mm)
