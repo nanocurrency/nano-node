@@ -86,8 +86,7 @@ TEST (block_store, add_receive)
     rai::keypair key2;
 	rai::open_block block1 (0, 0, 0, 0, 0, 0);
 	db.block_put (block1.hash (), block1);
-    rai::receive_block block;
-	block.hashables.previous = block1.hash ();
+    rai::receive_block block (block1.hash (), 1, 1, 2, 3);
     rai::block_hash hash1 (block.hash ());
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
@@ -424,11 +423,11 @@ TEST (block_store, roots)
 	ASSERT_TRUE (init.ok ());
 	rai::send_block send_block;
 	ASSERT_EQ (send_block.hashables.previous, send_block.root ());
-	rai::change_block change_block (0, 0, 0, 0);
+	rai::change_block change_block (0, 1, 2, 3);
 	ASSERT_EQ (change_block.hashables.previous, change_block.root ());
-	rai::receive_block receive_block;
+	rai::receive_block receive_block (0, 1, 2, 3, 4);
 	ASSERT_EQ (receive_block.hashables.previous, receive_block.root ());
-	rai::open_block open_block (0, 0, 0, 0, 0, 0);
+	rai::open_block open_block (0, 1, 2, 3, 4, 5);
 	ASSERT_EQ (open_block.hashables.account, open_block.root ());
 }
 

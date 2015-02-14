@@ -648,10 +648,7 @@ TEST (bootstrap_processor, diamond)
     std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, 5));
     system.nodes [0]->work_create (*open);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*open));
-    std::unique_ptr <rai::receive_block> receive (new rai::receive_block);
-    receive->hashables.previous = open->hash ();
-    receive->hashables.source = send2->hash ();
-    rai::sign_message (key.prv, key.pub, receive->hash (), receive->signature);
+    std::unique_ptr <rai::receive_block> receive (new rai::receive_block (open->hash (), send2->hash (), key.prv, key.pub, 0));
     system.nodes [0]->work_create (*receive);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*receive));
     rai::node_init init1;

@@ -299,11 +299,12 @@ TEST (wallet, create_open_receive)
 	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
 	std::string json2 (wallet.block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json2.empty ());
-	rai::receive_block receive;
 	boost::property_tree::ptree tree2;
 	std::stringstream istream2 (json2);
 	boost::property_tree::read_json (istream2, tree2);
-	ASSERT_FALSE (receive.deserialize_json (tree2));
+	bool error2;
+	rai::receive_block receive (error2, tree2);
+	ASSERT_FALSE (error2);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (receive));
 	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (receive));
 }
@@ -352,10 +353,7 @@ TEST (history, short_text)
 	send.hashables.destination = rai::test_genesis_key.pub;
 	rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (send));
-	rai::receive_block receive;
-	receive.hashables.previous = send.hash ();
-	receive.hashables.source = send.hash ();
-	rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, receive.hash (), receive.signature);
+	rai::receive_block receive (send.hash (), send.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (receive));
 	rai::change_block change (key.pub, receive.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (change));

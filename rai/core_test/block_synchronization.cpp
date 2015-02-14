@@ -119,9 +119,7 @@ TEST (pull_synchronization, receive_dependencies)
     rai::open_block block3 (0, 1, block2.hash (), 3, 4, 5);
     rai::send_block block4;
     block4.hashables.previous = block2.hash ();
-    rai::receive_block block5;
-    block5.hashables.previous = block3.hash ();
-    block5.hashables.source = block4.hash ();
+    rai::receive_block block5 (block3.hash (), block4.hash (), 0, 0, 0);
     std::vector <std::unique_ptr <rai::block>> blocks;
     store.block_put (block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);
@@ -152,14 +150,10 @@ TEST (pull_synchronization, ladder_dependencies)
     rai::open_block block3 (0, 1, block2.hash (), 3, 4, 5);
     rai::send_block block4;
     block4.hashables.previous = block3.hash ();
-    rai::receive_block block5;
-    block5.hashables.previous = block2.hash ();
-    block5.hashables.source = block4.hash ();
+    rai::receive_block block5 (block2.hash (), block4.hash (), 0, 0, 0);
     rai::send_block block6;
     block6.hashables.previous = block5.hash ();
-    rai::receive_block block7;
-    block7.hashables.previous = block4.hash ();
-    block7.hashables.source = block6.hash ();
+    rai::receive_block block7 (block4.hash (), block6.hash (), 0, 0, 0);
     std::vector <std::unique_ptr <rai::block>> blocks;
     store.block_put (block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);

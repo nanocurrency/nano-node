@@ -140,6 +140,9 @@ public:
 class receive_hashables
 {
 public:
+	receive_hashables (rai::block_hash const &, rai::block_hash const &);
+	receive_hashables (bool &, rai::stream &);
+	receive_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
 	rai::block_hash previous;
 	rai::block_hash source;
@@ -147,6 +150,9 @@ public:
 class receive_block : public rai::block
 {
 public:
+	receive_block (rai::block_hash const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	receive_block (bool &, rai::stream &);
+	receive_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;

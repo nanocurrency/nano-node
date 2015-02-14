@@ -828,11 +828,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
         std::unique_ptr <rai::block> block;
         if (!new_account)
         {
-            auto receive (new rai::receive_block);
-            receive->hashables.previous = frontier.hash;
-            receive->hashables.source = hash;
-            receive->block_work_set (work_fetch (send_a.hashables.destination, receive->root ()));
-            rai::sign_message (prv_a, send_a.hashables.destination, receive->hash (), receive->signature);
+            auto receive (new rai::receive_block (frontier.hash, hash, prv_a, send_a.hashables.destination, work_fetch (send_a.hashables.destination, frontier.hash)));
             block.reset (receive);
         }
         else

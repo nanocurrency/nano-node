@@ -50,10 +50,7 @@ TEST (processor_service, bad_receive_signature)
     ASSERT_EQ (rai::process_result::progress, ledger.process (send));
     rai::frontier frontier2;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier2));
-    rai::receive_block receive;
-    receive.hashables.source = hash1;
-    receive.hashables.previous = key2.pub;
-    rai::sign_message (key2.prv, key2.pub, receive.hash (), receive.signature);
+    rai::receive_block receive (key2.pub, hash1, key2.prv, key2.pub, 0);
     receive.signature.bytes [32] ^= 0x1;
     ASSERT_EQ (rai::process_result::bad_signature, ledger.process (receive));
 }

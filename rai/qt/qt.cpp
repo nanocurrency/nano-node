@@ -1012,12 +1012,8 @@ void rai_qt::block_creation::create_receive ()
                 if (!error)
                 {
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
-                    rai::receive_block receive;
-                    receive.hashables.previous = frontier.hash;
-                    receive.hashables.source = source_l;
-                    rai::sign_message (key, receivable.destination, receive.hash (), receive.signature);
+                    rai::receive_block receive (frontier.hash, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (receivable.destination, frontier.hash));
                     key.clear ();
-                    receive.block_work_set (wallet.wallet_m->work_fetch (receivable.destination, receive.root ()));
                     std::string block_l;
                     receive.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));

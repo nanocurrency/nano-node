@@ -464,6 +464,48 @@ void rai::receive_block::serialize_json (std::string & string_a) const
     string_a = ostream.str ();
 }
 
+rai::receive_block::receive_block (rai::block_hash const & previous_a, rai::block_hash const & source_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+hashables (previous_a, source_a),
+work (work_a)
+{
+	rai::sign_message (prv_a, pub_a, hash(), signature);
+}
+
+rai::receive_block::receive_block (bool & error_a, rai::stream & stream_a) :
+hashables (error_a, stream_a)
+{
+	if (!error_a)
+	{
+		error_a = rai::read (stream_a, signature);
+		if (!error_a)
+		{
+			error_a = rai::read (stream_a, work);
+		}
+	}
+}
+
+rai::receive_block::receive_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+hashables (error_a, tree_a)
+{
+	if (!error_a)
+	{
+		try
+		{
+			auto signature_l (tree_a.get <std::string> ("signature"));
+			auto work_l (tree_a.get <std::string> ("work"));
+			error_a = signature.decode_hex (signature_l);
+			if (!error_a)
+			{
+				error_a = rai::from_string_hex (work_l, work);
+			}
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
+		}
+	}
+}
+
 void rai::receive_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
@@ -514,6 +556,39 @@ std::unique_ptr <rai::block> rai::receive_block::clone () const
 rai::block_type rai::receive_block::type () const
 {
     return rai::block_type::receive;
+}
+
+rai::receive_hashables::receive_hashables (rai::block_hash const & previous_a, rai::block_hash const & source_a) :
+previous (previous_a),
+source (source_a)
+{
+}
+
+rai::receive_hashables::receive_hashables (bool & error_a, rai::stream & stream_a)
+{
+	error_a = rai::read (stream_a, previous.bytes);
+	if (!error_a)
+	{
+		error_a = rai::read (stream_a, source.bytes);
+	}
+}
+
+rai::receive_hashables::receive_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+{
+	try
+	{
+		auto previous_l (tree_a.get <std::string> ("previous"));
+		auto source_l (tree_a.get <std::string> ("source"));
+		error_a = previous.decode_hex (previous_l);
+		if (!error_a)
+		{
+			error_a = source.decode_hex (source_l);
+		}
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
+	}
 }
 
 void rai::receive_hashables::hash (blake2b_state & hash_a) const
@@ -588,8 +663,8 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai
     {
         case rai::block_type::receive:
         {
-            std::unique_ptr <rai::receive_block> obj (new rai::receive_block);
-            auto error (obj->deserialize (stream_a));
+			bool error;
+            std::unique_ptr <rai::receive_block> obj (new rai::receive_block (error, stream_a));
             if (!error)
             {
                 result = std::move (obj);
@@ -640,8 +715,8 @@ std::unique_ptr <rai::block> rai::deserialize_block_json (boost::property_tree::
         auto type (tree_a.get <std::string> ("type"));
         if (type == "receive")
         {
-            std::unique_ptr <rai::receive_block> obj (new rai::receive_block);
-            auto error (obj->deserialize_json (tree_a));
+			bool error;
+            std::unique_ptr <rai::receive_block> obj (new rai::receive_block (error, tree_a));
             if (!error)
             {
                 result = std::move (obj);
