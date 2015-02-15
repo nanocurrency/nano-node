@@ -792,7 +792,7 @@ TEST (votes, add_old)
     ASSERT_EQ (send1, *winner.second);
 }
 
-// Successor of a block needs to be calculated since it's not stored
+// Query for block successor
 TEST (ledger, successor)
 {
     rai::system system (24000, 1);
