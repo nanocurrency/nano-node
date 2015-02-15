@@ -2916,6 +2916,35 @@ result (rai::process_result::progress)
 {
 }
 
+rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
+{
+	if (!error_a)
+	{
+		error_a = rai::read (stream_a, account.bytes);
+		if (!error_a)
+		{
+			error_a = rai::read (stream_a, signature.bytes);
+			if (!error_a)
+			{
+				error_a = rai::read (stream_a, sequence);
+				if (!error_a)
+				{
+					block = rai::deserialize_block (stream_a, type_a);
+					error_a = block == nullptr;
+				}
+			}
+		}
+	}
+}
+
+rai::vote::vote (rai::account const & account_a, rai::private_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
+sequence (sequence_a),
+block (std::move (block_a)),
+account (account_a),
+signature (rai::sign_message (prv_a, account_a, hash ()))
+{
+}
+
 rai::uint256_union rai::vote::hash () const
 {
     rai::uint256_union result;

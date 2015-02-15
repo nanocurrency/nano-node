@@ -37,11 +37,7 @@ TEST (conflicts, add_existing)
     rai::send_block send2 (key2.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     node1.conflicts.start (send2, false);
     ASSERT_EQ (1, node1.conflicts.roots.size ());
-    rai::vote vote1;
-    vote1.account = key2.pub;
-    vote1.sequence = 0;
-    vote1.block = send2.clone ();
-    vote1.signature = rai::sign_message (key2.prv, key2.pub, vote1.hash ());
+    rai::vote vote1 (key2.pub, key2.prv, 0, send2.clone ());
     ASSERT_TRUE (node1.conflicts.no_conflict (send1.hashables.previous));
     node1.conflicts.update (vote1);
     ASSERT_FALSE (node1.conflicts.no_conflict (send1.hashables.previous));

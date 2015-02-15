@@ -74,17 +74,16 @@ TEST (message, publish_serialization)
 
 TEST (message, confirm_ack_serialization)
 {
-    rai::confirm_ack con1 (std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, 3, 4, 5)));
     rai::keypair key1;
-    con1.vote.account = key1.pub;
-    con1.vote.signature = rai::sign_message (key1.prv, key1.pub, con1.vote.block->hash ());
+    rai::confirm_ack con1 (key1.pub, key1.prv, 0, std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, 3, 4, 5)));
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);
         con1.serialize (stream1);
     }
     rai::bufferstream stream2 (bytes.data (), bytes.size ());
-    rai::confirm_ack con2;
-    con2.deserialize (stream2);
+	bool error;
+    rai::confirm_ack con2 (error, stream2);
+	ASSERT_FALSE (error);
     ASSERT_EQ (con1, con2);
 }

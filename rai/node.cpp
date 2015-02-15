@@ -127,9 +127,9 @@ void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, siz
 
 void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, size_t size_a)
 {
-    rai::confirm_ack incoming;
+	bool error_l;
     rai::bufferstream stream (buffer_a, size_a);
-    auto error_l (incoming.deserialize (stream));
+    rai::confirm_ack incoming (error_l, stream);
     if (!error_l && at_end (stream))
     {
         if (!rai::work_validate (*incoming.vote.block))
@@ -1773,10 +1773,7 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
 
 void rai::network::confirm_block (rai::private_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a)
 {
-    rai::confirm_ack confirm (std::move (block_a));
-    confirm.vote.account = pub;
-    confirm.vote.sequence = sequence_a;
-    confirm.vote.signature = rai::sign_message (prv, pub, confirm.vote.hash ());
+    rai::confirm_ack confirm (pub, prv, sequence_a, std::move (block_a));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
@@ -2077,16 +2074,17 @@ rai::key_entry * rai::key_entry::operator -> ()
     return this;
 }
 
-rai::confirm_ack::confirm_ack () :
-message (rai::message_type::confirm_ack)
+rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a) :
+message (error_a, stream_a),
+vote (error_a, stream_a, block_type ())
 {
 }
 
-rai::confirm_ack::confirm_ack (std::unique_ptr <rai::block> block_a) :
-message (rai::message_type::confirm_ack)
+rai::confirm_ack::confirm_ack (rai::account const & account_a, rai::private_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
+message (rai::message_type::confirm_ack),
+vote (account_a, prv_a, sequence_a, std::move (block_a))
 {
-    block_type_set (block_a->type ());
-    vote.block = std::move (block_a);
+    block_type_set (vote.block->type ());
 }
 
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
@@ -4836,11 +4834,7 @@ confirmed (false)
 {
     assert (node_a->store.block_exists (block_a.hash ()));
     rai::keypair anonymous;
-    rai::vote vote_l;
-    vote_l.account = anonymous.pub;
-    vote_l.sequence = 0;
-    vote_l.block = block_a.clone ();
-    vote_l.signature = rai::sign_message (anonymous.prv, anonymous.pub, vote_l.hash ());
+    rai::vote vote_l (anonymous.pub, anonymous.prv, 0, block_a.clone ());
     vote (vote_l);
 }
 
@@ -5074,12 +5068,8 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
         {
             auto representative (i->second->store.representative ());
             rai::private_key prv;
-            rai::vote vote_l;
-            vote_l.account = representative;
-            vote_l.sequence = 0;
-            vote_l.block = block_a.clone ();
             i->second->store.fetch (representative, prv);
-            vote_l.signature = rai::sign_message (prv, representative, vote_l.hash ());
+            rai::vote vote_l (representative, prv, 0, block_a.clone ());
             prv.clear ();
             election_a.vote (vote_l);
             result = true;
@@ -5220,6 +5210,11 @@ version_using (0x01),
 version_min (0x01),
 type (type_a)
 {
+}
+
+rai::message::message (bool & error_a, rai::stream & stream_a)
+{
+	error_a = read_header (stream_a, version_max, version_using, version_min, type, extensions);
 }
 
 rai::block_type rai::message::block_type () const

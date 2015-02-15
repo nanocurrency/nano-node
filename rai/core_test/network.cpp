@@ -270,10 +270,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     ASSERT_EQ (rai::process_result::progress, node1.ledger.process (block1));
     node1.conflicts.start (block1, true);
     rai::keypair key1;
-    rai::confirm_ack con1;
-    con1.vote.account = key1.pub;
-    con1.vote.block = block1.clone ();
-    con1.vote.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash ());
+    rai::confirm_ack con1 (key1.pub, key1.prv, 0, block1.clone ());
 	node1.processor.process_message (con1, node1.network.endpoint ());
 }
 
@@ -285,11 +282,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     rai::send_block block1 (0, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, node1.ledger.process (block1));
     node1.conflicts.start (block1, true);
-    rai::keypair key1;
-    rai::confirm_ack con1;
-    con1.vote.account = key1.pub;
-    con1.vote.block = block1.clone ();
-    con1.vote.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash ());
+    rai::confirm_ack con1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
 	node1.processor.process_message (con1, node1.network.endpoint ());
 }
 

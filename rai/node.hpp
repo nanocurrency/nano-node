@@ -145,6 +145,7 @@ class message
 {
 public:
     message (rai::message_type);
+	message (bool &, rai::stream &);
     virtual ~message () = default;
     void write_header (rai::stream &);
     static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &, std::bitset <16> &);
@@ -200,8 +201,8 @@ public:
 class confirm_ack : public message
 {
 public:
-    confirm_ack ();
-    confirm_ack (std::unique_ptr <rai::block>);
+	confirm_ack (bool &, rai::stream &);
+    confirm_ack (rai::account const &, rai::private_key const &, uint64_t, std::unique_ptr <rai::block>);
     bool deserialize (rai::stream &);
     void serialize (rai::stream &) override;
     void visit (rai::message_visitor &) const override;

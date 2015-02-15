@@ -468,14 +468,16 @@ enum class process_result
 class vote
 {
 public:
+	vote (bool &, rai::stream &, rai::block_type);
+	vote (rai::account const &, rai::private_key const &, uint64_t, std::unique_ptr <rai::block>);
 	rai::uint256_union hash () const;
+	// Vote round sequence number
+	uint64_t sequence;
+	std::unique_ptr <rai::block> block;
 	// Account that's voting
 	rai::account account;
 	// Signature of sequence + block hash
 	rai::signature signature;
-	// Vote round sequence number
-	uint64_t sequence;
-	std::unique_ptr <rai::block> block;
 };
 class votes
 {
