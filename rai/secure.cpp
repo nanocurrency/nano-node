@@ -1926,6 +1926,20 @@ rai::pending_iterator rai::block_store::pending_end ()
     return result;
 }
 
+rai::receivable::receivable () :
+source (0),
+amount (0),
+destination (0)
+{
+}
+
+rai::receivable::receivable (rai::account const & source_a, rai::amount const & amount_a, rai::account const & destination_a) :
+source (source_a),
+amount (amount_a),
+destination (destination_a)
+{
+}
+
 void rai::receivable::serialize (rai::stream & stream_a) const
 {
     rai::write (stream_a, source.bytes);
@@ -1950,6 +1964,11 @@ bool rai::receivable::deserialize (rai::stream & stream_a)
 bool rai::receivable::operator == (rai::receivable const & other_a) const
 {
     return source == other_a.source && amount == other_a.amount && destination == other_a.destination;
+}
+
+rai::pending_entry::pending_entry () :
+second (0, 0, 0)
+{
 }
 
 rai::pending_entry * rai::pending_entry::operator -> ()

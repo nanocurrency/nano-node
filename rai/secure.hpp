@@ -326,6 +326,8 @@ public:
 class receivable
 {
 public:
+	receivable ();
+	receivable (rai::account const &, rai::amount const &, rai::account const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator == (rai::receivable const &) const;
@@ -336,6 +338,7 @@ public:
 class pending_entry
 {
 public:
+	pending_entry ();
 	pending_entry * operator -> ();
 	rai::account first;
 	rai::receivable second;
