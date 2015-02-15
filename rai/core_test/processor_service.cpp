@@ -17,13 +17,9 @@ TEST (processor_service, bad_send_signature)
     genesis.initialize (store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
-    rai::send_block send;
     rai::keypair key2;
-    send.hashables.previous = frontier1.hash;
-    send.hashables.balance = 50;
-    send.hashables.destination = rai::test_genesis_key.pub;
+    rai::send_block send (rai::test_genesis_key.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     rai::block_hash hash1 (send.hash ());
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash1, send.signature);
     send.signature.bytes [32] ^= 0x1;
     ASSERT_EQ (rai::process_result::bad_signature, ledger.process (send));
 }
@@ -40,13 +36,9 @@ TEST (processor_service, bad_receive_signature)
     genesis.initialize (store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
-    rai::send_block send;
     rai::keypair key2;
-    send.hashables.previous = frontier1.hash;
-    send.hashables.balance = 50;
-    send.hashables.destination = key2.pub;
+    rai::send_block send (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     rai::block_hash hash1 (send.hash ());
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash1, send.signature);
     ASSERT_EQ (rai::process_result::progress, ledger.process (send));
     rai::frontier frontier2;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier2));

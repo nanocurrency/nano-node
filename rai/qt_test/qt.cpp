@@ -213,12 +213,7 @@ TEST (wallet, process_block)
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
     QTest::mouseClick (wallet.advanced.enter_block, Qt::LeftButton);
     ASSERT_EQ (wallet.block_entry.window, wallet.main_stack->currentWidget ());
-    rai::send_block send;
-    send.hashables.destination = key1.pub;
-    send.hashables.previous = system.nodes [0]->ledger.latest (rai::genesis_account);
-    send.hashables.balance = 0;
-    system.nodes [0]->work_create (send);
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+    rai::send_block send (key1.pub, system.nodes [0]->ledger.latest (rai::genesis_account), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (rai::genesis_account)));
     std::string previous;
     send.hashables.previous.encode_hex (previous);
     std::string balance;
@@ -252,11 +247,12 @@ TEST (wallet, create_send)
 	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
 	std::string json (wallet.block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json.empty ());
-	rai::send_block send;
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (json);
 	boost::property_tree::read_json (istream, tree1);
-	ASSERT_FALSE (send.deserialize_json (tree1));
+	bool error;
+	rai::send_block send (error, tree1);
+	ASSERT_FALSE (error);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (send));
 	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (send));
 }
@@ -347,11 +343,7 @@ TEST (history, short_text)
 	rai::ledger ledger (init1, init, store);
 	ASSERT_FALSE (init1);
 	rai::keypair key;
-	rai::send_block send;
-	send.hashables.previous = ledger.latest (rai::test_genesis_key.pub);
-	send.hashables.balance = 0;
-	send.hashables.destination = rai::test_genesis_key.pub;
-	rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+	rai::send_block send (rai::test_genesis_key.pub, ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (ledger.latest (rai::test_genesis_key.pub)));
 	ASSERT_EQ (rai::process_result::progress, ledger.process (send));
 	rai::receive_block receive (send.hash (), send.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (receive));

@@ -40,7 +40,7 @@ TEST (message, keepalive_deserialize)
 
 TEST (message, publish_serialization)
 {
-    rai::publish publish (std::unique_ptr <rai::block> (new rai::send_block));
+    rai::publish publish (std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, 3, 4, 5)));
     ASSERT_EQ (rai::block_type::send, publish.block_type ());
     ASSERT_FALSE (publish.ipv4_only ());
     publish.ipv4_only_set (true);
@@ -74,7 +74,7 @@ TEST (message, publish_serialization)
 
 TEST (message, confirm_ack_serialization)
 {
-    rai::confirm_ack con1 (std::unique_ptr <rai::block> (new rai::send_block));
+    rai::confirm_ack con1 (std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, 3, 4, 5)));
     rai::keypair key1;
     con1.vote.account = key1.pub;
     rai::sign_message (key1.prv, key1.pub, con1.vote.block->hash (), con1.vote.signature);

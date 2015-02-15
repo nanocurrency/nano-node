@@ -950,13 +950,8 @@ void rai_qt::block_creation::create_send ()
                         rai::frontier frontier;
                         auto error (wallet.node.store.latest_get (account_l, frontier));
                         assert (!error);
-                        rai::send_block send;
-                        send.hashables.destination = destination_l;
-                        send.hashables.previous = frontier.hash;
-                        send.hashables.balance = rai::amount (balance - amount_l.number ());
-                        rai::sign_message (key, account_l, send.hash (), send.signature);
+                        rai::send_block send (destination_l, frontier.hash, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (account_l, frontier.hash));
                         key.clear ();
-                        send.block_work_set (wallet.wallet_m->work_fetch (account_l, send.root ()));
                         std::string block_l;
                         send.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));

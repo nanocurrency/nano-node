@@ -106,6 +106,9 @@ bool work_validate (rai::block_hash const &, uint64_t);
 class send_hashables
 {
 public:
+	send_hashables (rai::account const &, rai::block_hash const &, rai::amount const &);
+	send_hashables (bool &, rai::stream &);
+	send_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
 	rai::account destination;
 	rai::block_hash previous;
@@ -114,8 +117,9 @@ public:
 class send_block : public rai::block
 {
 public:
-	send_block () = default;
-	send_block (send_block const &);
+	send_block (rai::account const &, rai::block_hash const &, rai::amount const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	send_block (bool &, rai::stream &);
+	send_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;

@@ -148,8 +148,7 @@ TEST (network, multi_keepalive)
 TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
-    std::unique_ptr <rai::send_block> block (new rai::send_block);
-	block->hashables.previous = 1;
+    std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 2, 3, 4, 5));
     system.nodes [0]->work_create (*block);
     system.nodes [0]->network.republish_block (std::move (block));
     rai::genesis genesis;
@@ -169,11 +168,7 @@ TEST (network, send_discarded_publish)
 TEST (network, send_invalid_publish)
 {
     rai::system system (24000, 2);
-    std::unique_ptr <rai::send_block> block (new rai::send_block);
-    block->hashables.previous = 1;
-    block->hashables.balance = 20;
-    system.nodes [0]->work_create (*block);
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
+    std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (1)));
     system.nodes [0]->network.republish_block (std::move (block));
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
@@ -195,15 +190,10 @@ TEST (network, send_valid_confirm_ack)
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
-    rai::send_block block2;
     rai::frontier frontier1;
     ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
-    block2.hashables.previous = frontier1.hash;
-    block2.hashables.balance = 50;
-    block2.hashables.destination = key2.pub;
-    system.nodes [0]->work_create (block2);
+    rai::send_block block2 (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash));
     auto hash2 (block2.hash ());
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash2, block2.signature);
     rai::frontier frontier2;
     ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
@@ -227,15 +217,10 @@ TEST (network, send_valid_publish)
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
-    rai::send_block block2;
     rai::frontier frontier1;
     ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
-    block2.hashables.previous = frontier1.hash;
-    block2.hashables.balance = 50;
-    block2.hashables.destination = key2.pub;
-    system.nodes [0]->work_create (block2);
+    rai::send_block block2 (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash));
     auto hash2 (block2.hash ());
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, hash2, block2.signature);
     rai::frontier frontier2;
     ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
     system.nodes [1]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
@@ -256,10 +241,7 @@ TEST (network, send_valid_publish)
 TEST (network, send_insufficient_work)
 {
     rai::system system (24000, 2);
-    std::unique_ptr <rai::send_block> block (new rai::send_block);
-    block->hashables.previous = 1;
-    block->hashables.balance = 20;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block->hash (), block->signature);
+    std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
     rai::publish publish (std::move (block));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
@@ -284,10 +266,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
-    rai::send_block block1;
-    block1.hashables.previous = genesis.hash ();
-    block1.hashables.balance.clear ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
+    rai::send_block block1 (0, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, node1.ledger.process (block1));
     node1.conflicts.start (block1, true);
     rai::keypair key1;
@@ -303,10 +282,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
-    rai::send_block block1;
-    block1.hashables.previous = genesis.hash ();
-    block1.hashables.balance.clear ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1.hash (), block1.signature);
+    rai::send_block block1 (0, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, node1.ledger.process (block1));
     node1.conflicts.start (block1, true);
     rai::keypair key1;
@@ -324,14 +300,9 @@ TEST (receivable_processor, send_with_receive)
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
-    auto block1 (new rai::send_block ());
     rai::frontier frontier1;
     ASSERT_FALSE (system.nodes [0]->ledger.store.latest_get (rai::test_genesis_key.pub, frontier1));
-    block1->hashables.previous = frontier1.hash;
-    block1->hashables.balance = amount - 100;
-    block1->hashables.destination = key2.pub;
-    system.nodes [0]->work_create (*block1);
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, block1->hash (), block1->signature);
+    auto block1 (new rai::send_block (key2.pub, frontier1.hash, amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash)));
     ASSERT_EQ (amount, system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));
@@ -542,7 +513,7 @@ TEST (bootstrap_processor, DISABLED_process_incomplete)
     auto frontier_req_client (std::make_shared <rai::frontier_req_client> (node1));
     frontier_req_client->pulls [rai::test_genesis_key.pub] = genesis.hash ();
     auto bulk_pull_client (std::make_shared <rai::bulk_pull_client> (frontier_req_client));
-    std::unique_ptr <rai::send_block> block1 (new rai::send_block);
+    std::unique_ptr <rai::send_block> block1 (new rai::send_block (0, 1, 2, 3, 4, 5));
     bulk_pull_client->process_end ();
 }
 
@@ -631,19 +602,9 @@ TEST (bootstrap_processor, diamond)
 {
     rai::system system (24000, 1);
     rai::keypair key;
-    std::unique_ptr <rai::send_block> send1 (new rai::send_block);
-    send1->hashables.previous = system.nodes [0]->ledger.latest (rai::test_genesis_key.pub);
-    send1->hashables.destination = key.pub;
-    send1->hashables.balance = 100;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1->hash (), send1->signature);
-    system.nodes [0]->work_create (*send1);
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub))));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*send1));
-    std::unique_ptr <rai::send_block> send2 (new rai::send_block);
-    send2->hashables.previous = send1->hash ();
-    send2->hashables.destination = key.pub;
-    send2->hashables.balance = 0;
-    system.nodes [0]->work_create (*send2);
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2->hash (), send2->signature);
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block (key.pub, send1->hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*send2));
     std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, 5));
     system.nodes [0]->work_create (*open);

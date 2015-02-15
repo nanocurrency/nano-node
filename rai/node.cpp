@@ -863,15 +863,10 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 					rai::frontier frontier;
 					result = node.ledger.store.latest_get (source_a, frontier);
 					assert (!result);
-					std::unique_ptr <rai::send_block> block (new rai::send_block);
-					block->hashables.destination = account_a;
-					block->hashables.previous = frontier.hash;
-					block->hashables.balance = balance - amount_a;
-					block->block_work_set (work_fetch (source_a, block->root ()));
 					rai::private_key prv;
 					result = store.fetch (source_a, prv);
 					assert (!result);
-					rai::sign_message (prv, source_a, block->hash (), block->signature);
+					std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (source_a, frontier.hash)));
 					prv.clear ();
 					node.processor.process_receive_republish (std::move (block));
 				}
@@ -908,15 +903,10 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
                 assert (!result);
                 auto amount (std::min (remaining, balance));
                 remaining -= amount;
-                std::unique_ptr <rai::send_block> block (new rai::send_block);
-                block->hashables.destination = account_a;
-                block->hashables.previous = frontier.hash;
-                block->hashables.balance = balance - amount;
-                block->block_work_set (work_fetch (account, block->root ()));
                 rai::private_key prv;
                 result = store.fetch (account, prv);
                 assert (!result);
-                sign_message (prv, account, block->hash (), block->signature);
+                std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount, prv, account, work_fetch (account, frontier.hash)));
                 prv.clear ();
                 blocks.push_back (std::move (block));
             }

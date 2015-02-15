@@ -26,11 +26,8 @@ TEST (ed25519, signing)
 TEST (transaction_block, empty)
 {
     rai::keypair key1;
-    rai::send_block block;
-    block.hashables.previous.clear ();
-    block.hashables.balance = 13;
+    rai::send_block block (0, 1, 13, key1.prv, key1.pub, 2);
     rai::uint256_union hash (block.hash ());
-    rai::sign_message (key1.prv, key1.pub, hash, block.signature);
     ASSERT_FALSE (rai::validate_message (key1.pub, hash, block.signature));
     block.signature.bytes [32] ^= 0x1;
     ASSERT_TRUE (rai::validate_message (key1.pub, hash, block.signature));
@@ -38,7 +35,7 @@ TEST (transaction_block, empty)
 
 TEST (block, send_serialize)
 {
-    rai::send_block block1;
+    rai::send_block block1 (0, 1, 2, 3, 4, 5);
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);
@@ -49,22 +46,24 @@ TEST (block, send_serialize)
     ASSERT_NE (nullptr, data);
     ASSERT_NE (0, size);
     rai::bufferstream stream2 (data, size);
-    rai::send_block block2;
-    ASSERT_FALSE (block2.deserialize (stream2));
+	bool error;
+    rai::send_block block2 (error, stream2);
+    ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }
 
 TEST (block, send_serialize_json)
 {
-    rai::send_block block1;
+    rai::send_block block1 (0, 1, 2, 3, 4, 5);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
-    rai::send_block block2;
     boost::property_tree::ptree tree1;
     std::stringstream istream (string1);
     boost::property_tree::read_json (istream, tree1);
-    ASSERT_FALSE (block2.deserialize_json (tree1));
+	bool error;
+    rai::send_block block2 (error, tree1);
+    ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }
 
@@ -199,7 +198,7 @@ TEST (uint512_union, parse_error_overflow)
 
 TEST (send_block, deserialize)
 {
-    rai::send_block block1;
+    rai::send_block block1 (0, 1, 2, 3, 4, 5);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
@@ -208,8 +207,9 @@ TEST (send_block, deserialize)
     }
     ASSERT_EQ (rai::send_block::size, bytes.size ());
     rai::bufferstream stream2 (bytes.data (), bytes.size ());
-    rai::send_block block2;
-    ASSERT_FALSE (block2.deserialize (stream2));
+	bool error;
+    rai::send_block block2 (error, stream2);
+    ASSERT_FALSE (error);
     ASSERT_EQ (block1, block2);
 }
 
@@ -270,13 +270,6 @@ TEST (change_block, deserialize)
     ASSERT_EQ (block1, block2);
 }
 
-TEST (send_block, copy)
-{
-    rai::send_block block1;
-    rai::send_block block2 (block1);
-    ASSERT_EQ (block1, block2);
-}
-
 TEST (frontier_req, serialization)
 {
     rai::frontier_req request1;
@@ -305,7 +298,7 @@ TEST (work, one)
 
 TEST (work, validate)
 {
-	rai::send_block send_block;
+	rai::send_block send_block (0, 1, 2, 3, 4, 5);
     ASSERT_TRUE (rai::work_validate (send_block));
     rai::work_generate (send_block);
     ASSERT_FALSE (rai::work_validate (send_block));
@@ -313,12 +306,9 @@ TEST (work, validate)
 
 TEST (block, publish_req_serialization)
 {
-    auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
     rai::keypair key1;
     rai::keypair key2;
-    block->hashables.previous.clear ();
-    block->hashables.balance = 200;
-    block->hashables.destination = key2.pub;
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (key2.pub, 0, 200, 1, 2, 3)));
     rai::publish req (std::move (block));
     std::vector <uint8_t> bytes;
     {
@@ -335,12 +325,9 @@ TEST (block, publish_req_serialization)
 
 TEST (block, confirm_req_serialization)
 {
-    auto block (std::unique_ptr <rai::send_block> (new rai::send_block));
     rai::keypair key1;
     rai::keypair key2;
-    block->hashables.previous.clear ();
-    block->hashables.balance = 200;
-    block->hashables.destination = key2.pub;
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (key2.pub, 0, 200, 1, 2, 3)));
     rai::confirm_req req (std::move (block));
     std::vector <uint8_t> bytes;
     {

@@ -119,18 +119,8 @@ TEST (node, send_out_of_order)
     rai::system system (24000, 2);
     rai::keypair key2;
     rai::genesis genesis;
-    rai::send_block send1;
-    send1.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 1000;
-    send1.hashables.destination = key2.pub;
-    send1.hashables.previous = genesis.hash ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send1.hash (), send1.signature);
-	rai::work_generate (send1);
-    rai::send_block send2;
-    send2.hashables.balance = std::numeric_limits <rai::uint128_t>::max () - 2000;
-    send2.hashables.destination = key2.pub;
-    send2.hashables.previous = send1.hash ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send2.hash (), send2.signature);
-	rai::work_generate (send2);
+    rai::send_block send1 (key2.pub, genesis.hash (), std::numeric_limits <rai::uint128_t>::max () - 1000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ()));
+    rai::send_block send2 (key2.pub, send1.hash (), std::numeric_limits <rai::uint128_t>::max () - 2000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1.hash ()));
     system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)));
     system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)));
     auto iterations (0);
@@ -148,12 +138,7 @@ TEST (node, quick_confirm)
     rai::system system (24000, 1);
     rai::keypair key;
     system.wallet (0)->store.insert (key.prv);
-    rai::send_block send;
-    send.hashables.balance = 0;
-    send.hashables.destination = key.pub;
-    send.hashables.previous = system.nodes [0]->ledger.latest (rai::test_genesis_key.pub);
-    system.nodes [0]->work_create (send);
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, send.hash (), send.signature);
+    rai::send_block send (key.pub, system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub)));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->processor.process_receive (send));
     auto iterations (0);
     while (system.nodes [0]->ledger.account_balance (key.pub).is_zero ())
@@ -256,7 +241,7 @@ TEST (node, receive_gap)
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
     ASSERT_EQ (0, node1.gap_cache.blocks.size ());
-    rai::send_block block;
+    rai::send_block block (0, 1, 2, 3, 4, 5);
     rai::confirm_req message;
     message.block = block.clone ();
     node1.processor.process_message (message, node1.network.endpoint ());

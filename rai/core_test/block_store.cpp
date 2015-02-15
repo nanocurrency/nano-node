@@ -168,7 +168,7 @@ TEST (bootstrap, simple)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
+    rai::send_block block1 (0, 1, 2, 3, 4, 5);
     auto block2 (store.unchecked_get (block1.previous ()));
     ASSERT_EQ (nullptr, block2);
     store.unchecked_put (block1.previous (), block1);
@@ -250,7 +250,7 @@ TEST (block_store, one_bootstrap)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::send_block block1;
+    rai::send_block block1 (0, 1, 2, 3, 4, 5);
     store.unchecked_put (block1.hash (), block1);
     auto begin (store.unchecked_begin ());
     auto end (store.unchecked_end ());
@@ -421,7 +421,7 @@ TEST (block_store, roots)
 	leveldb::Status init;
 	rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
-	rai::send_block send_block;
+	rai::send_block send_block (0, 1, 2, 3, 4, 5);
 	ASSERT_EQ (send_block.hashables.previous, send_block.root ());
 	rai::change_block change_block (0, 1, 2, 3);
 	ASSERT_EQ (change_block.hashables.previous, change_block.root ());
