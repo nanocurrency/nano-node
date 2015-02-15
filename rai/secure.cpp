@@ -1355,6 +1355,22 @@ rai::block_hash rai::change_block::root () const
 	return hashables.previous;
 }
 
+rai::frontier::frontier () :
+hash (0),
+representative (0),
+balance (0),
+time (0)
+{
+}
+
+rai::frontier::frontier (rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a, uint64_t time_a) :
+hash (hash_a),
+representative (representative_a),
+balance (balance_a),
+time (time_a)
+{
+}
+
 void rai::frontier::serialize (rai::stream & stream_a) const
 {
     write (stream_a, hash.bytes);
@@ -1389,6 +1405,11 @@ bool rai::frontier::operator == (rai::frontier const & other_a) const
 bool rai::frontier::operator != (rai::frontier const & other_a) const
 {
     return ! (*this == other_a);
+}
+
+rai::account_entry::account_entry () :
+second (0, 0, 0, 0)
+{
 }
 
 rai::account_entry * rai::account_entry::operator -> ()

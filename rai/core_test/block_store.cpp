@@ -269,7 +269,7 @@ TEST (block_store, frontier_retrieval)
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
     rai::account account1 (0);
-    rai::frontier frontier1 (0);
+    rai::frontier frontier1 (0, 0, 0, 0);
     store.latest_put (account1, frontier1);
     rai::frontier frontier2;
     store.latest_get (account1, frontier2);
@@ -365,8 +365,8 @@ TEST (block_store, latest_find)
     rai::block_hash hash1 (2);
     rai::account account2 (3);
     rai::block_hash hash2 (4);
-    store.latest_put (account1, {hash1, account1, 100});
-    store.latest_put (account2, {hash2, account2, 200});
+    store.latest_put (account1, {hash1, account1, 100, 0});
+    store.latest_put (account2, {hash2, account2, 200, 0});
     auto first (store.latest_begin ());
     auto second (store.latest_begin ());
     ++second;

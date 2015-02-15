@@ -269,18 +269,21 @@ struct block_store_temp_t
 class frontier
 {
 public:
+	frontier ();
+	frontier (rai::block_hash const &, rai::account const &, rai::amount const &, uint64_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator == (rai::frontier const &) const;
 	bool operator != (rai::frontier const &) const;
 	rai::block_hash hash;
 	rai::account representative;
-	rai::uint128_union balance;
+	rai::amount balance;
 	uint64_t time;
 };
 class account_entry
 {
 public:
+	account_entry ();
 	account_entry * operator -> ();
 	rai::account first;
 	rai::frontier second;
