@@ -310,7 +310,7 @@ TEST (node, connect_after_junk)
     rai::system system (24000, 1);
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
-    uint64_t junk;
+    uint64_t junk (0);
     node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);
     while (system.nodes [0]->network.error_count == 0)
