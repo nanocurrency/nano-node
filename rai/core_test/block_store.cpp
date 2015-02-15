@@ -102,7 +102,7 @@ TEST (block_store, add_pending)
     rai::block_store db (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
     rai::keypair key1;
-    rai::block_hash hash1;
+    rai::block_hash hash1 (0);
     rai::receivable receivable1;
     ASSERT_TRUE (db.pending_get (hash1, receivable1));
     db.pending_put (hash1, receivable1);
@@ -185,7 +185,7 @@ TEST (checksum, simple)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::block_hash hash0;
+    rai::block_hash hash0 (0);
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash0));
     rai::block_hash hash1;
     store.checksum_put (0x100, 0x10, hash1);
@@ -267,9 +267,9 @@ TEST (block_store, frontier_retrieval)
 {
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());;
-    rai::account account1;
-    rai::frontier frontier1;
+    ASSERT_TRUE (init.ok ());
+    rai::account account1 (0);
+    rai::frontier frontier1 (0);
     store.latest_put (account1, frontier1);
     rai::frontier frontier2;
     store.latest_get (account1, frontier2);
@@ -281,8 +281,8 @@ TEST (block_store, one_account)
     leveldb::Status init;
     rai::block_store store (init, rai::block_store_temp);
     ASSERT_TRUE (init.ok ());
-    rai::account account;
-    rai::block_hash hash;
+    rai::account account (0);
+    rai::block_hash hash (0);
     store.latest_put (account, {hash, account, 42, 100});
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
@@ -476,7 +476,7 @@ TEST (block_store, unsynced)
     rai::block_store store (init, rai::block_store_temp);
 	ASSERT_TRUE (init.ok ());
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
-    rai::block_hash hash1;
+    rai::block_hash hash1 (0);
     ASSERT_FALSE (store.unsynced_exists (hash1));
     store.unsynced_put (hash1);
     ASSERT_TRUE (store.unsynced_exists (hash1));
