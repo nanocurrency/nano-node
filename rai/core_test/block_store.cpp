@@ -187,7 +187,7 @@ TEST (checksum, simple)
     ASSERT_TRUE (init.ok ());
     rai::block_hash hash0 (0);
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash0));
-    rai::block_hash hash1;
+    rai::block_hash hash1 (0);
     store.checksum_put (0x100, 0x10, hash1);
     rai::block_hash hash2;
     ASSERT_FALSE (store.checksum_get (0x100, 0x10, hash2));

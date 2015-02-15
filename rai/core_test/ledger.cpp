@@ -696,6 +696,7 @@ TEST (votes, add_unsigned)
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.account = key1.pub;
+	vote1.signature.clear ();
     votes1->vote (vote1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 }
