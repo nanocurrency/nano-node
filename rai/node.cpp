@@ -1776,7 +1776,7 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
     rai::confirm_ack confirm (std::move (block_a));
     confirm.vote.account = pub;
     confirm.vote.sequence = sequence_a;
-    rai::sign_message (prv, pub, confirm.vote.hash (), confirm.vote.signature);
+    confirm.vote.signature = rai::sign_message (prv, pub, confirm.vote.hash ());
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);
@@ -4840,7 +4840,7 @@ confirmed (false)
     vote_l.account = anonymous.pub;
     vote_l.sequence = 0;
     vote_l.block = block_a.clone ();
-    rai::sign_message (anonymous.prv, anonymous.pub, vote_l.hash (), vote_l.signature);
+    vote_l.signature = rai::sign_message (anonymous.prv, anonymous.pub, vote_l.hash ());
     vote (vote_l);
 }
 
@@ -5079,7 +5079,7 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
             vote_l.sequence = 0;
             vote_l.block = block_a.clone ();
             i->second->store.fetch (representative, prv);
-            rai::sign_message (prv, representative, vote_l.hash (), vote_l.signature);
+            vote_l.signature = rai::sign_message (prv, representative, vote_l.hash ());
             prv.clear ();
             election_a.vote (vote_l);
             result = true;

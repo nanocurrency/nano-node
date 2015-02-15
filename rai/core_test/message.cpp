@@ -77,7 +77,7 @@ TEST (message, confirm_ack_serialization)
     rai::confirm_ack con1 (std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, 3, 4, 5)));
     rai::keypair key1;
     con1.vote.account = key1.pub;
-    rai::sign_message (key1.prv, key1.pub, con1.vote.block->hash (), con1.vote.signature);
+    con1.vote.signature = rai::sign_message (key1.prv, key1.pub, con1.vote.block->hash ());
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);

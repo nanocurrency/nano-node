@@ -273,7 +273,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     rai::confirm_ack con1;
     con1.vote.account = key1.pub;
     con1.vote.block = block1.clone ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash (), con1.vote.signature);
+    con1.vote.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash ());
 	node1.processor.process_message (con1, node1.network.endpoint ());
 }
 
@@ -289,7 +289,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     rai::confirm_ack con1;
     con1.vote.account = key1.pub;
     con1.vote.block = block1.clone ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash (), con1.vote.signature);
+    con1.vote.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, con1.vote.hash ());
 	node1.processor.process_message (con1, node1.network.endpoint ());
 }
 
@@ -447,7 +447,7 @@ TEST (bulk_pull, end_not_owned)
     open.hashables.account = key2.pub;
     open.hashables.representative = key2.pub;
     open.hashables.source = system.nodes [0]->ledger.latest (rai::test_genesis_key.pub);
-    rai::sign_message (key2.prv, key2.pub, open.hash (), open.signature);
+    open.signature = rai::sign_message (key2.prv, key2.pub, open.hash ());
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (open));
     auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.nodes [0]));
     rai::genesis genesis;

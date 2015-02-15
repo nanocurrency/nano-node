@@ -245,7 +245,7 @@ int main (int argc, char * const * argv)
         rai::keypair key;
         rai::uint256_union message;
         rai::uint512_union signature;
-        rai::sign_message (key.prv, key.pub, message, signature);
+        signature = rai::sign_message (key.prv, key.pub, message);
         auto begin (std::chrono::high_resolution_clock::now ());
         for (auto i (0u); i < 1000; ++i)
         {

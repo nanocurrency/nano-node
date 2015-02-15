@@ -509,9 +509,9 @@ void rai::receive_block::serialize_json (std::string & string_a) const
 
 rai::receive_block::receive_block (rai::block_hash const & previous_a, rai::block_hash const & source_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, source_a),
+signature (rai::sign_message (prv_a, pub_a, hash())),
 work (work_a)
 {
-	rai::sign_message (prv_a, pub_a, hash(), signature);
 }
 
 rai::receive_block::receive_block (bool & error_a, rai::stream & stream_a) :
@@ -813,9 +813,9 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
 
 rai::send_block::send_block (rai::account const & destination_a, rai::block_hash const & previous_a, rai::amount const & balance_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (destination_a, previous_a, balance_a),
+signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
-	rai::sign_message (prv_a, pub_a, hash (), signature);
 }
 
 rai::send_block::send_block (bool & error_a, rai::stream & stream_a) :
@@ -947,9 +947,9 @@ void rai::open_hashables::hash (blake2b_state & hash_a) const
 
 rai::open_block::open_block (rai::account const & account_a, rai::account const & representative_a, rai::block_hash const & source_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (account_a, representative_a, source_a),
+signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
-	rai::sign_message (prv_a, pub_a, hash (), signature);
 }
 
 rai::open_block::open_block (rai::account const & account_a, rai::account const & representative_a, rai::block_hash const & source_a, std::nullptr_t) :
@@ -1181,9 +1181,9 @@ void rai::change_hashables::hash (blake2b_state & hash_a) const
 
 rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, rai::private_key const & prv_a, rai::public_key const & pub_a) :
 hashables (representative_a, previous_a),
+signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (rai::work_generate (root ()))
 {
-    rai::sign_message (prv_a, pub_a, hash (), signature);
 }
 
 rai::change_block::change_block (bool & error_a, rai::stream & stream_a) :
@@ -1566,7 +1566,7 @@ rai::block_hash & rai::hash_iterator::operator * ()
 
 bool rai::hash_iterator::operator == (rai::hash_iterator const & other_a) const
 {
-    return current == other_a.current;
+    return iterator->Valid () == other_a.iterator->Valid () && current == other_a.current;
 }
 
 bool rai::hash_iterator::operator != (rai::hash_iterator const & other_a) const

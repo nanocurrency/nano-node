@@ -40,7 +40,7 @@ TEST (block_store, add_nonempty_block)
     rai::keypair key1;
     rai::open_block block (0, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
-    rai::sign_message (key1.prv, key1.pub, hash1, block.signature);
+    block.signature = rai::sign_message (key1.prv, key1.pub, hash1);
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
     db.block_put (hash1, block);
@@ -57,13 +57,13 @@ TEST (block_store, add_two_items)
     rai::keypair key1;
     rai::open_block block (1, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
-    rai::sign_message (key1.prv, key1.pub, hash1, block.signature);
+    block.signature = rai::sign_message (key1.prv, key1.pub, hash1);
     auto latest1 (db.block_get (hash1));
     ASSERT_EQ (nullptr, latest1);
     rai::open_block block2 (3, 0, 0, 0, 0, rai::work_generate (3));
     block2.hashables.account = 3;
     rai::uint256_union hash2 (block2.hash ());
-    rai::sign_message (key1.prv, key1.pub, hash2, block2.signature);
+    block2.signature = rai::sign_message (key1.prv, key1.pub, hash2);
     auto latest2 (db.block_get (hash2));
     ASSERT_EQ (nullptr, latest2);
     db.block_put (hash1, block);

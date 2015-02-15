@@ -716,7 +716,7 @@ TEST (votes, add_one)
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.account = rai::test_genesis_key.pub;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
+    vote1.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash ());
     votes1->vote (vote1);
     ASSERT_EQ (2, votes1->votes.rep_votes.size ());
     auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
@@ -741,7 +741,7 @@ TEST (votes, add_two)
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.account = rai::test_genesis_key.pub;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
+    vote1.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash ());
     votes1->vote (vote1);
     rai::keypair key2;
     rai::send_block send2 (key2.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -749,7 +749,7 @@ TEST (votes, add_two)
     vote2.account = key2.pub;
     vote2.sequence = 1;
     vote2.block = send2.clone ();
-    rai::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
+    vote2.signature = rai::sign_message (key2.prv, key2.pub, vote2.hash ());
     votes1->vote (vote2);
     ASSERT_EQ (3, votes1->votes.rep_votes.size ());
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
@@ -774,7 +774,7 @@ TEST (votes, add_existing)
     vote1.sequence = 1;
     vote1.block = send1.clone ();
     vote1.account = rai::test_genesis_key.pub;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
+    vote1.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash ());
     votes1->vote (vote1);
     rai::keypair key2;
     rai::send_block send2 (key2.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -782,7 +782,7 @@ TEST (votes, add_existing)
     vote2.account = rai::test_genesis_key.pub;
     vote2.sequence = 2;
     vote2.block = send2.clone ();
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote2.hash (), vote2.signature);
+    vote2.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote2.hash ());
     votes1->vote (vote2);
     ASSERT_EQ (2, votes1->votes.rep_votes.size ());
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
@@ -805,7 +805,7 @@ TEST (votes, add_old)
     vote1.sequence = 2;
     vote1.block = send1.clone ();
     vote1.account = rai::test_genesis_key.pub;
-    rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash (), vote1.signature);
+    vote1.signature = rai::sign_message (rai::test_genesis_key.prv, rai::test_genesis_key.pub, vote1.hash ());
     votes1->vote (vote1);
     rai::keypair key2;
     rai::send_block send2 (key2.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -813,7 +813,7 @@ TEST (votes, add_old)
     vote2.account = rai::test_genesis_key.pub;
     vote2.sequence = 1;
     vote2.block = send2.clone ();
-    rai::sign_message (key2.prv, key2.pub, vote2.hash (), vote2.signature);
+    vote2.signature = rai::sign_message (key2.prv, key2.pub, vote2.hash ());
     votes1->vote (vote2);
     ASSERT_EQ (2, votes1->votes.rep_votes.size ());
     ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));

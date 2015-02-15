@@ -550,9 +550,11 @@ void ed25519_hash (uint8_t * out, uint8_t const * in, size_t inlen)
 }
 }
 
-void rai::sign_message (rai::private_key const & private_key, rai::public_key const & public_key, rai::uint256_union const & message, rai::uint512_union & signature)
+rai::uint512_union rai::sign_message (rai::private_key const & private_key, rai::public_key const & public_key, rai::uint256_union const & message)
 {
-    ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.bytes.data (), public_key.bytes.data (), signature.bytes.data ());
+	rai::uint512_union result;
+    ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	return result;
 }
 
 bool rai::validate_message (rai::public_key const & public_key, rai::uint256_union const & message, rai::uint512_union const & signature)
