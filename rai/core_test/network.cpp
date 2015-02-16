@@ -195,7 +195,7 @@ TEST (network, send_valid_confirm_ack)
     auto hash2 (block2.hash ());
     rai::frontier frontier2;
     ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
-    system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
+    system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
     while (system.nodes [1]->network.confirm_ack_count == 0)
     {
@@ -222,7 +222,7 @@ TEST (network, send_valid_publish)
     auto hash2 (block2.hash ());
     rai::frontier frontier2;
     ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
-    system.nodes [1]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
+    system.nodes [1]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
     while (system.nodes [0]->network.publish_count == 0)
     {
@@ -299,8 +299,8 @@ TEST (receivable_processor, send_with_receive)
     ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.nodes [1]->ledger.account_balance (key2.pub));
-    system.nodes [0]->processor.process_receive_republish (block1->clone ());
-    system.nodes [1]->processor.process_receive_republish (block1->clone ());
+    system.nodes [0]->process_receive_republish (block1->clone ());
+    system.nodes [1]->process_receive_republish (block1->clone ());
     ASSERT_EQ (amount - 100, system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (key2.pub));
     ASSERT_EQ (amount - 100, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));

@@ -746,7 +746,7 @@ wallet (wallet_a)
             auto block_l (rai::deserialize_block_json (tree));
             if (block_l != nullptr)
             {
-                wallet.node.processor.process_receive_republish (std::move (block_l));
+                wallet.node.process_receive_republish (std::move (block_l));
             }
             else
             {

@@ -328,7 +328,7 @@ public:
         ++node.network.publish_count;
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
-        node.processor.process_receive_republish (message_a.block->clone ());
+        node.process_receive_republish (message_a.block->clone ());
     }
     void confirm_req (rai::confirm_req const & message_a) override
     {
@@ -339,7 +339,7 @@ public:
         ++node.network.confirm_req_count;
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
-        node.processor.process_receive_republish (message_a.block->clone ());
+        node.process_receive_republish (message_a.block->clone ());
         if (node.store.block_exists (message_a.block->hash ()))
         {
             node.process_confirmation (*message_a.block, sender);
@@ -354,7 +354,7 @@ public:
         ++node.network.confirm_ack_count;
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.vote.block->hash ());
-        node.processor.process_receive_republish (message_a.vote.block->clone ());
+        node.process_receive_republish (message_a.vote.block->clone ());
         node.vote (message_a.vote);
     }
     void bulk_pull (rai::bulk_pull const &) override
@@ -835,7 +835,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
         {
             block.reset (new rai::open_block (send_a.hashables.destination, representative_a, hash, prv_a, send_a.hashables.destination, work_fetch (send_a.hashables.destination, send_a.hashables.destination)));
         }
-        node.processor.process_receive_republish (std::move (block));
+        node.process_receive_republish (std::move (block));
         result = false;
     }
     else
@@ -868,7 +868,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 					assert (!result);
 					std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (source_a, frontier.hash)));
 					prv.clear ();
-					node.processor.process_receive_republish (std::move (block));
+					node.process_receive_republish (std::move (block));
 				}
 			}
 			else
@@ -922,7 +922,7 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
         {
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
             {
-                node.processor.process_receive_republish (std::move (*i));
+                node.process_receive_republish (std::move (*i));
             }
         }
     }
@@ -1747,7 +1747,7 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
         });
 }
 
-void rai::processor::process_receive_republish (std::unique_ptr <rai::block> incoming)
+void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming)
 {
     std::unique_ptr <rai::block> block (std::move (incoming));
     do
@@ -1758,7 +1758,7 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
         {
             case rai::process_result::progress:
             {
-                node.network.republish_block (std::move (block));
+                network.republish_block (std::move (block));
                 break;
             }
             default:
@@ -1766,100 +1766,100 @@ void rai::processor::process_receive_republish (std::unique_ptr <rai::block> inc
                 break;
             }
         }
-        block = node.gap_cache.get (hash);
+        block = gap_cache.get (hash);
     }
     while (block != nullptr);
 }
 
-rai::process_result rai::processor::process_receive (rai::block const & block_a)
+rai::process_result rai::node::process_receive (rai::block const & block_a)
 {
-    auto result (node.ledger.process (block_a));
+    auto result (ledger.process (block_a));
     switch (result)
     {
         case rai::process_result::progress:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
                 std::string block;
                 block_a.serialize_json (block);
-                BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash().to_string () % block);
+                BOOST_LOG (log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash ().to_string () % block);
             }
             break;
         }
         case rai::process_result::gap_previous:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
             }
             auto previous (block_a.previous ());
-            node.gap_cache.add (block_a, previous);
+            gap_cache.add (block_a, previous);
             break;
         }
         case rai::process_result::gap_source:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
             }
             auto source (block_a.source ());
-            node.gap_cache.add (block_a, source);
+            gap_cache.add (block_a, source);
             break;
         }
         case rai::process_result::old:
         {
-            if (node.logging.ledger_duplicate_logging ())
+            if (logging.ledger_duplicate_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Old for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
         case rai::process_result::bad_signature:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Bad signature for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
         case rai::process_result::overspend:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Overspend for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Overspend for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
         case rai::process_result::unreceivable:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
         case rai::process_result::not_receive_from_send:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Not receive from spend for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Not receive from spend for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
         case rai::process_result::fork:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
             }
-            node.conflicts.start (*node.ledger.successor (block_a.root ()), false);
+            conflicts.start (*ledger.successor (block_a.root ()), false);
             break;
         }
         case rai::process_result::account_mismatch:
         {
-            if (node.logging.ledger_logging ())
+            if (logging.ledger_logging ())
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a.hash ().to_string ());
             }
         }
     }
@@ -3880,7 +3880,7 @@ void rai::bulk_pull_client::process_end ()
 {
 	rai::pull_synchronization synchronization ([this] (rai::block const & block_a)
 	{
-		auto process_result (connection->connection->node->processor.process_receive (block_a));
+		auto process_result (connection->connection->node->process_receive (block_a));
 		switch (process_result)
 		{
 			case rai::process_result::progress:
@@ -4284,7 +4284,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
         auto block (rai::deserialize_block (stream));
         if (block != nullptr)
         {
-            connection->node->processor.process_receive_republish (std::move (block));
+            connection->node->process_receive_republish (std::move (block));
             receive ();
         }
         else

@@ -426,8 +426,6 @@ public:
     processor (rai::node &);
 	void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const & = [] () {});
     void connect_bootstrap (std::vector <std::string> const &);
-    rai::process_result process_receive (rai::block const &);
-    void process_receive_republish (std::unique_ptr <rai::block>);
     void ongoing_keepalive ();
     rai::node & node;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
@@ -787,6 +785,8 @@ public:
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
+    void process_receive_republish (std::unique_ptr <rai::block>);
+    rai::process_result process_receive (rai::block const &);
     rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;

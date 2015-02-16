@@ -121,8 +121,8 @@ TEST (node, send_out_of_order)
     rai::genesis genesis;
     rai::send_block send1 (key2.pub, genesis.hash (), std::numeric_limits <rai::uint128_t>::max () - 1000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ()));
     rai::send_block send2 (key2.pub, send1.hash (), std::numeric_limits <rai::uint128_t>::max () - 2000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1.hash ()));
-    system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)));
-    system.nodes [0]->processor.process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)));
+    system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)));
+    system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)));
     auto iterations (0);
     while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->ledger.account_balance (rai::test_genesis_key.pub) != rai::genesis_amount - 2000;}))
     {
@@ -139,7 +139,7 @@ TEST (node, quick_confirm)
     rai::keypair key;
     system.wallet (0)->store.insert (key.prv);
     rai::send_block send (key.pub, system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub)));
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->processor.process_receive (send));
+    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send));
     auto iterations (0);
     while (system.nodes [0]->ledger.account_balance (key.pub).is_zero ())
     {
