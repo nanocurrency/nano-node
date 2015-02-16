@@ -148,8 +148,7 @@ TEST (network, multi_keepalive)
 TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
-    std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 2, 3, 4, 5));
-    system.nodes [0]->work_create (*block);
+    std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 2, 3, 4, rai::work_generate (1)));
     system.nodes [0]->network.republish_block (std::move (block));
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
@@ -599,11 +598,9 @@ TEST (bootstrap_processor, diamond)
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*send1));
     std::unique_ptr <rai::send_block> send2 (new rai::send_block (key.pub, send1->hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*send2));
-    std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, 5));
-    system.nodes [0]->work_create (*open);
+    std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, rai::work_generate (key.pub)));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*open));
-    std::unique_ptr <rai::receive_block> receive (new rai::receive_block (open->hash (), send2->hash (), key.prv, key.pub, 0));
-    system.nodes [0]->work_create (*receive);
+    std::unique_ptr <rai::receive_block> receive (new rai::receive_block (open->hash (), send2->hash (), key.prv, key.pub, rai::work_generate (open->hash ())));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (*receive));
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor, system.logging));

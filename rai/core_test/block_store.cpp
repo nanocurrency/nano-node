@@ -423,7 +423,7 @@ TEST (block_store, roots)
 	ASSERT_TRUE (init.ok ());
 	rai::send_block send_block (0, 1, 2, 3, 4, 5);
 	ASSERT_EQ (send_block.hashables.previous, send_block.root ());
-	rai::change_block change_block (0, 1, 2, 3);
+	rai::change_block change_block (0, 1, 2, 3, 4);
 	ASSERT_EQ (change_block.hashables.previous, change_block.root ());
 	rai::receive_block receive_block (0, 1, 2, 3, 4);
 	ASSERT_EQ (receive_block.hashables.previous, receive_block.root ());

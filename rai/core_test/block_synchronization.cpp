@@ -64,7 +64,7 @@ TEST (pull_synchronization, change_dependencies)
 	ASSERT_TRUE (init.ok ());
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
-    rai::change_block block3 (0, block2.hash (), 0, 0);
+    rai::change_block block3 (0, block2.hash (), 1, 2, 3);
     std::vector <std::unique_ptr <rai::block>> blocks;
     store.block_put (block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);

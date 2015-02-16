@@ -423,9 +423,7 @@ class processor
 {
 public:
     processor (rai::node &);
-    void stop ();
     void contacted (rai::endpoint const &);
-    void find_network (std::vector <std::pair <std::string, std::string>> const &);
 	void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const & = [] () {});
     void connect_bootstrap (std::vector <std::string> const &);
     rai::process_result process_receive (rai::block const &);
@@ -781,7 +779,6 @@ public:
     void stop ();
     std::shared_ptr <rai::node> shared ();
     bool representative_vote (rai::election &, rai::block const &);
-    void work_create (rai::block &);
     void vote (rai::vote const &);
     rai::processor_service & service;
     boost::log::sources::logger log;

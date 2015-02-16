@@ -230,7 +230,7 @@ public:
 class change_block : public rai::block
 {
 public:
-	change_block (rai::account const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &);
+	change_block (rai::account const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &, uint64_t);
 	change_block (bool &, rai::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;

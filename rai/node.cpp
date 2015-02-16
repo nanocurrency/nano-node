@@ -1309,10 +1309,6 @@ void rai::processor::contacted (rai::endpoint const & endpoint_a)
 	node.peers.insert (endpoint_l);
 }
 
-void rai::processor::stop ()
-{
-}
-
 bool rai::operation::operator > (rai::operation const & other_a) const
 {
     return wakeup > other_a.wakeup;
@@ -1651,20 +1647,6 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
     }
     assert (endpoint_l.address ().is_v6 ());
     network.send_keepalive (endpoint_l);
-}
-
-void rai::node::work_create (rai::block & block_a)
-{
-    auto begin (std::chrono::system_clock::now ());
-	if (logging.work_generation_time ())
-	{
-		BOOST_LOG (log) << "Beginning work generation";
-	}
-    rai::work_generate (block_a);
-	if (logging.work_generation_time ())
-	{
-		BOOST_LOG (log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
-	}
 }
 
 void rai::node::vote (rai::vote const & vote_a)

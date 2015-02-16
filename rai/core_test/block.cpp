@@ -115,7 +115,7 @@ TEST (block, open_serialize_json)
 
 TEST (block, change_serialize_json)
 {
-    rai::change_block block1 (rai::account (1), rai::block_hash (2), rai::private_key (3), rai::public_key (4));
+    rai::change_block block1 (0, 1, 2, 3, rai::work_generate (1));
 	ASSERT_FALSE (rai::work_validate (block1));
     std::string string1;
     block1.serialize_json (string1);
@@ -251,7 +251,7 @@ TEST (open_block, deserialize)
 
 TEST (change_block, deserialize)
 {
-    rai::change_block block1 (1, 2, 3, 4);
+    rai::change_block block1 (1, 2, 3, 4, 5);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
@@ -289,7 +289,7 @@ TEST (frontier_req, serialization)
 
 TEST (work, one)
 {
-    rai::change_block block (0, 0, 0, 0);
+    rai::change_block block (0, 1, 2, 3, 4);
     rai::work_generate (block);
     auto work (block.block_work ());
     rai::work_generate (block);
