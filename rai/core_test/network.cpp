@@ -489,7 +489,7 @@ TEST (bootstrap_processor, DISABLED_process_none)
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
     auto done (false);
-	node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+	node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     while (!done)
     {
         system.service->run_one ();
@@ -520,7 +520,7 @@ TEST (bootstrap_processor, process_one)
     auto hash1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
     auto hash2 (node1->ledger.latest (rai::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
-    node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+    node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
     while (node1->ledger.latest (rai::test_genesis_key.pub) != hash1)
     {
@@ -546,7 +546,7 @@ TEST (bootstrap_processor, process_two)
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
-    node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+    node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
     while (node1->ledger.latest (rai::test_genesis_key.pub) != hash3)
     {
@@ -577,7 +577,7 @@ TEST (bootstrap_processor, process_new)
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
-    node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+    node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);
     while (node1->ledger.account_balance (key2.pub) != balance2)
     {
@@ -605,7 +605,7 @@ TEST (bootstrap_processor, diamond)
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
-    node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+    node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
     while (node1->ledger.account_balance (key.pub) != std::numeric_limits <rai::uint128_t>::max ())
     {
@@ -630,7 +630,7 @@ TEST (bootstrap_processor, push_one)
     auto balance (node1->ledger.account_balance (rai::test_genesis_key.pub));
     ASSERT_FALSE (wallet->send_all (key1.pub, 100));
     ASSERT_NE (balance, node1->ledger.account_balance (rai::test_genesis_key.pub));
-    node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+    node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
     while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) == balance)
     {
@@ -740,7 +740,7 @@ TEST (bulk, genesis)
     rai::frontier frontier3;
     ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier3));
     ASSERT_NE (frontier1.hash, frontier3.hash);
-    node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+    node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
     while (node1->ledger.latest (rai::test_genesis_key.pub) != system.nodes [0]->ledger.latest (rai::test_genesis_key.pub))
     {
@@ -774,7 +774,7 @@ TEST (bulk, offline_send)
     wallet->store.insert (key2.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
-    node1->processor.bootstrap (system.nodes [0]->bootstrap.endpoint ());
+    node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);
     while (node1->ledger.account_balance (key2.pub) != 100)
     {

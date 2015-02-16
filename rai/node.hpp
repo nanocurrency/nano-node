@@ -424,7 +424,6 @@ class processor
 {
 public:
     processor (rai::node &);
-	void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const & = [] () {});
     void connect_bootstrap (std::vector <std::string> const &);
     void ongoing_keepalive ();
     rai::node & node;

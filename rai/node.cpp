@@ -3060,12 +3060,6 @@ void rai::node::stop ()
     service.stop ();
 }
 
-void rai::processor::bootstrap (boost::asio::ip::tcp::endpoint const & endpoint_a, std::function <void ()> const & completion_action_a)
-{
-    auto processor (std::make_shared <rai::bootstrap_client> (node.shared (), completion_action_a));
-    processor->run (endpoint_a);
-}
-
 void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_a)
 {
     auto node_l (node.shared ());
@@ -3201,11 +3195,12 @@ void rai::bootstrap_initiator::bootstrap_any ()
 
 void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)
 {
-	node.processor.bootstrap (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()), [this] ()
+    auto processor (std::make_shared <rai::bootstrap_client> (node.shared (), [this] ()
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		in_progress = false;
-	});
+	}));
+    processor->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 }
 
 rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::node & node_a) :
