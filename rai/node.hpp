@@ -424,14 +424,12 @@ class processor
 {
 public:
     processor (rai::node &);
-    void contacted (rai::endpoint const &);
 	void bootstrap (rai::tcp_endpoint const &, std::function <void ()> const & = [] () {});
     void connect_bootstrap (std::vector <std::string> const &);
     rai::process_result process_receive (rai::block const &);
     void process_receive_republish (std::unique_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
-    void process_confirmed (rai::block const &);
     void ongoing_keepalive ();
     rai::node & node;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
@@ -555,6 +553,8 @@ class peer_container
 {
 public:
 	peer_container (rai::endpoint const &);
+	// We were contacted by endpoint, update peers
+    void contacted (rai::endpoint const &);
 	// Unassigned, reserved, self
 	bool not_a_peer (rai::endpoint const &);
 	// Returns true if peer was already known
@@ -786,6 +786,7 @@ public:
     bool representative_vote (rai::election &, rai::block const &);
     void vote (rai::vote const &);
     void search_pending ();
+    void process_confirmed (rai::block const &);
     rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;

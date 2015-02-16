@@ -316,7 +316,7 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive from %1%") % sender);
         }
         ++node.network.keepalive_count;
-        node.processor.contacted (sender);
+        node.peers.contacted (sender);
         node.network.merge_peers (message_a.peers);
     }
     void publish (rai::publish const & message_a) override
@@ -326,7 +326,7 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Received publish req from %1%") % sender);
         }
         ++node.network.publish_count;
-        node.processor.contacted (sender);
+        node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
         node.processor.process_receive_republish (message_a.block->clone ());
     }
@@ -337,7 +337,7 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm req %1%") % sender);
         }
         ++node.network.confirm_req_count;
-        node.processor.contacted (sender);
+        node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
         node.processor.process_receive_republish (message_a.block->clone ());
         if (node.store.block_exists (message_a.block->hash ()))
@@ -352,7 +352,7 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Received Confirm from %1%") % sender);
         }
         ++node.network.confirm_ack_count;
-        node.processor.contacted (sender);
+        node.peers.contacted (sender);
         node.peers.insert (sender, message_a.vote.block->hash ());
         node.processor.process_receive_republish (message_a.vote.block->clone ());
         node.vote (message_a.vote);
@@ -1322,18 +1322,6 @@ node (node_a)
 {
 }
 
-// We were contacted by `endpoint_a', update peers
-void rai::processor::contacted (rai::endpoint const & endpoint_a)
-{
-    auto endpoint_l (endpoint_a);
-    if (endpoint_l.address ().is_v4 ())
-    {
-        endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
-    }
-    assert (endpoint_l.address ().is_v6 ());
-	node.peers.insert (endpoint_l);
-}
-
 bool rai::operation::operator > (rai::operation const & other_a) const
 {
     return wakeup > other_a.wakeup;
@@ -1567,7 +1555,7 @@ logging (logging_a)
                 {
                     if (conflicts.no_conflict (root))
                     {
-                        processor.process_confirmed (*block_l);
+                        process_confirmed (*block_l);
                     }
                     else
                     {
@@ -3122,6 +3110,54 @@ void rai::node::search_pending ()
 	}
 }
 
+namespace
+{
+class confirmed_visitor : public rai::block_visitor
+{
+public:
+    confirmed_visitor (rai::node & node_a) :
+    node (node_a)
+    {
+    }
+    void send_block (rai::send_block const & block_a) override
+    {
+        rai::private_key prv;
+        for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+        {
+			auto wallet (i->second);
+            if (!wallet->store.fetch (block_a.hashables.destination, prv))
+            {
+                auto error (wallet->receive (block_a, prv, wallet->store.representative ()));
+                prv.clear ();
+            }
+            else
+            {
+				if (wallet->store.exists (block_a.hashables.destination))
+				{
+					BOOST_LOG (node.log) << "While confirming, unable to fetch wallet key";
+				}
+            }
+        }
+    }
+    void receive_block (rai::receive_block const &) override
+    {
+    }
+    void open_block (rai::open_block const &) override
+    {
+    }
+    void change_block (rai::change_block const &) override
+    {
+    }
+    rai::node & node;
+};
+}
+
+void rai::node::process_confirmed (rai::block const & confirmed_a)
+{
+    confirmed_visitor visitor (*this);
+    confirmed_a.visit (visitor);
+}
+
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
 in_progress (false),
@@ -4089,6 +4125,17 @@ disconnect_observer ([] () {})
 {
 }
 
+void rai::peer_container::contacted (rai::endpoint const & endpoint_a)
+{
+    auto endpoint_l (endpoint_a);
+    if (endpoint_l.address ().is_v4 ())
+    {
+        endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
+    }
+    assert (endpoint_l.address ().is_v6 ());
+	insert (endpoint_l);
+}
+
 std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::time_point const & time_a)
 {
     time_t last_contact (std::chrono::system_clock::to_time_t (time_a));
@@ -4862,7 +4909,7 @@ void rai::election::vote (rai::vote const & vote_a)
 				if (tally_l.begin ()->first > uncontested_threshold (node_l->ledger))
 				{
 					confirmed = true;
-					node_l->processor.process_confirmed (*last_winner);
+					node_l->process_confirmed (*last_winner);
 				}
 			}
 			else
@@ -4870,7 +4917,7 @@ void rai::election::vote (rai::vote const & vote_a)
 				if (tally_l.begin ()->first > contested_threshold (node_l->ledger))
 				{
 					confirmed = true;
-					node_l->processor.process_confirmed (*last_winner);
+					node_l->process_confirmed (*last_winner);
 				}
 			}
 		}
@@ -4968,54 +5015,6 @@ void rai::processor::process_message (rai::message & message_a, rai::endpoint co
 {
 	network_message_visitor visitor (node, sender_a);
 	message_a.visit (visitor);
-}
-
-namespace
-{
-class confirmed_visitor : public rai::block_visitor
-{
-public:
-    confirmed_visitor (rai::node & node_a) :
-    node (node_a)
-    {
-    }
-    void send_block (rai::send_block const & block_a) override
-    {
-        rai::private_key prv;
-        for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
-        {
-			auto wallet (i->second);
-            if (!wallet->store.fetch (block_a.hashables.destination, prv))
-            {
-                auto error (wallet->receive (block_a, prv, wallet->store.representative ()));
-                prv.clear ();
-            }
-            else
-            {
-				if (wallet->store.exists (block_a.hashables.destination))
-				{
-					BOOST_LOG (node.log) << "While confirming, unable to fetch wallet key";
-				}
-            }
-        }
-    }
-    void receive_block (rai::receive_block const &) override
-    {
-    }
-    void open_block (rai::open_block const &) override
-    {
-    }
-    void change_block (rai::change_block const &) override
-    {
-    }
-    rai::node & node;
-};
-}
-
-void rai::processor::process_confirmed (rai::block const & confirmed_a)
-{
-    confirmed_visitor visitor (node);
-    confirmed_a.visit (visitor);
 }
 
 bool rai::node::representative_vote (rai::election & election_a, rai::block const & block_a)
