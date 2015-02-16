@@ -420,17 +420,6 @@ public:
     std::mutex mutex;
     rai::node & node;
 };
-class processor
-{
-public:
-    processor (rai::node &);
-    void connect_bootstrap (std::vector <std::string> const &);
-    void ongoing_keepalive ();
-    rai::node & node;
-    static std::chrono::seconds constexpr period = std::chrono::seconds (60);
-    static std::chrono::seconds constexpr cutoff = period * 5;
-    std::mutex mutex;
-};
 class block_synchronization
 {
 public:
@@ -786,6 +775,8 @@ public:
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_receive_republish (std::unique_ptr <rai::block>);
     rai::process_result process_receive (rai::block const &);
+    void keepalive_preconfigured (std::vector <std::string> const &);
+    void ongoing_keepalive ();
     rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;
@@ -796,7 +787,6 @@ public:
     rai::network network;
 	rai::bootstrap_initiator bootstrap_initiator;
     rai::bootstrap_listener bootstrap;
-    rai::processor processor;
     rai::peer_container peers;
 	rai::logging const & logging;
     std::vector <std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)>> send_observers;
@@ -804,9 +794,11 @@ public:
     std::vector <std::function <void (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &)>> open_observers;
     std::vector <std::function <void (rai::change_block const &, rai::account const &, rai::account const &)>> change_observers;
     std::vector <std::function <void (rai::vote const &)>> vote_observers;
-    std::vector <std::string> bootstrap_peers;
+    std::vector <std::string> preconfigured_peers;
 	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;
 	std::vector <std::function <void ()>> disconnect_observers;
+    static std::chrono::seconds constexpr period = std::chrono::seconds (60);
+    static std::chrono::seconds constexpr cutoff = period * 5;
 };
 class system
 {

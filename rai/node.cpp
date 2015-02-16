@@ -154,8 +154,8 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
     return end;
 }
 
-std::chrono::seconds constexpr rai::processor::period;
-std::chrono::seconds constexpr rai::processor::cutoff;
+std::chrono::seconds constexpr rai::node::period;
+std::chrono::seconds constexpr rai::node::cutoff;
 // Cutoff for receiving a block if no forks are observed.
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
@@ -1317,11 +1317,6 @@ void rai::processor_service::stop ()
     condition.notify_all ();
 }
 
-rai::processor::processor (rai::node & node_a) :
-node (node_a)
-{
-}
-
 bool rai::operation::operator > (rai::operation const & other_a) const
 {
     return wakeup > other_a.wakeup;
@@ -1471,7 +1466,6 @@ wallets (*this, application_path_a / "data" / "wallets"),
 network (*service_a, port_a, *this),
 bootstrap_initiator (*this),
 bootstrap (*service_a, port_a, *this),
-processor (*this),
 peers (network.endpoint ()),
 logging (logging_a)
 {
@@ -3048,7 +3042,7 @@ void rai::bulk_push::visit (rai::message_visitor & visitor_a) const
 void rai::node::start ()
 {
     network.receive ();
-    processor.ongoing_keepalive ();
+    ongoing_keepalive ();
     bootstrap.start ();
 }
 
@@ -3060,10 +3054,10 @@ void rai::node::stop ()
     service.stop ();
 }
 
-void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_a)
+void rai::node::keepalive_preconfigured (std::vector <std::string> const & peers_a)
 {
-    auto node_l (node.shared ());
-    node.service.add (std::chrono::system_clock::now (), [node_l, peers_a] ()
+    auto node_l (shared ());
+    service.add (std::chrono::system_clock::now (), [node_l, peers_a] ()
     {
         for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
         {
@@ -3079,6 +3073,17 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
             });
         }
     });
+}
+
+void rai::node::ongoing_keepalive ()
+{
+    keepalive_preconfigured (preconfigured_peers);
+    auto peers_l (peers.purge_list (std::chrono::system_clock::now () - cutoff));
+    for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
+    {
+        network.send_keepalive (i->endpoint);
+    }
+    service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
 }
 
 void rai::node::search_pending ()
@@ -3972,17 +3977,6 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
     }
 }
 
-void rai::processor::ongoing_keepalive ()
-{
-    connect_bootstrap (node.bootstrap_peers);
-    auto peers (node.peers.purge_list (std::chrono::system_clock::now () - cutoff));
-    for (auto i (peers.begin ()), j (peers.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
-    {
-        node.network.send_keepalive (i->endpoint);
-    }
-    node.service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
-}
-
 std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono::system_clock::time_point const & cutoff)
 {
 	std::vector <rai::peer_information> result;
@@ -4697,7 +4691,7 @@ bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto existing (peers.find (endpoint_a));
-    return existing != peers.end () && existing->last_contact > std::chrono::system_clock::now () - rai::processor::cutoff;
+    return existing != peers.end () && existing->last_contact > std::chrono::system_clock::now () - rai::node::cutoff;
 }
 
 std::shared_ptr <rai::node> rai::node::shared ()
