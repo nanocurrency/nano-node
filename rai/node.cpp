@@ -3158,6 +3158,12 @@ void rai::node::process_confirmed (rai::block const & confirmed_a)
     confirmed_a.visit (visitor);
 }
 
+void rai::node::process_message (rai::message & message_a, rai::endpoint const & sender_a)
+{
+	network_message_visitor visitor (*this, sender_a);
+	message_a.visit (visitor);
+}
+
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
 in_progress (false),
@@ -5009,12 +5015,6 @@ void rai::conflicts::stop (rai::block_hash const & root_a)
 rai::conflicts::conflicts (rai::node & node_a) :
 node (node_a)
 {
-}
-
-void rai::processor::process_message (rai::message & message_a, rai::endpoint const & sender_a)
-{
-	network_message_visitor visitor (node, sender_a);
-	message_a.visit (visitor);
 }
 
 bool rai::node::representative_vote (rai::election & election_a, rai::block const & block_a)

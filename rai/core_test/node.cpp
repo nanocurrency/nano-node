@@ -244,7 +244,7 @@ TEST (node, receive_gap)
     rai::send_block block (0, 1, 2, 3, 4, 5);
     rai::confirm_req message;
     message.block = block.clone ();
-    node1.processor.process_message (message, node1.network.endpoint ());
+    node1.process_message (message, node1.network.endpoint ());
     ASSERT_EQ (1, node1.gap_cache.blocks.size ());
 }
 

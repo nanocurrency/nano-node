@@ -270,7 +270,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     node1.conflicts.start (block1, true);
     rai::keypair key1;
     rai::confirm_ack con1 (key1.pub, key1.prv, 0, block1.clone ());
-	node1.processor.process_message (con1, node1.network.endpoint ());
+	node1.process_message (con1, node1.network.endpoint ());
 }
 
 TEST (receivable_processor, confirm_sufficient_pos)
@@ -282,7 +282,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     ASSERT_EQ (rai::process_result::progress, node1.ledger.process (block1));
     node1.conflicts.start (block1, true);
     rai::confirm_ack con1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
-	node1.processor.process_message (con1, node1.network.endpoint ());
+	node1.process_message (con1, node1.network.endpoint ());
 }
 
 TEST (receivable_processor, send_with_receive)
