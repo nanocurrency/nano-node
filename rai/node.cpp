@@ -342,7 +342,7 @@ public:
         node.processor.process_receive_republish (message_a.block->clone ());
         if (node.store.block_exists (message_a.block->hash ()))
         {
-            node.processor.process_confirmation (*message_a.block, sender);
+            node.process_confirmation (*message_a.block, sender);
         }
     }
     void confirm_ack (rai::confirm_ack const & message_a) override
@@ -1996,25 +1996,24 @@ rai::account rai::system::account (size_t index_a)
     return result;
 }
 
-void rai::processor::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
+void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
-    auto node_l (node.shared ());
-    for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+    for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
 		if (i->second->store.is_representative ())
         {
             auto representative (i->second->store.representative ());
-			auto weight (node.ledger.weight (representative));
+			auto weight (ledger.weight (representative));
 			if (!weight.is_zero ())
             {
-                if (node.logging.network_message_logging ())
+                if (logging.network_message_logging ())
                 {
-                    BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
+                    BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
                 }
                 rai::private_key prv;
                 auto error (i->second->store.fetch (representative, prv));
                 assert (!error);
-                node.network.confirm_block (prv, representative, block_a.clone (), 0, sender);
+                network.confirm_block (prv, representative, block_a.clone (), 0, sender);
 			}
 		}
 	}
