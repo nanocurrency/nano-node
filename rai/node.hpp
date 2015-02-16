@@ -361,6 +361,7 @@ public:
     std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
     std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
     void destroy (rai::uint256_union const &);
+	void cache_work (rai::account const &);
     std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
     boost::filesystem::path const path;
     rai::node & node;

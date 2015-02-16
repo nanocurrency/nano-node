@@ -987,8 +987,8 @@ uint64_t rai::wallet::work_fetch (rai::account const & account_a, rai::block_has
 	{
 		if (rai::work_validate (root_a, result))
 		{
-			result = rai::work_generate (root_a);
 			BOOST_LOG (node.log) << "Cached work invalid, regenerating";
+			result = rai::work_generate (root_a);
 		}
 	}
     return result;
@@ -1083,6 +1083,31 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
     wallet->store.handle.reset ();
     assert (boost::filesystem::is_directory (path / id_a.to_string ()));
     boost::filesystem::remove_all (path / id_a.to_string ());
+}
+
+void rai::wallets::cache_work (rai::account const & account_a)
+{
+	auto root (node.ledger.latest_root (account_a));
+	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+	{
+		auto wallet (i->second);
+		if (wallet->store.exists (account_a))
+		{
+			node.service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
+			{
+				auto begin (std::chrono::system_clock::now ());
+				if (wallet->node.logging.work_generation_time ())
+				{
+					BOOST_LOG (wallet->node.log) << "Beginning work generation";
+				}
+				wallet->work_generate (account_a, root);
+				if (wallet->node.logging.work_generation_time ())
+				{
+					BOOST_LOG (wallet->node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
+				}
+			});
+		}
+	}
 }
 
 rai::key_iterator::key_iterator (leveldb::DB * db_a) :
@@ -1557,63 +1582,19 @@ logging (logging_a)
     });
     send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const &)
     {
-        for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
-        {
-            auto wallet (i->second);
-            if (wallet->store.exists (account_a))
-            {
-                auto root (ledger.latest_root (account_a));
-                service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
-                {
-                    wallet->work_generate (account_a, root);
-                });
-            }
-        }
+		wallets.cache_work (account_a);
     });
     receive_observers.push_back ([this] (rai::receive_block const & block_a, rai::account const & account_a, rai::amount const &)
 	{
-		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
-		{
-			auto wallet (i->second);
-			if (wallet->store.exists (account_a))
-			{
-				auto root (ledger.latest_root (account_a));
-				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
-				{
-					wallet->work_generate (account_a, root);
-				});
-			}
-		}
+		wallets.cache_work (account_a);
 	});
     open_observers.push_back ([this] (rai::open_block const & block_a, rai::account const & account_a, rai::amount const &, rai::account const &)
 	{
-		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
-		{
-			auto wallet (i->second);
-			if (wallet->store.exists (account_a))
-			{
-				auto root (ledger.latest_root (account_a));
-				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
-				{
-					wallet->work_generate (account_a, root);
-				});
-			}
-		}
+		wallets.cache_work (account_a);
 	});
     change_observers.push_back ([this] (rai::change_block const & block_a, rai::account const & account_a, rai::account const &)
 	{
-		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
-		{
-			auto wallet (i->second);
-			if (wallet->store.exists (account_a))
-			{
-				auto root (ledger.latest_root (account_a));
-				service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
-				{
-					wallet->work_generate (account_a, root);
-				});
-			}
-		}
+		wallets.cache_work (account_a);
 	});
     if (!init_a.error ())
     {
