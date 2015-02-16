@@ -155,7 +155,7 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("profile_work"))
     {
-        rai::change_block block (0, 0, 0, 0);
+        rai::change_block block (0, 0, 0, 0, 0);
         std::cerr << "Starting\n";
         for (uint64_t i (0); true; ++i)
         {

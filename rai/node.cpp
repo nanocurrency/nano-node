@@ -3100,30 +3100,26 @@ void rai::processor::connect_bootstrap (std::vector <std::string> const & peers_
     });
 }
 
-void rai::processor::search_pending ()
+void rai::node::search_pending ()
 {
-    auto node_l (node.shared ());
-    node.service.add (std::chrono::system_clock::now (), [node_l] ()
-    {
-        std::unordered_set <rai::uint256_union> wallet;
-        for (auto i (node_l->wallets.items.begin ()), n (node_l->wallets.items.end ()); i != n; ++i)
-        {
-            for (auto j (i->second->store.begin ()), m (i->second->store.end ()); j != m; ++j)
-            {
-                wallet.insert (j->first);
-            }
-        }
-        for (auto i (node_l->store.pending_begin ()), n (node_l->store.pending_end ()); i != n; ++i)
-        {
-            if (wallet.find (i->second.destination) != wallet.end ())
-            {
-                auto block (node_l->store.block_get (i->first));
-                assert (block != nullptr);
-                assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-                node_l->conflicts.start (*block, true);
-            }
-        }
-    });
+	std::unordered_set <rai::uint256_union> wallet;
+	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+	{
+		for (auto j (i->second->store.begin ()), m (i->second->store.end ()); j != m; ++j)
+		{
+			wallet.insert (j->first);
+		}
+	}
+	for (auto i (store.pending_begin ()), n (store.pending_end ()); i != n; ++i)
+	{
+		if (wallet.find (i->second.destination) != wallet.end ())
+		{
+			auto block (store.block_get (i->first));
+			assert (block != nullptr);
+			assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
+			conflicts.start (*block, true);
+		}
+	}
 }
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :

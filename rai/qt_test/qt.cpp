@@ -347,7 +347,7 @@ TEST (history, short_text)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (send));
 	rai::receive_block receive (send.hash (), send.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (receive));
-	rai::change_block change (key.pub, receive.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub);
+	rai::change_block change (key.pub, receive.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (change));
 	int argc (0);
 	QApplication application (argc, nullptr);

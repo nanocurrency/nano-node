@@ -294,7 +294,8 @@ TEST (node, search_pending)
         ASSERT_LT (iterations1, 200);
     }
     system.wallet (0)->store.insert (key2.prv);
-    system.nodes [0]->processor.search_pending ();
+	auto node (system.nodes [0]);
+    node->background ([node] {node->search_pending ();});
     auto iterations2 (0);
     while (system.nodes [0]->ledger.account_balance (key2.pub).is_zero ())
     {

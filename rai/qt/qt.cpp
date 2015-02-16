@@ -669,7 +669,8 @@ wallet (wallet_a)
     });
     QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
     {
-        wallet.node.processor.search_pending ();
+		auto node (wallet.node.shared ());
+        node->background ([node] () {node->search_pending ();});
     });
     QObject::connect (create_block, &QPushButton::released, [this] ()
     {
@@ -1059,9 +1060,8 @@ void rai_qt::block_creation::create_change ()
                 if (!error)
                 {
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
-                    rai::change_block change (representative_l, frontier.hash, key, account_l);
+                    rai::change_block change (representative_l, frontier.hash, key, account_l, wallet.wallet_m->work_fetch (account_l, frontier.hash));
                     key.clear ();
-                    change.block_work_set (wallet.wallet_m->work_fetch (account_l, change.root ()));
                     std::string block_l;
                     change.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));

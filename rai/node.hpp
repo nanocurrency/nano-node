@@ -432,7 +432,6 @@ public:
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_confirmed (rai::block const &);
-    void search_pending ();
     void ongoing_keepalive ();
     rai::node & node;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
@@ -775,12 +774,18 @@ class node : public std::enable_shared_from_this <rai::node>
 public:
     node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &);
     ~node ();
+	template <typename T>
+	void background (T action_a)
+	{
+		service.add (std::chrono::system_clock::now (), action_a);
+	}
     void send_keepalive (rai::endpoint const &);
     void start ();
     void stop ();
     std::shared_ptr <rai::node> shared ();
     bool representative_vote (rai::election &, rai::block const &);
     void vote (rai::vote const &);
+    void search_pending ();
     rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;
