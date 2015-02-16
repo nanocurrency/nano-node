@@ -91,6 +91,7 @@ add_executable (core_test
 	rai/core_test/daemon.cpp
 	rai/core_test/entry.cpp
 	rai/core_test/gap_cache.cpp
+	rai/core_test/landing.cpp
 	rai/core_test/ledger.cpp
 	rai/core_test/message.cpp
 	rai/core_test/message_parser.cpp

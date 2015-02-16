@@ -5283,3 +5283,64 @@ bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a,
     }
     return result;
 }
+
+rai::landing_store::landing_store (rai::account const & source_a, rai::account const & destination_a, uint64_t start_a, uint64_t last_a) :
+source (source_a),
+destination (destination_a),
+start (start_a),
+last (last_a)
+{
+}
+
+rai::landing_store::landing_store (bool & error_a, std::istream & stream_a)
+{
+	error_a = deserialize (stream_a);
+}
+
+bool rai::landing_store::deserialize (std::istream & stream_a)
+{
+	bool result;
+	try
+	{
+		boost::property_tree::ptree tree;
+		boost::property_tree::read_json (stream_a, tree);
+		auto source_l (tree.get <std::string> ("source"));
+		auto destination_l (tree.get <std::string> ("destination"));
+		auto start_l (tree.get <std::string> ("start"));
+		auto last_l (tree.get <std::string> ("last"));
+		result = source.decode_base58check (source_l);
+		if (!result)
+		{
+			result = destination.decode_base58check (destination_l);
+			if (!result)
+			{
+				start = std::stoull (start_l);
+				last = std::stoull (last_l);
+			}
+		}
+	}
+	catch (std::logic_error const &)
+	{
+		result = true;
+	}
+	catch (std::runtime_error const &)
+	{
+		result = true;
+	}
+	return result;
+}
+
+void rai::landing_store::serialize (std::ostream & stream_a) const
+{
+	boost::property_tree::ptree tree;
+	tree.put ("source", source.to_base58check ());
+	tree.put ("destination", destination.to_base58check ());
+	tree.put ("start", std::to_string (start));
+	tree.put ("last", std::to_string (last));
+	boost::property_tree::write_json (stream_a, tree);
+}
+
+bool rai::landing_store::operator == (rai::landing_store const & other_a) const
+{
+	return source == other_a.source && destination == other_a.destination && start == other_a.start && last == other_a.last;
+}

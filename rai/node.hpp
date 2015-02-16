@@ -824,5 +824,18 @@ public:
     std::vector <std::shared_ptr <rai::node>> nodes;
 	rai::logging logging;
 };
+class landing_store
+{
+public:
+	landing_store (rai::account const &, rai::account const &, uint64_t, uint64_t);
+	landing_store (bool &, std::istream &);
+	rai::account source;
+	rai::account destination;
+	uint64_t start;
+	uint64_t last;
+	bool deserialize (std::istream &);
+	void serialize (std::ostream &) const;
+	bool operator == (rai::landing_store const &) const;
+};
 extern std::chrono::milliseconds const confirm_wait;
 }
