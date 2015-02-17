@@ -5290,3 +5290,103 @@ bool rai::landing_store::operator == (rai::landing_store const & other_a) const
 {
 	return source == other_a.source && destination == other_a.destination && start == other_a.start && last == other_a.last;
 }
+
+rai::landing::landing (rai::node & node_a, rai::landing_store & store_a, boost::filesystem::path const & path_a) :
+path (path_a),
+store (store_a),
+node (node_a)
+{
+}
+
+void rai::landing::write_store ()
+{
+	std::ofstream store_file;
+	store_file.open (path.string ());
+	if (!store_file.fail ())
+	{
+		store.serialize (store_file);
+	}
+}
+
+rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
+{
+	// Halfing period ~= Exponent of 2 in secounds approixmately 1 year = 2^25 = 33554432
+	// Interval = Exponent of 2 in seconds approximately 1 minute = 2^6 = 64
+	uint64_t intervals_per_period (2 << (25 - 6));
+	rai::uint128_t result;
+	if (interval < intervals_per_period * 1)
+	{
+		// Total supply / 2^halfing period / intervals per period
+		// 2^128 / 2^1 / (2^25 / 2^6)
+		result = rai::uint128_t (2) << (127 - (25 - 6)); // 50%
+	}
+	else if (interval < intervals_per_period * 2)
+	{
+		result = rai::uint128_t (2) << (126 - (25 - 6)); // 25%
+	}
+	else if (interval < intervals_per_period * 3)
+	{
+		result = rai::uint128_t (2) << (125 - (25 - 6)); // 13%
+	}
+	else if (interval < intervals_per_period * 4)
+	{
+		result = rai::uint128_t (2) << (124 - (25 - 6)); // 6.3%
+	}
+	else if (interval < intervals_per_period * 5)
+	{
+		result = rai::uint128_t (2) << (123 - (25 - 6)); // 3.1%
+	}
+	else if (interval < intervals_per_period * 6)
+	{
+		result = rai::uint128_t (2) << (122 - (25 - 6)); // 1.6%
+	}
+	else if (interval < intervals_per_period * 7)
+	{
+		result = rai::uint128_t (2) << (121 - (25 - 6)); // 0.8%
+	}
+	else if (interval < intervals_per_period * 8)
+	{
+		result = rai::uint128_t (2) << (121 - (25 - 6)); // 0.8*
+	}
+	else
+	{
+		result = 0;
+	}
+	return result;
+}
+
+uint64_t rai::landing::seconds_since_epoch ()
+{
+	return std::chrono::duration_cast <std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+}
+
+void rai::landing::distribute_one ()
+{
+	auto now (seconds_since_epoch ());
+	auto error (false);
+	while (!error && store.start + store.last * distribution_interval.count () < now)
+	{
+		++store.last;;
+		auto amount (distribution_amount (store.last - store.start));
+		error = wallet->send (store.source, store.destination, amount);
+		if (!error)
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%\n") % amount);
+			write_store ();
+		}
+		else
+		{
+			BOOST_LOG (node.log) << "Error while sending distribution\n";
+		}
+	}
+}
+
+void rai::landing::distribute_ongoing ()
+{
+	distribute_one ();
+	BOOST_LOG (node.log) << "Waiting for next distribution cycle\n";
+	node.service.add (std::chrono::system_clock::now () + sleep_seconds, [this] () {distribute_ongoing ();});
+}
+
+std::chrono::seconds constexpr rai::landing::distribution_interval;
+std::chrono::seconds constexpr rai::landing::sleep_seconds;

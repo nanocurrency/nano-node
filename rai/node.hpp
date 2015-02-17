@@ -832,5 +832,21 @@ public:
 	void serialize (std::ostream &) const;
 	bool operator == (rai::landing_store const &) const;
 };
+class landing
+{
+public:
+	landing (rai::node &, rai::landing_store &, boost::filesystem::path const &);
+	void write_store ();
+	rai::uint128_t distribution_amount (uint64_t);
+	uint64_t seconds_since_epoch ();
+	void distribute_one ();
+	void distribute_ongoing ();
+	boost::filesystem::path path;
+	rai::landing_store & store;
+	std::shared_ptr <rai::wallet> wallet;
+	rai::node & node;
+	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (2^6); // 64 seconds
+	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (2^2); // 4 seconds;
+};
 extern std::chrono::milliseconds const confirm_wait;
 }
