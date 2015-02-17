@@ -13,7 +13,7 @@ rpc_address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4
 rpc_port (rai::network::rpc_port),
 rpc_enable_control (false)
 {
-    bootstrap_peers.push_back ("rai.raiblocks.net");
+    preconfigured_peers.push_back ("rai.raiblocks.net");
 }
 
 void rai_daemon::daemon_config::serialize (std::ostream & output_a)
@@ -21,7 +21,7 @@ void rai_daemon::daemon_config::serialize (std::ostream & output_a)
     boost::property_tree::ptree tree;
     tree.put ("peering_port", std::to_string (peering_port));
     boost::property_tree::ptree bootstrap_peers_l;
-    for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
+    for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
     {
         boost::property_tree::ptree entry;
         entry.put ("", *i);
@@ -55,7 +55,7 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
         for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
         {
             auto bootstrap_peer (i->second.get <std::string> (""));
-            bootstrap_peers.push_back (bootstrap_peer);
+            preconfigured_peers.push_back (bootstrap_peer);
         }
 		error_a = error_a | logging.deserialize_json (logging_l);
         try
@@ -116,7 +116,7 @@ void rai_daemon::daemon::run ()
         auto node (std::make_shared <rai::node> (init, service, config.peering_port,  working, processor, config.logging));
         if (!init.error ())
         {
-            node->bootstrap_peers = config.bootstrap_peers;
+            node->preconfigured_peers = config.preconfigured_peers;
             node->start ();
             rai::rpc rpc (service, pool, config.rpc_address, config.rpc_port, *node, config.rpc_enable_control);
             if (config.rpc_enable)

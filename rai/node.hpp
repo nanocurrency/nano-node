@@ -822,6 +822,7 @@ public:
 class landing_store
 {
 public:
+	landing_store ();
 	landing_store (rai::account const &, rai::account const &, uint64_t, uint64_t);
 	landing_store (bool &, std::istream &);
 	rai::account source;

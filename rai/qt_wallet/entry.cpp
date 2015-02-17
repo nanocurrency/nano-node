@@ -14,7 +14,7 @@ public:
     account (0)
     {
 		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
-        bootstrap_peers.push_back ("rai.raiblocks.net");
+        preconfigured_peers.push_back ("rai.raiblocks.net");
 		assert (!wallet.is_zero ());
     }
     qt_wallet_config (bool & error_a, std::istream & stream_a)
@@ -25,15 +25,15 @@ public:
         {
             boost::property_tree::read_json (stream_a, tree);
             auto peering_port_l (tree.get <std::string> ("peering_port"));
-            auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
+            auto preconfigured_peers_l (tree.get_child ("bootstrap_peers"));
             auto wallet_l (tree.get <std::string> ("wallet"));
             auto account_l (tree.get <std::string> ("account"));
 			auto logging_l (tree.get_child ("logging"));
-            bootstrap_peers.clear ();
-            for (auto i (bootstrap_peers_l.begin ()), n (bootstrap_peers_l.end ()); i != n; ++i)
+            preconfigured_peers.clear ();
+            for (auto i (preconfigured_peers_l.begin ()), n (preconfigured_peers_l.end ()); i != n; ++i)
             {
                 auto bootstrap_peer (i->second.get <std::string> (""));
-                bootstrap_peers.push_back (bootstrap_peer);
+                preconfigured_peers.push_back (bootstrap_peer);
             }
             try
             {
@@ -63,7 +63,7 @@ public:
         tree.put ("wallet", wallet_string);
         tree.put ("account", account.to_base58check ());
         boost::property_tree::ptree bootstrap_peers_l;
-        for (auto i (bootstrap_peers.begin ()), n (bootstrap_peers.end ()); i != n; ++i)
+        for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
         {
             boost::property_tree::ptree entry;
             entry.put ("", *i);
@@ -75,7 +75,7 @@ public:
 		tree.add_child ("logging", logging_l);
         boost::property_tree::write_json (stream_a, tree);
     }
-    std::vector <std::string> bootstrap_peers;
+    std::vector <std::string> preconfigured_peers;
     uint16_t peering_port;
     rai::uint256_union wallet;
     rai::account account;
@@ -129,7 +129,7 @@ int main (int argc, char * const * argv)
                     {
                         node->stop ();
                     });
-                    node->bootstrap_peers = config.bootstrap_peers;
+                    node->preconfigured_peers = config.preconfigured_peers;
                     node->start ();
                     std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
                     gui->client_window->show ();

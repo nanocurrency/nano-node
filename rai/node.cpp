@@ -5230,6 +5230,10 @@ bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a,
     return result;
 }
 
+rai::landing_store::landing_store ()
+{
+}
+
 rai::landing_store::landing_store (rai::account const & source_a, rai::account const & destination_a, uint64_t start_a, uint64_t last_a) :
 source (source_a),
 destination (destination_a),
