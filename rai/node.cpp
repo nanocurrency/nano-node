@@ -700,10 +700,7 @@ void rai::wallet_store::representative_set (rai::account const & representative_
 
 rai::account rai::wallet_store::representative ()
 {
-    std::string representative_l;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), &representative_l));
-    assert (status.ok ());
-	rai::wallet_entry entry (representative_l);
+	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::representative_special));
     return entry.key;
 }
 
@@ -813,6 +810,7 @@ bool rai::wallet_store::work_get (rai::public_key const & pub_a, uint64_t & work
 
 void rai::wallet_store::work_put (rai::public_key const & pub_a, uint64_t work_a)
 {
+	
 }
 
 rai::wallet::wallet (bool & init_a, rai::node & node_a, boost::filesystem::path const & path_a) :
@@ -5064,28 +5062,19 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
 
 rai::uint256_union rai::wallet_store::check ()
 {
-    std::string check;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (rai::wallet_store::check_special.chars.data (), rai::wallet_store::check_special.chars.size ()), &check));
-    assert (status.ok ());
-	rai::wallet_entry entry (check);
+	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::check_special));
     return entry.key;
 }
 
 rai::uint256_union rai::wallet_store::salt ()
 {
-    std::string salt_string;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (rai::wallet_store::salt_special.chars.data (), rai::wallet_store::salt_special.chars.size ()), &salt_string));
-    assert (status.ok ());
-	rai::wallet_entry entry (salt_string);
+	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::salt_special));
     return entry.key;
 }
 
 rai::uint256_union rai::wallet_store::wallet_key ()
 {
-    std::string encrypted_wallet_key;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (rai::wallet_store::wallet_key_special.chars.data (), rai::wallet_store::wallet_key_special.chars.size ()), &encrypted_wallet_key));
-    assert (status.ok ());
-	rai::wallet_entry entry (encrypted_wallet_key);
+	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::wallet_key_special));
     auto password_l (password.value ());
     auto result (entry.key.prv (password_l, salt ().owords [0]));
     password_l.clear ();
