@@ -283,13 +283,13 @@ public:
     void value_set (rai::uint256_union const &);
     std::vector <std::unique_ptr <rai::uint256_union>> values;
 };
-class wallet_entry
+class wallet_value
 {
 public:
-	wallet_entry () = default;
-	wallet_entry (leveldb::Slice const &);
-	wallet_entry (std::string const &);
-	wallet_entry (rai::uint256_union const &);
+	wallet_value () = default;
+	wallet_value (leveldb::Slice const &);
+	wallet_value (std::string const &);
+	wallet_value (rai::uint256_union const &);
 	leveldb::Slice slice () const;
 	rai::private_key key;
 	uint64_t work;
@@ -311,8 +311,8 @@ public:
     void representative_set (rai::account const &);
     rai::public_key insert (rai::private_key const &);
     void erase (rai::public_key const &);
-	rai::wallet_entry entry_get_raw (rai::public_key const &);
-	void entry_put_raw (rai::public_key const &, rai::wallet_entry const &);
+	rai::wallet_value entry_get_raw (rai::public_key const &);
+	void entry_put_raw (rai::public_key const &, rai::wallet_value const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
     key_iterator find (rai::uint256_union const &);

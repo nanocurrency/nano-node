@@ -460,25 +460,25 @@ void rai::publish::serialize (rai::stream & stream_a)
     block->serialize (stream_a);
 }
 
-rai::wallet_entry::wallet_entry (leveldb::Slice const & slice_a)
+rai::wallet_value::wallet_value (leveldb::Slice const & slice_a)
 {
 	assert (slice_a.size () == sizeof (*this));
 	std::copy (slice_a.data (), slice_a.data () + sizeof (key), key.chars.begin ());
 	std::copy (slice_a.data () + sizeof (key), slice_a.data () + slice_a.size (), reinterpret_cast <char *> (&work));
 }
 
-rai::wallet_entry::wallet_entry (std::string const & slice_a) :
-wallet_entry (leveldb::Slice (slice_a.data (), slice_a.size ()))
+rai::wallet_value::wallet_value (std::string const & slice_a) :
+wallet_value (leveldb::Slice (slice_a.data (), slice_a.size ()))
 {
 }
 
-rai::wallet_entry::wallet_entry (rai::uint256_union const & value_a) :
+rai::wallet_value::wallet_value (rai::uint256_union const & value_a) :
 key (value_a),
 work (0)
 {
 }
 
-leveldb::Slice rai::wallet_entry::slice () const
+leveldb::Slice rai::wallet_value::slice () const
 {
 	static_assert (sizeof (*this) == sizeof (key) + sizeof (work), "Class not packed");
 	return leveldb::Slice (reinterpret_cast <char const *> (this), sizeof (*this));
@@ -515,7 +515,7 @@ password (0, 1024)
                 init_a = value.decode_hex (wallet_l.get <std::string> (i->first));
                 if (!init_a)
                 {
-					entry_put_raw (key, rai::wallet_entry (value));
+					entry_put_raw (key, rai::wallet_value (value));
                 }
                 else
                 {
@@ -585,22 +585,22 @@ password (0, 1024)
         auto version_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), &version_value));
         if (version_status.IsNotFound ())
         {
-			entry_put_raw (rai::wallet_store::version_special, rai::wallet_entry (version_current));
+			entry_put_raw (rai::wallet_store::version_special, rai::wallet_value (version_current));
             rai::uint256_union salt_l;
             random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
-			entry_put_raw (rai::wallet_store::salt_special, rai::wallet_entry (salt_l));
+			entry_put_raw (rai::wallet_store::salt_special, rai::wallet_value (salt_l));
             // Wallet key is a fixed random key that encrypts all entries
             rai::uint256_union wallet_key;
             random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
             password.value_set (0);
             // Wallet key is encrypted by the user's password
             rai::uint256_union encrypted (wallet_key, 0, salt_l.owords [0]);
-			entry_put_raw (rai::wallet_store::wallet_key_special, rai::wallet_entry (encrypted));
+			entry_put_raw (rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted));
             rai::uint256_union zero (0);
             rai::uint256_union check (zero, wallet_key, salt_l.owords [0]);
-			entry_put_raw (rai::wallet_store::check_special, rai::wallet_entry (check));
+			entry_put_raw (rai::wallet_store::check_special, rai::wallet_value (check));
             wallet_key.clear ();
-			entry_put_raw (rai::wallet_store::representative_special, rai::wallet_entry (rai::genesis_account));
+			entry_put_raw (rai::wallet_store::representative_special, rai::wallet_value (rai::genesis_account));
         }
         else
         {
@@ -638,20 +638,20 @@ bool rai::wallet_store::is_representative ()
 
 void rai::wallet_store::representative_set (rai::account const & representative_a)
 {
-	entry_put_raw (rai::wallet_store::representative_special, rai::wallet_entry (representative_a));
+	entry_put_raw (rai::wallet_store::representative_special, rai::wallet_value (representative_a));
 }
 
 rai::account rai::wallet_store::representative ()
 {
-	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::representative_special));
-    return entry.key;
+	rai::wallet_value value (entry_get_raw (rai::wallet_store::representative_special));
+    return value.key;
 }
 
 rai::public_key rai::wallet_store::insert (rai::private_key const & prv)
 {
     rai::public_key pub;
     ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-	entry_put_raw (pub, rai::wallet_entry (rai::uint256_union (prv, wallet_key (), salt ().owords [0])));
+	entry_put_raw (pub, rai::wallet_value (rai::uint256_union (prv, wallet_key (), salt ().owords [0])));
 	return pub;
 }
 
@@ -661,14 +661,14 @@ void rai::wallet_store::erase (rai::public_key const & pub)
     assert (status.ok ());
 }
 
-rai::wallet_entry rai::wallet_store::entry_get_raw (rai::public_key const & pub_a)
+rai::wallet_value rai::wallet_store::entry_get_raw (rai::public_key const & pub_a)
 {
-	rai::wallet_entry result;
+	rai::wallet_value result;
     std::string value;
     auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (pub_a.chars.data (), pub_a.chars.size ()), &value));
 	if (status.ok ())
 	{
-		result = rai::wallet_entry (value);
+		result = rai::wallet_value (value);
 	}
 	else
 	{
@@ -678,7 +678,7 @@ rai::wallet_entry rai::wallet_store::entry_get_raw (rai::public_key const & pub_
 	return result;
 }
 
-void rai::wallet_store::entry_put_raw (rai::public_key const & pub_a, rai::wallet_entry const & entry_a)
+void rai::wallet_store::entry_put_raw (rai::public_key const & pub_a, rai::wallet_value const & entry_a)
 {
 	auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (pub_a.chars.data (), pub_a.chars.size ()), entry_a.slice ()));
 	assert (status.ok ());
@@ -687,10 +687,10 @@ void rai::wallet_store::entry_put_raw (rai::public_key const & pub_a, rai::walle
 bool rai::wallet_store::fetch (rai::public_key const & pub, rai::private_key & prv)
 {
     auto result (false);
-	rai::wallet_entry entry (entry_get_raw (pub));
-    if (!entry.key.is_zero ())
+	rai::wallet_value value (entry_get_raw (pub));
+    if (!value.key.is_zero ())
     {
-        prv = entry.key.prv (wallet_key (), salt ().owords [0]);
+        prv = value.key.prv (wallet_key (), salt ().owords [0]);
         rai::public_key compare;
         ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
         if (!(pub == compare))
@@ -719,13 +719,8 @@ void rai::wallet_store::serialize_json (std::string & string_a)
     {
         rai::uint256_union key;
         key = iterator->key ();
-		rai::wallet_entry entry (iterator->value ());
-        rai::uint256_union value (entry.key);
-        std::string key_hex;
-        key.encode_hex (key_hex);
-        std::string value_hex;
-        value.encode_hex (value_hex);
-        tree.put (key_hex, value_hex);
+		rai::wallet_value value (iterator->value ());
+        tree.put (key.to_string (), value.key.to_string ());
     }
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, tree);
@@ -1134,8 +1129,8 @@ void rai::key_iterator::set_current ()
     if (iterator->Valid ())
     {
         current.first = iterator->key ();
-		rai::wallet_entry entry (iterator->value ());
-        current.second = entry.key;
+		rai::wallet_value value (iterator->value ());
+        current.second = value.key;
     }
     else
     {
@@ -5021,21 +5016,21 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
 
 rai::uint256_union rai::wallet_store::check ()
 {
-	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::check_special));
-    return entry.key;
+	rai::wallet_value value (entry_get_raw (rai::wallet_store::check_special));
+    return value.key;
 }
 
 rai::uint256_union rai::wallet_store::salt ()
 {
-	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::salt_special));
-    return entry.key;
+	rai::wallet_value value (entry_get_raw (rai::wallet_store::salt_special));
+    return value.key;
 }
 
 rai::uint256_union rai::wallet_store::wallet_key ()
 {
-	rai::wallet_entry entry (entry_get_raw (rai::wallet_store::wallet_key_special));
+	rai::wallet_value value (entry_get_raw (rai::wallet_store::wallet_key_special));
     auto password_l (password.value ());
-    auto result (entry.key.prv (password_l, salt ().owords [0]));
+    auto result (value.key.prv (password_l, salt ().owords [0]));
     password_l.clear ();
     return result;
 }
@@ -5066,7 +5061,7 @@ bool rai::wallet_store::rekey (std::string const & password_a)
         (*password.values [0]) ^= password_l;
         (*password.values [0]) ^= password_new;
         rai::uint256_union encrypted (wallet_key_l, password_new, salt ().owords [0]);
-		entry_put_raw (rai::wallet_store::wallet_key_special, rai::wallet_entry (encrypted));
+		entry_put_raw (rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted));
         wallet_key_l.clear ();
     }
     else

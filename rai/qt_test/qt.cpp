@@ -356,7 +356,6 @@ TEST (history, short_text)
 	ASSERT_EQ (4, history.model->rowCount ());
 }
 
-
 TEST (wallet, startup_work)
 {
 	rai::keypair key;
@@ -367,12 +366,12 @@ TEST (wallet, startup_work)
     rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), system.account (0));
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	uint64_t work1;
-    ASSERT_TRUE (wallet.wallet_m->work.get (rai::test_genesis_key.pub, work1));
+    ASSERT_TRUE (wallet.wallet_m->store.work_get (rai::test_genesis_key.pub, work1));
 	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
 	QTest::keyClicks (wallet.accounts.account_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
     QTest::mouseClick (wallet.accounts.account_key_button, Qt::LeftButton);
     auto iterations1 (0);
-    while (wallet.wallet_m->work.get (rai::test_genesis_key.pub, work1))
+    while (wallet.wallet_m->store.work_get (rai::test_genesis_key.pub, work1))
     {
         system.service->poll_one ();
         system.processor.poll_one ();
