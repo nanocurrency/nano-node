@@ -320,6 +320,7 @@ public:
     rai::public_key insert (rai::private_key const &);
     void erase (rai::public_key const &);
 	rai::wallet_entry entry_get_raw (rai::public_key const &);
+	void entry_put_raw (rai::public_key const &, rai::wallet_entry const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
     key_iterator find (rai::uint256_union const &);
