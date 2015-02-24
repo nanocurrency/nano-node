@@ -283,14 +283,6 @@ public:
     void value_set (rai::uint256_union const &);
     std::vector <std::unique_ptr <rai::uint256_union>> values;
 };
-class work_store
-{
-public:
-    work_store (bool &, boost::filesystem::path const &);
-    void put (rai::public_key const &, uint64_t);
-    bool get (rai::public_key const &, uint64_t &);
-    std::unique_ptr <leveldb::DB> handle;
-};
 class wallet_entry
 {
 public:
@@ -365,7 +357,6 @@ public:
     uint64_t work_fetch (rai::account const &, rai::block_hash const &);
     std::mutex mutex;
     rai::wallet_store store;
-    rai::work_store work;
     rai::node & node;
 };
 // The wallets set is all the wallets a node controls.  A node may contain multiple wallets independently encrypted and operated.

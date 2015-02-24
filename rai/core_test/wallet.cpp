@@ -448,19 +448,22 @@ TEST (wallet, work)
     wallet->store.insert (rai::test_genesis_key.prv);
     auto account1 (system.account (0));
     uint64_t work1;
-    ASSERT_TRUE (wallet->work.get (account1, work1));
-    ASSERT_TRUE (wallet->store.exists (system.account (0)));
+	ASSERT_TRUE (wallet->store.work_get (1000, work1));
+    ASSERT_FALSE (wallet->store.work_get (account1, work1));
+	ASSERT_EQ (0, work1);
+    ASSERT_TRUE (wallet->store.exists (account1));
     wallet->work_update (account1, 0, rai::work_generate (0));
     {
         std::lock_guard <std::mutex> lock (wallet->mutex);
         ASSERT_FALSE (rai::work_validate (0, wallet->work_fetch(account1, 0)));
     }
-    ASSERT_TRUE (wallet->work.get (system.account (0), work1));
+    ASSERT_FALSE (wallet->store.work_get (account1, work1));
+	ASSERT_EQ (0, work1);
     auto root1 (system.nodes [0]->ledger.latest_root (account1));
     auto work2 (rai::work_generate (root1));
     wallet->work_update (account1, root1, work2);
     uint64_t work3;
-    ASSERT_FALSE (wallet->work.get (account1, work3));
+    ASSERT_FALSE (wallet->store.work_get (account1, work3));
     {
         std::lock_guard <std::mutex> lock (wallet->mutex);
         auto work4 (wallet->work_fetch (account1, root1));
@@ -477,7 +480,8 @@ TEST (wallet, work_generate)
     wallet->store.insert (rai::test_genesis_key.prv);
     auto account1 (system.account (0));
     uint64_t work1;
-    ASSERT_TRUE (wallet->work.get (account1, work1));
+    ASSERT_FALSE (wallet->store.work_get (account1, work1));
+	ASSERT_EQ (0, work1);
     auto amount1 (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
     rai::keypair key;
     wallet->send_all (key.pub, 100);
@@ -490,7 +494,7 @@ TEST (wallet, work_generate)
         ASSERT_LT (iterations1, 200);
     }
     auto iterations2 (0);
-    while (wallet->work.get (account1, work1) || rai::work_validate (system.nodes [0]->ledger.latest_root (account1), work1))
+    while (wallet->store.work_get (account1, work1) || rai::work_validate (system.nodes [0]->ledger.latest_root (account1), work1))
     {
         system.service->poll_one ();
         system.processor.poll_one ();
@@ -506,14 +510,16 @@ TEST (wallet, startup_work)
     wallet->insert (rai::test_genesis_key.prv);
     auto account1 (system.account (0));
     uint64_t work1;
-    ASSERT_TRUE (wallet->work.get (account1, work1));
+    ASSERT_FALSE (wallet->store.work_get (account1, work1));
+	ASSERT_EQ (0, work1);
     auto iterations2 (0);
-    while (wallet->work.get (account1, work1))
+	while (work1 == 0)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations2;
-        ASSERT_LT (iterations2, 200);
+		ASSERT_LT (iterations2, 200);
+		ASSERT_FALSE (wallet->store.work_get (account1, work1));
     }
 }
 
@@ -521,7 +527,7 @@ TEST (wallet, unsynced_work)
 {
     rai::system system (24000, 1);
     auto wallet (system.wallet (0));
-	wallet->work.put (0, 0);
+	wallet->store.work_put (0, 0);
 	std::lock_guard <std::mutex> lock (wallet->mutex);
 	auto work1 (wallet->work_fetch (0, 0));
 	ASSERT_FALSE (rai::work_validate (0, work1));

@@ -460,53 +460,6 @@ void rai::publish::serialize (rai::stream & stream_a)
     block->serialize (stream_a);
 }
 
-rai::work_store::work_store (bool & init_a, boost::filesystem::path const & path_a)
-{
-    boost::system::error_code code;
-    boost::filesystem::create_directories (path_a, code);
-    if (!code)
-    {
-        leveldb::Options options;
-        options.create_if_missing = true;
-        leveldb::DB * db (nullptr);
-        auto status (leveldb::DB::Open (options, path_a.string (), &db));
-        handle.reset (db);
-        if (!status.ok ())
-        {
-            init_a = true;
-        }
-    }
-    else
-    {
-        init_a = true;
-    }
-}
-
-void rai::work_store::put (rai::public_key const & pub_a, uint64_t work_a)
-{
-    auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (pub_a.chars.data (), pub_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (&work_a), sizeof (work_a))));
-    assert (status.ok ());
-}
-
-bool rai::work_store::get (rai::public_key const & pub_a, uint64_t & work_a)
-{
-    std::string value;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (pub_a.chars.data (), pub_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
-    auto result (false);
-    if (status.ok ())
-    {
-        assert (value.size () == sizeof (uint64_t));
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
-        rai::read (stream, work_a);
-    }
-    else
-    {
-        result = true;
-    }
-    return result;
-}
-
 rai::wallet_entry::wallet_entry (leveldb::Slice const & slice_a)
 {
 	assert (slice_a.size () == sizeof (*this));
@@ -800,24 +753,35 @@ bool rai::wallet_store::move (rai::wallet_store & other_a, std::vector <rai::pub
 
 bool rai::wallet_store::work_get (rai::public_key const & pub_a, uint64_t & work_a)
 {
-	
+	auto result (false);
+	auto entry (entry_get_raw (pub_a));
+	if (!entry.key.is_zero ())
+	{
+		work_a = entry.work;
+	}
+	else
+	{
+		result = true;
+	}
+	return result;
 }
 
 void rai::wallet_store::work_put (rai::public_key const & pub_a, uint64_t work_a)
 {
-	
+	auto entry (entry_get_raw (pub_a));
+	assert (!entry.key.is_zero ());
+	entry.work = work_a;
+	entry_put_raw (pub_a, entry);
 }
 
 rai::wallet::wallet (bool & init_a, rai::node & node_a, boost::filesystem::path const & path_a) :
 store (init_a, path_a / "wallet"),
-work (init_a, path_a / "work"),
 node (node_a)
 {
 }
 
 rai::wallet::wallet (bool & init_a, rai::node & node_a, boost::filesystem::path const & path_a, std::string const & json) :
 store (init_a, path_a / "wallet", json),
-work (init_a, path_a / "work"),
 node (node_a)
 {
 }
@@ -1000,7 +964,7 @@ void rai::wallet::work_update (rai::account const & account_a, rai::block_hash c
     if (latest == root_a)
     {
         BOOST_LOG (node.log) << "Successfully cached work";
-        work.put (account_a, work_a);
+        store.work_put (account_a, work_a);
     }
     else
     {
@@ -1013,7 +977,7 @@ uint64_t rai::wallet::work_fetch (rai::account const & account_a, rai::block_has
 {
     assert (!mutex.try_lock ());
     uint64_t result;
-    auto error (work.get (account_a, result));
+    auto error (store.work_get (account_a, result));
     if (error)
     {
         result = rai::work_generate (root_a);
