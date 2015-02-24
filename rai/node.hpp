@@ -291,6 +291,17 @@ public:
     bool get (rai::public_key const &, uint64_t &);
     std::unique_ptr <leveldb::DB> handle;
 };
+class wallet_entry
+{
+public:
+	wallet_entry () = default;
+	wallet_entry (leveldb::Slice const &);
+	wallet_entry (std::string const &);
+	wallet_entry (rai::uint256_union const &);
+	leveldb::Slice slice () const;
+	rai::private_key key;
+	uint64_t work;
+};
 class wallet_store
 {
 public:
@@ -308,6 +319,7 @@ public:
     void representative_set (rai::account const &);
     rai::public_key insert (rai::private_key const &);
     void erase (rai::public_key const &);
+	rai::wallet_entry entry_get_raw (rai::public_key const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
     key_iterator find (rai::uint256_union const &);
@@ -317,6 +329,8 @@ public:
     rai::uint128_t balance (rai::ledger &);
     void serialize_json (std::string &);
     bool move (rai::wallet_store &, std::vector <rai::public_key> const &);
+	bool work_get (rai::public_key const &, uint64_t &);
+	void work_put (rai::public_key const &, uint64_t);
     rai::fan password;
     static rai::uint256_union const version_1;
     static rai::uint256_union const version_current;
