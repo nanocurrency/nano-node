@@ -5,6 +5,8 @@
 
 #include <boost/property_tree/ptree.hpp>
 
+#include <liblmdb/lmdb.h>
+
 #include <unordered_map>
 
 namespace leveldb
@@ -280,50 +282,29 @@ public:
 	rai::amount balance;
 	uint64_t time;
 };
-class account_entry
+class store_entry
 {
 public:
-	account_entry ();
-	account_entry * operator -> ();
-	rai::account first;
-	rai::frontier second;
+	store_entry ();
+	void clear ();
+	store_entry * operator -> ();
+	MDB_val first;
+	MDB_val second;
 };
-class account_iterator
+class store_iterator
 {
 public:
-	account_iterator (leveldb::DB &);
-	account_iterator (leveldb::DB &, std::nullptr_t);
-	account_iterator (leveldb::DB &, rai::account const &);
-	account_iterator (rai::account_iterator &&) = default;
-	account_iterator & operator ++ ();
-	account_iterator & operator = (rai::account_iterator &&) = default;
-	account_entry & operator -> ();
-	bool operator == (rai::account_iterator const &) const;
-	bool operator != (rai::account_iterator const &) const;
-	void set_current ();
-	std::unique_ptr <leveldb::Iterator> iterator;
-	rai::account_entry current;
-};
-class block_entry
-{
-public:
-	block_entry * operator -> ();
-	rai::block_hash first;
-	std::unique_ptr <rai::block> second;
-};
-class block_iterator
-{
-public:
-	block_iterator (leveldb::DB &);
-	block_iterator (leveldb::DB &, std::nullptr_t);
-	block_iterator (rai::block_iterator &&) = default;
-	block_iterator & operator ++ ();
-	block_entry & operator -> ();
-	bool operator == (rai::block_iterator const &) const;
-	bool operator != (rai::block_iterator const &) const;
-	void set_current ();
-	std::unique_ptr <leveldb::Iterator> iterator;
-	rai::block_entry current;
+	store_iterator (MDB_txn *, MDB_dbi);
+	store_iterator (MDB_txn *, MDB_dbi, std::nullptr_t);
+	store_iterator (MDB_txn *, MDB_dbi, MDB_val);
+	~store_iterator ();
+	rai::store_iterator & operator ++ ();
+	rai::store_iterator & operator = (rai::store_iterator &&) = default;
+	rai::store_entry & operator -> ();
+	bool operator == (rai::store_iterator const &) const;
+	bool operator != (rai::store_iterator const &) const;
+	MDB_cursor * cursor;
+	rai::store_entry current;
 };
 // Information on an uncollected send, source account, amount, target account.
 class receivable
@@ -338,76 +319,37 @@ public:
 	rai::amount amount;
 	rai::account destination;
 };
-class pending_entry
-{
-public:
-	pending_entry ();
-	pending_entry * operator -> ();
-	rai::account first;
-	rai::receivable second;
-};
-class pending_iterator
-{
-public:
-	pending_iterator (leveldb::DB &);
-	pending_iterator (leveldb::DB &, std::nullptr_t);
-	pending_iterator (rai::pending_iterator &&) = default;
-	pending_iterator & operator ++ ();
-	pending_iterator & operator = (rai::pending_iterator &&) = default;
-	pending_entry & operator -> ();
-	bool operator == (rai::pending_iterator const &) const;
-	bool operator != (rai::pending_iterator const &) const;
-	void set_current ();
-	std::unique_ptr <leveldb::Iterator> iterator;
-	rai::pending_entry current;
-};
-class hash_iterator
-{
-public:
-	hash_iterator (leveldb::DB &);
-	hash_iterator (leveldb::DB &, std::nullptr_t);
-	hash_iterator (rai::hash_iterator &&) = default;
-	hash_iterator & operator ++ ();
-	hash_iterator & operator = (rai::hash_iterator &&) = default;
-	rai::block_hash & operator * ();
-	bool operator == (rai::hash_iterator const &) const;
-	bool operator != (rai::hash_iterator const &) const;
-	void set_current ();
-	std::unique_ptr <leveldb::Iterator> iterator;
-	rai::block_hash current;
-};
-extern block_store_temp_t block_store_temp;
 class block_store
 {
 public:
-	block_store (leveldb::Status &, block_store_temp_t const &);
-	block_store (leveldb::Status &, boost::filesystem::path const &);
+	block_store (bool &, boost::filesystem::path const &);
+	~block_store ();
 	uint64_t now ();
 	
-	void block_put_raw (rai::block_hash const &, leveldb::Slice const &);
+	void block_put_raw (rai::block_hash const &, MDB_val);
 	void block_put (rai::block_hash const &, rai::block const &);
-	std::string block_get_raw (rai::block_hash const &);
+	MDB_val block_get_raw (rai::block_hash const &);
 	rai::block_hash block_successor (rai::block_hash const &);
 	std::unique_ptr <rai::block> block_get (rai::block_hash const &);
 	void block_del (rai::block_hash const &);
 	bool block_exists (rai::block_hash const &);
-	rai::block_iterator blocks_begin ();
-	rai::block_iterator blocks_end ();
+	rai::store_iterator blocks_begin ();
+	rai::store_iterator blocks_end ();
 	
 	void latest_put (rai::account const &, rai::frontier const &);
 	bool latest_get (rai::account const &, rai::frontier &);
 	void latest_del (rai::account const &);
 	bool latest_exists (rai::account const &);
-	rai::account_iterator latest_begin (rai::account const &);
-	rai::account_iterator latest_begin ();
-	rai::account_iterator latest_end ();
+	rai::store_iterator latest_begin (rai::account const &);
+	rai::store_iterator latest_begin ();
+	rai::store_iterator latest_end ();
 	
 	void pending_put (rai::block_hash const &, rai::receivable const &);
 	void pending_del (rai::block_hash const &);
 	bool pending_get (rai::block_hash const &, rai::receivable &);
 	bool pending_exists (rai::block_hash const &);
-	rai::pending_iterator pending_begin ();
-	rai::pending_iterator pending_end ();
+	rai::store_iterator pending_begin ();
+	rai::store_iterator pending_end ();
 	
 	rai::uint128_t representation_get (rai::account const &);
 	void representation_put (rai::account const &, rai::uint128_t const &);
@@ -415,14 +357,14 @@ public:
 	void unchecked_put (rai::block_hash const &, rai::block const &);
 	std::unique_ptr <rai::block> unchecked_get (rai::block_hash const &);
 	void unchecked_del (rai::block_hash const &);
-	rai::block_iterator unchecked_begin ();
-	rai::block_iterator unchecked_end ();
+	rai::store_iterator unchecked_begin ();
+	rai::store_iterator unchecked_end ();
 	
 	void unsynced_put (rai::block_hash const &);
 	void unsynced_del (rai::block_hash const &);
 	bool unsynced_exists (rai::block_hash const &);
-	rai::hash_iterator unsynced_begin ();
-	rai::hash_iterator unsynced_end ();
+	rai::store_iterator unsynced_begin ();
+	rai::store_iterator unsynced_end ();
 
 	void stack_open ();
 	void stack_push (uint64_t, rai::block_hash const &);
@@ -432,25 +374,26 @@ public:
 	bool checksum_get (uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (uint64_t, uint8_t);
 	
-	void clear (leveldb::DB &);
+	void clear (MDB_dbi);
 	
 private:
+	MDB_env * environment;
 	// account -> block_hash, representative, balance, timestamp    // Account to frontier block, representative, balance, last_change
-	std::unique_ptr <leveldb::DB> accounts;
+	MDB_dbi accounts;
 	// block_hash -> block                                          // Mapping block hash to contents
-	std::unique_ptr <leveldb::DB> blocks;
+	MDB_dbi blocks;
 	// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
-	std::unique_ptr <leveldb::DB> pending;
+	MDB_dbi pending;
 	// account -> weight                                            // Representation
-	std::unique_ptr <leveldb::DB> representation;
+	MDB_dbi representation;
 	// block_hash -> block                                          // Unchecked bootstrap blocks
-	std::unique_ptr <leveldb::DB> unchecked;
+	MDB_dbi unchecked;
 	// block_hash ->                                                // Blocks that haven't been broadcast
-	std::unique_ptr <leveldb::DB> unsynced;
+	MDB_dbi unsynced;
 	// uint64_t -> block_hash                                       // Block dependency stack while bootstrapping
-	std::unique_ptr <leveldb::DB> stack;
+	MDB_dbi stack;
 	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
-	std::unique_ptr <leveldb::DB> checksum;
+	MDB_dbi checksum;
 };
 enum class process_result
 {

@@ -3554,12 +3554,6 @@ void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec,
     }
 }
 
-rai::account_iterator rai::block_store::latest_begin (rai::account const & account_a)
-{
-    rai::account_iterator result (*accounts, account_a);
-    return result;
-}
-
 rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::function <void ()> const & completion_action_a) :
 node (node_a),
 socket (node_a->network.service),

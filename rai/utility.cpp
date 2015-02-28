@@ -5,7 +5,7 @@
 
 #include <ed25519-donna/ed25519.h>
 
-#include <leveldb/db.h>
+#include <liblmdb/lmdb.h>
 
 CryptoPP::AutoSeededRandomPool rai::random_pool;
 
@@ -414,15 +414,6 @@ rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
     qwords [2] = number_l.convert_to <uint64_t> ();
     number_l >>= 64;
     qwords [3] = number_l.convert_to <uint64_t> ();
-}
-
-rai::uint256_union & rai::uint256_union::operator = (leveldb::Slice const & slice_a)
-{
-    assert (slice_a.size () == 32);
-    rai::bufferstream stream (reinterpret_cast <uint8_t const *> (slice_a.data ()), slice_a.size ());
-    auto error (rai::read (stream, *this));
-    assert (!error);
-    return *this;
 }
 
 bool rai::uint512_union::operator == (rai::uint512_union const & other_a) const

@@ -85,7 +85,6 @@ union uint256_union
 	uint256_union (rai::uint256_t const &);
 	uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
 	uint256_union prv (uint256_union const &, uint128_union const &) const;
-	uint256_union & operator = (leveldb::Slice const &);
 	uint256_union & operator ^= (rai::uint256_union const &);
 	uint256_union operator ^ (rai::uint256_union const &) const;
 	bool operator == (rai::uint256_union const &) const;
