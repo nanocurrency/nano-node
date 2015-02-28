@@ -238,21 +238,13 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
     return result;
 }
 
-rai::ledger::ledger (bool & init_a, leveldb::Status const & store_init_a, rai::block_store & store_a) :
+rai::ledger::ledger (rai::block_store & store_a) :
 store (store_a),
 send_observer ([] (rai::send_block const &, rai::account const &, rai::amount const &) {}),
 receive_observer ([] (rai::receive_block const &, rai::account const &, rai::amount const &) {}),
 open_observer ([] (rai::open_block const &, rai::account const &, rai::amount const &, rai::account const &) {}),
 change_observer ([] (rai::change_block const &, rai::account const &, rai::account const &) {})
 {
-    if (store_init_a.ok ())
-    {
-        init_a = false;
-    }
-    else
-    {
-        init_a = true;
-    }
 }
 
 void rai::send_block::visit (rai::block_visitor & visitor_a) const
@@ -795,6 +787,12 @@ std::unique_ptr <rai::block> rai::deserialize_block_json (boost::property_tree::
     {
     }
     return result;
+}
+
+std::unique_ptr <rai::block> rai::deserialize_block (MDB_val const & val_a)
+{
+	rai::bufferstream stream (reinterpret_cast <uint8_t const *> (val_a.mv_data), val_a.mv_size);
+	return deserialize_block (stream);
 }
 
 std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
@@ -1361,6 +1359,12 @@ time (0)
 {
 }
 
+rai::frontier::frontier (MDB_val const & val_a)
+{
+	static_assert (sizeof (hash) + sizeof (representative) + sizeof (balance) + sizeof (time) == sizeof (*this), "Class not packed");
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, reinterpret_cast <uint8_t *> (this));
+}
+
 rai::frontier::frontier (rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a, uint64_t time_a) :
 hash (hash_a),
 representative (representative_a),
@@ -1405,6 +1409,11 @@ bool rai::frontier::operator != (rai::frontier const & other_a) const
     return ! (*this == other_a);
 }
 
+rai::mdb_val rai::frontier::val () const
+{
+	return rai::mdb_val (sizeof (*this), const_cast <rai::frontier *> (this));
+}
+
 rai::store_entry::store_entry ()
 {
 	clear ();
@@ -1426,25 +1435,29 @@ rai::store_entry & rai::store_iterator::operator -> ()
     return current;
 }
 
-rai::store_iterator::store_iterator (MDB_txn * txn_a, MDB_dbi db_a) :
+rai::store_iterator::store_iterator (MDB_env * environment_a, MDB_dbi db_a) :
+transaction (environment_a, nullptr, false),
 cursor (nullptr)
 {
-	auto status (mdb_cursor_open (txn_a, db_a, &cursor));
+	auto status (mdb_cursor_open (transaction, db_a, &cursor));
 	assert (status == 0);
 	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_FIRST));
 	assert (status2 == 0 || status2 == MDB_NOTFOUND);
 }
 
-rai::store_iterator::store_iterator (MDB_txn * txn_a, MDB_dbi db_a, std::nullptr_t) :
+rai::store_iterator::store_iterator (MDB_env * environment_a, MDB_dbi db_a, std::nullptr_t) :
+transaction (environment_a, nullptr, false),
 cursor (nullptr)
 {
 }
 
-rai::store_iterator::store_iterator (MDB_txn * txn_a, MDB_dbi db_a, MDB_val) :
+rai::store_iterator::store_iterator (MDB_env * environment_a, MDB_dbi db_a, MDB_val const & val_a) :
+transaction (environment_a, nullptr, false),
 cursor (nullptr)
 {
-	auto status (mdb_cursor_open (txn_a, db_a, &cursor));
+	auto status (mdb_cursor_open (transaction, db_a, &cursor));
 	assert (status == 0);
+	current.first = val_a;
 	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_FIRST));
 	assert (status2 == 0 || status2 == MDB_NOTFOUND);
 }
@@ -1483,7 +1496,7 @@ bool rai::store_iterator::operator != (rai::store_iterator const & other_a) cons
 }
 
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a) :
-environment (nullptr),
+environment (path_a),
 accounts (0),
 blocks (0),
 pending (0),
@@ -1493,116 +1506,25 @@ unsynced (0),
 stack (0),
 checksum (0)
 {
+	error_a = error_a || mdb_dbi_open (nullptr, "accounts", MDB_CREATE, &accounts) != 0;
+	error_a = error_a || mdb_dbi_open (nullptr, "blocks", MDB_CREATE, &blocks) != 0;
+	error_a = error_a || mdb_dbi_open (nullptr, "pending", MDB_CREATE, &pending) != 0;
+	error_a = error_a || mdb_dbi_open (nullptr, "representation", MDB_CREATE, &representation) != 0;
+	error_a = error_a || mdb_dbi_open (nullptr, "unchecked", MDB_CREATE, &unchecked) != 0;
+	error_a = error_a || mdb_dbi_open (nullptr, "unsynced", MDB_CREATE, &unsynced) != 0;
+	error_a = error_a || mdb_dbi_open (nullptr, "stack", MDB_CREATE, &stack) != 0;
+	error_a = error_a || mdb_dbi_open (nullptr, "checksum", MDB_CREATE, &checksum) != 0;
 	if (!error_a)
 	{
-		auto error (mdb_env_create (&environment));
-		if (error == 0)
-		{
-			auto status (mdb_env_open (environment, path_a.string ().c_str (), 0, 00600));
-			if (status == 0)
-			{
-				auto status (mdb_dbi_open (nullptr, "accounts", MDB_CREATE, &accounts));
-				if (status == 0)
-				{
-					auto status (mdb_dbi_open (nullptr, "blocks", MDB_CREATE, &blocks));
-					if (status == 0)
-					{
-						auto status (mdb_dbi_open (nullptr, "pending", MDB_CREATE, &pending));
-						if (status == 0)
-						{
-							auto status (mdb_dbi_open (nullptr, "representation", MDB_CREATE, &representation));
-							if (status == 0)
-							{
-								auto status (mdb_dbi_open (nullptr, "unchecked", MDB_CREATE, &unchecked));
-								if (status == 0)
-								{
-									auto status (mdb_dbi_open (nullptr, "unsynced", MDB_CREATE, &unsynced));
-									if (status == 0)
-									{
-										auto status (mdb_dbi_open (nullptr, "stack", MDB_CREATE, &stack));
-										if (status == 0)
-										{
-											auto status (mdb_dbi_open (nullptr, "checksum", MDB_CREATE, &checksum));
-											if (status == 0)
-											{
-												checksum_put (0, 0, 0);
-											}
-											else
-											{
-												error_a = true;
-											}
-										}
-										else
-										{
-											error_a = true;
-										}
-									}
-									else
-									{
-										error_a = true;
-									}
-								}
-								else
-								{
-									error_a = true;
-								}
-							}
-							else
-							{
-								error_a = true;
-							}
-						}
-						else
-						{
-							error_a = true;
-						}
-					}
-					else
-					{
-						error_a = true;
-					}
-				}
-				else
-				{
-					error_a = true;
-				}
-			}
-			else
-			{
-				error_a = true;
-			}
-		}
-		else
-		{
-			error_a = true;
-		}
-	}
-}
-
-rai::block_store::~block_store ()
-{
-	if (environment != nullptr)
-	{
-		mdb_env_close (environment);
+		checksum_put (0, 0, 0);
 	}
 }
 
 void rai::block_store::clear (MDB_dbi db_a)
 {
-	MDB_txn * transaction;
-	auto status1 (mdb_txn_begin (environment, nullptr, 0, &transaction));
-	assert (status1 == 0);
-	MDB_cursor * cursor;
-	auto status2 (mdb_cursor_open (transaction, db_a, &cursor));
-	assert (status2 == 0);
-	MDB_val key ({0, nullptr});
-	MDB_val value ({0, nullptr});
-	auto status (mdb_cursor_get (cursor, &key, &value, MDB_FIRST));
-	while (status == 0)
-	{
-		auto status3 (mdb_cursor_del (cursor, 0));
-		assert (status3 == 0);
-	}
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_drop (transaction, db_a, 0));
+	assert (status == 0);
 }
 
 namespace
@@ -1620,7 +1542,7 @@ public:
 		auto hash (block_a.hash ());
 		auto value (store.block_get_raw (block_a.previous ()));
 		assert (value.mv_size != 0);
-		std::copy (hash.bytes.begin (), hash.bytes.end (), static_cast <uint8_t const *> (value.mv_data) + value.mv_size - hash.bytes.size ());
+		std::copy (hash.bytes.begin (), hash.bytes.end (), static_cast <uint8_t *> (value.mv_data) + value.mv_size - hash.bytes.size ());
 		store.block_put_raw (block_a.previous (), value);
 		assert (store.block_successor (block_a.previous ()) == hash);
 	}
@@ -1663,27 +1585,29 @@ void rai::block_store::block_put (rai::block_hash const & hash_a, rai::block con
 		rai::block_hash successor (0);
 		rai::write (stream, successor.bytes);
     }
-	block_put_raw (hash_a, {vector.data (), vector.size ()});
+	block_put_raw (hash_a, {vector.size (), vector.data ()});
 	set_predecessor predecessor (*this);
 	block_a.visit (predecessor);
 }
 
-std::string rai::block_store::block_get_raw (rai::block_hash const & hash_a)
+MDB_val rai::block_store::block_get_raw (rai::block_hash const & hash_a)
 {
-    std::string value;
-    auto status (blocks->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
-	return value;
+	rai::transaction transaction (environment, nullptr, false);
+	MDB_val result;
+	auto status (mdb_get (transaction, blocks, hash_a.val (), &result));
+	assert (status == 0 || status == MDB_NOTFOUND);
+	assert ((status == MDB_NOTFOUND) == (result.mv_size == 0) == (result.mv_data == nullptr));
+	return result;
 }
 
 rai::block_hash rai::block_store::block_successor (rai::block_hash const & hash_a)
 {
 	auto value (block_get_raw (hash_a));
 	rai::block_hash result;
-	if (!value.empty ())
+	if (value.mv_size != 0)
 	{
-		assert (value.size () >= result.bytes.size ());
-		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data () + value.size () - result.bytes.size ()), result.bytes.size ());
+		assert (value.mv_size >= result.bytes.size ());
+		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data) + value.mv_size - result.bytes.size (), result.bytes.size ());
 		auto error (rai::read (stream, result.bytes));
 		assert (!error);
 	}
@@ -1698,9 +1622,9 @@ std::unique_ptr <rai::block> rai::block_store::block_get (rai::block_hash const 
 {
 	auto value (block_get_raw (hash_a));
     std::unique_ptr <rai::block> result;
-    if (!value.empty ())
+    if (value.mv_size != 0)
     {
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
         result = rai::deserialize_block (stream);
         assert (result != nullptr);
     }
@@ -1709,65 +1633,44 @@ std::unique_ptr <rai::block> rai::block_store::block_get (rai::block_hash const 
 
 void rai::block_store::block_del (rai::block_hash const & hash_a)
 {
-    auto status (blocks->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_del (transaction, blocks, hash_a.val (), nullptr));
+    assert (status == 0);
 }
 
 bool rai::block_store::block_exists (rai::block_hash const & hash_a)
 {
-    bool result;
-    std::unique_ptr <leveldb::Iterator> iterator (blocks->NewIterator (leveldb::ReadOptions ()));
-    iterator->Seek (leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
-    if (iterator->Valid ())
-    {
-        rai::block_hash hash;
-        hash = iterator->key ();
-        result = hash == hash_a;
-    }
-    else
-    {
-        result = false;
-    }
-    return result;
+	auto iterator (blocks_begin (hash_a));
+	return rai::uint256_union (iterator->first) == hash_a;
 }
 
 void rai::block_store::latest_del (rai::account const & account_a)
 {
-    auto status (accounts->Delete (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_del (transaction, accounts, account_a.val (), nullptr));
+    assert (status == 0);
 }
 
 bool rai::block_store::latest_exists (rai::account const & account_a)
 {
-    std::unique_ptr <leveldb::Iterator> existing (accounts->NewIterator (leveldb::ReadOptions {}));
-    existing->Seek (leveldb::Slice (account_a.chars.data (), account_a.chars.size ()));
-    bool result;
-    if (existing->Valid ())
-    {
-        rai::account account;
-        account = existing->key ();
-        result = account == account_a;
-    }
-    else
-    {
-        result = false;
-    }
-    return result;
+	auto iterator (latest_begin (account_a));
+	return rai::account (iterator->first) == account_a;
 }
 
 bool rai::block_store::latest_get (rai::account const & account_a, rai::frontier & frontier_a)
 {
-    std::string value;
-    auto status (accounts->Get (leveldb::ReadOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
+	rai::transaction transaction (environment, nullptr, false);
+	MDB_val value;
+	auto status (mdb_get (transaction, accounts, account_a.val (), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
     bool result;
-    if (status.IsNotFound ())
+    if (status == MDB_NOTFOUND)
     {
         result = true;
     }
     else
     {
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
         result = frontier_a.deserialize (stream);
         assert (!result);
     }
@@ -1781,8 +1684,9 @@ void rai::block_store::latest_put (rai::account const & account_a, rai::frontier
         rai::vectorstream stream (vector);
         frontier_a.serialize (stream);
     }
-    auto status (accounts->Put (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, accounts, account_a.val (), frontier_a.val (), 0));
+    assert (status == 0);
 }
 
 void rai::block_store::pending_put (rai::block_hash const & hash_a, rai::receivable const & receivable_a)
@@ -1794,49 +1698,40 @@ void rai::block_store::pending_put (rai::block_hash const & hash_a, rai::receiva
         rai::write (stream, receivable_a.amount);
         rai::write (stream, receivable_a.destination);
     }
-    auto status (pending->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, pending, hash_a.val (), receivable_a.val (), 0));
+    assert (status == 0);
 }
 
 void rai::block_store::pending_del (rai::block_hash const & hash_a)
 {
-    auto status (pending->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_del (transaction, pending, hash_a.val (), nullptr));
+    assert (status == 0);
 }
 
 bool rai::block_store::pending_exists (rai::block_hash const & hash_a)
 {
-    std::unique_ptr <leveldb::Iterator> iterator (pending->NewIterator (leveldb::ReadOptions {}));
-    iterator->Seek (leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
-    bool result;
-    if (iterator->Valid ())
-    {
-        rai::block_hash hash;
-        hash = iterator->key ();
-        result = hash == hash_a;
-    }
-    else
-    {
-        result = false;
-    }
-    return result;
+	auto iterator (pending_begin (hash_a));
+    return rai::block_hash (iterator->first) == hash_a;
 }
 
 bool rai::block_store::pending_get (rai::block_hash const & hash_a, rai::receivable & receivable_a)
 {
-    std::string value;
-    auto status (pending->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
+	rai::transaction transaction (environment, nullptr, false);
+	MDB_val value;
+	auto status (mdb_get (transaction, pending, hash_a.val (), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
     bool result;
-    if (status.IsNotFound ())
+    if (status == MDB_NOTFOUND)
     {
         result = true;
     }
     else
     {
         result = false;
-        assert (value.size () == sizeof (receivable_a.source.bytes) + sizeof (receivable_a.amount.bytes) + sizeof (receivable_a.destination.bytes));
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        assert (value.mv_size == sizeof (receivable_a.source.bytes) + sizeof (receivable_a.amount.bytes) + sizeof (receivable_a.destination.bytes));
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
         auto error1 (rai::read (stream, receivable_a.source));
         assert (!error1);
         auto error2 (rai::read (stream, receivable_a.amount));
@@ -1847,15 +1742,21 @@ bool rai::block_store::pending_get (rai::block_hash const & hash_a, rai::receiva
     return result;
 }
 
-rai::pending_iterator rai::block_store::pending_begin ()
+rai::store_iterator rai::block_store::pending_begin (rai::block_hash const & hash_a)
 {
-    rai::pending_iterator result (*pending);
+	rai::store_iterator result (environment, pending, hash_a.val ());
+	return result;
+}
+
+rai::store_iterator rai::block_store::pending_begin ()
+{
+    rai::store_iterator result (environment, pending);
     return result;
 }
 
-rai::pending_iterator rai::block_store::pending_end ()
+rai::store_iterator rai::block_store::pending_end ()
 {
-    rai::pending_iterator result (*pending, nullptr);
+    rai::store_iterator result (environment, pending, nullptr);
     return result;
 }
 
@@ -1864,6 +1765,12 @@ source (0),
 amount (0),
 destination (0)
 {
+}
+
+rai::receivable::receivable (MDB_val const & val_a)
+{
+	static_assert (sizeof (source) + sizeof (amount) + sizeof (destination) == sizeof (*this), "Packed class");
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, reinterpret_cast <uint8_t *> (this));
 }
 
 rai::receivable::receivable (rai::account const & source_a, rai::amount const & amount_a, rai::account const & destination_a) :
@@ -1899,82 +1806,22 @@ bool rai::receivable::operator == (rai::receivable const & other_a) const
     return source == other_a.source && amount == other_a.amount && destination == other_a.destination;
 }
 
-rai::pending_entry::pending_entry () :
-second (0, 0, 0)
+rai::mdb_val rai::receivable::val () const
 {
-}
-
-rai::pending_entry * rai::pending_entry::operator -> ()
-{
-    return this;
-}
-
-rai::pending_entry & rai::pending_iterator::operator -> ()
-{
-    return current;
-}
-
-rai::pending_iterator::pending_iterator (leveldb::DB & db_a) :
-iterator (db_a.NewIterator (leveldb::ReadOptions ()))
-{
-    iterator->SeekToFirst ();
-    set_current ();
-}
-
-rai::pending_iterator::pending_iterator (leveldb::DB & db_a, std::nullptr_t) :
-iterator (db_a.NewIterator (leveldb::ReadOptions ()))
-{
-    set_current ();
-}
-
-void rai::pending_iterator::set_current ()
-{
-    if (iterator->Valid ())
-    {
-        current.first = iterator->key ();
-        auto slice (iterator->value ());
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (slice.data ()), slice.size ());
-        auto error (current.second.deserialize (stream));
-        assert (!error);
-    }
-    else
-    {
-        current.first.clear ();
-        current.second.source.clear ();
-        current.second.amount.clear ();
-        current.second.destination.clear ();
-    }
-}
-
-rai::pending_iterator & rai::pending_iterator::operator ++ ()
-{
-    iterator->Next ();
-    set_current ();
-    return *this;
-}
-
-bool rai::pending_iterator::operator == (rai::pending_iterator const & other_a) const
-{
-    auto lhs_valid (iterator->Valid ());
-    auto rhs_valid (other_a.iterator->Valid ());
-    return (!lhs_valid && !rhs_valid) || (lhs_valid && rhs_valid && current.first == other_a.current.first);
-}
-
-bool rai::pending_iterator::operator != (rai::pending_iterator const & other_a) const
-{
-    return !(*this == other_a);
+	return rai::mdb_val (sizeof (*this), const_cast <rai::receivable *> (this));
 }
 
 rai::uint128_t rai::block_store::representation_get (rai::account const & account_a)
 {
-    std::string value;
-    auto status (representation->Get (leveldb::ReadOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
+	rai::transaction transaction (environment, nullptr, false);
+	MDB_val value;
+	auto status (mdb_get (transaction, representation, account_a.val (), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
     rai::uint128_t result;
-    if (status.ok ())
+    if (status == 0)
     {
         rai::uint128_union rep;
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
         auto error (rai::read (stream, rep));
         assert (!error);
         result = rep.number ();
@@ -1989,8 +1836,9 @@ rai::uint128_t rai::block_store::representation_get (rai::account const & accoun
 void rai::block_store::representation_put (rai::account const & account_a, rai::uint128_t const & representation_a)
 {
     rai::uint128_union rep (representation_a);
-    auto status (representation->Put (leveldb::WriteOptions (), leveldb::Slice (account_a.chars.data (), account_a.chars.size ()), leveldb::Slice (rep.chars.data (), rep.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, representation, account_a.val (), rep.val (), 0));
+    assert (status == 0);
 }
 
 void rai::block_store::unchecked_put (rai::block_hash const & hash_a, rai::block const & block_a)
@@ -2000,19 +1848,21 @@ void rai::block_store::unchecked_put (rai::block_hash const & hash_a, rai::block
         rai::vectorstream stream (vector);
         rai::serialize_block (stream, block_a);
     }
-    auto status (unchecked->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (reinterpret_cast <char const *> (vector.data ()), vector.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, unchecked, hash_a.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
+	assert (status == 0);
 }
 
 std::unique_ptr <rai::block> rai::block_store::unchecked_get (rai::block_hash const & hash_a)
 {
-    std::string value;
-    auto status (unchecked->Get (leveldb::ReadOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), &value));
-    assert (status.ok () || status.IsNotFound ());
+	rai::transaction transaction (environment, nullptr, false);
+	MDB_val value;
+	auto status (mdb_get (transaction, unchecked, hash_a.val (), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
     std::unique_ptr <rai::block> result;
-    if (status.ok ())
+    if (status == 0)
     {
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
         result = rai::deserialize_block (stream);
         assert (result != nullptr);
     }
@@ -2021,75 +1871,76 @@ std::unique_ptr <rai::block> rai::block_store::unchecked_get (rai::block_hash co
 
 void rai::block_store::unchecked_del (rai::block_hash const & hash_a)
 {
-    auto status (unchecked->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_del (transaction, unchecked, hash_a.val (), nullptr));
+	assert (status == 0);
 }
 
-rai::block_iterator rai::block_store::unchecked_begin ()
+rai::store_iterator rai::block_store::unchecked_begin ()
 {
-    rai::block_iterator result (*unchecked);
+    rai::store_iterator result (environment, unchecked);
     return result;
 }
 
-rai::block_iterator rai::block_store::unchecked_end ()
+rai::store_iterator rai::block_store::unchecked_end ()
 {
-    rai::block_iterator result (*unchecked, nullptr);
+    rai::store_iterator result (environment, unchecked, nullptr);
     return result;
 }
 
 void rai::block_store::unsynced_put (rai::block_hash const & hash_a)
 {
-    auto status (unsynced->Put (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()), leveldb::Slice (nullptr, 0)));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, unsynced, hash_a.val (), rai::mdb_val (0, nullptr), 0));
+	assert (status == 0);
 }
 
 void rai::block_store::unsynced_del (rai::block_hash const & hash_a)
 {
-    auto status (unsynced->Delete (leveldb::WriteOptions (), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_del (transaction, unsynced, hash_a.val (), nullptr));
+	assert (status == 0);
 }
 
 bool rai::block_store::unsynced_exists (rai::block_hash const & hash_a)
 {
-    std::unique_ptr <leveldb::Iterator> existing (unsynced->NewIterator (leveldb::ReadOptions {}));
-    existing->Seek (leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
-    bool result;
-    if (existing->Valid ())
-    {
-        rai::block_hash hash;
-        hash = existing->key ();
-        result = hash == hash_a;
-    }
-    else
-    {
-        result = false;
-    }
-    return result;
+	auto iterator (unsynced_begin (hash_a));
+	return rai::block_hash (iterator->first) == hash_a;
 }
 
-rai::hash_iterator rai::block_store::unsynced_begin ()
+rai::store_iterator rai::block_store::unsynced_begin ()
 {
-    return rai::hash_iterator (*unsynced);
+    return rai::store_iterator (environment, unsynced);
 }
 
-rai::hash_iterator rai::block_store::unsynced_end ()
+rai::store_iterator rai::block_store::unsynced_begin (rai::uint256_union const & val_a)
 {
-    return rai::hash_iterator (*unsynced, nullptr);
+	return rai::store_iterator (environment, unsynced, val_a.val ());
+}
+
+rai::store_iterator rai::block_store::unsynced_end ()
+{
+    return rai::store_iterator (environment, unsynced, nullptr);
 }
 
 void rai::block_store::stack_push (uint64_t key_a, rai::block_hash const & hash_a)
 {
-    stack->Put (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key_a), sizeof (key_a)), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ()));
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, stack, rai::mdb_val (sizeof (key_a), &key_a), hash_a.val (), 0));
+	assert (status == 0);
 }
 
 rai::block_hash rai::block_store::stack_pop (uint64_t key_a)
 {
-    rai::block_hash result;
-    std::string value;
-    stack->Get (leveldb::ReadOptions (), leveldb::Slice (reinterpret_cast<char const *> (&key_a), sizeof (key_a)), &value);
-    assert (value.size () == result.chars.size ());
-    std::copy (value.data (), value.data () + value.size (), result.chars.data ());
-    stack->Delete (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast<char const *> (&key_a), sizeof (key_a)));
+	rai::transaction transaction (environment, nullptr, true);
+	MDB_val value;
+	auto status (mdb_get (transaction, stack, rai::mdb_val (sizeof (key_a), &key_a), &value));
+	assert (status == 0);
+	rai::block_hash result;
+	assert (value.mv_size == result.chars.size ());
+    std::copy (reinterpret_cast <uint8_t const *> (value.mv_data), reinterpret_cast <uint8_t const *> (value.mv_data) + value.mv_size, result.chars.data ());
+	auto status2 (mdb_del (transaction, stack, rai::mdb_val (sizeof (key_a), &key_a), nullptr));
+	assert (status2 == 0);
     return result;
 }
 
@@ -2097,22 +1948,24 @@ void rai::block_store::checksum_put (uint64_t prefix, uint8_t mask, rai::uint256
 {
     assert ((prefix & 0xff) == 0);
     uint64_t key (prefix | mask);
-    auto status (checksum->Put (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)), leveldb::Slice (hash_a.chars.data (), hash_a.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, checksum, rai::mdb_val (sizeof (key), &key), hash_a.val (), 0));
+	assert (status == 0);
 }
 
 bool rai::block_store::checksum_get (uint64_t prefix, uint8_t mask, rai::uint256_union & hash_a)
 {
     assert ((prefix & 0xff) == 0);
-    std::string value;
     uint64_t key (prefix | mask);
-    auto status (checksum->Get (leveldb::ReadOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)), &value));
-    assert (status.ok () || status.IsNotFound ());
+	rai::transaction transaction (environment, nullptr, false);
+	MDB_val value;
+	auto status (mdb_get (transaction, checksum, rai::mdb_val (sizeof (key), &key), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
     bool result;
-    if (status.ok ())
+    if (status == 0)
     {
         result = false;
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.data ()), value.size ());
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
         auto error (rai::read (stream, hash_a));
         assert (!error);
     }
@@ -2127,7 +1980,9 @@ void rai::block_store::checksum_del (uint64_t prefix, uint8_t mask)
 {
     assert ((prefix & 0xff) == 0);
     uint64_t key (prefix | mask);
-    checksum->Delete (leveldb::WriteOptions (), leveldb::Slice (reinterpret_cast <char const *> (&key), sizeof (uint64_t)));
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_del (transaction, checksum, rai::mdb_val (sizeof (key), &key), nullptr));
+	assert (status == 0);
 }
 
 namespace
@@ -2178,33 +2033,39 @@ public:
 };
 }
 
-rai::block_iterator rai::block_store::blocks_begin ()
+rai::store_iterator rai::block_store::blocks_begin (rai::uint256_union const & hash_a)
 {
-    rai::block_iterator result (*blocks);
+	rai::store_iterator result (environment, blocks, hash_a.val ());
+	return result;
+}
+
+rai::store_iterator rai::block_store::blocks_begin ()
+{
+    rai::store_iterator result (environment, blocks);
     return result;
 }
 
-rai::block_iterator rai::block_store::blocks_end ()
+rai::store_iterator rai::block_store::blocks_end ()
 {
-    rai::block_iterator result (*blocks, nullptr);
+    rai::store_iterator result (environment, blocks, nullptr);
     return result;
 }
 
-rai::account_iterator rai::block_store::latest_begin (rai::account const & account_a)
+rai::store_iterator rai::block_store::latest_begin (rai::account const & account_a)
 {
-    rai::account_iterator result (*accounts, account_a);
+    rai::store_iterator result (environment, accounts, account_a.val ());
     return result;
 }
 
-rai::account_iterator rai::block_store::latest_begin ()
+rai::store_iterator rai::block_store::latest_begin ()
 {
-    rai::account_iterator result (*accounts);
+    rai::store_iterator result (environment, accounts);
     return result;
 }
 
-rai::account_iterator rai::block_store::latest_end ()
+rai::store_iterator rai::block_store::latest_end ()
 {
-    rai::account_iterator result (*accounts, nullptr);
+    rai::store_iterator result (environment, accounts, nullptr);
     return result;
 }
 

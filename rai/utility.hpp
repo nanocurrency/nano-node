@@ -12,6 +12,8 @@
 
 #include <cryptopp/osrng.h>
 
+#include <liblmdb/lmdb.h>
+
 namespace leveldb
 {
 class Slice;
@@ -55,6 +57,30 @@ using uint512_t = boost::multiprecision::uint512_t;
 rai::uint128_t const scale_64bit_base10 = rai::uint128_t ("100000000000000000000");
 uint64_t scale_down (rai::uint128_t const &);
 rai::uint128_t scale_up (uint64_t);
+class mdb_env
+{
+public:
+	mdb_env (boost::filesystem::path const &);
+	~mdb_env ();
+	operator MDB_env * () const;
+	MDB_env * environment;
+};
+class mdb_val
+{
+public:
+	mdb_val (size_t, void *);
+	operator MDB_val * () const;
+	operator MDB_val const & () const;
+	MDB_val value;
+};
+class transaction
+{
+public:
+	transaction (MDB_env *, MDB_txn *, bool);
+	~transaction ();
+	operator MDB_txn * () const;
+	MDB_txn * handle;
+};
 union uint128_union
 {
 public:
@@ -70,6 +96,7 @@ public:
 	rai::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
+	rai::mdb_val val () const;
 	std::array <uint8_t, 16> bytes;
 	std::array <char, 16> chars;
 	std::array <uint32_t, 4> dwords;
@@ -84,12 +111,14 @@ union uint256_union
 	uint256_union (uint64_t, uint64_t = 0, uint64_t = 0, uint64_t = 0);
 	uint256_union (rai::uint256_t const &);
 	uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
+	uint256_union (MDB_val const &);
 	uint256_union prv (uint256_union const &, uint128_union const &) const;
 	uint256_union & operator ^= (rai::uint256_union const &);
 	uint256_union operator ^ (rai::uint256_union const &) const;
 	bool operator == (rai::uint256_union const &) const;
 	bool operator != (rai::uint256_union const &) const;
 	bool operator < (rai::uint256_union const &) const;
+	rai::mdb_val val () const;
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;

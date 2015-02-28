@@ -712,10 +712,11 @@ void rai_qt::advanced_actions::refresh_ledger ()
     for (auto i (wallet.node.ledger.store.latest_begin()), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
-        items.push_back (new QStandardItem (QString (i->first.to_base58check ().c_str ())));
-        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (wallet.node.ledger.balance (i->second.hash))).c_str ())));
+        items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_base58check ().c_str ())));
+		auto hash (rai::frontier (i->second).hash);
+        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (wallet.node.ledger.balance (hash))).c_str ())));
         std::string block_hash;
-        i->second.hash.encode_hex (block_hash);
+        hash.encode_hex (block_hash);
         items.push_back (new QStandardItem (QString (block_hash.c_str ())));
         ledger_model->appendRow (items);
     }

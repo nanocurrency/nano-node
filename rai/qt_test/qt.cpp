@@ -334,14 +334,12 @@ TEST (wallet, create_change)
 
 TEST (history, short_text)
 {
-	leveldb::Status init;
-	rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+	bool init;
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
 	rai::genesis genesis;
 	genesis.initialize (store);
-	bool init1;
-	rai::ledger ledger (init1, init, store);
-	ASSERT_FALSE (init1);
+	rai::ledger ledger (store);
 	rai::keypair key;
 	rai::send_block send (rai::test_genesis_key.pub, ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (ledger.latest (rai::test_genesis_key.pub)));
 	ASSERT_EQ (rai::process_result::progress, ledger.process (send));

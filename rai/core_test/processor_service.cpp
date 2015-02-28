@@ -7,12 +7,10 @@
 
 TEST (processor_service, bad_send_signature)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
-    bool init1;
-    rai::ledger ledger (init1, init, store);
-    ASSERT_FALSE (init1);
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
+    rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;
@@ -26,12 +24,10 @@ TEST (processor_service, bad_send_signature)
 
 TEST (processor_service, bad_receive_signature)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
-    bool init1;
-    rai::ledger ledger (init1, init, store);
-    ASSERT_FALSE (init1);
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
+    rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);
     rai::frontier frontier1;

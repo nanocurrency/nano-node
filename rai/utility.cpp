@@ -56,6 +56,58 @@ rai::uint128_t rai::scale_up (uint64_t amount_a)
     return rai::scale_64bit_base10 * amount_a;
 }
 
+rai::mdb_env::mdb_env (boost::filesystem::path const & path_a)
+{
+	auto status1 (mdb_env_create (&environment));
+	assert (status1 == 0);
+	auto status2 (mdb_env_set_maxdbs (environment, 128));
+	assert (status2 == 0);
+	auto status3 (mdb_env_open (environment, path_a.string ().c_str (), 0, 00600));
+	assert (status3 == 0);
+}
+
+rai::mdb_env::~mdb_env ()
+{
+}
+
+rai::mdb_env::operator MDB_env * () const
+{
+	return environment;
+}
+
+rai::mdb_val::mdb_val (size_t size_a, void * data_a) :
+value ({size_a, data_a})
+{
+}
+
+rai::mdb_val::operator MDB_val * () const
+{
+	// Allow passing a temporary to a non-c++ function which doesn't have constness
+	return const_cast <MDB_val *> (&value);
+};
+
+rai::mdb_val::operator MDB_val const & () const
+{
+	return value;
+}
+
+rai::transaction::transaction (MDB_env * environment_a, MDB_txn * parent_a, bool write)
+{
+	auto status (mdb_txn_begin (environment_a, parent_a, write ? 0 : MDB_RDONLY, &handle));
+	assert (status == 0);
+}
+
+rai::transaction::~transaction ()
+{
+	auto status (mdb_txn_commit (handle));
+	assert (status == 0);
+}
+
+rai::transaction::operator MDB_txn * () const
+{
+	return handle;
+}
+
 rai::uint128_union::uint128_union (uint64_t value_a)
 {
     qwords [0] = value_a;
@@ -154,6 +206,11 @@ bool rai::uint128_union::is_zero () const
     return qwords [0] == 0 && qwords [1] == 0;
 }
 
+rai::mdb_val rai::uint128_union::val () const
+{
+	return rai::mdb_val (sizeof (*this), const_cast <rai::uint128_union *> (this));
+}
+
 bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const
 {
 	return bytes == other_a.bytes;
@@ -166,6 +223,12 @@ rai::uint256_union::uint256_union (rai::private_key const & cleartext, rai::secr
 	CryptoPP::AES::Encryption alg (key.bytes.data (), sizeof (key.bytes));
     CryptoPP::CTR_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
 	enc.ProcessData (bytes.data (), exponent.bytes.data (), sizeof (exponent.bytes));
+}
+
+rai::uint256_union::uint256_union (MDB_val const & val_a)
+{
+	static_assert (sizeof (bytes) == sizeof (*this), "Class not packed");
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, bytes.data ());
 }
 
 // Return a uint256_union = AES_DEC_CTR (this, key, iv)
@@ -236,6 +299,11 @@ rai::uint256_t rai::uint256_union::number () const
     result <<= 64;
     result |= qwords [0];
     return result;
+}
+
+rai::mdb_val rai::uint256_union::val () const
+{
+	return rai::mdb_val (bytes.size (), const_cast <uint8_t *> (bytes.data ()));
 }
 
 void rai::uint256_union::encode_hex (std::string & text) const

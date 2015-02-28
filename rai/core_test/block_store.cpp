@@ -5,18 +5,18 @@
 
 TEST (block_store, construction)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     auto now (db.now ());
     ASSERT_GT (now, 1408074640);
 }
 
 TEST (block_store, add_item)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::open_block block (0, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
     auto latest1 (db.block_get (hash1));
@@ -34,9 +34,9 @@ TEST (block_store, add_item)
 
 TEST (block_store, add_nonempty_block)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::keypair key1;
     rai::open_block block (0, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
@@ -51,9 +51,9 @@ TEST (block_store, add_nonempty_block)
 
 TEST (block_store, add_two_items)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::keypair key1;
     rai::open_block block (1, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
@@ -79,9 +79,9 @@ TEST (block_store, add_two_items)
 
 TEST (block_store, add_receive)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::keypair key1;
     rai::keypair key2;
 	rai::open_block block1 (0, 0, 0, 0, 0, 0);
@@ -98,9 +98,9 @@ TEST (block_store, add_receive)
 
 TEST (block_store, add_pending)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::keypair key1;
     rai::block_hash hash1 (0);
     rai::receivable receivable1;
@@ -115,24 +115,25 @@ TEST (block_store, add_pending)
 
 TEST (block_store, pending_iterator)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     ASSERT_EQ (db.pending_end (), db.pending_begin ());
     db.pending_put (1, {2, 3, 4});
     auto current (db.pending_begin ());
     ASSERT_NE (db.pending_end (), current);
     ASSERT_EQ (rai::account (1), current->first);
-    ASSERT_EQ (rai::account (2), current->second.source);
-    ASSERT_EQ (rai::amount (3), current->second.amount);
-    ASSERT_EQ (rai::account (4), current->second.destination);
+	rai::receivable receivable (current->second);
+    ASSERT_EQ (rai::account (2), receivable.source);
+    ASSERT_EQ (rai::amount (3), receivable.amount);
+    ASSERT_EQ (rai::account (4), receivable.destination);
 }
 
 TEST (block_store, genesis)
 {
-    leveldb::Status init;
-    rai::block_store db (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store db (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::genesis genesis;
     auto hash (genesis.hash ());
     genesis.initialize (db);
@@ -152,9 +153,9 @@ TEST (block_store, genesis)
 
 TEST (representation, changes)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::keypair key1;
     ASSERT_EQ (0, store.representation_get (key1.pub));
     store.representation_put (key1.pub, 1);
@@ -165,9 +166,9 @@ TEST (representation, changes)
 
 TEST (bootstrap, simple)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
     auto block2 (store.unchecked_get (block1.previous ()));
     ASSERT_EQ (nullptr, block2);
@@ -182,9 +183,9 @@ TEST (bootstrap, simple)
 
 TEST (checksum, simple)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::block_hash hash0 (0);
     ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash0));
     rai::block_hash hash1 (0);
@@ -199,9 +200,9 @@ TEST (checksum, simple)
 
 TEST (block_store, empty_blocks)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     auto begin (store.blocks_begin ());
     auto end (store.blocks_end ());
     ASSERT_EQ (end, begin);
@@ -209,9 +210,9 @@ TEST (block_store, empty_blocks)
 
 TEST (block_store, empty_accounts)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     auto begin (store.latest_begin ());
     auto end (store.latest_end ());
     ASSERT_EQ (end, begin);
@@ -219,9 +220,9 @@ TEST (block_store, empty_accounts)
 
 TEST (block_store, one_block)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::open_block block1 (0, 0, 0, 0, 0, rai::work_generate (0));
     store.block_put (block1.hash (), block1);
     auto begin (store.blocks_begin ());
@@ -229,7 +230,7 @@ TEST (block_store, one_block)
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
     ASSERT_EQ (block1.hash (), hash1);
-    auto block2 (begin->second->clone ());
+    auto block2 (rai::deserialize_block (begin->second));
     ASSERT_EQ (block1, *block2);
     ++begin;
     ASSERT_EQ (end, begin);
@@ -237,9 +238,9 @@ TEST (block_store, one_block)
 
 TEST (block_store, empty_bootstrap)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     auto begin (store.unchecked_begin ());
     auto end (store.unchecked_end ());
     ASSERT_EQ (end, begin);
@@ -247,9 +248,9 @@ TEST (block_store, empty_bootstrap)
 
 TEST (block_store, one_bootstrap)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
     store.unchecked_put (block1.hash (), block1);
     auto begin (store.unchecked_begin ());
@@ -257,7 +258,7 @@ TEST (block_store, one_bootstrap)
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
     ASSERT_EQ (block1.hash (), hash1);
-    auto block2 (begin->second->clone ());
+    auto block2 (rai::deserialize_block (begin->second));
     ASSERT_EQ (block1, *block2);
     ++begin;
     ASSERT_EQ (end, begin);
@@ -265,9 +266,9 @@ TEST (block_store, one_bootstrap)
 
 TEST (block_store, frontier_retrieval)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::account account1 (0);
     rai::frontier frontier1 (0, 0, 0, 0);
     store.latest_put (account1, frontier1);
@@ -278,9 +279,9 @@ TEST (block_store, frontier_retrieval)
 
 TEST (block_store, one_account)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::account account (0);
     rai::block_hash hash (0);
     store.latest_put (account, {hash, account, 42, 100});
@@ -288,18 +289,19 @@ TEST (block_store, one_account)
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (account, begin->first);
-    ASSERT_EQ (hash, begin->second.hash);
-    ASSERT_EQ (42, begin->second.balance.number ());
-    ASSERT_EQ (100, begin->second.time);
+	rai::frontier frontier (begin->second);
+    ASSERT_EQ (hash, frontier.hash);
+    ASSERT_EQ (42, frontier.balance.number ());
+    ASSERT_EQ (100, frontier.time);
     ++begin;
     ASSERT_EQ (end, begin);
 }
 
 TEST (block_store, two_block)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::open_block block1 (1, 0, 0, 0, 0, 0);
     block1.hashables.account = 1;
     std::vector <rai::block_hash> hashes;
@@ -316,13 +318,13 @@ TEST (block_store, two_block)
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
     ASSERT_NE (hashes.end (), std::find (hashes.begin (), hashes.end (), hash1));
-    auto block3 (begin->second->clone ());
+    auto block3 (rai::deserialize_block (begin->second));
     ASSERT_NE (blocks.end (), std::find (blocks.begin (), blocks.end (), *block3));
     ++begin;
     ASSERT_NE (end, begin);
     auto hash2 (begin->first);
     ASSERT_NE (hashes.end (), std::find (hashes.begin (), hashes.end (), hash2));
-    auto block4 (begin->second->clone ());
+    auto block4 (rai::deserialize_block (begin->second));
     ASSERT_NE (blocks.end (), std::find (blocks.begin (), blocks.end (), *block4));
     ++begin;
     ASSERT_EQ (end, begin);
@@ -330,9 +332,9 @@ TEST (block_store, two_block)
 
 TEST (block_store, two_account)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::account account1 (1);
     rai::block_hash hash1 (2);
     rai::account account2 (3);
@@ -343,24 +345,26 @@ TEST (block_store, two_account)
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (account1, begin->first);
-    ASSERT_EQ (hash1, begin->second.hash);
-    ASSERT_EQ (42, begin->second.balance.number ());
-    ASSERT_EQ (100, begin->second.time);
+	rai::frontier frontier1 (begin->second);
+    ASSERT_EQ (hash1, frontier1.hash);
+    ASSERT_EQ (42, frontier1.balance.number ());
+    ASSERT_EQ (100, frontier1.time);
     ++begin;
     ASSERT_NE (end, begin);
     ASSERT_EQ (account2, begin->first);
-    ASSERT_EQ (hash2, begin->second.hash);
-    ASSERT_EQ (84, begin->second.balance.number ());
-    ASSERT_EQ (200, begin->second.time);
+	rai::frontier frontier2 (begin->second);
+    ASSERT_EQ (hash2, frontier2.hash);
+    ASSERT_EQ (84, frontier2.balance.number ());
+    ASSERT_EQ (200, frontier2.time);
     ++begin;
     ASSERT_EQ (end, begin);
 }
 
 TEST (block_store, latest_find)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::account account1 (1);
     rai::block_hash hash1 (2);
     rai::account account2 (3);
@@ -380,9 +384,9 @@ TEST (block_store, latest_find)
 
 TEST (block_store, bad_path)
 {
-    leveldb::Status init;
+    bool init;
     rai::block_store store (init, boost::filesystem::path {});
-    ASSERT_FALSE (init.ok ());
+    ASSERT_FALSE (!init);
 }
 
 TEST (block_store, already_open)
@@ -392,16 +396,16 @@ TEST (block_store, already_open)
     std::ofstream file;
     file.open ((path / "accounts.ldb").string ().c_str ());
     ASSERT_TRUE (file.is_open ());
-    leveldb::Status init;
+    bool init;
     rai::block_store store (init, path);
-    ASSERT_FALSE (init.ok ());
+    ASSERT_FALSE (init);
 }
 
 TEST (block_store, delete_iterator_entry)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-    ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
     rai::open_block block1 (1, 0, 0, 0, 0, 0);
     store.block_put (block1.hash (), block1);
     rai::open_block block2 (2, 0, 0, 0, 0, 0);
@@ -418,9 +422,9 @@ TEST (block_store, delete_iterator_entry)
 
 TEST (block_store, roots)
 {
-	leveldb::Status init;
-	rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+	bool init;
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
 	rai::send_block send_block (0, 1, 2, 3, 4, 5);
 	ASSERT_EQ (send_block.hashables.previous, send_block.root ());
 	rai::change_block change_block (0, 1, 2, 3, 4);
@@ -433,9 +437,9 @@ TEST (block_store, roots)
 
 TEST (block_store, pending_exists)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::block_hash two (2);
     rai::receivable receivable;
     store.pending_put (two, receivable);
@@ -445,9 +449,9 @@ TEST (block_store, pending_exists)
 
 TEST (block_store, latest_exists)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::block_hash two (2);
     rai::frontier frontier;
     store.latest_put (two, frontier);
@@ -457,9 +461,9 @@ TEST (block_store, latest_exists)
 
 TEST (block_store, stack)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::block_hash hash1 (1);
     store.stack_push (0, hash1);
     rai::block_hash hash2 (2);
@@ -472,16 +476,16 @@ TEST (block_store, stack)
 
 TEST (block_store, unsynced)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
     rai::block_hash hash1 (0);
     ASSERT_FALSE (store.unsynced_exists (hash1));
     store.unsynced_put (hash1);
     ASSERT_TRUE (store.unsynced_exists (hash1));
     ASSERT_NE (store.unsynced_end (), store.unsynced_begin ());
-    ASSERT_EQ (hash1, *store.unsynced_begin ());
+    ASSERT_EQ (hash1, rai::uint256_union (store.unsynced_begin ()->first));
     store.unsynced_del (hash1);
     ASSERT_FALSE (store.unsynced_exists (hash1));
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
@@ -489,9 +493,9 @@ TEST (block_store, unsynced)
 
 TEST (block_store, unsynced_iteration)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
     rai::block_hash hash1 (1);
     store.unsynced_put (hash1);
@@ -500,7 +504,7 @@ TEST (block_store, unsynced_iteration)
     std::unordered_set <rai::block_hash> hashes;
     for (auto i (store.unsynced_begin ()), n (store.unsynced_end ()); i != n; ++i)
     {
-        hashes.insert (*i);
+        hashes.insert (rai::uint256_union (i->first));
     }
     ASSERT_EQ (2, hashes.size ());
     ASSERT_TRUE (hashes.find (hash1) != hashes.end ());

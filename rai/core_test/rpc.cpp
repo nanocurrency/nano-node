@@ -608,7 +608,7 @@ TEST (rpc, wallet_export)
     boost::property_tree::read_json (istream, response_tree);
     std::string wallet_json (response_tree.get <std::string> ("json"));
     bool error (false);
-    rai::wallet_store store (error, rai::unique_path (), wallet_json);
+    rai::wallet_store store (error, system.nodes [0]->store.environment, "0", wallet_json);
     ASSERT_FALSE (error);
     ASSERT_TRUE (store.exists (rai::test_genesis_key.pub));
 }

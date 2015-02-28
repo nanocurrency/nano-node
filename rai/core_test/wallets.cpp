@@ -5,7 +5,7 @@
 TEST (wallets, open_create)
 {
     rai::system system (24000, 1);
-    rai::wallets wallets (*system.nodes [0], rai::unique_path ());
+    rai::wallets wallets (*system.nodes [0]);
     ASSERT_EQ (0, wallets.items.size ());
     rai::uint256_union id;
     ASSERT_EQ (nullptr, wallets.open (id));
@@ -18,9 +18,8 @@ TEST (wallets, open_existing)
 {
     rai::system system (24000, 1);
     rai::uint256_union id;
-    auto path (rai::unique_path ());
     {
-        rai::wallets wallets (*system.nodes [0], path);
+        rai::wallets wallets (*system.nodes [0]);
         ASSERT_EQ (0, wallets.items.size ());
         auto wallet (wallets.create (id));
         ASSERT_NE (nullptr, wallet);
@@ -35,7 +34,7 @@ TEST (wallets, open_existing)
 		}
     }
     {
-        rai::wallets wallets (*system.nodes [0], path);
+        rai::wallets wallets (*system.nodes [0]);
         ASSERT_EQ (1, wallets.items.size ());
         ASSERT_NE (nullptr, wallets.open (id));
     }
@@ -45,9 +44,8 @@ TEST (wallets, remove)
 {
     rai::system system (24000, 1);
     rai::uint256_union one (1);
-    auto path (rai::unique_path ());
     {
-        rai::wallets wallets (*system.nodes [0], path);
+        rai::wallets wallets (*system.nodes [0]);
         ASSERT_EQ (0, wallets.items.size ());
         auto wallet (wallets.create (one));
         ASSERT_NE (nullptr, wallet);
@@ -56,7 +54,7 @@ TEST (wallets, remove)
         ASSERT_EQ (0, wallets.items.size ());
     }
     {
-        rai::wallets wallets (*system.nodes [0], path);
+        rai::wallets wallets (*system.nodes [0]);
         ASSERT_EQ (0, wallets.items.size ());
     }
 }

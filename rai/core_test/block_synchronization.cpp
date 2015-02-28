@@ -3,9 +3,9 @@
 
 TEST (pull_synchronization, empty)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     std::vector <std::unique_ptr <rai::block>> blocks;
     rai::pull_synchronization sync ([&blocks] (rai::block const & block_a)
     {
@@ -17,9 +17,9 @@ TEST (pull_synchronization, empty)
 
 TEST (pull_synchronization, one)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     std::vector <std::unique_ptr <rai::block>> blocks;
@@ -36,9 +36,9 @@ TEST (pull_synchronization, one)
 
 TEST (pull_synchronization, send_dependencies)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::send_block block3 (0, block2.hash (), 1, 2, 3, 4);
@@ -59,9 +59,9 @@ TEST (pull_synchronization, send_dependencies)
 
 TEST (pull_synchronization, change_dependencies)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::change_block block3 (0, block2.hash (), 1, 2, 3);
@@ -82,9 +82,9 @@ TEST (pull_synchronization, change_dependencies)
 
 TEST (pull_synchronization, open_dependencies)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::open_block block3 (0, 1, block2.hash (), 3, 4, 5);
@@ -105,9 +105,9 @@ TEST (pull_synchronization, open_dependencies)
 
 TEST (pull_synchronization, receive_dependencies)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::open_block block3 (0, 1, block2.hash (), 3, 4, 5);
@@ -134,9 +134,9 @@ TEST (pull_synchronization, receive_dependencies)
 
 TEST (pull_synchronization, ladder_dependencies)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::open_block block3 (0, 1, block2.hash (), 3, 4, 5);
@@ -169,9 +169,9 @@ TEST (pull_synchronization, ladder_dependencies)
 
 TEST (push_synchronization, empty)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     std::vector <std::unique_ptr <rai::block>> blocks;
     rai::push_synchronization sync ([&blocks] (rai::block const & block_a)
     {
@@ -183,9 +183,9 @@ TEST (push_synchronization, empty)
 
 TEST (push_synchronization, one)
 {
-    leveldb::Status init;
-    rai::block_store store (init, rai::block_store_temp);
-	ASSERT_TRUE (init.ok ());
+    bool init;
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     std::vector <std::unique_ptr <rai::block>> blocks;

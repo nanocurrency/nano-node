@@ -460,16 +460,11 @@ void rai::publish::serialize (rai::stream & stream_a)
     block->serialize (stream_a);
 }
 
-rai::wallet_value::wallet_value (leveldb::Slice const & slice_a)
+rai::wallet_value::wallet_value (MDB_val const & val_a)
 {
-	assert (slice_a.size () == sizeof (*this));
-	std::copy (slice_a.data (), slice_a.data () + sizeof (key), key.chars.begin ());
-	std::copy (slice_a.data () + sizeof (key), slice_a.data () + slice_a.size (), reinterpret_cast <char *> (&work));
-}
-
-rai::wallet_value::wallet_value (std::string const & slice_a) :
-wallet_value (leveldb::Slice (slice_a.data (), slice_a.size ()))
-{
+	assert (val_a.mv_size == sizeof (*this));
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (key), key.chars.begin ());
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (key), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, reinterpret_cast <char *> (&work));
 }
 
 rai::wallet_value::wallet_value (rai::uint256_union const & value_a) :
@@ -478,10 +473,10 @@ work (0)
 {
 }
 
-leveldb::Slice rai::wallet_value::slice () const
+rai::mdb_val rai::wallet_value::val () const
 {
 	static_assert (sizeof (*this) == sizeof (key) + sizeof (work), "Class not packed");
-	return leveldb::Slice (reinterpret_cast <char const *> (this), sizeof (*this));
+	return rai::mdb_val (sizeof (*this), const_cast <rai::wallet_value *> (this));
 }
 
 rai::uint256_union const rai::wallet_store::version_1 (1);
@@ -493,15 +488,17 @@ rai::uint256_union const rai::wallet_store::check_special (3);
 rai::uint256_union const rai::wallet_store::representative_special (4);
 int const rai::wallet_store::special_count (5);
 
-rai::wallet_store::wallet_store (bool & init_a, boost::filesystem::path const & path_a, std::string const & json_a) :
-password (0, 1024)
+rai::wallet_store::wallet_store (bool & init_a, MDB_env * environment_a, std::string const & wallet_a, std::string const & json_a) :
+password (0, 1024),
+environment (environment_a)
 {
     init_a = false;
-    initialize (init_a, path_a);
+    initialize (init_a, wallet_a);
     if (!init_a)
     {
-        std::string junk;
-        assert (handle->Get (leveldb::ReadOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), &junk).IsNotFound ());
+        MDB_val junk;
+		rai::transaction transaction (environment, nullptr, false);
+		assert (mdb_get (transaction, handle, version_special.val (), &junk) == MDB_NOTFOUND);
         boost::property_tree::ptree wallet_l;
         std::stringstream istream (json_a);
         boost::property_tree::read_json (istream, wallet_l);
@@ -527,63 +524,30 @@ password (0, 1024)
                 init_a = true;
             }
         }
-        if (!init_a)
-        {
-            auto status0 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), &junk));
-            if (status0.ok ())
-            {
-                auto status1 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (wallet_key_special.chars.data (), wallet_key_special.chars.size ()), &junk));
-                if (status1.ok ())
-                {
-                    auto status2 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (salt_special.chars.data (), salt_special.chars.size ()), &junk));
-                    if (status2.ok ())
-                    {
-                        auto status3 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (check_special.chars.data (), check_special.chars.size ()), &junk));
-                        if (status3.ok ())
-                        {
-                            auto status4 (handle->Get (leveldb::ReadOptions (), leveldb::Slice (representative_special.chars.data (), representative_special.chars.size ()), &junk));
-                            if (status4.ok ())
-                            {
-								password.value_set (0);
-                            }
-                            else
-                            {
-                                init_a = true;
-                            }
-                        }
-                        else
-                        {
-                            init_a = true;
-                        }
-                    }
-                    else
-                    {
-                        init_a = true;
-                    }
-                }
-                else
-                {
-                    init_a = true;
-                }
-            }
-            else
-            {
-                init_a = true;
-            }
-        }
+		init_a = init_a || mdb_get (transaction, handle, version_special.val (), &junk) != 0;
+		init_a = init_a || mdb_get (transaction, handle, wallet_key_special.val (), & junk) != 0;
+		init_a = init_a || mdb_get (transaction, handle, salt_special.val (), &junk) != 0;
+		init_a = init_a || mdb_get (transaction, handle, check_special.val (), &junk) != 0;
+		init_a = init_a || mdb_get (transaction, handle, representative_special.val (), &junk) != 0;
+		password.value_set (0);
     }
 }
 
-rai::wallet_store::wallet_store (bool & init_a, boost::filesystem::path const & path_a) :
-password (0, 1024)
+rai::wallet_store::wallet_store (bool & init_a, MDB_env * environment_a, std::string const & wallet_a) :
+password (0, 1024),
+environment (environment_a)
 {
     init_a = false;
-    initialize (init_a, path_a);
+    initialize (init_a, wallet_a);
     if (!init_a)
     {
-        std::string version_value;
-        auto version_status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (version_special.chars.data (), version_special.chars.size ()), &version_value));
-        if (version_status.IsNotFound ())
+		int version_status;
+		{
+			rai::transaction transaction (environment, nullptr, true);
+			MDB_val version_value;
+			version_status = mdb_get (transaction, handle, version_special.val (), &version_value);
+		}
+        if (version_status == MDB_NOTFOUND)
         {
 			entry_put_raw (rai::wallet_store::version_special, rai::wallet_value (version_current));
             rai::uint256_union salt_l;
@@ -609,26 +573,11 @@ password (0, 1024)
     }
 }
 
-void rai::wallet_store::initialize (bool & init_a, boost::filesystem::path const & path_a)
+void rai::wallet_store::initialize (bool & init_a, std::string const & path_a)
 {
-    boost::system::error_code code;
-    boost::filesystem::create_directories (path_a, code);
-    if (!code)
-    {
-        leveldb::Options options;
-        options.create_if_missing = true;
-        leveldb::DB * db (nullptr);
-        auto status (leveldb::DB::Open (options, path_a.string (), &db));
-        handle.reset (db);
-        if (!status.ok ())
-        {
-            init_a = true;
-        }
-    }
-    else
-    {
-        init_a = true;
-    }
+	assert (strlen (path_a.c_str ()) == path_a.size ());
+	rai::transaction transaction (environment, nullptr, true);
+	init_a = mdb_dbi_open (transaction, path_a.c_str (), MDB_CREATE, &handle) != 0;
 }
 
 bool rai::wallet_store::is_representative ()
@@ -657,16 +606,18 @@ rai::public_key rai::wallet_store::insert (rai::private_key const & prv)
 
 void rai::wallet_store::erase (rai::public_key const & pub)
 {
-    auto status (handle->Delete (leveldb::WriteOptions (), leveldb::Slice (pub.chars.data (), pub.chars.size ())));
-    assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_del (transaction, handle, pub.val (), nullptr));
+    assert (status == 0);
 }
 
 rai::wallet_value rai::wallet_store::entry_get_raw (rai::public_key const & pub_a)
 {
+	rai::transaction transaction (environment, nullptr, false);
 	rai::wallet_value result;
-    std::string value;
-    auto status (handle->Get (leveldb::ReadOptions (), leveldb::Slice (pub_a.chars.data (), pub_a.chars.size ()), &value));
-	if (status.ok ())
+	MDB_val value;
+	auto status (mdb_get (transaction, handle, pub_a.val (), &value));
+	if (status == 0)
 	{
 		result = rai::wallet_value (value);
 	}
@@ -680,8 +631,9 @@ rai::wallet_value rai::wallet_store::entry_get_raw (rai::public_key const & pub_
 
 void rai::wallet_store::entry_put_raw (rai::public_key const & pub_a, rai::wallet_value const & entry_a)
 {
-	auto status (handle->Put (leveldb::WriteOptions (), leveldb::Slice (pub_a.chars.data (), pub_a.chars.size ()), entry_a.slice ()));
-	assert (status.ok ());
+	rai::transaction transaction (environment, nullptr, true);
+	auto status (mdb_put (transaction, handle, pub_a.val (), entry_a.val (), 0));
+	assert (status == 0);
 }
 
 bool rai::wallet_store::fetch (rai::public_key const & pub, rai::private_key & prv)
@@ -713,14 +665,9 @@ bool rai::wallet_store::exists (rai::public_key const & pub)
 void rai::wallet_store::serialize_json (std::string & string_a)
 {
     boost::property_tree::ptree tree;
-    std::unique_ptr <leveldb::Iterator> iterator (handle->NewIterator (leveldb::ReadOptions ()));
-    iterator->SeekToFirst ();
-    for (; iterator->Valid (); iterator->Next ())
+    for (rai::store_iterator i (environment, handle), n (environment, handle, nullptr); i != n; ++i)
     {
-        rai::uint256_union key;
-        key = iterator->key ();
-		rai::wallet_value value (iterator->value ());
-        tree.put (key.to_string (), value.key.to_string ());
+        tree.put (rai::uint256_union (i->first).to_string (), rai::wallet_value (i->second).key.to_string ());
     }
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, tree);
@@ -769,14 +716,14 @@ void rai::wallet_store::work_put (rai::public_key const & pub_a, uint64_t work_a
 	entry_put_raw (pub_a, entry);
 }
 
-rai::wallet::wallet (bool & init_a, rai::node & node_a, boost::filesystem::path const & path_a) :
-store (init_a, path_a / "wallet"),
+rai::wallet::wallet (bool & init_a, rai::node & node_a, std::string const & wallet_a) :
+store (init_a, node_a.store.environment, wallet_a),
 node (node_a)
 {
 }
 
-rai::wallet::wallet (bool & init_a, rai::node & node_a, boost::filesystem::path const & path_a, std::string const & json) :
-store (init_a, path_a / "wallet", json),
+rai::wallet::wallet (bool & init_a, rai::node & node_a, std::string const & wallet_a, std::string const & json) :
+store (init_a, node_a.store.environment, wallet_a, json),
 node (node_a)
 {
 }
@@ -927,28 +874,6 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
     return result;
 }
 
-bool rai::wallet::import (std::string const & json_a, std::string const & password_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    auto result (!store.valid_password ());
-    rai::wallet_store store_l (result, boost::filesystem::unique_path (), json_a);
-    if (!result)
-    {
-        store_l.enter_password (password_a);
-        result = !store_l.valid_password ();
-        if (!result)
-        {
-            std::vector <rai::public_key> accounts;
-            for (auto i (store_l.begin ()), n (store_l.end ()); i != n; ++i)
-            {
-                accounts.push_back (i->first);
-            }
-            result = store.move (store_l, accounts);
-        }
-    }
-    return result;
-}
-
 // Update work for account if latest root is root_a
 void rai::wallet::work_update (rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {
@@ -994,45 +919,34 @@ void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash
     work_update (account_a, root_a, work);
 }
 
-rai::wallets::wallets (rai::node & node_a, boost::filesystem::path const & path_a) :
-path (path_a),
+rai::wallets::wallets (rai::node & node_a) :
 node (node_a)
 {
-    boost::filesystem::create_directories (path_a);
-    boost::filesystem::directory_iterator i (path_a);
-    boost::filesystem::directory_iterator n;
-    for (; i != n; ++i)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
+		assert (status == 0);
+	}
+    for (rai::store_iterator i (node_a.store.environment, handle, rai::uint256_union (0).val ()), n (node_a.store.environment, handle, nullptr); i != n; ++i)
     {
-        if (boost::filesystem::is_directory (i->path ()))
-        {
-            rai::uint256_union id;
-            if (!id.decode_hex (i->path ().filename ().string ()))
-            {
-                assert (items.find (id) == items.end ());
-                auto error (false);
-                auto wallet (std::make_shared <rai::wallet> (error, node_a, i->path ()));
-                if (!error)
-                {
-					node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
-					{
-						wallet->enter_initial_password ();
-					});
-                    items [id] = wallet;
-                }
-                else
-                {
-                    // Couldn't open wallet
-                }
-            }
-            else
-            {
-                // Non-id directory in wallets directory
-            }
-        }
-        else
-        {
-            // Non-directory in wallets directory
-        }
+		rai::uint256_union id;
+		std::string text (reinterpret_cast <char const *> (i->first.mv_data), i->first.mv_size);
+		auto error (id.decode_hex (text));
+		assert (!error);
+		assert (items.find (id) == items.end ());
+		auto wallet (std::make_shared <rai::wallet> (error, node_a, text));
+		if (!error)
+		{
+			node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
+			{
+				wallet->enter_initial_password ();
+			});
+			items [id] = wallet;
+		}
+		else
+		{
+			// Couldn't open wallet
+		}
     }
 }
 
@@ -1052,9 +966,7 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
     assert (items.find (id_a) == items.end ());
     std::shared_ptr <rai::wallet> result;
     bool error;
-    std::string id;
-    id_a.encode_hex (id);
-    auto wallet (std::make_shared <rai::wallet> (error, node, path / id));
+    auto wallet (std::make_shared <rai::wallet> (error, node, id_a.to_string ()));
     if (!error)
     {
 		node.service.add (std::chrono::system_clock::now (), [wallet] ()
@@ -1074,9 +986,9 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
     auto wallet (existing->second);
     items.erase (existing);
     std::lock_guard <std::mutex> lock (wallet->mutex);
-    wallet->store.handle.reset ();
-    assert (boost::filesystem::is_directory (path / id_a.to_string ()));
-    boost::filesystem::remove_all (path / id_a.to_string ());
+	rai::transaction transaction (wallet->store.environment, nullptr, true);
+	auto status (mdb_drop (transaction, wallet->store.handle, 1));
+	assert (status == 0);
 }
 
 void rai::wallets::cache_work (rai::account const & account_a)
@@ -1104,66 +1016,19 @@ void rai::wallets::cache_work (rai::account const & account_a)
 	}
 }
 
-rai::key_iterator::key_iterator (leveldb::DB * db_a) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
+rai::store_iterator rai::wallet_store::begin ()
 {
-    iterator->SeekToFirst ();
-    set_current ();
-}
-
-rai::key_iterator::key_iterator (leveldb::DB * db_a, std::nullptr_t) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
-{
-    set_current ();
-}
-
-rai::key_iterator::key_iterator (leveldb::DB * db_a, rai::uint256_union const & key_a) :
-iterator (db_a->NewIterator (leveldb::ReadOptions ()))
-{
-    iterator->Seek (leveldb::Slice (key_a.chars.data (), key_a.chars.size ()));
-    set_current ();
-}
-
-void rai::key_iterator::set_current ()
-{
-    if (iterator->Valid ())
-    {
-        current.first = iterator->key ();
-		rai::wallet_value value (iterator->value ());
-        current.second = value.key;
-    }
-    else
-    {
-        current.first.clear ();
-        current.second.clear ();
-    }
-}
-
-rai::key_iterator & rai::key_iterator::operator ++ ()
-{
-    iterator->Next ();
-    set_current ();
-    return *this;
-}
-
-rai::key_entry & rai::key_iterator::operator -> ()
-{
-    return current;
-}
-
-rai::key_iterator rai::wallet_store::begin ()
-{
-    rai::key_iterator result (handle.get (), special_count);
+    rai::store_iterator result (environment, handle, rai::uint256_union (special_count).val ());
     return result;
 }
 
-rai::key_iterator rai::wallet_store::find (rai::uint256_union const & key)
+rai::store_iterator rai::wallet_store::find (rai::uint256_union const & key)
 {
-    rai::key_iterator result (handle.get (), key);
-    rai::key_iterator end (handle.get (), nullptr);
+    rai::store_iterator result (environment, handle, key.val ());
+    rai::store_iterator end (environment, handle, nullptr);
     if (result != end)
     {
-        if (result.current.first == key)
+        if (rai::uint256_union (result->first) == key)
         {
             return result;
         }
@@ -1178,28 +1043,9 @@ rai::key_iterator rai::wallet_store::find (rai::uint256_union const & key)
     }
 }
 
-rai::key_iterator rai::wallet_store::end ()
+rai::store_iterator rai::wallet_store::end ()
 {
-    return rai::key_iterator (handle.get (), nullptr);
-}
-
-bool rai::key_iterator::operator == (rai::key_iterator const & other_a) const
-{
-    auto lhs_valid (iterator->Valid ());
-    auto rhs_valid (other_a.iterator->Valid ());
-    return (!lhs_valid && !rhs_valid) || (lhs_valid && rhs_valid && current.first == other_a.current.first);
-}
-
-bool rai::key_iterator::operator != (rai::key_iterator const & other_a) const
-{
-    return !(*this == other_a);
-}
-
-rai::key_iterator & rai::key_iterator::operator = (rai::key_iterator && other_a)
-{
-    iterator = std::move (other_a.iterator);
-    current = other_a.current;
-    return *this;
+    return rai::store_iterator (environment, handle, nullptr);
 }
 
 void rai::processor_service::run ()
@@ -1443,16 +1289,16 @@ wallet_init (false)
 
 bool rai::node_init::error ()
 {
-    return !block_store_init.ok () || wallet_init || ledger_init;
+    return block_store_init || wallet_init || ledger_init;
 }
 
 rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
 service (processor_a),
 store (init_a.block_store_init, application_path_a / "data"),
 gap_cache (*this),
-ledger (init_a.ledger_init, init_a.block_store_init, store),
+ledger (store),
 conflicts (*this),
-wallets (*this, application_path_a / "data" / "wallets"),
+wallets (*this),
 network (*service_a, port_a, *this),
 bootstrap_initiator (*this),
 bootstrap (*service_a, port_a, *this),
@@ -2003,11 +1849,6 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
 	}
 }
 
-rai::key_entry * rai::key_entry::operator -> ()
-{
-    return this;
-}
-
 rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a) :
 message (error_a, stream_a),
 vote (error_a, stream_a, block_type ())
@@ -2308,7 +2149,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         for (auto i (existing->second->store.begin ()), j (existing->second->store.end ()); i != j; ++i)
                         {
                             boost::property_tree::ptree entry;
-                            entry.put ("", i->first.to_base58check ());
+                            entry.put ("", rai::uint256_union (i->first).to_base58check ());
                             accounts.push_back (std::make_pair ("", entry));
                         }
                         response_l.add_child ("accounts", accounts);
@@ -3088,7 +2929,7 @@ void rai::node::search_pending ()
 	}
 	for (auto i (store.pending_begin ()), n (store.pending_end ()); i != n; ++i)
 	{
-		if (wallet.find (i->second.destination) != wallet.end ())
+		if (wallet.find (rai::receivable (i->second).destination) != wallet.end ())
 		{
 			auto block (store.block_get (i->first));
 			assert (block != nullptr);
@@ -4287,7 +4128,7 @@ void rai::frontier_req_server::skip_old ()
     if (request->age != std::numeric_limits<decltype (request->age)>::max ())
     {
         auto now (connection->node->store.now ());
-        while (iterator != connection->node->ledger.store.latest_end () && (now - iterator->second.time) >= request->age)
+        while (iterator != connection->node->ledger.store.latest_end () && (now - rai::frontier (iterator->second).time) >= request->age)
         {
             ++iterator;
         }
@@ -4377,7 +4218,7 @@ std::pair <rai::uint256_union, rai::uint256_union> rai::frontier_req_server::get
     if (iterator != connection->node->ledger.store.latest_end ())
     {
         result.first = iterator->first;
-        result.second = iterator->second.hash;
+        result.second = rai::frontier (iterator->second).hash;
         ++iterator;
     }
     return result;
@@ -4494,7 +4335,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         assert (!error2);
         if (!account.is_zero ())
         {
-            while (current != end && current->first < account)
+            while (current != end && rai::account (current->first) < account)
             {
                 // We know about an account they don't.
                 pushes [current->first] = rai::block_hash (0);
@@ -4504,7 +4345,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             {
                 if (account == current->first)
                 {
-                    if (latest == current->second.hash)
+                    if (latest == rai::frontier (current->second).hash)
                     {
                         // In sync
                     }
@@ -4516,7 +4357,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
                     else
                     {
                         // They know about a block we don't.
-                        pulls [account] = current->second.hash;
+                        pulls [account] = rai::frontier (current->second).hash;
                     }
                     ++current;
                 }
@@ -4764,7 +4605,7 @@ void rai::system::generate_send_existing (rai::node & node_a)
 {
     rai::account account;
     random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
-    rai::account_iterator entry (node_a.store.latest_begin (account));
+    rai::store_iterator entry (node_a.store.latest_begin (account));
     if (entry == node_a.store.latest_end ())
     {
         entry = node_a.store.latest_begin ();

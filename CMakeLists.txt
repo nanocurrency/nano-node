@@ -48,7 +48,8 @@ add_library (xxhash
 
 add_library (lmdb
 	liblmdb/lmdb.h
-	liblmdb/mdb.c)
+	liblmdb/mdb.c
+	liblmdb/midl.c)
 
 if (WIN32)
 	set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")

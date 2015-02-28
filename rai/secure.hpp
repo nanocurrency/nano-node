@@ -5,16 +5,8 @@
 
 #include <boost/property_tree/ptree.hpp>
 
-#include <liblmdb/lmdb.h>
-
 #include <unordered_map>
 
-namespace leveldb
-{
-class DB;
-class Iterator;
-class Status;
-}
 namespace std
 {
 template <>
@@ -97,6 +89,7 @@ public:
 	size_t operator () (std::unique_ptr <rai::block> const &) const;
 	bool operator () (std::unique_ptr <rai::block> const &, std::unique_ptr <rai::block> const &) const;
 };
+std::unique_ptr <rai::block> deserialize_block (MDB_val const &);
 std::unique_ptr <rai::block> deserialize_block (rai::stream &);
 std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
 std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
@@ -272,11 +265,13 @@ class frontier
 {
 public:
 	frontier ();
+	frontier (MDB_val const &);
 	frontier (rai::block_hash const &, rai::account const &, rai::amount const &, uint64_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator == (rai::frontier const &) const;
 	bool operator != (rai::frontier const &) const;
+	rai::mdb_val val () const;
 	rai::block_hash hash;
 	rai::account representative;
 	rai::amount balance;
@@ -294,15 +289,18 @@ public:
 class store_iterator
 {
 public:
-	store_iterator (MDB_txn *, MDB_dbi);
-	store_iterator (MDB_txn *, MDB_dbi, std::nullptr_t);
-	store_iterator (MDB_txn *, MDB_dbi, MDB_val);
+	store_iterator (MDB_env *, MDB_dbi);
+	store_iterator (MDB_env *, MDB_dbi, std::nullptr_t);
+	store_iterator (MDB_env *, MDB_dbi, MDB_val const &);
+	store_iterator (rai::store_iterator const &) = default;
+	store_iterator (rai::store_iterator &&) = default;
 	~store_iterator ();
 	rai::store_iterator & operator ++ ();
 	rai::store_iterator & operator = (rai::store_iterator &&) = default;
 	rai::store_entry & operator -> ();
 	bool operator == (rai::store_iterator const &) const;
 	bool operator != (rai::store_iterator const &) const;
+	rai::transaction transaction;
 	MDB_cursor * cursor;
 	rai::store_entry current;
 };
@@ -311,10 +309,12 @@ class receivable
 {
 public:
 	receivable ();
+	receivable (MDB_val const &);
 	receivable (rai::account const &, rai::amount const &, rai::account const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator == (rai::receivable const &) const;
+	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
 	rai::account destination;
@@ -323,7 +323,6 @@ class block_store
 {
 public:
 	block_store (bool &, boost::filesystem::path const &);
-	~block_store ();
 	uint64_t now ();
 	
 	void block_put_raw (rai::block_hash const &, MDB_val);
@@ -333,6 +332,7 @@ public:
 	std::unique_ptr <rai::block> block_get (rai::block_hash const &);
 	void block_del (rai::block_hash const &);
 	bool block_exists (rai::block_hash const &);
+	rai::store_iterator blocks_begin (rai::uint256_union const &);
 	rai::store_iterator blocks_begin ();
 	rai::store_iterator blocks_end ();
 	
@@ -348,6 +348,7 @@ public:
 	void pending_del (rai::block_hash const &);
 	bool pending_get (rai::block_hash const &, rai::receivable &);
 	bool pending_exists (rai::block_hash const &);
+	rai::store_iterator pending_begin (rai::block_hash const &);
 	rai::store_iterator pending_begin ();
 	rai::store_iterator pending_end ();
 	
@@ -363,6 +364,7 @@ public:
 	void unsynced_put (rai::block_hash const &);
 	void unsynced_del (rai::block_hash const &);
 	bool unsynced_exists (rai::block_hash const &);
+	rai::store_iterator unsynced_begin (rai::block_hash const &);
 	rai::store_iterator unsynced_begin ();
 	rai::store_iterator unsynced_end ();
 
@@ -376,8 +378,8 @@ public:
 	
 	void clear (MDB_dbi);
 	
+	rai::mdb_env environment;
 private:
-	MDB_env * environment;
 	// account -> block_hash, representative, balance, timestamp    // Account to frontier block, representative, balance, last_change
 	MDB_dbi accounts;
 	// block_hash -> block                                          // Mapping block hash to contents
@@ -445,7 +447,7 @@ public:
 class ledger
 {
 public:
-	ledger (bool &, leveldb::Status const &, rai::block_store &);
+	ledger (rai::block_store &);
 	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (rai::votes const & votes_a);
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (rai::votes const &);
 	rai::account account (rai::block_hash const &);

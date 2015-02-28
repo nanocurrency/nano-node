@@ -23,8 +23,6 @@
 
 #include <xxhash/xxhash.h>
 
-#include <leveldb/db.h>
-
 std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
 namespace rai
 {
@@ -251,29 +249,6 @@ public:
     virtual void bulk_push (rai::bulk_push const &) = 0;
     virtual void frontier_req (rai::frontier_req const &) = 0;
 };
-class key_entry
-{
-public:
-    rai::key_entry * operator -> ();
-    rai::public_key first;
-    rai::private_key second;
-};
-class key_iterator
-{
-public:
-    key_iterator (leveldb::DB *); // Begin iterator
-    key_iterator (leveldb::DB *, std::nullptr_t); // End iterator
-    key_iterator (leveldb::DB *, rai::uint256_union const &);
-    key_iterator (rai::key_iterator &&) = default;
-    void set_current ();
-    key_iterator & operator ++ ();
-    rai::key_entry & operator -> ();
-    bool operator == (rai::key_iterator const &) const;
-    bool operator != (rai::key_iterator const &) const;
-    key_iterator & operator = (rai::key_iterator &&);
-    rai::key_entry current;
-    std::unique_ptr <leveldb::Iterator> iterator;
-};
 // The fan spreads a key out over the heap to decrease the likelyhood of it being recovered by memory inspection
 class fan
 {
@@ -287,19 +262,18 @@ class wallet_value
 {
 public:
 	wallet_value () = default;
-	wallet_value (leveldb::Slice const &);
-	wallet_value (std::string const &);
+	wallet_value (MDB_val const &);
 	wallet_value (rai::uint256_union const &);
-	leveldb::Slice slice () const;
+	rai::mdb_val val () const;
 	rai::private_key key;
 	uint64_t work;
 };
 class wallet_store
 {
 public:
-    wallet_store (bool &, boost::filesystem::path const &);
-    wallet_store (bool &, boost::filesystem::path const &, std::string const &);
-    void initialize (bool &, boost::filesystem::path const &);
+    wallet_store (bool &, MDB_env *, std::string const &);
+    wallet_store (bool &, MDB_env *, std::string const &, std::string const &);
+    void initialize (bool &, std::string const &);
     rai::uint256_union check ();
     bool rekey (std::string const &);
     bool valid_password ();
@@ -315,9 +289,9 @@ public:
 	void entry_put_raw (rai::public_key const &, rai::wallet_value const &);
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
-    key_iterator find (rai::uint256_union const &);
-    key_iterator begin ();
-    key_iterator end ();
+    rai::store_iterator find (rai::uint256_union const &);
+    rai::store_iterator begin ();
+    rai::store_iterator end ();
     rai::uint256_union derive_key (std::string const &);
     rai::uint128_t balance (rai::ledger &);
     void serialize_json (std::string &);
@@ -336,14 +310,15 @@ public:
     static size_t const kdf_full_work = 8 * 1024 * 1024; // 8 * 8 * 1024 * 1024 = 64 MB memory to derive key
     static size_t const kdf_test_work = 1024;
     static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
-    std::unique_ptr <leveldb::DB> handle;
+	MDB_env * environment;
+    MDB_dbi handle;
 };
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet : public std::enable_shared_from_this <rai::wallet>
 {
 public:
-    wallet (bool &, rai::node &, boost::filesystem::path const &);
-    wallet (bool &, rai::node &, boost::filesystem::path const &, std::string const &);
+    wallet (bool &, rai::node &, std::string const &);
+    wallet (bool &, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password ();
 	void insert (rai::private_key const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
@@ -351,7 +326,6 @@ public:
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
 	// Send from any of the accounts in the wallet
     bool send_all (rai::account const &, rai::uint128_t const &);
-    bool import (std::string const &, std::string const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (rai::account const &, rai::block_hash const &);
@@ -363,13 +337,13 @@ public:
 class wallets
 {
 public:
-    wallets (rai::node &, boost::filesystem::path const &);
+    wallets (rai::node &);
     std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
     std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
     void destroy (rai::uint256_union const &);
 	void cache_work (rai::account const &);
     std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
-    boost::filesystem::path const path;
+    MDB_dbi handle;
     rai::node & node;
 };
 class operation
@@ -485,8 +459,8 @@ public:
     std::unordered_map <rai::account, rai::block_hash> pushes;
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
-    rai::account_iterator current;
-    rai::account_iterator end;
+    rai::store_iterator current;
+    rai::store_iterator end;
 };
 class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
 {
@@ -699,7 +673,7 @@ public:
     void no_block_sent (boost::system::error_code const &, size_t);
     std::pair <rai::uint256_union, rai::uint256_union> get_next ();
     std::shared_ptr <rai::bootstrap_server> connection;
-    account_iterator iterator;
+    rai::store_iterator iterator;
     std::unique_ptr <rai::frontier_req> request;
     std::vector <uint8_t> send_buffer;
     size_t count;
@@ -755,7 +729,7 @@ class node_init
 public:
     node_init ();
     bool error ();
-    leveldb::Status block_store_init;
+    bool block_store_init;
     bool wallet_init;
     bool ledger_init;
 };
