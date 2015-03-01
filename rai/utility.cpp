@@ -58,6 +58,7 @@ rai::uint128_t rai::scale_up (uint64_t amount_a)
 
 rai::mdb_env::mdb_env (boost::filesystem::path const & path_a)
 {
+	boost::filesystem::create_directories (path_a);
 	auto status1 (mdb_env_create (&environment));
 	assert (status1 == 0);
 	auto status2 (mdb_env_set_maxdbs (environment, 128));
@@ -91,6 +92,11 @@ rai::mdb_val::operator MDB_val const & () const
 	return value;
 }
 
+rai::transaction::transaction (std::nullptr_t) :
+handle (nullptr)
+{
+}
+
 rai::transaction::transaction (MDB_env * environment_a, MDB_txn * parent_a, bool write)
 {
 	auto status (mdb_txn_begin (environment_a, parent_a, write ? 0 : MDB_RDONLY, &handle));
@@ -99,8 +105,11 @@ rai::transaction::transaction (MDB_env * environment_a, MDB_txn * parent_a, bool
 
 rai::transaction::~transaction ()
 {
-	auto status (mdb_txn_commit (handle));
-	assert (status == 0);
+	if (handle != nullptr)
+	{
+		auto status (mdb_txn_commit (handle));
+		assert (status == 0);
+	}
 }
 
 rai::transaction::operator MDB_txn * () const

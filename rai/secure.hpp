@@ -290,7 +290,7 @@ class store_iterator
 {
 public:
 	store_iterator (MDB_env *, MDB_dbi);
-	store_iterator (MDB_env *, MDB_dbi, std::nullptr_t);
+	store_iterator (std::nullptr_t);
 	store_iterator (MDB_env *, MDB_dbi, MDB_val const &);
 	store_iterator (rai::store_iterator const &) = default;
 	store_iterator (rai::store_iterator &&) = default;
@@ -325,9 +325,9 @@ public:
 	block_store (bool &, boost::filesystem::path const &);
 	uint64_t now ();
 	
-	void block_put_raw (rai::block_hash const &, MDB_val);
+	void block_put_raw (MDB_txn *, rai::block_hash const &, MDB_val);
 	void block_put (rai::block_hash const &, rai::block const &);
-	MDB_val block_get_raw (rai::block_hash const &);
+	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &);
 	rai::block_hash block_successor (rai::block_hash const &);
 	std::unique_ptr <rai::block> block_get (rai::block_hash const &);
 	void block_del (rai::block_hash const &);

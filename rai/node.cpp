@@ -665,7 +665,7 @@ bool rai::wallet_store::exists (rai::public_key const & pub)
 void rai::wallet_store::serialize_json (std::string & string_a)
 {
     boost::property_tree::ptree tree;
-    for (rai::store_iterator i (environment, handle), n (environment, handle, nullptr); i != n; ++i)
+    for (rai::store_iterator i (environment, handle), n (nullptr); i != n; ++i)
     {
         tree.put (rai::uint256_union (i->first).to_string (), rai::wallet_value (i->second).key.to_string ());
     }
@@ -927,7 +927,7 @@ node (node_a)
 		auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
 		assert (status == 0);
 	}
-    for (rai::store_iterator i (node_a.store.environment, handle, rai::uint256_union (0).val ()), n (node_a.store.environment, handle, nullptr); i != n; ++i)
+    for (rai::store_iterator i (node_a.store.environment, handle, rai::uint256_union (0).val ()), n (nullptr); i != n; ++i)
     {
 		rai::uint256_union id;
 		std::string text (reinterpret_cast <char const *> (i->first.mv_data), i->first.mv_size);
@@ -1025,7 +1025,7 @@ rai::store_iterator rai::wallet_store::begin ()
 rai::store_iterator rai::wallet_store::find (rai::uint256_union const & key)
 {
     rai::store_iterator result (environment, handle, key.val ());
-    rai::store_iterator end (environment, handle, nullptr);
+    rai::store_iterator end (nullptr);
     if (result != end)
     {
         if (rai::uint256_union (result->first) == key)
@@ -1045,7 +1045,7 @@ rai::store_iterator rai::wallet_store::find (rai::uint256_union const & key)
 
 rai::store_iterator rai::wallet_store::end ()
 {
-    return rai::store_iterator (environment, handle, nullptr);
+    return rai::store_iterator (nullptr);
 }
 
 void rai::processor_service::run ()

@@ -5,7 +5,7 @@
 
 TEST (block_store, construction)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     auto now (db.now ());
@@ -14,7 +14,7 @@ TEST (block_store, construction)
 
 TEST (block_store, add_item)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::open_block block (0, 0, 0, 0, 0, 0);
@@ -34,7 +34,7 @@ TEST (block_store, add_item)
 
 TEST (block_store, add_nonempty_block)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
@@ -51,7 +51,7 @@ TEST (block_store, add_nonempty_block)
 
 TEST (block_store, add_two_items)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
@@ -79,7 +79,7 @@ TEST (block_store, add_two_items)
 
 TEST (block_store, add_receive)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
@@ -98,7 +98,7 @@ TEST (block_store, add_receive)
 
 TEST (block_store, add_pending)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
@@ -115,7 +115,7 @@ TEST (block_store, add_pending)
 
 TEST (block_store, pending_iterator)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     ASSERT_EQ (db.pending_end (), db.pending_begin ());
@@ -131,7 +131,7 @@ TEST (block_store, pending_iterator)
 
 TEST (block_store, genesis)
 {
-    bool init;
+    bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::genesis genesis;
@@ -153,7 +153,7 @@ TEST (block_store, genesis)
 
 TEST (representation, changes)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
@@ -166,7 +166,7 @@ TEST (representation, changes)
 
 TEST (bootstrap, simple)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
@@ -183,7 +183,7 @@ TEST (bootstrap, simple)
 
 TEST (checksum, simple)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::block_hash hash0 (0);
@@ -200,7 +200,7 @@ TEST (checksum, simple)
 
 TEST (block_store, empty_blocks)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     auto begin (store.blocks_begin ());
@@ -210,7 +210,7 @@ TEST (block_store, empty_blocks)
 
 TEST (block_store, empty_accounts)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     auto begin (store.latest_begin ());
@@ -220,7 +220,7 @@ TEST (block_store, empty_accounts)
 
 TEST (block_store, one_block)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::open_block block1 (0, 0, 0, 0, 0, rai::work_generate (0));
@@ -238,7 +238,7 @@ TEST (block_store, one_block)
 
 TEST (block_store, empty_bootstrap)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     auto begin (store.unchecked_begin ());
@@ -248,7 +248,7 @@ TEST (block_store, empty_bootstrap)
 
 TEST (block_store, one_bootstrap)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
@@ -266,7 +266,7 @@ TEST (block_store, one_bootstrap)
 
 TEST (block_store, frontier_retrieval)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::account account1 (0);
@@ -279,7 +279,7 @@ TEST (block_store, frontier_retrieval)
 
 TEST (block_store, one_account)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::account account (0);
@@ -299,7 +299,7 @@ TEST (block_store, one_account)
 
 TEST (block_store, two_block)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::open_block block1 (1, 0, 0, 0, 0, 0);
@@ -332,7 +332,7 @@ TEST (block_store, two_block)
 
 TEST (block_store, two_account)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::account account1 (1);
@@ -362,7 +362,7 @@ TEST (block_store, two_account)
 
 TEST (block_store, latest_find)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::account account1 (1);
@@ -384,7 +384,7 @@ TEST (block_store, latest_find)
 
 TEST (block_store, bad_path)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, boost::filesystem::path {});
     ASSERT_FALSE (!init);
 }
@@ -396,14 +396,14 @@ TEST (block_store, already_open)
     std::ofstream file;
     file.open ((path / "accounts.ldb").string ().c_str ());
     ASSERT_TRUE (file.is_open ());
-    bool init;
+    bool init (false);
     rai::block_store store (init, path);
     ASSERT_FALSE (init);
 }
 
 TEST (block_store, delete_iterator_entry)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::open_block block1 (1, 0, 0, 0, 0, 0);
@@ -422,7 +422,7 @@ TEST (block_store, delete_iterator_entry)
 
 TEST (block_store, roots)
 {
-	bool init;
+	bool init (false);
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::send_block send_block (0, 1, 2, 3, 4, 5);
@@ -437,7 +437,7 @@ TEST (block_store, roots)
 
 TEST (block_store, pending_exists)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
     rai::block_hash two (2);
@@ -449,7 +449,7 @@ TEST (block_store, pending_exists)
 
 TEST (block_store, latest_exists)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
     rai::block_hash two (2);
@@ -461,7 +461,7 @@ TEST (block_store, latest_exists)
 
 TEST (block_store, stack)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
     rai::block_hash hash1 (1);
@@ -476,7 +476,7 @@ TEST (block_store, stack)
 
 TEST (block_store, unsynced)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
@@ -493,7 +493,7 @@ TEST (block_store, unsynced)
 
 TEST (block_store, unsynced_iteration)
 {
-    bool init;
+    bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());

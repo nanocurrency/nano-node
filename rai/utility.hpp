@@ -76,6 +76,7 @@ public:
 class transaction
 {
 public:
+	transaction (std::nullptr_t);
 	transaction (MDB_env *, MDB_txn *, bool);
 	~transaction ();
 	operator MDB_txn * () const;
