@@ -104,14 +104,14 @@ TEST (block_store, add_pending)
     rai::keypair key1;
     rai::block_hash hash1 (0);
     rai::receivable receivable1;
-    ASSERT_TRUE (db.pending_get (hash1, receivable1));
 	rai::transaction transaction (db.environment, nullptr, true);
+    ASSERT_TRUE (db.pending_get (transaction, hash1, receivable1));
     db.pending_put (transaction, hash1, receivable1);
     rai::receivable receivable2;
-    ASSERT_FALSE (db.pending_get (hash1, receivable2));
+    ASSERT_FALSE (db.pending_get (transaction, hash1, receivable2));
     ASSERT_EQ (receivable1, receivable2);
-    db.pending_del (hash1);
-    ASSERT_TRUE (db.pending_get (hash1, receivable2));
+    db.pending_del (transaction, hash1);
+    ASSERT_TRUE (db.pending_get (transaction, hash1, receivable2));
 }
 
 TEST (block_store, pending_iterator)

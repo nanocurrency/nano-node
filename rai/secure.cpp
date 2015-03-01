@@ -1707,10 +1707,9 @@ void rai::block_store::pending_put (MDB_txn * transaction_a, rai::block_hash con
     assert (status == 0);
 }
 
-void rai::block_store::pending_del (rai::block_hash const & hash_a)
+void rai::block_store::pending_del (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_del (transaction, pending, hash_a.val (), nullptr));
+	auto status (mdb_del (transaction_a, pending, hash_a.val (), nullptr));
     assert (status == 0);
 }
 
@@ -1721,11 +1720,10 @@ bool rai::block_store::pending_exists (rai::block_hash const & hash_a)
     return rai::block_hash (iterator->first) == hash_a;
 }
 
-bool rai::block_store::pending_get (rai::block_hash const & hash_a, rai::receivable & receivable_a)
+bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::receivable & receivable_a)
 {
-	rai::transaction transaction (environment, nullptr, false);
 	MDB_val value;
-	auto status (mdb_get (transaction, pending, hash_a.val (), &value));
+	auto status (mdb_get (transaction_a, pending, hash_a.val (), &value));
 	assert (status == 0 || status == MDB_NOTFOUND);
     bool result;
     if (status == MDB_NOTFOUND)
@@ -2277,15 +2275,16 @@ public:
     }
     void send_block (rai::send_block const & block_a) override
     {
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
         auto hash (block_a.hash ());
         rai::receivable receivable;
-        while (ledger.store.pending_get (hash, receivable))
+        while (ledger.store.pending_get (transaction, hash, receivable))
         {
             ledger.rollback (ledger.latest (block_a.hashables.destination));
         }
         rai::frontier frontier;
         ledger.store.latest_get (receivable.source, frontier);
-        ledger.store.pending_del (hash);
+        ledger.store.pending_del (transaction, hash);
         ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
         ledger.store.block_del (hash);
     }
@@ -2623,8 +2622,9 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
         result = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block already? (Harmless)
         if (result == rai::process_result::progress)
         {
+			rai::transaction transaction (ledger.store.environment, nullptr, true);
             rai::receivable receivable;
-            result = ledger.store.pending_get (block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
+            result = ledger.store.pending_get (transaction, block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
             {
                 result = rai::validate_message (receivable.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
@@ -2641,7 +2641,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                             rai::frontier source_frontier;
                             auto error (ledger.store.latest_get (receivable.source, source_frontier));
                             assert (!error);
-                            ledger.store.pending_del (block_a.hashables.source);
+                            ledger.store.pending_del (transaction, block_a.hashables.source);
                             ledger.store.block_put (hash, block_a);
                             ledger.change_latest (receivable.destination, hash, frontier.representative, new_balance);
                             ledger.move_representation (source_frontier.representative, frontier.representative, receivable.amount.number ());
@@ -2670,7 +2670,8 @@ void ledger_processor::open_block (rai::open_block const & block_a)
         if (result == rai::process_result::progress)
         {
             rai::receivable receivable;
-            result = ledger.store.pending_get (block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
+			rai::transaction transaction (ledger.store.environment, nullptr, true);
+            result = ledger.store.pending_get (transaction, block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result == rai::process_result::progress)
             {
                 result = receivable.destination == block_a.hashables.account ? rai::process_result::progress : rai::process_result::account_mismatch;
@@ -2686,7 +2687,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
                             rai::frontier source_frontier;
                             auto error (ledger.store.latest_get (receivable.source, source_frontier));
                             assert (!error);
-                            ledger.store.pending_del (block_a.hashables.source);
+                            ledger.store.pending_del (transaction, block_a.hashables.source);
                             ledger.store.block_put (hash, block_a);
                             ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
                             ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());

@@ -141,7 +141,8 @@ TEST (ledger, process_send)
 	rai::frontier frontier5;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier5));
     rai::receivable receivable1;
-	ASSERT_FALSE (ledger.store.pending_get (hash1, receivable1));
+	rai::transaction transaction (ledger.store.environment, nullptr, false);
+	ASSERT_FALSE (ledger.store.pending_get (transaction, hash1, receivable1));
     ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
     ASSERT_EQ (key2.pub, receivable1.destination);
     ASSERT_EQ (rai::genesis_amount - 50, receivable1.amount.number ());
@@ -157,7 +158,7 @@ TEST (ledger, process_send)
 	ASSERT_FALSE (ledger.store.latest_get (rai::test_genesis_key.pub, frontier7));
 	ASSERT_EQ (frontier1.hash, frontier7.hash);
     rai::receivable receivable2;
-	ASSERT_TRUE (ledger.store.pending_get (hash1, receivable2));
+	ASSERT_TRUE (ledger.store.pending_get (transaction, hash1, receivable2));
 	ASSERT_EQ (rai::genesis_amount, ledger.account_balance (rai::test_genesis_key.pub));
 }
 
@@ -219,7 +220,8 @@ TEST (ledger, process_receive)
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
     rai::receivable receivable1;
-	ASSERT_FALSE (ledger.store.pending_get (hash3, receivable1));
+	rai::transaction transaction (ledger.store.environment, nullptr, false);
+	ASSERT_FALSE (ledger.store.pending_get (transaction, hash3, receivable1));
     ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
     ASSERT_EQ (25, receivable1.amount.number ());
 }
@@ -257,7 +259,8 @@ TEST (ledger, rollback_receiver)
 	rai::frontier frontier2;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier2));
     rai::receivable receivable1;
-	ASSERT_TRUE (ledger.store.pending_get (frontier2.hash, receivable1));
+	rai::transaction transaction (ledger.store.environment, nullptr, false);
+	ASSERT_TRUE (ledger.store.pending_get (transaction, frontier2.hash, receivable1));
 }
 
 TEST (ledger, rollback_representation)
@@ -322,7 +325,6 @@ TEST (ledger, representative_genesis)
     bool init;
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    bool init1;
     rai::ledger ledger (store);
     rai::genesis genesis;
     genesis.initialize (store);

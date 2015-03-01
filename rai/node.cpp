@@ -2705,13 +2705,14 @@ public:
     {
 		auto hash (block_a.hash ());
         rai::receivable receivable;
-		while (ledger.store.pending_get (hash, receivable))
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
+		while (ledger.store.pending_get (transaction, hash, receivable))
 		{
 			ledger.rollback (ledger.latest (block_a.hashables.destination));
 		}
         rai::frontier frontier;
         ledger.store.latest_get (receivable.source, frontier);
-		ledger.store.pending_del (hash);
+		ledger.store.pending_del (transaction, hash);
         ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
     }
@@ -2724,7 +2725,8 @@ public:
 		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (hash);
-        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void open_block (rai::open_block const & block_a) override
     {
@@ -2735,7 +2737,8 @@ public:
 		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, 0, representative, 0);
 		ledger.store.block_del (hash);
-        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void change_block (rai::change_block const & block_a) override
     {

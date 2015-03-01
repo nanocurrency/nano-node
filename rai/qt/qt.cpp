@@ -999,8 +999,9 @@ void rai_qt::block_creation::create_receive ()
     auto error (source_l.decode_hex (source->text ().toStdString ()));
     if (!error)
     {
+		rai::transaction transaction (wallet.node.store.environment, nullptr, false);
         rai::receivable receivable;
-        if (!wallet.node.store.pending_get (source_l, receivable))
+        if (!wallet.node.store.pending_get (transaction, source_l, receivable))
         {
             rai::frontier frontier;
             auto error (wallet.node.store.latest_get (receivable.destination, frontier));
@@ -1106,8 +1107,9 @@ void rai_qt::block_creation::create_open ()
         error = representative_l.decode_base58check (representative->text ().toStdString ());
         if (!error)
         {
+			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
             rai::receivable receivable;
-            if (!wallet.node.store.pending_get (source_l, receivable))
+            if (!wallet.node.store.pending_get (transaction, source_l, receivable))
             {
                 rai::frontier frontier;
                 auto error (wallet.node.store.latest_get (receivable.destination, frontier));
