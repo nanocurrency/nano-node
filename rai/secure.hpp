@@ -289,9 +289,9 @@ public:
 class store_iterator
 {
 public:
-	store_iterator (MDB_env *, MDB_dbi);
+	store_iterator (MDB_txn *, MDB_dbi);
 	store_iterator (std::nullptr_t);
-	store_iterator (MDB_env *, MDB_dbi, MDB_val const &);
+	store_iterator (MDB_txn *, MDB_dbi, MDB_val const &);
 	store_iterator (rai::store_iterator const &) = default;
 	store_iterator (rai::store_iterator &&) = default;
 	~store_iterator ();
@@ -300,7 +300,6 @@ public:
 	rai::store_entry & operator -> ();
 	bool operator == (rai::store_iterator const &) const;
 	bool operator != (rai::store_iterator const &) const;
-	rai::transaction transaction;
 	MDB_cursor * cursor;
 	rai::store_entry current;
 };
@@ -332,24 +331,24 @@ public:
 	std::unique_ptr <rai::block> block_get (rai::block_hash const &);
 	void block_del (rai::block_hash const &);
 	bool block_exists (rai::block_hash const &);
-	rai::store_iterator blocks_begin (rai::uint256_union const &);
-	rai::store_iterator blocks_begin ();
+	rai::store_iterator blocks_begin (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator blocks_begin (MDB_txn *);
 	rai::store_iterator blocks_end ();
 	
 	void latest_put (rai::account const &, rai::frontier const &);
 	bool latest_get (rai::account const &, rai::frontier &);
 	void latest_del (rai::account const &);
 	bool latest_exists (rai::account const &);
-	rai::store_iterator latest_begin (rai::account const &);
-	rai::store_iterator latest_begin ();
+	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
+	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
 	
 	void pending_put (rai::block_hash const &, rai::receivable const &);
 	void pending_del (rai::block_hash const &);
 	bool pending_get (rai::block_hash const &, rai::receivable &);
 	bool pending_exists (rai::block_hash const &);
-	rai::store_iterator pending_begin (rai::block_hash const &);
-	rai::store_iterator pending_begin ();
+	rai::store_iterator pending_begin (MDB_txn *, rai::block_hash const &);
+	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
 	
 	rai::uint128_t representation_get (rai::account const &);
@@ -358,14 +357,14 @@ public:
 	void unchecked_put (rai::block_hash const &, rai::block const &);
 	std::unique_ptr <rai::block> unchecked_get (rai::block_hash const &);
 	void unchecked_del (rai::block_hash const &);
-	rai::store_iterator unchecked_begin ();
+	rai::store_iterator unchecked_begin (MDB_txn *);
 	rai::store_iterator unchecked_end ();
 	
 	void unsynced_put (rai::block_hash const &);
 	void unsynced_del (rai::block_hash const &);
 	bool unsynced_exists (rai::block_hash const &);
-	rai::store_iterator unsynced_begin (rai::block_hash const &);
-	rai::store_iterator unsynced_begin ();
+	rai::store_iterator unsynced_begin (MDB_txn *, rai::block_hash const &);
+	rai::store_iterator unsynced_begin (MDB_txn *);
 	rai::store_iterator unsynced_end ();
 
 	void stack_open ();

@@ -40,7 +40,8 @@ TEST (wallet, empty_iteration)
     bool init;
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
-    auto i (wallet.begin ());
+	rai::transaction transaction (environment, nullptr, false);
+    auto i (wallet.begin (transaction));
     auto j (wallet.end ());
     ASSERT_EQ (i, j);
 }
@@ -53,7 +54,8 @@ TEST (wallet, one_item_iteration)
     ASSERT_FALSE (init);
     rai::keypair key1;
     wallet.insert (key1.prv);
-    for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
+	rai::transaction transaction (environment, nullptr, false);
+    for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
     {
         ASSERT_EQ (key1.pub, i->first);
         ASSERT_EQ (key1.prv, rai::uint256_union (i->second).prv (wallet.wallet_key (), wallet.salt ().owords [0]));
@@ -72,7 +74,8 @@ TEST (wallet, two_item_iteration)
     wallet.insert (key2.prv);
     std::unordered_set <rai::public_key> pubs;
     std::unordered_set <rai::private_key> prvs;
-    for (auto i (wallet.begin ()), j (wallet.end ()); i != j; ++i)
+	rai::transaction transaction (environment, nullptr, false);
+    for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
     {
         pubs.insert (i->first);
         prvs.insert (rai::uint256_union (i->second).prv (wallet.wallet_key (), wallet.salt ().owords [0]));
@@ -356,8 +359,9 @@ TEST (wallet, serialize_json_empty)
     ASSERT_EQ (wallet1.salt (), wallet2.salt ());
     ASSERT_EQ (wallet1.check (), wallet2.check ());
     ASSERT_EQ (wallet1.representative (), wallet2.representative ());
-    ASSERT_EQ (wallet1.end (), wallet1.begin ());
-    ASSERT_EQ (wallet2.end (), wallet2.begin ());
+	rai::transaction transaction (environment, nullptr, false);
+    ASSERT_EQ (wallet1.end (), wallet1.begin (transaction));
+    ASSERT_EQ (wallet2.end (), wallet2.begin (transaction));
 }
 
 TEST (wallet, serialize_json_one)

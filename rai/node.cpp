@@ -664,8 +664,9 @@ bool rai::wallet_store::exists (rai::public_key const & pub)
 
 void rai::wallet_store::serialize_json (std::string & string_a)
 {
+	rai::transaction transaction (environment, nullptr, false);
     boost::property_tree::ptree tree;
-    for (rai::store_iterator i (environment, handle), n (nullptr); i != n; ++i)
+    for (rai::store_iterator i (transaction, handle), n (nullptr); i != n; ++i)
     {
         tree.put (rai::uint256_union (i->first).to_string (), rai::wallet_value (i->second).key.to_string ());
     }
@@ -833,7 +834,8 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
     if (!result)
     {
         rai::uint128_t remaining (amount_a);
-        for (auto i (store.begin ()), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
+		rai::transaction transaction (store.environment, nullptr, false);
+        for (auto i (store.begin (transaction)), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
         {
             auto account (i->first);
             auto balance (node.ledger.account_balance (account));
@@ -927,7 +929,8 @@ node (node_a)
 		auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
 		assert (status == 0);
 	}
-    for (rai::store_iterator i (node_a.store.environment, handle, rai::uint256_union (0).val ()), n (nullptr); i != n; ++i)
+	rai::transaction transaction (node_a.store.environment, nullptr, true);
+    for (rai::store_iterator i (transaction, handle, rai::uint256_union (0).val ()), n (nullptr); i != n; ++i)
     {
 		rai::uint256_union id;
 		std::string text (reinterpret_cast <char const *> (i->first.mv_data), i->first.mv_size);
@@ -1016,15 +1019,16 @@ void rai::wallets::cache_work (rai::account const & account_a)
 	}
 }
 
-rai::store_iterator rai::wallet_store::begin ()
+rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a)
 {
-    rai::store_iterator result (environment, handle, rai::uint256_union (special_count).val ());
+    rai::store_iterator result (transaction_a, handle, rai::uint256_union (special_count).val ());
     return result;
 }
 
 rai::store_iterator rai::wallet_store::find (rai::uint256_union const & key)
 {
-    rai::store_iterator result (environment, handle, key.val ());
+	rai::transaction transaction (environment, nullptr, false);
+    rai::store_iterator result (transaction, handle, key.val ());
     rai::store_iterator end (nullptr);
     if (result != end)
     {
@@ -1420,7 +1424,8 @@ logging (logging_a)
         {
             std::cerr << "Constructing node\n";
         }
-        if (store.latest_begin () == store.latest_end ())
+		rai::transaction transaction (store.environment, nullptr, true);
+        if (store.latest_begin (transaction) == store.latest_end ())
         {
             // Store was empty meaning we just created it, add the genesis block
             rai::genesis genesis;
@@ -1819,7 +1824,8 @@ std::shared_ptr <rai::wallet> rai::system::wallet (size_t index_a)
 rai::account rai::system::account (size_t index_a)
 {
     auto wallet_l (wallet (index_a));
-    auto keys (wallet_l->store.begin ());
+	rai::transaction transaction (wallet_l->store.environment, nullptr, false);
+    auto keys (wallet_l->store.begin (transaction));
     assert (keys != wallet_l->store.end ());
     auto result (keys->first);
     assert (++keys == wallet_l->store.end ());
@@ -2146,7 +2152,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     {
                         boost::property_tree::ptree response_l;
                         boost::property_tree::ptree accounts;
-                        for (auto i (existing->second->store.begin ()), j (existing->second->store.end ()); i != j; ++i)
+						rai::transaction transaction (node.store.environment, nullptr, false);
+                        for (auto i (existing->second->store.begin (transaction)), j (existing->second->store.end ()); i != j; ++i)
                         {
                             boost::property_tree::ptree entry;
                             entry.put ("", rai::uint256_union (i->first).to_base58check ());
@@ -2920,14 +2927,15 @@ void rai::node::ongoing_keepalive ()
 void rai::node::search_pending ()
 {
 	std::unordered_set <rai::uint256_union> wallet;
+	rai::transaction transaction (store.environment, nullptr, false);
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
-		for (auto j (i->second->store.begin ()), m (i->second->store.end ()); j != m; ++j)
+		for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
 		{
 			wallet.insert (j->first);
 		}
 	}
-	for (auto i (store.pending_begin ()), n (store.pending_end ()); i != n; ++i)
+	for (auto i (store.pending_begin (transaction)), n (store.pending_end ()); i != n; ++i)
 	{
 		if (wallet.find (rai::receivable (i->second).destination) != wallet.end ())
 		{
@@ -3721,9 +3729,10 @@ void rai::bulk_pull_client::process_end ()
 		}
 		connection->connection->node->store.unchecked_del (block_a.hash ());
 	}, connection->connection->node->store);
-    while (connection->connection->node->store.unchecked_begin () != connection->connection->node->store.unchecked_end ())
+	rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
+    while (connection->connection->node->store.unchecked_begin (transaction) != connection->connection->node->store.unchecked_end ())
     {
-		auto error (synchronization.synchronize (connection->connection->node->store.unchecked_begin ()->first));
+		auto error (synchronization.synchronize (connection->connection->node->store.unchecked_begin (transaction)->first));
         if (error)
         {
             while (!synchronization.blocks.empty ())
@@ -4117,7 +4126,8 @@ request (std::move (request_a))
 
 rai::frontier_req_server::frontier_req_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 connection (connection_a),
-iterator (connection_a->node->store.latest_begin (request_a->start)),
+transaction (connection_a->node->store.environment, nullptr, false),
+iterator (connection_a->node->store.latest_begin (transaction, request_a->start)),
 request (std::move (request_a))
 {
     skip_old ();
@@ -4285,7 +4295,8 @@ rai::bulk_pull_client::~bulk_pull_client ()
 
 rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_client> const & connection_a) :
 connection (connection_a),
-current (connection->node->store.latest_begin ()),
+transaction (connection_a->node->store.environment, nullptr, false),
+current (connection->node->store.latest_begin (transaction)),
 end (connection->node->store.latest_end ())
 {
 }
@@ -4573,7 +4584,8 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, siz
 void rai::system::generate_activity (rai::node & node_a)
 {
     auto what (random_pool.GenerateByte ());
-    if (what < 0xc0 && node_a.store.latest_begin () != node_a.store.latest_end ())
+	rai::transaction transaction (node_a.store.environment, nullptr, false);
+    if (what < 0xc0 && node_a.store.latest_begin (transaction) != node_a.store.latest_end ())
     {
         generate_send_existing (node_a);
     }
@@ -4605,10 +4617,11 @@ void rai::system::generate_send_existing (rai::node & node_a)
 {
     rai::account account;
     random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
-    rai::store_iterator entry (node_a.store.latest_begin (account));
+	rai::transaction transaction (node_a.store.environment, nullptr, false);
+    rai::store_iterator entry (node_a.store.latest_begin (transaction, account));
     if (entry == node_a.store.latest_end ())
     {
-        entry = node_a.store.latest_begin ();
+        entry = node_a.store.latest_begin (transaction);
     }
     assert (entry != node_a.store.latest_end ());
     wallet (0)->send_all (entry->first, get_random_amount (node_a));
@@ -4641,7 +4654,8 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 rai::uint128_t rai::wallet_store::balance (rai::ledger & ledger_a)
 {
     rai::uint128_t result;
-    for (auto i (begin ()), n (end ()); i !=  n; ++i)
+	rai::transaction transaction (environment, nullptr, false);
+    for (auto i (begin (transaction)), n (end ()); i !=  n; ++i)
     {
         auto pub (i->first);
         auto account_balance (ledger_a.account_balance (pub));

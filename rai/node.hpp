@@ -290,7 +290,7 @@ public:
     bool fetch (rai::public_key const &, rai::private_key &);
     bool exists (rai::public_key const &);
     rai::store_iterator find (rai::uint256_union const &);
-    rai::store_iterator begin ();
+    rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
     rai::uint256_union derive_key (std::string const &);
     rai::uint128_t balance (rai::ledger &);
@@ -459,6 +459,7 @@ public:
     std::unordered_map <rai::account, rai::block_hash> pushes;
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
+	rai::transaction transaction;
     rai::store_iterator current;
     rai::store_iterator end;
 };
@@ -673,6 +674,7 @@ public:
     void no_block_sent (boost::system::error_code const &, size_t);
     std::pair <rai::uint256_union, rai::uint256_union> get_next ();
     std::shared_ptr <rai::bootstrap_server> connection;
+	rai::transaction transaction;
     rai::store_iterator iterator;
     std::unique_ptr <rai::frontier_req> request;
     std::vector <uint8_t> send_buffer;

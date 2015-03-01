@@ -1435,27 +1435,24 @@ rai::store_entry & rai::store_iterator::operator -> ()
     return current;
 }
 
-rai::store_iterator::store_iterator (MDB_env * environment_a, MDB_dbi db_a) :
-transaction (environment_a, nullptr, false),
+rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a) :
 cursor (nullptr)
 {
-	auto status (mdb_cursor_open (transaction, db_a, &cursor));
+	auto status (mdb_cursor_open (transaction_a, db_a, &cursor));
 	assert (status == 0);
 	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_FIRST));
 	assert (status2 == 0 || status2 == MDB_NOTFOUND);
 }
 
 rai::store_iterator::store_iterator (std::nullptr_t) :
-transaction (nullptr),
 cursor (nullptr)
 {
 }
 
-rai::store_iterator::store_iterator (MDB_env * environment_a, MDB_dbi db_a, MDB_val const & val_a) :
-transaction (environment_a, nullptr, false),
+rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a) :
 cursor (nullptr)
 {
-	auto status (mdb_cursor_open (transaction, db_a, &cursor));
+	auto status (mdb_cursor_open (transaction_a, db_a, &cursor));
 	assert (status == 0);
 	current.first = val_a;
 	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_SET_KEY));
@@ -1644,7 +1641,8 @@ void rai::block_store::block_del (rai::block_hash const & hash_a)
 
 bool rai::block_store::block_exists (rai::block_hash const & hash_a)
 {
-	auto iterator (blocks_begin (hash_a));
+	rai::transaction transaction (environment, nullptr, false);
+	auto iterator (blocks_begin (transaction, hash_a));
 	return iterator->second.mv_size != 0;
 }
 
@@ -1657,7 +1655,8 @@ void rai::block_store::latest_del (rai::account const & account_a)
 
 bool rai::block_store::latest_exists (rai::account const & account_a)
 {
-	auto iterator (latest_begin (account_a));
+	rai::transaction transaction (environment, nullptr, false);
+	auto iterator (latest_begin (transaction, account_a));
 	return rai::account (iterator->first) == account_a;
 }
 
@@ -1716,7 +1715,8 @@ void rai::block_store::pending_del (rai::block_hash const & hash_a)
 
 bool rai::block_store::pending_exists (rai::block_hash const & hash_a)
 {
-	auto iterator (pending_begin (hash_a));
+	rai::transaction transaction (environment, nullptr, false);
+	auto iterator (pending_begin (transaction, hash_a));
     return rai::block_hash (iterator->first) == hash_a;
 }
 
@@ -1746,15 +1746,15 @@ bool rai::block_store::pending_get (rai::block_hash const & hash_a, rai::receiva
     return result;
 }
 
-rai::store_iterator rai::block_store::pending_begin (rai::block_hash const & hash_a)
+rai::store_iterator rai::block_store::pending_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::store_iterator result (environment, pending, hash_a.val ());
+	rai::store_iterator result (transaction_a, pending, hash_a.val ());
 	return result;
 }
 
-rai::store_iterator rai::block_store::pending_begin ()
+rai::store_iterator rai::block_store::pending_begin (MDB_txn * transaction_a)
 {
-    rai::store_iterator result (environment, pending);
+    rai::store_iterator result (transaction_a, pending);
     return result;
 }
 
@@ -1880,9 +1880,9 @@ void rai::block_store::unchecked_del (rai::block_hash const & hash_a)
 	assert (status == 0);
 }
 
-rai::store_iterator rai::block_store::unchecked_begin ()
+rai::store_iterator rai::block_store::unchecked_begin (MDB_txn * transaction_a)
 {
-    rai::store_iterator result (environment, unchecked);
+    rai::store_iterator result (transaction_a, unchecked);
     return result;
 }
 
@@ -1908,18 +1908,19 @@ void rai::block_store::unsynced_del (rai::block_hash const & hash_a)
 
 bool rai::block_store::unsynced_exists (rai::block_hash const & hash_a)
 {
-	auto iterator (unsynced_begin (hash_a));
+	rai::transaction transaction (environment, nullptr, false);
+	auto iterator (unsynced_begin (transaction, hash_a));
 	return rai::block_hash (iterator->first) == hash_a;
 }
 
-rai::store_iterator rai::block_store::unsynced_begin ()
+rai::store_iterator rai::block_store::unsynced_begin (MDB_txn * transaction_a)
 {
-    return rai::store_iterator (environment, unsynced);
+    return rai::store_iterator (transaction_a, unsynced);
 }
 
-rai::store_iterator rai::block_store::unsynced_begin (rai::uint256_union const & val_a)
+rai::store_iterator rai::block_store::unsynced_begin (MDB_txn * transaction_a, rai::uint256_union const & val_a)
 {
-	return rai::store_iterator (environment, unsynced, val_a.val ());
+	return rai::store_iterator (transaction_a, unsynced, val_a.val ());
 }
 
 rai::store_iterator rai::block_store::unsynced_end ()
@@ -2037,15 +2038,15 @@ public:
 };
 }
 
-rai::store_iterator rai::block_store::blocks_begin (rai::uint256_union const & hash_a)
+rai::store_iterator rai::block_store::blocks_begin (MDB_txn * transaction_a, rai::uint256_union const & hash_a)
 {
-	rai::store_iterator result (environment, blocks, hash_a.val ());
+	rai::store_iterator result (transaction_a, blocks, hash_a.val ());
 	return result;
 }
 
-rai::store_iterator rai::block_store::blocks_begin ()
+rai::store_iterator rai::block_store::blocks_begin (MDB_txn * transaction_a)
 {
-    rai::store_iterator result (environment, blocks);
+    rai::store_iterator result (transaction_a, blocks);
     return result;
 }
 
@@ -2055,15 +2056,15 @@ rai::store_iterator rai::block_store::blocks_end ()
     return result;
 }
 
-rai::store_iterator rai::block_store::latest_begin (rai::account const & account_a)
+rai::store_iterator rai::block_store::latest_begin (MDB_txn * transaction_a, rai::account const & account_a)
 {
-    rai::store_iterator result (environment, accounts, account_a.val ());
+    rai::store_iterator result (transaction_a, accounts, account_a.val ());
     return result;
 }
 
-rai::store_iterator rai::block_store::latest_begin ()
+rai::store_iterator rai::block_store::latest_begin (MDB_txn * transaction_a)
 {
-    rai::store_iterator result (environment, accounts);
+    rai::store_iterator result (transaction_a, accounts);
     return result;
 }
 
@@ -2751,7 +2752,10 @@ open (genesis_account, genesis_account, genesis_account, nullptr)
 
 void rai::genesis::initialize (rai::block_store & store_a) const
 {
-	assert (store_a.latest_begin () == store_a.latest_end ());
+	{
+		rai::transaction transaction (store_a.environment, nullptr, false);
+		assert (store_a.latest_begin (transaction) == store_a.latest_end ());
+	}
 	store_a.block_put (open.hash (), open);
 	store_a.latest_put (genesis_account, {open.hash (), open.hashables.representative, std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
 	store_a.representation_put (genesis_account, std::numeric_limits <rai::uint128_t>::max ());

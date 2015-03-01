@@ -506,12 +506,13 @@ TEST (system, generate_send_new)
 {
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    auto iterator1 (system.nodes [0]->store.latest_begin ());
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto iterator1 (system.nodes [0]->store.latest_begin (transaction));
     ++iterator1;
     ASSERT_EQ (system.nodes [0]->store.latest_end (), iterator1);
     system.generate_send_new (*system.nodes [0]);
     rai::account new_account;
-    auto iterator2 (system.wallet (0)->store.begin ());
+    auto iterator2 (system.wallet (0)->store.begin (transaction));
     if (rai::uint256_union (iterator2->first) != rai::test_genesis_key.pub)
     {
         new_account = iterator2->first;

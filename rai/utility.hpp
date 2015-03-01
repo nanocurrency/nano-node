@@ -14,11 +14,6 @@
 
 #include <liblmdb/lmdb.h>
 
-namespace leveldb
-{
-class Slice;
-}
-
 namespace rai
 {
 extern CryptoPP::AutoSeededRandomPool random_pool;

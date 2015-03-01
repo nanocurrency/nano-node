@@ -672,7 +672,8 @@ TEST (rpc, account_move)
     ASSERT_EQ ("1", response_tree.get <std::string> ("moved"));
     ASSERT_NE (destination->store.end (), destination->store.find (key.pub));
     ASSERT_NE (destination->store.end (), destination->store.find (rai::test_genesis_key.pub));
-    ASSERT_EQ (source->store.end (), source->store.begin ());
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_EQ (source->store.end (), source->store.begin (transaction));
 }
 
 TEST (rpc, block)

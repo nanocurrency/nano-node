@@ -118,9 +118,10 @@ TEST (block_store, pending_iterator)
     bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    ASSERT_EQ (db.pending_end (), db.pending_begin ());
+	rai::transaction transaction (db.environment, nullptr, false);
+    ASSERT_EQ (db.pending_end (), db.pending_begin (transaction));
     db.pending_put (1, {2, 3, 4});
-    auto current (db.pending_begin ());
+    auto current (db.pending_begin (transaction));
     ASSERT_NE (db.pending_end (), current);
     ASSERT_EQ (rai::account (1), current->first);
 	rai::receivable receivable (current->second);
@@ -203,7 +204,8 @@ TEST (block_store, empty_blocks)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    auto begin (store.blocks_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.blocks_begin (transaction));
     auto end (store.blocks_end ());
     ASSERT_EQ (end, begin);
 }
@@ -213,7 +215,8 @@ TEST (block_store, empty_accounts)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    auto begin (store.latest_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_EQ (end, begin);
 }
@@ -225,7 +228,8 @@ TEST (block_store, one_block)
     ASSERT_TRUE (!init);
     rai::open_block block1 (0, 0, 0, 0, 0, rai::work_generate (0));
     store.block_put (block1.hash (), block1);
-    auto begin (store.blocks_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.blocks_begin (transaction));
     auto end (store.blocks_end ());
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
@@ -241,7 +245,8 @@ TEST (block_store, empty_bootstrap)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    auto begin (store.unchecked_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.unchecked_begin (transaction));
     auto end (store.unchecked_end ());
     ASSERT_EQ (end, begin);
 }
@@ -253,7 +258,8 @@ TEST (block_store, one_bootstrap)
     ASSERT_TRUE (!init);
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
     store.unchecked_put (block1.hash (), block1);
-    auto begin (store.unchecked_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.unchecked_begin (transaction));
     auto end (store.unchecked_end ());
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
@@ -285,7 +291,8 @@ TEST (block_store, one_account)
     rai::account account (0);
     rai::block_hash hash (0);
     store.latest_put (account, {hash, account, 42, 100});
-    auto begin (store.latest_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (account, begin->first);
@@ -313,7 +320,8 @@ TEST (block_store, two_block)
     hashes.push_back (block2.hash ());
     blocks.push_back (block2);
     store.block_put (hashes [1], block2);
-    auto begin (store.blocks_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.blocks_begin (transaction));
     auto end (store.blocks_end ());
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
@@ -341,7 +349,8 @@ TEST (block_store, two_account)
     rai::block_hash hash2 (4);
     store.latest_put (account1, {hash1, account1, 42, 100});
     store.latest_put (account2, {hash2, account2, 84, 200});
-    auto begin (store.latest_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (account1, begin->first);
@@ -371,14 +380,15 @@ TEST (block_store, latest_find)
     rai::block_hash hash2 (4);
     store.latest_put (account1, {hash1, account1, 100, 0});
     store.latest_put (account2, {hash2, account2, 200, 0});
-    auto first (store.latest_begin ());
-    auto second (store.latest_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto first (store.latest_begin (transaction));
+    auto second (store.latest_begin (transaction));
     ++second;
-    auto find1 (store.latest_begin (1));
+    auto find1 (store.latest_begin (transaction, 1));
     ASSERT_EQ (first, find1);
-    auto find2 (store.latest_begin (3));
+    auto find2 (store.latest_begin (transaction, 3));
     ASSERT_EQ (second, find2);
-    auto find3 (store.latest_begin (2));
+    auto find3 (store.latest_begin (transaction, 2));
     ASSERT_EQ (second, find3);
 }
 
@@ -410,7 +420,8 @@ TEST (block_store, delete_iterator_entry)
     store.block_put (block1.hash (), block1);
     rai::open_block block2 (2, 0, 0, 0, 0, 0);
     store.block_put (block2.hash (), block2);
-    auto current (store.blocks_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto current (store.blocks_begin (transaction));
     ASSERT_NE (store.blocks_end (), current);
     store.block_del (current->first);
     ++current;
@@ -479,16 +490,17 @@ TEST (block_store, unsynced)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
     rai::block_hash hash1 (0);
     ASSERT_FALSE (store.unsynced_exists (hash1));
     store.unsynced_put (hash1);
     ASSERT_TRUE (store.unsynced_exists (hash1));
-    ASSERT_NE (store.unsynced_end (), store.unsynced_begin ());
-    ASSERT_EQ (hash1, rai::uint256_union (store.unsynced_begin ()->first));
+    ASSERT_NE (store.unsynced_end (), store.unsynced_begin (transaction));
+    ASSERT_EQ (hash1, rai::uint256_union (store.unsynced_begin (transaction)->first));
     store.unsynced_del (hash1);
     ASSERT_FALSE (store.unsynced_exists (hash1));
-    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
+    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
 }
 
 TEST (block_store, unsynced_iteration)
@@ -496,13 +508,14 @@ TEST (block_store, unsynced_iteration)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin ());
+	rai::transaction transaction (store.environment, nullptr, false);
+    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
     rai::block_hash hash1 (1);
     store.unsynced_put (hash1);
     rai::block_hash hash2 (2);
     store.unsynced_put (hash2);
     std::unordered_set <rai::block_hash> hashes;
-    for (auto i (store.unsynced_begin ()), n (store.unsynced_end ()); i != n; ++i)
+    for (auto i (store.unsynced_begin (transaction)), n (store.unsynced_end ()); i != n; ++i)
     {
         hashes.insert (rai::uint256_union (i->first));
     }
