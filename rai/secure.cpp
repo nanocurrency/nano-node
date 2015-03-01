@@ -1694,7 +1694,7 @@ void rai::block_store::latest_put (rai::account const & account_a, rai::frontier
     assert (status == 0);
 }
 
-void rai::block_store::pending_put (rai::block_hash const & hash_a, rai::receivable const & receivable_a)
+void rai::block_store::pending_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::receivable const & receivable_a)
 {
     std::vector <uint8_t> vector;
     {
@@ -1703,8 +1703,7 @@ void rai::block_store::pending_put (rai::block_hash const & hash_a, rai::receiva
         rai::write (stream, receivable_a.amount);
         rai::write (stream, receivable_a.destination);
     }
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_put (transaction, pending, hash_a.val (), receivable_a.val (), 0));
+	auto status (mdb_put (transaction_a, pending, hash_a.val (), receivable_a.val (), 0));
     assert (status == 0);
 }
 
@@ -2299,7 +2298,8 @@ public:
         ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
         ledger.store.block_del (hash);
-        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void open_block (rai::open_block const & block_a) override
     {
@@ -2310,7 +2310,8 @@ public:
         ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, 0, representative, 0);
         ledger.store.block_del (hash);
-        ledger.store.pending_put (block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void change_block (rai::change_block const & block_a) override
     {
@@ -2599,7 +2600,10 @@ void ledger_processor::send_block (rai::send_block const & block_a)
                     {
                         ledger.store.block_put (message, block_a);
                         ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
-                        ledger.store.pending_put (message, {account, frontier.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
+						{
+							rai::transaction transaction (ledger.store.environment, nullptr, true);
+							ledger.store.pending_put (transaction, message, {account, frontier.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
+						}
                         ledger.send_observer (block_a, account, block_a.hashables.balance);
                     }
                 }

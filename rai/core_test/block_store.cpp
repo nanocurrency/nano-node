@@ -105,7 +105,8 @@ TEST (block_store, add_pending)
     rai::block_hash hash1 (0);
     rai::receivable receivable1;
     ASSERT_TRUE (db.pending_get (hash1, receivable1));
-    db.pending_put (hash1, receivable1);
+	rai::transaction transaction (db.environment, nullptr, true);
+    db.pending_put (transaction, hash1, receivable1);
     rai::receivable receivable2;
     ASSERT_FALSE (db.pending_get (hash1, receivable2));
     ASSERT_EQ (receivable1, receivable2);
@@ -118,9 +119,9 @@ TEST (block_store, pending_iterator)
     bool init (false);
     rai::block_store db (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-	rai::transaction transaction (db.environment, nullptr, false);
+	rai::transaction transaction (db.environment, nullptr, true);
     ASSERT_EQ (db.pending_end (), db.pending_begin (transaction));
-    db.pending_put (1, {2, 3, 4});
+    db.pending_put (transaction, 1, {2, 3, 4});
     auto current (db.pending_begin (transaction));
     ASSERT_NE (db.pending_end (), current);
     ASSERT_EQ (rai::account (1), current->first);
@@ -453,7 +454,8 @@ TEST (block_store, pending_exists)
 	ASSERT_TRUE (!init);
     rai::block_hash two (2);
     rai::receivable receivable;
-    store.pending_put (two, receivable);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.pending_put (transaction, two, receivable);
     rai::block_hash one (1);
     ASSERT_FALSE (store.pending_exists (one));
 }

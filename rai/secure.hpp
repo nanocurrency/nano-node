@@ -343,7 +343,7 @@ public:
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
 	
-	void pending_put (rai::block_hash const &, rai::receivable const &);
+	void pending_put (MDB_txn *, rai::block_hash const &, rai::receivable const &);
 	void pending_del (rai::block_hash const &);
 	bool pending_get (rai::block_hash const &, rai::receivable &);
 	bool pending_exists (rai::block_hash const &);
