@@ -114,7 +114,8 @@ wallet (wallet_a)
 void rai_qt::accounts::refresh ()
 {
     model->removeRows (0, model->rowCount ());
-    for (auto i (wallet.wallet_m->store.begin ()), j (wallet.wallet_m->store.end ()); i != j; ++i)
+	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+    for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
         rai::public_key key (i->first);
@@ -709,7 +710,8 @@ void rai_qt::advanced_actions::refresh_peers ()
 void rai_qt::advanced_actions::refresh_ledger ()
 {
     ledger_model->removeRows (0, ledger_model->rowCount ());
-    for (auto i (wallet.node.ledger.store.latest_begin()), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
+	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+    for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
         items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_base58check ().c_str ())));

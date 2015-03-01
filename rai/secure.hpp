@@ -362,7 +362,7 @@ public:
 	
 	void unsynced_put (rai::block_hash const &);
 	void unsynced_del (rai::block_hash const &);
-	bool unsynced_exists (rai::block_hash const &);
+	bool unsynced_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unsynced_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unsynced_begin (MDB_txn *);
 	rai::store_iterator unsynced_end ();

@@ -3701,7 +3701,8 @@ block_synchronization (target_a, store_a)
 
 bool rai::push_synchronization::synchronized (rai::block_hash const & hash_a)
 {
-    return !store.unsynced_exists (hash_a);
+	rai::transaction transaction (store.environment, nullptr, false);
+    return !store.unsynced_exists (transaction, hash_a);
 }
 
 std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_hash const & hash_a)

@@ -493,13 +493,13 @@ TEST (block_store, unsynced)
 	rai::transaction transaction (store.environment, nullptr, false);
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
     rai::block_hash hash1 (0);
-    ASSERT_FALSE (store.unsynced_exists (hash1));
+    ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
     store.unsynced_put (hash1);
-    ASSERT_TRUE (store.unsynced_exists (hash1));
+    ASSERT_TRUE (store.unsynced_exists (transaction, hash1));
     ASSERT_NE (store.unsynced_end (), store.unsynced_begin (transaction));
     ASSERT_EQ (hash1, rai::uint256_union (store.unsynced_begin (transaction)->first));
     store.unsynced_del (hash1);
-    ASSERT_FALSE (store.unsynced_exists (hash1));
+    ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
     ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
 }
 

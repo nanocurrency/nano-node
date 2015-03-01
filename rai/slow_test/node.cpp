@@ -10,7 +10,8 @@ TEST (system, generate_mass_activity)
     size_t count (20);
     system.generate_mass_activity (count, *system.nodes [0]);
     size_t accounts (0);
-    for (auto i (system.nodes [0]->store.latest_begin ()), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    for (auto i (system.nodes [0]->store.latest_begin (transaction)), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
     {
         ++accounts;
     }
@@ -24,7 +25,8 @@ TEST (system, generate_mass_activity_long)
     size_t count (10000);
     system.generate_mass_activity (count, *system.nodes [0]);
     size_t accounts (0);
-    for (auto i (system.nodes [0]->store.latest_begin ()), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    for (auto i (system.nodes [0]->store.latest_begin (transaction)), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
     {
         ++accounts;
     }

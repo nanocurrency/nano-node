@@ -176,18 +176,21 @@ int main (int argc, char * const * argv)
             {
                 wallet = node->wallets.create (config.wallet);
             }
-            auto wallet_entry (wallet->store.begin ());
-            if (wallet_entry == wallet->store.end ())
-            {
-                rai::keypair key;
-                wallet->store.insert (key.prv);
-                wallet_entry = wallet->store.begin ();
-            }
-            assert (wallet_entry != wallet->store.end ());
-            std::cout << boost::str (boost::format ("Landing account: %1%\n") % store.source.to_base58check ());
-			std::cout << boost::str (boost::format ("Destination account: %1%\n") % store.destination.to_base58check ());
-            ++wallet_entry;
-            assert (wallet_entry == wallet->store.end ());
+			{
+				rai::transaction transaction (node->store.environment, nullptr, false);
+				auto wallet_entry (wallet->store.begin (transaction));
+				if (wallet_entry == wallet->store.end ())
+				{
+					rai::keypair key;
+					wallet->store.insert (key.prv);
+					wallet_entry = wallet->store.begin (transaction);
+				}
+				assert (wallet_entry != wallet->store.end ());
+				std::cout << boost::str (boost::format ("Landing account: %1%\n") % store.source.to_base58check ());
+				std::cout << boost::str (boost::format ("Destination account: %1%\n") % store.destination.to_base58check ());
+				++wallet_entry;
+				assert (wallet_entry == wallet->store.end ());
+			}
             std::cout << "Type a line to start\n";
             std::string line;
             std::cin >> line;

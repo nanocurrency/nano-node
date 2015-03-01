@@ -1455,8 +1455,10 @@ cursor (nullptr)
 	auto status (mdb_cursor_open (transaction_a, db_a, &cursor));
 	assert (status == 0);
 	current.first = val_a;
-	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_SET_KEY));
+	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_SET_RANGE));
 	assert (status2 == 0 || status2 == MDB_NOTFOUND);
+	auto status3 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_GET_CURRENT));
+	assert (status3 == 0 || status2 == MDB_NOTFOUND);
 }
 
 rai::store_iterator::~store_iterator ()
@@ -1906,10 +1908,9 @@ void rai::block_store::unsynced_del (rai::block_hash const & hash_a)
 	assert (status == 0);
 }
 
-bool rai::block_store::unsynced_exists (rai::block_hash const & hash_a)
+bool rai::block_store::unsynced_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, false);
-	auto iterator (unsynced_begin (transaction, hash_a));
+	auto iterator (unsynced_begin (transaction_a, hash_a));
 	return rai::block_hash (iterator->first) == hash_a;
 }
 
