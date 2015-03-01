@@ -1532,10 +1532,10 @@ checksum (0)
 		error_a = error_a || mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
 		error_a = error_a || mdb_dbi_open (transaction, "stack", MDB_CREATE, &stack) != 0;
 		error_a = error_a || mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
-	}
-	if (!error_a)
-	{
-		checksum_put (0, 0, 0);
+		if (!error_a)
+		{
+			checksum_put (transaction, 0, 0, 0);
+		}
 	}
 }
 
@@ -1592,7 +1592,7 @@ void rai::block_store::block_put_raw (MDB_txn * transaction_a, rai::block_hash c
 	assert (status2 == 0);
 }
 
-void rai::block_store::block_put (rai::block_hash const & hash_a, rai::block const & block_a)
+void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
     std::vector <uint8_t> vector;
     {
@@ -1601,12 +1601,9 @@ void rai::block_store::block_put (rai::block_hash const & hash_a, rai::block con
 		rai::block_hash successor (0);
 		rai::write (stream, successor.bytes);
     }
-	{
-		rai::transaction transaction (environment, nullptr, true);
-		block_put_raw (transaction, hash_a, {vector.size (), vector.data ()});
-		set_predecessor predecessor (transaction, *this);
-		block_a.visit (predecessor);
-	}
+	block_put_raw (transaction_a, hash_a, {vector.size (), vector.data ()});
+	set_predecessor predecessor (transaction_a, *this);
+	block_a.visit (predecessor);
 	assert (block_a.previous ().is_zero () || block_successor (block_a.previous ()) == hash_a);
 }
 
@@ -1699,15 +1696,14 @@ bool rai::block_store::latest_get (rai::account const & account_a, rai::frontier
     return result;
 }
 
-void rai::block_store::latest_put (rai::account const & account_a, rai::frontier const & frontier_a)
+void rai::block_store::latest_put (MDB_txn * transaction_a, rai::account const & account_a, rai::frontier const & frontier_a)
 {
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
         frontier_a.serialize (stream);
     }
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_put (transaction, accounts, account_a.val (), frontier_a.val (), 0));
+	auto status (mdb_put (transaction_a, accounts, account_a.val (), frontier_a.val (), 0));
     assert (status == 0);
 }
 
@@ -1852,11 +1848,10 @@ rai::uint128_t rai::block_store::representation_get (rai::account const & accoun
     return result;
 }
 
-void rai::block_store::representation_put (rai::account const & account_a, rai::uint128_t const & representation_a)
+void rai::block_store::representation_put (MDB_txn * transaction_a, rai::account const & account_a, rai::uint128_t const & representation_a)
 {
     rai::uint128_union rep (representation_a);
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_put (transaction, representation, account_a.val (), rep.val (), 0));
+	auto status (mdb_put (transaction_a, representation, account_a.val (), rep.val (), 0));
     assert (status == 0);
 }
 
@@ -1961,12 +1956,11 @@ rai::block_hash rai::block_store::stack_pop (uint64_t key_a)
     return result;
 }
 
-void rai::block_store::checksum_put (uint64_t prefix, uint8_t mask, rai::uint256_union const & hash_a)
+void rai::block_store::checksum_put (MDB_txn * transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union const & hash_a)
 {
     assert ((prefix & 0xff) == 0);
     uint64_t key (prefix | mask);
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_put (transaction, checksum, rai::mdb_val (sizeof (key), &key), hash_a.val (), 0));
+	auto status (mdb_put (transaction_a, checksum, rai::mdb_val (sizeof (key), &key), hash_a.val (), 0));
 	assert (status == 0);
 }
 
@@ -2461,11 +2455,12 @@ rai::uint128_t rai::ledger::amount (rai::block_hash const & hash_a)
 
 void rai::ledger::move_representation (rai::account const & source_a, rai::account const & destination_a, rai::uint128_t const & amount_a)
 {
+	rai::transaction transaction (store.environment, nullptr, true);
     auto source_previous (store.representation_get (source_a));
     assert (source_previous >= amount_a);
-    store.representation_put (source_a, source_previous - amount_a);
+    store.representation_put (transaction, source_a, source_previous - amount_a);
     auto destination_previous (store.representation_get (destination_a));
-    store.representation_put (destination_a, destination_previous + amount_a);
+    store.representation_put (transaction, destination_a, destination_previous + amount_a);
 }
 
 // Return latest block for account
@@ -2519,7 +2514,8 @@ void rai::ledger::checksum_update (rai::block_hash const & hash_a)
     auto error (store.checksum_get (0, 0, value));
     assert (!error);
     value ^= hash_a;
-    store.checksum_put (0, 0, value);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.checksum_put (transaction, 0, 0, value);
 }
 
 void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a)
@@ -2536,7 +2532,8 @@ void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash
         frontier.representative = representative_a;
         frontier.balance = balance_a;
         frontier.time = store.now ();
-        store.latest_put (account_a, frontier);
+		rai::transaction transaction (store.environment, nullptr, true);
+        store.latest_put (transaction, account_a, frontier);
         checksum_update (hash_a);
     }
     else
@@ -2577,9 +2574,12 @@ void ledger_processor::change_block (rai::change_block const & block_a)
                 result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the latest (Malicious)
                 if (result == rai::process_result::progress)
                 {
-                    ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
-                    ledger.store.block_put (message, block_a);
-                    ledger.change_latest (account, message, block_a.hashables.representative, frontier.balance);
+					{
+						rai::transaction transaction (ledger.store.environment, nullptr, true);
+						ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
+						ledger.store.block_put (transaction, message, block_a);
+						ledger.change_latest (account, message, block_a.hashables.representative, frontier.balance);
+					}
                     ledger.change_observer (block_a, account, block_a.hashables.representative);
                 }
             }
@@ -2611,13 +2611,13 @@ void ledger_processor::send_block (rai::send_block const & block_a)
                     result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork;
                     if (result == rai::process_result::progress)
                     {
-                        ledger.store.block_put (message, block_a);
-                        ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
 						{
 							rai::transaction transaction (ledger.store.environment, nullptr, true);
+							ledger.store.block_put (transaction, message, block_a);
+							ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
 							ledger.store.pending_put (transaction, message, {account, frontier.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
 						}
-                        ledger.send_observer (block_a, account, block_a.hashables.balance);
+						ledger.send_observer (block_a, account, block_a.hashables.balance);
                     }
                 }
             }
@@ -2655,10 +2655,13 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                             rai::frontier source_frontier;
                             auto error (ledger.store.latest_get (receivable.source, source_frontier));
                             assert (!error);
-                            ledger.store.pending_del (transaction, block_a.hashables.source);
-                            ledger.store.block_put (hash, block_a);
-                            ledger.change_latest (receivable.destination, hash, frontier.representative, new_balance);
-                            ledger.move_representation (source_frontier.representative, frontier.representative, receivable.amount.number ());
+							{
+								rai::transaction transaction (ledger.store.environment, nullptr, true);
+								ledger.store.pending_del (transaction, block_a.hashables.source);
+								ledger.store.block_put (transaction, hash, block_a);
+								ledger.change_latest (receivable.destination, hash, frontier.representative, new_balance);
+								ledger.move_representation (source_frontier.representative, frontier.representative, receivable.amount.number ());
+							}
                             ledger.receive_observer (block_a, receivable.destination, new_balance);
                         }
                         else
@@ -2701,10 +2704,13 @@ void ledger_processor::open_block (rai::open_block const & block_a)
                             rai::frontier source_frontier;
                             auto error (ledger.store.latest_get (receivable.source, source_frontier));
                             assert (!error);
-                            ledger.store.pending_del (transaction, block_a.hashables.source);
-                            ledger.store.block_put (hash, block_a);
-                            ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
-                            ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
+							{
+								rai::transaction transaction (ledger.store.environment, nullptr, true);
+								ledger.store.pending_del (transaction, block_a.hashables.source);
+								ledger.store.block_put (transaction, hash, block_a);
+								ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
+								ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
+							}
                             ledger.open_observer (block_a, receivable.destination, receivable.amount, block_a.hashables.representative);
                         }
                     }
@@ -2770,16 +2776,13 @@ open (genesis_account, genesis_account, genesis_account, nullptr)
 {
 }
 
-void rai::genesis::initialize (rai::block_store & store_a) const
+void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store_a) const
 {
-	{
-		rai::transaction transaction (store_a.environment, nullptr, false);
-		assert (store_a.latest_begin (transaction) == store_a.latest_end ());
-	}
-	store_a.block_put (open.hash (), open);
-	store_a.latest_put (genesis_account, {open.hash (), open.hashables.representative, std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
-	store_a.representation_put (genesis_account, std::numeric_limits <rai::uint128_t>::max ());
-	store_a.checksum_put (0, 0, hash ());
+	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
+	store_a.block_put (transaction_a, open.hash (), open);
+	store_a.latest_put (transaction_a, genesis_account, {open.hash (), open.hashables.representative, std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
+	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits <rai::uint128_t>::max ());
+	store_a.checksum_put (transaction_a, 0, 0, hash ());
 }
 
 rai::block_hash rai::genesis::hash () const

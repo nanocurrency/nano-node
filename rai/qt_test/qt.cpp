@@ -338,7 +338,8 @@ TEST (history, short_text)
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::genesis genesis;
-	genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+	genesis.initialize (transaction, store);
 	rai::ledger ledger (store);
 	rai::keypair key;
 	rai::send_block send (rai::test_genesis_key.pub, ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (ledger.latest (rai::test_genesis_key.pub)));

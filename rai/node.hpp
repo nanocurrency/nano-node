@@ -459,7 +459,6 @@ public:
     std::unordered_map <rai::account, rai::block_hash> pushes;
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
-	rai::transaction transaction;
     rai::store_iterator current;
     rai::store_iterator end;
 };

@@ -931,7 +931,9 @@ node (node_a)
 		assert (status == 0);
 	}
 	rai::transaction transaction (node_a.store.environment, nullptr, true);
-    for (rai::store_iterator i (transaction, handle, rai::uint256_union (0).val ()), n (nullptr); i != n; ++i)
+	std::string beginning ("wallet" + rai::uint256_union (0).to_string ());
+	std::string end ("wallet" + (rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
+    for (rai::store_iterator i (transaction, handle, rai::mdb_val (beginning.size (), const_cast <char *> (beginning.c_str ()))), n (transaction, handle, rai::mdb_val (end.size (), const_cast <char *> (end.c_str ()))); i != n; ++i)
     {
 		rai::uint256_union id;
 		std::string text (reinterpret_cast <char const *> (i->first.mv_data), i->first.mv_size);
@@ -1430,7 +1432,7 @@ logging (logging_a)
         {
             // Store was empty meaning we just created it, add the genesis block
             rai::genesis genesis;
-            genesis.initialize (store);
+            genesis.initialize (transaction, store);
         }
     }
 }

@@ -32,7 +32,8 @@ TEST (ledger, genesis_balance)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     auto balance (ledger.account_balance (rai::genesis_account));
     ASSERT_EQ (rai::genesis_amount, balance);
     rai::frontier frontier;
@@ -61,7 +62,8 @@ TEST (ledger, checksum_persistence)
     {
         rai::ledger ledger (store);
         rai::genesis genesis;
-        genesis.initialize (store);
+		rai::transaction transaction (store.environment, nullptr, true);
+        genesis.initialize (transaction, store);
         checksum1 = ledger.checksum (0, max);
     }
     rai::ledger ledger (store);
@@ -86,7 +88,8 @@ TEST (ledger, process_send)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;
@@ -141,7 +144,6 @@ TEST (ledger, process_send)
 	rai::frontier frontier5;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier5));
     rai::receivable receivable1;
-	rai::transaction transaction (ledger.store.environment, nullptr, false);
 	ASSERT_FALSE (ledger.store.pending_get (transaction, hash1, receivable1));
     ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
     ASSERT_EQ (key2.pub, receivable1.destination);
@@ -169,7 +171,8 @@ TEST (ledger, process_receive)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;
@@ -220,7 +223,6 @@ TEST (ledger, process_receive)
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (key2.pub));
     rai::receivable receivable1;
-	rai::transaction transaction (ledger.store.environment, nullptr, false);
 	ASSERT_FALSE (ledger.store.pending_get (transaction, hash3, receivable1));
     ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
     ASSERT_EQ (25, receivable1.amount.number ());
@@ -233,7 +235,8 @@ TEST (ledger, rollback_receiver)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;
@@ -259,7 +262,6 @@ TEST (ledger, rollback_receiver)
 	rai::frontier frontier2;
 	ASSERT_TRUE (ledger.store.latest_get (key2.pub, frontier2));
     rai::receivable receivable1;
-	rai::transaction transaction (ledger.store.environment, nullptr, false);
 	ASSERT_TRUE (ledger.store.pending_get (transaction, frontier2.hash, receivable1));
 }
 
@@ -270,7 +272,8 @@ TEST (ledger, rollback_representation)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key5;
     rai::change_block change1 (key5.pub, genesis.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (change1));
@@ -307,7 +310,8 @@ TEST (ledger, process_duplicate)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;
@@ -327,7 +331,8 @@ TEST (ledger, representative_genesis)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
 	auto latest (ledger.latest (rai::test_genesis_key.pub));
 	ASSERT_FALSE (latest.is_zero ());
     ASSERT_EQ (rai::test_genesis_key.pub, ledger.representative (latest));
@@ -340,7 +345,8 @@ TEST (ledger, weight)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     ASSERT_EQ (rai::genesis_amount, ledger.weight (rai::genesis_account));
 }
 
@@ -352,7 +358,8 @@ TEST (ledger, representative_change)
     rai::ledger ledger (store);
     rai::keypair key2;
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     ASSERT_EQ (rai::genesis_amount, ledger.weight (rai::test_genesis_key.pub));
     ASSERT_EQ (0, ledger.weight (key2.pub));
     rai::frontier frontier1;
@@ -391,7 +398,8 @@ TEST (ledger, send_fork)
     rai::keypair key2;
     rai::keypair key3;
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::send_block block (key2.pub, frontier1.hash, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -409,7 +417,8 @@ TEST (ledger, receive_fork)
     rai::keypair key2;
     rai::keypair key3;
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::send_block block (key2.pub, frontier1.hash, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -430,9 +439,10 @@ TEST (ledger, checksum_single)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::ledger ledger (store);
-    store.checksum_put (0, 0, genesis.hash ());
+    store.checksum_put (transaction, 0, 0, genesis.hash ());
 	ASSERT_EQ (genesis.hash (), ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
     rai::change_block block1 (rai::account (0), ledger.latest (rai::test_genesis_key.pub), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
@@ -448,9 +458,10 @@ TEST (ledger, checksum_two)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::ledger ledger (store);
-    store.checksum_put (0, 0, genesis.hash ());
+    store.checksum_put (transaction, 0, 0, genesis.hash ());
 	rai::keypair key2;
     rai::send_block block1 (key2.pub, ledger.latest (rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -544,7 +555,8 @@ TEST (ledger, representation)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     ASSERT_EQ (rai::genesis_amount, store.representation_get (rai::test_genesis_key.pub));
     rai::keypair key2;
     rai::send_block block1 (key2.pub, genesis.hash (), rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -615,7 +627,8 @@ TEST (ledger, double_open)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key2;
     rai::send_block send1 (key2.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (send1));
@@ -632,7 +645,8 @@ TEST (ledegr, double_receive)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key2;
     rai::send_block send1 (key2.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (send1));
@@ -986,7 +1000,8 @@ TEST (ledger, fail_change_old)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::change_block block (key1.pub, genesis.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block));
@@ -1002,7 +1017,8 @@ TEST (ledger, fail_change_gap_previous)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::change_block block (key1.pub, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block));
@@ -1016,7 +1032,8 @@ TEST (ledger, fail_change_bad_signature)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::change_block block (key1.pub, genesis.hash (), rai::private_key (0), rai::public_key (0), 0);
     auto result1 (ledger.process (block));
@@ -1030,7 +1047,8 @@ TEST (ledger, fail_change_fork)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::change_block block1 (key1.pub, genesis.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block1));
@@ -1048,7 +1066,8 @@ TEST (ledger, fail_send_old)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block));
@@ -1064,7 +1083,8 @@ TEST (ledger, fail_send_gap_previous)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block (key1.pub, 1, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block));
@@ -1078,7 +1098,8 @@ TEST (ledger, fail_send_bad_signature)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block (key1.pub, genesis.hash (), 1, 0, 0, 0);
     auto result1 (ledger.process (block));
@@ -1092,7 +1113,8 @@ TEST (ledger, fail_send_overspend)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1108,7 +1130,8 @@ TEST (ledger, fail_send_fork)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1124,7 +1147,8 @@ TEST (ledger, fail_open_old)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1140,7 +1164,8 @@ TEST (ledger, fail_open_gap_source)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::open_block block2 (key1.pub, 0, 1, key1.prv, key1.pub, rai::work_generate (key1.pub));
     auto result2 (ledger.process (block2));
@@ -1154,7 +1179,8 @@ TEST (ledger, fail_open_overreceive)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1171,7 +1197,8 @@ TEST (ledger, fail_open_bad_signature)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1187,7 +1214,8 @@ TEST (ledger, fail_open_fork_previous)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1206,7 +1234,8 @@ TEST (ledger, fail_open_account_mismatch)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1221,7 +1250,8 @@ TEST (ledger, fail_receive_old)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
@@ -1241,7 +1271,8 @@ TEST (ledger, fail_receive_gap_source)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block1));
@@ -1264,7 +1295,8 @@ TEST (ledger, fail_receive_overreceive)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block1));
@@ -1284,7 +1316,8 @@ TEST (ledger, fail_receive_bad_signature)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block1));
@@ -1307,7 +1340,8 @@ TEST (ledger, fail_receive_gap_previous_opened)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block1));
@@ -1330,7 +1364,8 @@ TEST (ledger, fail_receive_gap_previous_unopened)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block1));
@@ -1350,7 +1385,8 @@ TEST (ledger, fail_receive_fork_previous)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key1;
     rai::send_block block1 (key1.pub, genesis.hash (), 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     auto result1 (ledger.process (block1));
@@ -1388,7 +1424,8 @@ TEST (ledger, latest_root)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::keypair key;
     ASSERT_EQ (key.pub, ledger.latest_root (key.pub));
     auto hash1 (ledger.latest (rai::test_genesis_key.pub));

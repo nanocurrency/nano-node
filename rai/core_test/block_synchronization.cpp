@@ -23,7 +23,8 @@ TEST (pull_synchronization, one)
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     std::vector <std::unique_ptr <rai::block>> blocks;
-    store.block_put (block1.hash (), block1);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.block_put (transaction, block1.hash (), block1);
     store.unchecked_put(block2.hash (), block2);
     rai::pull_synchronization sync ([&blocks] (rai::block const & block_a)
     {
@@ -43,14 +44,15 @@ TEST (pull_synchronization, send_dependencies)
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::send_block block3 (0, block2.hash (), 1, 2, 3, 4);
     std::vector <std::unique_ptr <rai::block>> blocks;
-    store.block_put (block1.hash (), block1);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.block_put (transaction, block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);
     store.unchecked_put (block3.hash (), block3);
-    rai::pull_synchronization sync ([&blocks, &store] (rai::block const & block_a)
-    {
-        store.block_put (block_a.hash (), block_a);
-        blocks.push_back (block_a.clone ());
-    }, store);
+    rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
+									{
+										store.block_put (transaction, block_a.hash (), block_a);
+										blocks.push_back (block_a.clone ());
+									}, store);
     ASSERT_FALSE (sync.synchronize (block3.hash ()));
     ASSERT_EQ (2, blocks.size ());
     ASSERT_EQ (block2, *blocks [0]);
@@ -66,12 +68,13 @@ TEST (pull_synchronization, change_dependencies)
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::change_block block3 (0, block2.hash (), 1, 2, 3);
     std::vector <std::unique_ptr <rai::block>> blocks;
-    store.block_put (block1.hash (), block1);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.block_put (transaction, block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);
     store.unchecked_put (block3.hash (), block3);
-    rai::pull_synchronization sync ([&blocks, &store] (rai::block const & block_a)
+    rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
                                     {
-                                        store.block_put (block_a.hash (), block_a);
+                                        store.block_put (transaction, block_a.hash (), block_a);
                                         blocks.push_back (block_a.clone ());
                                     }, store);
     ASSERT_FALSE (sync.synchronize (block3.hash ()));
@@ -89,14 +92,15 @@ TEST (pull_synchronization, open_dependencies)
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     rai::open_block block3 (0, 1, block2.hash (), 3, 4, 5);
     std::vector <std::unique_ptr <rai::block>> blocks;
-    store.block_put (block1.hash (), block1);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.block_put (transaction, block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);
     store.unchecked_put (block3.hash (), block3);
-    rai::pull_synchronization sync ([&blocks, &store] (rai::block const & block_a)
-    {
-        store.block_put (block_a.hash (), block_a);
-        blocks.push_back (block_a.clone ());
-    }, store);
+    rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
+									{
+										store.block_put (transaction, block_a.hash (), block_a);
+										blocks.push_back (block_a.clone ());
+									}, store);
     ASSERT_FALSE (sync.synchronize (block3.hash ()));
     ASSERT_EQ (2, blocks.size ());
     ASSERT_EQ (block2, *blocks [0]);
@@ -114,16 +118,17 @@ TEST (pull_synchronization, receive_dependencies)
     rai::send_block block4 (0, block2.hash (), 1, 2, 3, 4);
     rai::receive_block block5 (block3.hash (), block4.hash (), 0, 0, 0);
     std::vector <std::unique_ptr <rai::block>> blocks;
-    store.block_put (block1.hash (), block1);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.block_put (transaction, block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);
     store.unchecked_put (block3.hash (), block3);
     store.unchecked_put (block4.hash (), block4);
     store.unchecked_put (block5.hash (), block5);
-    rai::pull_synchronization sync ([&blocks, &store] (rai::block const & block_a)
-    {
-        store.block_put (block_a.hash (), block_a);
-        blocks.push_back (block_a.clone ());
-    }, store);
+    rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
+									{
+										store.block_put (transaction, block_a.hash (), block_a);
+										blocks.push_back (block_a.clone ());
+									}, store);
     ASSERT_FALSE (sync.synchronize (block5.hash ()));
     ASSERT_EQ (4, blocks.size ());
     ASSERT_EQ (block2, *blocks [0]);
@@ -145,18 +150,19 @@ TEST (pull_synchronization, ladder_dependencies)
     rai::send_block block6 (0, block5.hash (), 1, 2, 3, 4);
     rai::receive_block block7 (block4.hash (), block6.hash (), 0, 0, 0);
     std::vector <std::unique_ptr <rai::block>> blocks;
-    store.block_put (block1.hash (), block1);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.block_put (transaction, block1.hash (), block1);
     store.unchecked_put (block2.hash (), block2);
     store.unchecked_put (block3.hash (), block3);
     store.unchecked_put (block4.hash (), block4);
     store.unchecked_put (block5.hash (), block5);
     store.unchecked_put (block6.hash (), block6);
     store.unchecked_put (block7.hash (), block7);
-    rai::pull_synchronization sync ([&blocks, &store] (rai::block const & block_a)
-    {
-        store.block_put (block_a.hash (), block_a);
-        blocks.push_back (block_a.clone ());
-    }, store);
+    rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
+									{
+										store.block_put (transaction, block_a.hash (), block_a);
+										blocks.push_back (block_a.clone ());
+									}, store);
     ASSERT_FALSE (sync.synchronize (block7.hash ()));
     ASSERT_EQ (6, blocks.size ());
     ASSERT_EQ (block2, *blocks [0]);
@@ -189,14 +195,14 @@ TEST (push_synchronization, one)
     rai::open_block block1 (0, 1, 2, 3, 4, 5);
     rai::send_block block2 (0, block1.hash (), 1, 2, 3, 4);
     std::vector <std::unique_ptr <rai::block>> blocks;
-    store.block_put (block1.hash (), block1);
-    store.block_put (block2.hash (), block2);
-    rai::push_synchronization sync ([&blocks, &store] (rai::block const & block_a)
-    {
-        store.block_put (block_a.hash (), block_a);
-        blocks.push_back (block_a.clone ());
-    }, store);
 	rai::transaction transaction (store.environment, nullptr, true);
+    store.block_put (transaction, block1.hash (), block1);
+    store.block_put (transaction, block2.hash (), block2);
+    rai::push_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
+									{
+										store.block_put (transaction, block_a.hash (), block_a);
+										blocks.push_back (block_a.clone ());
+									}, store);
     store.unsynced_put (transaction, block2.hash ());
     ASSERT_FALSE (sync.synchronize (block2.hash ()));
     ASSERT_EQ (1, blocks.size ());

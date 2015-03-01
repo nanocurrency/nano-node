@@ -12,7 +12,8 @@ TEST (processor_service, bad_send_signature)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;
@@ -29,7 +30,8 @@ TEST (processor_service, bad_receive_signature)
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
     rai::genesis genesis;
-    genesis.initialize (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;

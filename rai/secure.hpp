@@ -325,7 +325,7 @@ public:
 	uint64_t now ();
 	
 	void block_put_raw (MDB_txn *, rai::block_hash const &, MDB_val);
-	void block_put (rai::block_hash const &, rai::block const &);
+	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &);
 	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &);
 	rai::block_hash block_successor (rai::block_hash const &);
 	std::unique_ptr <rai::block> block_get (rai::block_hash const &);
@@ -335,7 +335,7 @@ public:
 	rai::store_iterator blocks_begin (MDB_txn *);
 	rai::store_iterator blocks_end ();
 	
-	void latest_put (rai::account const &, rai::frontier const &);
+	void latest_put (MDB_txn *, rai::account const &, rai::frontier const &);
 	bool latest_get (rai::account const &, rai::frontier &);
 	void latest_del (rai::account const &);
 	bool latest_exists (rai::account const &);
@@ -352,7 +352,7 @@ public:
 	rai::store_iterator pending_end ();
 	
 	rai::uint128_t representation_get (rai::account const &);
-	void representation_put (rai::account const &, rai::uint128_t const &);
+	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	
 	void unchecked_put (rai::block_hash const &, rai::block const &);
 	std::unique_ptr <rai::block> unchecked_get (rai::block_hash const &);
@@ -371,7 +371,7 @@ public:
 	void stack_push (uint64_t, rai::block_hash const &);
 	rai::block_hash stack_pop (uint64_t);
 	
-	void checksum_put (uint64_t, uint8_t, rai::checksum const &);
+	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (uint64_t, uint8_t);
 	
@@ -484,7 +484,7 @@ class genesis
 {
 public:
 	explicit genesis ();
-	void initialize (rai::block_store &) const;
+	void initialize (MDB_txn *, rai::block_store &) const;
 	rai::block_hash hash () const;
 	rai::open_block open;
 };
