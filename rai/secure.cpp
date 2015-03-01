@@ -1442,6 +1442,15 @@ cursor (nullptr)
 	assert (status == 0);
 	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_FIRST));
 	assert (status2 == 0 || status2 == MDB_NOTFOUND);
+	if (status2 != MDB_NOTFOUND)
+	{
+		auto status3 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_GET_CURRENT));
+		assert (status3 == 0 || status3 == MDB_NOTFOUND);
+	}
+	else
+	{
+		current.clear ();
+	}
 }
 
 rai::store_iterator::store_iterator (std::nullptr_t) :
@@ -1457,8 +1466,15 @@ cursor (nullptr)
 	current.first = val_a;
 	auto status2 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_SET_RANGE));
 	assert (status2 == 0 || status2 == MDB_NOTFOUND);
-	auto status3 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_GET_CURRENT));
-	assert (status3 == 0 || status2 == MDB_NOTFOUND);
+	if (status2 != MDB_NOTFOUND)
+	{
+		auto status3 (mdb_cursor_get (cursor, &current.first, &current.second, MDB_GET_CURRENT));
+		assert (status3 == 0 || status3 == MDB_NOTFOUND);
+	}
+	else
+	{
+		current.clear ();
+	}
 }
 
 rai::store_iterator::~store_iterator ()
@@ -1483,9 +1499,9 @@ rai::store_iterator & rai::store_iterator::operator ++ ()
 bool rai::store_iterator::operator == (rai::store_iterator const & other_a) const
 {
 	auto result (current.first.mv_data == other_a.current.first.mv_data);
-	assert (result == (current.first.mv_size == other_a.current.first.mv_size));
-	assert (result == (current.second.mv_data == other_a.current.second.mv_data));
-	assert (result == (current.second.mv_size == other_a.current.second.mv_size));
+	assert (!result || (current.first.mv_size == other_a.current.first.mv_size));
+	assert (!result || (current.second.mv_data == other_a.current.second.mv_data));
+	assert (!result || (current.second.mv_size == other_a.current.second.mv_size));
 	return result;
 }
 
@@ -1495,7 +1511,7 @@ bool rai::store_iterator::operator != (rai::store_iterator const & other_a) cons
 }
 
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a) :
-environment (path_a),
+environment (error_a, path_a),
 accounts (0),
 blocks (0),
 pending (0),
@@ -1505,6 +1521,7 @@ unsynced (0),
 stack (0),
 checksum (0)
 {
+	if (!error_a)
 	{
 		rai::transaction transaction (environment, nullptr, true);
 		error_a = error_a || mdb_dbi_open (transaction, "accounts", MDB_CREATE, &accounts) != 0;
@@ -1890,17 +1907,15 @@ rai::store_iterator rai::block_store::unchecked_end ()
     return result;
 }
 
-void rai::block_store::unsynced_put (rai::block_hash const & hash_a)
+void rai::block_store::unsynced_put (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_put (transaction, unsynced, hash_a.val (), rai::mdb_val (0, nullptr), 0));
+	auto status (mdb_put (transaction_a, unsynced, hash_a.val (), rai::mdb_val (0, nullptr), 0));
 	assert (status == 0);
 }
 
-void rai::block_store::unsynced_del (rai::block_hash const & hash_a)
+void rai::block_store::unsynced_del (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_del (transaction, unsynced, hash_a.val (), nullptr));
+	auto status (mdb_del (transaction_a, unsynced, hash_a.val (), nullptr));
 	assert (status == 0);
 }
 

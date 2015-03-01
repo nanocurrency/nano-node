@@ -55,7 +55,7 @@ rai::uint128_t scale_up (uint64_t);
 class mdb_env
 {
 public:
-	mdb_env (boost::filesystem::path const &);
+	mdb_env (bool &, boost::filesystem::path const &);
 	~mdb_env ();
 	operator MDB_env * () const;
 	MDB_env * environment;

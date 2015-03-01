@@ -5,8 +5,9 @@
 
 TEST (wallet, no_key)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
@@ -17,8 +18,9 @@ TEST (wallet, no_key)
 
 TEST (wallet, retrieval)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
@@ -36,8 +38,9 @@ TEST (wallet, retrieval)
 
 TEST (wallet, empty_iteration)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, false);
@@ -48,8 +51,9 @@ TEST (wallet, empty_iteration)
 
 TEST (wallet, one_item_iteration)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
@@ -64,8 +68,9 @@ TEST (wallet, one_item_iteration)
 
 TEST (wallet, two_item_iteration)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
@@ -190,18 +195,20 @@ TEST (wallet, spend_no_previous)
 
 TEST (wallet, find_none)
 {
-	rai::mdb_env environment (rai::unique_path ());
-    bool init1;
-    rai::wallet_store wallet (init1, environment, "0");
-    ASSERT_FALSE (init1);
+    bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
+    rai::wallet_store wallet (init, environment, "0");
+    ASSERT_FALSE (init);
     rai::uint256_union account;
     ASSERT_EQ (wallet.end (), wallet.find (account));
 }
 
 TEST (wallet, find_existing)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
@@ -216,8 +223,9 @@ TEST (wallet, find_existing)
 
 TEST (wallet, rekey)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
 	ASSERT_FALSE (init);
     ASSERT_TRUE (wallet.password.value ().is_zero ());
@@ -271,8 +279,9 @@ TEST (base58, encode_fail)
 
 TEST (wallet, hash_password)
 {
-	rai::mdb_env environment (rai::unique_path ());
     bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     rai::wallet_store wallet (init, environment, "0");
     ASSERT_FALSE (init);
     auto hash1 (wallet.derive_key (""));
@@ -307,9 +316,10 @@ TEST (fan, change)
 
 TEST (wallet, reopen_default_password)
 {
-	rai::mdb_env environment (rai::unique_path ());
+	bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
     {
-        bool init;
         rai::wallet_store wallet (init, environment, "0");
         ASSERT_FALSE (init);
 		wallet.rekey ("");
@@ -329,8 +339,9 @@ TEST (wallet, reopen_default_password)
 
 TEST (wallet, representative)
 {
-	rai::mdb_env environment (rai::unique_path ());
     auto error (false);
+	rai::mdb_env environment (error, rai::unique_path ());
+	ASSERT_FALSE (error);
     rai::wallet_store wallet (error, environment, "0");
     ASSERT_FALSE (error);
     ASSERT_FALSE (wallet.is_representative ());
@@ -347,8 +358,9 @@ TEST (wallet, representative)
 
 TEST (wallet, serialize_json_empty)
 {
-	rai::mdb_env environment (rai::unique_path ());
     auto error (false);
+	rai::mdb_env environment (error, rai::unique_path ());
+	ASSERT_FALSE (error);
     rai::wallet_store wallet1 (error, environment, "0");
 	ASSERT_FALSE (error);
     std::string serialized;
@@ -366,8 +378,9 @@ TEST (wallet, serialize_json_empty)
 
 TEST (wallet, serialize_json_one)
 {
-	rai::mdb_env environment (rai::unique_path ());
     auto error (false);
+	rai::mdb_env environment (error, rai::unique_path ());
+	ASSERT_FALSE (error);
     rai::wallet_store wallet1 (error, environment, "0");
 	ASSERT_FALSE (error);
     rai::keypair key;
@@ -388,8 +401,9 @@ TEST (wallet, serialize_json_one)
 
 TEST (wallet, serialize_json_password)
 {
-	rai::mdb_env environment (rai::unique_path ());
     auto error (false);
+	rai::mdb_env environment (error, rai::unique_path ());
+	ASSERT_FALSE (error);
     rai::wallet_store wallet1 (error, environment, "0");
 	ASSERT_FALSE (error);
     rai::keypair key;
@@ -414,8 +428,9 @@ TEST (wallet, serialize_json_password)
 
 TEST (wallet_store, move)
 {
-	rai::mdb_env environment (rai::unique_path ());
     auto error (false);
+	rai::mdb_env environment (error, rai::unique_path ());
+	ASSERT_FALSE (error);
     rai::wallet_store wallet1 (error, environment, "0");
     ASSERT_FALSE (error);
     rai::keypair key1;

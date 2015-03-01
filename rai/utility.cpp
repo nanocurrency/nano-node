@@ -56,15 +56,23 @@ rai::uint128_t rai::scale_up (uint64_t amount_a)
     return rai::scale_64bit_base10 * amount_a;
 }
 
-rai::mdb_env::mdb_env (boost::filesystem::path const & path_a)
+rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 {
-	boost::filesystem::create_directories (path_a);
-	auto status1 (mdb_env_create (&environment));
-	assert (status1 == 0);
-	auto status2 (mdb_env_set_maxdbs (environment, 128));
-	assert (status2 == 0);
-	auto status3 (mdb_env_open (environment, path_a.string ().c_str (), 0, 00600));
-	assert (status3 == 0);
+	boost::system::error_code error;
+	boost::filesystem::create_directories (path_a, error);
+	if (!error)
+	{
+		auto status1 (mdb_env_create (&environment));
+		assert (status1 == 0);
+		auto status2 (mdb_env_set_maxdbs (environment, 128));
+		assert (status2 == 0);
+		auto status3 (mdb_env_open (environment, path_a.string ().c_str (), 0, 00600));
+		assert (status3 == 0);
+	}
+	else
+	{
+		error_a = true;
+	}
 }
 
 rai::mdb_env::~mdb_env ()

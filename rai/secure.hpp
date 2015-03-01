@@ -360,8 +360,8 @@ public:
 	rai::store_iterator unchecked_begin (MDB_txn *);
 	rai::store_iterator unchecked_end ();
 	
-	void unsynced_put (rai::block_hash const &);
-	void unsynced_del (rai::block_hash const &);
+	void unsynced_put (MDB_txn *, rai::block_hash const &);
+	void unsynced_del (MDB_txn *, rai::block_hash const &);
 	bool unsynced_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unsynced_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unsynced_begin (MDB_txn *);
