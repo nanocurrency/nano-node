@@ -346,7 +346,7 @@ public:
 	void pending_put (MDB_txn *, rai::block_hash const &, rai::receivable const &);
 	void pending_del (MDB_txn *, rai::block_hash const &);
 	bool pending_get (MDB_txn *, rai::block_hash const &, rai::receivable &);
-	bool pending_exists (rai::block_hash const &);
+	bool pending_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();

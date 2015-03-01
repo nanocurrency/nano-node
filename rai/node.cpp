@@ -763,7 +763,8 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
     std::lock_guard <std::mutex> lock (mutex);
     auto hash (send_a.hash ());
     bool result;
-    if (node.ledger.store.pending_exists (hash))
+	rai::transaction transaction (node.ledger.store.environment, nullptr, false);
+    if (node.ledger.store.pending_exists (transaction, hash))
     {
         rai::frontier frontier;
         auto new_account (node.ledger.store.latest_get (send_a.hashables.destination, frontier));

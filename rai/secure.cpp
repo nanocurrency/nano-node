@@ -1713,10 +1713,9 @@ void rai::block_store::pending_del (MDB_txn * transaction_a, rai::block_hash con
     assert (status == 0);
 }
 
-bool rai::block_store::pending_exists (rai::block_hash const & hash_a)
+bool rai::block_store::pending_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, false);
-	auto iterator (pending_begin (transaction, hash_a));
+	auto iterator (pending_begin (transaction_a, hash_a));
     return rai::block_hash (iterator->first) == hash_a;
 }
 

@@ -457,7 +457,7 @@ TEST (block_store, pending_exists)
 	rai::transaction transaction (store.environment, nullptr, true);
     store.pending_put (transaction, two, receivable);
     rai::block_hash one (1);
-    ASSERT_FALSE (store.pending_exists (one));
+    ASSERT_FALSE (store.pending_exists (transaction, one));
 }
 
 TEST (block_store, latest_exists)
