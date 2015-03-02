@@ -194,17 +194,17 @@ TEST (checksum, simple)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    rai::block_hash hash0 (0);
-    ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash0));
-    rai::block_hash hash1 (0);
+	rai::block_hash hash0 (0);
 	rai::transaction transaction (store.environment, nullptr, true);
+    ASSERT_TRUE (store.checksum_get (transaction, 0x100, 0x10, hash0));
+    rai::block_hash hash1 (0);
     store.checksum_put (transaction, 0x100, 0x10, hash1);
     rai::block_hash hash2;
-    ASSERT_FALSE (store.checksum_get (0x100, 0x10, hash2));
+    ASSERT_FALSE (store.checksum_get (transaction, 0x100, 0x10, hash2));
     ASSERT_EQ (hash1, hash2);
     store.checksum_del (0x100, 0x10);
     rai::block_hash hash3;
-    ASSERT_TRUE (store.checksum_get (0x100, 0x10, hash3));
+    ASSERT_TRUE (store.checksum_get (transaction, 0x100, 0x10, hash3));
 }
 
 TEST (block_store, empty_blocks)

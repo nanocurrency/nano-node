@@ -1963,13 +1963,12 @@ void rai::block_store::checksum_put (MDB_txn * transaction_a, uint64_t prefix, u
 	assert (status == 0);
 }
 
-bool rai::block_store::checksum_get (uint64_t prefix, uint8_t mask, rai::uint256_union & hash_a)
+bool rai::block_store::checksum_get (MDB_txn * transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union & hash_a)
 {
     assert ((prefix & 0xff) == 0);
     uint64_t key (prefix | mask);
-	rai::transaction transaction (environment, nullptr, false);
 	MDB_val value;
-	auto status (mdb_get (transaction, checksum, rai::mdb_val (sizeof (key), &key), &value));
+	auto status (mdb_get (transaction_a, checksum, rai::mdb_val (sizeof (key), &key), &value));
 	assert (status == 0 || status == MDB_NOTFOUND);
     bool result;
     if (status == 0)
@@ -2491,10 +2490,10 @@ rai::block_hash rai::ledger::latest_root (rai::account const & account_a)
     return result;
 }
 
-rai::checksum rai::ledger::checksum (rai::account const & begin_a, rai::account const & end_a)
+rai::checksum rai::ledger::checksum (MDB_txn * transaction_a, rai::account const & begin_a, rai::account const & end_a)
 {
     rai::checksum result;
-    auto error (store.checksum_get (0, 0, result));
+    auto error (store.checksum_get (transaction_a, 0, 0, result));
     assert (!error);
     return result;
 }
@@ -2513,11 +2512,11 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 
 void rai::ledger::checksum_update (rai::block_hash const & hash_a)
 {
-    rai::checksum value;
-    auto error (store.checksum_get (0, 0, value));
+	rai::checksum value;
+	rai::transaction transaction (store.environment, nullptr, true);
+    auto error (store.checksum_get (transaction, 0, 0, value));
     assert (!error);
     value ^= hash_a;
-	rai::transaction transaction (store.environment, nullptr, true);
     store.checksum_put (transaction, 0, 0, value);
 }
 

@@ -372,7 +372,7 @@ public:
 	rai::block_hash stack_pop (uint64_t);
 	
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
-	bool checksum_get (uint64_t, uint8_t, rai::checksum &);
+	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (uint64_t, uint8_t);
 	
 	void clear (MDB_dbi);
@@ -466,7 +466,7 @@ public:
 	void change_latest (rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
 	void move_representation (rai::account const &, rai::account const &, rai::uint128_t const &);
 	void checksum_update (rai::block_hash const &);
-	rai::checksum checksum (rai::account const &, rai::account const &);
+	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
 	rai::block_store & store;
 	std::function <void (rai::send_block const &, rai::account const &, rai::amount const &)> send_observer;

@@ -59,16 +59,16 @@ TEST (ledger, checksum_persistence)
     max.qwords [2] = 0;
     max.qwords [2] = ~max.qwords [2];
     max.qwords [3] = 0;
-    max.qwords [3] = ~max.qwords [3];
-    {
-        rai::ledger ledger (store);
-        rai::genesis genesis;
-		rai::transaction transaction (store.environment, nullptr, true);
-        genesis.initialize (transaction, store);
-        checksum1 = ledger.checksum (0, max);
-    }
-    rai::ledger ledger (store);
-    ASSERT_EQ (checksum1, ledger.checksum (0, max));
+	max.qwords [3] = ~max.qwords [3];
+	rai::transaction transaction (store.environment, nullptr, true);
+	{
+		rai::ledger ledger (store);
+		rai::genesis genesis;
+		genesis.initialize (transaction, store);
+		checksum1 = ledger.checksum (transaction, 0, max);
+	}
+	rai::ledger ledger (store);
+    ASSERT_EQ (checksum1, ledger.checksum (transaction, 0, max));
 }
 
 // All nodes in the system should agree on the genesis balance
@@ -445,12 +445,12 @@ TEST (ledger, checksum_single)
     genesis.initialize (transaction, store);
     rai::ledger ledger (store);
     store.checksum_put (transaction, 0, 0, genesis.hash ());
-	ASSERT_EQ (genesis.hash (), ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
+	ASSERT_EQ (genesis.hash (), ledger.checksum (transaction, 0, std::numeric_limits <rai::uint256_t>::max ()));
     rai::change_block block1 (rai::account (0), ledger.latest (rai::test_genesis_key.pub), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-    rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
+    rai::checksum check1 (ledger.checksum (transaction, 0, std::numeric_limits <rai::uint256_t>::max ()));
 	ASSERT_EQ (genesis.hash (), check1);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
-    rai::checksum check2 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
+    rai::checksum check2 (ledger.checksum (transaction, 0, std::numeric_limits <rai::uint256_t>::max ()));
     ASSERT_EQ (block1.hash (), check2);
 }
 
@@ -467,10 +467,10 @@ TEST (ledger, checksum_two)
 	rai::keypair key2;
     rai::send_block block1 (key2.pub, ledger.latest (rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (block1));
-	rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
+	rai::checksum check1 (ledger.checksum (transaction, 0, std::numeric_limits <rai::uint256_t>::max ()));
 	rai::open_block block2 (key2.pub, 0, block1.hash (), key2.prv, key2.pub, rai::work_generate (key2.pub));
     ASSERT_EQ (rai::process_result::progress, ledger.process (block2));
-	rai::checksum check2 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
+	rai::checksum check2 (ledger.checksum (transaction, 0, std::numeric_limits <rai::uint256_t>::max ()));
 	ASSERT_EQ (check1, check2 ^ block2.hash ());
 }
 
@@ -479,13 +479,14 @@ TEST (ledger, DISABLED_checksum_range)
     bool init;
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    rai::ledger ledger (store);
-    rai::checksum check1 (ledger.checksum (0, std::numeric_limits <rai::uint256_t>::max ()));
+	rai::ledger ledger (store);
+	rai::transaction transaction (store.environment, nullptr, false);
+    rai::checksum check1 (ledger.checksum (transaction, 0, std::numeric_limits <rai::uint256_t>::max ()));
     ASSERT_TRUE (check1.is_zero ());
     rai::block_hash hash1 (42);
-    rai::checksum check2 (ledger.checksum (0, 42));
+    rai::checksum check2 (ledger.checksum (transaction, 0, 42));
     ASSERT_TRUE (check2.is_zero ());
-    rai::checksum check3 (ledger.checksum (42, std::numeric_limits <rai::uint256_t>::max ()));
+    rai::checksum check3 (ledger.checksum (transaction, 42, std::numeric_limits <rai::uint256_t>::max ()));
     ASSERT_EQ (hash1, check3);
 }
 
