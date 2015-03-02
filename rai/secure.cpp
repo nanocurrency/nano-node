@@ -1695,6 +1695,11 @@ bool rai::block_store::latest_get (MDB_txn * transaction_a, rai::account const &
     return result;
 }
 
+bool rai::block_store::latest_get (rai::account const & account_a, rai::frontier & frontier_a)
+{
+	return latest_get (rai::transaction (environment, nullptr, false), account_a, frontier_a);
+}
+
 void rai::block_store::latest_put (MDB_txn * transaction_a, rai::account const & account_a, rai::frontier const & frontier_a)
 {
     std::vector <uint8_t> vector;
@@ -1754,6 +1759,11 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::block_hash con
         assert (!error3);
     }
     return result;
+}
+
+bool rai::block_store::pending_get (rai::block_hash const & hash_a, rai::receivable & receivable_a)
+{
+	return pending_get (rai::transaction (environment, nullptr, false), hash_a, receivable_a);
 }
 
 rai::store_iterator rai::block_store::pending_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
@@ -2380,6 +2390,11 @@ rai::uint128_t rai::ledger::account_balance (MDB_txn * transaction_a, rai::accou
         result = frontier.balance.number ();
     }
     return result;
+}
+
+rai::uint128_t rai::ledger::account_balance (rai::account const & account_a)
+{
+	return account_balance (rai::transaction (store.environment, nullptr, false), account_a);
 }
 
 rai::process_result rai::ledger::process (rai::block const & block_a)

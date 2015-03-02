@@ -337,6 +337,7 @@ public:
 	
 	void latest_put (MDB_txn *, rai::account const &, rai::frontier const &);
 	bool latest_get (MDB_txn *, rai::account const &, rai::frontier &);
+	bool latest_get (rai::account const &, rai::frontier &);
 	void latest_del (rai::account const &);
 	bool latest_exists (rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
@@ -346,6 +347,7 @@ public:
 	void pending_put (MDB_txn *, rai::block_hash const &, rai::receivable const &);
 	void pending_del (MDB_txn *, rai::block_hash const &);
 	bool pending_get (MDB_txn *, rai::block_hash const &, rai::receivable &);
+	bool pending_get (rai::block_hash const &, rai::receivable &);
 	bool pending_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *);
@@ -453,6 +455,7 @@ public:
 	rai::uint128_t amount (rai::block_hash const &);
 	rai::uint128_t balance (rai::block_hash const &);
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
+	rai::uint128_t account_balance (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	std::unique_ptr <rai::block> successor (rai::block_hash const &);
 	rai::block_hash latest (rai::account const &);
