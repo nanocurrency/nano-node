@@ -73,18 +73,19 @@ TEST (gap_cache, gap_bootstrap)
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     rai::keypair key;
     rai::send_block send (key.pub, system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate(system.nodes [0]->ledger.latest (rai::test_genesis_key.pub)));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send));
-    ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->ledger.account_balance (rai::genesis_account));
-    ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->ledger.account_balance (transaction, rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (transaction, rai::genesis_account));
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
     system.wallet (0)->store.insert (key.prv);
     system.wallet (0)->send_all (key.pub, 100);
-    ASSERT_EQ (rai::genesis_amount - 200, system.nodes [0]->ledger.account_balance (rai::genesis_account));
-    ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount - 200, system.nodes [0]->ledger.account_balance (transaction, rai::genesis_account));
+    ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (transaction, rai::genesis_account));
     auto iterations2 (0);
-    while (system.nodes [1]->ledger.account_balance (rai::genesis_account) != rai::genesis_amount - 200)
+    while (system.nodes [1]->ledger.account_balance (transaction, rai::genesis_account) != rai::genesis_amount - 200)
     {
         system.service->poll_one ();
         system.processor.poll_one ();

@@ -145,7 +145,7 @@ TEST (block_store, genesis)
 	rai::transaction transaction (store.environment, nullptr, true);
     genesis.initialize (transaction, store);
     rai::frontier frontier;
-    ASSERT_FALSE (store.latest_get (rai::genesis_account, frontier));
+    ASSERT_FALSE (store.latest_get (transaction, rai::genesis_account, frontier));
 	ASSERT_EQ (hash, frontier.hash);
     auto block1 (store.block_get (frontier.hash));
     ASSERT_NE (nullptr, block1);
@@ -288,7 +288,7 @@ TEST (block_store, frontier_retrieval)
 	rai::transaction transaction (store.environment, nullptr, true);
     store.latest_put (transaction, account1, frontier1);
     rai::frontier frontier2;
-    store.latest_get (account1, frontier2);
+    store.latest_get (transaction, account1, frontier2);
     ASSERT_EQ (frontier1, frontier2);
 }
 

@@ -190,11 +190,12 @@ TEST (network, send_valid_confirm_ack)
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
     rai::frontier frontier1;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::send_block block2 (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash));
     auto hash2 (block2.hash ());
     rai::frontier frontier2;
-    ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
+    ASSERT_FALSE (system.nodes [1]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
     system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
     while (system.nodes [1]->network.confirm_ack_count == 0)
@@ -204,10 +205,10 @@ TEST (network, send_valid_confirm_ack)
         ASSERT_LT (iterations, 200);
     }
     rai::frontier frontier3;
-    ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier3));
+    ASSERT_FALSE (system.nodes [1]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier3));
     ASSERT_FALSE (frontier2.hash == frontier3.hash);
     ASSERT_EQ (hash2, frontier3.hash);
-    ASSERT_EQ (50, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));
+    ASSERT_EQ (50, system.nodes [1]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
 }
 
 TEST (network, send_valid_publish)
@@ -217,11 +218,12 @@ TEST (network, send_valid_publish)
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
     rai::frontier frontier1;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::send_block block2 (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash));
     auto hash2 (block2.hash ());
     rai::frontier frontier2;
-    ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier2));
+    ASSERT_FALSE (system.nodes [1]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
     system.nodes [1]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
     while (system.nodes [0]->network.publish_count == 0)
@@ -231,10 +233,10 @@ TEST (network, send_valid_publish)
         ASSERT_LT (iterations, 200);
     }
     rai::frontier frontier3;
-    ASSERT_FALSE (system.nodes [1]->store.latest_get (rai::test_genesis_key.pub, frontier3));
+    ASSERT_FALSE (system.nodes [1]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier3));
     ASSERT_FALSE (frontier2.hash == frontier3.hash);
     ASSERT_EQ (hash2, frontier3.hash);
-    ASSERT_EQ (50, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));
+    ASSERT_EQ (50, system.nodes [1]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
 }
 
 TEST (network, send_insufficient_work)
@@ -293,30 +295,31 @@ TEST (receivable_processor, send_with_receive)
     rai::keypair key2;
     system.wallet (1)->store.insert (key2.prv);
     rai::frontier frontier1;
-    ASSERT_FALSE (system.nodes [0]->ledger.store.latest_get (rai::test_genesis_key.pub, frontier1));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_FALSE (system.nodes [0]->ledger.store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     auto block1 (new rai::send_block (key2.pub, frontier1.hash, amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash)));
-    ASSERT_EQ (amount, system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (key2.pub));
-    ASSERT_EQ (amount, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_EQ (0, system.nodes [1]->ledger.account_balance (key2.pub));
+    ASSERT_EQ (amount, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (transaction, key2.pub));
+    ASSERT_EQ (amount, system.nodes [1]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (0, system.nodes [1]->ledger.account_balance (transaction, key2.pub));
     system.nodes [0]->process_receive_republish (block1->clone ());
     system.nodes [1]->process_receive_republish (block1->clone ());
-    ASSERT_EQ (amount - 100, system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (key2.pub));
-    ASSERT_EQ (amount - 100, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_EQ (0, system.nodes [1]->ledger.account_balance (key2.pub));
+    ASSERT_EQ (amount - 100, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (transaction, key2.pub));
+    ASSERT_EQ (amount - 100, system.nodes [1]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (0, system.nodes [1]->ledger.account_balance (transaction, key2.pub));
     auto iterations (0);
-    while (system.nodes [0]->ledger.account_balance (key2.pub) != 100)
+    while (system.nodes [0]->ledger.account_balance (transaction, key2.pub) != 100)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (amount - 100, system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_EQ (100, system.nodes [0]->ledger.account_balance (key2.pub));
-    ASSERT_EQ (amount - 100, system.nodes [1]->ledger.account_balance (rai::test_genesis_key.pub));
-    ASSERT_EQ (100, system.nodes [1]->ledger.account_balance (key2.pub));
+    ASSERT_EQ (amount - 100, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (100, system.nodes [0]->ledger.account_balance (transaction, key2.pub));
+    ASSERT_EQ (amount - 100, system.nodes [1]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (100, system.nodes [1]->ledger.account_balance (transaction, key2.pub));
 }
 
 TEST (network, receive_weight_change)
@@ -565,28 +568,29 @@ TEST (bootstrap_processor, process_new)
     system.wallet (1)->store.insert (key2.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     auto iterations1 (0);
-    while (system.nodes [0]->ledger.account_balance (key2.pub).is_zero ())
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    while (system.nodes [0]->ledger.account_balance (transaction, key2.pub).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
-    auto balance1 (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
-    auto balance2 (system.nodes [0]->ledger.account_balance (key2.pub));
+    auto balance1 (system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    auto balance2 (system.nodes [0]->ledger.account_balance (transaction, key2.pub));
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);
-    while (node1->ledger.account_balance (key2.pub) != balance2)
+    while (node1->ledger.account_balance (transaction, key2.pub) != balance2)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
     }
-    ASSERT_EQ (balance1, node1->ledger.account_balance (rai::test_genesis_key.pub));
+    ASSERT_EQ (balance1, node1->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     node1->stop ();
 }
 
@@ -607,14 +611,15 @@ TEST (bootstrap_processor, diamond)
     ASSERT_FALSE (init1.error ());
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
-    while (node1->ledger.account_balance (key.pub) != std::numeric_limits <rai::uint128_t>::max ())
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    while (node1->ledger.account_balance (transaction, key.pub) != std::numeric_limits <rai::uint128_t>::max ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), node1->ledger.account_balance (key.pub));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), node1->ledger.account_balance (transaction, key.pub));
     node1->stop ();
 }
 
@@ -627,12 +632,13 @@ TEST (bootstrap_processor, push_one)
     auto wallet (node1->wallets.create (rai::uint256_union ()));
     ASSERT_NE (nullptr, wallet);
     wallet->store.insert (rai::test_genesis_key.prv);
-    auto balance (node1->ledger.account_balance (rai::test_genesis_key.pub));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto balance (node1->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     ASSERT_FALSE (wallet->send_all (key1.pub, 100));
-    ASSERT_NE (balance, node1->ledger.account_balance (rai::test_genesis_key.pub));
+    ASSERT_NE (balance, node1->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
-    while (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub) == balance)
+    while (system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub) == balance)
     {
         system.service->poll_one ();
         ++iterations;
@@ -733,14 +739,15 @@ TEST (bulk, genesis)
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
     rai::frontier frontier1;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier1));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::frontier frontier2;
-    ASSERT_FALSE (node1->store.latest_get (rai::test_genesis_key.pub, frontier2));
+    ASSERT_FALSE (node1->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
     ASSERT_EQ (frontier1.hash, frontier2.hash);
     rai::keypair key2;
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     rai::frontier frontier3;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier3));
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier3));
     ASSERT_NE (frontier1.hash, frontier3.hash);
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
@@ -775,10 +782,11 @@ TEST (bulk, offline_send)
     auto wallet (node1->wallets.create (rai::uint256_union ()));
     wallet->store.insert (key2.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
-    ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);
-    while (node1->ledger.account_balance (key2.pub) != 100)
+    while (node1->ledger.account_balance (transaction, key2.pub) != 100)
     {
         system.service->poll_one ();
         system.processor.poll_one ();

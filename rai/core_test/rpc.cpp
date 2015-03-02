@@ -82,7 +82,8 @@ TEST (rpc, account_weight_exact)
     rai::keypair key;
     rai::system system (24000, 1);
     rai::frontier frontier;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
     rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (block));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -110,7 +111,8 @@ TEST (rpc, account_weight)
     rai::keypair key;
     rai::system system (24000, 1);
     rai::frontier frontier;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (rai::test_genesis_key.pub, frontier));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
     rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (block));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -288,9 +290,10 @@ TEST (rpc, send)
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
-    auto balance1 (system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto balance1 (system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     rpc (request, response);
-    ASSERT_EQ (balance1 - rai::scale_64bit_base10, system.nodes [0]->ledger.account_balance (rai::test_genesis_key.pub));
+    ASSERT_EQ (balance1 - rai::scale_64bit_base10, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);

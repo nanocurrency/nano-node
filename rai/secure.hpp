@@ -336,7 +336,7 @@ public:
 	rai::store_iterator blocks_end ();
 	
 	void latest_put (MDB_txn *, rai::account const &, rai::frontier const &);
-	bool latest_get (rai::account const &, rai::frontier &);
+	bool latest_get (MDB_txn *, rai::account const &, rai::frontier &);
 	void latest_del (rai::account const &);
 	bool latest_exists (rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
@@ -452,7 +452,7 @@ public:
 	rai::account account (rai::block_hash const &);
 	rai::uint128_t amount (rai::block_hash const &);
 	rai::uint128_t balance (rai::block_hash const &);
-	rai::uint128_t account_balance (rai::account const &);
+	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	std::unique_ptr <rai::block> successor (rai::block_hash const &);
 	rai::block_hash latest (rai::account const &);

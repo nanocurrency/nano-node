@@ -455,12 +455,13 @@ public:
     void completed_requests ();
     void completed_pulls ();
     void completed_pushes ();
+	void next ();
     std::unordered_map <rai::account, rai::block_hash> pulls;
     std::unordered_map <rai::account, rai::block_hash> pushes;
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
-    rai::store_iterator current;
-    rai::store_iterator end;
+	rai::account current;
+	rai::frontier frontier;
 };
 class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
 {

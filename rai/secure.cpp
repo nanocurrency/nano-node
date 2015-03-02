@@ -1676,11 +1676,10 @@ bool rai::block_store::latest_exists (rai::account const & account_a)
 	return rai::account (iterator->first) == account_a;
 }
 
-bool rai::block_store::latest_get (rai::account const & account_a, rai::frontier & frontier_a)
+bool rai::block_store::latest_get (MDB_txn * transaction_a, rai::account const & account_a, rai::frontier & frontier_a)
 {
-	rai::transaction transaction (environment, nullptr, false);
 	MDB_val value;
-	auto status (mdb_get (transaction, accounts, account_a.val (), &value));
+	auto status (mdb_get (transaction_a, accounts, account_a.val (), &value));
 	assert (status == 0 || status == MDB_NOTFOUND);
     bool result;
     if (status == MDB_NOTFOUND)
@@ -2291,7 +2290,7 @@ public:
             ledger.rollback (ledger.latest (block_a.hashables.destination));
         }
         rai::frontier frontier;
-        ledger.store.latest_get (receivable.source, frontier);
+        ledger.store.latest_get (transaction, receivable.source, frontier);
         ledger.store.pending_del (transaction, hash);
         ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
         ledger.store.block_del (hash);
@@ -2322,10 +2321,11 @@ public:
     }
     void change_block (rai::change_block const & block_a) override
     {
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
         auto representative (ledger.representative (block_a.hashables.previous));
         auto account (ledger.account (block_a.hashables.previous));
         rai::frontier frontier;
-        ledger.store.latest_get (account, frontier);
+        ledger.store.latest_get (transaction, account, frontier);
         ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
         ledger.store.block_del (block_a.hash ());
         ledger.change_latest (account, block_a.hashables.previous, representative, frontier.balance);
@@ -2371,11 +2371,11 @@ rai::uint128_t rai::ledger::balance (rai::block_hash const & hash_a)
 }
 
 // Balance for an account by account number
-rai::uint128_t rai::ledger::account_balance (rai::account const & account_a)
+rai::uint128_t rai::ledger::account_balance (MDB_txn * transaction_a, rai::account const & account_a)
 {
     rai::uint128_t result (0);
     rai::frontier frontier;
-    auto none (store.latest_get (account_a, frontier));
+    auto none (store.latest_get (transaction_a, account_a, frontier));
     if (!none)
     {
         result = frontier.balance.number ();
@@ -2424,12 +2424,13 @@ rai::uint128_t rai::ledger::weight (rai::account const & account_a)
 // Rollback blocks until `frontier_a' is the frontier block
 void rai::ledger::rollback (rai::block_hash const & frontier_a)
 {
+	rai::transaction transaction (store.environment, nullptr, true);
     auto account_l (account (frontier_a));
     rollback_visitor rollback (*this);
     rai::frontier frontier;
     do
     {
-        auto latest_error (store.latest_get (account_l, frontier));
+        auto latest_error (store.latest_get (transaction, account_l, frontier));
         assert (!latest_error);
         auto block (store.block_get (frontier.hash));
         block->visit (rollback);
@@ -2466,16 +2467,18 @@ void rai::ledger::move_representation (rai::account const & source_a, rai::accou
 // Return latest block for account
 rai::block_hash rai::ledger::latest (rai::account const & account_a)
 {
+	rai::transaction transaction (store.environment, nullptr, false);
     rai::frontier frontier;
-    auto latest_error (store.latest_get (account_a, frontier));
+    auto latest_error (store.latest_get (transaction, account_a, frontier));
 	return latest_error ? 0 : frontier.hash;
 }
 
 // Return latest root for account, account number of there are no blocks for this account.
 rai::block_hash rai::ledger::latest_root (rai::account const & account_a)
 {
+	rai::transaction transaction (store.environment, nullptr, false);
     rai::frontier frontier;
-    auto latest_error (store.latest_get (account_a, frontier));
+    auto latest_error (store.latest_get (transaction, account_a, frontier));
     rai::block_hash result;
     if (latest_error)
     {
@@ -2520,8 +2523,9 @@ void rai::ledger::checksum_update (rai::block_hash const & hash_a)
 
 void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a)
 {
+	rai::transaction transaction (store.environment, nullptr, true);
     rai::frontier frontier;
-    auto exists (!store.latest_get (account_a, frontier));
+    auto exists (!store.latest_get (transaction, account_a, frontier));
     if (exists)
     {
         checksum_update (frontier.hash);
@@ -2532,7 +2536,6 @@ void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash
         frontier.representative = representative_a;
         frontier.balance = balance_a;
         frontier.time = store.now ();
-		rai::transaction transaction (store.environment, nullptr, true);
         store.latest_put (transaction, account_a, frontier);
         checksum_update (hash_a);
     }
@@ -2565,8 +2568,9 @@ void ledger_processor::change_block (rai::change_block const & block_a)
         if (result == rai::process_result::progress)
         {
             auto account (ledger.account (block_a.hashables.previous));
+			rai::transaction transaction (ledger.store.environment, nullptr, true);
             rai::frontier frontier;
-            auto latest_error (ledger.store.latest_get (account, frontier));
+            auto latest_error (ledger.store.latest_get (transaction, account, frontier));
             assert (!latest_error);
             result = validate_message (account, message, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == rai::process_result::progress)
@@ -2574,12 +2578,9 @@ void ledger_processor::change_block (rai::change_block const & block_a)
                 result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the latest (Malicious)
                 if (result == rai::process_result::progress)
                 {
-					{
-						rai::transaction transaction (ledger.store.environment, nullptr, true);
-						ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
-						ledger.store.block_put (transaction, message, block_a);
-						ledger.change_latest (account, message, block_a.hashables.representative, frontier.balance);
-					}
+					ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
+					ledger.store.block_put (transaction, message, block_a);
+					ledger.change_latest (account, message, block_a.hashables.representative, frontier.balance);
                     ledger.change_observer (block_a, account, block_a.hashables.representative);
                 }
             }
@@ -2603,7 +2604,8 @@ void ledger_processor::send_block (rai::send_block const & block_a)
             if (result == rai::process_result::progress)
             {
                 rai::frontier frontier;
-                auto latest_error (ledger.store.latest_get (account, frontier));
+				rai::transaction transaction (ledger.store.environment, nullptr, true);
+                auto latest_error (ledger.store.latest_get (transaction, account, frontier));
                 assert (!latest_error);
                 result = frontier.balance.number () >= block_a.hashables.balance.number () ? rai::process_result::progress : rai::process_result::overspend; // Is this trying to spend more than they have (Malicious)
                 if (result == rai::process_result::progress)
@@ -2611,12 +2613,9 @@ void ledger_processor::send_block (rai::send_block const & block_a)
                     result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::fork;
                     if (result == rai::process_result::progress)
                     {
-						{
-							rai::transaction transaction (ledger.store.environment, nullptr, true);
-							ledger.store.block_put (transaction, message, block_a);
-							ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
-							ledger.store.pending_put (transaction, message, {account, frontier.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
-						}
+						ledger.store.block_put (transaction, message, block_a);
+						ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
+						ledger.store.pending_put (transaction, message, {account, frontier.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
 						ledger.send_observer (block_a, account, block_a.hashables.balance);
                     }
                 }
@@ -2645,7 +2644,8 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                 if (result == rai::process_result::progress)
                 {
                     rai::frontier frontier;
-                    result = ledger.store.latest_get (receivable.destination, frontier) ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for account at all (Harmless)
+					rai::transaction transaction (ledger.store.environment, nullptr, true);
+                    result = ledger.store.latest_get (transaction, receivable.destination, frontier) ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for account at all (Harmless)
                     if (result == rai::process_result::progress)
                     {
                         result = frontier.hash == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
@@ -2653,16 +2653,13 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                         {
                             auto new_balance (frontier.balance.number () + receivable.amount.number ());
                             rai::frontier source_frontier;
-                            auto error (ledger.store.latest_get (receivable.source, source_frontier));
+                            auto error (ledger.store.latest_get (transaction, receivable.source, source_frontier));
                             assert (!error);
-							{
-								rai::transaction transaction (ledger.store.environment, nullptr, true);
-								ledger.store.pending_del (transaction, block_a.hashables.source);
-								ledger.store.block_put (transaction, hash, block_a);
-								ledger.change_latest (receivable.destination, hash, frontier.representative, new_balance);
-								ledger.move_representation (source_frontier.representative, frontier.representative, receivable.amount.number ());
-							}
-                            ledger.receive_observer (block_a, receivable.destination, new_balance);
+							ledger.store.pending_del (transaction, block_a.hashables.source);
+							ledger.store.block_put (transaction, hash, block_a);
+							ledger.change_latest (receivable.destination, hash, frontier.representative, new_balance);
+							ledger.move_representation (source_frontier.representative, frontier.representative, receivable.amount.number ());
+							ledger.receive_observer (block_a, receivable.destination, new_balance);
                         }
                         else
                         {
@@ -2698,20 +2695,18 @@ void ledger_processor::open_block (rai::open_block const & block_a)
                     if (result == rai::process_result::progress)
                     {
                         rai::frontier frontier;
-                        result = ledger.store.latest_get (receivable.destination, frontier) ? rai::process_result::progress : rai::process_result::fork; // Has this account already been opened? (Malicious)
+						rai::transaction transaction (ledger.store.environment, nullptr, true);
+                        result = ledger.store.latest_get (transaction, receivable.destination, frontier) ? rai::process_result::progress : rai::process_result::fork; // Has this account already been opened? (Malicious)
                         if (result == rai::process_result::progress)
                         {
                             rai::frontier source_frontier;
-                            auto error (ledger.store.latest_get (receivable.source, source_frontier));
+                            auto error (ledger.store.latest_get (transaction, receivable.source, source_frontier));
                             assert (!error);
-							{
-								rai::transaction transaction (ledger.store.environment, nullptr, true);
-								ledger.store.pending_del (transaction, block_a.hashables.source);
-								ledger.store.block_put (transaction, hash, block_a);
-								ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
-								ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
-							}
-                            ledger.open_observer (block_a, receivable.destination, receivable.amount, block_a.hashables.representative);
+							ledger.store.pending_del (transaction, block_a.hashables.source);
+							ledger.store.block_put (transaction, hash, block_a);
+							ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
+							ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
+							ledger.open_observer (block_a, receivable.destination, receivable.amount, block_a.hashables.representative);
                         }
                     }
                 }
