@@ -28,6 +28,7 @@ TEST (block_store, add_item)
     ASSERT_NE (nullptr, latest2);
     ASSERT_EQ (block, *latest2);
     ASSERT_TRUE (store.block_exists (transaction, hash1));
+	ASSERT_FALSE (store.block_exists (transaction, hash1.number () - 1));
 	store.block_del (transaction, hash1);
 	auto latest3 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest3);

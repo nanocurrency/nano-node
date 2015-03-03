@@ -1655,7 +1655,7 @@ void rai::block_store::block_del (MDB_txn * transaction_a, rai::block_hash const
 bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto iterator (blocks_begin (transaction_a, hash_a));
-	return iterator->second.mv_size != 0;
+	return iterator->second.mv_size != 0 && hash_a == rai::block_hash (iterator->first);
 }
 
 void rai::block_store::latest_del (rai::account const & account_a)
