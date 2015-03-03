@@ -19,17 +19,17 @@ TEST (block_store, add_item)
     ASSERT_TRUE (!init);
     rai::open_block block (0, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
-    auto latest1 (store.block_get (hash1));
-    ASSERT_EQ (nullptr, latest1);
-    ASSERT_FALSE (store.block_exists (hash1));
 	rai::transaction transaction (store.environment, nullptr, true);
+    auto latest1 (store.block_get (transaction, hash1));
+    ASSERT_EQ (nullptr, latest1);
+    ASSERT_FALSE (store.block_exists (transaction, hash1));
     store.block_put (transaction, hash1, block);
-    auto latest2 (store.block_get (hash1));
+    auto latest2 (store.block_get (transaction, hash1));
     ASSERT_NE (nullptr, latest2);
     ASSERT_EQ (block, *latest2);
-    ASSERT_TRUE (store.block_exists (hash1));
-	store.block_del (hash1);
-	auto latest3 (store.block_get (hash1));
+    ASSERT_TRUE (store.block_exists (transaction, hash1));
+	store.block_del (transaction, hash1);
+	auto latest3 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest3);
 }
 
@@ -42,11 +42,11 @@ TEST (block_store, add_nonempty_block)
     rai::open_block block (0, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
     block.signature = rai::sign_message (key1.prv, key1.pub, hash1);
-    auto latest1 (store.block_get (hash1));
-    ASSERT_EQ (nullptr, latest1);
 	rai::transaction transaction (store.environment, nullptr, true);
+    auto latest1 (store.block_get (transaction, hash1));
+    ASSERT_EQ (nullptr, latest1);
     store.block_put (transaction, hash1, block);
-    auto latest2 (store.block_get (hash1));
+    auto latest2 (store.block_get (transaction, hash1));
     ASSERT_NE (nullptr, latest2);
     ASSERT_EQ (block, *latest2);
 }
@@ -60,21 +60,21 @@ TEST (block_store, add_two_items)
     rai::open_block block (1, 0, 0, 0, 0, 0);
     rai::uint256_union hash1 (block.hash ());
     block.signature = rai::sign_message (key1.prv, key1.pub, hash1);
-    auto latest1 (store.block_get (hash1));
+	rai::transaction transaction (store.environment, nullptr, true);
+    auto latest1 (store.block_get (transaction, hash1));
     ASSERT_EQ (nullptr, latest1);
     rai::open_block block2 (3, 0, 0, 0, 0, rai::work_generate (3));
     block2.hashables.account = 3;
     rai::uint256_union hash2 (block2.hash ());
     block2.signature = rai::sign_message (key1.prv, key1.pub, hash2);
-    auto latest2 (store.block_get (hash2));
+    auto latest2 (store.block_get (transaction, hash2));
     ASSERT_EQ (nullptr, latest2);
-	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, hash1, block);
     store.block_put (transaction, hash2, block2);
-    auto latest3 (store.block_get (hash1));
+    auto latest3 (store.block_get (transaction, hash1));
     ASSERT_NE (nullptr, latest3);
     ASSERT_EQ (block, *latest3);
-    auto latest4 (store.block_get (hash2));
+    auto latest4 (store.block_get (transaction, hash2));
     ASSERT_NE (nullptr, latest4);
     ASSERT_EQ (block2, *latest4);
     ASSERT_FALSE (*latest3 == *latest4);
@@ -92,10 +92,10 @@ TEST (block_store, add_receive)
 	store.block_put (transaction, block1.hash (), block1);
     rai::receive_block block (block1.hash (), 1, 1, 2, 3);
     rai::block_hash hash1 (block.hash ());
-    auto latest1 (store.block_get (hash1));
+    auto latest1 (store.block_get (transaction, hash1));
     ASSERT_EQ (nullptr, latest1);
     store.block_put (transaction, hash1, block);
-    auto latest2 (store.block_get (hash1));
+    auto latest2 (store.block_get (transaction, hash1));
     ASSERT_NE (nullptr, latest2);
     ASSERT_EQ (block, *latest2);
 }
@@ -147,7 +147,7 @@ TEST (block_store, genesis)
     rai::frontier frontier;
     ASSERT_FALSE (store.latest_get (transaction, rai::genesis_account, frontier));
 	ASSERT_EQ (hash, frontier.hash);
-    auto block1 (store.block_get (frontier.hash));
+    auto block1 (store.block_get (transaction, frontier.hash));
     ASSERT_NE (nullptr, block1);
     auto receive1 (dynamic_cast <rai::open_block *> (block1.get ()));
     ASSERT_NE (nullptr, receive1);
@@ -432,10 +432,10 @@ TEST (block_store, delete_iterator_entry)
     store.block_put (transaction, block2.hash (), block2);
     auto current (store.blocks_begin (transaction));
     ASSERT_NE (store.blocks_end (), current);
-    store.block_del (current->first);
+    store.block_del (transaction, current->first);
     ++current;
     ASSERT_NE (store.blocks_end (), current);
-    store.block_del (current->first);
+    store.block_del (transaction, current->first);
     ++current;
     ASSERT_EQ (store.blocks_end (), current);
 }

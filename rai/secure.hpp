@@ -327,10 +327,10 @@ public:
 	void block_put_raw (MDB_txn *, rai::block_hash const &, MDB_val);
 	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &);
 	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &);
-	rai::block_hash block_successor (rai::block_hash const &);
-	std::unique_ptr <rai::block> block_get (rai::block_hash const &);
-	void block_del (rai::block_hash const &);
-	bool block_exists (rai::block_hash const &);
+	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
+	std::unique_ptr <rai::block> block_get (MDB_txn *, rai::block_hash const &);
+	void block_del (MDB_txn *, rai::block_hash const &);
+	bool block_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator blocks_begin (MDB_txn *, rai::uint256_union const &);
 	rai::store_iterator blocks_begin (MDB_txn *);
 	rai::store_iterator blocks_end ();

@@ -89,11 +89,9 @@ TEST (ledger, process_send)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::ledger ledger (store);
-	{
-		rai::genesis genesis;
-		rai::transaction transaction (store.environment, nullptr, true);
-		genesis.initialize (transaction, store);
-	}
+	rai::transaction transaction (store.environment, nullptr, true);
+	rai::genesis genesis;
+	genesis.initialize (transaction, store);
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier1));
     rai::keypair key2;
@@ -117,7 +115,7 @@ TEST (ledger, process_send)
     ASSERT_EQ (50, ledger.account_balance (rai::test_genesis_key.pub));
     rai::frontier frontier2;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier2));
-    auto latest6 (store.block_get (frontier2.hash));
+    auto latest6 (store.block_get (transaction, frontier2.hash));
     ASSERT_NE (nullptr, latest6);
     auto latest7 (dynamic_cast <rai::send_block *> (latest6.get ()));
     ASSERT_NE (nullptr, latest7);
@@ -132,14 +130,14 @@ TEST (ledger, process_send)
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (key2.pub));
     rai::frontier frontier3;
     ASSERT_FALSE (store.latest_get (rai::test_genesis_key.pub, frontier3));
-    auto latest2 (store.block_get (frontier3.hash));
+    auto latest2 (store.block_get (transaction, frontier3.hash));
     ASSERT_NE (nullptr, latest2);
     auto latest3 (dynamic_cast <rai::send_block *> (latest2.get ()));
     ASSERT_NE (nullptr, latest3);
     ASSERT_EQ (send, *latest3);
     rai::frontier frontier4;
     ASSERT_FALSE (store.latest_get (key2.pub, frontier4));
-    auto latest4 (store.block_get (frontier4.hash));
+    auto latest4 (store.block_get (transaction, frontier4.hash));
     ASSERT_NE (nullptr, latest4);
     auto latest5 (dynamic_cast <rai::open_block *> (latest4.get ()));
     ASSERT_NE (nullptr, latest5);
@@ -856,8 +854,9 @@ TEST (ledger, fork_keep)
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-	ASSERT_TRUE (system.nodes [0]->store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (system.nodes [1]->store.block_exists (publish1.block->hash ()));
+	rai::transaction transaction (node1.store.environment, nullptr, false);
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [1]->store.block_exists (transaction, publish1.block->hash ()));
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
@@ -869,8 +868,8 @@ TEST (ledger, fork_keep)
     auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
     ASSERT_EQ (rai::genesis_amount, winner.first);
-	ASSERT_TRUE (system.nodes [0]->store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (system.nodes [1]->store.block_exists (publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [1]->store.block_exists (transaction, publish1.block->hash ()));
 }
 
 TEST (ledger, fork_flip)
@@ -902,8 +901,9 @@ TEST (ledger, fork_flip)
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-    ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
-    ASSERT_TRUE (node2.store.block_exists (publish2.block->hash ()));
+	rai::transaction transaction (node1.store.environment, nullptr, false);
+    ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
     {
@@ -915,9 +915,9 @@ TEST (ledger, fork_flip)
     auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
     ASSERT_EQ (rai::genesis_amount, winner.first);
-    ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
-    ASSERT_TRUE (node2.store.block_exists (publish1.block->hash ()));
-    ASSERT_FALSE (node2.store.block_exists (publish2.block->hash ()));
+    ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
+    ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
 }
 
 TEST (ledger, fork_multi_flip)
@@ -954,9 +954,10 @@ TEST (ledger, fork_multi_flip)
     auto votes1 (conflict->second);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-	ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (publish2.block->hash ()));
-    ASSERT_TRUE (node2.store.block_exists (publish3.block->hash ()));
+	rai::transaction transaction (node1.store.environment, nullptr, false);
+	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
@@ -968,10 +969,10 @@ TEST (ledger, fork_multi_flip)
     auto winner (node1.ledger.winner (votes1->votes));
     ASSERT_EQ (*publish1.block, *winner.second);
     ASSERT_EQ (rai::genesis_amount, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (publish1.block->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (publish2.block->hash ()));
-    ASSERT_FALSE (node2.store.block_exists (publish3.block->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
+    ASSERT_FALSE (node2.store.block_exists (transaction, publish3.block->hash ()));
 }
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
@@ -990,7 +991,8 @@ TEST (ledger, fork_bootstrap_flip)
 	ASSERT_EQ (rai::process_result::progress, node2.ledger.process (*send2));
 	system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, 100);
 	auto iterations2 (0);
-	while (!node2.store.block_exists (send1->hash ()))
+	rai::transaction transaction (node1.store.environment, nullptr, false);
+	while (!node2.store.block_exists (transaction, send1->hash ()))
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();

@@ -112,7 +112,7 @@ TEST (wallet, spend_all_one)
     rai::frontier frontier2;
     system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
     ASSERT_NE (frontier1, frontier2);
-    auto block (system.nodes [0]->store.block_get (frontier2.hash));
+    auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
     ASSERT_NE (nullptr, block);
     ASSERT_EQ (frontier1.hash, block->previous ());
     ASSERT_TRUE (frontier2.balance.is_zero ());
@@ -133,7 +133,7 @@ TEST (wallet, spend)
     rai::frontier frontier2;
     system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
     ASSERT_NE (frontier1, frontier2);
-    auto block (system.nodes [0]->store.block_get (frontier2.hash));
+    auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
     ASSERT_NE (nullptr, block);
     ASSERT_EQ (frontier1.hash, block->previous ());
     ASSERT_TRUE (frontier2.balance.is_zero ());

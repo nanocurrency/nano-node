@@ -340,7 +340,8 @@ public:
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
         node.process_receive_republish (message_a.block->clone ());
-        if (node.store.block_exists (message_a.block->hash ()))
+		rai::transaction transaction (node.store.environment, nullptr, false);
+        if (node.store.block_exists (transaction, message_a.block->hash ()))
         {
             node.process_confirmation (*message_a.block, sender);
         }
@@ -2658,7 +2659,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (hash.decode_hex (hash_text));
                 if (!error)
                 {
-					auto block (node.store.block_get (hash));
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto block (node.store.block_get (transaction, hash));
 					if (block != nullptr)
                     {
                         boost::property_tree::ptree response_l;
@@ -2720,30 +2722,30 @@ public:
         ledger.store.latest_get (transaction, receivable.source, frontier);
 		ledger.store.pending_del (transaction, hash);
         ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
-		ledger.store.block_del (hash);
+		ledger.store.block_del (transaction, hash);
     }
     void receive_block (rai::receive_block const & block_a) override
     {
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
         auto destination_account (ledger.account (hash));
 		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
-		ledger.store.block_del (hash);
-		rai::transaction transaction (ledger.store.environment, nullptr, true);
+		ledger.store.block_del (transaction, hash);
         ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void open_block (rai::open_block const & block_a) override
     {
+		rai::transaction transaction (ledger.store.environment, nullptr, true);
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
         auto destination_account (ledger.account (hash));
 		ledger.move_representation (ledger.representative (hash), representative, amount);
         ledger.change_latest (destination_account, 0, representative, 0);
-		ledger.store.block_del (hash);
-		rai::transaction transaction (ledger.store.environment, nullptr, true);
+		ledger.store.block_del (transaction, hash);
         ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
     }
     void change_block (rai::change_block const & block_a) override
@@ -2754,7 +2756,7 @@ public:
 		rai::transaction transaction (ledger.store.environment, nullptr, true);
         ledger.store.latest_get (transaction, account, frontier);
 		ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
-		ledger.store.block_del (block_a.hash ());
+		ledger.store.block_del (transaction, block_a.hash ());
         ledger.change_latest (account, block_a.hashables.previous, representative, frontier.balance);
     }
     rai::ledger & ledger;
@@ -2949,7 +2951,7 @@ void rai::node::search_pending ()
 	{
 		if (wallet.find (rai::receivable (i->second).destination) != wallet.end ())
 		{
-			auto block (store.block_get (i->first));
+			auto block (store.block_get (transaction, i->first));
 			assert (block != nullptr);
 			assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
 			conflicts.start (*block, true);
@@ -3296,7 +3298,8 @@ void rai::bootstrap_server::run_next ()
 void rai::bulk_pull_server::set_current_end ()
 {
     assert (request != nullptr);
-	if (!connection->node->store.block_exists (request->end))
+	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	if (!connection->node->store.block_exists (transaction, request->end))
 	{
 		if (connection->node->logging.bulk_pull_logging ())
 		{
@@ -3305,7 +3308,6 @@ void rai::bulk_pull_server::set_current_end ()
 		request->end.clear ();
 	}
 	rai::frontier frontier;
-	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	auto no_address (connection->node->store.latest_get (transaction, request->start, frontier));
 	if (no_address)
 	{
@@ -3367,7 +3369,8 @@ std::unique_ptr <rai::block> rai::bulk_pull_server::get_next ()
     std::unique_ptr <rai::block> result;
     if (current != request->end)
     {
-        result = connection->node->store.block_get (current);
+		rai::transaction transaction (connection->node->store.environment, nullptr, false);
+        result = connection->node->store.block_get (transaction, current);
         assert (result != nullptr);
         auto previous (result->previous ());
         if (!previous.is_zero ())
@@ -3702,7 +3705,8 @@ std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (rai::block_has
 
 bool rai::pull_synchronization::synchronized (rai::block_hash const & hash_a)
 {
-    return store.block_exists (hash_a);
+	rai::transaction transaction (store.environment, nullptr, false);
+    return store.block_exists (transaction, hash_a);
 }
 
 rai::push_synchronization::push_synchronization (std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
@@ -3718,7 +3722,8 @@ bool rai::push_synchronization::synchronized (rai::block_hash const & hash_a)
 
 std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_hash const & hash_a)
 {
-    return store.block_get (hash_a);
+	rai::transaction transaction (store.environment, nullptr, false);
+    return store.block_get (transaction, hash_a);
 }
 
 void rai::bulk_pull_client::process_end ()
@@ -4366,11 +4371,12 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             {
                 if (account == current)
                 {
+					rai::transaction transaction (connection->node->store.environment, nullptr, false);
                     if (latest == frontier.hash)
                     {
                         // In sync
                     }
-                    else if (connection->node->store.block_exists (latest))
+                    else if (connection->node->store.block_exists (transaction, latest))
                     {
                         // We know about a block they don't.
                         pushes [account] = latest;
@@ -4696,7 +4702,8 @@ last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
 confirmed (false)
 {
-    assert (node_a->store.block_exists (block_a.hash ()));
+	rai::transaction transaction (node_a->store.environment, nullptr, false);
+    assert (node_a->store.block_exists (transaction, block_a.hash ()));
     rai::keypair anonymous;
     rai::vote vote_l (anonymous.pub, anonymous.prv, 0, block_a.clone ());
     vote (vote_l);
