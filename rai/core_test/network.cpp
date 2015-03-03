@@ -333,7 +333,8 @@ TEST (network, receive_weight_change)
     system.wallet (1)->store.representative_set (key2.pub);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 2));
 	auto iterations (0);
-    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->ledger.weight (key2.pub) != 2;}))
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->ledger.weight (transaction, key2.pub) != 2;}))
     {
         system.service->poll_one ();
         system.processor.poll_one ();

@@ -351,7 +351,7 @@ public:
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
 	
-	rai::uint128_t representation_get (rai::account const &);
+	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
 	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	
 	void unchecked_put (rai::block_hash const &, rai::block const &);
@@ -453,8 +453,7 @@ public:
 	rai::uint128_t amount (rai::block_hash const &);
 	rai::uint128_t balance (rai::block_hash const &);
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
-	rai::uint128_t account_balance (rai::account const &);
-	rai::uint128_t weight (rai::account const &);
+	rai::uint128_t weight (MDB_txn *, rai::account const &);
 	std::unique_ptr <rai::block> successor (rai::block_hash const &);
 	rai::block_hash latest (rai::account const &);
 	rai::block_hash latest_root (rai::account const &);
@@ -465,7 +464,7 @@ public:
 	rai::process_result process (MDB_txn *, rai::block const &);
 	void rollback (rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
-	void move_representation (rai::account const &, rai::account const &, rai::uint128_t const &);
+	void move_representation (MDB_txn *, rai::account const &, rai::account const &, rai::uint128_t const &);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);

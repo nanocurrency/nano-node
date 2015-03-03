@@ -1844,8 +1844,9 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
 	{
 		if (i->second->store.is_representative ())
         {
+			rai::transaction transaction (i->second->store.environment, nullptr, false);
             auto representative (i->second->store.representative ());
-			auto weight (ledger.weight (representative));
+			auto weight (ledger.weight (transaction, representative));
 			if (!weight.is_zero ())
             {
                 if (logging.network_message_logging ())
@@ -2045,7 +2046,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto balance (node.ledger.weight (account));
+					rai::transaction transaction (node.store.environment, nullptr, false);
+                    auto balance (node.ledger.weight (transaction, account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("weight", balance.convert_to <std::string> ());
                     set_response (response, response_l);
@@ -2063,7 +2065,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-                    auto balance (rai::scale_down (node.ledger.weight (account)));
+					rai::transaction transaction (node.store.environment, nullptr, false);
+                    auto balance (rai::scale_down (node.ledger.weight (transaction, account)));
                     boost::property_tree::ptree response_l;
                     response_l.put ("weight", std::to_string (balance));
                     set_response (response, response_l);
@@ -2732,7 +2735,7 @@ public:
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
         auto destination_account (ledger.account (transaction, hash));
-		ledger.move_representation (ledger.representative (hash), representative, amount);
+		ledger.move_representation (transaction, ledger.representative (hash), representative, amount);
         ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (transaction, hash);
         ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (transaction, block_a.hashables.source), amount, destination_account});
@@ -2744,7 +2747,7 @@ public:
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
         auto destination_account (ledger.account (transaction, hash));
-		ledger.move_representation (ledger.representative (hash), representative, amount);
+		ledger.move_representation (transaction, ledger.representative (hash), representative, amount);
         ledger.change_latest (transaction, destination_account, 0, representative, 0);
 		ledger.store.block_del (transaction, hash);
         ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (transaction, block_a.hashables.source), amount, destination_account});
@@ -2756,7 +2759,7 @@ public:
         auto account (ledger.account (transaction, block_a.hashables.previous));
         rai::frontier frontier;
         ledger.store.latest_get (transaction, account, frontier);
-		ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
+		ledger.move_representation (transaction, block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (transaction, block_a.hash ());
         ledger.change_latest (transaction, account, block_a.hashables.previous, representative, frontier.balance);
     }

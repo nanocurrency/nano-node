@@ -165,12 +165,12 @@ TEST (representation, changes)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
-    ASSERT_EQ (0, store.representation_get (key1.pub));
 	rai::transaction transaction (store.environment, nullptr, true);
+    ASSERT_EQ (0, store.representation_get (transaction, key1.pub));
     store.representation_put (transaction, key1.pub, 1);
-    ASSERT_EQ (1, store.representation_get (key1.pub));
+    ASSERT_EQ (1, store.representation_get (transaction, key1.pub));
     store.representation_put (transaction, key1.pub, 2);
-    ASSERT_EQ (2, store.representation_get (key1.pub));
+    ASSERT_EQ (2, store.representation_get (transaction, key1.pub));
 }
 
 TEST (bootstrap, simple)
