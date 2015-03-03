@@ -449,7 +449,7 @@ public:
 	ledger (rai::block_store &);
 	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (rai::votes const & votes_a);
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (rai::votes const &);
-	rai::account account (rai::block_hash const &);
+	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (rai::block_hash const &);
 	rai::uint128_t balance (rai::block_hash const &);
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
@@ -464,9 +464,9 @@ public:
 	rai::uint128_t supply ();
 	rai::process_result process (MDB_txn *, rai::block const &);
 	void rollback (rai::block_hash const &);
-	void change_latest (rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
+	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
 	void move_representation (rai::account const &, rai::account const &, rai::uint128_t const &);
-	void checksum_update (rai::block_hash const &);
+	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
 	rai::block_store & store;

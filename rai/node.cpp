@@ -2722,7 +2722,7 @@ public:
         rai::frontier frontier;
         ledger.store.latest_get (transaction, receivable.source, frontier);
 		ledger.store.pending_del (transaction, hash);
-        ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
+        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (transaction, hash);
     }
     void receive_block (rai::receive_block const & block_a) override
@@ -2731,11 +2731,11 @@ public:
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
-        auto destination_account (ledger.account (hash));
+        auto destination_account (ledger.account (transaction, hash));
 		ledger.move_representation (ledger.representative (hash), representative, amount);
-        ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
+        ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (transaction, hash);
-        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (transaction, block_a.hashables.source), amount, destination_account});
     }
     void open_block (rai::open_block const & block_a) override
     {
@@ -2743,22 +2743,22 @@ public:
 		auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
-        auto destination_account (ledger.account (hash));
+        auto destination_account (ledger.account (transaction, hash));
 		ledger.move_representation (ledger.representative (hash), representative, amount);
-        ledger.change_latest (destination_account, 0, representative, 0);
+        ledger.change_latest (transaction, destination_account, 0, representative, 0);
 		ledger.store.block_del (transaction, hash);
-        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (transaction, block_a.hashables.source), amount, destination_account});
     }
     void change_block (rai::change_block const & block_a) override
     {
-        auto representative (ledger.representative (block_a.hashables.previous));
-        auto account (ledger.account (block_a.hashables.previous));
-        rai::frontier frontier;
 		rai::transaction transaction (ledger.store.environment, nullptr, true);
+        auto representative (ledger.representative (block_a.hashables.previous));
+        auto account (ledger.account (transaction, block_a.hashables.previous));
+        rai::frontier frontier;
         ledger.store.latest_get (transaction, account, frontier);
 		ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
 		ledger.store.block_del (transaction, block_a.hash ());
-        ledger.change_latest (account, block_a.hashables.previous, representative, frontier.balance);
+        ledger.change_latest (transaction, account, block_a.hashables.previous, representative, frontier.balance);
     }
     rai::ledger & ledger;
 };
@@ -3322,7 +3322,7 @@ void rai::bulk_pull_server::set_current_end ()
 	{
 		if (!request->end.is_zero ())
 		{
-			auto account (connection->node->ledger.account (request->end));
+			auto account (connection->node->ledger.account (transaction, request->end));
 			if (account == request->start)
 			{
 				current = frontier.hash;

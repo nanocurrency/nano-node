@@ -2123,9 +2123,9 @@ public:
 class account_visitor : public rai::block_visitor
 {
 public:
-    account_visitor (rai::block_store & store_a) :
+    account_visitor (rai::block_store & store_a, MDB_txn * transaction_a) :
     store (store_a),
-	transaction (store_a.environment, nullptr, false)
+	transaction (transaction_a)
     {
     }
     void compute (rai::block_hash const & hash_block)
@@ -2136,7 +2136,7 @@ public:
     }
     void send_block (rai::send_block const & block_a) override
     {
-        account_visitor prev (store);
+        account_visitor prev (store, transaction);
         prev.compute (block_a.hashables.previous);
         result = prev.result;
     }
@@ -2153,12 +2153,12 @@ public:
     }
     void change_block (rai::change_block const & block_a) override
     {
-        account_visitor prev (store);
+        account_visitor prev (store, transaction);
         prev.compute (block_a.hashables.previous);
         result = prev.result;
     }
     rai::block_store & store;
-	rai::transaction transaction;
+	MDB_txn * transaction;
     rai::account result;
 };
 
@@ -2294,7 +2294,7 @@ public:
         rai::frontier frontier;
         ledger.store.latest_get (transaction, receivable.source, frontier);
         ledger.store.pending_del (transaction, hash);
-        ledger.change_latest (receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
+        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (block_a.hashables.previous));
         ledger.store.block_del (transaction, hash);
     }
     void receive_block (rai::receive_block const & block_a) override
@@ -2303,11 +2303,11 @@ public:
         auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
-        auto destination_account (ledger.account (hash));
+        auto destination_account (ledger.account (transaction, hash));
         ledger.move_representation (ledger.representative (hash), representative, amount);
-        ledger.change_latest (destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
+        ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (block_a.hashables.previous));
         ledger.store.block_del (transaction, hash);
-        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (transaction, block_a.hashables.source), amount, destination_account});
     }
     void open_block (rai::open_block const & block_a) override
     {
@@ -2315,22 +2315,22 @@ public:
         auto hash (block_a.hash ());
         auto representative (ledger.representative (block_a.hashables.source));
         auto amount (ledger.amount (block_a.hashables.source));
-        auto destination_account (ledger.account (hash));
+        auto destination_account (ledger.account (transaction, hash));
         ledger.move_representation (ledger.representative (hash), representative, amount);
-        ledger.change_latest (destination_account, 0, representative, 0);
+        ledger.change_latest (transaction, destination_account, 0, representative, 0);
         ledger.store.block_del (transaction, hash);
-        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (block_a.hashables.source), amount, destination_account});
+        ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (transaction, block_a.hashables.source), amount, destination_account});
     }
     void change_block (rai::change_block const & block_a) override
     {
 		rai::transaction transaction (ledger.store.environment, nullptr, true);
         auto representative (ledger.representative (block_a.hashables.previous));
-        auto account (ledger.account (block_a.hashables.previous));
+        auto account (ledger.account (transaction, block_a.hashables.previous));
         rai::frontier frontier;
         ledger.store.latest_get (transaction, account, frontier);
         ledger.move_representation (block_a.hashables.representative, representative, ledger.balance (block_a.hashables.previous));
         ledger.store.block_del (transaction, block_a.hash ());
-        ledger.change_latest (account, block_a.hashables.previous, representative, frontier.balance);
+        ledger.change_latest (transaction, account, block_a.hashables.previous, representative, frontier.balance);
     }
     rai::ledger & ledger;
 };
@@ -2434,7 +2434,7 @@ rai::uint128_t rai::ledger::weight (rai::account const & account_a)
 void rai::ledger::rollback (rai::block_hash const & frontier_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
-    auto account_l (account (frontier_a));
+    auto account_l (account (transaction, frontier_a));
     rollback_visitor rollback (*this);
     rai::frontier frontier;
     do
@@ -2448,9 +2448,9 @@ void rai::ledger::rollback (rai::block_hash const & frontier_a)
 }
 
 // Return account containing hash
-rai::account rai::ledger::account (rai::block_hash const & hash_a)
+rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    account_visitor account (store);
+    account_visitor account (store, transaction_a);
     account.compute (hash_a);
     return account.result;
 }
@@ -2521,24 +2521,22 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
     }
 }
 
-void rai::ledger::checksum_update (rai::block_hash const & hash_a)
+void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::checksum value;
-	rai::transaction transaction (store.environment, nullptr, true);
-    auto error (store.checksum_get (transaction, 0, 0, value));
+    auto error (store.checksum_get (transaction_a, 0, 0, value));
     assert (!error);
     value ^= hash_a;
-    store.checksum_put (transaction, 0, 0, value);
+    store.checksum_put (transaction_a, 0, 0, value);
 }
 
-void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a)
+void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
     rai::frontier frontier;
-    auto exists (!store.latest_get (transaction, account_a, frontier));
+    auto exists (!store.latest_get (transaction_a, account_a, frontier));
     if (exists)
     {
-        checksum_update (frontier.hash);
+        checksum_update (transaction_a, frontier.hash);
     }
     if (!hash_a.is_zero())
     {
@@ -2546,8 +2544,8 @@ void rai::ledger::change_latest (rai::account const & account_a, rai::block_hash
         frontier.representative = representative_a;
         frontier.balance = balance_a;
         frontier.time = store.now ();
-        store.latest_put (transaction, account_a, frontier);
-        checksum_update (hash_a);
+        store.latest_put (transaction_a, account_a, frontier);
+        checksum_update (transaction_a, hash_a);
     }
     else
     {
@@ -2559,7 +2557,7 @@ std::unique_ptr <rai::block> rai::ledger::successor (rai::block_hash const & blo
 {
 	rai::transaction transaction (store.environment, nullptr, false);
     assert (store.block_exists (transaction, block_a));
-    assert (latest (account (block_a)) != block_a);
+    assert (latest (account (transaction, block_a)) != block_a);
 	auto successor (store.block_successor (transaction, block_a));
 	assert (!successor.is_zero ());
 	auto result (store.block_get (transaction, successor));
@@ -2578,7 +2576,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
         result = previous ? rai::process_result::progress : rai::process_result::gap_previous;  // Have we seen the previous block already? (Harmless)
         if (result == rai::process_result::progress)
         {
-            auto account (ledger.account (block_a.hashables.previous));
+            auto account (ledger.account (transaction, block_a.hashables.previous));
             rai::frontier frontier;
             auto latest_error (ledger.store.latest_get (transaction, account, frontier));
             assert (!latest_error);
@@ -2590,7 +2588,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
                 {
 					ledger.move_representation (frontier.representative, block_a.hashables.representative, ledger.balance (block_a.hashables.previous));
 					ledger.store.block_put (transaction, message, block_a);
-					ledger.change_latest (account, message, block_a.hashables.representative, frontier.balance);
+					ledger.change_latest (transaction, account, message, block_a.hashables.representative, frontier.balance);
                     ledger.change_observer (block_a, account, block_a.hashables.representative);
                 }
             }
@@ -2609,7 +2607,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
         result = previous ? rai::process_result::progress : rai::process_result::gap_previous; // Have we seen the previous block already? (Harmless)
         if (result == rai::process_result::progress)
         {
-            auto account (ledger.account (block_a.hashables.previous));
+            auto account (ledger.account (transaction, block_a.hashables.previous));
             result = validate_message (account, message, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
             if (result == rai::process_result::progress)
             {
@@ -2623,7 +2621,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
                     if (result == rai::process_result::progress)
                     {
 						ledger.store.block_put (transaction, message, block_a);
-						ledger.change_latest (account, message, frontier.representative, block_a.hashables.balance);
+						ledger.change_latest (transaction, account, message, frontier.representative, block_a.hashables.balance);
 						ledger.store.pending_put (transaction, message, {account, frontier.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
 						ledger.send_observer (block_a, account, block_a.hashables.balance);
                     }
@@ -2664,7 +2662,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                             assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (receivable.destination, hash, frontier.representative, new_balance);
+							ledger.change_latest (transaction, receivable.destination, hash, frontier.representative, new_balance);
 							ledger.move_representation (source_frontier.representative, frontier.representative, receivable.amount.number ());
 							ledger.receive_observer (block_a, receivable.destination, new_balance);
                         }
@@ -2709,7 +2707,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
                             assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
+							ledger.change_latest (transaction, receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
 							ledger.move_representation (source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
 							ledger.open_observer (block_a, receivable.destination, receivable.amount, block_a.hashables.representative);
                         }
