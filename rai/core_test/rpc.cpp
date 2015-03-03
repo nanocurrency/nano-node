@@ -85,7 +85,7 @@ TEST (rpc, account_weight_exact)
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
     rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (block));
+    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     boost::network::http::server <rai::rpc>::request request;
@@ -114,7 +114,7 @@ TEST (rpc, account_weight)
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
     rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (block));
+    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     boost::network::http::server <rai::rpc>::request request;

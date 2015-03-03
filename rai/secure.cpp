@@ -1691,11 +1691,6 @@ bool rai::block_store::latest_get (MDB_txn * transaction_a, rai::account const &
     return result;
 }
 
-bool rai::block_store::latest_get (rai::account const & account_a, rai::frontier & frontier_a)
-{
-	return latest_get (rai::transaction (environment, nullptr, false), account_a, frontier_a);
-}
-
 void rai::block_store::latest_put (MDB_txn * transaction_a, rai::account const & account_a, rai::frontier const & frontier_a)
 {
     std::vector <uint8_t> vector;
@@ -1755,11 +1750,6 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::block_hash con
         assert (!error3);
     }
     return result;
-}
-
-bool rai::block_store::pending_get (rai::block_hash const & hash_a, rai::receivable & receivable_a)
-{
-	return pending_get (rai::transaction (environment, nullptr, false), hash_a, receivable_a);
 }
 
 rai::store_iterator rai::block_store::pending_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
@@ -2090,12 +2080,13 @@ namespace
 class ledger_processor : public rai::block_visitor
 {
 public:
-    ledger_processor (rai::ledger &);
+    ledger_processor (rai::ledger &, MDB_txn *);
     void send_block (rai::send_block const &) override;
     void receive_block (rai::receive_block const &) override;
     void open_block (rai::open_block const &) override;
     void change_block (rai::change_block const &) override;
     rai::ledger & ledger;
+	MDB_txn * transaction;
     rai::process_result result;
 };
 
@@ -2401,9 +2392,9 @@ rai::uint128_t rai::ledger::account_balance (rai::account const & account_a)
 	return account_balance (rai::transaction (store.environment, nullptr, false), account_a);
 }
 
-rai::process_result rai::ledger::process (rai::block const & block_a)
+rai::process_result rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a)
 {
-    ledger_processor processor (*this);
+    ledger_processor processor (*this, transaction_a);
     block_a.visit (processor);
     return processor.result;
 }
@@ -2578,7 +2569,6 @@ std::unique_ptr <rai::block> rai::ledger::successor (rai::block_hash const & blo
 
 void ledger_processor::change_block (rai::change_block const & block_a)
 {
-	rai::transaction transaction (ledger.store.environment, nullptr, true);
     rai::uint256_union message (block_a.hash ());
     auto existing (ledger.store.block_exists (transaction, message));
     result = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Harmless)
@@ -2610,7 +2600,6 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 
 void ledger_processor::send_block (rai::send_block const & block_a)
 {
-	rai::transaction transaction (ledger.store.environment, nullptr, true);
     rai::uint256_union message (block_a.hash ());
     auto existing (ledger.store.block_exists (transaction, message));
     result = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Harmless)
@@ -2646,7 +2635,6 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 
 void ledger_processor::receive_block (rai::receive_block const & block_a)
 {
-	rai::transaction transaction (ledger.store.environment, nullptr, true);
     auto hash (block_a.hash ());
     auto existing (ledger.store.block_exists (transaction, hash));
     result = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already?  (Harmless)
@@ -2693,7 +2681,6 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 
 void ledger_processor::open_block (rai::open_block const & block_a)
 {
-	rai::transaction transaction (ledger.store.environment, nullptr, true);
     auto hash (block_a.hash ());
     auto existing (ledger.store.block_exists (transaction, hash));
     result = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already? (Harmless)
@@ -2733,8 +2720,9 @@ void ledger_processor::open_block (rai::open_block const & block_a)
     }
 }
 
-ledger_processor::ledger_processor (rai::ledger & ledger_a) :
+ledger_processor::ledger_processor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
 ledger (ledger_a),
+transaction (transaction_a),
 result (rai::process_result::progress)
 {
 }

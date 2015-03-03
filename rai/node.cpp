@@ -1613,7 +1613,8 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 
 rai::process_result rai::node::process_receive (rai::block const & block_a)
 {
-    auto result (ledger.process (block_a));
+	rai::transaction transaction (store.environment, nullptr, true);
+    auto result (ledger.process (transaction, block_a));
     switch (result)
     {
         case rai::process_result::progress:
@@ -4766,7 +4767,8 @@ void rai::election::vote (rai::vote const & vote_a)
 			if (!(*winner == *last_winner))
 			{
 				node_l->ledger.rollback (last_winner->hash ());
-				node_l->ledger.process (*winner);
+				rai::transaction transaction (node_l->store.environment, nullptr, true);
+				node_l->ledger.process (transaction, *winner);
 				last_winner = std::move (winner);
 			}
 			if (tally_l.size () == 1)

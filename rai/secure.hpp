@@ -337,7 +337,6 @@ public:
 	
 	void latest_put (MDB_txn *, rai::account const &, rai::frontier const &);
 	bool latest_get (MDB_txn *, rai::account const &, rai::frontier &);
-	bool latest_get (rai::account const &, rai::frontier &);
 	void latest_del (rai::account const &);
 	bool latest_exists (rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
@@ -347,7 +346,6 @@ public:
 	void pending_put (MDB_txn *, rai::block_hash const &, rai::receivable const &);
 	void pending_del (MDB_txn *, rai::block_hash const &);
 	bool pending_get (MDB_txn *, rai::block_hash const &, rai::receivable &);
-	bool pending_get (rai::block_hash const &, rai::receivable &);
 	bool pending_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *);
@@ -464,7 +462,7 @@ public:
 	rai::account representative_calculated (rai::block_hash const &);
 	rai::account representative_cached (rai::block_hash const &);
 	rai::uint128_t supply ();
-	rai::process_result process (rai::block const &);
+	rai::process_result process (MDB_txn *, rai::block const &);
 	void rollback (rai::block_hash const &);
 	void change_latest (rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
 	void move_representation (rai::account const &, rai::account const &, rai::uint128_t const &);

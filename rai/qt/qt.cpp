@@ -173,13 +173,14 @@ public:
 
 void rai_qt::history::refresh ()
 {
+	rai::transaction transaction (ledger.store.environment, nullptr, false);
 	model->removeRows (0, model->rowCount ());
 	auto hash (ledger.latest (account));
 	short_text_visitor visitor (ledger);
 	while (!hash.is_zero ())
 	{
 		QList <QStandardItem *> items;
-		auto block (ledger.store.block_get (hash));
+		auto block (ledger.store.block_get (transaction, hash));
 		assert (block != nullptr);
 		block->visit (visitor);
 		items.push_back (new QStandardItem (QString (visitor.text.c_str ())));
@@ -215,7 +216,8 @@ wallet (wallet_a)
 		rai::block_hash hash_l;
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
-			auto block_l (wallet.node.store.block_get (hash_l));
+			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+			auto block_l (wallet.node.store.block_get (transaction, hash_l));
 			if (block_l != nullptr)
 			{
 				std::string contents;
@@ -947,12 +949,13 @@ void rai_qt::block_creation::create_send ()
                 rai::private_key key;
                 if (!wallet.wallet_m->store.fetch (account_l, key))
                 {
+					rai::transaction transaction (wallet.node.store.environment, nullptr, false);
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     auto balance (wallet.node.ledger.account_balance (account_l));
                     if (amount_l.number () <= balance)
                     {
                         rai::frontier frontier;
-                        auto error (wallet.node.store.latest_get (account_l, frontier));
+                        auto error (wallet.node.store.latest_get (transaction, account_l, frontier));
                         assert (!error);
                         rai::send_block send (destination_l, frontier.hash, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (account_l, frontier.hash));
                         key.clear ();
@@ -1004,7 +1007,7 @@ void rai_qt::block_creation::create_receive ()
         if (!wallet.node.store.pending_get (transaction, source_l, receivable))
         {
             rai::frontier frontier;
-            auto error (wallet.node.store.latest_get (receivable.destination, frontier));
+            auto error (wallet.node.store.latest_get (transaction, receivable.destination, frontier));
             if (!error)
             {
                 rai::private_key key;
@@ -1055,8 +1058,9 @@ void rai_qt::block_creation::create_change ()
         error = representative_l.decode_base58check (representative->text ().toStdString ());
         if (!error)
         {
+			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
             rai::frontier frontier;
-            auto error (wallet.node.store.latest_get (account_l, frontier));
+            auto error (wallet.node.store.latest_get (transaction, account_l, frontier));
             if (!error)
             {
                 rai::private_key key;
@@ -1112,7 +1116,7 @@ void rai_qt::block_creation::create_open ()
             if (!wallet.node.store.pending_get (transaction, source_l, receivable))
             {
                 rai::frontier frontier;
-                auto error (wallet.node.store.latest_get (receivable.destination, frontier));
+                auto error (wallet.node.store.latest_get (transaction, receivable.destination, frontier));
                 if (error)
                 {
                     rai::private_key key;
