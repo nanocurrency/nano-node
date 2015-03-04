@@ -151,8 +151,9 @@ TEST (network, send_discarded_publish)
     std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 2, 3, 4, rai::work_generate (1)));
     system.nodes [0]->network.republish_block (std::move (block));
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (rai::test_genesis_key.pub));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (transaction, rai::test_genesis_key.pub));
     auto iterations (0);
     while (system.nodes [1]->network.publish_count == 0)
     {
@@ -160,8 +161,8 @@ TEST (network, send_discarded_publish)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (transaction, rai::test_genesis_key.pub));
 }
 
 TEST (network, send_invalid_publish)
@@ -170,8 +171,9 @@ TEST (network, send_invalid_publish)
     std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (1)));
     system.nodes [0]->network.republish_block (std::move (block));
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (rai::test_genesis_key.pub));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (transaction, rai::test_genesis_key.pub));
     auto iterations (0);
     while (system.nodes [1]->network.publish_count == 0)
     {
@@ -179,8 +181,8 @@ TEST (network, send_invalid_publish)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [1]->ledger.latest (transaction, rai::test_genesis_key.pub));
 }
 
 TEST (network, send_valid_confirm_ack)
@@ -417,7 +419,8 @@ TEST (bulk_pull, genesis_to_end)
     req->end.clear ();
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
-    ASSERT_EQ (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), request->current);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_EQ (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub), request->current);
     ASSERT_EQ (request->request->end, request->request->end);
 }
 
@@ -431,7 +434,8 @@ TEST (bulk_pull, no_end)
     req->end = 1;
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::bulk_pull_server> (connection, std::move (req)));
-    ASSERT_EQ (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), request->current);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_EQ (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub), request->current);
 	ASSERT_TRUE (request->request->end.is_zero ());
 }
 
@@ -444,9 +448,9 @@ TEST (bulk_pull, end_not_owned)
     rai::open_block open (0, 1, 2, 3, 4, 5);
     open.hashables.account = key2.pub;
     open.hashables.representative = key2.pub;
-    open.hashables.source = system.nodes [0]->ledger.latest (rai::test_genesis_key.pub);
-    open.signature = rai::sign_message (key2.prv, key2.pub, open.hash ());
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    open.hashables.source = system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub);
+    open.signature = rai::sign_message (key2.prv, key2.pub, open.hash ());
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, open));
     auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.nodes [0]));
     rai::genesis genesis;
@@ -524,12 +528,13 @@ TEST (bootstrap_processor, process_one)
     ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 100));
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
-    auto hash1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
-    auto hash2 (node1->ledger.latest (rai::test_genesis_key.pub));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto hash1 (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+    auto hash2 (node1->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
-    while (node1->ledger.latest (rai::test_genesis_key.pub) != hash1)
+    while (node1->ledger.latest (transaction, rai::test_genesis_key.pub) != hash1)
     {
         system.service->poll_one ();
         ++iterations;
@@ -542,11 +547,12 @@ TEST (bootstrap_processor, process_two)
 {
     rai::system system (24000, 1);
     system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-    auto hash1 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto hash1 (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 50));
-    auto hash2 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
+    auto hash2 (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 50));
-    auto hash3 (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub));
+    auto hash3 (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
     ASSERT_NE (hash1, hash3);
     ASSERT_NE (hash2, hash3);
@@ -555,7 +561,7 @@ TEST (bootstrap_processor, process_two)
     ASSERT_FALSE (init1.error ());
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
-    while (node1->ledger.latest (rai::test_genesis_key.pub) != hash3)
+    while (node1->ledger.latest (transaction, rai::test_genesis_key.pub) != hash3)
     {
         system.service->poll_one ();
         ++iterations;
@@ -602,8 +608,8 @@ TEST (bootstrap_processor, diamond)
 {
     rai::system system (24000, 1);
     rai::keypair key;
-    std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub))));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub))));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *send1));
     std::unique_ptr <rai::send_block> send2 (new rai::send_block (key.pub, send1->hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *send2));
@@ -755,13 +761,13 @@ TEST (bulk, genesis)
     ASSERT_NE (frontier1.hash, frontier3.hash);
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
-    while (node1->ledger.latest (rai::test_genesis_key.pub) != system.nodes [0]->ledger.latest (rai::test_genesis_key.pub))
+    while (node1->ledger.latest (transaction, rai::test_genesis_key.pub) != system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub))
     {
         system.service->poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     } 
-    ASSERT_EQ (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), node1->ledger.latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub), node1->ledger.latest (transaction, rai::test_genesis_key.pub));
     node1->stop ();
 }
 

@@ -689,7 +689,8 @@ TEST (rpc, block)
     request.method = "POST";
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "block");
-    request_tree.put ("hash", system.nodes [0]->ledger.latest (rai::genesis_account).to_string ());
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    request_tree.put ("hash", system.nodes [0]->ledger.latest (transaction, rai::genesis_account).to_string ());
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();

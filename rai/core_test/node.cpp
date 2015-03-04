@@ -143,10 +143,10 @@ TEST (node, quick_confirm)
     rai::system system (24000, 1);
     rai::keypair key;
     system.wallet (0)->store.insert (key.prv);
-    rai::send_block send (key.pub, system.nodes [0]->ledger.latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (rai::test_genesis_key.pub)));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    rai::send_block send (key.pub, system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub)));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send));
     auto iterations (0);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     while (system.nodes [0]->ledger.account_balance (transaction, key.pub).is_zero ())
     {
         system.processor.poll_one ();

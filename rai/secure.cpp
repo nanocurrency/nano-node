@@ -2291,7 +2291,7 @@ public:
         rai::receivable receivable;
         while (ledger.store.pending_get (transaction, hash, receivable))
         {
-            ledger.rollback (transaction, ledger.latest (block_a.hashables.destination));
+            ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
         }
         rai::frontier frontier;
         ledger.store.latest_get (transaction, receivable.source, frontier);
@@ -2465,11 +2465,10 @@ void rai::ledger::move_representation (MDB_txn * transaction_a, rai::account con
 }
 
 // Return latest block for account
-rai::block_hash rai::ledger::latest (rai::account const & account_a)
+rai::block_hash rai::ledger::latest (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
     rai::frontier frontier;
-    auto latest_error (store.latest_get (transaction, account_a, frontier));
+    auto latest_error (store.latest_get (transaction_a, account_a, frontier));
 	return latest_error ? 0 : frontier.hash;
 }
 
@@ -2501,10 +2500,10 @@ rai::checksum rai::ledger::checksum (MDB_txn * transaction_a, rai::account const
 
 void rai::ledger::dump_account_chain (rai::account const & account_a)
 {
-    auto hash (latest (account_a));
+	rai::transaction transaction (store.environment, nullptr, false);
+    auto hash (latest (transaction, account_a));
     while (!hash.is_zero ())
     {
-		rai::transaction transaction (store.environment, nullptr, false);
         auto block (store.block_get (transaction, hash));
         assert (block != nullptr);
         std::cerr << hash.to_string () << std::endl;
@@ -2548,7 +2547,7 @@ std::unique_ptr <rai::block> rai::ledger::successor (rai::block_hash const & blo
 {
 	rai::transaction transaction (store.environment, nullptr, false);
     assert (store.block_exists (transaction, block_a));
-    assert (latest (account (transaction, block_a)) != block_a);
+    assert (latest (transaction, account (transaction, block_a)) != block_a);
 	auto successor (store.block_successor (transaction, block_a));
 	assert (!successor.is_zero ());
 	auto result (store.block_get (transaction, successor));

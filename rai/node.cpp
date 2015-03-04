@@ -2720,7 +2720,7 @@ public:
 		rai::transaction transaction (ledger.store.environment, nullptr, true);
 		while (ledger.store.pending_get (transaction, hash, receivable))
 		{
-			ledger.rollback (transaction, ledger.latest (block_a.hashables.destination));
+			ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
 		}
         rai::frontier frontier;
         ledger.store.latest_get (transaction, receivable.source, frontier);
