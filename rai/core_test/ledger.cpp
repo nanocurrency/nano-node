@@ -142,7 +142,7 @@ TEST (ledger, process_send)
     auto latest5 (dynamic_cast <rai::open_block *> (latest4.get ()));
     ASSERT_NE (nullptr, latest5);
     ASSERT_EQ (open, *latest5);
-	ledger.rollback (hash2);
+	ledger.rollback (transaction, hash2);
 	rai::frontier frontier5;
 	ASSERT_TRUE (ledger.store.latest_get (transaction, key2.pub, frontier5));
     rai::receivable receivable1;
@@ -157,7 +157,7 @@ TEST (ledger, process_send)
     rai::frontier frontier6;
 	ASSERT_FALSE (ledger.store.latest_get (transaction, rai::test_genesis_key.pub, frontier6));
 	ASSERT_EQ (hash1, frontier6.hash);
-	ledger.rollback (frontier6.hash);
+	ledger.rollback (transaction, frontier6.hash);
     rai::frontier frontier7;
 	ASSERT_FALSE (ledger.store.latest_get (transaction, rai::test_genesis_key.pub, frontier7));
 	ASSERT_EQ (frontier1.hash, frontier7.hash);
@@ -219,7 +219,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (rai::genesis_amount - 25, ledger.account_balance (transaction, key2.pub));
     ASSERT_EQ (rai::genesis_amount - 25, ledger.weight (transaction, key3.pub));
-	ledger.rollback (hash4);
+	ledger.rollback (transaction, hash4);
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key3.pub));
@@ -255,7 +255,7 @@ TEST (ledger, rollback_receiver)
     ASSERT_EQ (50, ledger.weight (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key3.pub));
-	ledger.rollback (hash1);
+	ledger.rollback (transaction, hash1);
 	ASSERT_EQ (rai::genesis_amount, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (0, ledger.account_balance (transaction, key2.pub));
     ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, rai::test_genesis_key.pub));
@@ -294,13 +294,13 @@ TEST (ledger, rollback_representation)
     ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive1));
     ASSERT_EQ (1, ledger.weight (transaction, key3.pub));
     ASSERT_EQ (rai::genesis_amount - 1, ledger.weight (transaction, key4.pub));
-    ledger.rollback (receive1.hash ());
+    ledger.rollback (transaction, receive1.hash ());
     ASSERT_EQ (50, ledger.weight (transaction, key3.pub));
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key4.pub));
-    ledger.rollback (open.hash ());
+    ledger.rollback (transaction, open.hash ());
     ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key3.pub));
     ASSERT_EQ (0, ledger.weight (transaction, key4.pub));
-    ledger.rollback (change2.hash ());
+    ledger.rollback (transaction, change2.hash ());
     ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key5.pub));
     ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
 }
@@ -337,7 +337,7 @@ TEST (ledger, representative_genesis)
     genesis.initialize (transaction, store);
 	auto latest (ledger.latest (rai::test_genesis_key.pub));
 	ASSERT_FALSE (latest.is_zero ());
-    ASSERT_EQ (rai::test_genesis_key.pub, ledger.representative (latest));
+    ASSERT_EQ (rai::test_genesis_key.pub, ledger.representative (transaction, latest));
 }
 
 TEST (ledger, weight)
@@ -383,7 +383,7 @@ TEST (ledger, representative_change)
 	rai::frontier frontier2;
 	ASSERT_FALSE (store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
 	ASSERT_EQ (block.hash (), frontier2.hash);
-	ledger.rollback (frontier2.hash);
+	ledger.rollback (transaction, frontier2.hash);
 	rai::frontier frontier3;
 	ASSERT_FALSE (store.latest_get (transaction, rai::test_genesis_key.pub, frontier3));
 	ASSERT_EQ (frontier1.hash, frontier3.hash);

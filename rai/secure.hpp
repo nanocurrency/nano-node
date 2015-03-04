@@ -337,7 +337,7 @@ public:
 	
 	void latest_put (MDB_txn *, rai::account const &, rai::frontier const &);
 	bool latest_get (MDB_txn *, rai::account const &, rai::frontier &);
-	void latest_del (rai::account const &);
+	void latest_del (MDB_txn *, rai::account const &);
 	bool latest_exists (rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *);
@@ -450,19 +450,19 @@ public:
 	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (rai::votes const & votes_a);
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
-	rai::uint128_t amount (rai::block_hash const &);
-	rai::uint128_t balance (rai::block_hash const &);
+	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
+	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
 	rai::uint128_t weight (MDB_txn *, rai::account const &);
 	std::unique_ptr <rai::block> successor (rai::block_hash const &);
 	rai::block_hash latest (rai::account const &);
 	rai::block_hash latest_root (rai::account const &);
-	rai::account representative (rai::block_hash const &);
-	rai::account representative_calculated (rai::block_hash const &);
+	rai::account representative (MDB_txn *, rai::block_hash const &);
+	rai::account representative_calculated (MDB_txn *, rai::block_hash const &);
 	rai::account representative_cached (rai::block_hash const &);
 	rai::uint128_t supply ();
 	rai::process_result process (MDB_txn *, rai::block const &);
-	void rollback (rai::block_hash const &);
+	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
 	void move_representation (MDB_txn *, rai::account const &, rai::account const &, rai::uint128_t const &);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
