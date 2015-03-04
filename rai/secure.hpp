@@ -266,6 +266,7 @@ class frontier
 public:
 	frontier ();
 	frontier (MDB_val const &);
+	frontier (rai::frontier const &) = default;
 	frontier (rai::block_hash const &, rai::account const &, rai::amount const &, uint64_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);

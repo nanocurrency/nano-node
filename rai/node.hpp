@@ -455,7 +455,7 @@ public:
     void completed_requests ();
     void completed_pulls ();
     void completed_pushes ();
-	void next ();
+	void next (MDB_txn *);
     std::unordered_map <rai::account, rai::block_hash> pulls;
     std::unordered_map <rai::account, rai::block_hash> pushes;
     std::array <uint8_t, 200> receive_buffer;
@@ -672,10 +672,10 @@ public:
     void sent_action (boost::system::error_code const &, size_t);
     void send_finished ();
     void no_block_sent (boost::system::error_code const &, size_t);
-    std::pair <rai::uint256_union, rai::uint256_union> get_next ();
+	void next ();
     std::shared_ptr <rai::bootstrap_server> connection;
-	rai::transaction transaction;
-    rai::store_iterator iterator;
+	rai::account current;
+	rai::frontier frontier;
     std::unique_ptr <rai::frontier_req> request;
     std::vector <uint8_t> send_buffer;
     size_t count;

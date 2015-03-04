@@ -686,11 +686,9 @@ TEST (frontier_req, begin)
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_EQ (connection->node->ledger.store.latest_begin (transaction, rai::test_genesis_key.pub), request->iterator);
-    auto pair (request->get_next ());
-    ASSERT_EQ (rai::test_genesis_key.pub, pair.first);
+    ASSERT_EQ (rai::test_genesis_key.pub, request->current);
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), pair.second);
+    ASSERT_EQ (genesis.hash (), request->frontier.hash);
 }
 
 TEST (frontier_req, end)
@@ -703,9 +701,7 @@ TEST (frontier_req, end)
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
-    ASSERT_EQ (connection->node->ledger.store.latest_end (), request->iterator);
-    auto pair (request->get_next ());
-    ASSERT_TRUE (pair.first.is_zero ());
+    ASSERT_TRUE (request->current.is_zero ());
 }
 
 TEST (frontier_req, time_bound)
@@ -718,9 +714,7 @@ TEST (frontier_req, time_bound)
     req->count = std::numeric_limits <decltype (req->count)>::max ();
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
-    ASSERT_EQ (connection->node->ledger.store.latest_end (), request->iterator);
-    auto pair (request->get_next ());
-    ASSERT_TRUE (pair.first.is_zero ());
+    ASSERT_TRUE (request->current.is_zero ());
 }
 
 TEST (frontier_req, time_cutoff)
@@ -734,11 +728,9 @@ TEST (frontier_req, time_cutoff)
     connection->requests.push (std::unique_ptr <rai::message> {});
     auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_EQ (connection->node->ledger.store.latest_begin (transaction, rai::test_genesis_key.pub), request->iterator);
-    auto pair (request->get_next ());
-    ASSERT_EQ (rai::test_genesis_key.pub, pair.first);
+    ASSERT_EQ (rai::test_genesis_key.pub, request->current);
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), pair.second);
+    ASSERT_EQ (genesis.hash (), request->frontier.hash);
 }
 
 TEST (bulk, genesis)

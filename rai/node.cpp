@@ -4148,10 +4148,11 @@ request (std::move (request_a))
 
 rai::frontier_req_server::frontier_req_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 connection (connection_a),
-transaction (connection_a->node->store.environment, nullptr, false),
-iterator (connection_a->node->store.latest_begin (transaction, request_a->start)),
+current (0),
+frontier (0, 0, 0, 0),
 request (std::move (request_a))
 {
+	next ();
     skip_old ();
 }
 
@@ -4160,28 +4161,27 @@ void rai::frontier_req_server::skip_old ()
     if (request->age != std::numeric_limits<decltype (request->age)>::max ())
     {
         auto now (connection->node->store.now ());
-        while (iterator != connection->node->ledger.store.latest_end () && (now - rai::frontier (iterator->second).time) >= request->age)
+        while (!current.is_zero () && (now - frontier.time) >= request->age)
         {
-            ++iterator;
+            next ();
         }
     }
 }
 
 void rai::frontier_req_server::send_next ()
 {
-	auto pair (get_next ());
-    if (!pair.first.is_zero ())
+    if (!current.is_zero ())
     {
         {
             send_buffer.clear ();
             rai::vectorstream stream (send_buffer);
-            write (stream, pair.first.bytes);
-            write (stream, pair.second.bytes);
+            write (stream, current.bytes);
+            write (stream, frontier.hash.bytes);
         }
         auto this_l (shared_from_this ());
         if (connection->node->logging.network_logging ())
         {
-            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % pair.first.to_base58check () % pair.second.to_string ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_base58check () % frontier.hash.to_string ());
         }
         async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
         {
@@ -4244,16 +4244,19 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
     }
 }
 
-std::pair <rai::uint256_union, rai::uint256_union> rai::frontier_req_server::get_next ()
+void rai::frontier_req_server::next ()
 {
-    std::pair <rai::uint256_union, rai::uint256_union> result (0, 0);
-    if (iterator != connection->node->ledger.store.latest_end ())
-    {
-        result.first = iterator->first;
-        result.second = rai::frontier (iterator->second).hash;
-        ++iterator;
-    }
-    return result;
+	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
+	if (iterator != connection->node->store.latest_end ())
+	{
+		current = rai::uint256_union (iterator->first);
+		frontier = rai::frontier (iterator->second);
+	}
+	else
+	{
+		current.clear ();
+	}
 }
 
 rai::frontier_req::frontier_req () :
@@ -4364,19 +4367,19 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         rai::bufferstream latest_stream (receive_buffer.data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
         auto error2 (rai::read (latest_stream, latest));
         assert (!error2);
+		rai::transaction transaction (connection->node->store.environment, nullptr, false);
         if (!account.is_zero ())
         {
             while (!current.is_zero () && current < account)
             {
                 // We know about an account they don't.
                 pushes [current] = rai::block_hash (0);
-				next ();
+				next (transaction);
             }
             if (!current.is_zero ())
             {
                 if (account == current)
                 {
-					rai::transaction transaction (connection->node->store.environment, nullptr, false);
                     if (latest == frontier.hash)
                     {
                         // In sync
@@ -4391,7 +4394,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
                         // They know about a block we don't.
                         pulls [account] = frontier.hash;
                     }
-					next ();
+					next (transaction);
                 }
                 else
                 {
@@ -4411,7 +4414,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             {
                 // We know about an account they don't.
                 pushes [current] = rai::block_hash (0);
-                next ();
+                next (transaction);
             }
             completed_requests ();
         }
@@ -4425,9 +4428,9 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
     }
 }
 
-void rai::frontier_req_client::next ()
+void rai::frontier_req_client::next (MDB_txn * transaction_a)
 {
-	auto iterator (connection->node->store.latest_begin (rai::transaction (connection->node->store.environment, nullptr, false), rai::uint256_union (current.number () + 1)));
+	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::account (iterator->first);
