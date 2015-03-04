@@ -786,7 +786,7 @@ TEST (ledger, successor)
 	rai::send_block send1 (key1.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, send1));
-	ASSERT_EQ (send1, *system.nodes [0]->ledger.successor (genesis.hash ()));
+	ASSERT_EQ (send1, *system.nodes [0]->ledger.successor (transaction, genesis.hash ()));
 }
 
 TEST (fork, publish)

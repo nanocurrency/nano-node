@@ -733,7 +733,6 @@ public:
     bool error ();
     bool block_store_init;
     bool wallet_init;
-    bool ledger_init;
 };
 class node : public std::enable_shared_from_this <rai::node>
 {

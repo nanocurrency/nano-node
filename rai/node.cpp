@@ -1292,13 +1292,14 @@ bool rai::logging::log_to_cerr () const
 }
 
 rai::node_init::node_init () :
+block_store_init (false),
 wallet_init (false)
 {
 }
 
 bool rai::node_init::error ()
 {
-    return block_store_init || wallet_init || ledger_init;
+    return block_store_init || wallet_init;
 }
 
 rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
@@ -1693,7 +1694,7 @@ rai::process_result rai::node::process_receive (rai::block const & block_a)
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
             }
-            conflicts.start (*ledger.successor (block_a.root ()), false);
+            conflicts.start (*ledger.successor (transaction, block_a.root ()), false);
             break;
         }
         case rai::process_result::account_mismatch:

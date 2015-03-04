@@ -454,7 +454,7 @@ public:
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
 	rai::uint128_t weight (MDB_txn *, rai::account const &);
-	std::unique_ptr <rai::block> successor (rai::block_hash const &);
+	std::unique_ptr <rai::block> successor (MDB_txn *, rai::block_hash const &);
 	rai::block_hash latest (MDB_txn *, rai::account const &);
 	rai::block_hash latest_root (rai::account const &);
 	rai::account representative (MDB_txn *, rai::block_hash const &);
