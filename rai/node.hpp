@@ -280,7 +280,7 @@ public:
     void enter_password (std::string const &);
     rai::uint256_union wallet_key (MDB_txn *);
     rai::uint256_union salt (MDB_txn *);
-    bool is_representative ();
+    bool is_representative (MDB_txn *);
     rai::account representative (MDB_txn *);
     void representative_set (MDB_txn *, rai::account const &);
     rai::public_key insert (MDB_txn *, rai::private_key const &);
@@ -294,7 +294,7 @@ public:
     rai::store_iterator end ();
     rai::uint256_union derive_key (std::string const &);
     rai::uint128_t balance (rai::ledger &);
-    void serialize_json (std::string &);
+    void serialize_json (MDB_txn *, std::string &);
     bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
 	bool work_get (rai::public_key const &, uint64_t &);
 	void work_put (rai::public_key const &, uint64_t);
@@ -320,12 +320,12 @@ public:
     wallet (bool &, rai::node &, std::string const &);
     wallet (bool &, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password (MDB_txn *);
-	void insert (rai::private_key const &);
+	void insert (MDB_txn *, rai::private_key const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
 	// Send from a specific account in the wallet
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
 	// Send from any of the accounts in the wallet
-    bool send_all (rai::account const &, rai::uint128_t const &);
+    bool send_all (MDB_txn *, rai::account const &, rai::uint128_t const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (rai::account const &, rai::block_hash const &);
@@ -794,7 +794,7 @@ public:
     void generate_send_new (rai::node &);
     void generate_send_existing (rai::node &);
     std::shared_ptr <rai::wallet> wallet (size_t);
-    rai::account account (size_t);
+    rai::account account (MDB_txn *, size_t);
     boost::shared_ptr <boost::asio::io_service> service;
     rai::processor_service processor;
     std::vector <std::shared_ptr <rai::node>> nodes;

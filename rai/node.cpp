@@ -576,10 +576,9 @@ void rai::wallet_store::initialize (MDB_txn * transaction_a, bool & init_a, std:
 	init_a = mdb_dbi_open (transaction_a, path_a.c_str (), MDB_CREATE, &handle) != 0;
 }
 
-bool rai::wallet_store::is_representative ()
+bool rai::wallet_store::is_representative (MDB_txn * transaction_a)
 {
-	rai::transaction transaction (environment, nullptr, false);
-    return exists (transaction, representative (transaction));
+    return exists (transaction_a, representative (transaction_a));
 }
 
 void rai::wallet_store::representative_set (MDB_txn * transaction_a, rai::account const & representative_a)
@@ -656,11 +655,10 @@ bool rai::wallet_store::exists (MDB_txn * transaction_a, rai::public_key const &
     return find (transaction_a, pub) != end ();
 }
 
-void rai::wallet_store::serialize_json (std::string & string_a)
+void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & string_a)
 {
-	rai::transaction transaction (environment, nullptr, false);
     boost::property_tree::ptree tree;
-    for (rai::store_iterator i (transaction, handle), n (nullptr); i != n; ++i)
+    for (rai::store_iterator i (transaction_a, handle), n (nullptr); i != n; ++i)
     {
         tree.put (rai::uint256_union (i->first).to_string (), rai::wallet_value (i->second).key.to_string ());
     }
@@ -742,11 +740,10 @@ void rai::wallet::enter_initial_password (MDB_txn * transaction_a)
 	}
 }
 
-void rai::wallet::insert (rai::private_key const & key_a)
+void rai::wallet::insert (MDB_txn * transaction_a, rai::private_key const & key_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	rai::transaction transaction (store.environment, nullptr, true);
-	auto key (store.insert (transaction, key_a));
+	auto key (store.insert (transaction_a, key_a));
 	auto this_l (shared_from_this ());
 	auto root (node.ledger.latest_root (key));
 	node.service.add (std::chrono::system_clock::now (), [this_l, key, root] ()
@@ -825,28 +822,27 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	return result;
 }
 
-bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a)
+bool rai::wallet::send_all (MDB_txn * transaction_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::send_block>> blocks;
-	rai::transaction transaction (store.environment, nullptr, false);
-    auto result (!store.valid_password (transaction));
+    auto result (!store.valid_password (transaction_a));
     if (!result)
     {
         rai::uint128_t remaining (amount_a);
-        for (auto i (store.begin (transaction)), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
+        for (auto i (store.begin (transaction_a)), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
         {
             auto account (i->first);
-            auto balance (node.ledger.account_balance (transaction, account));
+            auto balance (node.ledger.account_balance (transaction_a, account));
             if (!balance.is_zero ())
             {
                 rai::frontier frontier;
-                result = node.ledger.store.latest_get (transaction, account, frontier);
+                result = node.ledger.store.latest_get (transaction_a, account, frontier);
                 assert (!result);
                 auto amount (std::min (remaining, balance));
                 remaining -= amount;
                 rai::private_key prv;
-                result = store.fetch (transaction, account, prv);
+                result = store.fetch (transaction_a, account, prv);
                 assert (!result);
                 std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount, prv, account, work_fetch (account, frontier.hash)));
                 prv.clear ();
@@ -1532,10 +1528,10 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
     bool result (false);
     for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
     {
+		rai::transaction transaction (node.store.environment, nullptr, false);
         auto & wallet (*i->second);
-        if (wallet.store.is_representative ())
+        if (wallet.store.is_representative (transaction))
         {
-			rai::transaction transaction (node.store.environment, nullptr, false);
             auto pub (wallet.store.representative (transaction));
             rai::private_key prv;
             auto error (wallet.store.fetch (transaction, pub, prv));
@@ -1827,11 +1823,10 @@ std::shared_ptr <rai::wallet> rai::system::wallet (size_t index_a)
     return nodes [index_a]->wallets.items.begin ()->second;
 }
 
-rai::account rai::system::account (size_t index_a)
+rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
 {
     auto wallet_l (wallet (index_a));
-	rai::transaction transaction (wallet_l->store.environment, nullptr, false);
-    auto keys (wallet_l->store.begin (transaction));
+    auto keys (wallet_l->store.begin (transaction_a));
     assert (keys != wallet_l->store.end ());
     auto result (keys->first);
     assert (++keys == wallet_l->store.end ());
@@ -1842,9 +1837,9 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
 {
     for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
-		if (i->second->store.is_representative ())
+		rai::transaction transaction (i->second->store.environment, nullptr, false);
+		if (i->second->store.is_representative (transaction))
         {
-			rai::transaction transaction (i->second->store.environment, nullptr, false);
             auto representative (i->second->store.representative (transaction));
 			auto weight (ledger.weight (transaction, representative));
 			if (!weight.is_zero ())
@@ -2303,7 +2298,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                                 auto error (amount.decode_dec (amount_text));
                                 if (!error)
                                 {
-                                    auto error (existing->second->send_all (account, amount.number ()));
+									rai::transaction transaction (node.store.environment, nullptr, true);
+                                    auto error (existing->second->send_all (transaction, account, amount.number ()));
                                     boost::property_tree::ptree response_l;
                                     response_l.put ("sent", error ? "0" : "1");
                                     set_response (response, response_l);
@@ -2358,9 +2354,10 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                                 std::string amount_text (request_l.get <std::string> ("amount"));
                                 try
                                 {
+									rai::transaction transaction (node.store.environment, nullptr, true);
                                     uint64_t amount_number (std::stoull (amount_text));
                                     auto amount (rai::scale_up (amount_number));
-                                    auto error (existing->second->send_all (account, amount));
+                                    auto error (existing->second->send_all (transaction, account, amount));
                                     boost::property_tree::ptree response_l;
                                     response_l.put ("sent", error ? "0" : "1");
                                     set_response (response, response_l);
@@ -2563,8 +2560,9 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto existing (node.wallets.items.find (wallet));
                     if (existing != node.wallets.items.end ())
                     {
+						rai::transaction transaction (node.store.environment, nullptr, false);
                         std::string json;
-                        existing->second->store.serialize_json (json);
+                        existing->second->store.serialize_json (transaction, json);
                         boost::property_tree::ptree response_l;
                         response_l.put ("json", json);
                         set_response (response, response_l);
@@ -4675,7 +4673,7 @@ void rai::system::generate_send_existing (rai::node & node_a)
         entry = node_a.store.latest_begin (transaction);
     }
     assert (entry != node_a.store.latest_end ());
-    wallet (0)->send_all (entry->first, get_random_amount (node_a));
+    wallet (0)->send_all (transaction, entry->first, get_random_amount (node_a));
 }
 
 void rai::system::generate_send_new (rai::node & node_a)
@@ -4684,7 +4682,7 @@ void rai::system::generate_send_new (rai::node & node_a)
     rai::keypair key;
 	rai::transaction transaction (node_a.store.environment, nullptr, true);
     node_a.wallets.items.begin ()->second->store.insert (transaction, key.prv);
-    node_a.wallets.items.begin ()->second->send_all (key.pub, get_random_amount (node_a));
+    node_a.wallets.items.begin ()->second->send_all (transaction, key.pub, get_random_amount (node_a));
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
@@ -4905,7 +4903,7 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
 	rai::transaction transaction (store.environment, nullptr, true);
     for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
-        if (i->second->store.is_representative ())
+        if (i->second->store.is_representative (transaction))
         {
             auto representative (i->second->store.representative (transaction));
             rai::private_key prv;
