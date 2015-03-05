@@ -83,7 +83,8 @@ wallet (wallet_a)
           palette.setColor (QPalette::Text, Qt::black);
           account_key_line->setPalette (palette);
           account_key_line->clear ();
-          wallet.wallet_m->insert (key);
+		  rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, true);
+          wallet.wallet_m->insert (transaction, key);
           wallet.accounts.refresh ();
           wallet.history.refresh ();
       }
