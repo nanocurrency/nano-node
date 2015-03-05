@@ -490,7 +490,8 @@ wallet (wallet_a)
     window->setLayout (layout);
     QObject::connect (change, &QPushButton::released, [this] ()
     {
-        if (wallet.wallet_m->store.valid_password ())
+		rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+        if (wallet.wallet_m->store.valid_password (transaction))
         {
             if (password->text () == retype->text ())
             {
@@ -556,7 +557,8 @@ void rai_qt::enter_password::activate ()
 
 void rai_qt::enter_password::update_label ()
 {
-    if (wallet.wallet_m->store.valid_password ())
+	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+    if (wallet.wallet_m->store.valid_password (transaction))
     {
         valid->setStyleSheet ("QLabel { color: black }");
         valid->setText ("Password: Valid");
@@ -954,10 +956,10 @@ void rai_qt::block_creation::create_send ()
             error = destination_l.decode_base58check (destination->text ().toStdString ());
             if (!error)
             {
+				rai::transaction transaction (wallet.node.store.environment, nullptr, false);
                 rai::private_key key;
-                if (!wallet.wallet_m->store.fetch (account_l, key))
+                if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
                 {
-					rai::transaction transaction (wallet.node.store.environment, nullptr, false);
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     auto balance (wallet.node.ledger.account_balance (transaction, account_l));
                     if (amount_l.number () <= balance)
@@ -1019,7 +1021,7 @@ void rai_qt::block_creation::create_receive ()
             if (!error)
             {
                 rai::private_key key;
-                auto error (wallet.wallet_m->store.fetch (receivable.destination, key));
+                auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                 if (!error)
                 {
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
@@ -1072,7 +1074,7 @@ void rai_qt::block_creation::create_change ()
             if (!error)
             {
                 rai::private_key key;
-                auto error (wallet.wallet_m->store.fetch (account_l, key));
+                auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
                 if (!error)
                 {
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
@@ -1128,7 +1130,7 @@ void rai_qt::block_creation::create_open ()
                 if (error)
                 {
                     rai::private_key key;
-                    auto error (wallet.wallet_m->store.fetch (receivable.destination, key));
+                    auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                     if (!error)
                     {
 						std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);

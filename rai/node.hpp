@@ -271,23 +271,23 @@ public:
 class wallet_store
 {
 public:
-    wallet_store (bool &, MDB_env *, std::string const &);
-    wallet_store (bool &, MDB_env *, std::string const &, std::string const &);
-    void initialize (bool &, std::string const &);
+    wallet_store (bool &, MDB_txn *, std::string const &);
+    wallet_store (bool &, MDB_txn *, std::string const &, std::string const &);
+    void initialize (MDB_txn *, bool &, std::string const &);
     rai::uint256_union check (MDB_txn *);
     bool rekey (std::string const &);
-    bool valid_password ();
+    bool valid_password (MDB_txn *);
     void enter_password (std::string const &);
-    rai::uint256_union wallet_key ();
+    rai::uint256_union wallet_key (MDB_txn *);
     rai::uint256_union salt (MDB_txn *);
     bool is_representative ();
     rai::account representative (MDB_txn *);
     void representative_set (MDB_txn *, rai::account const &);
     rai::public_key insert (MDB_txn *, rai::private_key const &);
-    void erase (rai::public_key const &);
+    void erase (MDB_txn *, rai::public_key const &);
 	rai::wallet_value entry_get_raw (MDB_txn *, rai::public_key const &);
 	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
-    bool fetch (rai::public_key const &, rai::private_key &);
+    bool fetch (MDB_txn *, rai::public_key const &, rai::private_key &);
     bool exists (MDB_txn *, rai::public_key const &);
     rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
     rai::store_iterator begin (MDB_txn *);
@@ -295,7 +295,7 @@ public:
     rai::uint256_union derive_key (std::string const &);
     rai::uint128_t balance (rai::ledger &);
     void serialize_json (std::string &);
-    bool move (rai::wallet_store &, std::vector <rai::public_key> const &);
+    bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
 	bool work_get (rai::public_key const &, uint64_t &);
 	void work_put (rai::public_key const &, uint64_t);
     rai::fan password;
@@ -319,7 +319,7 @@ class wallet : public std::enable_shared_from_this <rai::wallet>
 public:
     wallet (bool &, rai::node &, std::string const &);
     wallet (bool &, rai::node &, std::string const &, std::string const &);
-	void enter_initial_password ();
+	void enter_initial_password (MDB_txn *);
 	void insert (rai::private_key const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
 	// Send from a specific account in the wallet

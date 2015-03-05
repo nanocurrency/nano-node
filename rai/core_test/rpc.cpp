@@ -417,11 +417,12 @@ TEST (rpc, wallet_password_change)
     boost::property_tree::read_json (istream, response_tree);
     std::string account_text1 (response_tree.get <std::string> ("changed"));
     ASSERT_EQ (account_text1, "1");
-    ASSERT_TRUE (system.wallet (0)->store.valid_password ());
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
     system.wallet (0)->store.enter_password ("");
-    ASSERT_FALSE (system.wallet (0)->store.valid_password ());
+    ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
     system.wallet (0)->store.enter_password ("test");
-    ASSERT_TRUE (system.wallet (0)->store.valid_password ());
+    ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
 }
 
 TEST (rpc, wallet_password_enter)
@@ -623,7 +624,7 @@ TEST (rpc, wallet_export)
     boost::property_tree::read_json (istream, response_tree);
     std::string wallet_json (response_tree.get <std::string> ("json"));
     bool error (false);
-    rai::wallet_store store (error, system.nodes [0]->store.environment, "0", wallet_json);
+    rai::wallet_store store (error, transaction, "0", wallet_json);
     ASSERT_FALSE (error);
     ASSERT_TRUE (store.exists (transaction, rai::test_genesis_key.pub));
 }
