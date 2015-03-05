@@ -293,8 +293,7 @@ public:
 	store_iterator (MDB_txn *, MDB_dbi);
 	store_iterator (std::nullptr_t);
 	store_iterator (MDB_txn *, MDB_dbi, MDB_val const &);
-	store_iterator (rai::store_iterator const &) = default;
-	store_iterator (rai::store_iterator &&) = default;
+	store_iterator (rai::store_iterator &&);
 	~store_iterator ();
 	rai::store_iterator & operator ++ ();
 	rai::store_iterator & operator = (rai::store_iterator &&) = default;
@@ -448,8 +447,8 @@ class ledger
 {
 public:
 	ledger (rai::block_store &);
-	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (rai::votes const & votes_a);
-	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (rai::votes const &);
+	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
+	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);

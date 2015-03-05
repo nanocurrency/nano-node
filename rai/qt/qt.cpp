@@ -27,7 +27,8 @@ wallet (wallet_a)
 
 void rai_qt::self_pane::refresh_balance ()
 {
-	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (wallet.node.ledger.account_balance (wallet.account)))).c_str ()));
+	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (wallet.node.ledger.account_balance (transaction, wallet.account)))).c_str ()));
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
@@ -99,8 +100,9 @@ wallet (wallet_a)
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] ()
 	{
+		rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, true);
         rai::keypair key;
-        wallet.wallet_m->store.insert (key.prv);
+        wallet.wallet_m->store.insert (transaction, key.prv);
         refresh ();
 	});
     QObject::connect (view, &QTableView::clicked, [this] (QModelIndex const & index_a)
@@ -119,7 +121,7 @@ void rai_qt::accounts::refresh ()
     {
         QList <QStandardItem *> items;
         rai::public_key key (i->first);
-        auto balance (std::to_string (rai::scale_down (wallet.node.ledger.account_balance (key))));
+        auto balance (std::to_string (rai::scale_down (wallet.node.ledger.account_balance (transaction, key))));
         items.push_back (new QStandardItem (balance.c_str ()));
         items.push_back (new QStandardItem (QString (key.to_base58check ().c_str ())));
         model->appendRow (items);
@@ -143,29 +145,31 @@ namespace
 class short_text_visitor : public rai::block_visitor
 {
 public:
-	short_text_visitor (rai::ledger & ledger_a) :
+	short_text_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a) :
+	transaction (transaction_a),
 	ledger (ledger_a)
 	{
 	}
 	void send_block (rai::send_block const & block_a)
 	{
-		auto amount (ledger.amount (block_a.hash ()));
+		auto amount (ledger.amount (transaction, block_a.hash ()));
 		text = boost::str (boost::format ("Sent %1%") % std::to_string (rai::scale_down (amount)));
 	}
 	void receive_block (rai::receive_block const & block_a)
 	{
-		auto amount (ledger.amount (block_a.source ()));
+		auto amount (ledger.amount (transaction, block_a.source ()));
 		text = boost::str (boost::format ("Received %1%") % std::to_string (rai::scale_down (amount)));
 	}
 	void open_block (rai::open_block const & block_a)
 	{
-		auto amount (ledger.amount (block_a.source ()));
+		auto amount (ledger.amount (transaction, block_a.source ()));
 		text = boost::str (boost::format ("Opened %1%") % std::to_string (rai::scale_down (amount)));
 	}
 	void change_block (rai::change_block const & block_a)
 	{
 		text = boost::str (boost::format ("Changed: %1%") % block_a.hashables.representative.to_base58check ());
 	}
+	MDB_txn * transaction;
 	rai::ledger & ledger;
 	std::string text;
 };
@@ -175,8 +179,8 @@ void rai_qt::history::refresh ()
 {
 	rai::transaction transaction (ledger.store.environment, nullptr, false);
 	model->removeRows (0, model->rowCount ());
-	auto hash (ledger.latest (account));
-	short_text_visitor visitor (ledger);
+	auto hash (ledger.latest (transaction, account));
+	short_text_visitor visitor (transaction, ledger);
 	while (!hash.is_zero ())
 	{
 		QList <QStandardItem *> items;
@@ -370,7 +374,8 @@ last_status (rai_qt::status::disconnected)
     });
     node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
     {
-        if (wallet_m->store.exists (account_a))
+		rai::transaction transaction (node.store.environment, nullptr, false);
+        if (wallet_m->store.exists (transaction, account_a))
         {
             accounts.refresh ();
         }
@@ -382,7 +387,8 @@ last_status (rai_qt::status::disconnected)
     });
     node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
     {
-        if (wallet_m->store.exists (account_a))
+		rai::transaction transaction (node.store.environment, nullptr, false);
+        if (wallet_m->store.exists (transaction, account_a))
         {
             accounts.refresh ();
         }
@@ -394,7 +400,8 @@ last_status (rai_qt::status::disconnected)
     });
     node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
     {
-        if (wallet_m->store.exists (account_a))
+		rai::transaction transaction (node.store.environment, nullptr, false);
+        if (wallet_m->store.exists (transaction, account_a))
         {
             accounts.refresh ();
         }
@@ -432,7 +439,8 @@ last_status (rai_qt::status::disconnected)
 
 void rai_qt::wallet::refresh ()
 {
-	assert (wallet_m->store.exists (account));
+	rai::transaction transaction (wallet_m->store.environment, nullptr, false);
+	assert (wallet_m->store.exists (transaction, account));
     self.account_button->setText (QString (account.to_base58check ().c_str ()));
 	self.refresh_balance ();
     accounts.refresh ();
@@ -718,7 +726,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
         QList <QStandardItem *> items;
         items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_base58check ().c_str ())));
 		auto hash (rai::frontier (i->second).hash);
-        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (wallet.node.ledger.balance (hash))).c_str ())));
+        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (wallet.node.ledger.balance (transaction, hash))).c_str ())));
         std::string block_hash;
         hash.encode_hex (block_hash);
         items.push_back (new QStandardItem (QString (block_hash.c_str ())));
@@ -951,7 +959,7 @@ void rai_qt::block_creation::create_send ()
                 {
 					rai::transaction transaction (wallet.node.store.environment, nullptr, false);
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
-                    auto balance (wallet.node.ledger.account_balance (account_l));
+                    auto balance (wallet.node.ledger.account_balance (transaction, account_l));
                     if (amount_l.number () <= balance)
                     {
                         rai::frontier frontier;

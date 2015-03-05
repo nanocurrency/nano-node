@@ -15,7 +15,8 @@ int main (int argc, char ** argv)
         rai::random_pool.GenerateBlock (wallet_id.bytes.data (), wallet_id.bytes.size ());
         auto wallet (system.nodes [i]->wallets.create (wallet_id));
         rai::keypair key;
-        wallet->store.insert (key.prv);
+		rai::transaction transaction (wallet->store.environment, nullptr, true);
+        wallet->store.insert (transaction, key.prv);
         guis.push_back (std::unique_ptr <rai_qt::wallet> (new rai_qt::wallet (application, *system.nodes [i], wallet, key.pub)));
         client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
     }

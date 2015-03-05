@@ -188,11 +188,11 @@ TEST (network, send_invalid_publish)
 TEST (network, send_valid_confirm_ack)
 {
     rai::system system (24000, 2);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::keypair key2;
-    system.wallet (1)->store.insert (key2.prv);
+    system.wallet (1)->store.insert (transaction, key2.prv);
     rai::frontier frontier1;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::send_block block2 (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash));
     auto hash2 (block2.hash ());
@@ -216,11 +216,11 @@ TEST (network, send_valid_confirm_ack)
 TEST (network, send_valid_publish)
 {
     rai::system system (24000, 2);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::keypair key2;
-    system.wallet (1)->store.insert (key2.prv);
+    system.wallet (1)->store.insert (transaction, key2.prv);
     rai::frontier frontier1;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::send_block block2 (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash));
     auto hash2 (block2.hash ());
@@ -295,11 +295,11 @@ TEST (receivable_processor, send_with_receive)
 {
     auto amount (std::numeric_limits <rai::uint128_t>::max ());
     rai::system system (24000, 2);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::keypair key2;
-    system.wallet (1)->store.insert (key2.prv);
+    system.wallet (1)->store.insert (transaction, key2.prv);
     rai::frontier frontier1;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_FALSE (system.nodes [0]->ledger.store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     auto block1 (new rai::send_block (key2.pub, frontier1.hash, amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier1.hash)));
     ASSERT_EQ (amount, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
@@ -329,13 +329,13 @@ TEST (receivable_processor, send_with_receive)
 TEST (network, receive_weight_change)
 {
     rai::system system (24000, 2);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::keypair key2;
-    system.wallet (1)->store.insert (key2.prv);
-    system.wallet (1)->store.representative_set (key2.pub);
+    system.wallet (1)->store.insert (transaction, key2.prv);
+    system.wallet (1)->store.representative_set (transaction, key2.pub);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 2));
 	auto iterations (0);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->ledger.weight (transaction, key2.pub) != 2;}))
     {
         system.service->poll_one ();
@@ -443,12 +443,12 @@ TEST (bulk_pull, end_not_owned)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     rai::open_block open (0, 1, 2, 3, 4, 5);
     open.hashables.account = key2.pub;
     open.hashables.representative = key2.pub;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
     open.hashables.source = system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub);
     open.signature = rai::sign_message (key2.prv, key2.pub, open.hash ());
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, open));
@@ -524,11 +524,11 @@ TEST (bootstrap_processor, DISABLED_process_incomplete)
 TEST (bootstrap_processor, process_one)
 {
     rai::system system (24000, 1);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 100));
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     auto hash1 (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     auto hash2 (node1->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_NE (hash1, hash2);
@@ -546,8 +546,8 @@ TEST (bootstrap_processor, process_one)
 TEST (bootstrap_processor, process_two)
 {
     rai::system system (24000, 1);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     auto hash1 (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 50));
     auto hash2 (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
@@ -573,12 +573,12 @@ TEST (bootstrap_processor, process_two)
 TEST (bootstrap_processor, process_new)
 {
     rai::system system (24000, 2);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::keypair key2;
-    system.wallet (1)->store.insert (key2.prv);
+    system.wallet (1)->store.insert (transaction, key2.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     auto iterations1 (0);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     while (system.nodes [0]->ledger.account_balance (transaction, key2.pub).is_zero ())
     {
         system.service->poll_one ();
@@ -641,8 +641,8 @@ TEST (bootstrap_processor, push_one)
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     auto wallet (node1->wallets.create (rai::uint256_union ()));
     ASSERT_NE (nullptr, wallet);
-    wallet->store.insert (rai::test_genesis_key.prv);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    wallet->store.insert (transaction, rai::test_genesis_key.prv);
     auto balance (node1->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     ASSERT_FALSE (wallet->send_all (key1.pub, 100));
     ASSERT_NE (balance, node1->ledger.account_balance (transaction, rai::test_genesis_key.pub));
@@ -736,12 +736,12 @@ TEST (frontier_req, time_cutoff)
 TEST (bulk, genesis)
 {
     rai::system system (24000, 1);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
     rai::frontier frontier1;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::frontier frontier2;
     ASSERT_FALSE (node1->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
@@ -766,7 +766,8 @@ TEST (bulk, genesis)
 TEST (bulk, offline_send)
 {
     rai::system system (24000, 1);
-    system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
@@ -782,9 +783,8 @@ TEST (bulk, offline_send)
     } while (system.nodes [0]->peers.empty () || node1->peers.empty ());
     rai::keypair key2;
     auto wallet (node1->wallets.create (rai::uint256_union ()));
-    wallet->store.insert (key2.prv);
+    wallet->store.insert (transaction, key2.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);

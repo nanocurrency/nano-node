@@ -106,13 +106,14 @@ int main (int argc, char * const * argv)
         auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor, config.logging));
         if (!init.error ())
         {
+			rai::transaction transaction (node->store.environment, nullptr, false);
             if (uninitialized)
             {
                 auto wallet (node->wallets.create (config.wallet));
                 rai::keypair key;
                 config.account = key.pub;
                 wallet->insert (key.prv);
-				assert (wallet->store.exists (config.account));
+				assert (wallet->store.exists (transaction, config.account));
                 std::ofstream config_file;
                 config_file.open (config_path);
                 if (!config_file.fail ())
@@ -123,7 +124,7 @@ int main (int argc, char * const * argv)
             auto wallet (node->wallets.open (config.wallet));
             if (wallet != nullptr)
             {
-                if (wallet->store.exists (config.account))
+                if (wallet->store.exists (transaction, config.account))
                 {
                     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
                     {

@@ -130,7 +130,8 @@ int main (int argc, char * const * argv)
     else if (vm.count ("debug_activity"))
     {
         rai::system system (24000, 1);
-        system.wallet (0)->store.insert (rai::test_genesis_key.prv);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+        system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
         size_t count (10000);
         system.generate_mass_activity (count, *system.nodes [0]);
     }

@@ -90,18 +90,17 @@ bool rai::votes::vote (rai::vote const & vote_a)
 }
 
 // Sum the weights for each vote and return the winning block with its vote tally
-std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::ledger::winner (rai::votes const & votes_a)
+std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::ledger::winner (MDB_txn * transaction_a, rai::votes const & votes_a)
 {
-	auto tally_l (tally (votes_a));
+	auto tally_l (tally (transaction_a, votes_a));
 	auto existing (tally_l.begin ());
 	return std::make_pair (existing->first, existing->second->clone ());
 }
 
-std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::ledger::tally (rai::votes const & votes_a)
+std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::ledger::tally (MDB_txn * transaction_a, rai::votes const & votes_a)
 {
 	std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash, rai::unique_ptr_block_hash> totals;
 	// Construct a map of blocks -> vote total.
-	rai::transaction transaction (store.environment, nullptr, false);
 	for (auto & i: votes_a.rep_votes)
 	{
 		auto existing (totals.find (i.second.second));
@@ -111,7 +110,7 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 			existing = totals.find (i.second.second);
 			assert (existing != totals.end ());
 		}
-		auto weight_l (weight (transaction, i.first));
+		auto weight_l (weight (transaction_a, i.first));
 		existing->second += weight_l;
 	}
 	// Construction a map of vote total -> block in decreasing order.
@@ -1476,6 +1475,13 @@ cursor (nullptr)
 	{
 		current.clear ();
 	}
+}
+
+rai::store_iterator::store_iterator (rai::store_iterator && other_a)
+{
+	cursor = other_a.cursor;
+	other_a.cursor = nullptr;
+	current = other_a.current;
 }
 
 rai::store_iterator::~store_iterator ()

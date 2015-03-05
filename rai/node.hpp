@@ -102,7 +102,7 @@ class election : public std::enable_shared_from_this <rai::election>
 public:
     election (std::shared_ptr <rai::node>, rai::block const &);
     void start ();
-    void vote (rai::vote const &);
+    void vote (MDB_txn *, rai::vote const &);
     void announce_vote ();
     void timeout_action ();
     void start_request (rai::block const &);
@@ -274,22 +274,22 @@ public:
     wallet_store (bool &, MDB_env *, std::string const &);
     wallet_store (bool &, MDB_env *, std::string const &, std::string const &);
     void initialize (bool &, std::string const &);
-    rai::uint256_union check ();
+    rai::uint256_union check (MDB_txn *);
     bool rekey (std::string const &);
     bool valid_password ();
     void enter_password (std::string const &);
     rai::uint256_union wallet_key ();
-    rai::uint256_union salt ();
+    rai::uint256_union salt (MDB_txn *);
     bool is_representative ();
-    rai::account representative ();
-    void representative_set (rai::account const &);
-    rai::public_key insert (rai::private_key const &);
+    rai::account representative (MDB_txn *);
+    void representative_set (MDB_txn *, rai::account const &);
+    rai::public_key insert (MDB_txn *, rai::private_key const &);
     void erase (rai::public_key const &);
-	rai::wallet_value entry_get_raw (rai::public_key const &);
-	void entry_put_raw (rai::public_key const &, rai::wallet_value const &);
+	rai::wallet_value entry_get_raw (MDB_txn *, rai::public_key const &);
+	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
     bool fetch (rai::public_key const &, rai::private_key &);
-    bool exists (rai::public_key const &);
-    rai::store_iterator find (rai::uint256_union const &);
+    bool exists (MDB_txn *, rai::public_key const &);
+    rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
     rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
     rai::uint256_union derive_key (std::string const &);
@@ -384,7 +384,7 @@ public:
     gap_cache (rai::node &);
     void add (rai::block const &, rai::block_hash);
     std::unique_ptr <rai::block> get (rai::block_hash const &);
-    void vote (rai::vote const &);
+    void vote (MDB_txn *, rai::vote const &);
     rai::uint128_t bootstrap_threshold ();
     boost::multi_index_container
     <

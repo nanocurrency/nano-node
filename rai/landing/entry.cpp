@@ -182,7 +182,7 @@ int main (int argc, char * const * argv)
 				if (wallet_entry == wallet->store.end ())
 				{
 					rai::keypair key;
-					wallet->store.insert (key.prv);
+					wallet->store.insert (transaction, key.prv);
 					wallet_entry = wallet->store.begin (transaction);
 				}
 				assert (wallet_entry != wallet->store.end ());
