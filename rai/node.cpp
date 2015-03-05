@@ -825,7 +825,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 bool rai::wallet::send_all (MDB_txn * transaction_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    std::vector <std::unique_ptr <rai::send_block>> blocks;
+    auto blocks (std::make_shared <std::vector <std::unique_ptr <rai::send_block>>> ());
     auto result (!store.valid_password (transaction_a));
     if (!result)
     {
@@ -846,7 +846,7 @@ bool rai::wallet::send_all (MDB_txn * transaction_a, rai::account const & accoun
                 assert (!result);
                 std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount, prv, account, work_fetch (account, frontier.hash)));
                 prv.clear ();
-                blocks.push_back (std::move (block));
+                blocks->push_back (std::move (block));
             }
         }
         if (!remaining.is_zero ())
@@ -854,14 +854,17 @@ bool rai::wallet::send_all (MDB_txn * transaction_a, rai::account const & accoun
             BOOST_LOG (node.log) << "Wallet contained insufficient coins";
             // Destroy the sends because they're signed and we're not going to use them.
             result = true;
-            blocks.clear ();
         }
         else
         {
-            for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
-            {
-                node.process_receive_republish (std::move (*i));
-            }
+			auto node_l (node.shared ());
+			node.service.add (std::chrono::system_clock::now (), [blocks, node_l] ()
+			{
+				for (auto i (blocks->begin ()), j (blocks->end ()); i != j; ++i)
+				{
+					node_l->process_receive_republish (std::move (*i));
+				}
+			});
         }
     }
     else
