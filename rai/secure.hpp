@@ -456,7 +456,7 @@ public:
 	rai::uint128_t weight (MDB_txn *, rai::account const &);
 	std::unique_ptr <rai::block> successor (MDB_txn *, rai::block_hash const &);
 	rai::block_hash latest (MDB_txn *, rai::account const &);
-	rai::block_hash latest_root (rai::account const &);
+	rai::block_hash latest_root (MDB_txn *, rai::account const &);
 	rai::account representative (MDB_txn *, rai::block_hash const &);
 	rai::account representative_calculated (MDB_txn *, rai::block_hash const &);
 	rai::account representative_cached (rai::block_hash const &);

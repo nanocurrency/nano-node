@@ -1443,9 +1443,9 @@ TEST (ledger, latest_root)
 	rai::transaction transaction (store.environment, nullptr, true);
     genesis.initialize (transaction, store);
     rai::keypair key;
-    ASSERT_EQ (key.pub, ledger.latest_root (key.pub));
+    ASSERT_EQ (key.pub, ledger.latest_root (transaction, key.pub));
     auto hash1 (ledger.latest (transaction, rai::test_genesis_key.pub));
     rai::send_block send (0, hash1, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send));
-    ASSERT_EQ (send.hash (), ledger.latest_root (rai::test_genesis_key.pub));
+    ASSERT_EQ (send.hash (), ledger.latest_root (transaction, rai::test_genesis_key.pub));
 }

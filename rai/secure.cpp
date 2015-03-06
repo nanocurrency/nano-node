@@ -2479,11 +2479,10 @@ rai::block_hash rai::ledger::latest (MDB_txn * transaction_a, rai::account const
 }
 
 // Return latest root for account, account number of there are no blocks for this account.
-rai::block_hash rai::ledger::latest_root (rai::account const & account_a)
+rai::block_hash rai::ledger::latest_root (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
     rai::frontier frontier;
-    auto latest_error (store.latest_get (transaction, account_a, frontier));
+    auto latest_error (store.latest_get (transaction_a, account_a, frontier));
     rai::block_hash result;
     if (latest_error)
     {

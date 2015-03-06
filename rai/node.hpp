@@ -296,8 +296,8 @@ public:
     rai::uint128_t balance (rai::ledger &);
     void serialize_json (MDB_txn *, std::string &);
     bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
-	bool work_get (rai::public_key const &, uint64_t &);
-	void work_put (rai::public_key const &, uint64_t);
+	bool work_get (MDB_txn *, rai::public_key const &, uint64_t &);
+	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
     rai::fan password;
     static rai::uint256_union const version_1;
     static rai::uint256_union const version_current;
@@ -325,10 +325,10 @@ public:
 	// Send from a specific account in the wallet
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
 	// Send from any of the accounts in the wallet
-    bool send_all (MDB_txn *, rai::account const &, rai::uint128_t const &);
+    bool send_all (rai::account const &, rai::uint128_t const &);
     void work_generate (rai::account const &, rai::block_hash const &);
-    void work_update (rai::account const &, rai::block_hash const &, uint64_t);
-    uint64_t work_fetch (rai::account const &, rai::block_hash const &);
+    void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
+    uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
     std::mutex mutex;
     rai::wallet_store store;
     rai::node & node;

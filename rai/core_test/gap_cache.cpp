@@ -81,7 +81,7 @@ TEST (gap_cache, gap_bootstrap)
     ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (transaction, rai::genesis_account));
     system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     system.wallet (0)->store.insert (transaction, key.prv);
-    system.wallet (0)->send_all (transaction, key.pub, 100);
+    system.wallet (0)->send_all (key.pub, 100);
     ASSERT_EQ (rai::genesis_amount - 200, system.nodes [0]->ledger.account_balance (transaction, rai::genesis_account));
     ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (transaction, rai::genesis_account));
     auto iterations2 (0);

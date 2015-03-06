@@ -120,6 +120,13 @@ rai::transaction::~transaction ()
 	}
 }
 
+void rai::transaction::commit ()
+{
+	auto status (mdb_txn_commit (handle));
+	assert (status == 0);
+	handle = nullptr;
+}
+
 rai::transaction::operator MDB_txn * () const
 {
 	return handle;

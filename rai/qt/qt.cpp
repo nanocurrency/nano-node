@@ -968,7 +968,7 @@ void rai_qt::block_creation::create_send ()
                         rai::frontier frontier;
                         auto error (wallet.node.store.latest_get (transaction, account_l, frontier));
                         assert (!error);
-                        rai::send_block send (destination_l, frontier.hash, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (account_l, frontier.hash));
+                        rai::send_block send (destination_l, frontier.hash, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, frontier.hash));
                         key.clear ();
                         std::string block_l;
                         send.serialize_json (block_l);
@@ -1026,7 +1026,7 @@ void rai_qt::block_creation::create_receive ()
                 if (!error)
                 {
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
-                    rai::receive_block receive (frontier.hash, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (receivable.destination, frontier.hash));
+                    rai::receive_block receive (frontier.hash, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, frontier.hash));
                     key.clear ();
                     std::string block_l;
                     receive.serialize_json (block_l);
@@ -1079,7 +1079,7 @@ void rai_qt::block_creation::create_change ()
                 if (!error)
                 {
 					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
-                    rai::change_block change (representative_l, frontier.hash, key, account_l, wallet.wallet_m->work_fetch (account_l, frontier.hash));
+                    rai::change_block change (representative_l, frontier.hash, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, frontier.hash));
                     key.clear ();
                     std::string block_l;
                     change.serialize_json (block_l);
@@ -1135,7 +1135,7 @@ void rai_qt::block_creation::create_open ()
                     if (!error)
                     {
 						std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
-                        rai::open_block open (receivable.destination, representative_l, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (receivable.destination, receivable.destination));
+                        rai::open_block open (receivable.destination, representative_l, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, receivable.destination));
                         key.clear ();
                         std::string block_l;
                         open.serialize_json (block_l);
