@@ -804,6 +804,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 					assert (!result);
 					std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
 					prv.clear ();
+					transaction.commit ();
 					node.process_receive_republish (std::move (block));
 				}
 			}
