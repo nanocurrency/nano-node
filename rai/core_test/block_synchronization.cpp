@@ -25,7 +25,7 @@ TEST (pull_synchronization, one)
     std::vector <std::unique_ptr <rai::block>> blocks;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
-    store.unchecked_put(block2.hash (), block2);
+    store.unchecked_put (transaction, block2.hash (), block2);
     rai::pull_synchronization sync ([&blocks] (rai::block const & block_a)
     {
         blocks.push_back (block_a.clone ());
@@ -46,8 +46,8 @@ TEST (pull_synchronization, send_dependencies)
     std::vector <std::unique_ptr <rai::block>> blocks;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
-    store.unchecked_put (block2.hash (), block2);
-    store.unchecked_put (block3.hash (), block3);
+    store.unchecked_put (transaction, block2.hash (), block2);
+    store.unchecked_put (transaction, block3.hash (), block3);
     rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
 									{
 										store.block_put (transaction, block_a.hash (), block_a);
@@ -70,8 +70,8 @@ TEST (pull_synchronization, change_dependencies)
     std::vector <std::unique_ptr <rai::block>> blocks;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
-    store.unchecked_put (block2.hash (), block2);
-    store.unchecked_put (block3.hash (), block3);
+    store.unchecked_put (transaction, block2.hash (), block2);
+    store.unchecked_put (transaction, block3.hash (), block3);
     rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
                                     {
                                         store.block_put (transaction, block_a.hash (), block_a);
@@ -94,8 +94,8 @@ TEST (pull_synchronization, open_dependencies)
     std::vector <std::unique_ptr <rai::block>> blocks;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
-    store.unchecked_put (block2.hash (), block2);
-    store.unchecked_put (block3.hash (), block3);
+    store.unchecked_put (transaction, block2.hash (), block2);
+    store.unchecked_put (transaction, block3.hash (), block3);
     rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
 									{
 										store.block_put (transaction, block_a.hash (), block_a);
@@ -120,10 +120,10 @@ TEST (pull_synchronization, receive_dependencies)
     std::vector <std::unique_ptr <rai::block>> blocks;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
-    store.unchecked_put (block2.hash (), block2);
-    store.unchecked_put (block3.hash (), block3);
-    store.unchecked_put (block4.hash (), block4);
-    store.unchecked_put (block5.hash (), block5);
+    store.unchecked_put (transaction, block2.hash (), block2);
+    store.unchecked_put (transaction, block3.hash (), block3);
+    store.unchecked_put (transaction, block4.hash (), block4);
+    store.unchecked_put (transaction, block5.hash (), block5);
     rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
 									{
 										store.block_put (transaction, block_a.hash (), block_a);
@@ -152,12 +152,12 @@ TEST (pull_synchronization, ladder_dependencies)
     std::vector <std::unique_ptr <rai::block>> blocks;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
-    store.unchecked_put (block2.hash (), block2);
-    store.unchecked_put (block3.hash (), block3);
-    store.unchecked_put (block4.hash (), block4);
-    store.unchecked_put (block5.hash (), block5);
-    store.unchecked_put (block6.hash (), block6);
-    store.unchecked_put (block7.hash (), block7);
+    store.unchecked_put (transaction, block2.hash (), block2);
+    store.unchecked_put (transaction, block3.hash (), block3);
+    store.unchecked_put (transaction, block4.hash (), block4);
+    store.unchecked_put (transaction, block5.hash (), block5);
+    store.unchecked_put (transaction, block6.hash (), block6);
+    store.unchecked_put (transaction, block7.hash (), block7);
     rai::pull_synchronization sync ([&blocks, &store, &transaction] (rai::block const & block_a)
 									{
 										store.block_put (transaction, block_a.hash (), block_a);

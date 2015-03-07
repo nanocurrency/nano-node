@@ -28,7 +28,7 @@ TEST (node, balance)
     rai::system system (24000, 1);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
     system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.wallet (0)->store.balance (system.nodes [0]->ledger));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.wallet (0)->store.balance (transaction, system.nodes [0]->ledger));
 }
 
 TEST (node, send_unkeyed)

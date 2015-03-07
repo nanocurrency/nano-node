@@ -493,29 +493,43 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (system, generate_send_existing)
 {
     rai::system system (24000, 1);
-	rai::transaction transaction (system.wallet (0)->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
     rai::frontier frontier1;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
+		ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
+	}
     system.generate_send_existing (*system.nodes [0]);
     rai::frontier frontier2;
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
+		ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
+	}
     ASSERT_NE (frontier1.hash, frontier2.hash);
     auto iterations1 (0);
-    while (system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub) == rai::genesis_amount)
+	auto again1 (true);
+    while (again1)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations1;
         ASSERT_LT (iterations1, 20);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		again1 = system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub) == rai::genesis_amount;
     }
     auto iterations2 (0);
-    while (system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub) != rai::genesis_amount)
+	auto again2 (true);
+    while (again2)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations2;
         ASSERT_LT (iterations2, 20);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		again2 = system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub) != rai::genesis_amount;
     }
 }
 

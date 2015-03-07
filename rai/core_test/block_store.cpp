@@ -181,11 +181,11 @@ TEST (bootstrap, simple)
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
     auto block2 (store.unchecked_get (block1.previous ()));
     ASSERT_EQ (nullptr, block2);
-    store.unchecked_put (block1.previous (), block1);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.unchecked_put (transaction, block1.previous (), block1);
     auto block3 (store.unchecked_get (block1.previous ()));
     ASSERT_NE (nullptr, block3);
     ASSERT_EQ (block1, *block3);
-	rai::transaction transaction (store.environment, nullptr, true);
     store.unchecked_del (transaction, block1.previous ());
     auto block4 (store.unchecked_get (block1.previous ()));
     ASSERT_EQ (nullptr, block4);
@@ -204,7 +204,7 @@ TEST (checksum, simple)
     rai::block_hash hash2;
     ASSERT_FALSE (store.checksum_get (transaction, 0x100, 0x10, hash2));
     ASSERT_EQ (hash1, hash2);
-    store.checksum_del (0x100, 0x10);
+    store.checksum_del (transaction, 0x100, 0x10);
     rai::block_hash hash3;
     ASSERT_TRUE (store.checksum_get (transaction, 0x100, 0x10, hash3));
 }
@@ -267,8 +267,8 @@ TEST (block_store, one_bootstrap)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
-    store.unchecked_put (block1.hash (), block1);
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.unchecked_put (transaction, block1.hash (), block1);
     auto begin (store.unchecked_begin (transaction));
     auto end (store.unchecked_end ());
     ASSERT_NE (end, begin);

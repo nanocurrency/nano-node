@@ -1855,15 +1855,14 @@ void rai::block_store::representation_put (MDB_txn * transaction_a, rai::account
     assert (status == 0);
 }
 
-void rai::block_store::unchecked_put (rai::block_hash const & hash_a, rai::block const & block_a)
+void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
         rai::serialize_block (stream, block_a);
     }
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_put (transaction, unchecked, hash_a.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
+	auto status (mdb_put (transaction_a, unchecked, hash_a.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
 	assert (status == 0);
 }
 
@@ -1985,12 +1984,11 @@ bool rai::block_store::checksum_get (MDB_txn * transaction_a, uint64_t prefix, u
     return result;
 }
 
-void rai::block_store::checksum_del (uint64_t prefix, uint8_t mask)
+void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, uint8_t mask)
 {
     assert ((prefix & 0xff) == 0);
     uint64_t key (prefix | mask);
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_del (transaction, checksum, rai::mdb_val (sizeof (key), &key), nullptr));
+	auto status (mdb_del (transaction_a, checksum, rai::mdb_val (sizeof (key), &key), nullptr));
 	assert (status == 0);
 }
 
