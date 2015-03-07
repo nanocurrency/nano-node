@@ -419,9 +419,9 @@ TEST (rpc, wallet_password_change)
     ASSERT_EQ (account_text1, "1");
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
-    system.wallet (0)->store.enter_password ("");
+    system.wallet (0)->store.enter_password (transaction, "");
     ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
-    system.wallet (0)->store.enter_password ("test");
+    system.wallet (0)->store.enter_password (transaction, "test");
     ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
 }
 

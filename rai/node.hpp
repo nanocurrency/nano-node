@@ -275,9 +275,9 @@ public:
     wallet_store (bool &, MDB_txn *, std::string const &, std::string const &);
     void initialize (MDB_txn *, bool &, std::string const &);
     rai::uint256_union check (MDB_txn *);
-    bool rekey (std::string const &);
+    bool rekey (MDB_txn *, std::string const &);
     bool valid_password (MDB_txn *);
-    void enter_password (std::string const &);
+    void enter_password (MDB_txn *, std::string const &);
     rai::uint256_union wallet_key (MDB_txn *);
     rai::uint256_union salt (MDB_txn *);
     bool is_representative (MDB_txn *);
@@ -292,7 +292,7 @@ public:
     rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
     rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
-    rai::uint256_union derive_key (std::string const &);
+    rai::uint256_union derive_key (MDB_txn *, std::string const &);
     rai::uint128_t balance (rai::ledger &);
     void serialize_json (MDB_txn *, std::string &);
     bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);

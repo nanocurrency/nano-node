@@ -565,7 +565,7 @@ environment (mdb_txn_env (transaction_a))
         }
         else
         {
-            enter_password ("");
+            enter_password (transaction_a, "");
         }
     }
 }
@@ -729,11 +729,11 @@ void rai::wallet::enter_initial_password (MDB_txn * transaction_a)
 		if (store.valid_password (transaction_a))
 		{
 			// Newly created wallets have a zero key
-			store.rekey ("");
+			store.rekey (transaction_a, "");
 		}
 		else
 		{
-			store.enter_password ("");
+			store.enter_password (transaction_a, "");
 		}
 	}
 }
@@ -2432,9 +2432,10 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto existing (node.wallets.items.find (wallet));
                     if (existing != node.wallets.items.end ())
                     {
+						rai::transaction transaction (node.store.environment, nullptr, true);
                         boost::property_tree::ptree response_l;
                         std::string password_text (request_l.get <std::string> ("password"));
-                        auto error (existing->second->store.rekey (password_text));
+                        auto error (existing->second->store.rekey (transaction, password_text));
                         response_l.put ("changed", error ? "0" : "1");
                         set_response (response, response_l);
                     }
@@ -2463,7 +2464,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 						rai::transaction transaction (node.store.environment, nullptr, false);
                         boost::property_tree::ptree response_l;
                         std::string password_text (request_l.get <std::string> ("password"));
-                        existing->second->store.enter_password (password_text);
+                        existing->second->store.enter_password (transaction, password_text);
                         response_l.put ("valid", existing->second->store.valid_password (transaction) ? "1" : "0");
                         set_response (response, response_l);
                     }
@@ -4951,24 +4952,23 @@ bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
     return check (transaction_a) == check_l;
 }
 
-void rai::wallet_store::enter_password (std::string const & password_a)
+void rai::wallet_store::enter_password (MDB_txn * transaction_a, std::string const & password_a)
 {
-    password.value_set (derive_key (password_a));
+    password.value_set (derive_key (transaction_a, password_a));
 }
 
-bool rai::wallet_store::rekey (std::string const & password_a)
+bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & password_a)
 {
     bool result (false);
-	rai::transaction transaction (environment, nullptr, false);
-	if (valid_password (transaction))
+	if (valid_password (transaction_a))
     {
-        auto password_new (derive_key (password_a));
-        auto wallet_key_l (wallet_key (transaction));
+        auto password_new (derive_key (transaction_a, password_a));
+        auto wallet_key_l (wallet_key (transaction_a));
         auto password_l (password.value ());
         (*password.values [0]) ^= password_l;
         (*password.values [0]) ^= password_new;
-        rai::uint256_union encrypted (wallet_key_l, password_new, salt (transaction).owords [0]);
-		entry_put_raw (transaction, rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted));
+        rai::uint256_union encrypted (wallet_key_l, password_new, salt (transaction_a).owords [0]);
+		entry_put_raw (transaction_a, rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted));
         wallet_key_l.clear ();
     }
     else
@@ -4978,11 +4978,10 @@ bool rai::wallet_store::rekey (std::string const & password_a)
     return result;
 }
 
-rai::uint256_union rai::wallet_store::derive_key (std::string const & password_a)
+rai::uint256_union rai::wallet_store::derive_key (MDB_txn * transaction_a, std::string const & password_a)
 {
     rai::kdf kdf (kdf_work);
-	rai::transaction transaction (environment, nullptr, false);
-    auto result (kdf.generate (password_a, salt (transaction)));
+    auto result (kdf.generate (password_a, salt (transaction_a)));
     return result;
 }
 
