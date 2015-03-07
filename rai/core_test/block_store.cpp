@@ -185,7 +185,8 @@ TEST (bootstrap, simple)
     auto block3 (store.unchecked_get (block1.previous ()));
     ASSERT_NE (nullptr, block3);
     ASSERT_EQ (block1, *block3);
-    store.unchecked_del (block1.previous ());
+	rai::transaction transaction (store.environment, nullptr, true);
+    store.unchecked_del (transaction, block1.previous ());
     auto block4 (store.unchecked_get (block1.previous ()));
     ASSERT_EQ (nullptr, block4);
 }

@@ -1883,11 +1883,10 @@ std::unique_ptr <rai::block> rai::block_store::unchecked_get (rai::block_hash co
     return result;
 }
 
-void rai::block_store::unchecked_del (rai::block_hash const & hash_a)
+void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_del (transaction, unchecked, hash_a.val (), nullptr));
-	assert (status == 0);
+	auto status (mdb_del (transaction_a, unchecked, hash_a.val (), nullptr));
+	assert (status == 0 || status == MDB_NOTFOUND);
 }
 
 rai::store_iterator rai::block_store::unchecked_begin (MDB_txn * transaction_a)

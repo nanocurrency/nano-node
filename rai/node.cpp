@@ -340,8 +340,12 @@ public:
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
         node.process_receive_republish (message_a.block->clone ());
-		rai::transaction transaction (node.store.environment, nullptr, false);
-        if (node.store.block_exists (transaction, message_a.block->hash ()))
+		bool exists;
+		{
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			exists = node.store.block_exists (transaction, message_a.block->hash ());
+		}
+        if (exists)
         {
             node.process_confirmation (*message_a.block, sender);
         }
@@ -3746,6 +3750,18 @@ std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_has
     return store.block_get (transaction, hash_a);
 }
 
+rai::block_hash rai::bulk_pull_client::first ()
+{
+	rai::block_hash result (0);
+	rai::transaction transaction (connection->connection->node->store.environment, nullptr, false);
+	auto iterator (connection->connection->node->store.unchecked_begin (transaction));
+	if (iterator != connection->connection->node->store.unchecked_end ())
+	{
+		result = rai::block_hash (iterator->first);
+	}
+	return result;
+}
+
 void rai::bulk_pull_client::process_end ()
 {
 	rai::pull_synchronization synchronization ([this] (rai::block const & block_a)
@@ -3764,20 +3780,23 @@ void rai::bulk_pull_client::process_end ()
 				BOOST_LOG (connection->connection->node->log) << "Error inserting block in bootstrap";
 				break;
 		}
-		connection->connection->node->store.unchecked_del (block_a.hash ());
+		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
+		connection->connection->node->store.unchecked_del (transaction, block_a.hash ());
 	}, connection->connection->node->store);
-	rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
-    while (connection->connection->node->store.unchecked_begin (transaction) != connection->connection->node->store.unchecked_end ())
+	rai::block_hash block (first ());
+    while (!block.is_zero ())
     {
-		auto error (synchronization.synchronize (connection->connection->node->store.unchecked_begin (transaction)->first));
+		auto error (synchronization.synchronize (block));
         if (error)
         {
+			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
             while (!synchronization.blocks.empty ())
             {
-                connection->connection->node->store.unchecked_del (synchronization.blocks.top ());
+                connection->connection->node->store.unchecked_del (transaction, synchronization.blocks.top ());
                 synchronization.blocks.pop ();
             }
         }
+		block = first ();
     }
 }
 
@@ -4383,14 +4402,13 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         rai::bufferstream latest_stream (receive_buffer.data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
         auto error2 (rai::read (latest_stream, latest));
         assert (!error2);
-		rai::transaction transaction (connection->node->store.environment, nullptr, false);
         if (!account.is_zero ())
         {
             while (!current.is_zero () && current < account)
             {
                 // We know about an account they don't.
                 pushes [current] = rai::block_hash (0);
-				next (transaction);
+				next ();
             }
             if (!current.is_zero ())
             {
@@ -4400,17 +4418,21 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
                     {
                         // In sync
                     }
-                    else if (connection->node->store.block_exists (transaction, latest))
-                    {
-                        // We know about a block they don't.
-                        pushes [account] = latest;
-                    }
                     else
-                    {
-                        // They know about a block we don't.
-                        pulls [account] = frontier.hash;
-                    }
-					next (transaction);
+					{
+						rai::transaction transaction (connection->node->store.environment, nullptr, false);
+						if (connection->node->store.block_exists (transaction, latest))
+						{
+							// We know about a block they don't.
+							pushes [account] = latest;
+						}
+						else
+						{
+							// They know about a block we don't.
+							pulls [account] = frontier.hash;
+						}
+					}
+					next ();
                 }
                 else
                 {
@@ -4430,7 +4452,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             {
                 // We know about an account they don't.
                 pushes [current] = rai::block_hash (0);
-                next (transaction);
+                next ();
             }
             completed_requests ();
         }
@@ -4444,9 +4466,10 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
     }
 }
 
-void rai::frontier_req_client::next (MDB_txn * transaction_a)
+void rai::frontier_req_client::next ()
 {
-	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
+	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	auto iterator (connection->node->store.latest_begin (transaction, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::account (iterator->first);

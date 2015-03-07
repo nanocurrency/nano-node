@@ -920,6 +920,9 @@ TEST (ledger, fork_flip)
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, false);
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 	}
     auto iterations (0);
@@ -979,6 +982,9 @@ TEST (ledger, fork_multi_flip)
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, false);
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
 	}
@@ -1006,23 +1012,35 @@ TEST (ledger, fork_bootstrap_flip)
     rai::system system (24000, 2);
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
-	rai::transaction transaction (node1.store.environment, nullptr, true);
-	system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-	auto latest (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
-    rai::keypair key1;
-    std::unique_ptr <rai::send_block> send1 (new rai::send_block (key1.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest)));
-    rai::keypair key2;
-    std::unique_ptr <rai::send_block> send2 (new rai::send_block (key2.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest)));
-	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1));
-	ASSERT_EQ (rai::process_result::progress, node2.ledger.process (transaction, *send2));
+	rai::block_hash latest;
+	{
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+		latest = system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub);
+	}
+	rai::keypair key1;
+	std::unique_ptr <rai::send_block> send1 (new rai::send_block (key1.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest)));
+	rai::keypair key2;
+	std::unique_ptr <rai::send_block> send2 (new rai::send_block (key2.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest)));
+	{
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1));
+	}
+	{
+		rai::transaction transaction (node2.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node2.ledger.process (transaction, *send2));
+	}
 	system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, 100);
 	auto iterations2 (0);
-	while (!node2.store.block_exists (transaction, send1->hash ()))
+	auto again (true);
+	while (again)
 	{
 		system.service->poll_one ();
 		system.processor.poll_one ();
 		++iterations2;
 		ASSERT_LT (iterations2, 200);
+		rai::transaction transaction (node2.store.environment, nullptr, false);
+		again = !node2.store.block_exists (transaction, send1->hash ());
 	}
 }
 

@@ -455,7 +455,7 @@ public:
     void completed_requests ();
     void completed_pulls ();
     void completed_pushes ();
-	void next (MDB_txn *);
+	void next ();
     std::unordered_map <rai::account, rai::block_hash> pulls;
     std::unordered_map <rai::account, rai::block_hash> pushes;
     std::array <uint8_t, 200> receive_buffer;
@@ -473,6 +473,7 @@ public:
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
     void process_end ();
+	rai::block_hash first ();
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::frontier_req_client> connection;
     std::unordered_map <rai::account, rai::block_hash>::iterator current;
