@@ -4830,8 +4830,11 @@ void rai::election::announce_vote ()
 	auto node_l (node.lock ());
 	if (node_l != nullptr)
 	{
-		rai::transaction transaction (node_l->store.environment, nullptr, false);
-		auto winner_l (node_l->ledger.winner (transaction, votes));
+		std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner_l;
+		{
+			rai::transaction transaction (node_l->store.environment, nullptr, false);
+			winner_l = node_l->ledger.winner (transaction, votes);
+		}
 		assert (winner_l.second != nullptr);
 		auto list (node_l->peers.list ());
 		node_l->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence);
