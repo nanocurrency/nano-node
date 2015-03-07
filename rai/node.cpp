@@ -1349,10 +1349,13 @@ logging (logging_a)
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
     ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {
-        for (auto & i: send_observers)
-        {
-            i (block_a, account_a, balance_a);
-        }
+		service.add (std::chrono::system_clock::now (), [this, block_a, account_a, balance_a] ()
+		{
+			for (auto & i: send_observers)
+			{
+				i (block_a, account_a, balance_a);
+			}
+		});
     };
     ledger.receive_observer = [this] (rai::receive_block const & block_a, rai::account const & account_a, rai::amount const & balance_a)
     {

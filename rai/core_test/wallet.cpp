@@ -126,16 +126,19 @@ TEST (wallet, spend_all_one)
 
 TEST (wallet, spend)
 {
-    rai::system system (24000, 1);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-    rai::frontier frontier1;
-    system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1);
+	rai::system system (24000, 1);
+	rai::frontier frontier1;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+		system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1);
+	}
     rai::keypair key2;
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
 	ASSERT_TRUE (system.wallet (0)->send (0, key2.pub, 0));
     ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
     rai::frontier frontier2;
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
     ASSERT_NE (frontier1, frontier2);
     auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
