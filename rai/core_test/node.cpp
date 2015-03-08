@@ -75,6 +75,9 @@ TEST (node, send_single)
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, true);
 		system.wallet (1)->store.insert (transaction, key2.prv);
 	}
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 1000));
@@ -103,6 +106,9 @@ TEST (node, send_single_observing_peer)
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, true);
 		system.wallet (1)->store.insert (transaction, key2.prv);
 	}
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 1000));
@@ -131,6 +137,9 @@ TEST (node, send_single_many_peers)
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, true);
 		system.wallet (1)->store.insert (transaction, key2.prv);
 	}
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 1000));
