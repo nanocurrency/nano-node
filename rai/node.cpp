@@ -809,8 +809,12 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 					assert (!result);
 					std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
 					prv.clear ();
-					transaction.commit ();
-					node.process_receive_republish (std::move (block));
+					std::shared_ptr <rai::send_block> block_l (block.release ());
+					auto node_l (node.shared ());
+					node.service.add (std::chrono::system_clock::now (), [node_l, block_l] ()
+					{
+						node_l->process_receive_republish (block_l->clone ());
+					});
 				}
 			}
 			else
@@ -868,10 +872,14 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 				auto result (node.ledger.process (transaction, **i));
 				assert (result == rai::process_result::progress);
 			}
-			transaction.commit ();
+			auto node_l (node.shared ());
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
             {
-                node.network.republish_block (std::move (*i));
+				std::shared_ptr <rai::block> block_l (i->release ());
+				node.service.add (std::chrono::system_clock::now (), [node_l, block_l]
+				{
+					node_l->network.republish_block (block_l->clone ());
+				});
             }
         }
     }
@@ -4838,7 +4846,11 @@ void rai::election::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
 				if (tally_l.begin ()->first > uncontested_threshold (node_l->ledger))
 				{
 					confirmed = true;
-					node_l->process_confirmed (*last_winner);
+					std::shared_ptr <rai::block> winner_l (winner.release ());
+					node_l->service.add (std::chrono::system_clock::now (), [node_l, winner_l] ()
+					{
+						node_l->process_confirmed (*winner_l);
+					});
 				}
 			}
 			else
@@ -4846,7 +4858,11 @@ void rai::election::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
 				if (tally_l.begin ()->first > contested_threshold (node_l->ledger))
 				{
 					confirmed = true;
-					node_l->process_confirmed (*last_winner);
+					std::shared_ptr <rai::block> winner_l (winner.release ());
+					node_l->service.add (std::chrono::system_clock::now (), [node_l, winner_l] ()
+					{
+						node_l->process_confirmed (*winner_l);
+					});
 				}
 			}
 		}
