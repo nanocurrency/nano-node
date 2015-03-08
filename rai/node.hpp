@@ -317,8 +317,8 @@ public:
 class wallet : public std::enable_shared_from_this <rai::wallet>
 {
 public:
-    wallet (bool &, rai::node &, std::string const &);
-    wallet (bool &, rai::node &, std::string const &, std::string const &);
+    wallet (bool &, MDB_txn *, rai::node &, std::string const &);
+    wallet (bool &, MDB_txn *, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password (MDB_txn *);
 	void insert (MDB_txn *, rai::private_key const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);

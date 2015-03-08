@@ -179,15 +179,15 @@ TEST (bootstrap, simple)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::send_block block1 (0, 1, 2, 3, 4, 5);
-    auto block2 (store.unchecked_get (block1.previous ()));
-    ASSERT_EQ (nullptr, block2);
 	rai::transaction transaction (store.environment, nullptr, true);
+    auto block2 (store.unchecked_get (transaction, block1.previous ()));
+    ASSERT_EQ (nullptr, block2);
     store.unchecked_put (transaction, block1.previous (), block1);
-    auto block3 (store.unchecked_get (block1.previous ()));
+    auto block3 (store.unchecked_get (transaction, block1.previous ()));
     ASSERT_NE (nullptr, block3);
     ASSERT_EQ (block1, *block3);
     store.unchecked_del (transaction, block1.previous ());
-    auto block4 (store.unchecked_get (block1.previous ()));
+    auto block4 (store.unchecked_get (transaction, block1.previous ()));
     ASSERT_EQ (nullptr, block4);
 }
 

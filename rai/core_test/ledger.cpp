@@ -851,16 +851,27 @@ TEST (fork, publish)
         node1.process_message (publish1, node1.network.endpoint ());
         ASSERT_EQ (0, node1.conflicts.roots.size ());
         node1.process_message (publish2, node1.network.endpoint ());
+		auto iterations2 (0);
+		while (node1.conflicts.roots.size () == 0)
+		{
+            system.service->poll_one ();
+            system.processor.poll_one ();
+			++iterations2;
+			ASSERT_LT (iterations2, 200);
+		}
         ASSERT_EQ (1, node1.conflicts.roots.size ());
         auto conflict1 (node1.conflicts.roots.find (publish1.block->root ()));
         ASSERT_NE (node1.conflicts.roots.end (), conflict1);
         auto votes1 (conflict1->second);
         ASSERT_NE (nullptr, votes1);
         ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+		auto iterations1 (0);
         while (votes1->votes.rep_votes.size () == 1)
         {
             system.service->poll_one ();
             system.processor.poll_one ();
+			++iterations1;
+			ASSERT_LT (iterations1, 200);
         }
         ASSERT_EQ (2, votes1->votes.rep_votes.size ());
         auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));

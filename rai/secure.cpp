@@ -1877,11 +1877,10 @@ void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash c
 	assert (status == 0);
 }
 
-std::unique_ptr <rai::block> rai::block_store::unchecked_get (rai::block_hash const & hash_a)
+std::unique_ptr <rai::block> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, false);
 	MDB_val value;
-	auto status (mdb_get (transaction, unchecked, hash_a.val (), &value));
+	auto status (mdb_get (transaction_a, unchecked, hash_a.val (), &value));
 	assert (status == 0 || status == MDB_NOTFOUND);
     std::unique_ptr <rai::block> result;
     if (status == 0)

@@ -2,7 +2,7 @@
 
 #include <rai/node.hpp>
 
-TEST (wallets, open_create)
+TEST (wallets, DISABLED_open_create)
 {
     rai::system system (24000, 1);
     rai::wallets wallets (*system.nodes [0]);
@@ -14,7 +14,7 @@ TEST (wallets, open_create)
     ASSERT_EQ (wallet, wallets.open (id));
 }
 
-TEST (wallets, open_existing)
+TEST (wallets, DISABLED_open_existing)
 {
     rai::system system (24000, 1);
     rai::uint256_union id;
@@ -40,7 +40,7 @@ TEST (wallets, open_existing)
     }
 }
 
-TEST (wallets, remove)
+TEST (wallets, DISABLED_remove)
 {
     rai::system system (24000, 1);
     rai::uint256_union one (1);
