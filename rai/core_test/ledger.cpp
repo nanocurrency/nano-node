@@ -899,8 +899,14 @@ TEST (ledger, fork_keep)
     ASSERT_EQ (0, node2.conflicts.roots.size ());
     node1.process_message (publish2, node1.network.endpoint ());
 	node2.process_message (publish2, node2.network.endpoint ());
-    ASSERT_EQ (1, node1.conflicts.roots.size ());
-    ASSERT_EQ (1, node2.conflicts.roots.size ());
+	auto iterations2 (0);
+    while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+	}
     auto conflict (node2.conflicts.roots.find (genesis.hash ()));
     ASSERT_NE (node2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
@@ -952,8 +958,14 @@ TEST (ledger, fork_flip)
     ASSERT_EQ (0, node2.conflicts.roots.size ());
     node1.process_message (publish2, node1.network.endpoint ());
     node2.process_message (publish1, node2.network.endpoint ());
-    ASSERT_EQ (1, node1.conflicts.roots.size ());
-    ASSERT_EQ (1, node2.conflicts.roots.size ());
+	auto iterations2 (0);
+	while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	{
+        system.service->poll_one ();
+        system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+	}
     auto conflict (node2.conflicts.roots.find (genesis.hash ()));
     ASSERT_NE (node2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
@@ -1014,8 +1026,14 @@ TEST (ledger, fork_multi_flip)
     node1.process_message (publish2, node1.network.endpoint ());
     node1.process_message (publish3, node1.network.endpoint ());
 	node2.process_message (publish1, node2.network.endpoint ());
-    ASSERT_EQ (1, node1.conflicts.roots.size ());
-    ASSERT_EQ (1, node2.conflicts.roots.size ());
+	auto iterations2 (0);
+    while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	{
+		system.service->poll_one ();
+		system.processor.poll_one ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+	}
     auto conflict (node2.conflicts.roots.find (genesis.hash ()));
     ASSERT_NE (node2.conflicts.roots.end (), conflict);
     auto votes1 (conflict->second);
