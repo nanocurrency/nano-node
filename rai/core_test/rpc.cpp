@@ -83,10 +83,15 @@ TEST (rpc, account_weight_exact)
     rai::keypair key;
     rai::system system (24000, 1);
     rai::frontier frontier;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
+	}
     rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
+	}
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     boost::network::http::server <rai::rpc>::request request;
@@ -112,10 +117,15 @@ TEST (rpc, account_weight)
     rai::keypair key;
     rai::system system (24000, 1);
     rai::frontier frontier;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
+	}
     rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
+	}
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     boost::network::http::server <rai::rpc>::request request;
@@ -141,8 +151,10 @@ TEST (rpc, wallet_contains)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -195,8 +207,10 @@ TEST (rpc, validate_account_number)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -223,8 +237,10 @@ TEST (rpc, validate_account_invalid)
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     account [0] ^= 0x1;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -248,10 +264,12 @@ TEST (rpc, send_exact)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::keypair key1;
-    system.wallet (0)->store.insert (transaction, key1.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+		system.wallet (0)->store.insert (transaction, key1.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -279,10 +297,12 @@ TEST (rpc, send)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
     rai::keypair key1;
-    system.wallet (0)->store.insert (transaction, key1.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+		system.wallet (0)->store.insert (transaction, key1.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -296,6 +316,7 @@ TEST (rpc, send)
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     auto balance1 (system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
     rpc (request, response);
     ASSERT_EQ (balance1 - rai::scale_64bit_base10, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
@@ -313,8 +334,10 @@ TEST (rpc, send_fail)
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     rai::keypair key1;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, key1.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, key1.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -345,8 +368,10 @@ TEST (rpc, wallet_add)
     rai::keypair key1;
     std::string key_text;
     key1.prv.encode_hex (key_text);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, key1.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, key1.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -635,8 +660,10 @@ TEST (rpc, wallet_destroy)
     auto wallet_id (system.nodes [0]->wallets.items.begin ()->first);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -661,12 +688,17 @@ TEST (rpc, account_move)
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     auto destination (system.wallet (0));
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    destination->store.insert (transaction, rai::test_genesis_key.prv);
-    rai::keypair source_id;
     rai::keypair key;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		destination->store.insert (transaction, rai::test_genesis_key.prv);
+	}
+    rai::keypair source_id;
     auto source (system.nodes [0]->wallets.create (source_id.prv));
-    source->store.insert (transaction, key.prv);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		source->store.insert (transaction, key.prv);
+	}
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -688,6 +720,7 @@ TEST (rpc, account_move)
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
     ASSERT_EQ ("1", response_tree.get <std::string> ("moved"));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_NE (destination->store.end (), destination->store.find (transaction, key.pub));
     ASSERT_NE (destination->store.end (), destination->store.find (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (source->store.end (), source->store.begin (transaction));
@@ -703,8 +736,10 @@ TEST (rpc, block)
     request.method = "POST";
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "block");
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    request_tree.put ("hash", system.nodes [0]->ledger.latest (transaction, rai::genesis_account).to_string ());
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		request_tree.put ("hash", system.nodes [0]->ledger.latest (transaction, rai::genesis_account).to_string ());
+	}
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();

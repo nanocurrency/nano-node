@@ -1191,7 +1191,7 @@ insufficient_work_logging_value (true),
 log_rpc_value (true),
 bulk_pull_logging_value (true),
 work_generation_time_value (true),
-log_to_cerr_value (true)
+log_to_cerr_value (false)
 {
 }
 
@@ -1712,7 +1712,13 @@ rai::process_result rai::node::process_receive (rai::block const & block_a)
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
             }
-            conflicts.start (*ledger.successor (transaction, block_a.root ()), false);
+			auto node_l (shared ());
+			auto root (ledger.successor (transaction, block_a.root ()));
+			std::shared_ptr <rai::block> root_l (root.release ());
+			service.add (std::chrono::system_clock::now (), [node_l, root_l]
+			{
+				node_l->conflicts.start (*root_l, false);
+			});
             break;
         }
         case rai::process_result::account_mismatch:
@@ -4714,14 +4720,17 @@ void rai::system::generate_send_existing (rai::node & node_a)
 	rai::account destination;
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
-		rai::store_iterator entry (node_a.store.latest_begin (transaction, account));
-		if (entry == node_a.store.latest_end ())
 		{
-			entry = node_a.store.latest_begin (transaction);
+			rai::store_iterator entry (node_a.store.latest_begin (transaction, account));
+			if (entry == node_a.store.latest_end ())
+			{
+				std::cerr << "Wrapping\n";
+				entry = node_a.store.latest_begin (transaction);
+			}
+			assert (entry != node_a.store.latest_end ());
+			destination = rai::account (entry->first);
+			amount = get_random_amount (transaction, node_a);
 		}
-		assert (entry != node_a.store.latest_end ());
-		destination = rai::account (entry->first);
-		amount = get_random_amount (transaction, node_a);
 	}
     wallet (0)->send_all (destination, amount);
 }
@@ -4774,11 +4783,13 @@ last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
 confirmed (false)
 {
-	rai::transaction transaction (node_a->store.environment, nullptr, false);
-    assert (node_a->store.block_exists (transaction, block_a.hash ()));
+	{
+		rai::transaction transaction (node_a->store.environment, nullptr, false);
+		assert (node_a->store.block_exists (transaction, block_a.hash ()));
+	}
     rai::keypair anonymous;
     rai::vote vote_l (anonymous.pub, anonymous.prv, 0, block_a.clone ());
-    vote (transaction, vote_l);
+    vote (vote_l);
 }
 
 void rai::election::start ()
@@ -4824,7 +4835,7 @@ rai::uint128_t rai::election::contested_threshold (rai::ledger & ledger_a)
     return (ledger_a.supply () / 16) * 15;
 }
 
-void rai::election::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
+void rai::election::vote (rai::vote const & vote_a)
 {
 	auto node_l (node.lock ());
 	if (node_l != nullptr)
@@ -4832,13 +4843,14 @@ void rai::election::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
 		auto changed (votes.vote (vote_a));
 		if (!confirmed && changed)
 		{
-			auto tally_l (node_l->ledger.tally (transaction_a, votes));
+			rai::transaction transaction (node_l->store.environment, nullptr, true);
+			auto tally_l (node_l->ledger.tally (transaction, votes));
 			assert (tally_l.size () > 0);
 			auto winner (tally_l.begin ()->second->clone ());
 			if (!(*winner == *last_winner))
 			{
-				node_l->ledger.rollback (transaction_a, last_winner->hash ());
-				node_l->ledger.process (transaction_a, *winner);
+				node_l->ledger.rollback (transaction, last_winner->hash ());
+				node_l->ledger.process (transaction, *winner);
 				last_winner = std::move (winner);
 			}
 			if (tally_l.size () == 1)
@@ -4944,8 +4956,7 @@ void rai::conflicts::update (rai::vote const & vote_a)
     auto existing (roots.find (vote_a.block->root ()));
     if (existing != roots.end ())
     {
-		rai::transaction transaction (node.store.environment, nullptr, true);
-        existing->second->vote (transaction, vote_a);
+        existing->second->vote (vote_a);
     }
 }
 
@@ -4964,7 +4975,7 @@ node (node_a)
 bool rai::node::representative_vote (rai::election & election_a, rai::block const & block_a)
 {
     bool result (false);
-	rai::transaction transaction (store.environment, nullptr, true);
+	rai::transaction transaction (store.environment, nullptr, false);
     for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
         if (i->second->store.is_representative (transaction))
@@ -4974,7 +4985,8 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
             i->second->store.fetch (transaction, representative, prv);
             rai::vote vote_l (representative, prv, 0, block_a.clone ());
             prv.clear ();
-            election_a.vote (transaction, vote_l);
+			transaction.commit ();
+            election_a.vote (vote_l);
             result = true;
         }
 	}

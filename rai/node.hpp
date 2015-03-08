@@ -102,7 +102,7 @@ class election : public std::enable_shared_from_this <rai::election>
 public:
     election (std::shared_ptr <rai::node>, rai::block const &);
     void start ();
-    void vote (MDB_txn *, rai::vote const &);
+    void vote (rai::vote const &);
     void announce_vote ();
     void timeout_action ();
     void start_request (rai::block const &);

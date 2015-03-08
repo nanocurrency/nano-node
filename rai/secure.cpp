@@ -1503,6 +1503,17 @@ rai::store_iterator & rai::store_iterator::operator ++ ()
     return *this;
 }
 
+rai::store_iterator & rai::store_iterator::operator = (rai::store_iterator && other_a)
+{
+	if (cursor != nullptr)
+	{
+		mdb_cursor_close (cursor);
+	}
+	cursor = other_a.cursor;
+	current = other_a.current;
+	return *this;
+}
+
 bool rai::store_iterator::operator == (rai::store_iterator const & other_a) const
 {
 	auto result (current.first.mv_data == other_a.current.first.mv_data);

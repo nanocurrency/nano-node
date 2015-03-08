@@ -296,7 +296,7 @@ public:
 	store_iterator (rai::store_iterator &&);
 	~store_iterator ();
 	rai::store_iterator & operator ++ ();
-	rai::store_iterator & operator = (rai::store_iterator &&) = default;
+	rai::store_iterator & operator = (rai::store_iterator &&);
 	rai::store_entry & operator -> ();
 	bool operator == (rai::store_iterator const &) const;
 	bool operator != (rai::store_iterator const &) const;
