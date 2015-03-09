@@ -375,8 +375,12 @@ last_status (rai_qt::status::disconnected)
     });
     node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
     {
-		rai::transaction transaction (node.store.environment, nullptr, false);
-        if (wallet_m->store.exists (transaction, account_a))
+		bool should_refresh;
+		{
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			should_refresh = wallet_m->store.exists (transaction, account_a);
+		}
+        if (should_refresh)
         {
             accounts.refresh ();
         }
@@ -388,8 +392,12 @@ last_status (rai_qt::status::disconnected)
     });
     node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
     {
-		rai::transaction transaction (node.store.environment, nullptr, false);
-        if (wallet_m->store.exists (transaction, account_a))
+		bool should_refresh;
+		{
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			should_refresh = wallet_m->store.exists (transaction, account_a);
+		}
+        if (should_refresh)
         {
             accounts.refresh ();
         }
@@ -401,8 +409,12 @@ last_status (rai_qt::status::disconnected)
     });
     node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
     {
-		rai::transaction transaction (node.store.environment, nullptr, false);
-        if (wallet_m->store.exists (transaction, account_a))
+		bool should_refresh;
+		{
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			should_refresh = wallet_m->store.exists (transaction, account_a);
+		}
+        if (should_refresh)
         {
             accounts.refresh ();
         }
@@ -440,8 +452,10 @@ last_status (rai_qt::status::disconnected)
 
 void rai_qt::wallet::refresh ()
 {
-	rai::transaction transaction (wallet_m->store.environment, nullptr, false);
-	assert (wallet_m->store.exists (transaction, account));
+	{
+		rai::transaction transaction (wallet_m->store.environment, nullptr, false);
+		assert (wallet_m->store.exists (transaction, account));
+	}
     self.account_button->setText (QString (account.to_base58check ().c_str ()));
 	self.refresh_balance ();
     accounts.refresh ();
@@ -491,12 +505,12 @@ wallet (wallet_a)
     window->setLayout (layout);
     QObject::connect (change, &QPushButton::released, [this] ()
     {
-		rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+		rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, true);
         if (wallet.wallet_m->store.valid_password (transaction))
         {
             if (password->text () == retype->text ())
             {
-                wallet.wallet_m->store.rekey (std::string (password->text ().toLocal8Bit ()));
+                wallet.wallet_m->store.rekey (transaction, std::string (password->text ().toLocal8Bit ()));
                 clear ();
             }
             else
@@ -538,7 +552,10 @@ wallet (wallet_a)
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-        wallet.wallet_m->store.enter_password (std::string (password->text ().toLocal8Bit ()));
+		{
+			rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+			wallet.wallet_m->store.enter_password (transaction, std::string (password->text ().toLocal8Bit ()));
+		}
         update_label ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()

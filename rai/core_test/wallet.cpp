@@ -73,20 +73,22 @@ TEST (wallet, two_item_iteration)
     bool init;
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
-    ASSERT_FALSE (init);
-    rai::keypair key1;
-    rai::keypair key2;
-    wallet.insert (transaction, key1.prv);
-    wallet.insert (transaction, key2.prv);
-    std::unordered_set <rai::public_key> pubs;
-    std::unordered_set <rai::private_key> prvs;
-    for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
-    {
-        pubs.insert (i->first);
-        prvs.insert (rai::uint256_union (i->second).prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
-    }
+	rai::keypair key1;
+	rai::keypair key2;
+	std::unordered_set <rai::public_key> pubs;
+	std::unordered_set <rai::private_key> prvs;
+	{
+		rai::transaction transaction (environment, nullptr, true);
+		rai::wallet_store wallet (init, transaction, "0");
+		ASSERT_FALSE (init);
+		wallet.insert (transaction, key1.prv);
+		wallet.insert (transaction, key2.prv);
+		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
+		{
+			pubs.insert (i->first);
+			prvs.insert (rai::uint256_union (i->second).prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
+		}
+	}
     ASSERT_EQ (2, pubs.size ());
     ASSERT_EQ (2, prvs.size ());
     ASSERT_NE (pubs.end (), pubs.find (key1.pub));
