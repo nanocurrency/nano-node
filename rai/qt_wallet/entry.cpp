@@ -112,7 +112,7 @@ int main (int argc, char * const * argv)
                 auto wallet (node->wallets.create (config.wallet));
                 rai::keypair key;
                 config.account = key.pub;
-                wallet->insert (transaction, key.prv);
+                wallet->store.insert (transaction, key.prv);
 				assert (wallet->store.exists (transaction, config.account));
                 std::ofstream config_file;
                 config_file.open (config_path);

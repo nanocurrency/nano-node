@@ -743,12 +743,13 @@ void rai::wallet::enter_initial_password (MDB_txn * transaction_a)
 	}
 }
 
-void rai::wallet::insert (MDB_txn * transaction_a, rai::private_key const & key_a)
+void rai::wallet::insert (rai::private_key const & key_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	auto key (store.insert (transaction_a, key_a));
+	rai::transaction transaction (store.environment, nullptr, true);
+	auto key (store.insert (transaction, key_a));
 	auto this_l (shared_from_this ());
-	auto root (node.ledger.latest_root (transaction_a, key));
+	auto root (node.ledger.latest_root (transaction, key));
 	node.service.add (std::chrono::system_clock::now (), [this_l, key, root] ()
 	{
 		this_l->work_generate (key, root);

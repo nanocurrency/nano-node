@@ -551,9 +551,9 @@ TEST (wallet, startup_work)
 	auto wallet (system.wallet (0));
 	uint64_t work1;
 	rai::account account1;
+	wallet->insert (rai::test_genesis_key.prv);
 	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		wallet->insert (transaction, rai::test_genesis_key.prv);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		account1 = system.account (transaction, 0);
 		ASSERT_FALSE (wallet->store.work_get (transaction, account1, work1));
 	}
