@@ -2968,6 +2968,12 @@ void rai::node::keepalive_preconfigured (std::vector <std::string> const & peers
     });
 }
 
+rai::block_hash rai::node::latest (rai::account const & account_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	return ledger.latest (transaction, account_a);
+}
+
 void rai::node::ongoing_keepalive ()
 {
     keepalive_preconfigured (preconfigured_peers);

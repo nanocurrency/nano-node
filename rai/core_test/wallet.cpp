@@ -107,21 +107,20 @@ TEST (wallet, insufficient_spend)
 TEST (wallet, spend_all_one)
 {
     rai::system system (24000, 1);
-    rai::frontier frontier1;
+    rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-		system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1);
 	}
     rai::keypair key2;
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     rai::frontier frontier2;
     system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
-    ASSERT_NE (frontier1, frontier2);
+    ASSERT_NE (latest1, frontier2.hash);
     auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
     ASSERT_NE (nullptr, block);
-    ASSERT_EQ (frontier1.hash, block->previous ());
+    ASSERT_EQ (latest1, block->previous ());
     ASSERT_TRUE (frontier2.balance.is_zero ());
     ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
 }
@@ -129,11 +128,10 @@ TEST (wallet, spend_all_one)
 TEST (wallet, spend)
 {
 	rai::system system (24000, 1);
-	rai::frontier frontier1;
+	rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-		system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier1);
 	}
     rai::keypair key2;
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
@@ -142,10 +140,10 @@ TEST (wallet, spend)
     rai::frontier frontier2;
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
-    ASSERT_NE (frontier1, frontier2);
+    ASSERT_NE (latest1, frontier2.hash);
     auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
     ASSERT_NE (nullptr, block);
-    ASSERT_EQ (frontier1.hash, block->previous ());
+    ASSERT_EQ (latest1, block->previous ());
     ASSERT_TRUE (frontier2.balance.is_zero ());
     ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
 }

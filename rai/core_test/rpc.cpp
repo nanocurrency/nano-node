@@ -82,12 +82,8 @@ TEST (rpc, account_weight_exact)
 {
     rai::keypair key;
     rai::system system (24000, 1);
-    rai::frontier frontier;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
-	}
-    rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
+    rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+    rai::change_block block (key.pub, latest, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
@@ -116,12 +112,8 @@ TEST (rpc, account_weight)
 {
     rai::keypair key;
     rai::system system (24000, 1);
-    rai::frontier frontier;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		ASSERT_FALSE (system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier));
-	}
-    rai::change_block block (key.pub, frontier.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (frontier.hash));
+    rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+    rai::change_block block (key.pub, latest, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block));
@@ -745,10 +737,7 @@ TEST (rpc, block)
     request.method = "POST";
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "block");
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		request_tree.put ("hash", system.nodes [0]->ledger.latest (transaction, rai::genesis_account).to_string ());
-	}
+	request_tree.put ("hash", system.nodes [0]->latest (rai::genesis_account).to_string ());
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();

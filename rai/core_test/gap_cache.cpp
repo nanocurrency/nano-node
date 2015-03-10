@@ -73,13 +73,8 @@ TEST (gap_cache, gap_bootstrap)
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
-	rai::block_hash latest;
-	uint64_t work;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		latest = system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub);
-		work = rai::work_generate (latest);
-	}
+	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	auto work (rai::work_generate (latest));
     rai::keypair key;
     rai::send_block send (key.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send));

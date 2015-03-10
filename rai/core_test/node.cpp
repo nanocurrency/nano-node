@@ -187,13 +187,11 @@ TEST (node, quick_confirm)
 {
     rai::system system (24000, 1);
     rai::keypair key;
-	rai::block_hash previous;
-	uint64_t work;
+	rai::block_hash previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	uint64_t work (rai::work_generate (previous));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		system.wallet (0)->store.insert (transaction, key.prv);
-		previous = system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub);
-		work = rai::work_generate (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
 	}
     rai::send_block send (key.pub, previous, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send));
