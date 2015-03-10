@@ -518,7 +518,7 @@ TEST (system, generate_send_existing)
         ASSERT_LT (iterations1, 20);
     }
     auto iterations2 (0);
-    while (system.nodes [0]->account_balance (rai::test_genesis_key.pub) != rai::genesis_amount)
+    while (system.nodes [0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
     {
         system.service->poll_one ();
         system.processor.poll_one ();

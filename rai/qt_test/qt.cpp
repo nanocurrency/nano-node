@@ -260,7 +260,7 @@ TEST (wallet, process_block)
     int argc (0);
     QApplication application (argc, nullptr);
 	rai::account account;
-	rai::block_hash latest (system.nodes [0]->ledger.latest (transaction, rai::genesis_account));
+	rai::block_hash latest (system.nodes [0]->latest (rai::genesis_account));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		system.wallet (0)->store.insert (transaction, rai::keypair ().prv);
