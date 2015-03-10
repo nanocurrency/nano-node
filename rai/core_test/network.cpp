@@ -352,18 +352,12 @@ TEST (network, receive_weight_change)
 	}
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 2));
 	auto iterations (0);
-	auto again (true);
-    while (again)
+    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a){ return node_a->weight (key2.pub) != 2;}))
     {
         system.service->poll_one ();
         system.processor.poll_one ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
-		again = std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a)
-		{
-			rai::transaction transaction (node_a->store.environment, nullptr, false);
-			return node_a->ledger.weight (transaction, key2.pub) != 2;
-		});
     }
 }
 

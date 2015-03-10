@@ -2037,8 +2037,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-					rai::transaction transaction (node.store.environment, nullptr, false);
-                    auto balance (node.ledger.account_balance (transaction, account));
+                    auto balance (node.balance (account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("balance", balance.convert_to <std::string> ());
                     set_response (response, response_l);
@@ -2056,8 +2055,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-					rai::transaction transaction (node.store.environment, nullptr, false);
-                    auto balance (rai::scale_down (node.ledger.account_balance (transaction, account)));
+                    auto balance (rai::scale_down (node.balance (account)));
                     boost::property_tree::ptree response_l;
                     response_l.put ("balance", std::to_string (balance));
                     set_response (response, response_l);
@@ -2075,8 +2073,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-					rai::transaction transaction (node.store.environment, nullptr, false);
-                    auto balance (node.ledger.weight (transaction, account));
+                    auto balance (node.weight (account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("weight", balance.convert_to <std::string> ());
                     set_response (response, response_l);
@@ -2094,8 +2091,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 auto error (account.decode_base58check (account_text));
                 if (!error)
                 {
-					rai::transaction transaction (node.store.environment, nullptr, false);
-                    auto balance (rai::scale_down (node.ledger.weight (transaction, account)));
+                    auto balance (rai::scale_down (node.weight (account)));
                     boost::property_tree::ptree response_l;
                     response_l.put ("weight", std::to_string (balance));
                     set_response (response, response_l);
@@ -2118,9 +2114,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         auto existing (node.wallets.items.find (wallet));
                         if (existing != node.wallets.items.end ())
                         {
-							rai::transaction transaction (node.store.environment, nullptr, true);
                             rai::keypair new_key;
-                            existing->second->store.insert (transaction, new_key.prv);
+                            existing->second->insert (new_key.prv);
                             boost::property_tree::ptree response_l;
                             response_l.put ("account", new_key.pub.to_base58check ());
                             set_response (response, response_l);
@@ -2979,6 +2974,12 @@ rai::uint128_t rai::node::balance (rai::account const & account_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
 	return ledger.account_balance (transaction, account_a);
+}
+
+rai::uint128_t rai::node::weight (rai::account const & account_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	return ledger.weight (transaction, account_a);
 }
 
 void rai::node::ongoing_keepalive ()

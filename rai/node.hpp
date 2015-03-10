@@ -760,6 +760,7 @@ public:
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
+	rai::uint128_t weight (rai::account const &);
     void ongoing_keepalive ();
     rai::processor_service & service;
     boost::log::sources::logger log;
