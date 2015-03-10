@@ -114,15 +114,17 @@ TEST (wallet, spend_all_one)
 	}
     rai::keypair key2;
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     rai::frontier frontier2;
-    system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
-    ASSERT_NE (latest1, frontier2.hash);
-    auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
-    ASSERT_NE (nullptr, block);
-    ASSERT_EQ (latest1, block->previous ());
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
+		ASSERT_NE (latest1, frontier2.hash);
+		auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
+		ASSERT_NE (nullptr, block);
+		ASSERT_EQ (latest1, block->previous ());
+	}
     ASSERT_TRUE (frontier2.balance.is_zero ());
-    ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (0, system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
 TEST (wallet, spend)
@@ -138,14 +140,16 @@ TEST (wallet, spend)
 	ASSERT_TRUE (system.wallet (0)->send (0, key2.pub, 0));
     ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
     rai::frontier frontier2;
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
-    ASSERT_NE (latest1, frontier2.hash);
-    auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
-    ASSERT_NE (nullptr, block);
-    ASSERT_EQ (latest1, block->previous ());
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		system.nodes [0]->store.latest_get (transaction, rai::test_genesis_key.pub, frontier2);
+		ASSERT_NE (latest1, frontier2.hash);
+		auto block (system.nodes [0]->store.block_get (transaction, frontier2.hash));
+		ASSERT_NE (nullptr, block);
+		ASSERT_EQ (latest1, block->previous ());
+	}
     ASSERT_TRUE (frontier2.balance.is_zero ());
-    ASSERT_EQ (0, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (0, system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
 TEST (wallet, DISABLED_two_spend)
@@ -185,8 +189,7 @@ TEST (wallet, partial_spend)
 	}
     rai::keypair key2;
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 500));
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
 TEST (wallet, spend_no_previous)
@@ -205,8 +208,7 @@ TEST (wallet, spend_no_previous)
 	}
     rai::keypair key2;
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 500));
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
 TEST (wallet, find_none)
@@ -510,7 +512,7 @@ TEST (wallet, work_generate)
 {
     rai::system system (24000, 1);
     auto wallet (system.wallet (0));
-	rai::uint128_t amount1;
+	rai::uint128_t amount1 (system.nodes [0]->balance (rai::test_genesis_key.pub));
 	rai::account account1;
 	uint64_t work1;
 	{
@@ -519,7 +521,6 @@ TEST (wallet, work_generate)
 		account1 = system.account (transaction, 0);
 		ASSERT_FALSE (wallet->store.work_get (transaction, account1, work1));
 		ASSERT_EQ (0, work1);
-		amount1 = system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub);
 	}
 	rai::keypair key;
     wallet->send_all (key.pub, 100);

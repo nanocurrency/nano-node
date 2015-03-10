@@ -308,14 +308,9 @@ TEST (rpc, send)
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
-	rai::uint128_t balance1;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		balance1 = system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub);
-	}
-    rpc (request, response);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_EQ (balance1 - rai::scale_64bit_base10, system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
+	rai::uint128_t balance1 (system.nodes [0]->balance (rai::test_genesis_key.pub));
+	rpc (request, response);
+    ASSERT_EQ (balance1 - rai::scale_64bit_base10, system.nodes [0]->balance (rai::test_genesis_key.pub));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);

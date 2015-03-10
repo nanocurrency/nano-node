@@ -2974,6 +2974,12 @@ rai::block_hash rai::node::latest (rai::account const & account_a)
 	return ledger.latest (transaction, account_a);
 }
 
+rai::uint128_t rai::node::balance (rai::account const & account_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	return ledger.account_balance (transaction, account_a);
+}
+
 void rai::node::ongoing_keepalive ()
 {
     keepalive_preconfigured (preconfigured_peers);

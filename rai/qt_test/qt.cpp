@@ -234,21 +234,14 @@ TEST (wallet, send)
     QTest::keyClicks (wallet.send_count, "2");
     QTest::mouseClick (wallet.send_blocks_send, Qt::LeftButton);
 	auto iterations1 (0);
-	auto again (true);
-    while (again)
+    while (wallet.node.balance (key1).is_zero ())
     {
         system.service->poll_one ();
         system.processor.poll_one ();
 		++iterations1;
 		ASSERT_LT (iterations1, 200);
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		again = wallet.node.ledger.account_balance (transaction, key1).is_zero ();
     }
-	rai::uint128_t amount;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		amount = wallet.node.ledger.account_balance (transaction, key1);
-	}
+	rai::uint128_t amount (wallet.node.balance (key1));
     ASSERT_EQ (rai::scale_up (2), amount);
 	QTest::mouseClick (wallet.send_blocks_back, Qt::LeftButton);
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
