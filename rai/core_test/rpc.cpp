@@ -28,8 +28,7 @@ TEST (rpc, account_create)
     auto account_text (response_tree.get <std::string> ("account"));
     rai::uint256_union account;
     ASSERT_FALSE (account.decode_base58check (account_text));
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_NE (system.wallet (0)->store.end (), system.wallet (0)->store.find (transaction, account));
+    ASSERT_TRUE (system.wallet (0)->exists (account));
 }
 
 TEST (rpc, account_balance_exact)
@@ -563,8 +562,7 @@ TEST (rpc, account_list)
     ASSERT_EQ (2, accounts.size ());
     for (auto i (accounts.begin ()), j (accounts.end ()); i != j; ++i)
     {
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-        ASSERT_NE (system.wallet (0)->store.end (), system.wallet (0)->store.find (transaction, *i));
+        ASSERT_TRUE (system.wallet (0)->exists (*i));
     }
 }
 
@@ -716,9 +714,9 @@ TEST (rpc, account_move)
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
     ASSERT_EQ ("1", response_tree.get <std::string> ("moved"));
+    ASSERT_TRUE (destination->exists (key.pub));
+    ASSERT_TRUE (destination->exists (rai::test_genesis_key.pub));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_NE (destination->store.end (), destination->store.find (transaction, key.pub));
-    ASSERT_NE (destination->store.end (), destination->store.find (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (source->store.end (), source->store.begin (transaction));
 }
 

@@ -756,6 +756,12 @@ void rai::wallet::insert (rai::private_key const & key_a)
 	});
 }
 
+bool rai::wallet::exists (rai::public_key const & account_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	return store.exists (transaction, account_a);
+}
+
 bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
 {
     std::lock_guard <std::mutex> lock (mutex);

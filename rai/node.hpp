@@ -321,6 +321,7 @@ public:
     wallet (bool &, MDB_txn *, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password (MDB_txn *);
 	void insert (rai::private_key const &);
+    bool exists (rai::public_key const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
 	// Send from a specific account in the wallet
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
