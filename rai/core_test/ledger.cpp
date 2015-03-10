@@ -510,26 +510,20 @@ TEST (system, generate_send_existing)
 	}
     ASSERT_NE (frontier1.hash, frontier2.hash);
     auto iterations1 (0);
-	auto again1 (true);
-    while (again1)
+    while (system.nodes [0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations1;
         ASSERT_LT (iterations1, 20);
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		again1 = system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub) == rai::genesis_amount;
     }
     auto iterations2 (0);
-	auto again2 (true);
-    while (again2)
+    while (system.nodes [0]->account_balance (rai::test_genesis_key.pub) != rai::genesis_amount)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations2;
         ASSERT_LT (iterations2, 20);
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		again2 = system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub) != rai::genesis_amount;
     }
 }
 
@@ -565,15 +559,12 @@ TEST (system, generate_send_new)
 		ASSERT_EQ (system.wallet (0)->store.end (), iterator2);
 	}
     auto iterations (0);
-	auto again (true);
-    while (again)
+    while (system.nodes [0]->balance (new_account) == 0)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations;
         ASSERT_LT (iterations, 200);
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		again = system.nodes [0]->ledger.account_balance (transaction, new_account) == 0;
     }
 }
 

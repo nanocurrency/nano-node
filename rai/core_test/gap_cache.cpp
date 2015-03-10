@@ -101,14 +101,11 @@ TEST (gap_cache, gap_bootstrap)
 		ASSERT_EQ (rai::genesis_amount, system.nodes [1]->ledger.account_balance (transaction, rai::genesis_account));
 	}
     auto iterations2 (0);
-	auto again (true);
-    while (again)
+    while (system.nodes [1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
     {
         system.service->poll_one ();
         system.processor.poll_one ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		again = system.nodes [1]->ledger.account_balance (transaction, rai::genesis_account) != rai::genesis_amount - 200;
     }
 }
