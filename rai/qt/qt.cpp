@@ -100,9 +100,8 @@ wallet (wallet_a)
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] ()
 	{
-		rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, true);
         rai::keypair key;
-        wallet.wallet_m->store.insert (transaction, key.prv);
+        wallet.wallet_m->insert (key.prv);
         refresh ();
 	});
     QObject::connect (view, &QTableView::clicked, [this] (QModelIndex const & index_a)
