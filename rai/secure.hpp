@@ -294,9 +294,11 @@ public:
 	store_iterator (std::nullptr_t);
 	store_iterator (MDB_txn *, MDB_dbi, MDB_val const &);
 	store_iterator (rai::store_iterator &&);
+	store_iterator (rai::store_iterator const &) = delete;
 	~store_iterator ();
 	rai::store_iterator & operator ++ ();
 	rai::store_iterator & operator = (rai::store_iterator &&);
+	rai::store_iterator & operator = (rai::store_iterator const &) = delete;
 	rai::store_entry & operator -> ();
 	bool operator == (rai::store_iterator const &) const;
 	bool operator != (rai::store_iterator const &) const;
