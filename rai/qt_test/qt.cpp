@@ -317,28 +317,21 @@ TEST (wallet, create_send)
 	bool error;
 	rai::send_block send (error, tree1);
 	ASSERT_FALSE (error);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, send));
-	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (transaction, send));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (send));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (send));
 }
 
 TEST (wallet, create_open_receive)
 {
 	rai::keypair key;
 	rai::system system (24000, 1);
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-	}
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->send_all (key.pub, 100);
 	rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->send_all (key.pub, 100);
 	rai::block_hash latest2 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	ASSERT_NE (latest1, latest2);
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, key.prv);
-	}
+	system.wallet (0)->insert (key.prv);
 	int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
@@ -357,11 +350,8 @@ TEST (wallet, create_open_receive)
 	bool error;
 	rai::open_block open (error, tree1);
 	ASSERT_FALSE (error);
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, open));
-		ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (transaction, open));
-	}
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (open));
 	wallet.block_creation.block->clear ();
 	wallet.block_creation.source->clear ();
 	QTest::mouseClick (wallet.block_creation.receive, Qt::LeftButton);
@@ -375,19 +365,15 @@ TEST (wallet, create_open_receive)
 	bool error2;
 	rai::receive_block receive (error2, tree2);
 	ASSERT_FALSE (error2);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, receive));
-	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (transaction, receive));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (receive));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (receive));
 }
 
 TEST (wallet, create_change)
 {
 	rai::keypair key;
 	rai::system system (24000, 1);
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-	}
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	int argc (0);
     QApplication application (argc, nullptr);
     rai_qt::wallet wallet (application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
@@ -406,9 +392,8 @@ TEST (wallet, create_change)
 	bool error (false);
 	rai::change_block change (error, tree1);
 	ASSERT_FALSE (error);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, change));
-	ASSERT_EQ (rai::process_result::old, system.nodes [0]->ledger.process (transaction, change));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (change));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (change));
 }
 
 TEST (history, short_text)
@@ -440,10 +425,7 @@ TEST (wallet, startup_work)
 {
 	rai::keypair key;
     rai::system system (24000, 1);
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, key.prv);
-	}
+	system.wallet (0)->insert (key.prv);
     int argc (0);
     QApplication application (argc, nullptr);
 	rai::account account;

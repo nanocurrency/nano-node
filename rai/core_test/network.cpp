@@ -260,10 +260,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block block1 (0, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, block1));
-	}
+	ASSERT_EQ (rai::process_result::progress, node1.process (block1));
     node1.conflicts.start (block1, true);
     rai::keypair key1;
     rai::confirm_ack con1 (key1.pub, key1.prv, 0, block1.clone ());
@@ -276,10 +273,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
     rai::send_block block1 (0, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, block1));
-	}
+	ASSERT_EQ (rai::process_result::progress, node1.process (block1));
     node1.conflicts.start (block1, true);
     rai::confirm_ack con1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
 	node1.process_message (con1, node1.network.endpoint ());
@@ -443,10 +437,7 @@ TEST (bulk_pull, end_not_owned)
     open.hashables.representative = key2.pub;
     open.hashables.source = latest;
     open.signature = rai::sign_message (key2.prv, key2.pub, open.hash ());
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, open));
-	}
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open));
     auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.nodes [0]));
     rai::genesis genesis;
     std::unique_ptr <rai::bulk_pull> req (new rai::bulk_pull {});
@@ -600,18 +591,15 @@ TEST (bootstrap_processor, diamond)
 {
     rai::system system (24000, 1);
     rai::keypair key;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->latest (rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub))));
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *send1));
-		std::unique_ptr <rai::send_block> send2 (new rai::send_block (key.pub, send1->hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *send2));
-		std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, rai::work_generate (key.pub)));
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *open));
-		std::unique_ptr <rai::receive_block> receive (new rai::receive_block (open->hash (), send2->hash (), key.prv, key.pub, rai::work_generate (open->hash ())));
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *receive));
-	}
-    rai::node_init init1;
+	std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->latest (rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->latest (rai::test_genesis_key.pub))));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*send1));
+	std::unique_ptr <rai::send_block> send2 (new rai::send_block (key.pub, send1->hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*send2));
+	std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, rai::work_generate (key.pub)));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*open));
+	std::unique_ptr <rai::receive_block> receive (new rai::receive_block (open->hash (), send2->hash (), key.prv, key.pub, rai::work_generate (open->hash ())));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*receive));
+	rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor, system.logging));
     ASSERT_FALSE (init1.error ());
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());

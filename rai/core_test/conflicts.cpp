@@ -8,10 +8,7 @@ TEST (conflicts, start_stop)
     rai::genesis genesis;
     rai::keypair key1;
     rai::send_block send1 (key1.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1));
-	}
+	ASSERT_EQ (rai::process_result::progress, node1.process (send1));
     ASSERT_EQ (0, node1.conflicts.roots.size ());
     ASSERT_TRUE (node1.conflicts.no_conflict (send1.hashables.previous));
     node1.conflicts.start (send1, false);
@@ -34,10 +31,7 @@ TEST (conflicts, add_existing)
     rai::genesis genesis;
     rai::keypair key1;
     rai::send_block send1 (key1.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1));
-	}
+	ASSERT_EQ (rai::process_result::progress, node1.process (send1));
     node1.conflicts.start (send1, false);
     rai::keypair key2;
     rai::send_block send2 (key2.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -61,17 +55,11 @@ TEST (conflicts, add_two)
     rai::genesis genesis;
     rai::keypair key1;
     rai::send_block send1 (key1.pub, genesis.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1));
-	}
+	ASSERT_EQ (rai::process_result::progress, node1.process (send1));
     node1.conflicts.start (send1, false);
     rai::keypair key2;
     rai::send_block send2 (key2.pub, send1.hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send2));
-	}
+	ASSERT_EQ (rai::process_result::progress, node1.process (send2));
     node1.conflicts.start (send2, false);
     ASSERT_EQ (2, node1.conflicts.roots.size ());
 }

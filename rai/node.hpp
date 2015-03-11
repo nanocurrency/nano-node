@@ -758,6 +758,7 @@ public:
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_receive_republish (std::unique_ptr <rai::block>);
     rai::process_result process_receive (rai::block const &);
+	rai::process_result process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);

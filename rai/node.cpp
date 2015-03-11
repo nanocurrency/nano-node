@@ -1743,6 +1743,13 @@ rai::process_result rai::node::process_receive (rai::block const & block_a)
     return result;
 }
 
+rai::process_result rai::node::process (rai::block const & block_a)
+{
+	rai::transaction transaction (store.environment, nullptr, true);
+	auto result (ledger.process (transaction, block_a));
+	return result;
+}
+
 std::vector <rai::peer_information> rai::peer_container::list ()
 {
     std::vector <rai::peer_information> result;
@@ -4749,7 +4756,6 @@ void rai::system::generate_send_existing (rai::node & node_a)
 			rai::store_iterator entry (node_a.store.latest_begin (transaction, account));
 			if (entry == node_a.store.latest_end ())
 			{
-				std::cerr << "Wrapping\n";
 				entry = node_a.store.latest_begin (transaction);
 			}
 			assert (entry != node_a.store.latest_end ());

@@ -1510,7 +1510,9 @@ rai::store_iterator & rai::store_iterator::operator = (rai::store_iterator && ot
 		mdb_cursor_close (cursor);
 	}
 	cursor = other_a.cursor;
+	other_a.cursor = nullptr;
 	current = other_a.current;
+	other_a.current.clear ();
 	return *this;
 }
 
