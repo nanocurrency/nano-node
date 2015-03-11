@@ -1582,8 +1582,9 @@ public:
 		auto hash (block_a.hash ());
 		auto value (store.block_get_raw (transaction, block_a.previous ()));
 		assert (value.mv_size != 0);
-		std::copy (hash.bytes.begin (), hash.bytes.end (), static_cast <uint8_t *> (value.mv_data) + value.mv_size - hash.bytes.size ());
-		store.block_put_raw (transaction, block_a.previous (), value);
+		std::vector <uint8_t> data (static_cast <uint8_t *> (value.mv_data), static_cast <uint8_t *> (value.mv_data) + value.mv_size);
+		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - hash.bytes.size ());
+		store.block_put_raw (transaction, block_a.previous (), rai::mdb_val (data.size (), data.data()));
 	}
 	void send_block (rai::send_block const & block_a) override
 	{
