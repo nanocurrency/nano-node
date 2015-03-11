@@ -330,7 +330,6 @@ public:
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
-    std::mutex mutex;
     rai::wallet_store store;
     rai::node & node;
 };
