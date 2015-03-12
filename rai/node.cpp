@@ -1316,6 +1316,61 @@ bool rai::node_init::error ()
     return block_store_init || wallet_init;
 }
 
+namespace {
+class send_visitor : public rai::block_visitor
+{
+public:
+	send_visitor (rai::node & node_a) :
+	node (node_a)
+	{
+	}
+	void send_block (rai::send_block const & block_a)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+        for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+        {
+            auto & wallet (*i->second);
+            if (wallet.store.find (transaction, block_a.hashables.destination) != wallet.store.end ())
+            {
+				transaction.commit ();
+                if (node.logging.ledger_logging ())
+                {
+                    BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
+                }
+                node.conflicts.start (block_a, false);
+                auto root (block_a.root ());
+                std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
+				auto node_l (node.shared ());
+                node.service.add (std::chrono::system_clock::now () + rai::confirm_wait, [node_l, root, block_l] ()
+                {
+                    if (node_l->conflicts.no_conflict (root))
+                    {
+                        node_l->process_confirmed (*block_l);
+                    }
+                    else
+                    {
+                        if (node_l->logging.ledger_logging ())
+                        {
+                            BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to fast-confirm block: %1% because root: %2% is in conflict") % block_l->hash ().to_string () % root.to_string ());
+                        }
+                    }
+                });
+            }
+        }
+	}
+	void receive_block (rai::receive_block const &)
+	{
+	}
+	void open_block (rai::open_block const &)
+	{
+	}
+	void change_block (rai::change_block const &)
+	{
+	}
+	rai::node & node;
+};
+}
+
 rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
 service (processor_a),
 store (init_a.block_store_init, application_path_a / "data"),
@@ -1397,36 +1452,8 @@ logging (logging_a)
     };
     send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a)
     {
-		rai::transaction transaction (store.environment, nullptr, false);
-        for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
-        {
-            auto & wallet (*i->second);
-            if (wallet.store.find (transaction, block_a.hashables.destination) != wallet.store.end ())
-            {
-				transaction.commit ();
-                if (logging.ledger_logging ())
-                {
-                    BOOST_LOG (log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
-                }
-                conflicts.start (block_a, false);
-                auto root (block_a.root ());
-                std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
-                service.add (std::chrono::system_clock::now () + rai::confirm_wait, [this, root, block_l] ()
-                {
-                    if (conflicts.no_conflict (root))
-                    {
-                        process_confirmed (*block_l);
-                    }
-                    else
-                    {
-                        if (logging.ledger_logging ())
-                        {
-                            BOOST_LOG (log) << boost::str (boost::format ("Unable to fast-confirm block: %1% because root: %2% is in conflict") % block_l->hash ().to_string () % root.to_string ());
-                        }
-                    }
-                });
-            }
-        }
+		send_visitor visitor (*this);
+		block_a.visit (visitor);
     });
     send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a)
     {
