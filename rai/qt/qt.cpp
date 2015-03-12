@@ -371,14 +371,9 @@ last_status (rai_qt::status::disconnected)
     {
         push_main_stack (send_blocks_window);
     });
-    node.send_observers.push_back ([this] (rai::send_block const &, rai::account const & account_a, rai::amount const &)
+    node.observers.push_back ([this] (rai::block const &, rai::account const & account_a)
     {
-		bool should_refresh;
-		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			should_refresh = wallet_m->store.exists (transaction, account_a);
-		}
-        if (should_refresh)
+        if (wallet_m->exists (account_a))
         {
             accounts.refresh ();
         }
@@ -387,47 +382,6 @@ last_status (rai_qt::status::disconnected)
             history.refresh ();
 			self.refresh_balance ();
 		}
-    });
-    node.receive_observers.push_back ([this] (rai::receive_block const &, rai::account const & account_a, rai::amount const &)
-    {
-		bool should_refresh;
-		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			should_refresh = wallet_m->store.exists (transaction, account_a);
-		}
-        if (should_refresh)
-        {
-            accounts.refresh ();
-        }
-		if (account_a == account)
-		{
-            history.refresh ();
-			self.refresh_balance ();
-		}
-    });
-    node.open_observers.push_back ([this] (rai::open_block const &, rai::account const & account_a, rai::amount const &, rai::account const &)
-    {
-		bool should_refresh;
-		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			should_refresh = wallet_m->store.exists (transaction, account_a);
-		}
-        if (should_refresh)
-        {
-            accounts.refresh ();
-        }
-		if (account_a == account)
-		{
-            history.refresh ();
-			self.refresh_balance ();
-		}
-    });
-    node.change_observers.push_back ([this] (rai::change_block const &, rai::account const & account_a, rai::account const &)
-    {
-        if (account == account_a)
-        {
-            history.refresh ();
-        }
     });
 	node.endpoint_observers.push_back ([this] (rai::endpoint const &)
 	{

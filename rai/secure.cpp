@@ -240,10 +240,7 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
 
 rai::ledger::ledger (rai::block_store & store_a) :
 store (store_a),
-send_observer ([] (rai::send_block const &, rai::account const &) {}),
-receive_observer ([] (rai::receive_block const &, rai::account const &) {}),
-open_observer ([] (rai::open_block const &, rai::account const &) {}),
-change_observer ([] (rai::change_block const &, rai::account const &) {})
+observer ([] (rai::block const &, rai::account const &) {})
 {
 }
 
@@ -2593,7 +2590,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 					ledger.move_representation (transaction, frontier.representative, block_a.hashables.representative, ledger.balance (transaction, block_a.hashables.previous));
 					ledger.store.block_put (transaction, message, block_a);
 					ledger.change_latest (transaction, account, message, block_a.hashables.representative, frontier.balance);
-                    ledger.change_observer (block_a, account);
+                    ledger.observer (block_a, account);
                 }
             }
         }
@@ -2627,7 +2624,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 						ledger.store.block_put (transaction, message, block_a);
 						ledger.change_latest (transaction, account, message, frontier.representative, block_a.hashables.balance);
 						ledger.store.pending_put (transaction, message, {account, frontier.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
-						ledger.send_observer (block_a, account);
+						ledger.observer (block_a, account);
                     }
                 }
             }
@@ -2668,7 +2665,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 							ledger.store.block_put (transaction, hash, block_a);
 							ledger.change_latest (transaction, receivable.destination, hash, frontier.representative, new_balance);
 							ledger.move_representation (transaction, source_frontier.representative, frontier.representative, receivable.amount.number ());
-							ledger.receive_observer (block_a, receivable.destination);
+							ledger.observer (block_a, receivable.destination);
                         }
                         else
                         {
@@ -2713,7 +2710,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 							ledger.store.block_put (transaction, hash, block_a);
 							ledger.change_latest (transaction, receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
 							ledger.move_representation (transaction, source_frontier.representative, block_a.hashables.representative, receivable.amount.number ());
-							ledger.open_observer (block_a, receivable.destination);
+							ledger.observer (block_a, receivable.destination);
                         }
                     }
                 }

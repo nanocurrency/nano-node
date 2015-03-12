@@ -471,10 +471,7 @@ public:
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
 	rai::block_store & store;
-	std::function <void (rai::send_block const &, rai::account const &)> send_observer;
-	std::function <void (rai::receive_block const &, rai::account const &)> receive_observer;
-	std::function <void (rai::open_block const &, rai::account const &)> open_observer;
-	std::function <void (rai::change_block const &, rai::account const &)> change_observer;
+	std::function <void (rai::block const &, rai::account const &)> observer;
 };
 extern rai::keypair const test_genesis_key;
 extern rai::account const rai_test_account;

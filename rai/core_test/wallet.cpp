@@ -75,6 +75,7 @@ TEST (wallet, two_item_iteration)
 	ASSERT_FALSE (init);
 	rai::keypair key1;
 	rai::keypair key2;
+	ASSERT_NE (key1.pub, key2.pub);
 	std::unordered_set <rai::public_key> pubs;
 	std::unordered_set <rai::private_key> prvs;
 	{

@@ -1419,58 +1419,27 @@ logging (logging_a)
     boost::log::add_common_attributes ();
     boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
-    ledger.send_observer = [this] (rai::send_block const & block_a, rai::account const & account_a)
+    ledger.observer = [this] (rai::block const & block_a, rai::account const & account_a)
     {
-		service.add (std::chrono::system_clock::now (), [this, block_a, account_a] ()
+		std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
+		auto node_l (shared ());
+		service.add (std::chrono::system_clock::now (), [node_l, block_l, account_a] ()
 		{
-			for (auto & i: send_observers)
+			for (auto & i: node_l->observers)
 			{
-				i (block_a, account_a);
+				i (*block_l, account_a);
 			}
 		});
     };
-    ledger.receive_observer = [this] (rai::receive_block const & block_a, rai::account const & account_a)
-    {
-        for (auto & i: receive_observers)
-        {
-            i (block_a, account_a);
-        }
-    };
-    ledger.open_observer = [this] (rai::open_block const & block_a, rai::account const & account_a)
-    {
-        for (auto & i: open_observers)
-        {
-            i (block_a, account_a);
-        }
-    };
-    ledger.change_observer = [this] (rai::change_block const & block_a, rai::account const & account_a)
-    {
-        for (auto & i: change_observers)
-        {
-            i (block_a, account_a);
-        }
-    };
-    send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a)
+	observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
     {
 		send_visitor visitor (*this);
 		block_a.visit (visitor);
     });
-    send_observers.push_back ([this] (rai::send_block const & block_a, rai::account const & account_a)
+    observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
     {
 		wallets.cache_work (account_a);
     });
-    receive_observers.push_back ([this] (rai::receive_block const & block_a, rai::account const & account_a)
-	{
-		wallets.cache_work (account_a);
-	});
-    open_observers.push_back ([this] (rai::open_block const & block_a, rai::account const & account_a)
-	{
-		wallets.cache_work (account_a);
-	});
-    change_observers.push_back ([this] (rai::change_block const & block_a, rai::account const & account_a)
-	{
-		wallets.cache_work (account_a);
-	});
     if (!init_a.error ())
     {
         if (logging.node_lifetime_tracing ())
