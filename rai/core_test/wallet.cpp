@@ -488,10 +488,7 @@ TEST (wallet, work)
 	ASSERT_EQ (0, work1);
     ASSERT_TRUE (wallet->store.exists (transaction, account1));
     wallet->work_update (transaction, account1, 0, rai::work_generate (0));
-    {
-        std::lock_guard <std::mutex> lock (wallet->mutex);
-        ASSERT_FALSE (rai::work_validate (0, wallet->work_fetch (transaction, account1, 0)));
-    }
+	ASSERT_FALSE (rai::work_validate (0, wallet->work_fetch (transaction, account1, 0)));
     ASSERT_FALSE (wallet->store.work_get (transaction, account1, work1));
 	ASSERT_EQ (0, work1);
     auto root1 (system.nodes [0]->ledger.latest_root (transaction, account1));
@@ -499,12 +496,9 @@ TEST (wallet, work)
     wallet->work_update (transaction, account1, root1, work2);
     uint64_t work3;
     ASSERT_FALSE (wallet->store.work_get (transaction, account1, work3));
-    {
-        std::lock_guard <std::mutex> lock (wallet->mutex);
-        auto work4 (wallet->work_fetch (transaction, account1, root1));
-        ASSERT_FALSE (rai::work_validate (root1, work4));
-        ASSERT_EQ (work3, work4);
-    }
+	auto work4 (wallet->work_fetch (transaction, account1, root1));
+	ASSERT_FALSE (rai::work_validate (root1, work4));
+	ASSERT_EQ (work3, work4);
     ASSERT_EQ (work2, work3);
 }
 
@@ -576,7 +570,6 @@ TEST (wallet, unsynced_work)
     auto wallet (system.wallet (0));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 	wallet->store.work_put (transaction, 0, 0);
-	std::lock_guard <std::mutex> lock (wallet->mutex);
 	auto work1 (wallet->work_fetch (transaction, 0, 0));
 	ASSERT_FALSE (rai::work_validate (0, work1));
 }

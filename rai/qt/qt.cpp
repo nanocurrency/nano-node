@@ -976,7 +976,6 @@ void rai_qt::block_creation::create_send ()
                 rai::private_key key;
                 if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
                 {
-					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     auto balance (wallet.node.ledger.account_balance (transaction, account_l));
                     if (amount_l.number () <= balance)
                     {
@@ -1040,7 +1039,6 @@ void rai_qt::block_creation::create_receive ()
                 auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                 if (!error)
                 {
-					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     rai::receive_block receive (frontier.hash, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, frontier.hash));
                     key.clear ();
                     std::string block_l;
@@ -1093,7 +1091,6 @@ void rai_qt::block_creation::create_change ()
                 auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
                 if (!error)
                 {
-					std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                     rai::change_block change (representative_l, frontier.hash, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, frontier.hash));
                     key.clear ();
                     std::string block_l;
@@ -1149,7 +1146,6 @@ void rai_qt::block_creation::create_open ()
                     auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                     if (!error)
                     {
-						std::lock_guard <std::mutex> lock (wallet.wallet_m->mutex);
                         rai::open_block open (receivable.destination, representative_l, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, receivable.destination));
                         key.clear ();
                         std::string block_l;
