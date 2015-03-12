@@ -100,18 +100,15 @@ TEST (ledger, process_send)
     rai::account account1;
     rai::amount amount1;
 	// Hook the send observer and make sure it's the one we just created
-    ledger.send_observer = [&account1, &amount1, &send] (rai::send_block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
+    ledger.send_observer = [&account1, &send] (rai::send_block const & block_a, rai::account const & account_a)
     {
 	    account1 = account_a;
-        amount1 = amount_a;
         ASSERT_EQ (send, block_a);
     };
 	// This was a valid block, it should progress.
     ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send));
 	// Account from send observer should have been the genesis account
     ASSERT_EQ (rai::test_genesis_key.pub, account1);
-	// Amount from the send observer should be how much we just sent
-    ASSERT_EQ (rai::amount (50), amount1);
     ASSERT_EQ (50, ledger.account_balance (transaction, rai::test_genesis_key.pub));
     rai::frontier frontier2;
     ASSERT_FALSE (store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
@@ -185,19 +182,13 @@ TEST (ledger, process_receive)
     rai::open_block open (key2.pub, key3.pub, hash1, key2.prv, key2.pub, rai::work_generate (key2.pub));
     rai::block_hash hash2 (open.hash ());
     rai::account account2;
-    rai::amount amount2;
-    rai::account account3;
-    ledger.open_observer = [&account2, &amount2, &account3, &open] (rai::open_block const & block_a, rai::account const & account_a, rai::amount const & amount_a, rai::account const & representative_a)
+    ledger.open_observer = [&account2, &open] (rai::open_block const & block_a, rai::account const & account_a)
     {
         account2 = account_a;
-        amount2 = amount_a;
-        account3 = representative_a;
         ASSERT_EQ (open, block_a);
     };
     ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, open));
     ASSERT_EQ (key2.pub, account2);
-    ASSERT_EQ (rai::amount (rai::genesis_amount - 50), amount2);
-    ASSERT_EQ (key3.pub, account3);
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key3.pub));
 	rai::send_block send2 (key2.pub, hash1, 25, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     rai::block_hash hash3 (send2.hash ());
@@ -205,15 +196,12 @@ TEST (ledger, process_receive)
 	rai::receive_block receive (hash2, hash3, key2.prv, key2.pub, 0);
 	auto hash4 (receive.hash ());
     rai::account account1;
-    rai::amount amount1;
-    ledger.receive_observer = [&account1, &amount1, &receive] (rai::receive_block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
+    ledger.receive_observer = [&account1, &receive] (rai::receive_block const & block_a, rai::account const & account_a)
     {
         account1 = account_a;
-        amount1 = amount_a;
         ASSERT_EQ (receive, block_a);
     };
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive));
-    ASSERT_EQ (rai::uint128_union (rai::genesis_amount - 25), amount1);
     ASSERT_EQ (key2.pub, account1);
 	ASSERT_EQ (hash4, ledger.latest (transaction, key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
@@ -368,16 +356,13 @@ TEST (ledger, representative_change)
     ASSERT_FALSE (store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::change_block block (key2.pub, frontier1.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     rai::account account1;
-    rai::account account2;
-    ledger.change_observer = [&account1, &account2, &block] (rai::change_block const & block_a, rai::account const & account_a, rai::account const & representative_a)
+    ledger.change_observer = [&account1, &block] (rai::change_block const & block_a, rai::account const & account_a)
     {
         account1 = account_a;
-        account2 = representative_a;
         ASSERT_EQ (block, block_a);
     };
     ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block));
     ASSERT_EQ (rai::test_genesis_key.pub, account1);
-    ASSERT_EQ (key2.pub, account2);
     ASSERT_EQ (0, ledger.weight (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key2.pub));
 	rai::frontier frontier2;
