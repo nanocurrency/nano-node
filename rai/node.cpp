@@ -3505,7 +3505,7 @@ rai::bootstrap_client::~bootstrap_client ()
 {
 	if (node->logging.network_logging ())
 	{
-		BOOST_LOG (node->log) << "Exiting bootstrap processor";
+		BOOST_LOG (node->log) << "Exiting bootstrap client";
 	}
 	completion_action ();
 }
@@ -3894,7 +3894,7 @@ rai::bootstrap_server::~bootstrap_server ()
 {
     if (node->logging.network_logging ())
     {
-        BOOST_LOG (node->log) << "Exiting bootstrap connection";
+        BOOST_LOG (node->log) << "Exiting bootstrap server";
     }
 }
 
