@@ -764,65 +764,68 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 {
     auto hash (send_a.hash ());
     bool result;
-	rai::transaction transaction (node.ledger.store.environment, nullptr, false);
-    if (node.ledger.store.pending_exists (transaction, hash))
-    {
-        rai::frontier frontier;
-        auto new_account (node.ledger.store.latest_get (transaction, send_a.hashables.destination, frontier));
-        std::unique_ptr <rai::block> block;
-        if (!new_account)
-        {
-            auto receive (new rai::receive_block (frontier.hash, hash, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, frontier.hash)));
-            block.reset (receive);
-        }
-        else
-        {
-            block.reset (new rai::open_block (send_a.hashables.destination, representative_a, hash, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, send_a.hashables.destination)));
-        }
-		transaction.commit ();
-        node.process_receive_republish (std::move (block));
-        result = false;
-    }
-    else
-    {
-        result = true;
-        // Ledger doesn't have this marked as available to receive anymore
-    }
+	std::unique_ptr <rai::block> block;
+	{
+		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
+		if (node.ledger.store.pending_exists (transaction, hash))
+		{
+			rai::frontier frontier;
+			auto new_account (node.ledger.store.latest_get (transaction, send_a.hashables.destination, frontier));
+			if (!new_account)
+			{
+				auto receive (new rai::receive_block (frontier.hash, hash, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, frontier.hash)));
+				block.reset (receive);
+			}
+			else
+			{
+				block.reset (new rai::open_block (send_a.hashables.destination, representative_a, hash, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, send_a.hashables.destination)));
+			}
+			result = false;
+		}
+		else
+		{
+			result = true;
+			// Ledger doesn't have this marked as available to receive anymore
+		}
+	}
+    node.process_receive_republish (std::move (block));
     return result;
 }
 
 bool rai::wallet::send (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
-	auto result (!store.valid_password (transaction));
-	if (!result)
+	std::unique_ptr <rai::send_block> block;
+	rai::account account;
+	auto result (false);
 	{
-		auto existing (store.find (transaction, source_a));
-		if (existing != store.end ())
+		rai::transaction transaction (store.environment, nullptr, true);
+		result = !store.valid_password (transaction);
+		if (!result)
 		{
-			auto balance (node.ledger.account_balance (transaction, source_a));
-			if (!balance.is_zero ())
+			auto existing (store.find (transaction, source_a));
+			if (existing != store.end ())
 			{
-				if (balance >= amount_a)
+				auto balance (node.ledger.account_balance (transaction, source_a));
+				if (!balance.is_zero ())
 				{
-					rai::frontier frontier;
-					result = node.ledger.store.latest_get (transaction, source_a, frontier);
-					assert (!result);
-					rai::private_key prv;
-					result = store.fetch (transaction, source_a, prv);
-					assert (!result);
-					std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
-					prv.clear ();
-					std::shared_ptr <rai::send_block> block_l (block.release ());
-					auto node_l (node.shared ());
-					auto result (node.ledger.process (transaction, *block_l));
-					assert (result.code == rai::process_result::progress);
-					transaction.commit ();
-					node.call_observers (*block_l, result.account);
-					node.service.add (std::chrono::system_clock::now (), [node_l, block_l] ()
+					if (balance >= amount_a)
 					{
-						node_l->network.republish_block (block_l->clone ());
-					});
+						rai::frontier frontier;
+						result = node.ledger.store.latest_get (transaction, source_a, frontier);
+						assert (!result);
+						rai::private_key prv;
+						result = store.fetch (transaction, source_a, prv);
+						assert (!result);
+						block.reset (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
+						prv.clear ();
+						auto result (node.ledger.process (transaction, *block));
+						account = result.account;
+						assert (result.code == rai::process_result::progress);
+					}
+				}
+				else
+				{
+					result = true;
 				}
 			}
 			else
@@ -830,71 +833,76 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 				result = true;
 			}
 		}
-		else
-		{
-			result = true;
-		}
+	}
+	if (!result)
+	{
+		assert (block != nullptr);
+		node.call_observers (*block, account);
+		node.network.republish_block (block->clone ());
 	}
 	return result;
 }
 
 bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
     std::vector <std::unique_ptr <rai::send_block>> blocks;
-    auto result (!store.valid_password (transaction));
-    if (!result)
-    {
-        rai::uint128_t remaining (amount_a);
-        for (auto i (store.begin (transaction)), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
-        {
-            auto account (i->first);
-            auto balance (node.ledger.account_balance (transaction, account));
-            if (!balance.is_zero ())
-            {
-                rai::frontier frontier;
-                result = node.ledger.store.latest_get (transaction, account, frontier);
-                assert (!result);
-                auto amount (std::min (remaining, balance));
-                remaining -= amount;
-                rai::private_key prv;
-                result = store.fetch (transaction, account, prv);
-                assert (!result);
-                std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount, prv, account, work_fetch (transaction, account, frontier.hash)));
-                prv.clear ();
-                blocks.push_back (std::move (block));
-            }
-        }
-        if (!remaining.is_zero ())
-        {
-            BOOST_LOG (node.log) << "Wallet contained insufficient coins";
-            // Destroy the sends because they're signed and we're not going to use them.
-            result = true;
-            blocks.clear ();
-        }
-        else
-        {
-			for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+	std::vector <rai::account> accounts;
+	auto result (false);
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		result = !store.valid_password (transaction);
+		if (!result)
+		{
+			rai::uint128_t remaining (amount_a);
+			for (auto i (store.begin (transaction)), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
 			{
-				auto result (node.ledger.process (transaction, **i));
-				assert (result.code == rai::process_result::progress);
-				node.call_observers (**i, result.account);
-			}
-			auto node_l (node.shared ());
-            for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
-            {
-				std::shared_ptr <rai::block> block_l (i->release ());
-				node.service.add (std::chrono::system_clock::now (), [node_l, block_l]
+				auto account (i->first);
+				auto balance (node.ledger.account_balance (transaction, account));
+				if (!balance.is_zero ())
 				{
-					node_l->network.republish_block (block_l->clone ());
-				});
-            }
-        }
-    }
-    else
-    {
-        BOOST_LOG (node.log) << "Wallet key is invalid";
-    }
+					rai::frontier frontier;
+					result = node.ledger.store.latest_get (transaction, account, frontier);
+					assert (!result);
+					auto amount (std::min (remaining, balance));
+					remaining -= amount;
+					rai::private_key prv;
+					result = store.fetch (transaction, account, prv);
+					assert (!result);
+					std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount, prv, account, work_fetch (transaction, account, frontier.hash)));
+					prv.clear ();
+					blocks.push_back (std::move (block));
+				}
+			}
+			if (!remaining.is_zero ())
+			{
+				BOOST_LOG (node.log) << "Wallet contained insufficient coins";
+				// Destroy the sends because they're signed and we're not going to use them.
+				result = true;
+				blocks.clear ();
+				accounts.clear ();
+			}
+			else
+			{
+				for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
+				{
+					auto result (node.ledger.process (transaction, **i));
+					assert (result.code == rai::process_result::progress);
+					accounts.push_back (result.account);
+				}
+			}
+		}
+		else
+		{
+			BOOST_LOG (node.log) << "Wallet key is invalid";
+		}
+	}
+	auto j (accounts.begin ());
+	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i, ++j)
+	{
+		assert (j != accounts.end ());
+		node.call_observers (**i, *j);
+		node.network.republish_block (std::move (*i));
+	}
     return result;
 }
 
@@ -1329,36 +1337,42 @@ public:
 	}
 	void send_block (rai::send_block const & block_a)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
-        for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
-        {
-            auto & wallet (*i->second);
-            if (wallet.store.find (transaction, block_a.hashables.destination) != wallet.store.end ())
-            {
-				transaction.commit ();
-                if (node.logging.ledger_logging ())
-                {
-                    BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
-                }
-                node.conflicts.start (block_a, false);
-                auto root (block_a.root ());
-                std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
-				auto node_l (node.shared ());
-                node.service.add (std::chrono::system_clock::now () + rai::confirm_wait, [node_l, root, block_l] ()
-                {
-                    if (node_l->conflicts.no_conflict (root))
-                    {
-                        node_l->process_confirmed (*block_l);
-                    }
-                    else
-                    {
-                        if (node_l->logging.ledger_logging ())
-                        {
-                            BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to fast-confirm block: %1% because root: %2% is in conflict") % block_l->hash ().to_string () % root.to_string ());
-                        }
-                    }
-                });
-            }
+		auto receive (false);
+		{
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n && receive == false; ++i)
+			{
+				auto & wallet (*i->second);
+				if (wallet.store.find (transaction, block_a.hashables.destination) != wallet.store.end ())
+				{
+					receive = true;
+				}
+			}
+		}
+		if (receive)
+		{
+			if (node.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
+			}
+			node.conflicts.start (block_a, false);
+			auto root (block_a.root ());
+			std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
+			auto node_l (node.shared ());
+			node.service.add (std::chrono::system_clock::now () + rai::confirm_wait, [node_l, root, block_l] ()
+			{
+				if (node_l->conflicts.no_conflict (root))
+				{
+					node_l->process_confirmed (*block_l);
+				}
+				else
+				{
+					if (node_l->logging.ledger_logging ())
+					{
+						BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to fast-confirm block: %1% because root: %2% is in conflict") % block_l->hash ().to_string () % root.to_string ());
+					}
+				}
+			});
         }
 	}
 	void receive_block (rai::receive_block const &)
@@ -1607,7 +1621,6 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
         {
             case rai::process_result::progress:
             {
-				call_observers (*block, process_result.account);
                 network.republish_block (std::move (block));
                 break;
             }
@@ -1623,8 +1636,11 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 
 rai::process_return rai::node::process_receive (rai::block const & block_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
-    auto result (ledger.process (transaction, block_a));
+	rai::process_return result;
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		result = ledger.process (transaction, block_a);
+	}
     switch (result.code)
     {
         case rai::process_result::progress:
@@ -1704,13 +1720,12 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
             }
-			auto node_l (shared ());
-			auto root (ledger.successor (transaction, block_a.root ()));
-			std::shared_ptr <rai::block> root_l (root.release ());
-			service.add (std::chrono::system_clock::now (), [node_l, root_l]
+			std::unique_ptr <rai::block> root;
 			{
-				node_l->conflicts.start (*root_l, false);
-			});
+				rai::transaction transaction (store.environment, nullptr, false);
+				root = ledger.successor (transaction, block_a.root ());
+			}
+			conflicts.start (*root, false);
             break;
         }
         case rai::process_result::account_mismatch:
@@ -2997,24 +3012,35 @@ void rai::node::ongoing_keepalive ()
 
 void rai::node::search_pending ()
 {
-	std::unordered_set <rai::uint256_union> wallet;
-	rai::transaction transaction (store.environment, nullptr, false);
-	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+	std::unordered_set <rai::block_hash> blocks;
 	{
-		for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
+		std::unordered_set <rai::uint256_union> wallet;
+		rai::transaction transaction (store.environment, nullptr, false);
+		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 		{
-			wallet.insert (j->first);
+			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
+			{
+				wallet.insert (j->first);
+			}
+		}
+		for (auto i (store.pending_begin (transaction)), n (store.pending_end ()); i != n; ++i)
+		{
+			if (wallet.find (rai::receivable (i->second).destination) != wallet.end ())
+			{
+				blocks.insert (i->first);
+			}
 		}
 	}
-	for (auto i (store.pending_begin (transaction)), n (store.pending_end ()); i != n; ++i)
+	for (auto i: blocks)
 	{
-		if (wallet.find (rai::receivable (i->second).destination) != wallet.end ())
+		std::unique_ptr <rai::block> block;
 		{
-			auto block (store.block_get (transaction, i->first));
-			assert (block != nullptr);
-			assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-			conflicts.start (*block, true);
+			rai::transaction transaction (store.environment, nullptr, false);
+			block = store.block_get (transaction, i);
 		}
+		assert (block != nullptr);
+		assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
+		conflicts.start (*block, true);
 	}
 }
 
@@ -3029,25 +3055,29 @@ public:
     }
     void send_block (rai::send_block const & block_a) override
     {
-        rai::private_key prv;
         for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
         {
-			rai::transaction transaction (node.store.environment, nullptr, false);
 			auto wallet (i->second);
-            if (!wallet->store.fetch (transaction, block_a.hashables.destination, prv))
-            {
-				auto representative (wallet->store.representative (transaction));
-				transaction.commit ();
-                auto error (wallet->receive (block_a, prv, representative));
-                prv.clear ();
-            }
-            else
-            {
-				if (wallet->store.exists (transaction, block_a.hashables.destination))
+			if (wallet->exists (block_a.hashables.destination))
+			{
+				rai::private_key prv;
+				rai::account representative;
+				auto error (false);
+				{
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					error = !wallet->store.fetch (transaction, block_a.hashables.destination, prv);
+					representative = wallet->store.representative (transaction);
+				}
+				if (!error)
+				{
+					auto error (wallet->receive (block_a, prv, representative));
+					prv.clear ();
+				}
+				else
 				{
 					BOOST_LOG (node.log) << "While confirming, unable to fetch wallet key";
 				}
-            }
+			}
         }
     }
     void receive_block (rai::receive_block const &) override
@@ -4853,42 +4883,40 @@ void rai::election::vote (rai::vote const & vote_a)
 	if (node_l != nullptr)
 	{
 		auto changed (votes.vote (vote_a));
-		if (!confirmed && changed)
+		std::unique_ptr <rai::block> winner;
+		auto was_confirmed (confirmed);
 		{
 			rai::transaction transaction (node_l->store.environment, nullptr, true);
-			auto tally_l (node_l->ledger.tally (transaction, votes));
-			assert (tally_l.size () > 0);
-			auto winner (tally_l.begin ()->second->clone ());
-			if (!(*winner == *last_winner))
+			if (!was_confirmed && changed)
 			{
-				node_l->ledger.rollback (transaction, last_winner->hash ());
-				node_l->ledger.process (transaction, *winner);
-				last_winner = std::move (winner);
-			}
-			if (tally_l.size () == 1)
-			{
-				if (tally_l.begin ()->first > uncontested_threshold (node_l->ledger))
+				auto tally_l (node_l->ledger.tally (transaction, votes));
+				assert (tally_l.size () > 0);
+				winner = tally_l.begin ()->second->clone ();
+				if (!(*winner == *last_winner))
 				{
-					confirmed = true;
-					std::shared_ptr <rai::block> winner_l (winner.release ());
-					node_l->service.add (std::chrono::system_clock::now (), [node_l, winner_l] ()
+					node_l->ledger.rollback (transaction, last_winner->hash ());
+					node_l->ledger.process (transaction, *winner);
+					last_winner = winner->clone ();
+				}
+				if (tally_l.size () == 1)
+				{
+					if (tally_l.begin ()->first > uncontested_threshold (node_l->ledger))
 					{
-						node_l->process_confirmed (*winner_l);
-					});
+						confirmed = true;
+					}
+				}
+				else
+				{
+					if (tally_l.begin ()->first > contested_threshold (node_l->ledger))
+					{
+						confirmed = true;
+					}
 				}
 			}
-			else
-			{
-				if (tally_l.begin ()->first > contested_threshold (node_l->ledger))
-				{
-					confirmed = true;
-					std::shared_ptr <rai::block> winner_l (winner.release ());
-					node_l->service.add (std::chrono::system_clock::now (), [node_l, winner_l] ()
-					{
-						node_l->process_confirmed (*winner_l);
-					});
-				}
-			}
+		}
+		if (!was_confirmed && confirmed)
+		{
+			node_l->process_confirmed (*winner);
 		}
 	}
 }
@@ -4987,20 +5015,27 @@ node (node_a)
 bool rai::node::representative_vote (rai::election & election_a, rai::block const & block_a)
 {
     bool result (false);
-	rai::transaction transaction (store.environment, nullptr, false);
-    for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
-        if (i->second->store.is_representative (transaction))
-        {
-            auto representative (i->second->store.representative (transaction));
-            rai::private_key prv;
-            i->second->store.fetch (transaction, representative, prv);
-            rai::vote vote_l (representative, prv, 0, block_a.clone ());
-            prv.clear ();
-			transaction.commit ();
-            election_a.vote (vote_l);
-            result = true;
-        }
+		auto is_representative (false);
+		rai::vote vote_l;
+		{
+			rai::transaction transaction (store.environment, nullptr, false);
+			is_representative = i->second->store.is_representative (transaction);
+			if (is_representative)
+			{
+				auto representative (i->second->store.representative (transaction));
+				rai::private_key prv;
+				auto error (i->second->store.fetch (transaction, representative, prv));
+				vote_l = rai::vote (representative, prv, 0, block_a.clone ());
+				prv.clear ();
+				result = true;
+			}
+		}
+		if (is_representative)
+		{
+			election_a.vote (vote_l);
+		}
 	}
     return result;
 }

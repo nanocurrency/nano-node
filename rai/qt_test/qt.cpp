@@ -318,7 +318,7 @@ TEST (wallet, create_send)
 	rai::send_block send (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (send).code);
-	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (send));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (send).code);
 }
 
 TEST (wallet, create_open_receive)
@@ -350,7 +350,7 @@ TEST (wallet, create_open_receive)
 	bool error;
 	rai::open_block open (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open).code);
 	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (open).code);
 	wallet.block_creation.block->clear ();
 	wallet.block_creation.source->clear ();

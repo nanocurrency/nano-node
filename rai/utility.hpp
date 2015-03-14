@@ -74,7 +74,6 @@ public:
 	transaction (std::nullptr_t);
 	transaction (MDB_env *, MDB_txn *, bool);
 	~transaction ();
-	void commit ();
 	operator MDB_txn * () const;
 	MDB_txn * handle;
 };

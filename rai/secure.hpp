@@ -420,6 +420,7 @@ public:
 class vote
 {
 public:
+	vote () = default;
 	vote (bool &, rai::stream &, rai::block_type);
 	vote (rai::account const &, rai::private_key const &, uint64_t, std::unique_ptr <rai::block>);
 	rai::uint256_union hash () const;
