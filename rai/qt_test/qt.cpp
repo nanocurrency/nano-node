@@ -317,7 +317,7 @@ TEST (wallet, create_send)
 	bool error;
 	rai::send_block send (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (send));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (send).code);
 	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (send));
 }
 
@@ -351,7 +351,7 @@ TEST (wallet, create_open_receive)
 	rai::open_block open (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open));
-	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (open));
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (open).code);
 	wallet.block_creation.block->clear ();
 	wallet.block_creation.source->clear ();
 	QTest::mouseClick (wallet.block_creation.receive, Qt::LeftButton);
@@ -365,8 +365,8 @@ TEST (wallet, create_open_receive)
 	bool error2;
 	rai::receive_block receive (error2, tree2);
 	ASSERT_FALSE (error2);
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (receive));
-	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (receive));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (receive).code);
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (receive).code);
 }
 
 TEST (wallet, create_change)
@@ -392,8 +392,8 @@ TEST (wallet, create_change)
 	bool error (false);
 	rai::change_block change (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (change));
-	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (change));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (change).code);
+	ASSERT_EQ (rai::process_result::old, system.nodes [0]->process (change).code);
 }
 
 TEST (history, short_text)
@@ -408,11 +408,11 @@ TEST (history, short_text)
 		genesis.initialize (transaction, store);
 		rai::keypair key;
 		rai::send_block send (rai::test_genesis_key.pub, ledger.latest (transaction, rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (ledger.latest (transaction, rai::test_genesis_key.pub)));
-		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send));
+		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
 		rai::receive_block receive (send.hash (), send.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive));
+		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive).code);
 		rai::change_block change (key.pub, receive.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, change));
+		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, change).code);
 	}
 	int argc (0);
 	QApplication application (argc, nullptr);
