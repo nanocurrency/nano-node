@@ -788,7 +788,10 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 			// Ledger doesn't have this marked as available to receive anymore
 		}
 	}
-    node.process_receive_republish (std::move (block));
+	if (!result)
+	{
+		node.process_receive_republish (std::move (block));
+	}
     return result;
 }
 
@@ -1612,6 +1615,7 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
 
 void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming)
 {
+	assert (incoming != nullptr);
     std::unique_ptr <rai::block> block (std::move (incoming));
     do
     {
@@ -3065,7 +3069,7 @@ public:
 				auto error (false);
 				{
 					rai::transaction transaction (node.store.environment, nullptr, false);
-					error = !wallet->store.fetch (transaction, block_a.hashables.destination, prv);
+					error = wallet->store.fetch (transaction, block_a.hashables.destination, prv);
 					representative = wallet->store.representative (transaction);
 				}
 				if (!error)
