@@ -798,7 +798,6 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 bool rai::wallet::send (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::unique_ptr <rai::send_block> block;
-	rai::account account;
 	auto result (false);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
@@ -821,9 +820,6 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 						assert (!result);
 						block.reset (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
 						prv.clear ();
-						auto result (node.ledger.process (transaction, *block));
-						account = result.account;
-						assert (result.code == rai::process_result::progress);
 					}
 				}
 				else
@@ -840,8 +836,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	if (!result)
 	{
 		assert (block != nullptr);
-		node.call_observers (*block, account);
-		node.network.republish_block (block->clone ());
+		node.process_receive_republish (block->clone ());
 	}
 	return result;
 }
@@ -849,7 +844,6 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a)
 {
     std::vector <std::unique_ptr <rai::send_block>> blocks;
-	std::vector <rai::account> accounts;
 	auto result (false);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
@@ -882,16 +876,6 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 				// Destroy the sends because they're signed and we're not going to use them.
 				result = true;
 				blocks.clear ();
-				accounts.clear ();
-			}
-			else
-			{
-				for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
-				{
-					auto result (node.ledger.process (transaction, **i));
-					assert (result.code == rai::process_result::progress);
-					accounts.push_back (result.account);
-				}
 			}
 		}
 		else
@@ -899,12 +883,9 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 			BOOST_LOG (node.log) << "Wallet key is invalid";
 		}
 	}
-	auto j (accounts.begin ());
-	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i, ++j)
+	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 	{
-		assert (j != accounts.end ());
-		node.call_observers (**i, *j);
-		node.network.republish_block (std::move (*i));
+		node.process_receive_republish (std::move (*i));
 	}
     return result;
 }
@@ -3843,8 +3824,6 @@ void rai::bulk_pull_client::process_end ()
 		switch (process_result.code)
 		{
 			case rai::process_result::progress:
-				connection->connection->node->call_observers (block_a, process_result.account);
-				break;
 			case rai::process_result::old:
 				break;
 			case rai::process_result::fork:
