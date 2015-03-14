@@ -145,7 +145,7 @@ TEST (node, quick_confirm)
 	uint64_t work (rai::work_generate (previous));
 	system.wallet (0)->insert (key.prv);
     rai::send_block send (key.pub, previous, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send));
+    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send).code);
     auto iterations (0);
     while (system.nodes [0]->balance (key.pub).is_zero ())
     {

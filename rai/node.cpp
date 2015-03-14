@@ -816,7 +816,9 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 					std::shared_ptr <rai::send_block> block_l (block.release ());
 					auto node_l (node.shared ());
 					auto result (node.ledger.process (transaction, *block_l));
-					assert (result == rai::process_result::progress);
+					assert (result.code == rai::process_result::progress);
+					transaction.commit ();
+					node.call_observers (*block_l, result.account);
 					node.service.add (std::chrono::system_clock::now (), [node_l, block_l] ()
 					{
 						node_l->network.republish_block (block_l->clone ());
@@ -875,7 +877,8 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 			for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
 			{
 				auto result (node.ledger.process (transaction, **i));
-				assert (result == rai::process_result::progress);
+				assert (result.code == rai::process_result::progress);
+				node.call_observers (**i, result.account);
 			}
 			auto node_l (node.shared ());
             for (auto i (blocks.begin ()), j (blocks.end ()); i != j; ++i)
@@ -1419,18 +1422,6 @@ logging (logging_a)
     boost::log::add_common_attributes ();
     boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
-    ledger.observer = [this] (rai::block const & block_a, rai::account const & account_a)
-    {
-		std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
-		auto node_l (shared ());
-		service.add (std::chrono::system_clock::now (), [node_l, block_l, account_a] ()
-		{
-			for (auto & i: node_l->observers)
-			{
-				i (*block_l, account_a);
-			}
-		});
-    };
 	observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
     {
 		send_visitor visitor (*this);
@@ -1612,10 +1603,11 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
     {
         auto hash (block->hash ());
         auto process_result (process_receive (*block));
-        switch (process_result)
+        switch (process_result.code)
         {
             case rai::process_result::progress:
             {
+				call_observers (*block, process_result.account);
                 network.republish_block (std::move (block));
                 break;
             }
@@ -1629,14 +1621,15 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
     while (block != nullptr);
 }
 
-rai::process_result rai::node::process_receive (rai::block const & block_a)
+rai::process_return rai::node::process_receive (rai::block const & block_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
     auto result (ledger.process (transaction, block_a));
-    switch (result)
+    switch (result.code)
     {
         case rai::process_result::progress:
         {
+			call_observers (block_a, result.account);
             if (logging.ledger_logging ())
             {
                 std::string block;
@@ -1731,7 +1724,7 @@ rai::process_result rai::node::process_receive (rai::block const & block_a)
     return result;
 }
 
-rai::process_result rai::node::process (rai::block const & block_a)
+rai::process_return rai::node::process (rai::block const & block_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
 	auto result (ledger.process (transaction, block_a));
@@ -2983,6 +2976,14 @@ rai::uint128_t rai::node::weight (rai::account const & account_a)
 	return ledger.weight (transaction, account_a);
 }
 
+void rai::node::call_observers (rai::block const & block_a, rai::account const & account_a)
+{
+	for (auto & i: observers)
+	{
+		i (block_a, account_a);
+	}
+}
+
 void rai::node::ongoing_keepalive ()
 {
     keepalive_preconfigured (preconfigured_peers);
@@ -3805,9 +3806,11 @@ void rai::bulk_pull_client::process_end ()
 	rai::pull_synchronization synchronization ([this] (rai::block const & block_a)
 	{
 		auto process_result (connection->connection->node->process_receive (block_a));
-		switch (process_result)
+		switch (process_result.code)
 		{
 			case rai::process_result::progress:
+				connection->connection->node->call_observers (block_a, process_result.account);
+				break;
 			case rai::process_result::old:
 				break;
 			case rai::process_result::fork:

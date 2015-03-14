@@ -756,12 +756,13 @@ public:
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_receive_republish (std::unique_ptr <rai::block>);
-    rai::process_result process_receive (rai::block const &);
-	rai::process_result process (rai::block const &);
+    rai::process_return process_receive (rai::block const &);
+	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
+	void call_observers (rai::block const & block_a, rai::account const & account_a);
     void ongoing_keepalive ();
     rai::processor_service & service;
     boost::log::sources::logger log;

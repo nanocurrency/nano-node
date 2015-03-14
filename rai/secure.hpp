@@ -411,6 +411,12 @@ enum class process_result
 	not_receive_from_send, // Receive does not have a send source
 	account_mismatch // Account number in open block doesn't match send destination
 };
+class process_return
+{
+public:
+	rai::process_result code;
+	rai::account account;
+};
 class vote
 {
 public:
@@ -463,7 +469,7 @@ public:
 	rai::account representative_calculated (MDB_txn *, rai::block_hash const &);
 	rai::account representative_cached (rai::block_hash const &);
 	rai::uint128_t supply ();
-	rai::process_result process (MDB_txn *, rai::block const &);
+	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
 	void move_representation (MDB_txn *, rai::account const &, rai::account const &, rai::uint128_t const &);
@@ -471,7 +477,6 @@ public:
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
 	rai::block_store & store;
-	std::function <void (rai::block const &, rai::account const &)> observer;
 };
 extern rai::keypair const test_genesis_key;
 extern rai::account const rai_test_account;
