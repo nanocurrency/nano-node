@@ -251,17 +251,17 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
 						{
 							if (ec)
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1%") % ec.message ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
 							}
 						}
 					});
 			}
         }
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was published") % hash.to_string ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was published from %2%") % hash.to_string () % endpoint ());
     }
 	else
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed") % hash.to_string ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed from %2%") % hash.to_string () % endpoint ());
 	}
 }
 
