@@ -98,7 +98,9 @@ TEST (ledger, process_send)
     rai::send_block send (key2.pub, frontier1.hash, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     rai::block_hash hash1 (send.hash ());
 	// This was a valid block, it should progress.
-    ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
+	auto return1 (ledger.process (transaction, send));
+    ASSERT_EQ (rai::process_result::progress, return1.code);
+	ASSERT_EQ (rai::test_genesis_key.pub, return1.account);
     ASSERT_EQ (50, ledger.account_balance (transaction, rai::test_genesis_key.pub));
     rai::frontier frontier2;
     ASSERT_FALSE (store.latest_get (transaction, rai::test_genesis_key.pub, frontier2));
@@ -171,14 +173,18 @@ TEST (ledger, process_receive)
     rai::keypair key3;
     rai::open_block open (key2.pub, key3.pub, hash1, key2.prv, key2.pub, rai::work_generate (key2.pub));
     rai::block_hash hash2 (open.hash ());
-    ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, open).code);
+	auto return1 (ledger.process (transaction, open));
+    ASSERT_EQ (rai::process_result::progress, return1.code);
+	ASSERT_EQ (key2.pub, return1.account);
     ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key3.pub));
 	rai::send_block send2 (key2.pub, hash1, 25, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     rai::block_hash hash3 (send2.hash ());
     ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send2).code);
 	rai::receive_block receive (hash2, hash3, key2.prv, key2.pub, 0);
 	auto hash4 (receive.hash ());
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive).code);
+	auto return2 (ledger.process (transaction, receive));
+	ASSERT_EQ (rai::process_result::progress, return2.code);
+	ASSERT_EQ (key2.pub, return2.account);
 	ASSERT_EQ (hash4, ledger.latest (transaction, key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (rai::genesis_amount - 25, ledger.account_balance (transaction, key2.pub));
@@ -331,7 +337,9 @@ TEST (ledger, representative_change)
     rai::frontier frontier1;
     ASSERT_FALSE (store.latest_get (transaction, rai::test_genesis_key.pub, frontier1));
     rai::change_block block (key2.pub, frontier1.hash, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-    ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block).code);
+	auto return1 (ledger.process (transaction, block));
+    ASSERT_EQ (rai::process_result::progress, return1.code);
+	ASSERT_EQ (rai::test_genesis_key.pub, return1.account);
     ASSERT_EQ (0, ledger.weight (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key2.pub));
 	rai::frontier frontier2;
