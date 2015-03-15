@@ -1059,8 +1059,7 @@ TEST (ledger, fork_bootstrap_flip)
 	auto again (true);
 	while (again)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+	        system.poll ();
 		++iterations2;
 		ASSERT_LT (iterations2, 200);
 		rai::transaction transaction (node2.store.environment, nullptr, false);

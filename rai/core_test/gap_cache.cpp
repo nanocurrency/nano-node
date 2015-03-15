@@ -64,20 +64,19 @@ TEST (gap_cache, limit)
 
 TEST (gap_cache, gap_bootstrap)
 {
-    rai::system system (24000, 2);
-    auto iterations1 (0);
-    while (system.nodes [0]->bootstrap_initiator.in_progress || system.nodes [1]->bootstrap_initiator.in_progress)
-    {
-        system.service->poll_one ();
-        system.processor.poll_one ();
-        ++iterations1;
-        ASSERT_LT (iterations1, 200);
-    }
+	rai::system system (24000, 2);
+	auto iterations1 (0);
+	while (system.nodes [0]->bootstrap_initiator.in_progress || system.nodes [1]->bootstrap_initiator.in_progress)
+	{
+	        system.poll ();
+		++iterations1;
+		ASSERT_LT (iterations1, 200);
+	}
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	auto work (rai::work_generate (latest));
-    rai::keypair key;
-    rai::send_block send (key.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send).code);
+	rai::keypair key;
+	rai::send_block send (key.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send).code);
 	ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes [1]->balance (rai::genesis_account));
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
@@ -85,12 +84,11 @@ TEST (gap_cache, gap_bootstrap)
 	system.wallet (0)->send_all (key.pub, 100);
 	ASSERT_EQ (rai::genesis_amount - 200, system.nodes [0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes [1]->balance (rai::genesis_account));
-    auto iterations2 (0);
-    while (system.nodes [1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
-    {
-        system.service->poll_one ();
-        system.processor.poll_one ();
-        ++iterations2;
-        ASSERT_LT (iterations2, 200);
-    }
+	auto iterations2 (0);
+	while (system.nodes [1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
+	{
+	        system.poll ();
+		++iterations2;
+		ASSERT_LT (iterations2, 200);
+	}
 }

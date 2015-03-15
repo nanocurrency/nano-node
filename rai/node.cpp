@@ -13,6 +13,8 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <thread>
+
 rai::message_parser::message_parser (rai::message_visitor & visitor_a) :
 visitor (visitor_a),
 error (false),
@@ -1192,7 +1194,7 @@ insufficient_work_logging_value (true),
 log_rpc_value (true),
 bulk_pull_logging_value (true),
 work_generation_time_value (true),
-log_to_cerr_value (false)
+log_to_cerr_value (true)
 {
 }
 
@@ -1862,6 +1864,16 @@ rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
     auto result (keys->first);
     assert (++keys == wallet_l->store.end ());
     return result;
+}
+
+void rai::system::poll ()
+{
+	auto polled1 (service->poll_one ());
+	auto polled2 (processor.poll_one ());
+	if (polled1 == 0 && polled2 == 0)
+	{
+		std::this_thread::sleep_for (std::chrono::milliseconds (50));
+	}
 }
 
 void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)

@@ -158,55 +158,51 @@ TEST (node, quick_confirm)
 
 TEST (node, auto_bootstrap)
 {
-    rai::system system (24000, 1);
-    rai::keypair key2;
+	rai::system system (24000, 1);
+	rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
-    auto iterations1 (0);
-    while (system.nodes [0]->balance (key2.pub) != 100)
-    {
-        system.service->poll_one ();
-        system.processor.poll_one ();
-        ++iterations1;
-        ASSERT_LT (iterations1, 200);
-    }
-    rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
-    ASSERT_FALSE (init1.error ());
-    node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
-    node1->start ();
-    ASSERT_FALSE (node1->bootstrap_initiator.warmed_up);
+	ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
+	auto iterations1 (0);
+	while (system.nodes [0]->balance (key2.pub) != 100)
+	{
+		system.poll ();
+		++iterations1;
+		ASSERT_LT (iterations1, 200);
+	}
+	rai::node_init init1;
+	auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
+	ASSERT_FALSE (init1.error ());
+	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
+	node1->start ();
+	ASSERT_FALSE (node1->bootstrap_initiator.warmed_up);
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress);
 	ASSERT_FALSE (system.nodes [0]->bootstrap_initiator.warmed_up);
 	ASSERT_FALSE (system.nodes [0]->bootstrap_initiator.in_progress);
-    auto iterations2 (0);
-    while (!node1->bootstrap_initiator.in_progress || !system.nodes [0]->bootstrap_initiator.in_progress)
-    {
-        system.service->poll_one ();
-        system.processor.poll_one ();
-        ++iterations2;
-        ASSERT_LT (iterations2, 200);
+	auto iterations2 (0);
+	while (!node1->bootstrap_initiator.in_progress || !system.nodes [0]->bootstrap_initiator.in_progress)
+	{
+	        system.poll ();
+		++iterations2;
+		ASSERT_LT (iterations2, 200);
 	}
 	ASSERT_TRUE (node1->bootstrap_initiator.warmed_up);
 	ASSERT_TRUE (system.nodes [0]->bootstrap_initiator.warmed_up);
 	auto iterations3 (0);
 	while (node1->balance (key2.pub) != 100)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+	        system.poll ();
 		++iterations3;
 		ASSERT_LT (iterations3, 200);
 	}
 	auto iterations4 (0);
 	while (node1->bootstrap_initiator.in_progress || system.nodes [0]->bootstrap_initiator.in_progress)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+	        system.poll ();
 		++iterations4;
 		ASSERT_LT (iterations4, 200);
 	};
-    node1->stop ();
+	node1->stop ();
 }
 
 TEST (node, auto_bootstrap_reverse)
