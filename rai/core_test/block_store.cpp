@@ -406,7 +406,7 @@ TEST (block_store, latest_find)
 TEST (block_store, bad_path)
 {
     bool init (false);
-    rai::block_store store (init, boost::filesystem::path ("***"));
+    rai::block_store store (init, boost::filesystem::path ("///"));
     ASSERT_TRUE (init);
 }
 

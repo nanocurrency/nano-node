@@ -69,7 +69,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 		auto status3 (mdb_env_set_mapsize (environment, 1024 * 1024 * 1024));
 		assert (status3 == 0);
 		auto status4 (mdb_env_open (environment, path_a.string ().c_str (), 0, 00600));
-		assert (status4 == 0);
+		error_a = status4 != 0;
 	}
 	else
 	{

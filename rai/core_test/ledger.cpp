@@ -7,7 +7,7 @@
 TEST (ledger, store_error)
 {
 	bool init (false);
-	rai::block_store store (init, boost::filesystem::path ("***"));
+	rai::block_store store (init, boost::filesystem::path ("///"));
 	ASSERT_FALSE (!init);
 	rai::ledger ledger (store);
 }
