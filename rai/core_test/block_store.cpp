@@ -407,7 +407,7 @@ TEST (block_store, bad_path)
 {
     bool init (false);
     rai::block_store store (init, boost::filesystem::path {});
-    ASSERT_FALSE (!init);
+    ASSERT_TRUE (init);
 }
 
 TEST (block_store, already_open)

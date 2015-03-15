@@ -74,11 +74,16 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 	else
 	{
 		error_a = true;
+		environment = nullptr;
 	}
 }
 
 rai::mdb_env::~mdb_env ()
 {
+	if (environment != nullptr)
+	{
+		mdb_env_close (environment);
+	}
 }
 
 rai::mdb_env::operator MDB_env * () const
