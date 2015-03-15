@@ -301,8 +301,7 @@ TEST (node, search_pending)
     auto iterations2 (0);
     while (system.nodes [0]->balance (key2.pub).is_zero ())
     {
-        system.service->poll_one ();
-        system.processor.poll_one ();
+        system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
     }

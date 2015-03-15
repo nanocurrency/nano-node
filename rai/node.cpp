@@ -1833,8 +1833,7 @@ service (new boost::asio::io_service)
 	auto iterations1 (0);
 	while (std::any_of (nodes.begin (), nodes.end (), [] (std::shared_ptr <rai::node> const & node_a) {return node_a->bootstrap_initiator.in_progress;}))
 	{
-		service->poll_one ();
-		processor.poll_one ();
+		poll ();
 		++iterations1;
 		assert (iterations1 < 1000);
 	}
