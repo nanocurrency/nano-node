@@ -638,10 +638,10 @@ TEST (bootstrap_processor, push_one)
     node1->stop ();
 }
 
-TEST (frontier_req_response, destruction)
+TEST (frontier_req_response, DISABLED_destruction)
 {
     {
-        std::shared_ptr <rai::frontier_req_server> hold;
+        std::shared_ptr <rai::frontier_req_server> hold; // Destructing tcp acceptor on non-existent io_service
         {
             rai::system system (24000, 1);
             auto connection (std::make_shared <rai::bootstrap_server> (nullptr, system.nodes [0]));
