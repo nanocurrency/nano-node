@@ -4,26 +4,30 @@
 
 TEST (wallets, DISABLED_open_create)
 {
-    rai::system system (24000, 1);
-    rai::wallets wallets (*system.nodes [0]);
-    ASSERT_EQ (0, wallets.items.size ());
-    rai::uint256_union id;
-    ASSERT_EQ (nullptr, wallets.open (id));
-    auto wallet (wallets.create (id));
-    ASSERT_NE (nullptr, wallet);
-    ASSERT_EQ (wallet, wallets.open (id));
+	rai::system system (24000, 1);
+	bool error (false);
+	rai::wallets wallets (error, *system.nodes [0]);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (0, wallets.items.size ());
+	rai::uint256_union id;
+	ASSERT_EQ (nullptr, wallets.open (id));
+	auto wallet (wallets.create (id));
+	ASSERT_NE (nullptr, wallet);
+	ASSERT_EQ (wallet, wallets.open (id));
 }
 
 TEST (wallets, DISABLED_open_existing)
 {
-    rai::system system (24000, 1);
-    rai::uint256_union id;
-    {
-        rai::wallets wallets (*system.nodes [0]);
-        ASSERT_EQ (0, wallets.items.size ());
-        auto wallet (wallets.create (id));
-        ASSERT_NE (nullptr, wallet);
-        ASSERT_EQ (wallet, wallets.open (id));
+	rai::system system (24000, 1);
+	rai::uint256_union id;
+	{
+		bool error (false);
+		rai::wallets wallets (error, *system.nodes [0]);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (0, wallets.items.size ());
+		auto wallet (wallets.create (id));
+		ASSERT_NE (nullptr, wallet);
+		ASSERT_EQ (wallet, wallets.open (id));
 		auto iterations (0);
 		while (wallet->store.password.value () == 0)
 		{
@@ -32,29 +36,35 @@ TEST (wallets, DISABLED_open_existing)
 			++iterations;
 			ASSERT_LT (iterations, 200);
 		}
-    }
-    {
-        rai::wallets wallets (*system.nodes [0]);
-        ASSERT_EQ (1, wallets.items.size ());
-        ASSERT_NE (nullptr, wallets.open (id));
-    }
+	}
+	{
+		bool error (false);
+		rai::wallets wallets (error, *system.nodes [0]);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (1, wallets.items.size ());
+		ASSERT_NE (nullptr, wallets.open (id));
+	}
 }
 
 TEST (wallets, DISABLED_remove)
 {
-    rai::system system (24000, 1);
-    rai::uint256_union one (1);
-    {
-        rai::wallets wallets (*system.nodes [0]);
-        ASSERT_EQ (0, wallets.items.size ());
-        auto wallet (wallets.create (one));
-        ASSERT_NE (nullptr, wallet);
-        ASSERT_EQ (1, wallets.items.size ());
-        wallets.destroy (one);
-        ASSERT_EQ (0, wallets.items.size ());
-    }
-    {
-        rai::wallets wallets (*system.nodes [0]);
-        ASSERT_EQ (0, wallets.items.size ());
-    }
+	rai::system system (24000, 1);
+	rai::uint256_union one (1);
+	{
+		bool error (false);
+		rai::wallets wallets (error, *system.nodes [0]);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (0, wallets.items.size ());
+		auto wallet (wallets.create (one));
+		ASSERT_NE (nullptr, wallet);
+		ASSERT_EQ (1, wallets.items.size ());
+		wallets.destroy (one);
+		ASSERT_EQ (0, wallets.items.size ());
+	}
+	{
+		bool error (false);
+		rai::wallets wallets (error, *system.nodes [0]);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (0, wallets.items.size ());
+	}
 }

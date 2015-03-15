@@ -337,14 +337,14 @@ public:
 class wallets
 {
 public:
-    wallets (rai::node &);
-    std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
-    std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
-    void destroy (rai::uint256_union const &);
+	wallets (bool &, rai::node &);
+	std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
+	std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
+	void destroy (rai::uint256_union const &);
 	void cache_work (rai::account const &);
-    std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
-    MDB_dbi handle;
-    rai::node & node;
+	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
+	MDB_dbi handle;
+	rai::node & node;
 };
 class operation
 {

@@ -934,36 +934,39 @@ void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash
     work_update (transaction, account_a, root_a, work);
 }
 
-rai::wallets::wallets (rai::node & node_a) :
+rai::wallets::wallets (bool & error_a, rai::node & node_a) :
 node (node_a)
 {
-	rai::transaction transaction (node.store.environment, nullptr, true);
-	auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
-	assert (status == 0);
-	std::string beginning (rai::uint256_union (0).to_string ());
-	std::string end ((rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
-    for (rai::store_iterator i (transaction, handle, rai::mdb_val (beginning.size (), const_cast <char *> (beginning.c_str ()))), n (transaction, handle, rai::mdb_val (end.size (), const_cast <char *> (end.c_str ()))); i != n; ++i)
-    {
-		rai::uint256_union id;
-		std::string text (reinterpret_cast <char const *> (i->first.mv_data), i->first.mv_size);
-		auto error (id.decode_hex (text));
-		assert (!error);
-		assert (items.find (id) == items.end ());
-		auto wallet (std::make_shared <rai::wallet> (error, transaction, node_a, text));
-		if (!error)
+	if (!error_a)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
+		assert (status == 0);
+		std::string beginning (rai::uint256_union (0).to_string ());
+		std::string end ((rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
+		for (rai::store_iterator i (transaction, handle, rai::mdb_val (beginning.size (), const_cast <char *> (beginning.c_str ()))), n (transaction, handle, rai::mdb_val (end.size (), const_cast <char *> (end.c_str ()))); i != n; ++i)
 		{
-			node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
+			rai::uint256_union id;
+			std::string text (reinterpret_cast <char const *> (i->first.mv_data), i->first.mv_size);
+			auto error (id.decode_hex (text));
+			assert (!error);
+			assert (items.find (id) == items.end ());
+			auto wallet (std::make_shared <rai::wallet> (error, transaction, node_a, text));
+			if (!error)
 			{
-				rai::transaction transaction (wallet->store.environment, nullptr, true);
-				wallet->enter_initial_password (transaction);
-			});
-			items [id] = wallet;
+				node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
+				{
+					rai::transaction transaction (wallet->store.environment, nullptr, true);
+					wallet->enter_initial_password (transaction);
+				});
+				items [id] = wallet;
+			}
+			else
+			{
+				// Couldn't open wallet
+			}
 		}
-		else
-		{
-			// Couldn't open wallet
-		}
-    }
+	}
 }
 
 std::shared_ptr <rai::wallet> rai::wallets::open (rai::uint256_union const & id_a)
@@ -1378,7 +1381,7 @@ store (init_a.block_store_init, application_path_a / "data"),
 gap_cache (*this),
 ledger (store),
 conflicts (*this),
-wallets (*this),
+wallets (init_a.block_store_init, *this),
 network (*service_a, port_a, *this),
 bootstrap_initiator (*this),
 bootstrap (*service_a, port_a, *this),
