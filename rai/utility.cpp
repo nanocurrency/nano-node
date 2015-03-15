@@ -251,8 +251,9 @@ rai::uint256_union::uint256_union (rai::private_key const & cleartext, rai::secr
 
 rai::uint256_union::uint256_union (MDB_val const & val_a)
 {
+	assert (val_a.mv_size == sizeof (*this));
 	static_assert (sizeof (bytes) == sizeof (*this), "Class not packed");
-	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, bytes.data ());
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), bytes.data ());
 }
 
 // Return a uint256_union = AES_DEC_CTR (this, key, iv)

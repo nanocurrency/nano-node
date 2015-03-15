@@ -1357,8 +1357,9 @@ time (0)
 
 rai::frontier::frontier (MDB_val const & val_a)
 {
+	assert (val_a.mv_size == sizeof (*this));
 	static_assert (sizeof (hash) + sizeof (representative) + sizeof (balance) + sizeof (time) == sizeof (*this), "Class not packed");
-	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, reinterpret_cast <uint8_t *> (this));
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast <uint8_t *> (this));
 }
 
 rai::frontier::frontier (rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a, uint64_t time_a) :
@@ -1672,7 +1673,7 @@ void rai::block_store::block_del (MDB_txn * transaction_a, rai::block_hash const
 bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto iterator (blocks_begin (transaction_a, hash_a));
-	return iterator->second.mv_size != 0 && hash_a == rai::block_hash (iterator->first);
+	return iterator != rai::store_iterator (nullptr) && hash_a == rai::block_hash (iterator->first);
 }
 
 void rai::block_store::latest_del (MDB_txn * transaction_a, rai::account const & account_a)
@@ -1685,7 +1686,7 @@ bool rai::block_store::latest_exists (rai::account const & account_a)
 {
 	rai::transaction transaction (environment, nullptr, false);
 	auto iterator (latest_begin (transaction, account_a));
-	return rai::account (iterator->first) == account_a;
+	return iterator != rai::store_iterator (nullptr) && rai::account (iterator->first) == account_a;
 }
 
 bool rai::block_store::latest_get (MDB_txn * transaction_a, rai::account const & account_a, rai::frontier & frontier_a)
@@ -1740,7 +1741,7 @@ void rai::block_store::pending_del (MDB_txn * transaction_a, rai::block_hash con
 bool rai::block_store::pending_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto iterator (pending_begin (transaction_a, hash_a));
-    return rai::block_hash (iterator->first) == hash_a;
+	return iterator != rai::store_iterator (nullptr) && rai::block_hash (iterator->first) == hash_a;
 }
 
 bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::receivable & receivable_a)
@@ -1795,8 +1796,9 @@ destination (0)
 
 rai::receivable::receivable (MDB_val const & val_a)
 {
+	assert(val_a.mv_size == sizeof (*this));
 	static_assert (sizeof (source) + sizeof (amount) + sizeof (destination) == sizeof (*this), "Packed class");
-	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, reinterpret_cast <uint8_t *> (this));
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast <uint8_t *> (this));
 }
 
 rai::receivable::receivable (rai::account const & source_a, rai::amount const & amount_a, rai::account const & destination_a) :
@@ -1924,7 +1926,7 @@ void rai::block_store::unsynced_del (MDB_txn * transaction_a, rai::block_hash co
 bool rai::block_store::unsynced_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto iterator (unsynced_begin (transaction_a, hash_a));
-	return rai::block_hash (iterator->first) == hash_a;
+	return iterator != rai::store_iterator (nullptr) && rai::block_hash (iterator->first) == hash_a;
 }
 
 rai::store_iterator rai::block_store::unsynced_begin (MDB_txn * transaction_a)
@@ -1957,10 +1959,10 @@ rai::block_hash rai::block_store::stack_pop (uint64_t key_a)
 	assert (status == 0);
 	rai::block_hash result;
 	assert (value.mv_size == result.chars.size ());
-    std::copy (reinterpret_cast <uint8_t const *> (value.mv_data), reinterpret_cast <uint8_t const *> (value.mv_data) + value.mv_size, result.chars.data ());
+	std::copy (reinterpret_cast <uint8_t const *> (value.mv_data), reinterpret_cast <uint8_t const *> (value.mv_data) + result.chars.size(), result.chars.data ());
 	auto status2 (mdb_del (transaction, stack, rai::mdb_val (sizeof (key_a), &key_a), nullptr));
 	assert (status2 == 0);
-    return result;
+	return result;
 }
 
 void rai::block_store::checksum_put (MDB_txn * transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union const & hash_a)

@@ -471,7 +471,7 @@ rai::wallet_value::wallet_value (MDB_val const & val_a)
 {
 	assert (val_a.mv_size == sizeof (*this));
 	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (key), key.chars.begin ());
-	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (key), reinterpret_cast <uint8_t const *> (val_a.mv_data) + val_a.mv_size, reinterpret_cast <char *> (&work));
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (key), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (key) + sizeof (work), reinterpret_cast <char *> (&work));
 }
 
 rai::wallet_value::wallet_value (rai::uint256_union const & value_a) :
@@ -1194,7 +1194,7 @@ insufficient_work_logging_value (true),
 log_rpc_value (true),
 bulk_pull_logging_value (true),
 work_generation_time_value (true),
-log_to_cerr_value (true)
+log_to_cerr_value (false)
 {
 }
 

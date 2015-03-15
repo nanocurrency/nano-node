@@ -64,7 +64,7 @@ TEST (wallet, one_item_iteration)
     for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
     {
         ASSERT_EQ (key1.pub, i->first);
-        ASSERT_EQ (key1.prv, rai::uint256_union (i->second).prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
+        ASSERT_EQ (key1.prv, rai::wallet_value (i->second).key.prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
     }
 }
 
@@ -87,7 +87,7 @@ TEST (wallet, two_item_iteration)
 		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 		{
 			pubs.insert (i->first);
-			prvs.insert (rai::uint256_union (i->second).prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
+			prvs.insert (rai::wallet_value (i->second).key.prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
 		}
 	}
     ASSERT_EQ (2, pubs.size ());
