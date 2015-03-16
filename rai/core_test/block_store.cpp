@@ -410,16 +410,16 @@ TEST (block_store, bad_path)
     ASSERT_TRUE (init);
 }
 
-TEST (block_store, already_open)
+TEST (block_store, DISABLED_already_open) // File can be shared
 {
     auto path (rai::unique_path ());
-    boost::filesystem::create_directories (path);
+    boost::filesystem::create_directories (path.parent_path ());
     std::ofstream file;
-    file.open ((path / "accounts.ldb").string ().c_str ());
+    file.open (path.string ().c_str ());
     ASSERT_TRUE (file.is_open ());
     bool init (false);
     rai::block_store store (init, path);
-    ASSERT_FALSE (init);
+    ASSERT_TRUE (init);
 }
 
 TEST (block_store, delete_iterator_entry)

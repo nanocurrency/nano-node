@@ -59,7 +59,7 @@ rai::uint128_t rai::scale_up (uint64_t amount_a)
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 {
 	boost::system::error_code error;
-	boost::filesystem::create_directories (path_a, error);
+	boost::filesystem::create_directories (path_a.parent_path (), error);
 	if (!error)
 	{
 		auto status1 (mdb_env_create (&environment));
@@ -68,7 +68,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 		assert (status2 == 0);
 		auto status3 (mdb_env_set_mapsize (environment, 1024 * 1024 * 1024));
 		assert (status3 == 0);
-		auto status4 (mdb_env_open (environment, path_a.string ().c_str (), 0, 00600));
+		auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR, 00600));
 		error_a = status4 != 0;
 	}
 	else
