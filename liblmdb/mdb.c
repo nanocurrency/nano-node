@@ -4682,6 +4682,10 @@ mdb_env_open(MDB_env *env, const char *path, unsigned int flags, mdb_mode_t mode
 	mode = FILE_ATTRIBUTE_NORMAL;
 	env->me_fd = CreateFile(dpath, oflags, FILE_SHARE_READ|FILE_SHARE_WRITE,
 		NULL, len, mode, NULL);
+	DWORD actual;
+	if (!DeviceIoControl(env->me_fd, FSCTL_SET_SPARSE, NULL, 0,
+		NULL, 0, &actual, NULL))
+		; // If the file is not sparsed, it will allocate the full environment
 #else
 	if (F_ISSET(flags, MDB_RDONLY))
 		oflags = O_RDONLY;
