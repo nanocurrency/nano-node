@@ -2635,6 +2635,25 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad hash number";
                 }
             }
+            else if (action == "process")
+            {
+                std::string block_text (request_l.get <std::string> ("block"));
+				boost::property_tree::ptree block_l;
+				std::stringstream block_stream (block_text);
+				boost::property_tree::read_json (block_stream, block_l);
+				auto block (rai::deserialize_block_json (block_l));
+				if (block != nullptr)
+				{
+					node.process_receive_republish (std::move (block));
+                    boost::property_tree::ptree response_l;
+					set_response (response, response_l);
+				}
+				else
+				{
+					response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+					response.content = "Block is invalid";
+				}
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);

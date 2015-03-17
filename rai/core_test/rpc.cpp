@@ -633,3 +633,27 @@ TEST (rpc, block)
 	auto contents (response_tree.get <std::string> ("contents"));
     ASSERT_FALSE (contents.empty ());
 }
+
+TEST (rpc, process_block)
+{
+    rai::system system (24000, 1);
+	rai::keypair key;
+	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (key.pub, latest, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "process");
+	std::string json;
+	send.serialize_json (json);
+	request_tree.put ("block", json);
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+	ASSERT_EQ (send.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
+}
