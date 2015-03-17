@@ -44,18 +44,6 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
     return result;
 }
 
-// Divide the raw 128bit number to one that fits in 64bits
-uint64_t rai::scale_down (rai::uint128_t const & amount_a)
-{
-    return (amount_a / rai::scale_64bit_base10).convert_to <uint64_t> ();
-}
-
-// Return the full 128bit amount number from a reduced 64bit one
-rai::uint128_t rai::scale_up (uint64_t amount_a)
-{
-    return rai::scale_64bit_base10 * amount_a;
-}
-
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 {
 	boost::system::error_code error;
@@ -130,6 +118,11 @@ rai::transaction::~transaction ()
 rai::transaction::operator MDB_txn * () const
 {
 	return handle;
+}
+
+rai::uint128_union::uint128_union (std::string const & string_a)
+{
+	decode_hex (string_a);
 }
 
 rai::uint128_union::uint128_union (uint64_t value_a)
@@ -233,6 +226,13 @@ bool rai::uint128_union::is_zero () const
 rai::mdb_val rai::uint128_union::val () const
 {
 	return rai::mdb_val (sizeof (*this), const_cast <rai::uint128_union *> (this));
+}
+
+std::string rai::uint128_union::to_string () const
+{
+	std::string result;
+	encode_hex (result);
+	return result;
 }
 
 bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const

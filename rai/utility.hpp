@@ -46,12 +46,13 @@ bool from_string_hex (std::string const &, uint64_t &);
 using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
-// Scaling factor for what is displayed to users compared to what the underlying balance is.
-// 10^20 was chosen so that the largest balance amount scaled down will fit in a 64bit integer
-// Base 10 reduction was chosen so scaling is intuitive to users.  If we change it in the future, it's easier to explain a base-10 balance representation change than base-16.
-rai::uint128_t const scale_64bit_base10 = rai::uint128_t ("100000000000000000000");
-uint64_t scale_down (rai::uint128_t const &);
-rai::uint128_t scale_up (uint64_t);
+// SI dividers
+rai::uint128_t const Grai_ratio = rai::uint128_t ("1000000000000000000000000000000000"); // 10^33
+rai::uint128_t const Mrai_ratio = rai::uint128_t ("1000000000000000000000000000000"); // 10^30
+rai::uint128_t const krai_ratio = rai::uint128_t ("1000000000000000000000000000"); // 10^27
+rai::uint128_t const  rai_ratio = rai::uint128_t ("1000000000000000000000000"); // 10^24
+rai::uint128_t const mrai_ratio = rai::uint128_t ("1000000000000000000000"); // 10^21
+rai::uint128_t const urai_ratio = rai::uint128_t ("1000000000000000000"); // 10^18
 class mdb_env
 {
 public:
@@ -81,6 +82,7 @@ union uint128_union
 {
 public:
 	uint128_union () = default;
+	uint128_union (std::string const &);
 	uint128_union (uint64_t);
 	uint128_union (rai::uint128_union const &) = default;
 	uint128_union (rai::uint128_t const &);
@@ -93,6 +95,7 @@ public:
 	void clear ();
 	bool is_zero () const;
 	rai::mdb_val val () const;
+	std::string to_string () const;
 	std::array <uint8_t, 16> bytes;
 	std::array <char, 16> chars;
 	std::array <uint32_t, 4> dwords;

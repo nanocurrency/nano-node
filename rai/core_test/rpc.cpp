@@ -31,29 +31,6 @@ TEST (rpc, account_create)
     ASSERT_TRUE (system.wallet (0)->exists (account));
 }
 
-TEST (rpc, account_balance_exact)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-    boost::network::http::server <rai::rpc>::request request;
-    boost::network::http::server <rai::rpc>::response response;
-    request.method = "POST";
-    boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "account_balance_exact");
-    request_tree.put ("account", rai::test_genesis_key.pub.to_base58check ());
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, request_tree);
-    request.body = ostream.str ();
-    rpc (request, response);
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
-    boost::property_tree::ptree response_tree;
-    std::stringstream istream (response.content);
-    boost::property_tree::read_json (istream, response_tree);
-    std::string balance_text (response_tree.get <std::string> ("balance"));
-    ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
-}
-
 TEST (rpc, account_balance)
 {
     rai::system system (24000, 1);
@@ -74,33 +51,6 @@ TEST (rpc, account_balance)
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
     std::string balance_text (response_tree.get <std::string> ("balance"));
-    ASSERT_EQ ("3402823669209384634", balance_text);
-}
-
-TEST (rpc, account_weight_exact)
-{
-    rai::keypair key;
-    rai::system system (24000, 1);
-    rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-    rai::change_block block (key.pub, latest, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (block).code);
-	auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-    boost::network::http::server <rai::rpc>::request request;
-    boost::network::http::server <rai::rpc>::response response;
-    request.method = "POST";
-    boost::property_tree::ptree request_tree;
-    request_tree.put ("action", "account_weight_exact");
-    request_tree.put ("account", key.pub.to_base58check ());
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, request_tree);
-    request.body = ostream.str ();
-    rpc (request, response);
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
-    boost::property_tree::ptree response_tree;
-    std::stringstream istream (response.content);
-    boost::property_tree::read_json (istream, response_tree);
-    std::string balance_text (response_tree.get <std::string> ("weight"));
     ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
 }
 
@@ -128,7 +78,7 @@ TEST (rpc, account_weight)
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
     std::string balance_text (response_tree.get <std::string> ("weight"));
-    ASSERT_EQ ("3402823669209384634", balance_text);
+    ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
 }
 
 TEST (rpc, wallet_contains)
@@ -235,36 +185,6 @@ TEST (rpc, validate_account_invalid)
     ASSERT_EQ ("0", exists_text);
 }
 
-TEST (rpc, send_exact)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-    rai::keypair key1;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key1.prv);
-    boost::network::http::server <rai::rpc>::request request;
-    boost::network::http::server <rai::rpc>::response response;
-    request.method = "POST";
-    boost::property_tree::ptree request_tree;
-    std::string wallet;
-    system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
-    request_tree.put ("wallet", wallet);
-    request_tree.put ("action", "send_exact");
-    request_tree.put ("account", rai::test_genesis_key.pub.to_base58check ());
-    request_tree.put ("amount", "100");
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, request_tree);
-    request.body = ostream.str ();
-    rpc (request, response);
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
-    boost::property_tree::ptree response_tree;
-    std::stringstream istream (response.content);
-    boost::property_tree::read_json (istream, response_tree);
-    std::string sent_text (response_tree.get <std::string> ("sent"));
-    ASSERT_EQ ("1", sent_text);
-}
-
 TEST (rpc, send)
 {
     rai::system system (24000, 1);
@@ -282,13 +202,11 @@ TEST (rpc, send)
     request_tree.put ("wallet", wallet);
     request_tree.put ("action", "send");
     request_tree.put ("account", rai::test_genesis_key.pub.to_base58check ());
-    request_tree.put ("amount", "1");
+    request_tree.put ("amount", "100");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();
-	rai::uint128_t balance1 (system.nodes [0]->balance (rai::test_genesis_key.pub));
-	rpc (request, response);
-    ASSERT_EQ (balance1 - rai::scale_64bit_base10, system.nodes [0]->balance (rai::test_genesis_key.pub));
+    rpc (request, response);
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);

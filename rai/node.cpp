@@ -2038,7 +2038,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             {
                 BOOST_LOG (node.log) << request.body;
             }
-            if (action == "account_balance_exact")
+            if (action == "account_balance")
             {
                 std::string account_text (request_l.get <std::string> ("account"));
                 rai::uint256_union account;
@@ -2056,25 +2056,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad account number";
                 }
             }
-            else if (action == "account_balance")
-            {
-                std::string account_text (request_l.get <std::string> ("account"));
-                rai::uint256_union account;
-                auto error (account.decode_base58check (account_text));
-                if (!error)
-                {
-                    auto balance (rai::scale_down (node.balance (account)));
-                    boost::property_tree::ptree response_l;
-                    response_l.put ("balance", std::to_string (balance));
-                    set_response (response, response_l);
-                }
-                else
-                {
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
-                }
-            }
-            else if (action == "account_weight_exact")
+            else if (action == "account_weight")
             {
                 std::string account_text (request_l.get <std::string> ("account"));
                 rai::uint256_union account;
@@ -2084,24 +2066,6 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto balance (node.weight (account));
                     boost::property_tree::ptree response_l;
                     response_l.put ("weight", balance.convert_to <std::string> ());
-                    set_response (response, response_l);
-                }
-                else
-                {
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
-                }
-            }
-            else if (action == "account_weight")
-            {
-                std::string account_text (request_l.get <std::string> ("account"));
-                rai::uint256_union account;
-                auto error (account.decode_base58check (account_text));
-                if (!error)
-                {
-                    auto balance (rai::scale_down (node.weight (account)));
-                    boost::property_tree::ptree response_l;
-                    response_l.put ("weight", std::to_string (balance));
                     set_response (response, response_l);
                 }
                 else
@@ -2313,7 +2277,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 response_l.put ("valid", error ? "0" : "1");
                 set_response (response, response_l);
             }
-            else if (action == "send_exact")
+            else if (action == "send")
             {
                 if (enable_control)
                 {
@@ -2341,63 +2305,6 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                                     set_response (response, response_l);
                                 }
                                 else
-                                {
-                                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                                    response.content = "Bad amount format";
-                                }
-                            }
-                            else
-                            {
-                                response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                                response.content = "Bad account number";
-                            }
-                        }
-                        else
-                        {
-                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                            response.content = "Wallet not found";
-                        }
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Bad wallet number";
-                    }
-                }
-                else
-                {
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "RPC control is disabled";
-                }
-            }
-            else if (action == "send")
-            {
-                if (enable_control)
-                {
-                    std::string wallet_text (request_l.get <std::string> ("wallet"));
-                    rai::uint256_union wallet;
-                    auto error (wallet.decode_hex (wallet_text));
-                    if (!error)
-                    {
-                        auto existing (node.wallets.items.find (wallet));
-                        if (existing != node.wallets.items.end ())
-                        {
-                            std::string account_text (request_l.get <std::string> ("account"));
-                            rai::uint256_union account;
-                            auto error (account.decode_base58check (account_text));
-                            if (!error)
-                            {
-                                std::string amount_text (request_l.get <std::string> ("amount"));
-                                try
-                                {
-                                    uint64_t amount_number (std::stoull (amount_text));
-                                    auto amount (rai::scale_up (amount_number));
-                                    auto error (existing->second->send_all (account, amount));
-                                    boost::property_tree::ptree response_l;
-                                    response_l.put ("sent", error ? "0" : "1");
-                                    set_response (response, response_l);
-                                }
-                                catch (std::logic_error const &)
                                 {
                                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
                                     response.content = "Bad amount format";

@@ -28,7 +28,7 @@ wallet (wallet_a)
 void rai_qt::self_pane::refresh_balance ()
 {
 	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + std::to_string (rai::scale_down (wallet.node.ledger.account_balance (transaction, wallet.account)))).c_str ()));
+	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + rai::amount (wallet.node.ledger.account_balance (transaction, wallet.account) / rai::Grai_ratio).to_string ()).c_str ()));
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
@@ -120,7 +120,7 @@ void rai_qt::accounts::refresh ()
     {
         QList <QStandardItem *> items;
         rai::public_key key (i->first);
-        auto balance (std::to_string (rai::scale_down (wallet.node.ledger.account_balance (transaction, key))));
+        auto balance (rai::amount (wallet.node.ledger.account_balance (transaction, key) / rai::Grai_ratio).to_string ());
         items.push_back (new QStandardItem (balance.c_str ()));
         items.push_back (new QStandardItem (QString (key.to_base58check ().c_str ())));
         model->appendRow (items);
@@ -152,17 +152,17 @@ public:
 	void send_block (rai::send_block const & block_a)
 	{
 		auto amount (ledger.amount (transaction, block_a.hash ()));
-		text = boost::str (boost::format ("Sent %1%") % std::to_string (rai::scale_down (amount)));
+		text = boost::str (boost::format ("Sent %1%") % rai::amount (amount / rai::Grai_ratio).to_string ());
 	}
 	void receive_block (rai::receive_block const & block_a)
 	{
 		auto amount (ledger.amount (transaction, block_a.source ()));
-		text = boost::str (boost::format ("Received %1%") % std::to_string (rai::scale_down (amount)));
+		text = boost::str (boost::format ("Received %1%") % rai::amount (amount / rai::Grai_ratio).to_string ());
 	}
 	void open_block (rai::open_block const & block_a)
 	{
 		auto amount (ledger.amount (transaction, block_a.source ()));
-		text = boost::str (boost::format ("Opened %1%") % std::to_string (rai::scale_down (amount)));
+		text = boost::str (boost::format ("Opened %1%") % rai::amount (amount / rai::Grai_ratio).to_string ());
 	}
 	void change_block (rai::change_block const & block_a)
 	{
@@ -312,9 +312,9 @@ last_status (rai_qt::status::disconnected)
         std::string coins_text_narrow (coins_text.toLocal8Bit ());
         try
         {
-            auto scaled (std::stoull (coins_text_narrow));
-            rai::uint128_t coins (rai::scale_up (scaled));
-            if (rai::scale_down (coins) == scaled)
+            rai::amount amount (coins_text_narrow);
+            rai::uint128_t coins (amount.number () * rai::Grai_ratio);
+            if (coins / rai::Grai_ratio == amount.number ())
             {
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
@@ -698,7 +698,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
         QList <QStandardItem *> items;
         items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_base58check ().c_str ())));
 		auto hash (rai::frontier (i->second).hash);
-        items.push_back (new QStandardItem (QString (std::to_string (rai::scale_down (wallet.node.ledger.balance (transaction, hash))).c_str ())));
+        items.push_back (new QStandardItem (QString (rai::amount (wallet.node.ledger.balance (transaction, hash) / rai::Grai_ratio).to_string ().c_str ())));
         std::string block_hash;
         hash.encode_hex (block_hash);
         items.push_back (new QStandardItem (QString (block_hash.c_str ())));

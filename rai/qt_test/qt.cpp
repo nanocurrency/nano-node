@@ -226,7 +226,7 @@ TEST (wallet, send)
 		ASSERT_LT (iterations1, 200);
     }
 	rai::uint128_t amount (wallet.node.balance (key1));
-    ASSERT_EQ (rai::scale_up (2), amount);
+    ASSERT_EQ (2 * rai::Grai_ratio, amount);
 	QTest::mouseClick (wallet.send_blocks_back, Qt::LeftButton);
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.show_ledger, Qt::LeftButton);
