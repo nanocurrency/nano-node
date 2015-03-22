@@ -158,6 +158,7 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
 
 std::chrono::seconds constexpr rai::node::period;
 std::chrono::seconds constexpr rai::node::cutoff;
+std::chrono::minutes constexpr rai::node::backup_interval;
 // Cutoff for receiving a block if no forks are observed.
 std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
@@ -672,6 +673,18 @@ void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & s
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, tree);
     string_a = ostream.str ();
+}
+
+void rai::wallet_store::write_backup (MDB_txn * transaction_a, boost::filesystem::path const & path_a)
+{
+	std::ofstream backup_file;
+	backup_file.open (path_a.string ());
+	if (!backup_file.fail ())
+	{
+		std::string json;
+		serialize_json (transaction_a, json);
+		backup_file << json;
+	}
 }
 
 bool rai::wallet_store::move (MDB_txn * transaction_a, rai::wallet_store & other_a, std::vector <rai::public_key> const & keys)
@@ -1388,7 +1401,8 @@ network (*service_a, port_a, *this),
 bootstrap_initiator (*this),
 bootstrap (*service_a, port_a, *this),
 peers (network.endpoint ()),
-logging (logging_a)
+logging (logging_a),
+application_path (application_path_a)
 {
 	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
 	{
@@ -2867,6 +2881,7 @@ void rai::node::start ()
     network.receive ();
     ongoing_keepalive ();
     bootstrap.start ();
+	backup_wallet ();
 }
 
 void rai::node::stop ()
@@ -2933,6 +2948,22 @@ void rai::node::ongoing_keepalive ()
         network.send_keepalive (i->endpoint);
     }
     service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
+}
+
+void rai::node::backup_wallet ()
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+	{
+		auto backup_path (application_path / "backup");
+		boost::filesystem::create_directories (backup_path);
+		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
+	}
+	auto this_l (shared ());
+	service.add (std::chrono::system_clock::now () + backup_interval, [this_l] ()
+	{
+		this_l->backup_wallet ();
+	});
 }
 
 void rai::node::search_pending ()

@@ -295,6 +295,7 @@ public:
     rai::uint256_union derive_key (MDB_txn *, std::string const &);
     rai::uint128_t balance (MDB_txn *, rai::ledger &);
     void serialize_json (MDB_txn *, std::string &);
+	void write_backup (MDB_txn *, boost::filesystem::path const &);
     bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
 	bool work_get (MDB_txn *, rai::public_key const &, uint64_t &);
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
@@ -764,6 +765,7 @@ public:
 	rai::uint128_t weight (rai::account const &);
 	void call_observers (rai::block const & block_a, rai::account const & account_a);
     void ongoing_keepalive ();
+	void backup_wallet ();
     rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;
@@ -776,6 +778,7 @@ public:
     rai::bootstrap_listener bootstrap;
     rai::peer_container peers;
 	rai::logging const & logging;
+	boost::filesystem::path application_path;
     std::vector <std::function <void (rai::block const &, rai::account const &)>> observers;
     std::vector <std::function <void (rai::vote const &)>> vote_observers;
     std::vector <std::string> preconfigured_peers;
@@ -783,6 +786,7 @@ public:
 	std::vector <std::function <void ()>> disconnect_observers;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
+	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 };
 class system
 {
