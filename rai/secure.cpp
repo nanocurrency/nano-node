@@ -638,6 +638,13 @@ rai::block_hash rai::block::hash () const
     return result;
 }
 
+std::string rai::block::to_json ()
+{
+	std::string result;
+	serialize_json (result);
+	return result;
+}
+
 // Serialize a block prefixed with an 8-bit typecode
 void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
 {

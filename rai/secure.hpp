@@ -63,6 +63,7 @@ class block
 public:
 	// Return a digest of the hashables in this block.
 	rai::block_hash hash () const;
+	std::string to_json ();
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;

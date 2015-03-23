@@ -114,6 +114,7 @@ int main (int argc, char * const * argv)
         ("profile_work", "Profile the work function")
         ("profile_kdf", "Profile kdf function")
         ("generate_key", "Generates a random keypair")
+		("generate_bootstrap", "Generate bootstrap sequence of blocks")
 		("expand_key", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
         ("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
         ("xorshift_profile", "Profile xorshift algorithms")
@@ -140,6 +141,30 @@ int main (int argc, char * const * argv)
         rai::keypair pair;
         std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_base58check () << std::endl;
     }
+	else if (vm.count ("generate_bootstrap"))
+	{
+        rai::keypair genesis;
+        std::cout << "Genesis: " << genesis.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
+		rai::keypair landing;
+		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
+		rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
+		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, rai::work_generate (genesis.pub));
+		std::cout << genesis_block.to_json ();
+		rai::block_hash previous (genesis_block.hash ());
+		for (auto i (0); i != 8; ++i)
+		{
+			rai::uint128_t yearly_distribution (rai::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
+			auto weekly_distribution (yearly_distribution / 52);
+			for (auto j (0); j != 52; ++j)
+			{
+				assert (balance > weekly_distribution);
+				balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
+				rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, rai::work_generate (previous));
+				previous = send.hash ();
+				std::cout << send.to_json ();
+			}
+		}
+	}
 	else if (vm.count ("expand_key"))
 	{
 		rai::uint256_union prv;
