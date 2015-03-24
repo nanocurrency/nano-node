@@ -162,6 +162,7 @@ int main (int argc, char * const * argv)
 				rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, rai::work_generate (previous));
 				previous = send.hash ();
 				std::cout << send.to_json ();
+				std::cout.flush ();
 			}
 		}
 	}
