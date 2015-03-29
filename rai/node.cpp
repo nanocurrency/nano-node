@@ -156,6 +156,8 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
     return end;
 }
 
+double constexpr rai::node::price_max;
+double constexpr rai::node::free_cutoff;
 std::chrono::seconds constexpr rai::node::period;
 std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
@@ -2668,6 +2670,40 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 					response.content = "Block is invalid";
 				}
             }
+            else if (action == "price")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+                rai::uint256_union account;
+                auto error (account.decode_base58check (account_text));
+                if (!error)
+                {
+					auto amount_text (request_l.get <std::string> ("amount"));
+					try
+					{
+						auto amount (std::stoi (amount_text));
+						auto balance (node.balance (account));
+						auto price (node.price (balance, amount));
+						boost::property_tree::ptree response_l;
+						response_l.put ("price", std::to_string (price));
+						set_response (response, response_l);
+					}
+					catch (std::invalid_argument const &)
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Invalid amount number";
+					}
+					catch (std::out_of_range const &)
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Invalid amount";
+					}
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
@@ -2964,6 +3000,20 @@ void rai::node::backup_wallet ()
 	{
 		this_l->backup_wallet ();
 	});
+}
+
+int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
+{
+	auto balance_l (balance_a);
+	int result (0);
+	for (auto i (0); i < amount_a; ++i)
+	{
+		auto units ((balance_l / rai::Grai_ratio).convert_to <double> ());
+		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
+		result += std::min (std::max (0.0, unit_price), price_max);
+		balance_l -= rai::Grai_ratio;
+	}
+	return result;
 }
 
 void rai::node::search_pending ()

@@ -478,6 +478,7 @@ public:
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
+	static rai::uint128_t const unit;
 	rai::block_store & store;
 };
 extern rai::keypair const test_genesis_key;

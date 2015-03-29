@@ -766,6 +766,7 @@ public:
 	void call_observers (rai::block const & block_a, rai::account const & account_a);
     void ongoing_keepalive ();
 	void backup_wallet ();
+	int price (rai::uint128_t const &, int);
     rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;
@@ -784,6 +785,8 @@ public:
     std::vector <std::string> preconfigured_peers;
 	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;
 	std::vector <std::function <void ()>> disconnect_observers;
+	static double constexpr price_max = 1024.0;
+	static double constexpr free_cutoff = 4096.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
