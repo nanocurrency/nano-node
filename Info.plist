@@ -8,6 +8,8 @@
 	<string>RaiBlocks</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleIconFile</key>
+	<string>RaiBlocks.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>net.raiblocks.qt_wallet</string>
 </dict>
