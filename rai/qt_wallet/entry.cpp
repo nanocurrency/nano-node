@@ -1,6 +1,7 @@
 #include <rai/qt/qt.hpp>
 
 #include <rai/working.hpp>
+#include <rai/icon.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -100,6 +101,7 @@ int main (int argc, char * const * argv)
     if (!config_error)
     {
         QApplication application (argc, const_cast <char **> (argv));
+		rai::set_application_icon (application);
         auto service (boost::make_shared <boost::asio::io_service> ());
         rai::processor_service processor;
         rai::node_init init;

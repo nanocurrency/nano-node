@@ -19,6 +19,12 @@ else (APPLE)
 	set (PLATFORM_LINK_FLAGS "")
 endif (APPLE)
 
+if (WIN32)
+	set (PLATFORM_QT_PACKAGES WinExtras)
+else (WIN32)
+	set (PLATFORM_QT_PACKAGES)
+endif (WIN32)
+
 include_directories (${CMAKE_SOURCE_DIR})
 
 find_package (Boost REQUIRED COMPONENTS filesystem system log log_setup thread program_options)
@@ -30,7 +36,7 @@ include_directories (${GTEST_INCLUDE_DIR})
 find_package (CryptoPP REQUIRED)
 include_directories (${CRYPTOPP_INCLUDE_DIR})
 
-find_package (Qt5 REQUIRED COMPONENTS Core Gui Widgets Test)
+find_package (Qt5 REQUIRED COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 include_directories (${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS} ${Qt5Test_INCLUDE_DIRS})
 
 include_directories (${CPPNETLIB_INCLUDE_DIRS})
@@ -64,15 +70,15 @@ add_library (blake2
 	${BLAKE2_IMPLEMENTATION})
 
 if (APPLE)
-	set (PLATFORM_NODE_SOURCE rai/plat/osx/working.mm)
+	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm)
 elseif (WIN32)
-	set (PLATFORM_NODE_SOURCE rai/plat/windows/working.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp)
 elseif (UNIX)
-	set (PLATFORM_NODE_SOURCE rai/plat/posix/working.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
 endif (APPLE)
 
 add_library (secure
-	${PLATFORM_NODE_SOURCE}
+	${PLATFORM_SECURE_SOURCE}
 	rai/config.hpp
 	rai/secure.cpp
 	rai/secure.hpp
@@ -124,7 +130,14 @@ add_library (qt
 add_executable (landing
 	rai/landing/entry.cpp)
 
+if (WIN32)
+	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
+else (WIN32)
+	set (PLATFORM_WALLET_SOURCE rai/plat/unknown/icon.cpp)
+endif (WIN32)
+
 add_executable (qt_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
+	${PLATFORM_WALLET_SOURCE}
 	rai/qt_wallet/entry.cpp)
 
 add_executable (qt_system
@@ -149,6 +162,12 @@ else (WIN32)
 	set (PLATFORM_LIBS)
 endif (WIN32)
 
+if (WIN32)
+	set (PLATFORM_WALLET_LIBS Qt5::WinExtras)
+else (WIN32)
+	set (PLATFORM_WALLET_LIBS)
+endif (WIN32)
+
 target_link_libraries (core_test node secure lmdb xxhash ed25519 blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS})
 
 target_link_libraries (slow_test node secure lmdb xxhash ed25519 blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${CRYPTOPP_LIBRARY} ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS})
@@ -159,7 +178,7 @@ target_link_libraries (landing node secure lmdb xxhash ed25519 blake2 ${Boost_FI
 
 target_link_libraries (qt_test node secure lmdb xxhash ed25519 qt blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS})
 
-target_link_libraries (qt_wallet node secure lmdb xxhash ed25519 qt blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS})
+target_link_libraries (qt_wallet node secure lmdb xxhash ed25519 qt blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
 
 target_link_libraries (qt_system node secure lmdb xxhash ed25519 qt blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS})
 
