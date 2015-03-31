@@ -209,17 +209,6 @@ TEST (checksum, simple)
     ASSERT_TRUE (store.checksum_get (transaction, 0x100, 0x10, hash3));
 }
 
-TEST (block_store, empty_blocks)
-{
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-	rai::transaction transaction (store.environment, nullptr, false);
-    auto begin (store.blocks_begin (transaction));
-    auto end (store.blocks_end ());
-    ASSERT_EQ (end, begin);
-}
-
 TEST (block_store, empty_accounts)
 {
     bool init (false);
@@ -239,15 +228,7 @@ TEST (block_store, one_block)
     rai::open_block block1 (0, 0, 0, 0, 0, rai::work_generate (0));
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
-    auto begin (store.blocks_begin (transaction));
-    auto end (store.blocks_end ());
-    ASSERT_NE (end, begin);
-    auto hash1 (begin->first);
-    ASSERT_EQ (block1.hash (), hash1);
-    auto block2 (rai::deserialize_block (begin->second));
-    ASSERT_EQ (block1, *block2);
-    ++begin;
-    ASSERT_EQ (end, begin);
+	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 }
 
 TEST (block_store, empty_bootstrap)
@@ -332,21 +313,8 @@ TEST (block_store, two_block)
     hashes.push_back (block2.hash ());
     blocks.push_back (block2);
     store.block_put (transaction, hashes [1], block2);
-    auto begin (store.blocks_begin (transaction));
-    auto end (store.blocks_end ());
-    ASSERT_NE (end, begin);
-    auto hash1 (begin->first);
-    ASSERT_NE (hashes.end (), std::find (hashes.begin (), hashes.end (), hash1));
-    auto block3 (rai::deserialize_block (begin->second));
-    ASSERT_NE (blocks.end (), std::find (blocks.begin (), blocks.end (), *block3));
-    ++begin;
-    ASSERT_NE (end, begin);
-    auto hash2 (begin->first);
-    ASSERT_NE (hashes.end (), std::find (hashes.begin (), hashes.end (), hash2));
-    auto block4 (rai::deserialize_block (begin->second));
-    ASSERT_NE (blocks.end (), std::find (blocks.begin (), blocks.end (), *block4));
-    ++begin;
-    ASSERT_EQ (end, begin);
+	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
+	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
 }
 
 TEST (block_store, two_account)
@@ -420,26 +388,6 @@ TEST (block_store, DISABLED_already_open) // File can be shared
     bool init (false);
     rai::block_store store (init, path);
     ASSERT_TRUE (init);
-}
-
-TEST (block_store, delete_iterator_entry)
-{
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-    rai::open_block block1 (1, 0, 0, 0, 0, 0);
-	rai::transaction transaction (store.environment, nullptr, true);
-    store.block_put (transaction, block1.hash (), block1);
-    rai::open_block block2 (2, 0, 0, 0, 0, 0);
-    store.block_put (transaction, block2.hash (), block2);
-    auto current (store.blocks_begin (transaction));
-    ASSERT_NE (store.blocks_end (), current);
-    store.block_del (transaction, current->first);
-    ++current;
-    ASSERT_NE (store.blocks_end (), current);
-    store.block_del (transaction, current->first);
-    ++current;
-    ASSERT_EQ (store.blocks_end (), current);
 }
 
 TEST (block_store, roots)

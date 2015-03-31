@@ -327,16 +327,14 @@ public:
 	block_store (bool &, boost::filesystem::path const &);
 	uint64_t now ();
 	
-	void block_put_raw (MDB_txn *, rai::block_hash const &, MDB_val);
+	MDB_dbi block_database (rai::block_type);
+	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
 	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &);
-	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &);
+	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr <rai::block> block_get (MDB_txn *, rai::block_hash const &);
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator blocks_begin (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator blocks_begin (MDB_txn *);
-	rai::store_iterator blocks_end ();
 	
 	void latest_put (MDB_txn *, rai::account const &, rai::frontier const &);
 	bool latest_get (MDB_txn *, rai::account const &, rai::frontier &);
@@ -381,11 +379,16 @@ public:
 	void clear (MDB_dbi);
 	
 	rai::mdb_env environment;
-private:
 	// account -> block_hash, representative, balance, timestamp    // Account to frontier block, representative, balance, last_change
 	MDB_dbi accounts;
-	// block_hash -> block                                          // Mapping block hash to contents
-	MDB_dbi blocks;
+	// block_hash -> send_block
+	MDB_dbi send_blocks;
+	// block_hash -> receive_block
+	MDB_dbi receive_blocks;
+	// block_hash -> open_block
+	MDB_dbi open_blocks;
+	// block_hash -> change_block
+	MDB_dbi change_blocks;
 	// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
 	MDB_dbi pending;
 	// account -> weight                                            // Representation
