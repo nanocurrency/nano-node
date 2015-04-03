@@ -453,12 +453,12 @@ public:
     void receive_frontier ();
     void received_frontier (boost::system::error_code const &, size_t);
     void request_account (rai::account const &);
+	void unsynced (MDB_txn *, rai::account const &, rai::block_hash const &);
     void completed_requests ();
     void completed_pulls ();
     void completed_pushes ();
 	void next ();
     std::unordered_map <rai::account, rai::block_hash> pulls;
-    std::unordered_map <rai::account, rai::block_hash> pushes;
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
 	rai::account current;
@@ -490,8 +490,6 @@ public:
     void push_block (rai::block const &);
     void send_finished ();
     std::shared_ptr <rai::frontier_req_client> connection;
-    std::unordered_map <rai::account, rai::block_hash>::iterator current;
-    std::unordered_map <rai::account, rai::block_hash>::iterator end;
     rai::push_synchronization synchronization;
 };
 class message_parser

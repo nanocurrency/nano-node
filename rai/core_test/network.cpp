@@ -587,30 +587,57 @@ TEST (bootstrap_processor, process_new)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, diamond)
+TEST (bootstrap_processor, pull_diamond)
 {
 	rai::system system (24000, 1);
 	rai::keypair key;
-	std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->latest (rai::test_genesis_key.pub), 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->latest (rai::test_genesis_key.pub))));
+	std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->latest (rai::test_genesis_key.pub))));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*send1).code);
-	std::unique_ptr <rai::send_block> send2 (new rai::send_block (key.pub, send1->hash (), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*send2).code);
 	std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, rai::work_generate (key.pub)));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*open).code);
-	std::unique_ptr <rai::receive_block> receive (new rai::receive_block (open->hash (), send2->hash (), key.prv, key.pub, rai::work_generate (open->hash ())));
+	std::unique_ptr <rai::send_block> send2 (new rai::send_block (rai::test_genesis_key.pub, open->hash (), std::numeric_limits <rai::uint128_t>::max () - 100, key.prv, key.pub, rai::work_generate (open->hash ())));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*send2).code);
+	std::unique_ptr <rai::receive_block> receive (new rai::receive_block (send1->hash (), send2->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*receive).code);
 	rai::node_init init1;
 	auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor, system.logging));
 	ASSERT_FALSE (init1.error ());
 	node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
 	auto iterations (0);
-	while (node1->balance (key.pub) != std::numeric_limits <rai::uint128_t>::max ())
+	while (node1->balance (rai::test_genesis_key.pub) != 100)
 	{
-	        system.poll ();
+	    system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), node1->balance (key.pub));
+	ASSERT_EQ (100, node1->balance (rai::test_genesis_key.pub));
+	node1->stop ();
+}
+
+TEST (bootstrap_processor, push_diamond)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::node_init init1;
+	auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.processor, system.logging));
+	ASSERT_FALSE (init1.error ());
+	std::unique_ptr <rai::send_block> send1 (new rai::send_block (key.pub, system.nodes [0]->latest (rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->latest (rai::test_genesis_key.pub))));
+	ASSERT_EQ (rai::process_result::progress, node1->process (*send1).code);
+	std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, rai::work_generate (key.pub)));
+	ASSERT_EQ (rai::process_result::progress, node1->process (*open).code);
+	std::unique_ptr <rai::send_block> send2 (new rai::send_block (rai::test_genesis_key.pub, open->hash (), std::numeric_limits <rai::uint128_t>::max () - 100, key.prv, key.pub, rai::work_generate (open->hash ())));
+	ASSERT_EQ (rai::process_result::progress, node1->process (*send2).code);
+	std::unique_ptr <rai::receive_block> receive (new rai::receive_block (send1->hash (), send2->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1->hash ())));
+	ASSERT_EQ (rai::process_result::progress, node1->process (*receive).code);
+	node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
+	auto iterations (0);
+	while (system.nodes [0]->balance (rai::test_genesis_key.pub) != 100)
+	{
+	    system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_EQ (100, system.nodes [0]->balance (rai::test_genesis_key.pub));
 	node1->stop ();
 }
 

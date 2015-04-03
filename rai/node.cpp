@@ -3732,9 +3732,14 @@ public:
     {
         if (!sync.synchronized (hash_a))
         {
+//			std::cerr << "Queueing: " << hash_a.to_string () << std::endl;
             result = false;
             sync.blocks.push (hash_a);
         }
+		else
+		{
+//			std::cerr << "Completed: " << hash_a.to_string () << std::endl;
+		}
     }
     rai::block_synchronization & sync;
     bool result;
@@ -3815,8 +3820,13 @@ block_synchronization (target_a, store_a)
 
 bool rai::push_synchronization::synchronized (rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
-    return !store.unsynced_exists (transaction, hash_a);
+	rai::transaction transaction (store.environment, nullptr, true);
+    auto result (!store.unsynced_exists (transaction, hash_a));
+	if (!result)
+	{
+		store.unsynced_del (transaction, hash_a);
+	}
+	return result;
 }
 
 std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_hash const & hash_a)
@@ -4431,8 +4441,9 @@ rai::bulk_pull_client::~bulk_pull_client ()
 
 rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_client> const & connection_a) :
 connection (connection_a),
-current (connection->node->store.latest_begin (rai::transaction (connection_a->node->store.environment, nullptr, false))->first)
+current (0)
 {
+	next ();
 }
 
 rai::frontier_req_client::~frontier_req_client ()
@@ -4465,6 +4476,17 @@ void rai::frontier_req_client::completed_pulls ()
     pushes->start ();
 }
 
+void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & ours_a, rai::block_hash const & theirs_a)
+{
+	auto current (ours_a);
+	while (!current.is_zero () && current != theirs_a)
+	{
+		connection->node->store.unsynced_put (transaction_a, current);
+		auto block (connection->node->store.block_get (transaction_a, current));
+		current = block->previous ();
+	}
+}
+
 void rai::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
 {
     if (!ec)
@@ -4478,12 +4500,13 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         rai::bufferstream latest_stream (receive_buffer.data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
         auto error2 (rai::read (latest_stream, latest));
         assert (!error2);
+		rai::transaction transaction (connection->node->store.environment, nullptr, true);
         if (!account.is_zero ())
         {
             while (!current.is_zero () && current < account)
             {
                 // We know about an account they don't.
-                pushes [current] = rai::block_hash (0);
+				unsynced (transaction, frontier.hash, 0);
 				next ();
             }
             if (!current.is_zero ())
@@ -4496,11 +4519,10 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
                     }
                     else
 					{
-						rai::transaction transaction (connection->node->store.environment, nullptr, false);
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
-							pushes [account] = latest;
+							unsynced (transaction, frontier.hash, latest);
 						}
 						else
 						{
@@ -4527,7 +4549,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             while (!current.is_zero ())
             {
                 // We know about an account they don't.
-                pushes [current] = rai::block_hash (0);
+				unsynced (transaction, frontier.hash, 0);
                 next ();
             }
             completed_requests ();
@@ -4570,8 +4592,6 @@ void rai::frontier_req_client::completed_pushes ()
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
 connection (connection_a),
-current (connection->pushes.begin ()),
-end (connection->pushes.end ()),
 synchronization ([this] (rai::block const & block_a)
 {
     push_block (block_a);
@@ -4611,18 +4631,19 @@ void rai::bulk_push_client::start ()
 
 void rai::bulk_push_client::push ()
 {
-    if (current != end)
-    {
-        auto hash (current->first);
-		rai::frontier frontier;
+	rai::block_hash hash (0);
+	{
+		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
+		auto first (connection->connection->node->store.unsynced_begin (transaction));
+		if (first != rai::store_iterator (nullptr))
 		{
-			rai::transaction transaction (connection->connection->node->store.environment, nullptr, false);
-			auto error (connection->connection->node->store.latest_get (transaction, hash, frontier));
-			assert (!error);
+			hash = first->first;
+			connection->connection->node->store.unsynced_del (transaction, hash);
 		}
-		++current;
-		assert (synchronization.blocks.empty ());
-		synchronization.blocks.push (frontier.hash);
+	}
+	if (!hash.is_zero ())
+	{
+		synchronization.blocks.push (hash);
         synchronization.synchronize_one ();
     }
     else
