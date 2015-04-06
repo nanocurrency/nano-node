@@ -3121,9 +3121,9 @@ warmed_up (false)
 void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	if (!warmed_up && !in_progress)
+	if (warmed_up.size () < 2 && !in_progress && warmed_up.find (endpoint_a) == warmed_up.end ())
 	{
-		warmed_up = true;
+		warmed_up.insert (endpoint_a);
 		in_progress = true;
 		initiate (endpoint_a);
 	}

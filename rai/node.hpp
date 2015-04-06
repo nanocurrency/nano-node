@@ -600,7 +600,7 @@ public:
 	std::mutex mutex;
 	rai::node & node;
 	bool in_progress;
-	bool warmed_up;
+	std::unordered_set <rai::endpoint> warmed_up;
 };
 class bootstrap_listener
 {

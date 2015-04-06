@@ -175,9 +175,9 @@ TEST (node, auto_bootstrap)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 	node1->start ();
-	ASSERT_FALSE (node1->bootstrap_initiator.warmed_up);
+	ASSERT_EQ (0, node1->bootstrap_initiator.warmed_up.size ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress);
-	ASSERT_FALSE (system.nodes [0]->bootstrap_initiator.warmed_up);
+	ASSERT_EQ (0, system.nodes [0]->bootstrap_initiator.warmed_up.size ());
 	ASSERT_FALSE (system.nodes [0]->bootstrap_initiator.in_progress);
 	auto iterations2 (0);
 	while (!node1->bootstrap_initiator.in_progress || !system.nodes [0]->bootstrap_initiator.in_progress)
@@ -186,8 +186,8 @@ TEST (node, auto_bootstrap)
 		++iterations2;
 		ASSERT_LT (iterations2, 200);
 	}
-	ASSERT_TRUE (node1->bootstrap_initiator.warmed_up);
-	ASSERT_TRUE (system.nodes [0]->bootstrap_initiator.warmed_up);
+	ASSERT_EQ (1, node1->bootstrap_initiator.warmed_up.size ());
+	ASSERT_EQ (1, system.nodes [0]->bootstrap_initiator.warmed_up.size ());
 	auto iterations3 (0);
 	while (node1->balance (key2.pub) != 100)
 	{
