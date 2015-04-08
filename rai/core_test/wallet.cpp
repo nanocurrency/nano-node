@@ -560,8 +560,7 @@ TEST (wallet, work_generate)
 	auto again (true);
     while (again)
     {
-        system.service->poll_one ();
-        system.processor.poll_one ();
+		system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);

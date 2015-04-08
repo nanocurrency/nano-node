@@ -1501,7 +1501,19 @@ application_path (application_path_a)
     });
     observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
     {
-		wallets.cache_work (account_a);
+		auto hash (block_a.hash ());
+		auto this_l (shared ());
+		service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (20), [this_l, hash, account_a] ()
+		{
+			if (this_l->latest (account_a) == hash)
+			{
+				this_l->wallets.cache_work (account_a);
+			}
+			else
+			{
+				// Latest block already invalid, don't generate work
+			}
+		});
     });
     if (!init_a.error ())
     {
