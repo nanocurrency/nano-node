@@ -189,6 +189,8 @@ namespace rai_qt {
 		QLineEdit * hash;
 		QLabel * block_label;
         QPlainTextEdit * block;
+		QLabel * successor_label;
+		QLineEdit * successor;
 		QPushButton * retrieve;
 		QPushButton * back;
 		rai_qt::wallet & wallet;

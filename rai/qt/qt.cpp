@@ -250,6 +250,8 @@ hash_label (new QLabel ("Hash:")),
 hash (new QLineEdit),
 block_label (new QLabel ("Block:")),
 block (new QPlainTextEdit),
+successor_label (new QLabel ("Successor:")),
+successor (new QLineEdit),
 retrieve (new QPushButton ("Retrieve")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
@@ -258,7 +260,10 @@ wallet (wallet_a)
 	layout->addWidget (hash);
 	layout->addWidget (block_label);
 	layout->addWidget (block);
+	layout->addWidget (successor_label);
+	layout->addWidget (successor);
 	layout->addWidget (retrieve);
+	layout->addStretch ();
 	layout->addWidget (back);
 	window->setLayout (layout);
 	QObject::connect (back, &QPushButton::released, [this] ()
@@ -277,6 +282,8 @@ wallet (wallet_a)
 				std::string contents;
 				block_l->serialize_json (contents);
 				block->setPlainText (contents.c_str ());
+				auto successor_l (wallet.node.store.block_successor (transaction, hash_l));
+				successor->setText (successor_l.to_string ().c_str ());
 			}
 			else
 			{
