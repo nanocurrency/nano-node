@@ -453,3 +453,38 @@ TEST (wallet, block_viewer)
 	QTest::mouseClick (wallet.block_viewer.back, Qt::LeftButton);
 	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
 }
+
+TEST (wallet, import)
+{
+    rai::system system (24000, 2);
+	std::string json;
+	rai::keypair key1;
+	rai::keypair key2;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, key1.prv);
+		system.wallet (0)->store.serialize_json (transaction, json);
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, true);
+		system.wallet (0)->store.insert (transaction, key2.prv);
+	}
+	auto path (rai::unique_path ());
+	{
+		std::ofstream stream;
+		stream.open (path.c_str ());
+		stream << json;
+	}
+    rai_qt::wallet wallet (*test_application, *system.nodes [1], system.wallet (1), key2.pub);
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
+	ASSERT_EQ (wallet.accounts.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.accounts.import_wallet, Qt::LeftButton);
+	ASSERT_EQ (wallet.import.window, wallet.main_stack->currentWidget ());
+	QTest::keyClicks (wallet.import.filename, path.c_str ());
+	QTest::keyClicks (wallet.import.password, "");
+	ASSERT_FALSE (system.wallet (1)->exists (key1.pub));
+	QTest::mouseClick (wallet.import.perform, Qt::LeftButton);
+	ASSERT_TRUE (system.wallet (1)->exists (key1.pub));
+}

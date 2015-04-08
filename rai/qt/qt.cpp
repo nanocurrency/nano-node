@@ -40,6 +40,7 @@ model (new QStandardItemModel),
 view (new QTableView),
 use_account (new QPushButton ("Use account")),
 create_account (new QPushButton ("Create account")),
+import_wallet (new QPushButton ("Import wallet")),
 separator (new QFrame),
 account_key_line (new QLineEdit),
 account_key_button (new QPushButton ("Create custom account")),
@@ -59,6 +60,7 @@ wallet (wallet_a)
 	layout->addWidget (view);
 	layout->addWidget (use_account);
 	layout->addWidget (create_account);
+	layout->addWidget (import_wallet);
 	layout->addWidget (separator);
 	layout->addWidget (account_key_line);
 	layout->addWidget (account_key_button);
@@ -112,6 +114,10 @@ wallet (wallet_a)
         assert (item != nullptr);
         wallet.application.clipboard ()->setText (item->text ());
     });
+	QObject::connect (import_wallet, &QPushButton::released, [this] ()
+	{
+		wallet.push_main_stack (wallet.import.window);
+	});
 }
 
 void rai_qt::accounts::refresh ()
@@ -128,6 +134,34 @@ void rai_qt::accounts::refresh ()
         items.push_back (new QStandardItem (QString (key.to_base58check ().c_str ())));
         model->appendRow (items);
     }
+}
+
+rai_qt::import::import (rai_qt::wallet & wallet_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+filename_label (new QLabel ("Filename:")),
+filename (new QLineEdit),
+password_label (new QLabel ("Password:")),
+password (new QLineEdit),
+perform (new QPushButton ("Import")),
+back (new QPushButton ("Back")),
+wallet (wallet_a)
+{
+	QObject::connect (perform, &QPushButton::released, [this] ()
+	{
+		std::ifstream stream;
+		stream.open (filename->text ().toStdString ().c_str ());
+		if (!stream.fail ())
+		{
+			std::stringstream contents;
+			contents << stream.rdbuf ();
+			wallet.wallet_m->import (contents.str (), password->text ().toStdString ().c_str ());
+		}
+	});
+	QObject::connect (back, &QPushButton::released, [this] ()
+	{
+		wallet.pop_main_stack ();
+	});
 }
 
 rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a) :
@@ -261,6 +295,7 @@ advanced (*this),
 block_creation (*this),
 block_entry (*this),
 block_viewer (*this),
+import (*this),
 application (application_a),
 status (new QLabel ("Status: Disconnected")),
 main_stack (new QStackedWidget),

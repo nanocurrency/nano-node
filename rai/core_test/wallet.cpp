@@ -476,6 +476,35 @@ TEST (wallet_store, move)
     ASSERT_FALSE (wallet2.exists (transaction, key2.pub));
 }
 
+TEST (wallet_store, import)
+{
+    rai::system system (24000, 2);
+	auto wallet1 (system.wallet (0));
+	auto wallet2 (system.wallet (1));
+	rai::keypair key1;
+	wallet1->insert (key1.prv);
+	std::string json;
+	wallet1->serialize (json);
+	ASSERT_FALSE (wallet2->exists (key1.pub));
+	auto error (wallet2->import (json, ""));
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (wallet2->exists (key1.pub));
+}
+
+TEST (wallet_store, fail_import_bad_password)
+{
+    rai::system system (24000, 2);
+	auto wallet1 (system.wallet (0));
+	auto wallet2 (system.wallet (1));
+	rai::keypair key1;
+	wallet1->insert (key1.prv);
+	std::string json;
+	wallet1->serialize (json);
+	ASSERT_FALSE (wallet2->exists (key1.pub));
+	auto error (wallet2->import (json, "1"));
+	ASSERT_TRUE (error);
+}
+
 TEST (wallet, work)
 {
     rai::system system (24000, 1);

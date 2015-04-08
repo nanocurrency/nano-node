@@ -289,6 +289,7 @@ public:
 	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
     bool fetch (MDB_txn *, rai::public_key const &, rai::private_key &);
     bool exists (MDB_txn *, rai::public_key const &);
+	void destroy (MDB_txn *);
     rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
     rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
@@ -297,6 +298,7 @@ public:
     void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);
     bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
+	bool import (MDB_txn *, rai::wallet_store &);
 	bool work_get (MDB_txn *, rai::public_key const &, uint64_t &);
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
     rai::fan password;
@@ -323,6 +325,8 @@ public:
 	void enter_initial_password (MDB_txn *);
 	void insert (rai::private_key const &);
     bool exists (rai::public_key const &);
+	bool import (std::string const &, std::string const &);
+	void serialize (std::string &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
 	// Send from a specific account in the wallet
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);

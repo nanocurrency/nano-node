@@ -148,12 +148,27 @@ namespace rai_qt {
 		QTableView * view;
 		QPushButton * use_account;
 		QPushButton * create_account;
+		QPushButton * import_wallet;
 		QFrame * separator;
         QLineEdit * account_key_line;
         QPushButton * account_key_button;
         QPushButton * back;
         rai_qt::wallet & wallet;
     };
+	class import
+	{
+	public:
+		import (rai_qt::wallet &);
+		QWidget * window;
+		QVBoxLayout * layout;
+		QLabel filename_label;
+		QLineEdit * filename;
+		QLabel password_label;
+		QLineEdit * password;
+		QPushButton * perform;
+		QPushButton * back;
+		rai_qt::wallet & wallet;
+	};
 	class history
 	{
 	public:
@@ -201,6 +216,7 @@ namespace rai_qt {
         rai_qt::block_creation block_creation;
         rai_qt::block_entry block_entry;
 		rai_qt::block_viewer block_viewer;
+		rai_qt::import import;
     
         QApplication & application;
 		QLabel * status;

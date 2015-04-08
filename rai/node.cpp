@@ -708,6 +708,25 @@ bool rai::wallet_store::move (MDB_txn * transaction_a, rai::wallet_store & other
     return result;
 }
 
+bool rai::wallet_store::import (MDB_txn * transaction_a, rai::wallet_store & other_a)
+{
+    assert (valid_password (transaction_a));
+    assert (other_a.valid_password (transaction_a));
+    auto result (false);
+    for (auto i (other_a.begin (transaction_a)), n (end ()); i != n; ++i)
+    {
+        rai::private_key prv;
+        auto error (other_a.fetch (transaction_a, i->first, prv));
+        result = result | error;
+        if (!result)
+        {
+            insert (transaction_a, prv);
+            other_a.erase (transaction_a, i->first);
+        }
+    }
+    return result;
+}
+
 bool rai::wallet_store::work_get (MDB_txn * transaction_a, rai::public_key const & pub_a, uint64_t & work_a)
 {
 	auto result (false);
@@ -775,6 +794,41 @@ bool rai::wallet::exists (rai::public_key const & account_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
 	return store.exists (transaction, account_a);
+}
+
+bool rai::wallet::import (std::string const & json_a, std::string const & password_a)
+{
+	rai::transaction transaction (store.environment, nullptr, true);
+	rai::uint256_union id;
+	random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
+	auto error (false);
+	rai::wallet_store temp (error, transaction, id.to_string (), json_a);
+	if (!error)
+	{
+		temp.enter_password (transaction, password_a);
+		if (temp.valid_password (transaction))
+		{
+			error = store.import (transaction, temp);
+		}
+		else
+		{
+			error = true;
+		}
+	}
+	temp.destroy (transaction);
+	return error;
+}
+
+void rai::wallet::serialize (std::string & json_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	store.serialize_json (transaction, json_a);
+}
+
+void rai::wallet_store::destroy (MDB_txn * transaction_a)
+{
+	auto status (mdb_drop (transaction_a, handle, 1));
+	assert (status == 0);
 }
 
 bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
@@ -1019,13 +1073,12 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
 
 void rai::wallets::destroy (rai::uint256_union const & id_a)
 {
+	rai::transaction transaction (node.store.environment, nullptr, true);
     auto existing (items.find (id_a));
     assert (existing != items.end ());
     auto wallet (existing->second);
     items.erase (existing);
-	rai::transaction transaction (wallet->store.environment, nullptr, true);
-	auto status (mdb_drop (transaction, wallet->store.handle, 1));
-	assert (status == 0);
+	existing->second->store.destroy (transaction);
 }
 
 void rai::wallets::cache_work (rai::account const & account_a)
