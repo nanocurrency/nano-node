@@ -147,6 +147,14 @@ perform (new QPushButton ("Import")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
+	layout->addWidget (filename_label);
+	layout->addWidget (filename);
+	layout->addWidget (password_label);
+	layout->addWidget (password);
+	layout->addWidget (perform);
+	layout->addStretch ();
+	layout->addWidget (back);
+	window->setLayout (layout);
 	QObject::connect (perform, &QPushButton::released, [this] ()
 	{
 		std::ifstream stream;
