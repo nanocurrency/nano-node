@@ -484,3 +484,25 @@ TEST (block_store, unsynced_iteration)
     ASSERT_TRUE (hashes.find (hash1) != hashes.end ());
     ASSERT_TRUE (hashes.find (hash2) != hashes.end ());
 }
+
+TEST (block_store, large_iteration)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	std::unordered_set <rai::account> accounts1;
+	rai::transaction transaction (store.environment, nullptr, true);
+	for (auto i (0); i < 100000; ++i)
+	{
+		rai::account account;
+		rai::random_pool.GenerateBlock (account.bytes.data (), account.bytes.size ());
+		accounts1.insert (account);
+		store.latest_put (transaction, account, rai::frontier ());
+	}
+	std::unordered_set <rai::account> accounts2;
+	for (auto i (store.latest_begin (transaction, 0)), n (store.latest_end ()); i != n; ++i)
+	{
+		accounts2.insert (rai::account (i->first));
+	}
+	ASSERT_EQ (accounts1, accounts2);
+}

@@ -708,3 +708,47 @@ TEST (rpc, price_max)
 	auto value (std::stoi (price));
 	ASSERT_EQ (rai::node::price_max, value);
 }
+
+TEST (rpc, frontier)
+{
+    rai::system system (24000, 1);
+	std::unordered_map <rai::account, rai::block_hash> source;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		for (auto i (0); i < 1000; ++i)
+		{
+			rai::keypair key;
+			source [key.pub] = key.prv;
+			system.nodes [0]->store.latest_put (transaction, key.pub, rai::frontier (key.prv, 0, 0, 0));
+		}
+	}
+	rai::keypair key;
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "frontiers");
+	request_tree.put ("account", rai::account (0).to_base58check ());
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    boost::property_tree::ptree response_tree;
+    std::stringstream istream (response.content);
+    boost::property_tree::read_json (istream, response_tree);
+    auto & frontiers_node (response_tree.get_child ("frontiers"));
+    std::unordered_map <rai::account, rai::block_hash> frontiers;
+    for (auto i (frontiers_node.begin ()), j (frontiers_node.end ()); i != j; ++i)
+    {
+        rai::account account;
+		account.decode_base58check (i->first);
+		rai::block_hash frontier;
+		frontier.decode_hex (i->second.get <std::string> (""));
+        frontiers [account] = frontier;
+    }
+	ASSERT_EQ (1, frontiers.erase (rai::test_genesis_key.pub));
+	ASSERT_EQ (source, frontiers);
+}
