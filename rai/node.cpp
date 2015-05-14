@@ -2771,26 +2771,15 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "frontiers")
             {
-                std::string account_text (request_l.get <std::string> ("account"));
-                rai::uint256_union account;
-                auto error (account.decode_base58check (account_text));
-                if (!error)
-                {
-					boost::property_tree::ptree response_l;
-					boost::property_tree::ptree frontiers;
-					rai::transaction transaction (node.store.environment, nullptr, false);
-					for (auto i (node.store.latest_begin (transaction, account)), n (node.store.latest_end ()); i != n; ++i)
-					{
-						frontiers.put (rai::account (i->first).to_base58check (), rai::frontier (i->second).hash.to_string ());
-					}
-					response_l.add_child ("frontiers", frontiers);
-                    set_response (response, response_l);
-                }
-                else
-                {
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
-                }
+				boost::property_tree::ptree response_l;
+				boost::property_tree::ptree frontiers;
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+				{
+					frontiers.put (rai::account (i->first).to_base58check (), rai::frontier (i->second).hash.to_string ());
+				}
+				response_l.add_child ("frontiers", frontiers);
+				set_response (response, response_l);
             }
             else
             {
