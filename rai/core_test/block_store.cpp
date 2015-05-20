@@ -500,9 +500,13 @@ TEST (block_store, large_iteration)
 		store.latest_put (transaction, account, rai::frontier ());
 	}
 	std::unordered_set <rai::account> accounts2;
+	rai::account previous (0);
 	for (auto i (store.latest_begin (transaction, 0)), n (store.latest_end ()); i != n; ++i)
 	{
-		accounts2.insert (rai::account (i->first));
+		rai::account current (i->first);
+		assert (current.number () > previous.number ());
+		accounts2.insert (current);
+		previous = current;
 	}
 	ASSERT_EQ (accounts1, accounts2);
 }

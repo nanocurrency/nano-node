@@ -127,17 +127,17 @@ rai::uint128_union::uint128_union (std::string const & string_a)
 
 rai::uint128_union::uint128_union (uint64_t value_a)
 {
-    qwords [0] = value_a;
-    qwords [1] = 0;
+	*this = rai::uint128_t (value_a);
 }
 
 rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
 {
-    boost::multiprecision::uint256_t number_l (value_a);
-    qwords [0] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [1] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
+    boost::multiprecision::uint128_t number_l (value_a);
+	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
+	{
+		*i = ((number_l) & 0xff).convert_to <uint8_t> ();
+		number_l >>= 8;
+	}
 }
 
 bool rai::uint128_union::operator == (rai::uint128_union const & other_a) const
@@ -147,9 +147,14 @@ bool rai::uint128_union::operator == (rai::uint128_union const & other_a) const
 
 rai::uint128_t rai::uint128_union::number () const
 {
-    boost::multiprecision::uint128_t result (qwords [1]);
-    result <<= 64;
-    result |= qwords [0];
+    boost::multiprecision::uint128_t result;
+	auto shift (0);
+	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
+	{
+		result <<= shift;
+		result |= *i;
+		shift = 8;
+	}
     return result;
 }
 
@@ -316,13 +321,14 @@ void rai::uint256_union::clear ()
 
 rai::uint256_t rai::uint256_union::number () const
 {
-    boost::multiprecision::uint256_t result (qwords [3]);
-    result <<= 64;
-    result |= qwords [2];
-    result <<= 64;
-    result |= qwords [1];
-    result <<= 64;
-    result |= qwords [0];
+    boost::multiprecision::uint256_t result;
+	auto shift (0);
+	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
+	{
+		result <<= shift;
+		result |= *i;
+		shift = 8;
+	}
     return result;
 }
 
@@ -500,13 +506,11 @@ bool rai::uint256_union::decode_base58check (std::string const & source_a)
 rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
 {
     boost::multiprecision::uint256_t number_l (number_a);
-    qwords [0] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [1] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [2] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [3] = number_l.convert_to <uint64_t> ();
+	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
+	{
+		*i = ((number_l) & 0xff).convert_to <uint8_t> ();
+		number_l >>= 8;
+	}
 }
 
 bool rai::uint512_union::operator == (rai::uint512_union const & other_a) const
@@ -517,21 +521,11 @@ bool rai::uint512_union::operator == (rai::uint512_union const & other_a) const
 rai::uint512_union::uint512_union (boost::multiprecision::uint512_t const & number_a)
 {
     boost::multiprecision::uint512_t number_l (number_a);
-    qwords [0] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [1] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [2] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [3] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [4] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [5] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [6] = number_l.convert_to <uint64_t> ();
-    number_l >>= 64;
-    qwords [7] = number_l.convert_to <uint64_t> ();
+	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
+	{
+		*i = ((number_l) & 0xff).convert_to <uint8_t> ();
+		number_l >>= 8;
+	}
 }
 
 void rai::uint512_union::clear ()
@@ -541,21 +535,14 @@ void rai::uint512_union::clear ()
 
 boost::multiprecision::uint512_t rai::uint512_union::number () const
 {
-    boost::multiprecision::uint512_t result (qwords [7]);
-    result <<= 64;
-    result |= qwords [6];
-    result <<= 64;
-    result |= qwords [5];
-    result <<= 64;
-    result |= qwords [4];
-    result <<= 64;
-    result |= qwords [3];
-    result <<= 64;
-    result |= qwords [2];
-    result <<= 64;
-    result |= qwords [1];
-    result <<= 64;
-    result |= qwords [0];
+    boost::multiprecision::uint512_t result;
+	auto shift (0);
+	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
+	{
+		result <<= shift;
+		result |= *i;
+		shift = 8;
+	}
     return result;
 }
 
