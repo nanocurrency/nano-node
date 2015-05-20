@@ -256,7 +256,7 @@ TEST (wallet, process_block)
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
     QTest::mouseClick (wallet.advanced.enter_block, Qt::LeftButton);
     ASSERT_EQ (wallet.block_entry.window, wallet.main_stack->currentWidget ());
-    rai::send_block send (key1.pub, latest, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
+    rai::send_block send (latest, key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
     std::string previous;
     send.hashables.previous.encode_hex (previous);
     std::string balance;
@@ -383,7 +383,7 @@ TEST (history, short_text)
 		rai::transaction transaction (store.environment, nullptr, true);
 		genesis.initialize (transaction, store);
 		rai::keypair key;
-		rai::send_block send (rai::test_genesis_key.pub, ledger.latest (transaction, rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (ledger.latest (transaction, rai::test_genesis_key.pub)));
+		rai::send_block send (ledger.latest (transaction, rai::test_genesis_key.pub), rai::test_genesis_key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (ledger.latest (transaction, rai::test_genesis_key.pub)));
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
 		rai::receive_block receive (send.hash (), send.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive).code);

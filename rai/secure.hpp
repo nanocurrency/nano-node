@@ -106,8 +106,8 @@ public:
 	send_hashables (bool &, rai::stream &);
 	send_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
-	rai::account destination;
 	rai::block_hash previous;
+	rai::account destination;
 	rai::amount balance;
 };
 class send_block : public rai::block

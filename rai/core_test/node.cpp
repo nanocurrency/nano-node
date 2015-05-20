@@ -123,8 +123,8 @@ TEST (node, send_out_of_order)
     rai::system system (24000, 2);
     rai::keypair key2;
     rai::genesis genesis;
-    rai::send_block send1 (key2.pub, genesis.hash (), std::numeric_limits <rai::uint128_t>::max () - 1000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ()));
-    rai::send_block send2 (key2.pub, send1.hash (), std::numeric_limits <rai::uint128_t>::max () - 2000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1.hash ()));
+    rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 1000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ()));
+    rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 2000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1.hash ()));
     system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)));
     system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)));
     auto iterations (0);
@@ -144,7 +144,7 @@ TEST (node, quick_confirm)
 	rai::block_hash previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	uint64_t work (rai::work_generate (previous));
 	system.wallet (0)->insert (key.prv);
-    rai::send_block send (key.pub, previous, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
+    rai::send_block send (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send).code);
     auto iterations (0);
     while (system.nodes [0]->balance (key.pub).is_zero ())

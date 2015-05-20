@@ -308,7 +308,7 @@ TEST (block, publish_req_serialization)
 {
     rai::keypair key1;
     rai::keypair key2;
-    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (key2.pub, 0, 200, 1, 2, 3)));
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, 1, 2, 3)));
     rai::publish req (std::move (block));
     std::vector <uint8_t> bytes;
     {
@@ -327,7 +327,7 @@ TEST (block, confirm_req_serialization)
 {
     rai::keypair key1;
     rai::keypair key2;
-    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (key2.pub, 0, 200, 1, 2, 3)));
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, 1, 2, 3)));
     rai::confirm_req req (std::move (block));
     std::vector <uint8_t> bytes;
     {

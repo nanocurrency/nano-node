@@ -889,7 +889,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 						rai::private_key prv;
 						result = store.fetch (transaction, source_a, prv);
 						assert (!result);
-						block.reset (new rai::send_block (account_a, frontier.hash, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
+						block.reset (new rai::send_block (frontier.hash, account_a, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
 						prv.clear ();
 					}
 				}
@@ -936,7 +936,7 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 					rai::private_key prv;
 					result = store.fetch (transaction, account, prv);
 					assert (!result);
-					std::unique_ptr <rai::send_block> block (new rai::send_block (account_a, frontier.hash, balance - amount, prv, account, work_fetch (transaction, account, frontier.hash)));
+					std::unique_ptr <rai::send_block> block (new rai::send_block (frontier.hash, account_a, balance - amount, prv, account, work_fetch (transaction, account, frontier.hash)));
 					prv.clear ();
 					blocks.push_back (std::move (block));
 				}

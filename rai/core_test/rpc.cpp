@@ -639,7 +639,7 @@ TEST (rpc, process_block)
     rai::system system (24000, 1);
 	rai::keypair key;
 	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (key.pub, latest, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     boost::network::http::server <rai::rpc>::request request;

@@ -55,7 +55,7 @@ TEST (gap_cache, limit)
     rai::gap_cache cache (*system.nodes [0]);
     for (auto i (0); i < cache.max * 2; ++i)
     {
-        rai::send_block block1 (0, i, 1, 2, 3, 4);
+        rai::send_block block1 (i, 0, 1, 2, 3, 4);
         auto previous (block1.previous ());
         cache.add (rai::send_block (block1), previous);
     }
@@ -75,7 +75,7 @@ TEST (gap_cache, gap_bootstrap)
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	auto work (rai::work_generate (latest));
 	rai::keypair key;
-	rai::send_block send (key.pub, latest, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
+	rai::send_block send (latest, key.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send).code);
 	ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes [1]->balance (rai::genesis_account));
