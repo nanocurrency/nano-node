@@ -432,7 +432,7 @@ TEST (bulk_pull, end_not_owned)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-    rai::open_block open (0, 1, 2, 3, 4, 5);
+    rai::open_block open (0, 1, 2, 3, 4, 5, false);
     open.hashables.account = key2.pub;
     open.hashables.representative = key2.pub;
     open.hashables.source = latest;
@@ -593,7 +593,7 @@ TEST (bootstrap_processor, pull_diamond)
 	rai::keypair key;
 	std::unique_ptr <rai::send_block> send1 (new rai::send_block (system.nodes [0]->latest (rai::test_genesis_key.pub), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->latest (rai::test_genesis_key.pub))));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*send1).code);
-	std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, rai::work_generate (key.pub)));
+	std::unique_ptr <rai::open_block> open (new rai::open_block (send1->hash (), 1, key.pub, key.prv, key.pub, rai::work_generate (key.pub), false));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*open).code);
 	std::unique_ptr <rai::send_block> send2 (new rai::send_block (open->hash (), rai::test_genesis_key.pub, std::numeric_limits <rai::uint128_t>::max () - 100, key.prv, key.pub, rai::work_generate (open->hash ())));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (*send2).code);
@@ -623,7 +623,7 @@ TEST (bootstrap_processor, push_diamond)
 	ASSERT_FALSE (init1.error ());
 	std::unique_ptr <rai::send_block> send1 (new rai::send_block (system.nodes [0]->latest (rai::test_genesis_key.pub), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (system.nodes [0]->latest (rai::test_genesis_key.pub))));
 	ASSERT_EQ (rai::process_result::progress, node1->process (*send1).code);
-	std::unique_ptr <rai::open_block> open (new rai::open_block (key.pub, 1, send1->hash (), key.prv, key.pub, rai::work_generate (key.pub)));
+	std::unique_ptr <rai::open_block> open (new rai::open_block (send1->hash (), 1, key.pub, key.prv, key.pub, rai::work_generate (key.pub), false));
 	ASSERT_EQ (rai::process_result::progress, node1->process (*open).code);
 	std::unique_ptr <rai::send_block> send2 (new rai::send_block (open->hash (), rai::test_genesis_key.pub, std::numeric_limits <rai::uint128_t>::max () - 100, key.prv, key.pub, rai::work_generate (open->hash ())));
 	ASSERT_EQ (rai::process_result::progress, node1->process (*send2).code);

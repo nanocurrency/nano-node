@@ -1161,7 +1161,7 @@ void rai_qt::block_creation::create_open ()
                     auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                     if (!error)
                     {
-                        rai::open_block open (receivable.destination, representative_l, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, receivable.destination));
+                        rai::open_block open (source_l, representative_l, receivable.destination, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, receivable.destination), false);
                         key.clear ();
                         std::string block_l;
                         open.serialize_json (block_l);
