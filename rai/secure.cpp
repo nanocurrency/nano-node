@@ -894,7 +894,7 @@ rai::block_hash rai::send_block::root () const
 	return hashables.previous;
 }
 
-rai::open_hashables::open_hashables (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, bool) :
+rai::open_hashables::open_hashables (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a) :
 source (source_a),
 representative (representative_a),
 account (account_a)
@@ -944,15 +944,15 @@ void rai::open_hashables::hash (blake2b_state & hash_a) const
     blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 }
 
-rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a, bool) :
-hashables (source_a, representative_a, account_a, false),
+rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+hashables (source_a, representative_a, account_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
 }
 
-rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, std::nullptr_t, bool) :
-hashables (source_a, representative_a, account_a, false),
+rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, std::nullptr_t) :
+hashables (source_a, representative_a, account_a),
 work (rai::work_generate (root ()))
 {
 	signature.clear ();
@@ -1139,18 +1139,18 @@ rai::block_hash rai::open_block::root () const
 	return hashables.account;
 }
 
-rai::change_hashables::change_hashables (rai::account const & representative_a, rai::block_hash const & previous_a) :
-representative (representative_a),
-previous (previous_a)
+rai::change_hashables::change_hashables (rai::block_hash const & previous_a, rai::account const & representative_a) :
+previous (previous_a),
+representative (representative_a)
 {
 }
 
 rai::change_hashables::change_hashables (bool & error_a, rai::stream & stream_a)
 {
-    error_a = rai::read (stream_a, representative);
+	error_a = rai::read (stream_a, previous);
     if (!error_a)
     {
-        error_a = rai::read (stream_a, previous);
+		error_a = rai::read (stream_a, representative);
     }
 }
 
@@ -1158,12 +1158,12 @@ rai::change_hashables::change_hashables (bool & error_a, boost::property_tree::p
 {
     try
     {
-        auto representative_l (tree_a.get <std::string> ("representative"));
         auto previous_l (tree_a.get <std::string> ("previous"));
-        error_a = representative.decode_base58check (representative_l);
+        auto representative_l (tree_a.get <std::string> ("representative"));
+		error_a = previous.decode_hex (previous_l);
         if (!error_a)
         {
-            error_a = previous.decode_hex (previous_l);
+			error_a = representative.decode_base58check (representative_l);
         }
     }
     catch (std::runtime_error const &)
@@ -1174,12 +1174,12 @@ rai::change_hashables::change_hashables (bool & error_a, boost::property_tree::p
 
 void rai::change_hashables::hash (blake2b_state & hash_a) const
 {
-    blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
     blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
+    blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 }
 
-rai::change_block::change_block (rai::account const & representative_a, rai::block_hash const & previous_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
-hashables (representative_a, previous_a),
+rai::change_block::change_block (rai::block_hash const & previous_a, rai::account const & representative_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+hashables (previous_a, representative_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
@@ -1243,8 +1243,8 @@ rai::block_hash rai::change_block::previous () const
 
 void rai::change_block::serialize (rai::stream & stream_a) const
 {
-    write (stream_a, hashables.representative);
     write (stream_a, hashables.previous);
+    write (stream_a, hashables.representative);
     write (stream_a, signature);
     write (stream_a, work);
 }
@@ -1253,8 +1253,8 @@ void rai::change_block::serialize_json (std::string & string_a) const
 {
     boost::property_tree::ptree tree;
     tree.put ("type", "change");
-    tree.put ("representative", hashables.representative.to_base58check ());
     tree.put ("previous", hashables.previous.to_string ());
+    tree.put ("representative", hashables.representative.to_base58check ());
     tree.put ("work", rai::to_string_hex (work));
     std::string signature_l;
     signature.encode_hex (signature_l);
@@ -1266,10 +1266,10 @@ void rai::change_block::serialize_json (std::string & string_a) const
 
 bool rai::change_block::deserialize (rai::stream & stream_a)
 {
-    auto result (read (stream_a, hashables.representative));
+    auto result (read (stream_a, hashables.previous));
     if (!result)
     {
-        result = read (stream_a, hashables.previous);
+        result = read (stream_a, hashables.representative);
         if (!result)
         {
             result = read (stream_a, signature);
@@ -1288,14 +1288,14 @@ bool rai::change_block::deserialize_json (boost::property_tree::ptree const & tr
     try
     {
         assert (tree_a.get <std::string> ("type") == "change");
-        auto representative_l (tree_a.get <std::string> ("representative"));
         auto previous_l (tree_a.get <std::string> ("previous"));
+        auto representative_l (tree_a.get <std::string> ("representative"));
         auto work_l (tree_a.get <std::string> ("work"));
         auto signature_l (tree_a.get <std::string> ("signature"));
-        result = hashables.representative.decode_hex (representative_l);
+		result = hashables.previous.decode_hex (previous_l);
         if (!result)
         {
-            result = hashables.previous.decode_hex (previous_l);
+			result = hashables.representative.decode_hex (representative_l);
             if (!result)
             {
                 result = rai::from_string_hex (work_l, work);
@@ -1341,7 +1341,7 @@ bool rai::change_block::operator == (rai::block const & other_a) const
 
 bool rai::change_block::operator == (rai::change_block const & other_a) const
 {
-    return hashables.representative == other_a.hashables.representative && hashables.previous == other_a.hashables.previous && work == other_a.work && signature == other_a.signature;
+    return hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && work == other_a.work && signature == other_a.signature;
 }
 
 rai::block_hash rai::change_block::source () const
@@ -2862,7 +2862,7 @@ rai::uint256_union rai::vote::hash () const
 }
 
 rai::genesis::genesis () :
-open (genesis_account, genesis_account, genesis_account, nullptr, false)
+open (genesis_account, genesis_account, genesis_account, nullptr)
 {
 }
 

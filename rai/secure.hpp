@@ -177,7 +177,7 @@ public:
 class open_hashables
 {
 public:
-	open_hashables (rai::block_hash const &, rai::account const &, rai::account const &, bool);
+	open_hashables (rai::block_hash const &, rai::account const &, rai::account const &);
 	open_hashables (bool &, rai::stream &);
 	open_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
@@ -188,8 +188,8 @@ public:
 class open_block : public rai::block
 {
 public:
-	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::private_key const &, rai::public_key const &, uint64_t, bool);
-	open_block (rai::block_hash const &, rai::account const &, rai::account const &, std::nullptr_t, bool);
+	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	open_block (rai::block_hash const &, rai::account const &, rai::account const &, std::nullptr_t);
 	open_block (bool &, rai::stream &);
 	open_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
@@ -216,17 +216,17 @@ public:
 class change_hashables
 {
 public:
-	change_hashables (rai::account const &, rai::block_hash const &);
+	change_hashables (rai::block_hash const &, rai::account const &);
 	change_hashables (bool &, rai::stream &);
 	change_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
-	rai::account representative;
 	rai::block_hash previous;
+	rai::account representative;
 };
 class change_block : public rai::block
 {
 public:
-	change_block (rai::account const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	change_block (rai::block_hash const &, rai::account const &, rai::private_key const &, rai::public_key const &, uint64_t);
 	change_block (bool &, rai::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
@@ -245,7 +245,7 @@ public:
 	rai::block_type type () const override;
 	bool operator == (rai::block const &) const override;
 	bool operator == (rai::change_block const &) const;
-	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
+	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::signature) + sizeof (uint64_t);
 	rai::change_hashables hashables;
 	rai::signature signature;
 	uint64_t work;

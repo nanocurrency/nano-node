@@ -1106,7 +1106,7 @@ void rai_qt::block_creation::create_change ()
                 auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
                 if (!error)
                 {
-                    rai::change_block change (representative_l, frontier.hash, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, frontier.hash));
+                    rai::change_block change (frontier.hash, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, frontier.hash));
                     key.clear ();
                     std::string block_l;
                     change.serialize_json (block_l);
@@ -1161,7 +1161,7 @@ void rai_qt::block_creation::create_open ()
                     auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                     if (!error)
                     {
-                        rai::open_block open (source_l, representative_l, receivable.destination, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, receivable.destination), false);
+                        rai::open_block open (source_l, representative_l, receivable.destination, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, receivable.destination));
                         key.clear ();
                         std::string block_l;
                         open.serialize_json (block_l);

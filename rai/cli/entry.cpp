@@ -148,7 +148,7 @@ int main (int argc, char * const * argv)
 		rai::keypair landing;
 		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
 		rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
-		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, rai::work_generate (genesis.pub), false);
+		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, rai::work_generate (genesis.pub));
 		std::cout << genesis_block.to_json ();
 		rai::block_hash previous (genesis_block.hash ());
 		for (auto i (0); i != 8; ++i)

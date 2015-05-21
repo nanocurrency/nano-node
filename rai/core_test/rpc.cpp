@@ -59,7 +59,7 @@ TEST (rpc, account_weight)
     rai::keypair key;
     rai::system system (24000, 1);
     rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-    rai::change_block block (key.pub, latest, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
+    rai::change_block block (latest, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (block).code);
 	auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);

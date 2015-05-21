@@ -100,7 +100,7 @@ TEST (block, receive_serialize_json)
 
 TEST (block, open_serialize_json)
 {
-    rai::open_block block1 (0, 0, 0, 0, 0, 0, false);
+    rai::open_block block1 (0, 0, 0, 0, 0, 0);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
@@ -115,7 +115,7 @@ TEST (block, open_serialize_json)
 
 TEST (block, change_serialize_json)
 {
-    rai::change_block block1 (0, 1, 2, 3, rai::work_generate (1));
+    rai::change_block block1 (0, 1, 2, 3, rai::work_generate (0));
 	ASSERT_FALSE (rai::work_validate (block1));
     std::string string1;
     block1.serialize_json (string1);
@@ -234,7 +234,7 @@ TEST (receive_block, deserialize)
 
 TEST (open_block, deserialize)
 {
-    rai::open_block block1 (0, 0, 0, 0, 0, 0, false);
+    rai::open_block block1 (0, 0, 0, 0, 0, 0);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
