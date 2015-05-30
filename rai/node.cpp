@@ -5398,9 +5398,10 @@ bool rai::landing_store::operator == (rai::landing_store const & other_a) const
 	return source == other_a.source && destination == other_a.destination && start == other_a.start && last == other_a.last;
 }
 
-rai::landing::landing (rai::node & node_a, rai::landing_store & store_a, boost::filesystem::path const & path_a) :
+rai::landing::landing (rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::landing_store & store_a, boost::filesystem::path const & path_a) :
 path (path_a),
 store (store_a),
+wallet (wallet_a),
 node (node_a)
 {
 }
@@ -5471,14 +5472,14 @@ void rai::landing::distribute_one ()
 {
 	auto now (seconds_since_epoch ());
 	auto error (false);
-	while (!error && store.start + store.last * distribution_interval.count () < now)
+	while (!error && store.last + distribution_interval.count () < now)
 	{
-		++store.last;;
 		auto amount (distribution_amount (store.last - store.start));
 		error = wallet->send (store.source, store.destination, amount);
 		if (!error)
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%\n") % amount);
+			store.last += distribution_interval.count ();
 			write_store ();
 		}
 		else

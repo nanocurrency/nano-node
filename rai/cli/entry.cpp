@@ -111,6 +111,7 @@ int main (int argc, char * const * argv)
     description.add_options ()
         ("help", "Print out options")
         ("debug_activity", "Generates fake debug activity")
+		("dump_wallets", "Dumps wallet IDs and public keys")
         ("profile_work", "Profile the work function")
         ("profile_kdf", "Profile kdf function")
         ("generate_key", "Generates a random keypair")
@@ -128,6 +129,26 @@ int main (int argc, char * const * argv)
         std::cout << description << std::endl;
         result = -1;
     }
+	else if (vm.count ("dump_wallets"))
+	{
+		auto working (rai::working_path ());
+		boost::filesystem::create_directories (working);
+        auto service (boost::make_shared <boost::asio::io_service> ());
+        auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+        rai::processor_service processor;
+		rai::logging logging;
+		rai::node_init init;
+        auto node (std::make_shared <rai::node> (init, service, 24000,  working, processor, logging));
+		for (auto i (node->wallets.items.begin ()), n (node->wallets.items.end ()); i != n; ++i)
+		{
+			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
+			rai::transaction transaction (i->second->store.environment, nullptr, false);
+			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
+			{
+				std::cout << rai::uint256_union (j->first).to_base58check () << '\n';
+			}
+		}
+	}
     else if (vm.count ("debug_activity"))
     {
         rai::system system (24000, 1);

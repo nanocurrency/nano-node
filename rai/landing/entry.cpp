@@ -27,11 +27,8 @@ public:
 		try
 		{
 			boost::property_tree::read_json (stream_a, tree);
-			auto start_l (tree.get <std::string> ("start"));
-			auto last_l (tree.get <std::string> ("last"));
 			auto peering_port_l (tree.get <std::string> ("peering_port"));
-			auto distribution_account_l (tree.get <std::string> ("distribution_account"));
-			auto bootstrap_peers_l (tree.get_child ("bootstrap_peers"));
+			auto bootstrap_peers_l (tree.get_child ("preconfigured_peers"));
 			auto wallet_l (tree.get <std::string> ("wallet"));
 			auto logging_l (tree.get_child ("logging"));
 			preconfigured_peers.clear ();
@@ -109,102 +106,110 @@ int main (int argc, char * const * argv)
 			}
 		}
 	}
-	rai::landing_store store;
+	if (!config_error)
 	{
-		std::ifstream store_stream;
-		store_stream.open ((working / "landing.json").string ());
-		if (!store_stream.fail ())
+		rai::landing_store store;
 		{
-			rai::landing_store loaded_store (config_error, store_stream);
-			store = loaded_store;
-		}
-		else
-		{
-			std::ofstream store_stream;
+			std::ifstream store_stream;
 			store_stream.open ((working / "landing.json").string ());
 			if (!store_stream.fail ())
 			{
-				store.serialize (store_stream);
+				rai::landing_store loaded_store (config_error, store_stream);
+				store = loaded_store;
+			}
+			else
+			{
+				std::ofstream store_stream;
+				store_stream.open ((working / "landing.json").string ());
+				if (!store_stream.fail ())
+				{
+					store.serialize (store_stream);
+				}
 			}
 		}
-	}
-    if (!config_error)
-    {
-        rai::node_init init;
-        auto service (boost::make_shared <boost::asio::io_service> ());
-        rai::processor_service processor;
-        auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor, config.logging));
-        if (!init.error ())
-        {
-            node->preconfigured_peers = config.preconfigured_peers;
-            node->start ();
-            std::thread network_thread ([&service] ()
-                {
-                    try
-                    {
-                        service->run ();
-                    }
-                    catch (...)
-                    {
-                        assert (false);
-                    }
-                });
-            std::thread processor_thread ([&processor] ()
-                {
-                    try
-                    {
-                        processor.run ();
-                    }
-                    catch (...)
-                    {
-                        assert (false);
-                    }
-                });
-			rai::landing landing (*node, store, working / "landing.json");
-            auto now (landing.seconds_since_epoch ());
-			std::cout << boost::str (boost::format ("Current time: %1%\n") % now);
-            if (now - store.last > 0)
-            {
-                std::cout << boost::str (boost::format ("The last distribution was %1% seconds ago\n") % (now - store.last));
-            }
-            else
-            {
-                std::cout << boost::str (boost::format ("Distribution will begin in %1% seconds\n") % (store.last - now));
-            }
-            auto wallet (node->wallets.open (config.wallet));
-            if (wallet == nullptr)
-            {
-                wallet = node->wallets.create (config.wallet);
-            }
+		if (!config_error)
+		{
+			rai::node_init init;
+			auto service (boost::make_shared <boost::asio::io_service> ());
+			rai::processor_service processor;
+			auto node (std::make_shared <rai::node> (init, service, config.peering_port, working, processor, config.logging));
+			if (!init.error ())
 			{
-				rai::transaction transaction (node->store.environment, nullptr, false);
-				auto wallet_entry (wallet->store.begin (transaction));
-				if (wallet_entry == wallet->store.end ())
+				node->preconfigured_peers = config.preconfigured_peers;
+				node->start ();
+				std::thread network_thread ([&service] ()
+					{
+						try
+						{
+							service->run ();
+						}
+						catch (...)
+						{
+							assert (false);
+						}
+					});
+				std::thread processor_thread ([&processor] ()
+					{
+						try
+						{
+							processor.run ();
+						}
+						catch (...)
+						{
+							assert (false);
+						}
+					});
+				auto wallet (node->wallets.open (config.wallet));
+				if (wallet == nullptr)
 				{
-					rai::keypair key;
-					wallet->store.insert (transaction, key.prv);
-					wallet_entry = wallet->store.begin (transaction);
+					wallet = node->wallets.create (config.wallet);
 				}
-				assert (wallet_entry != wallet->store.end ());
-				std::cout << boost::str (boost::format ("Landing account: %1%\n") % store.source.to_base58check ());
-				std::cout << boost::str (boost::format ("Destination account: %1%\n") % store.destination.to_base58check ());
-				++wallet_entry;
-				assert (wallet_entry == wallet->store.end ());
+				rai::landing landing (*node, wallet, store, working / "landing.json");
+				auto now (landing.seconds_since_epoch ());
+				std::cout << boost::str (boost::format ("Current time: %1%\n") % now);
+				if (now - store.last > 0)
+				{
+					std::cout << boost::str (boost::format ("The last distribution was %1% seconds ago\n") % (now - store.last));
+				}
+				else
+				{
+					std::cout << boost::str (boost::format ("Distribution will begin in %1% seconds\n") % (store.last - now));
+				}
+				{
+					rai::transaction transaction (node->store.environment, nullptr, true);
+					auto wallet_entry (wallet->store.begin (transaction));
+					if (wallet_entry == wallet->store.end ())
+					{
+						rai::keypair key;
+						wallet->store.insert (transaction, key.prv);
+						wallet_entry = wallet->store.begin (transaction);
+						store.destination = key.pub;
+						store.source = key.pub;
+						store.start = now;
+						store.last = now;
+						landing.write_store ();
+					}
+					assert (wallet_entry != wallet->store.end ());
+					std::cout << boost::str (boost::format ("Landing account: %1%\n") % store.source.to_base58check ());
+					std::cout << boost::str (boost::format ("Destination account: %1%\n") % store.destination.to_base58check ());
+					++wallet_entry;
+					assert (wallet_entry == wallet->store.end ());
+				}
+				std::cout << "Type a line to start\n";
+				std::string line;
+				std::cin >> line;
+				landing.distribute_ongoing ();
+				network_thread.join ();
+				processor_thread.join ();
 			}
-            std::cout << "Type a line to start\n";
-            std::string line;
-            std::cin >> line;
-            landing.distribute_ongoing ();
-            network_thread.join ();
-            processor_thread.join ();
-        }
-        else
-        {
-            std::cerr << "Error initializing node\n";
-        }
-    }
-    else
-    {
-        std::cerr << "Error loading configuration\n";
-    }
+			else
+			{
+				std::cerr << "Error initializing node\n";
+			}
+		}
+		else
+		{
+			std::cerr << "Error loading configuration\n";
+		}
+	}
 }

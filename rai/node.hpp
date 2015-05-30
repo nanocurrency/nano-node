@@ -830,7 +830,7 @@ public:
 class landing
 {
 public:
-	landing (rai::node &, rai::landing_store &, boost::filesystem::path const &);
+	landing (rai::node &, std::shared_ptr <rai::wallet>, rai::landing_store &, boost::filesystem::path const &);
 	void write_store ();
 	rai::uint128_t distribution_amount (uint64_t);
 	uint64_t seconds_since_epoch ();
@@ -840,8 +840,8 @@ public:
 	rai::landing_store & store;
 	std::shared_ptr <rai::wallet> wallet;
 	rai::node & node;
-	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (2^6); // 64 seconds
-	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (2^2); // 4 seconds;
+	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (2 << (6 - 1)); // 64 seconds
+	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (2 << (2 - 1)); // 4 seconds;
 };
 extern std::chrono::milliseconds const confirm_wait;
 }
