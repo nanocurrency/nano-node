@@ -2230,20 +2230,24 @@ class account_visitor : public rai::block_visitor
 public:
     account_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
     store (store_a),
-	transaction (transaction_a)
+	transaction (transaction_a),
+	result (0),
+	current (0)
     {
     }
     void compute (rai::block_hash const & hash_block)
     {
-        auto block (store.block_get (transaction, hash_block));
-        assert (block != nullptr);
-        block->visit (*this);
+		current = hash_block;
+		while (result.is_zero ())
+		{
+			auto block (store.block_get (transaction, current));
+			assert (block != nullptr);
+			block->visit (*this);
+		}
     }
     void send_block (rai::send_block const & block_a) override
     {
-        account_visitor prev (transaction, store);
-        prev.compute (block_a.hashables.previous);
-        result = prev.result;
+        current = block_a.hashables.previous;
     }
     void receive_block (rai::receive_block const & block_a) override
     {
@@ -2258,13 +2262,12 @@ public:
     }
     void change_block (rai::change_block const & block_a) override
     {
-        account_visitor prev (transaction, store);
-        prev.compute (block_a.hashables.previous);
-        result = prev.result;
+        current = block_a.hashables.previous;
     }
     rai::block_store & store;
 	MDB_txn * transaction;
     rai::account result;
+	rai::account current;
 };
 
 amount_visitor::amount_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :

@@ -53,5 +53,5 @@ TEST (landing, start)
 	rai::keypair key;
 	auto path (rai::unique_path ());
 	rai::landing_store store (rai::test_genesis_key.pub, key.pub, std::numeric_limits <uint64_t>::max (), std::numeric_limits <uint64_t>::max ());
-	rai::landing landing (*system.nodes [0], store, path);
+	rai::landing landing (*system.nodes [0], system.wallet(0), store, path);
 }
