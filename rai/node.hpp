@@ -466,7 +466,7 @@ public:
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
 	rai::account current;
-	rai::frontier frontier;
+	rai::account_info info;
 };
 class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
 {
@@ -679,7 +679,7 @@ public:
 	void next ();
     std::shared_ptr <rai::bootstrap_server> connection;
 	rai::account current;
-	rai::frontier frontier;
+	rai::account_info info;
     std::unique_ptr <rai::frontier_req> request;
     std::vector <uint8_t> send_buffer;
     size_t count;

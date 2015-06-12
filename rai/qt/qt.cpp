@@ -756,7 +756,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
     {
         QList <QStandardItem *> items;
         items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_base58check ().c_str ())));
-		auto hash (rai::frontier (i->second).hash);
+		auto hash (rai::account_info (i->second).head);
 		std::string balance;
 		rai::amount (wallet.node.ledger.balance (transaction, hash) / rai::Grai_ratio).encode_dec (balance);
         items.push_back (new QStandardItem (QString (balance.c_str ())));
@@ -994,10 +994,10 @@ void rai_qt::block_creation::create_send ()
                     auto balance (wallet.node.ledger.account_balance (transaction, account_l));
                     if (amount_l.number () <= balance)
                     {
-                        rai::frontier frontier;
-                        auto error (wallet.node.store.latest_get (transaction, account_l, frontier));
+                        rai::account_info info;
+                        auto error (wallet.node.store.account_get (transaction, account_l, info));
                         assert (!error);
-                        rai::send_block send (frontier.hash, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, frontier.hash));
+                        rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
                         key.clear ();
                         std::string block_l;
                         send.serialize_json (block_l);
@@ -1046,15 +1046,15 @@ void rai_qt::block_creation::create_receive ()
         rai::receivable receivable;
         if (!wallet.node.store.pending_get (transaction, source_l, receivable))
         {
-            rai::frontier frontier;
-            auto error (wallet.node.store.latest_get (transaction, receivable.destination, frontier));
+            rai::account_info info;
+            auto error (wallet.node.store.account_get (transaction, receivable.destination, info));
             if (!error)
             {
                 rai::private_key key;
                 auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                 if (!error)
                 {
-                    rai::receive_block receive (frontier.hash, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, frontier.hash));
+                    rai::receive_block receive (info.head, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, info.head));
                     key.clear ();
                     std::string block_l;
                     receive.serialize_json (block_l);
@@ -1098,15 +1098,15 @@ void rai_qt::block_creation::create_change ()
         if (!error)
         {
 			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-            rai::frontier frontier;
-            auto error (wallet.node.store.latest_get (transaction, account_l, frontier));
+            rai::account_info info;
+            auto error (wallet.node.store.account_get (transaction, account_l, info));
             if (!error)
             {
                 rai::private_key key;
                 auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
                 if (!error)
                 {
-                    rai::change_block change (frontier.hash, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, frontier.hash));
+                    rai::change_block change (info.head, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
                     key.clear ();
                     std::string block_l;
                     change.serialize_json (block_l);
@@ -1153,8 +1153,8 @@ void rai_qt::block_creation::create_open ()
             rai::receivable receivable;
             if (!wallet.node.store.pending_get (transaction, source_l, receivable))
             {
-                rai::frontier frontier;
-                auto error (wallet.node.store.latest_get (transaction, receivable.destination, frontier));
+                rai::account_info info;
+                auto error (wallet.node.store.account_get (transaction, receivable.destination, info));
                 if (error)
                 {
                     rai::private_key key;

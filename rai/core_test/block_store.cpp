@@ -145,14 +145,14 @@ TEST (block_store, genesis)
     auto hash (genesis.hash ());
 	rai::transaction transaction (store.environment, nullptr, true);
     genesis.initialize (transaction, store);
-    rai::frontier frontier;
-    ASSERT_FALSE (store.latest_get (transaction, rai::genesis_account, frontier));
-	ASSERT_EQ (hash, frontier.hash);
-    auto block1 (store.block_get (transaction, frontier.hash));
+    rai::account_info info;
+    ASSERT_FALSE (store.account_get (transaction, rai::genesis_account, info));
+	ASSERT_EQ (hash, info.head);
+    auto block1 (store.block_get (transaction, info.head));
     ASSERT_NE (nullptr, block1);
     auto receive1 (dynamic_cast <rai::open_block *> (block1.get ()));
     ASSERT_NE (nullptr, receive1);
-    ASSERT_LE (frontier.time, store.now ());
+    ASSERT_LE (info.modified, store.now ());
 	auto test_pub_text (rai::test_genesis_key.pub.to_string ());
 	auto test_pub_account (rai::test_genesis_key.pub.to_base58check ());
 	auto test_prv_text (rai::test_genesis_key.prv.to_string ());
@@ -267,12 +267,12 @@ TEST (block_store, frontier_retrieval)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::account account1 (0);
-    rai::frontier frontier1 (0, 0, 0, 0);
+    rai::account_info info1 (0, 0, 0, 0);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.latest_put (transaction, account1, frontier1);
-    rai::frontier frontier2;
-    store.latest_get (transaction, account1, frontier2);
-    ASSERT_EQ (frontier1, frontier2);
+    store.account_put (transaction, account1, info1);
+    rai::account_info info2;
+    store.account_get (transaction, account1, info2);
+    ASSERT_EQ (info1, info2);
 }
 
 TEST (block_store, one_account)
@@ -283,15 +283,15 @@ TEST (block_store, one_account)
     rai::account account (0);
     rai::block_hash hash (0);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.latest_put (transaction, account, {hash, account, 42, 100});
+    store.account_put (transaction, account, {hash, account, 42, 100});
     auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (account, begin->first);
-	rai::frontier frontier (begin->second);
-    ASSERT_EQ (hash, frontier.hash);
-    ASSERT_EQ (42, frontier.balance.number ());
-    ASSERT_EQ (100, frontier.time);
+	rai::account_info info (begin->second);
+    ASSERT_EQ (hash, info.head);
+    ASSERT_EQ (42, info.balance.number ());
+    ASSERT_EQ (100, info.modified);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -327,23 +327,23 @@ TEST (block_store, two_account)
     rai::account account2 (3);
     rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.latest_put (transaction, account1, {hash1, account1, 42, 100});
-    store.latest_put (transaction, account2, {hash2, account2, 84, 200});
+    store.account_put (transaction, account1, {hash1, account1, 42, 100});
+    store.account_put (transaction, account2, {hash2, account2, 84, 200});
     auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
     ASSERT_EQ (account1, begin->first);
-	rai::frontier frontier1 (begin->second);
-    ASSERT_EQ (hash1, frontier1.hash);
-    ASSERT_EQ (42, frontier1.balance.number ());
-    ASSERT_EQ (100, frontier1.time);
+	rai::account_info info1 (begin->second);
+    ASSERT_EQ (hash1, info1.head);
+    ASSERT_EQ (42, info1.balance.number ());
+    ASSERT_EQ (100, info1.modified);
     ++begin;
     ASSERT_NE (end, begin);
     ASSERT_EQ (account2, begin->first);
-	rai::frontier frontier2 (begin->second);
-    ASSERT_EQ (hash2, frontier2.hash);
-    ASSERT_EQ (84, frontier2.balance.number ());
-    ASSERT_EQ (200, frontier2.time);
+	rai::account_info info2 (begin->second);
+    ASSERT_EQ (hash2, info2.head);
+    ASSERT_EQ (84, info2.balance.number ());
+    ASSERT_EQ (200, info2.modified);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -358,8 +358,8 @@ TEST (block_store, latest_find)
     rai::account account2 (3);
     rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.latest_put (transaction, account1, {hash1, account1, 100, 0});
-    store.latest_put (transaction, account2, {hash2, account2, 200, 0});
+    store.account_put (transaction, account1, {hash1, account1, 100, 0});
+    store.account_put (transaction, account2, {hash2, account2, 200, 0});
     auto first (store.latest_begin (transaction));
     auto second (store.latest_begin (transaction));
     ++second;
@@ -424,11 +424,11 @@ TEST (block_store, latest_exists)
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
     rai::block_hash two (2);
-    rai::frontier frontier;
+    rai::account_info info;
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.latest_put (transaction, two, frontier);
+    store.account_put (transaction, two, info);
     rai::block_hash one (1);
-    ASSERT_FALSE (store.latest_exists (one));
+    ASSERT_FALSE (store.account_exists (one));
 }
 
 TEST (block_store, stack)
@@ -497,7 +497,7 @@ TEST (block_store, large_iteration)
 		rai::account account;
 		rai::random_pool.GenerateBlock (account.bytes.data (), account.bytes.size ());
 		accounts1.insert (account);
-		store.latest_put (transaction, account, rai::frontier ());
+		store.account_put (transaction, account, rai::account_info ());
 	}
 	std::unordered_set <rai::account> accounts2;
 	rai::account previous (0);

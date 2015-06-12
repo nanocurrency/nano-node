@@ -694,7 +694,7 @@ TEST (frontier_req, begin)
     auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
     ASSERT_EQ (rai::test_genesis_key.pub, request->current);
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), request->frontier.hash);
+    ASSERT_EQ (genesis.hash (), request->info.head);
 }
 
 TEST (frontier_req, end)
@@ -735,7 +735,7 @@ TEST (frontier_req, time_cutoff)
     auto request (std::make_shared <rai::frontier_req_server> (connection, std::move (req)));
     ASSERT_EQ (rai::test_genesis_key.pub, request->current);
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), request->frontier.hash);
+    ASSERT_EQ (genesis.hash (), request->info.head);
 }
 
 TEST (bulk, genesis)

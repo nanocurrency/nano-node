@@ -840,11 +840,11 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
 		if (node.ledger.store.pending_exists (transaction, hash))
 		{
-			rai::frontier frontier;
-			auto new_account (node.ledger.store.latest_get (transaction, send_a.hashables.destination, frontier));
+			rai::account_info info;
+			auto new_account (node.ledger.store.account_get (transaction, send_a.hashables.destination, info));
 			if (!new_account)
 			{
-				auto receive (new rai::receive_block (frontier.hash, hash, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, frontier.hash)));
+				auto receive (new rai::receive_block (info.head, hash, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, info.head)));
 				block.reset (receive);
 			}
 			else
@@ -883,13 +883,13 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 				{
 					if (balance >= amount_a)
 					{
-						rai::frontier frontier;
-						result = node.ledger.store.latest_get (transaction, source_a, frontier);
+						rai::account_info info;
+						result = node.ledger.store.account_get (transaction, source_a, info);
 						assert (!result);
 						rai::private_key prv;
 						result = store.fetch (transaction, source_a, prv);
 						assert (!result);
-						block.reset (new rai::send_block (frontier.hash, account_a, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, frontier.hash)));
+						block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, info.head)));
 						prv.clear ();
 					}
 				}
@@ -928,15 +928,15 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 				auto balance (node.ledger.account_balance (transaction, account));
 				if (!balance.is_zero ())
 				{
-					rai::frontier frontier;
-					result = node.ledger.store.latest_get (transaction, account, frontier);
+					rai::account_info info;
+					result = node.ledger.store.account_get (transaction, account, info);
 					assert (!result);
 					auto amount (std::min (remaining, balance));
 					remaining -= amount;
 					rai::private_key prv;
 					result = store.fetch (transaction, account, prv);
 					assert (!result);
-					std::unique_ptr <rai::send_block> block (new rai::send_block (frontier.hash, account_a, balance - amount, prv, account, work_fetch (transaction, account, frontier.hash)));
+					std::unique_ptr <rai::send_block> block (new rai::send_block (info.head, account_a, balance - amount, prv, account, work_fetch (transaction, account, info.head)));
 					prv.clear ();
 					blocks.push_back (std::move (block));
 				}
@@ -2776,7 +2776,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 				rai::transaction transaction (node.store.environment, nullptr, false);
 				for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 				{
-					frontiers.put (rai::account (i->first).to_base58check (), rai::frontier (i->second).hash.to_string ());
+					frontiers.put (rai::account (i->first).to_base58check (), rai::account_info (i->second).head.to_string ());
 				}
 				response_l.add_child ("frontiers", frontiers);
 				set_response (response, response_l);
@@ -2818,10 +2818,10 @@ public:
 		{
 			ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
 		}
-        rai::frontier frontier;
-        ledger.store.latest_get (transaction, receivable.source, frontier);
+        rai::account_info info;
+        ledger.store.account_get (transaction, receivable.source, info);
 		ledger.store.pending_del (transaction, hash);
-        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, frontier.representative, ledger.balance (transaction, block_a.hashables.previous));
+        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, info.representative, ledger.balance (transaction, block_a.hashables.previous));
 		ledger.store.block_del (transaction, hash);
     }
     void receive_block (rai::receive_block const & block_a) override
@@ -2853,11 +2853,11 @@ public:
 		rai::transaction transaction (ledger.store.environment, nullptr, true);
         auto representative (ledger.representative (transaction, block_a.hashables.previous));
         auto account (ledger.account (transaction, block_a.hashables.previous));
-        rai::frontier frontier;
-        ledger.store.latest_get (transaction, account, frontier);
+        rai::account_info info;
+        ledger.store.account_get (transaction, account, info);
 		ledger.move_representation (transaction, block_a.hashables.representative, representative, ledger.balance (transaction, block_a.hashables.previous));
 		ledger.store.block_del (transaction, block_a.hash ());
-        ledger.change_latest (transaction, account, block_a.hashables.previous, representative, frontier.balance);
+        ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance);
     }
     rai::ledger & ledger;
 };
@@ -3154,6 +3154,7 @@ public:
 				if (!error)
 				{
 					auto error (wallet->receive (block_a, prv, representative));
+					(void)error; // Might be interesting to view during debug
 					prv.clear ();
 				}
 				else
@@ -3482,8 +3483,8 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 		request->end.clear ();
 	}
-	rai::frontier frontier;
-	auto no_address (connection->node->store.latest_get (transaction, request->start, frontier));
+	rai::account_info info;
+	auto no_address (connection->node->store.account_get (transaction, request->start, info));
 	if (no_address)
 	{
 		if (connection->node->logging.bulk_pull_logging ())
@@ -3499,7 +3500,7 @@ void rai::bulk_pull_server::set_current_end ()
 			auto account (connection->node->ledger.account (transaction, request->end));
 			if (account == request->start)
 			{
-				current = frontier.hash;
+				current = info.head;
 			}
 			else
 			{
@@ -3508,7 +3509,7 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 		else
 		{
-			current = frontier.hash;
+			current = info.head;
 		}
 	}
 }
@@ -4347,7 +4348,7 @@ request (std::move (request_a))
 rai::frontier_req_server::frontier_req_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
-frontier (0, 0, 0, 0),
+info (0, 0, 0, 0),
 request (std::move (request_a))
 {
 	next ();
@@ -4359,7 +4360,7 @@ void rai::frontier_req_server::skip_old ()
     if (request->age != std::numeric_limits<decltype (request->age)>::max ())
     {
         auto now (connection->node->store.now ());
-        while (!current.is_zero () && (now - frontier.time) >= request->age)
+        while (!current.is_zero () && (now - info.modified) >= request->age)
         {
             next ();
         }
@@ -4374,12 +4375,12 @@ void rai::frontier_req_server::send_next ()
             send_buffer.clear ();
             rai::vectorstream stream (send_buffer);
             write (stream, current.bytes);
-            write (stream, frontier.hash.bytes);
+            write (stream, info.head.bytes);
         }
         auto this_l (shared_from_this ());
         if (connection->node->logging.network_logging ())
         {
-            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_base58check () % frontier.hash.to_string ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_base58check () % info.head.to_string ());
         }
         async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
         {
@@ -4450,7 +4451,7 @@ void rai::frontier_req_server::next ()
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::uint256_union (iterator->first);
-		frontier = rai::frontier (iterator->second);
+		info = rai::account_info (iterator->second);
 	}
 	else
 	{
@@ -4584,14 +4585,14 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             while (!current.is_zero () && current < account)
             {
                 // We know about an account they don't.
-				unsynced (transaction, frontier.hash, 0);
+				unsynced (transaction, info.head, 0);
 				next ();
             }
             if (!current.is_zero ())
             {
                 if (account == current)
                 {
-                    if (latest == frontier.hash)
+                    if (latest == info.head)
                     {
                         // In sync
                     }
@@ -4600,12 +4601,12 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
-							unsynced (transaction, frontier.hash, latest);
+							unsynced (transaction, info.head, latest);
 						}
 						else
 						{
 							// They know about a block we don't.
-							pulls [account] = frontier.hash;
+							pulls [account] = info.head;
 						}
 					}
 					next ();
@@ -4627,7 +4628,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
             while (!current.is_zero ())
             {
                 // We know about an account they don't.
-				unsynced (transaction, frontier.hash, 0);
+				unsynced (transaction, info.head, 0);
                 next ();
             }
             completed_requests ();
@@ -4649,7 +4650,7 @@ void rai::frontier_req_client::next ()
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::account (iterator->first);
-		frontier = rai::frontier (iterator->second);
+		info = rai::account_info (iterator->second);
 	}
 	else
 	{

@@ -261,23 +261,23 @@ public:
 struct block_store_temp_t
 {
 };
-// Latest information about an account, latest block, current representative, balance
-class frontier
+// Latest information about an account
+class account_info
 {
 public:
-	frontier ();
-	frontier (MDB_val const &);
-	frontier (rai::frontier const &) = default;
-	frontier (rai::block_hash const &, rai::account const &, rai::amount const &, uint64_t);
+	account_info ();
+	account_info (MDB_val const &);
+	account_info (rai::account_info const &) = default;
+	account_info (rai::block_hash const &, rai::account const &, rai::amount const &, uint64_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
-	bool operator == (rai::frontier const &) const;
-	bool operator != (rai::frontier const &) const;
+	bool operator == (rai::account_info const &) const;
+	bool operator != (rai::account_info const &) const;
 	rai::mdb_val val () const;
-	rai::block_hash hash;
+	rai::block_hash head;
 	rai::account representative;
 	rai::amount balance;
-	uint64_t time;
+	uint64_t modified;
 };
 class store_entry
 {
@@ -336,10 +336,10 @@ public:
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	
-	void latest_put (MDB_txn *, rai::account const &, rai::frontier const &);
-	bool latest_get (MDB_txn *, rai::account const &, rai::frontier &);
-	void latest_del (MDB_txn *, rai::account const &);
-	bool latest_exists (rai::account const &);
+	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
+	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);
+	void account_del (MDB_txn *, rai::account const &);
+	bool account_exists (rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
