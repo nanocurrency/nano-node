@@ -2221,6 +2221,7 @@ public:
     void change_block (rai::change_block const &) override;
 	MDB_txn * transaction;
     rai::block_store & store;
+	rai::block_hash current;
     rai::uint128_t result;
 };
 
@@ -2311,36 +2312,36 @@ void amount_visitor::from_send (rai::block_hash const & hash_a)
 balance_visitor::balance_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
+current (0),
 result (0)
 {
 }
 
 void balance_visitor::send_block (rai::send_block const & block_a)
 {
-    result = block_a.hashables.balance.number ();
+    result += block_a.hashables.balance.number ();
+	current = 0;
 }
 
 void balance_visitor::receive_block (rai::receive_block const & block_a)
 {
-    balance_visitor prev (transaction, store);
-    prev.compute (block_a.hashables.previous);
     amount_visitor source (transaction, store);
     source.compute (block_a.hashables.source);
-    result = prev.result + source.result;
+    result += source.result;
+	current = block_a.hashables.previous;
 }
 
 void balance_visitor::open_block (rai::open_block const & block_a)
 {
     amount_visitor source (transaction, store);
     source.compute (block_a.hashables.source);
-    result = source.result;
+    result += source.result;
+	current = 0;
 }
 
 void balance_visitor::change_block (rai::change_block const & block_a)
 {
-    balance_visitor prev (transaction, store);
-    prev.compute (block_a.hashables.previous);
-    result = prev.result;
+	current = block_a.hashables.previous;
 }
 
 // Determine the representative for this block
@@ -2466,9 +2467,13 @@ void amount_visitor::compute (rai::block_hash const & block_hash)
 
 void balance_visitor::compute (rai::block_hash const & block_hash)
 {
-    auto block (store.block_get (transaction, block_hash));
-    assert (block != nullptr);
-    block->visit (*this);
+	current = block_hash;
+	while (!current.is_zero ())
+	{
+		auto block (store.block_get (transaction, current));
+		assert (block != nullptr);
+		block->visit (*this);
+	}
 }
 
 // Balance for account containing hash

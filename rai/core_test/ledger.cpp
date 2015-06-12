@@ -1508,29 +1508,3 @@ TEST (ledger, latest_root)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
 	ASSERT_EQ (send.hash (), ledger.latest_root (transaction, rai::test_genesis_key.pub));
 }
-
-TEST (ledger, DISABLED_deep_account_compute)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_FALSE (init);
-	rai::ledger ledger (store);
-	rai::genesis genesis;
-	rai::transaction transaction (store.environment, nullptr, true);
-	genesis.initialize (transaction, store);
-	rai::keypair key;
-	auto balance (rai::genesis_amount);
-	auto previous (genesis.hash ());
-	for (auto i (0), n (100000); i != n; ++i)
-	{
-		balance -= 1;
-		rai::send_block send (previous, key.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send). code);
-		previous = send.hash ();
-		if (i % 100 == 0)
-		{
-			std::cerr << i << ' ';
-		}
-		auto account (ledger.account (transaction, previous));
-	}
-}
