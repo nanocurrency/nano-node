@@ -841,7 +841,7 @@ public:
 	std::shared_ptr <rai::wallet> wallet;
 	rai::node & node;
 	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (2 << (6 - 1)); // 64 seconds
-	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (2 << (2 - 1)); // 4 seconds;
+	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (7);
 };
 extern std::chrono::milliseconds const confirm_wait;
 }

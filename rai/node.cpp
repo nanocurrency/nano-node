@@ -5421,41 +5421,41 @@ rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
 {
 	// Halfing period ~= Exponent of 2 in secounds approixmately 1 year = 2^25 = 33554432
 	// Interval = Exponent of 2 in seconds approximately 1 minute = 2^6 = 64
-	uint64_t intervals_per_period (2 << (25 - 6));
+	uint64_t intervals_per_period (1 << (25 - 6));
 	rai::uint128_t result;
 	if (interval < intervals_per_period * 1)
 	{
 		// Total supply / 2^halfing period / intervals per period
 		// 2^128 / 2^1 / (2^25 / 2^6)
-		result = rai::uint128_t (2) << (127 - (25 - 6)); // 50%
+		result = rai::uint128_t (1) << (127 - (25 - 6)); // 50%
 	}
 	else if (interval < intervals_per_period * 2)
 	{
-		result = rai::uint128_t (2) << (126 - (25 - 6)); // 25%
+		result = rai::uint128_t (1) << (126 - (25 - 6)); // 25%
 	}
 	else if (interval < intervals_per_period * 3)
 	{
-		result = rai::uint128_t (2) << (125 - (25 - 6)); // 13%
+		result = rai::uint128_t (1) << (125 - (25 - 6)); // 13%
 	}
 	else if (interval < intervals_per_period * 4)
 	{
-		result = rai::uint128_t (2) << (124 - (25 - 6)); // 6.3%
+		result = rai::uint128_t (1) << (124 - (25 - 6)); // 6.3%
 	}
 	else if (interval < intervals_per_period * 5)
 	{
-		result = rai::uint128_t (2) << (123 - (25 - 6)); // 3.1%
+		result = rai::uint128_t (1) << (123 - (25 - 6)); // 3.1%
 	}
 	else if (interval < intervals_per_period * 6)
 	{
-		result = rai::uint128_t (2) << (122 - (25 - 6)); // 1.6%
+		result = rai::uint128_t (1) << (122 - (25 - 6)); // 1.6%
 	}
 	else if (interval < intervals_per_period * 7)
 	{
-		result = rai::uint128_t (2) << (121 - (25 - 6)); // 0.8%
+		result = rai::uint128_t (1) << (121 - (25 - 6)); // 0.8%
 	}
 	else if (interval < intervals_per_period * 8)
 	{
-		result = rai::uint128_t (2) << (121 - (25 - 6)); // 0.8*
+		result = rai::uint128_t (1) << (121 - (25 - 6)); // 0.8*
 	}
 	else
 	{
@@ -5475,7 +5475,7 @@ void rai::landing::distribute_one ()
 	auto error (false);
 	while (!error && store.last + distribution_interval.count () < now)
 	{
-		auto amount (distribution_amount (store.last - store.start));
+		auto amount (distribution_amount ((store.last - store.start) >> 6));
 		error = wallet->send (store.source, store.destination, amount);
 		if (!error)
 		{
