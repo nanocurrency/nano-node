@@ -5493,7 +5493,7 @@ void rai::landing::distribute_one ()
 void rai::landing::distribute_ongoing ()
 {
 	distribute_one ();
-	BOOST_LOG (node.log) << "Waiting for next distribution cycle\n";
+	BOOST_LOG (node.log) << "Waiting for next distribution cycle";
 	node.service.add (std::chrono::system_clock::now () + sleep_seconds, [this] () {distribute_ongoing ();});
 }
 
