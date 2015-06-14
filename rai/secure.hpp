@@ -258,9 +258,6 @@ public:
 	virtual void open_block (rai::open_block const &) = 0;
 	virtual void change_block (rai::change_block const &) = 0;
 };
-struct block_store_temp_t
-{
-};
 // Latest information about an account
 class account_info
 {
@@ -336,6 +333,10 @@ public:
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	
+	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
+	rai::account frontier_get (MDB_txn *, rai::block_hash const &);
+	void frontier_del (MDB_txn *, rai::block_hash const &);
+	
 	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
 	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);
 	void account_del (MDB_txn *, rai::account const &);
@@ -379,7 +380,9 @@ public:
 	void clear (MDB_dbi);
 	
 	rai::mdb_env environment;
-	// account -> block_hash, representative, balance, timestamp    // Account to frontier block, representative, balance, last_change
+	// block_hash -> account                                        // Maps head blocks to owning account
+	MDB_dbi frontiers;
+	// account -> block_hash, representative, balance, timestamp    // Account to head block, representative, balance, last_change
 	MDB_dbi accounts;
 	// block_hash -> send_block
 	MDB_dbi send_blocks;

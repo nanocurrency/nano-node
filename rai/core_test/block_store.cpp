@@ -510,3 +510,18 @@ TEST (block_store, large_iteration)
 	}
 	ASSERT_EQ (accounts1, accounts2);
 }
+
+TEST (block_store, frontier)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::transaction transaction (store.environment, nullptr, true);
+	rai::block_hash hash (100);
+	rai::account account (200);
+	ASSERT_TRUE (store.frontier_get (transaction, hash).is_zero ());
+	store.frontier_put (transaction, hash, account);
+	ASSERT_EQ (account, store.frontier_get (transaction, hash));
+	store.frontier_del (transaction, hash);
+	ASSERT_TRUE (store.frontier_get (transaction, hash).is_zero ());
+}
