@@ -432,15 +432,18 @@ last_status (rai_qt::status::disconnected)
     });
     node.observers.push_back ([this] (rai::block const &, rai::account const & account_a)
     {
-        if (wallet_m->exists (account_a))
-        {
-            accounts.refresh ();
-        }
-		if (account_a == account)
+		QTimer::singleShot(0, [this, account_a] ()
 		{
-            history.refresh ();
-			self.refresh_balance ();
-		}
+			if (wallet_m->exists (account_a))
+			{
+				accounts.refresh ();
+			}
+			if (account_a == account)
+			{
+				history.refresh ();
+				self.refresh_balance ();
+			}
+		});
     });
 	node.endpoint_observers.push_back ([this] (rai::endpoint const &)
 	{
