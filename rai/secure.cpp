@@ -2548,7 +2548,6 @@ rai::uint128_t rai::ledger::supply ()
 rai::account rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (representative_calculated (transaction_a, hash_a));
-    //assert (result == representative_cached (hash_a));
     return result;
 }
 
@@ -2557,11 +2556,6 @@ rai::account rai::ledger::representative_calculated (MDB_txn * transaction_a, ra
     representative_visitor visitor (transaction_a, store);
     visitor.compute (hash_a);
     return visitor.result;
-}
-
-rai::account rai::ledger::representative_cached (rai::block_hash const & hash_a)
-{
-    assert (false);
 }
 
 // Vote weight of an account
