@@ -9,6 +9,17 @@
 
 namespace rai_qt {
     class wallet;
+	class eventloop_processor : public QObject
+	{
+	public:
+		bool event (QEvent *) override;
+	};
+	class eventloop_event : public QEvent
+	{
+	public:
+		eventloop_event (std::function <void ()> const &);
+		std::function <void ()> action;
+	};
     class password_change
     {
     public:
@@ -209,6 +220,7 @@ namespace rai_qt {
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;
 		rai::account account;
+		rai_qt::eventloop_processor processor;
 		rai_qt::history history;
         rai_qt::accounts accounts;
 		rai_qt::self_pane self;

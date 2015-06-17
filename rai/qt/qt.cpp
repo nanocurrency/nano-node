@@ -4,6 +4,19 @@
 
 #include <sstream>
 
+bool rai_qt::eventloop_processor::event (QEvent * event_a)
+{
+	assert(dynamic_cast <rai_qt::eventloop_event *>(event_a) != nullptr);
+	static_cast <rai_qt::eventloop_event *> (event_a)->action ();
+	return true;
+}
+
+rai_qt::eventloop_event::eventloop_event (std::function <void ()> const & action_a) :
+QEvent (QEvent::Type::User),
+action (action_a)
+{
+}
+
 rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & account_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
@@ -432,15 +445,18 @@ last_status (rai_qt::status::disconnected)
     });
     node.observers.push_back ([this] (rai::block const &, rai::account const & account_a)
     {
-        if (wallet_m->exists (account_a))
-        {
-            accounts.refresh ();
-        }
-		if (account_a == account)
+		application.postEvent (&processor, new eventloop_event ([this, account_a] ()
 		{
-            history.refresh ();
-			self.refresh_balance ();
-		}
+			if (wallet_m->exists (account_a))
+			{
+				accounts.refresh ();
+			}
+			if (account_a == account)
+			{
+				history.refresh ();
+				self.refresh_balance ();
+			}
+		}));
     });
 	node.endpoint_observers.push_back ([this] (rai::endpoint const &)
 	{
