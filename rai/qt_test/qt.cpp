@@ -226,7 +226,7 @@ TEST (wallet, send)
 		ASSERT_LT (iterations1, 200);
     }
 	rai::uint128_t amount (wallet.node.balance (key1));
-    ASSERT_EQ (2 * rai::Grai_ratio, amount);
+    ASSERT_EQ (2 * wallet.rendering_ratio, amount);
 	QTest::mouseClick (wallet.send_blocks_back, Qt::LeftButton);
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.show_ledger, Qt::LeftButton);
@@ -390,7 +390,7 @@ TEST (history, short_text)
 		rai::change_block change (receive.hash (), key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, change).code);
 	}
-	rai_qt::history history (ledger, rai::test_genesis_key.pub);
+	rai_qt::history history (ledger, rai::test_genesis_key.pub, rai::Grai_ratio);
 	history.refresh ();
 	ASSERT_EQ (4, history.model->rowCount ());
 }

@@ -183,12 +183,13 @@ namespace rai_qt {
 	class history
 	{
 	public:
-		history (rai::ledger &, rai::account const &);
+		history (rai::ledger &, rai::account const &, rai::uint128_t const &);
 		void refresh ();
 		QStandardItemModel * model;
 		QTableView * view;
 		rai::ledger & ledger;
 		rai::account const & account;
+		rai::uint128_t const rendering_ratio;
 	};
 	class block_viewer
 	{
@@ -217,6 +218,7 @@ namespace rai_qt {
     public:
         wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account const &);
         void refresh ();
+		rai::uint128_t rendering_ratio;
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;
 		rai::account account;

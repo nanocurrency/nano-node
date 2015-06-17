@@ -42,7 +42,7 @@ void rai_qt::self_pane::refresh_balance ()
 {
 	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
 	std::string balance;
-	rai::amount (wallet.node.ledger.account_balance (transaction, wallet.account) / rai::Grai_ratio).encode_dec (balance);
+	rai::amount (wallet.node.ledger.account_balance (transaction, wallet.account) / wallet.rendering_ratio).encode_dec (balance);
 	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + balance).c_str ()));
 }
 
@@ -142,7 +142,7 @@ void rai_qt::accounts::refresh ()
         QList <QStandardItem *> items;
         rai::public_key key (i->first);
         std::string balance;
-		rai::amount (wallet.node.ledger.account_balance (transaction, key) / rai::Grai_ratio).encode_dec (balance);
+		rai::amount (wallet.node.ledger.account_balance (transaction, key) / wallet.rendering_ratio).encode_dec (balance);
         items.push_back (new QStandardItem (balance.c_str ()));
         items.push_back (new QStandardItem (QString (key.to_base58check ().c_str ())));
         model->appendRow (items);
@@ -185,11 +185,12 @@ wallet (wallet_a)
 	});
 }
 
-rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a) :
+rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai::uint128_t const & rendering_ratio_a) :
 model (new QStandardItemModel),
 view (new QTableView),
 ledger (ledger_a),
-account (account_a)
+account (account_a),
+rendering_ratio (rendering_ratio_a)
 {
     model->setHorizontalHeaderItem (0, new QStandardItem ("History"));
     view->setModel (model);
@@ -202,30 +203,31 @@ namespace
 class short_text_visitor : public rai::block_visitor
 {
 public:
-	short_text_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a) :
+	short_text_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a, rai::uint128_t const & rendering_ratio_a) :
 	transaction (transaction_a),
-	ledger (ledger_a)
+	ledger (ledger_a),
+	rendering_ratio (rendering_ratio_a)
 	{
 	}
 	void send_block (rai::send_block const & block_a)
 	{
 		auto amount (ledger.amount (transaction, block_a.hash ()));
 		std::string balance;
-		rai::amount (amount / rai::Grai_ratio).encode_dec (balance);
+		rai::amount (amount / rendering_ratio).encode_dec (balance);
 		text = boost::str (boost::format ("Sent %1%") % balance);
 	}
 	void receive_block (rai::receive_block const & block_a)
 	{
 		auto amount (ledger.amount (transaction, block_a.source ()));
 		std::string balance;
-		rai::amount (amount / rai::Grai_ratio).encode_dec (balance);
+		rai::amount (amount / rendering_ratio).encode_dec (balance);
 		text = boost::str (boost::format ("Received %1%") % balance);
 	}
 	void open_block (rai::open_block const & block_a)
 	{
 		auto amount (ledger.amount (transaction, block_a.source ()));
 		std::string balance;
-		rai::amount (amount / rai::Grai_ratio).encode_dec (balance);
+		rai::amount (amount / rendering_ratio).encode_dec (balance);
 		text = boost::str (boost::format ("Opened %1%") % balance);
 	}
 	void change_block (rai::change_block const & block_a)
@@ -234,6 +236,7 @@ public:
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
+	rai::uint128_t rendering_ratio;
 	std::string text;
 };
 }
@@ -243,7 +246,7 @@ void rai_qt::history::refresh ()
 	rai::transaction transaction (ledger.store.environment, nullptr, false);
 	model->removeRows (0, model->rowCount ());
 	auto hash (ledger.latest (transaction, account));
-	short_text_visitor visitor (transaction, ledger);
+	short_text_visitor visitor (transaction, ledger, rendering_ratio);
 	while (!hash.is_zero ())
 	{
 		QList <QStandardItem *> items;
@@ -311,10 +314,11 @@ wallet (wallet_a)
 }
 
 rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account const & account_a) :
+rendering_ratio (rai::Mrai_ratio),
 node (node_a),
 wallet_m (wallet_a),
 account (account_a),
-history (node.ledger, account_a),
+history (node.ledger, account_a, rendering_ratio),
 accounts (*this),
 self (*this, account_a),
 password_change (*this),
@@ -385,8 +389,8 @@ last_status (rai_qt::status::disconnected)
         try
         {
             rai::amount amount (coins_text_narrow);
-            rai::uint128_t coins (amount.number () * rai::Grai_ratio);
-            if (coins / rai::Grai_ratio == amount.number ())
+            rai::uint128_t coins (amount.number () * rendering_ratio);
+            if (coins / rendering_ratio == amount.number ())
             {
                 QPalette palette;
                 palette.setColor (QPalette::Text, Qt::black);
@@ -774,7 +778,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
         items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_base58check ().c_str ())));
 		auto hash (rai::account_info (i->second).head);
 		std::string balance;
-		rai::amount (wallet.node.ledger.balance (transaction, hash) / rai::Grai_ratio).encode_dec (balance);
+		rai::amount (wallet.node.ledger.balance (transaction, hash) / wallet.rendering_ratio).encode_dec (balance);
         items.push_back (new QStandardItem (QString (balance.c_str ())));
         std::string block_hash;
         hash.encode_hex (block_hash);
