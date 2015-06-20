@@ -488,3 +488,32 @@ TEST (wallet, import)
 	QTest::mouseClick (wallet.import.perform, Qt::LeftButton);
 	ASSERT_TRUE (system.wallet (1)->exists (key1.pub));
 }
+
+TEST (wallet, republish)
+{
+    rai::system system (24000, 2);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	rai::keypair key;
+	rai::block_hash hash;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		rai::send_block block (system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		hash = block.hash ();
+		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, block).code);
+	}
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.advanced.block_viewer, Qt::LeftButton);
+	ASSERT_EQ (wallet.block_viewer.window, wallet.main_stack->currentWidget ());
+	QTest::keyClicks (wallet.block_viewer.hash, hash.to_string ().c_str ());
+	QTest::mouseClick (wallet.block_viewer.rebroadcast, Qt::LeftButton);
+	ASSERT_FALSE (system.nodes [1]->balance (rai::test_genesis_key.pub).is_zero ());
+	int iterations (0);
+	while (system.nodes [1]->balance (rai::test_genesis_key.pub).is_zero ())
+	{
+		++iterations;
+		ASSERT_LT (iterations, 200);
+		system.poll ();
+	}
+}

@@ -269,6 +269,7 @@ block (new QPlainTextEdit),
 successor_label (new QLabel ("Successor:")),
 successor (new QLineEdit),
 retrieve (new QPushButton ("Retrieve")),
+rebroadcast (new QPushButton ("Rebroadcast")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
@@ -279,6 +280,7 @@ wallet (wallet_a)
 	layout->addWidget (successor_label);
 	layout->addWidget (successor);
 	layout->addWidget (retrieve);
+	layout->addWidget (rebroadcast);
 	layout->addStretch ();
 	layout->addWidget (back);
 	window->setLayout (layout);
@@ -311,6 +313,47 @@ wallet (wallet_a)
 			block->setPlainText ("Bad block hash");
 		}
 	});
+	QObject::connect (rebroadcast, &QPushButton::released, [this] ()
+	{
+		rai::block_hash block;
+		auto error (block.decode_base58check (hash->text ().toStdString ()));
+		if (!error)
+		{
+			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+			if (wallet.node.store.block_exists (transaction, block))
+			{
+				rebroadcast->setEnabled (false);
+				wallet.node.service.add (std::chrono::system_clock::now (), [this, block] ()
+				{
+					rebroadcast_action (block);
+				});
+			}
+		}
+	});
+}
+
+void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a)
+{
+	auto done (true);
+	rai::transaction transaction (wallet.node.ledger.store.environment, nullptr, false);
+	auto block (wallet.node.store.block_get (transaction, hash_a));
+	if (block != nullptr)
+	{
+		wallet.node.network.republish_block (std::move (block));
+		auto successor (wallet.node.store.block_successor (transaction, hash_a));
+		if (!successor.is_zero ())
+		{
+			done = false;
+			wallet.node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (1), [this, successor] ()
+			{
+				rebroadcast_action (successor);
+			});
+		}
+	}
+	if (done)
+	{
+		rebroadcast->setEnabled (true);
+	}
 }
 
 rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account const & account_a) :

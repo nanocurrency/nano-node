@@ -195,6 +195,7 @@ namespace rai_qt {
 	{
 	public:
 		block_viewer (rai_qt::wallet &);
+		void rebroadcast_action (rai::uint256_union const &);
 		QWidget * window;
 		QVBoxLayout * layout;
 		QLabel * hash_label;
@@ -204,6 +205,7 @@ namespace rai_qt {
 		QLabel * successor_label;
 		QLineEdit * successor;
 		QPushButton * retrieve;
+		QPushButton * rebroadcast;
 		QPushButton * back;
 		rai_qt::wallet & wallet;
 	};
