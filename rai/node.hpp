@@ -571,6 +571,7 @@ public:
     void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (rai::block const &);
     void send_confirm_req (rai::endpoint const &, rai::block const &);
+	void initiate_send ();
     void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
     void send_complete (boost::system::error_code const &, size_t);
     rai::endpoint endpoint ();

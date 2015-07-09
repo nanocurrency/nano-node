@@ -4194,6 +4194,20 @@ std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::
     return stream_a;
 }
 
+void rai::network::initiate_send ()
+{
+	assert (!sends.empty ());
+	auto & front (sends.front ());
+	if (node.logging.network_packet_logging ())
+	{
+		BOOST_LOG (node.log) << "Sending packet";
+	}
+	socket.async_send_to (boost::asio::buffer (std::get <0> (front), std::get <1> (front)), std::get <2> (front), [this] (boost::system::error_code const & ec, size_t size_a)
+	{
+		send_complete (ec, size_a);
+	});
+}
+
 void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function <void (boost::system::error_code const &, size_t)> callback_a)
 {
     std::unique_lock <std::mutex> lock (socket_mutex);
@@ -4201,14 +4215,7 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
     sends.push (std::make_tuple (data_a, size_a, endpoint_a, callback_a));
     if (do_send)
     {
-        if (node.logging.network_packet_logging ())
-        {
-            BOOST_LOG (node.log) << "Sending packet";
-        }
-        socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this] (boost::system::error_code const & ec, size_t size_a)
-        {
-            send_complete (ec, size_a);
-        });
+		initiate_send ();
     }
 }
 
@@ -4226,15 +4233,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
         sends.pop ();
         if (!sends.empty ())
         {
-            auto & front (sends.front ());
-            if (node.logging.network_packet_logging ())
-            {
-				BOOST_LOG (node.log) << "Sending packet";
-            }
-            socket.async_send_to (boost::asio::buffer (std::get <0> (front), std::get <1> (front)), std::get <2> (front), [this] (boost::system::error_code const & ec, size_t size_a)
-            {
-                send_complete (ec, size_a);
-            });
+			initiate_send ();
         }
     }
     std::get <3> (self) (ec, size_a);
