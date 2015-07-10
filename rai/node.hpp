@@ -555,6 +555,14 @@ public:
 	std::function <void (rai::endpoint const &)> peer_observer;
 	std::function <void ()> disconnect_observer;
 };
+class send_info
+{
+public:
+	uint8_t const * data;
+	size_t size;
+	rai::endpoint endpoint;
+	std::function <void (boost::system::error_code const &, size_t)> callback;
+};
 class network
 {
 public:
@@ -583,7 +591,7 @@ public:
     boost::asio::ip::udp::resolver resolver;
     rai::node & node;
     uint64_t bad_sender_count;
-    std::queue <std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>>> sends;
+    std::queue <rai::send_info> sends;
     bool on;
     uint64_t keepalive_count;
     uint64_t publish_count;

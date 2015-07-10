@@ -4202,7 +4202,7 @@ void rai::network::initiate_send ()
 	{
 		BOOST_LOG (node.log) << "Sending packet";
 	}
-	socket.async_send_to (boost::asio::buffer (std::get <0> (front), std::get <1> (front)), std::get <2> (front), [this] (boost::system::error_code const & ec, size_t size_a)
+	socket.async_send_to (boost::asio::buffer (front.data, front.size), front.endpoint, [this] (boost::system::error_code const & ec, size_t size_a)
 	{
 		send_complete (ec, size_a);
 	});
@@ -4212,7 +4212,7 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 {
     std::unique_lock <std::mutex> lock (socket_mutex);
     auto do_send (sends.empty ());
-    sends.push (std::make_tuple (data_a, size_a, endpoint_a, callback_a));
+    sends.push ({data_a, size_a, endpoint_a, callback_a});
     if (do_send)
     {
 		initiate_send ();
@@ -4225,7 +4225,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
     {
         BOOST_LOG (node.log) << "Packet send complete";
     }
-    std::tuple <uint8_t const *, size_t, rai::endpoint, std::function <void (boost::system::error_code const &, size_t)>> self;
+	rai::send_info self;
     {
         std::unique_lock <std::mutex> lock (socket_mutex);
         assert (!sends.empty ());
@@ -4236,7 +4236,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
 			initiate_send ();
         }
     }
-    std::get <3> (self) (ec, size_a);
+    self.callback (ec, size_a);
 }
 
 uint64_t rai::block_store::now ()
