@@ -149,7 +149,7 @@ TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 2, 3, 4, rai::work_generate (0)));
-    system.nodes [0]->network.republish_block (std::move (block));
+    system.nodes [0]->network.republish_block (std::move (block), 0);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
@@ -168,7 +168,7 @@ TEST (network, send_invalid_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block (0, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (0)));
-    system.nodes [0]->network.republish_block (std::move (block));
+    system.nodes [0]->network.republish_block (std::move (block), 0);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
@@ -193,7 +193,7 @@ TEST (network, send_valid_confirm_ack)
     rai::send_block block2 (latest1, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest1));
     auto hash2 (block2.hash ());
     rai::block_hash latest2 (system.nodes [1]->latest (rai::test_genesis_key.pub));
-	system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
+	system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), 0);
     auto iterations (0);
     while (system.nodes [1]->network.confirm_ack_count == 0)
     {
@@ -217,7 +217,7 @@ TEST (network, send_valid_publish)
     rai::send_block block2 (latest1, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest1));
     auto hash2 (block2.hash ());
     rai::block_hash latest2 (system.nodes [1]->latest (rai::test_genesis_key.pub));
-    system.nodes [1]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
+    system.nodes [1]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)), 0);
     auto iterations (0);
     while (system.nodes [0]->network.publish_count == 0)
     {
@@ -242,7 +242,7 @@ TEST (network, send_insufficient_work)
         publish.serialize (stream);
     }
     auto node1 (system.nodes [1]->shared ());
-    system.nodes [0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes [1]->network.endpoint (), [bytes, node1] (boost::system::error_code const & ec, size_t size) {});
+    system.nodes [0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes [1]->network.endpoint (), 0, [bytes, node1] (boost::system::error_code const & ec, size_t size) {});
     ASSERT_EQ (0, system.nodes [0]->network.insufficient_work_count);
     auto iterations (0);
     while (system.nodes [1]->network.insufficient_work_count == 0)
@@ -292,8 +292,8 @@ TEST (receivable_processor, send_with_receive)
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
 	ASSERT_EQ (amount, system.nodes [1]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [1]->balance (key2.pub));
-    system.nodes [0]->process_receive_republish (block1->clone ());
-    system.nodes [1]->process_receive_republish (block1->clone ());
+    system.nodes [0]->process_receive_republish (block1->clone (), 0);
+    system.nodes [1]->process_receive_republish (block1->clone (), 0);
 	ASSERT_EQ (amount - 100, system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
 	ASSERT_EQ (amount - 100, system.nodes [1]->balance (rai::test_genesis_key.pub));

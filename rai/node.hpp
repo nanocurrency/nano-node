@@ -561,6 +561,7 @@ public:
 	uint8_t const * data;
 	size_t size;
 	rai::endpoint endpoint;
+	size_t rebroadcast;
 	std::function <void (boost::system::error_code const &, size_t)> callback;
 };
 class network
@@ -571,16 +572,16 @@ public:
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
-    void republish_block (std::unique_ptr <rai::block>);
+    void republish_block (std::unique_ptr <rai::block>, size_t);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
-    bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, uint64_t);
-	void confirm_block (rai::private_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &);
+    bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, uint64_t, size_t);
+	void confirm_block (rai::private_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &, size_t);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (rai::block const &);
     void send_confirm_req (rai::endpoint const &, rai::block const &);
 	void initiate_send ();
-    void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
+    void send_buffer (uint8_t const *, size_t, rai::endpoint const &, size_t, std::function <void (boost::system::error_code const &, size_t)>);
     void send_complete (boost::system::error_code const &, size_t);
     rai::endpoint endpoint ();
     rai::endpoint remote;
@@ -767,7 +768,7 @@ public:
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
-    void process_receive_republish (std::unique_ptr <rai::block>);
+    void process_receive_republish (std::unique_ptr <rai::block>, size_t);
     rai::process_return process_receive (rai::block const &);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);

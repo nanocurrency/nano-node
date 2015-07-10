@@ -216,7 +216,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
         BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_a);
     }
     auto node_l (node.shared ());
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t)
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t)
         {
             if (node_l->logging.network_logging ())
             {
@@ -228,12 +228,12 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
         });
 }
 
-void rai::network::republish_block (std::unique_ptr <rai::block> block)
+void rai::network::republish_block (std::unique_ptr <rai::block> block, size_t rebroadcast_a)
 {
 	auto hash (block->hash ());
     auto list (node.peers.list ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-    if (!confirm_broadcast (list, block->clone (), 0))
+    if (!confirm_broadcast (list, block->clone (), 0, rebroadcast_a))
     {
         rai::publish message (std::move (block));
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -250,7 +250,7 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block)
 				{
 					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % i->endpoint);
 				}
-				send_buffer (bytes->data (), bytes->size (), i->endpoint, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
+				send_buffer (bytes->data (), bytes->size (), i->endpoint, rebroadcast_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
 					{
 						if (node_l->logging.network_logging ())
 						{
@@ -292,7 +292,7 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
     }
     auto node_l (node.shared ());
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
         {
             if (node_l->logging.network_logging ())
             {
@@ -333,7 +333,7 @@ public:
         ++node.network.publish_count;
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
-        node.process_receive_republish (message_a.block->clone ());
+        node.process_receive_republish (message_a.block->clone (), 0);
     }
     void confirm_req (rai::confirm_req const & message_a) override
     {
@@ -344,7 +344,7 @@ public:
         ++node.network.confirm_req_count;
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.block->hash ());
-        node.process_receive_republish (message_a.block->clone ());
+        node.process_receive_republish (message_a.block->clone (), 0);
 		bool exists;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, false);
@@ -364,7 +364,7 @@ public:
         ++node.network.confirm_ack_count;
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.vote.block->hash ());
-        node.process_receive_republish (message_a.vote.block->clone ());
+        node.process_receive_republish (message_a.vote.block->clone (), 0);
         node.vote (message_a.vote);
     }
     void bulk_pull (rai::bulk_pull const &) override
@@ -861,7 +861,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 	}
 	if (!result)
 	{
-		node.process_receive_republish (std::move (block));
+		node.process_receive_republish (std::move (block), 0);
 	}
     return result;
 }
@@ -907,7 +907,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	if (!result)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block->clone ());
+		node.process_receive_republish (block->clone (), 0);
 	}
 	return result;
 }
@@ -956,7 +956,7 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 	}
 	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 	{
-		node.process_receive_republish (std::move (*i));
+		node.process_receive_republish (std::move (*i), 0);
 	}
     return result;
 }
@@ -1620,7 +1620,7 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold ()
     return node.ledger.supply () / 16;
 }
 
-bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a)
+bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, size_t rebroadcast_a)
 {
     bool result (false);
     for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
@@ -1639,7 +1639,7 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
                 {
                     if (!node.peers.knows_about (j->endpoint, hash))
                     {
-                        confirm_block (prv, pub, block_a->clone (), sequence_a, j->endpoint);
+                        confirm_block (prv, pub, block_a->clone (), sequence_a, j->endpoint, rebroadcast_a);
                     }
                 }
             }
@@ -1655,7 +1655,7 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
     return result;
 }
 
-void rai::network::confirm_block (rai::private_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a)
+void rai::network::confirm_block (rai::private_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a, size_t rebroadcast_a)
 {
     rai::confirm_ack confirm (pub, prv, sequence_a, std::move (block_a));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -1668,7 +1668,7 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
         BOOST_LOG (node.log) << boost::str (boost::format ("Confirm %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
     }
     auto node_l (node.shared ());
-    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size_a)
+    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l] (boost::system::error_code const & ec, size_t size_a)
         {
             if (node_l->logging.network_logging ())
             {
@@ -1680,7 +1680,7 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
         });
 }
 
-void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming)
+void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming, size_t rebroadcast_a)
 {
 	assert (incoming != nullptr);
     std::unique_ptr <rai::block> block (std::move (incoming));
@@ -1692,7 +1692,7 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
         {
             case rai::process_result::progress:
             {
-                network.republish_block (std::move (block));
+                network.republish_block (std::move (block), rebroadcast_a);
                 break;
             }
             default:
@@ -1974,7 +1974,7 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
                 rai::private_key prv;
                 auto error (i->second->store.fetch (transaction, representative, prv));
                 assert (!error);
-                network.confirm_block (prv, representative, block_a.clone (), 0, sender);
+                network.confirm_block (prv, representative, block_a.clone (), 0, sender, 0);
 			}
 		}
 	}
@@ -2725,7 +2725,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 				auto block (rai::deserialize_block_json (block_l));
 				if (block != nullptr)
 				{
-					node.process_receive_republish (std::move (block));
+					node.process_receive_republish (std::move (block), 0);
                     boost::property_tree::ptree response_l;
 					set_response (response, response_l);
 				}
@@ -4202,21 +4202,31 @@ void rai::network::initiate_send ()
 	{
 		BOOST_LOG (node.log) << "Sending packet";
 	}
-	socket.async_send_to (boost::asio::buffer (front.data, front.size), front.endpoint, [this] (boost::system::error_code const & ec, size_t size_a)
+	socket.async_send_to (boost::asio::buffer (front.data, front.size), front.endpoint, [this, front] (boost::system::error_code const & ec, size_t size_a)
 	{
-		send_complete (ec, size_a);
+		if (front.rebroadcast > 0)
+		{
+			node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this, front]
+			{
+				send_buffer (front.data, front.size, front.endpoint, front.rebroadcast - 1, front.callback);
+			});
+		}
+		else
+		{
+			send_complete (ec, size_a);
+		}
 	});
 }
 
-void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function <void (boost::system::error_code const &, size_t)> callback_a)
+void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, size_t rebroadcast_a, std::function <void (boost::system::error_code const &, size_t)> callback_a)
 {
-    std::unique_lock <std::mutex> lock (socket_mutex);
-    auto do_send (sends.empty ());
-    sends.push ({data_a, size_a, endpoint_a, callback_a});
-    if (do_send)
-    {
+	std::unique_lock <std::mutex> lock (socket_mutex);
+	auto initiate (sends.empty ());
+	sends.push ({data_a, size_a, endpoint_a, rebroadcast_a, callback_a});
+	if (initiate)
+	{
 		initiate_send ();
-    }
+	}
 }
 
 void rai::network::send_complete (boost::system::error_code const & ec, size_t size_a)
@@ -4327,7 +4337,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
         auto block (rai::deserialize_block (stream));
         if (block != nullptr)
         {
-            connection->node->process_receive_republish (std::move (block));
+            connection->node->process_receive_republish (std::move (block), 0);
             receive ();
         }
         else
@@ -5045,7 +5055,7 @@ void rai::election::announce_vote ()
 		}
 		assert (winner_l.second != nullptr);
 		auto list (node_l->peers.list ());
-		node_l->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence);
+		node_l->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence, 0);
 		auto now (std::chrono::system_clock::now ());
 		if (now - last_vote < std::chrono::seconds (15))
 		{
