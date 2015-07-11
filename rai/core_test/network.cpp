@@ -125,7 +125,7 @@ TEST (network, multi_keepalive)
     auto iterations1 (0);
     while (system.nodes [0]->peers.size () != 1)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
@@ -137,7 +137,7 @@ TEST (network, multi_keepalive)
     auto iterations2 (0);
     while (node1->peers.size () != 2 || system.nodes [0]->peers.size () != 2 || node2->peers.size () != 2)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
     }

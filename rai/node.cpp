@@ -1910,7 +1910,7 @@ service (new boost::asio::io_service)
         auto new2 (starting2);
         (*j)->network.send_keepalive ((*i)->network.endpoint ());
         do {
-            service->run_one ();
+            poll ();
             new1 = (*i)->peers.size ();
             new2 = (*j)->peers.size ();
         } while (new1 == starting1 || new2 == starting2);
@@ -4251,7 +4251,14 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
 	sends.pop ();
 	if (!sends.empty ())
 	{
-		initiate_send ();
+		if (node.logging.network_packet_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.packet_delay_microseconds);
+		}
+		node.service.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.packet_delay_microseconds), [this] ()
+		{
+			initiate_send ();
+		});
 	}
 }
 
@@ -5514,3 +5521,4 @@ void rai::landing::distribute_ongoing ()
 
 std::chrono::seconds constexpr rai::landing::distribution_interval;
 std::chrono::seconds constexpr rai::landing::sleep_seconds;
+unsigned constexpr rai::node::packet_delay_microseconds;

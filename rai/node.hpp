@@ -802,6 +802,7 @@ public:
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
+	static unsigned constexpr packet_delay_microseconds = 5000;
 };
 class system
 {
