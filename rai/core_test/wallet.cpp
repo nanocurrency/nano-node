@@ -105,6 +105,15 @@ TEST (wallet, insufficient_spend)
     ASSERT_TRUE (system.wallet (0)->send_all (key1.pub, 500));
 }
 
+TEST (wallet, insufficient_spend_one)
+{
+    rai::system system (24000, 1);
+    rai::keypair key1;
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, 500));
+    ASSERT_TRUE (system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, rai::genesis_amount));
+}
+
 TEST (wallet, spend_all_one)
 {
     rai::system system (24000, 1);

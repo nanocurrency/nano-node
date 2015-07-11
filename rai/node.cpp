@@ -861,7 +861,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 	}
 	if (!result)
 	{
-		node.process_receive_republish (std::move (block), 0);
+		node.process_receive_republish (std::move (block), 2);
 	}
     return result;
 }
@@ -892,6 +892,10 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 						block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, info.head)));
 						prv.clear ();
 					}
+					else
+					{
+						result = true;
+					}
 				}
 				else
 				{
@@ -907,7 +911,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	if (!result)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block->clone (), 0);
+		node.process_receive_republish (block->clone (), 2);
 	}
 	return result;
 }
@@ -956,7 +960,7 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 	}
 	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 	{
-		node.process_receive_republish (std::move (*i), 0);
+		node.process_receive_republish (std::move (*i), 2);
 	}
     return result;
 }
@@ -4213,8 +4217,15 @@ void rai::network::initiate_send ()
 		}
 		else
 		{
-			send_complete (ec, size_a);
+			rai::send_info self;
+			{
+				std::unique_lock <std::mutex> lock (socket_mutex);
+				assert (!sends.empty ());
+				self = sends.front ();
+			}
+			self.callback (ec, size_a);
 		}
+		send_complete (ec, size_a);
 	});
 }
 
@@ -4235,18 +4246,13 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
     {
         BOOST_LOG (node.log) << "Packet send complete";
     }
-	rai::send_info self;
-    {
-        std::unique_lock <std::mutex> lock (socket_mutex);
-        assert (!sends.empty ());
-        self = sends.front ();
-        sends.pop ();
-        if (!sends.empty ())
-        {
-			initiate_send ();
-        }
-    }
-    self.callback (ec, size_a);
+	std::unique_lock <std::mutex> lock (socket_mutex);
+	assert (!sends.empty ());
+	sends.pop ();
+	if (!sends.empty ())
+	{
+		initiate_send ();
+	}
 }
 
 uint64_t rai::block_store::now ()
