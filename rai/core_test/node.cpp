@@ -31,6 +31,14 @@ TEST (node, balance)
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.wallet (0)->store.balance (transaction, system.nodes [0]->ledger));
 }
 
+TEST (node, representative)
+{
+    rai::system system (24000, 1);
+	ASSERT_EQ (rai::test_genesis_key.pub, system.nodes [0]->representative (rai::test_genesis_key.pub));
+	rai::keypair key;
+	ASSERT_TRUE (system.nodes [0]->representative (key.pub).is_zero ());
+}
+
 TEST (node, send_unkeyed)
 {
     rai::system system (24000, 1);
@@ -182,7 +190,7 @@ TEST (node, auto_bootstrap)
 	auto iterations2 (0);
 	while (!node1->bootstrap_initiator.in_progress || !system.nodes [0]->bootstrap_initiator.in_progress)
 	{
-	        system.poll ();
+		system.poll ();
 		++iterations2;
 		ASSERT_LT (iterations2, 200);
 	}

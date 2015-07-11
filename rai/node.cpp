@@ -866,6 +866,48 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
     return result;
 }
 
+bool rai::wallet::change (rai::account const & source_a, rai::account const & representative_a)
+{
+	std::unique_ptr <rai::change_block> block;
+	auto result (false);
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		result = !store.valid_password (transaction);
+		if (!result)
+		{
+			auto existing (store.find (transaction, source_a));
+			if (existing != store.end ())
+			{
+				if (!node.ledger.latest (transaction, source_a).is_zero ())
+				{
+					rai::account_info info;
+					result = node.ledger.store.account_get (transaction, source_a, info);
+					assert (!result);
+					rai::private_key prv;
+					result = store.fetch (transaction, source_a, prv);
+					assert (!result);
+					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, work_fetch (transaction, source_a, info.head)));
+					prv.clear ();
+				}
+				else
+				{
+					result = true;
+				}
+			}
+			else
+			{
+				result = true;
+			}
+		}
+	}
+	if (!result)
+	{
+		assert (block != nullptr);
+		node.process_receive_republish (block->clone (), 2);
+	}
+	return result;
+}
+
 bool rai::wallet::send (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::unique_ptr <rai::send_block> block;
@@ -1621,7 +1663,7 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
 
 rai::uint128_t rai::gap_cache::bootstrap_threshold ()
 {
-    return node.ledger.supply () / 16;
+    return (node.ledger.supply () / 256) * rai::node::supply_fraction_numerator;
 }
 
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, size_t rebroadcast_a)
@@ -3046,6 +3088,18 @@ rai::uint128_t rai::node::weight (rai::account const & account_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
 	return ledger.weight (transaction, account_a);
+}
+
+rai::account rai::node::representative (rai::account const & account_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	rai::account_info info;
+	rai::account result (0);
+	if (!store.account_get (transaction, account_a, info))
+	{
+		result = info.representative;
+	}
+	return result;
 }
 
 void rai::node::call_observers (rai::block const & block_a, rai::account const & account_a)
@@ -5522,3 +5576,4 @@ void rai::landing::distribute_ongoing ()
 std::chrono::seconds constexpr rai::landing::distribution_interval;
 std::chrono::seconds constexpr rai::landing::sleep_seconds;
 unsigned constexpr rai::node::packet_delay_microseconds;
+unsigned constexpr rai::node::supply_fraction_numerator;

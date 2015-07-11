@@ -65,13 +65,6 @@ TEST (gap_cache, limit)
 TEST (gap_cache, gap_bootstrap)
 {
 	rai::system system (24000, 2);
-	auto iterations1 (0);
-	while (system.nodes [0]->bootstrap_initiator.in_progress || system.nodes [1]->bootstrap_initiator.in_progress)
-	{
-	        system.poll ();
-		++iterations1;
-		ASSERT_LT (iterations1, 200);
-	}
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	auto work (rai::work_generate (latest));
 	rai::keypair key;
@@ -87,7 +80,7 @@ TEST (gap_cache, gap_bootstrap)
 	auto iterations2 (0);
 	while (system.nodes [1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
 	{
-	        system.poll ();
+		system.poll ();
 		++iterations2;
 		ASSERT_LT (iterations2, 200);
 	}

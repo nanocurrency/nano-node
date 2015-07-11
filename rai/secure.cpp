@@ -2542,7 +2542,7 @@ rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block co
 // Money supply for heuristically calculating vote percentages
 rai::uint128_t rai::ledger::supply ()
 {
-    return std::numeric_limits <rai::uint128_t>::max ();
+    return rai::genesis_amount;
 }
 
 rai::account rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)

@@ -327,6 +327,7 @@ public:
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
+	bool change (rai::account const &, rai::account const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
 	// Send from a specific account in the wallet
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
@@ -775,6 +776,7 @@ public:
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
+	rai::account representative (rai::account const &);
 	void call_observers (rai::block const & block_a, rai::account const & account_a);
     void ongoing_keepalive ();
 	void backup_wallet ();
@@ -803,6 +805,7 @@ public:
     static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 	static unsigned constexpr packet_delay_microseconds = 5000;
+	static unsigned constexpr supply_fraction_numerator = 1;
 };
 class system
 {
