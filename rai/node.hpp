@@ -323,7 +323,7 @@ public:
     wallet (bool &, MDB_txn *, rai::node &, std::string const &);
     wallet (bool &, MDB_txn *, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password (MDB_txn *);
-	void insert (rai::private_key const &);
+	rai::public_key insert (rai::private_key const &);
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);

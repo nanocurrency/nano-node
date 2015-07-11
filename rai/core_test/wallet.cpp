@@ -207,14 +207,14 @@ TEST (wallet, spend_no_previous)
 {
     rai::system system (24000, 1);
 	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+		system.wallet (0)->insert (rai::test_genesis_key.prv);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		rai::account_info info1;
 		ASSERT_FALSE (system.nodes [0]->store.account_get (transaction, rai::test_genesis_key.pub, info1));
 		for (auto i (0); i < 50; ++i)
 		{
 			rai::keypair key;
-			system.wallet (0)->store.insert (transaction, key.prv);
+			system.wallet (0)->insert (key.prv);
 		}
 	}
     rai::keypair key2;
@@ -519,8 +519,8 @@ TEST (wallet, work)
 {
     rai::system system (24000, 1);
     auto wallet (system.wallet (0));
+    wallet->insert (rai::test_genesis_key.prv);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    wallet->store.insert (transaction, rai::test_genesis_key.prv);
     auto account1 (system.account (transaction, 0));
     uint64_t work1;
 	ASSERT_TRUE (wallet->store.work_get (transaction, 1000, work1));
@@ -549,9 +549,9 @@ TEST (wallet, work_generate)
 	rai::uint128_t amount1 (system.nodes [0]->balance (rai::test_genesis_key.pub));
 	rai::account account1;
 	uint64_t work1;
+	wallet->insert (rai::test_genesis_key.prv);
 	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		wallet->store.insert (transaction, rai::test_genesis_key.prv);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		account1 = system.account (transaction, 0);
 		ASSERT_FALSE (wallet->store.work_get (transaction, account1, work1));
 		ASSERT_EQ (0, work1);

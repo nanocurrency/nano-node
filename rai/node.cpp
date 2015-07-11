@@ -778,7 +778,7 @@ void rai::wallet::enter_initial_password (MDB_txn * transaction_a)
 	}
 }
 
-void rai::wallet::insert (rai::private_key const & key_a)
+rai::public_key rai::wallet::insert (rai::private_key const & key_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
 	auto key (store.insert (transaction, key_a));
@@ -788,6 +788,7 @@ void rai::wallet::insert (rai::private_key const & key_a)
 	{
 		this_l->work_generate (key, root);
 	});
+	return key;
 }
 
 bool rai::wallet::exists (rai::public_key const & account_a)

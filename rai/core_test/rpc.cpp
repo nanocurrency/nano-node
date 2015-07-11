@@ -420,11 +420,8 @@ TEST (rpc, account_list)
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     rai::keypair key2;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-		system.wallet (0)->store.insert (transaction, key2.prv);
-	}
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert (key2.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -462,8 +459,7 @@ TEST (rpc, wallet_key_valid)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
+    system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -513,10 +509,7 @@ TEST (rpc, wallet_export)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-	}
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -545,10 +538,7 @@ TEST (rpc, wallet_destroy)
     auto wallet_id (system.nodes [0]->wallets.items.begin ()->first);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.wallet (0)->store.insert (transaction, rai::test_genesis_key.prv);
-	}
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -574,16 +564,10 @@ TEST (rpc, account_move)
     rai::rpc rpc (system.service, pool, boost::asio::ip::address_v6::loopback (), 25000, *system.nodes [0], true);
     auto destination (system.wallet (0));
     rai::keypair key;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		destination->store.insert (transaction, rai::test_genesis_key.prv);
-	}
+	destination->insert (rai::test_genesis_key.prv);
     rai::keypair source_id;
     auto source (system.nodes [0]->wallets.create (source_id.prv));
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		source->store.insert (transaction, key.prv);
-	}
+	source->insert (key.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
