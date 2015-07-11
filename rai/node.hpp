@@ -749,10 +749,25 @@ public:
     bool block_store_init;
     bool wallet_init;
 };
+class node_config
+{
+public:
+	node_config (uint16_t, rai::logging const &);
+    void serialize_json (boost::property_tree::ptree &) const;
+	bool deserialize_json (boost::property_tree::ptree const &);
+	uint16_t peering_port;
+	rai::logging logging;
+    static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
+    static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
+	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
+	static unsigned constexpr packet_delay_microseconds = 5000;
+	static unsigned constexpr supply_fraction_numerator = 1;
+};
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
     node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &);
+    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, boost::filesystem::path const &, rai::processor_service &, rai::node_config const &);
     ~node ();
 	template <typename T>
 	void background (T action_a)
@@ -781,6 +796,7 @@ public:
     void ongoing_keepalive ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
+	rai::node_config config;
     rai::processor_service & service;
     boost::log::sources::logger log;
     rai::block_store store;
@@ -792,7 +808,6 @@ public:
 	rai::bootstrap_initiator bootstrap_initiator;
     rai::bootstrap_listener bootstrap;
     rai::peer_container peers;
-	rai::logging const & logging;
 	boost::filesystem::path application_path;
     std::vector <std::function <void (rai::block const &, rai::account const &)>> observers;
     std::vector <std::function <void (rai::vote const &)>> vote_observers;

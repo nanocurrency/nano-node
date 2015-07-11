@@ -182,7 +182,7 @@ error_count (0)
 
 void rai::network::receive ()
 {
-    if (node.logging.network_packet_logging ())
+    if (node.config.logging.network_packet_logging ())
     {
         BOOST_LOG (node.log) << "Receiving packet";
     }
@@ -211,14 +211,14 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
         rai::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    if (node.logging.network_keepalive_logging ())
+    if (node.config.logging.network_keepalive_logging ())
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_a);
     }
     auto node_l (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t)
         {
-            if (node_l->logging.network_logging ())
+            if (node_l->config.logging.network_logging ())
             {
                 if (ec)
                 {
@@ -246,13 +246,13 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block, size_t r
         {
 			if (!node.peers.knows_about (i->endpoint, hash))
 			{
-				if (node.logging.network_publish_logging ())
+				if (node.config.logging.network_publish_logging ())
 				{
 					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % i->endpoint);
 				}
 				send_buffer (bytes->data (), bytes->size (), i->endpoint, rebroadcast_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
 					{
-						if (node_l->logging.network_logging ())
+						if (node_l->config.logging.network_logging ())
 						{
 							if (ec)
 							{
@@ -287,14 +287,14 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
         rai::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    if (node.logging.network_logging ())
+    if (node.config.logging.network_logging ())
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
     }
     auto node_l (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
         {
-            if (node_l->logging.network_logging ())
+            if (node_l->config.logging.network_logging ())
             {
                 if (ec)
                 {
@@ -316,7 +316,7 @@ public:
     }
     void keepalive (rai::keepalive const & message_a) override
     {
-        if (node.logging.network_keepalive_logging ())
+        if (node.config.logging.network_keepalive_logging ())
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive from %1%") % sender);
         }
@@ -326,7 +326,7 @@ public:
     }
     void publish (rai::publish const & message_a) override
     {
-        if (node.logging.network_message_logging ())
+        if (node.config.logging.network_message_logging ())
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Received publish req from %1%") % sender);
         }
@@ -337,7 +337,7 @@ public:
     }
     void confirm_req (rai::confirm_req const & message_a) override
     {
-        if (node.logging.network_message_logging ())
+        if (node.config.logging.network_message_logging ())
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm req %1%") % sender);
         }
@@ -357,7 +357,7 @@ public:
     }
     void confirm_ack (rai::confirm_ack const & message_a) override
     {
-        if (node.logging.network_message_logging ())
+        if (node.config.logging.network_message_logging ())
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Received Confirm from %1%") % sender);
         }
@@ -399,7 +399,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
             }
             else if (parser.insufficient_work)
             {
-                if (node.logging.insufficient_work_logging ())
+                if (node.config.logging.insufficient_work_logging ())
                 {
                     BOOST_LOG (node.log) << "Insufficient work in message";
                 }
@@ -408,7 +408,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         }
         else
         {
-            if (node.logging.network_logging ())
+            if (node.config.logging.network_logging ())
             {
                 BOOST_LOG (node.log) << "Reserved sender";
             }
@@ -418,7 +418,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     }
     else
     {
-        if (node.logging.network_logging ())
+        if (node.config.logging.network_logging ())
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Receive error: %1%") % error.message ());
         }
@@ -1140,12 +1140,12 @@ void rai::wallets::cache_work (rai::account const & account_a)
 			node.service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
 			{
 				auto begin (std::chrono::system_clock::now ());
-				if (wallet->node.logging.work_generation_time ())
+				if (wallet->node.config.logging.work_generation_time ())
 				{
 					BOOST_LOG (wallet->node.log) << "Beginning work generation";
 				}
 				wallet->work_generate (account_a, root);
-				if (wallet->node.logging.work_generation_time ())
+				if (wallet->node.config.logging.work_generation_time ())
 				{
 					BOOST_LOG (wallet->node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
 				}
@@ -1455,7 +1455,7 @@ public:
 		}
 		if (receive)
 		{
-			if (node.logging.ledger_logging ())
+			if (node.config.logging.ledger_logging ())
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
 			}
@@ -1471,7 +1471,7 @@ public:
 				}
 				else
 				{
-					if (node_l->logging.ledger_logging ())
+					if (node_l->config.logging.ledger_logging ())
 					{
 						BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to fast-confirm block: %1% because root: %2% is in conflict") % block_l->hash ().to_string () % root.to_string ());
 					}
@@ -1492,18 +1492,38 @@ public:
 };
 }
 
-rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
+rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
+peering_port (peering_port_a),
+logging (logging_a)
+{
+}
+
+void rai::node_config::serialize_json (boost::property_tree::ptree &) const
+{
+}
+
+bool rai::node_config::deserialize_json (boost::property_tree::ptree const &)
+{
+	return true;
+}
+
+rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
+node (init_a, service_a, application_path_a, processor_a, rai::node_config (peering_port_a, logging_a))
+{
+}
+
+rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::node_config const & config_a) :
+config (config_a),
 service (processor_a),
 store (init_a.block_store_init, application_path_a / "data.ldb"),
 gap_cache (*this),
 ledger (store),
 conflicts (*this),
 wallets (init_a.block_store_init, *this),
-network (*service_a, port_a, *this),
+network (*service_a, config.peering_port, *this),
 bootstrap_initiator (*this),
-bootstrap (*service_a, port_a, *this),
+bootstrap (*service_a, config.peering_port, *this),
 peers (network.endpoint ()),
-logging (logging_a),
 application_path (application_path_a)
 {
 	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
@@ -1534,7 +1554,7 @@ application_path (application_path_a)
 		rai::transaction transaction (store.environment, nullptr, false);
         gap_cache.vote (transaction, vote_a);
     });
-    if (logging.log_to_cerr ())
+    if (config.logging.log_to_cerr ())
     {
         boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
     }
@@ -1564,7 +1584,7 @@ application_path (application_path_a)
     });
     if (!init_a.error ())
     {
-        if (logging.node_lifetime_tracing ())
+        if (config.logging.node_lifetime_tracing ())
         {
             std::cerr << "Constructing node\n";
         }
@@ -1580,7 +1600,7 @@ application_path (application_path_a)
 
 rai::node::~node ()
 {
-    if (logging.node_lifetime_tracing ())
+    if (config.logging.node_lifetime_tracing ())
     {
         std::cerr << "Destructing node\n";
     }
@@ -1710,14 +1730,14 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
         rai::vectorstream stream (*bytes);
         confirm.serialize (stream);
     }
-    if (node.logging.network_publish_logging ())
+    if (node.config.logging.network_publish_logging ())
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Confirm %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
     }
     auto node_l (node.shared ());
     node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l] (boost::system::error_code const & ec, size_t size_a)
         {
-            if (node_l->logging.network_logging ())
+            if (node_l->config.logging.network_logging ())
             {
                 if (ec)
                 {
@@ -1764,7 +1784,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         case rai::process_result::progress:
         {
 			call_observers (block_a, result.account);
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 std::string block;
                 block_a.serialize_json (block);
@@ -1774,7 +1794,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::gap_previous:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
             }
@@ -1784,7 +1804,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::gap_source:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
             }
@@ -1794,7 +1814,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::old:
         {
-            if (logging.ledger_duplicate_logging ())
+            if (config.logging.ledger_duplicate_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Old for: %1%") % block_a.hash ().to_string ());
             }
@@ -1802,7 +1822,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::bad_signature:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Bad signature for: %1%") % block_a.hash ().to_string ());
             }
@@ -1810,7 +1830,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::overspend:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Overspend for: %1%") % block_a.hash ().to_string ());
             }
@@ -1818,7 +1838,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::unreceivable:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a.hash ().to_string ());
             }
@@ -1826,7 +1846,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::not_receive_from_send:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Not receive from spend for: %1%") % block_a.hash ().to_string ());
             }
@@ -1834,7 +1854,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::fork:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
             }
@@ -1848,7 +1868,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::account_mismatch:
         {
-            if (logging.ledger_logging ())
+            if (config.logging.ledger_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a.hash ().to_string ());
             }
@@ -1937,7 +1957,8 @@ service (new boost::asio::io_service)
     for (size_t i (0); i < count_a; ++i)
     {
         rai::node_init init;
-        auto node (std::make_shared <rai::node> (init, service, port_a + i, rai::unique_path (), processor, logging));
+		rai::node_config config (port_a + i, logging);
+        auto node (std::make_shared <rai::node> (init, service, rai::unique_path (), processor, config));
         assert (!init.error ());
         node->start ();
 		rai::uint256_union wallet;
@@ -2014,7 +2035,7 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
 			auto weight (ledger.weight (transaction, representative));
 			if (!weight.is_zero ())
             {
-                if (logging.network_message_logging ())
+                if (config.logging.network_message_logging ())
                 {
                     BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
                 }
@@ -2162,7 +2183,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             std::stringstream istream (request.body);
             boost::property_tree::read_json (istream, request_l);
             std::string action (request_l.get <std::string> ("action"));
-            if (node.logging.log_rpc ())
+            if (node.config.logging.log_rpc ())
             {
                 BOOST_LOG (node.log) << request.body;
             }
@@ -3395,7 +3416,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
                 }
 				default:
 				{
-					if (node->logging.network_logging ())
+					if (node->config.logging.network_logging ())
 					{
 						BOOST_LOG (node->log) << boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast <uint8_t> (type));
 					}
@@ -3406,7 +3427,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
     }
     else
     {
-        if (node->logging.network_logging ())
+        if (node->config.logging.network_logging ())
         {
             BOOST_LOG (node->log) << boost::str (boost::format ("Error while receiving type %1%") % ec.message ());
         }
@@ -3422,7 +3443,7 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
         auto error (request->deserialize (stream));
         if (!error)
         {
-            if (node->logging.network_logging ())
+            if (node->config.logging.network_logging ())
             {
                 BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
             }
@@ -3441,7 +3462,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 		auto error (request->deserialize (stream));
 		if (!error)
 		{
-			if (node->logging.network_logging ())
+			if (node->config.logging.network_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age);
 			}
@@ -3451,7 +3472,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 	}
     else
     {
-        if (node->logging.network_logging ())
+        if (node->config.logging.network_logging ())
         {
             BOOST_LOG (node->log) << boost::str (boost::format ("Error sending receiving frontier request %1%") % ec.message ());
         }
@@ -3536,7 +3557,7 @@ void rai::bulk_pull_server::set_current_end ()
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	if (!connection->node->store.block_exists (transaction, request->end))
 	{
-		if (connection->node->logging.bulk_pull_logging ())
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block doesn't exist: %1%, sending everything") % request->end.to_string ());
 		}
@@ -3546,7 +3567,7 @@ void rai::bulk_pull_server::set_current_end ()
 	auto no_address (connection->node->store.account_get (transaction, request->start, info));
 	if (no_address)
 	{
-		if (connection->node->logging.bulk_pull_logging ())
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_string ());
 		}
@@ -3584,7 +3605,7 @@ void rai::bulk_pull_server::send_next ()
             rai::serialize_block (stream, *block);
         }
         auto this_l (shared_from_this ());
-        if (connection->node->logging.network_logging ())
+        if (connection->node->config.logging.network_logging ())
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
         }
@@ -3633,7 +3654,7 @@ void rai::bulk_pull_server::send_finished ()
     send_buffer.clear ();
     send_buffer.push_back (static_cast <uint8_t> (rai::block_type::not_a_block));
     auto this_l (shared_from_this ());
-    if (connection->node->logging.network_logging ())
+    if (connection->node->config.logging.network_logging ())
     {
         BOOST_LOG (connection->node->log) << "Bulk sending finished";
     }
@@ -3661,7 +3682,7 @@ completion_action (completion_action_a)
 
 rai::bootstrap_client::~bootstrap_client ()
 {
-	if (node->logging.network_logging ())
+	if (node->config.logging.network_logging ())
 	{
 		BOOST_LOG (node->log) << "Exiting bootstrap client";
 	}
@@ -3670,7 +3691,7 @@ rai::bootstrap_client::~bootstrap_client ()
 
 void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
 {
-    if (node->logging.network_logging ())
+    if (node->config.logging.network_logging ())
     {
         BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint_a);
     }
@@ -3702,7 +3723,7 @@ void rai::bootstrap_client::connect_action (boost::system::error_code const & ec
     }
     else
     {
-        if (node->logging.network_logging ())
+        if (node->config.logging.network_logging ())
         {
             BOOST_LOG (node->log) << boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ());
         }
@@ -3719,7 +3740,7 @@ void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, 
     }
     else
     {
-        if (node->logging.network_logging ())
+        if (node->config.logging.network_logging ())
         {
             BOOST_LOG (node->log) << boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ());
         }
@@ -4032,7 +4053,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 		if (block != nullptr)
 		{
             auto hash (block->hash ());
-            if (connection->connection->node->logging.bulk_pull_logging ())
+            if (connection->connection->node->config.logging.bulk_pull_logging ())
             {
                 std::string block_l;
                 block->serialize_json (block_l);
@@ -4061,7 +4082,7 @@ boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
 
 rai::bootstrap_server::~bootstrap_server ()
 {
-    if (node->logging.network_logging ())
+    if (node->config.logging.network_logging ())
     {
         BOOST_LOG (node->log) << "Exiting bootstrap server";
     }
@@ -4257,7 +4278,7 @@ void rai::network::initiate_send ()
 {
 	assert (!sends.empty ());
 	auto & front (sends.front ());
-	if (node.logging.network_packet_logging ())
+	if (node.config.logging.network_packet_logging ())
 	{
 		BOOST_LOG (node.log) << "Sending packet";
 	}
@@ -4297,7 +4318,7 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 
 void rai::network::send_complete (boost::system::error_code const & ec, size_t size_a)
 {
-    if (node.logging.network_packet_logging ())
+    if (node.config.logging.network_packet_logging ())
     {
         BOOST_LOG (node.log) << "Packet send complete";
     }
@@ -4306,7 +4327,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
 	sends.pop ();
 	if (!sends.empty ())
 	{
-		if (node.logging.network_packet_logging ())
+		if (node.config.logging.network_packet_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.packet_delay_microseconds);
 		}
@@ -4455,7 +4476,7 @@ void rai::frontier_req_server::send_next ()
             write (stream, info.head.bytes);
         }
         auto this_l (shared_from_this ());
-        if (connection->node->logging.network_logging ())
+        if (connection->node->config.logging.network_logging ())
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_base58check () % info.head.to_string ());
         }
@@ -4481,7 +4502,7 @@ void rai::frontier_req_server::send_finished ()
         write (stream, zero.bytes);
     }
     auto this_l (shared_from_this ());
-    if (connection->node->logging.network_logging ())
+    if (connection->node->config.logging.network_logging ())
     {
         BOOST_LOG (connection->node->log) << "Frontier sending finished";
     }
@@ -4499,7 +4520,7 @@ void rai::frontier_req_server::no_block_sent (boost::system::error_code const & 
     }
     else
     {
-        if (connection->node->logging.network_logging ())
+        if (connection->node->config.logging.network_logging ())
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier finish %1%") % ec.message ());
         }
@@ -4514,7 +4535,7 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
     }
     else
     {
-        if (connection->node->logging.network_logging ())
+        if (connection->node->config.logging.network_logging ())
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier pair %1%") % ec.message ());
         }
@@ -4589,7 +4610,7 @@ end (connection->pulls.end ())
 
 rai::bulk_pull_client::~bulk_pull_client ()
 {
-    if (connection->connection->node->logging.network_logging ())
+    if (connection->connection->node->config.logging.network_logging ())
     {
         BOOST_LOG (connection->connection->node->log) << "Exiting bulk pull client";
     }
@@ -4604,7 +4625,7 @@ current (0)
 
 rai::frontier_req_client::~frontier_req_client ()
 {
-    if (connection->node->logging.network_logging ())
+    if (connection->node->config.logging.network_logging ())
     {
         BOOST_LOG (connection->node->log) << "Exiting frontier_req initiator";
     }
@@ -4713,7 +4734,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
     }
     else
     {
-        if (connection->node->logging.network_logging ())
+        if (connection->node->config.logging.network_logging ())
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error while receiving frontier %1%") % ec.message ());
         }
@@ -4757,7 +4778,7 @@ synchronization ([this] (rai::block const & block_a)
 
 rai::bulk_push_client::~bulk_push_client ()
 {
-    if (connection->connection->node->logging.network_logging ())
+    if (connection->connection->node->config.logging.network_logging ())
     {
         BOOST_LOG (connection->connection->node->log) << "Exiting bulk push client";
     }
@@ -4812,7 +4833,7 @@ void rai::bulk_push_client::send_finished ()
 {
     auto buffer (std::make_shared <std::vector <uint8_t>> ());
     buffer->push_back (static_cast <uint8_t> (rai::block_type::not_a_block));
-    if (connection->connection->node->logging.network_logging ())
+    if (connection->connection->node->config.logging.network_logging ())
     {
         BOOST_LOG (connection->connection->node->log) << "Bulk push finished";
     }
