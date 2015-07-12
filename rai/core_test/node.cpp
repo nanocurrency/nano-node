@@ -381,6 +381,7 @@ TEST (node_config, serialization)
 	config1.packet_delay_microseconds = 10;
 	config1.bootstrap_fraction_numerator = 10;
 	config1.creation_rebroadcast = 10;
+	config1.rebroadcast_delay = 10;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -389,12 +390,14 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.packet_delay_microseconds, config1.packet_delay_microseconds);
 	ASSERT_NE (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_NE (config2.creation_rebroadcast, config1.creation_rebroadcast);
+	ASSERT_NE (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_NE (config2.peering_port, config1.peering_port);
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	config2.deserialize_json (tree);
 	ASSERT_EQ (config2.packet_delay_microseconds, config1.packet_delay_microseconds);
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_EQ (config2.creation_rebroadcast, config1.creation_rebroadcast);
+	ASSERT_EQ (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 }

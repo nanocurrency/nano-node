@@ -1496,7 +1496,8 @@ rai::node_config::node_config () :
 peering_port (rai::network::node_port),
 packet_delay_microseconds (5000),
 bootstrap_fraction_numerator (1),
-creation_rebroadcast (2)
+creation_rebroadcast (2),
+rebroadcast_delay (15)
 {
 	preconfigured_peers.push_back ("rai.raiblocks.net");
 }
@@ -1506,7 +1507,8 @@ peering_port (peering_port_a),
 logging (logging_a),
 packet_delay_microseconds (5000),
 bootstrap_fraction_numerator (1),
-creation_rebroadcast (2)
+creation_rebroadcast (2),
+rebroadcast_delay (15)
 {
 }
 
@@ -1516,6 +1518,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("packet_delay_microseconds", std::to_string (packet_delay_microseconds));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("creation_rebroadcast", std::to_string (creation_rebroadcast));
+	tree_a.put ("rebroadcast_delay", std::to_string (rebroadcast_delay));
 	boost::property_tree::ptree logging_l;
 	logging.serialize_json (logging_l);
 	tree_a.add_child ("logging", logging_l);
@@ -1538,6 +1541,7 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 		auto packet_delay_microseconds_l (tree_a.get <std::string> ("packet_delay_microseconds"));
 		auto bootstrap_fraction_numerator_l (tree_a.get <std::string> ("bootstrap_fraction_numerator"));
 		auto creation_rebroadcast_l (tree_a.get <std::string> ("creation_rebroadcast"));
+		auto rebroadcast_delay_l (tree_a.get <std::string> ("rebroadcast_delay"));
 		auto logging_l (tree_a.get_child ("logging"));
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
@@ -1552,7 +1556,9 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 			packet_delay_microseconds = std::stoul (packet_delay_microseconds_l);
 			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
 			creation_rebroadcast = std::stoul (creation_rebroadcast_l);
+			rebroadcast_delay = std::stoul (rebroadcast_delay_l);
 			result = result || creation_rebroadcast > 10;
+			result = result || rebroadcast_delay > 300;
 			result = result || peering_port > std::numeric_limits <uint16_t>::max ();
 			result = result || logging.deserialize_json (logging_l);
 		}
@@ -4347,7 +4353,7 @@ void rai::network::initiate_send ()
 	{
 		if (front.rebroadcast > 0)
 		{
-			node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (15), [this, front]
+			node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (node.config.rebroadcast_delay), [this, front]
 			{
 				send_buffer (front.data, front.size, front.endpoint, front.rebroadcast - 1, front.callback);
 			});

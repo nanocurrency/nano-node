@@ -762,6 +762,7 @@ public:
 	unsigned packet_delay_microseconds;
 	unsigned bootstrap_fraction_numerator;
 	unsigned creation_rebroadcast;
+	unsigned rebroadcast_delay;
     static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
