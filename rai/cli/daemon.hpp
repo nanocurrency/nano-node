@@ -7,9 +7,7 @@ namespace rai_daemon
     class daemon
     {
     public:
-        daemon ();
         void run ();
-        std::string path;
     };
     class daemon_config
     {
@@ -17,10 +15,8 @@ namespace rai_daemon
         daemon_config ();
         daemon_config (bool &, std::istream &);
         void serialize (std::ostream &);
-        bool rpc_enable;
-        boost::asio::ip::address_v6 rpc_address;
-        uint16_t rpc_port;
-        bool rpc_enable_control;
+		bool rpc_enable;
+		rai::rpc_config rpc;
 		rai::node_config node;
     };
 }

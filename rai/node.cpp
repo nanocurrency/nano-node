@@ -2212,10 +2212,62 @@ void rai::confirm_req::serialize (rai::stream & stream_a)
     block->serialize (stream_a);
 }
 
-rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, boost::asio::ip::address_v6 const & address_a, uint16_t port_a, rai::node & node_a, bool enable_control_a) :
-server (decltype (server)::options (*this).address (address_a.to_string ()).port (std::to_string (port_a)).io_service (service_a).thread_pool (pool_a)),
-node (node_a),
+rai::rpc_config::rpc_config () :
+address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
+port (rai::network::rpc_port),
+enable_control (false)
+{
+}
+
+rai::rpc_config::rpc_config (bool enable_control_a) :
+address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
+port (rai::network::rpc_port),
 enable_control (enable_control_a)
+{
+}
+
+void rai::rpc_config::serialize_json (boost::property_tree::ptree & tree_a) const
+{
+    tree_a.put ("address", address.to_string ());
+    tree_a.put ("port", std::to_string (port));
+    tree_a.put ("enable_control", enable_control);
+}
+
+bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+{
+	auto result (false);
+    try
+    {
+		auto address_l (tree_a.get <std::string> ("address"));
+		auto port_l (tree_a.get <std::string> ("port"));
+		enable_control = tree_a.get <bool> ("enable_control");
+		try
+		{
+			port = std::stoul (port_l);
+			result = port > std::numeric_limits <uint16_t>::max ();
+		}
+		catch (std::logic_error const &)
+		{
+			result = true;
+		}
+		boost::system::error_code ec;
+		address = boost::asio::ip::address_v6::from_string (address_l, ec);
+		if (ec)
+		{
+			result = true;
+		}
+    }
+    catch (std::runtime_error const &)
+    {
+        result = true;
+    }
+	return result;
+}
+
+rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, rai::node & node_a, rai::rpc_config const & config_a) :
+config (config_a),
+server (decltype (server)::options (*this).address (config.address.to_string ()).port (std::to_string (config.port)).io_service (service_a).thread_pool (pool_a)),
+node (node_a)
 {
 }
 
@@ -2293,7 +2345,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "account_create")
             {
-                if (enable_control)
+                if (config.enable_control)
                 {
                     std::string wallet_text (request_l.get <std::string> ("wallet"));
                     rai::uint256_union wallet;
@@ -2402,7 +2454,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "wallet_add")
             {
-                if (enable_control)
+                if (config.enable_control)
                 {
                     std::string key_text (request_l.get <std::string> ("key"));
                     std::string wallet_text (request_l.get <std::string> ("wallet"));
@@ -2451,7 +2503,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "wallet_key_valid")
             {
-                if (enable_control)
+                if (config.enable_control)
                 {
                     std::string wallet_text (request_l.get <std::string> ("wallet"));
                     rai::uint256_union wallet;
@@ -2496,7 +2548,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "send")
             {
-                if (enable_control)
+                if (config.enable_control)
                 {
                     std::string wallet_text (request_l.get <std::string> ("wallet"));
                     rai::uint256_union wallet;
