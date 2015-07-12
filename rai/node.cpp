@@ -862,7 +862,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 	}
 	if (!result)
 	{
-		node.process_receive_republish (std::move (block), 2);
+		node.process_receive_republish (std::move (block), node.config.creation_rebroadcast);
 	}
     return result;
 }
@@ -904,7 +904,7 @@ bool rai::wallet::change (rai::account const & source_a, rai::account const & re
 	if (!result)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block->clone (), 2);
+		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
 	}
 	return result;
 }
@@ -954,7 +954,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	if (!result)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block->clone (), 2);
+		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
 	}
 	return result;
 }
@@ -1003,7 +1003,7 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 	}
 	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 	{
-		node.process_receive_republish (std::move (*i), 2);
+		node.process_receive_republish (std::move (*i), node.config.creation_rebroadcast);
 	}
     return result;
 }
@@ -1493,20 +1493,29 @@ public:
 }
 
 rai::node_config::node_config () :
-peering_port (rai::network::node_port)
+peering_port (rai::network::node_port),
+packet_delay_microseconds (5000),
+bootstrap_fraction_numerator (1),
+creation_rebroadcast (2)
 {
 	preconfigured_peers.push_back ("rai.raiblocks.net");
 }
 
 rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
 peering_port (peering_port_a),
-logging (logging_a)
+logging (logging_a),
+packet_delay_microseconds (5000),
+bootstrap_fraction_numerator (1),
+creation_rebroadcast (2)
 {
 }
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
 	tree_a.put ("peering_port", std::to_string (peering_port));
+	tree_a.put ("packet_delay_microseconds", std::to_string (packet_delay_microseconds));
+	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
+	tree_a.put ("creation_rebroadcast", std::to_string (creation_rebroadcast));
 	boost::property_tree::ptree logging_l;
 	logging.serialize_json (logging_l);
 	tree_a.add_child ("logging", logging_l);
@@ -1526,6 +1535,9 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 	try
 	{
 		auto peering_port_l (tree_a.get <std::string> ("peering_port"));
+		auto packet_delay_microseconds_l (tree_a.get <std::string> ("packet_delay_microseconds"));
+		auto bootstrap_fraction_numerator_l (tree_a.get <std::string> ("bootstrap_fraction_numerator"));
+		auto creation_rebroadcast_l (tree_a.get <std::string> ("creation_rebroadcast"));
 		auto logging_l (tree_a.get_child ("logging"));
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
@@ -1537,8 +1549,12 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
-			result = peering_port > std::numeric_limits <uint16_t>::max ();
-			result = result | logging.deserialize_json (logging_l);
+			packet_delay_microseconds = std::stoul (packet_delay_microseconds_l);
+			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
+			creation_rebroadcast = std::stoul (creation_rebroadcast_l);
+			result = result || creation_rebroadcast > 10;
+			result = result || peering_port > std::numeric_limits <uint16_t>::max ();
+			result = result || logging.deserialize_json (logging_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -1729,7 +1745,7 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
 
 rai::uint128_t rai::gap_cache::bootstrap_threshold ()
 {
-    return (node.ledger.supply () / 256) * rai::node::supply_fraction_numerator;
+    return (node.ledger.supply () / 256) * node.config.bootstrap_fraction_numerator;
 }
 
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, size_t rebroadcast_a)
@@ -4374,9 +4390,9 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
 	{
 		if (node.config.logging.network_packet_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.packet_delay_microseconds);
+			BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.config.packet_delay_microseconds);
 		}
-		node.service.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.packet_delay_microseconds), [this] ()
+		node.service.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.config.packet_delay_microseconds), [this] ()
 		{
 			initiate_send ();
 		});
@@ -5642,5 +5658,3 @@ void rai::landing::distribute_ongoing ()
 
 std::chrono::seconds constexpr rai::landing::distribution_interval;
 std::chrono::seconds constexpr rai::landing::sleep_seconds;
-unsigned constexpr rai::node::packet_delay_microseconds;
-unsigned constexpr rai::node::supply_fraction_numerator;

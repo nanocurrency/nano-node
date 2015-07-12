@@ -759,11 +759,12 @@ public:
 	uint16_t peering_port;
 	rai::logging logging;
 	std::vector <std::string> preconfigured_peers;
+	unsigned packet_delay_microseconds;
+	unsigned bootstrap_fraction_numerator;
+	unsigned creation_rebroadcast;
     static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	static unsigned constexpr packet_delay_microseconds = 5000;
-	static unsigned constexpr supply_fraction_numerator = 1;
 };
 class node : public std::enable_shared_from_this <rai::node>
 {
@@ -820,8 +821,6 @@ public:
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
-	static unsigned constexpr packet_delay_microseconds = 5000;
-	static unsigned constexpr supply_fraction_numerator = 1;
 };
 class system
 {
