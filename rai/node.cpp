@@ -1492,19 +1492,64 @@ public:
 };
 }
 
+rai::node_config::node_config () :
+peering_port (rai::network::node_port)
+{
+	preconfigured_peers.push_back ("rai.raiblocks.net");
+}
+
 rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
 peering_port (peering_port_a),
 logging (logging_a)
 {
 }
 
-void rai::node_config::serialize_json (boost::property_tree::ptree &) const
+void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
+	tree_a.put ("peering_port", std::to_string (peering_port));
+	boost::property_tree::ptree logging_l;
+	logging.serialize_json (logging_l);
+	tree_a.add_child ("logging", logging_l);
+	boost::property_tree::ptree preconfigured_peers_l;
+	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
+	{
+		boost::property_tree::ptree entry;
+		entry.put ("", *i);
+		preconfigured_peers_l.push_back (std::make_pair ("", entry));
+	}
+	tree_a.add_child ("preconfigured_peers", preconfigured_peers_l);
 }
 
-bool rai::node_config::deserialize_json (boost::property_tree::ptree const &)
+bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
-	return true;
+	auto result (false);
+	try
+	{
+		auto peering_port_l (tree_a.get <std::string> ("peering_port"));
+		auto logging_l (tree_a.get_child ("logging"));
+		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
+		preconfigured_peers.clear ();
+		for (auto i (preconfigured_peers_l.begin ()), n (preconfigured_peers_l.end ()); i != n; ++i)
+		{
+			auto bootstrap_peer (i->second.get <std::string> (""));
+			preconfigured_peers.push_back (bootstrap_peer);
+		}
+		try
+		{
+			peering_port = std::stoul (peering_port_l);
+			result = peering_port > std::numeric_limits <uint16_t>::max ();
+			result = result | logging.deserialize_json (logging_l);
+		}
+		catch (std::logic_error const &)
+		{
+			result = true;
+		}
+	}
+	catch (std::runtime_error const &)
+	{
+		result = true;
+	}
+	return result;
 }
 
 rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
@@ -3134,7 +3179,7 @@ void rai::node::call_observers (rai::block const & block_a, rai::account const &
 
 void rai::node::ongoing_keepalive ()
 {
-    keepalive_preconfigured (preconfigured_peers);
+    keepalive_preconfigured (config.preconfigured_peers);
     auto peers_l (peers.purge_list (std::chrono::system_clock::now () - cutoff));
     for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
     {

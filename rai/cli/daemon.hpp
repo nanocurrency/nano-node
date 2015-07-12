@@ -17,12 +17,10 @@ namespace rai_daemon
         daemon_config ();
         daemon_config (bool &, std::istream &);
         void serialize (std::ostream &);
-        std::vector <std::string> preconfigured_peers;
-        uint16_t peering_port;
         bool rpc_enable;
         boost::asio::ip::address_v6 rpc_address;
         uint16_t rpc_port;
         bool rpc_enable_control;
-		rai::logging logging;
+		rai::node_config node;
     };
 }

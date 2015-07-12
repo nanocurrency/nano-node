@@ -373,3 +373,19 @@ TEST (node, price)
 	auto price4 (system.nodes [0]->price (rai::Grai_ratio * int (rai::node::free_cutoff) * 2, 1));
 	ASSERT_EQ (0, price4);
 }
+
+TEST (node_config, serialization)
+{
+	rai::logging logging1;
+	rai::node_config config1 (100, logging1);
+	boost::property_tree::ptree tree;
+	config1.serialize_json (tree);
+	rai::logging logging2;
+	logging2.node_lifetime_tracing_value = !logging2.node_lifetime_tracing_value;
+	rai::node_config config2 (50, logging2);
+	ASSERT_NE (config2.peering_port, config1.peering_port);
+	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
+	config2.deserialize_json (tree);
+	ASSERT_EQ (config2.peering_port, config1.peering_port);
+	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
+}

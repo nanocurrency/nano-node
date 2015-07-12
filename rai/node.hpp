@@ -752,11 +752,13 @@ public:
 class node_config
 {
 public:
+	node_config ();
 	node_config (uint16_t, rai::logging const &);
     void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	uint16_t peering_port;
 	rai::logging logging;
+	std::vector <std::string> preconfigured_peers;
     static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
@@ -811,7 +813,6 @@ public:
 	boost::filesystem::path application_path;
     std::vector <std::function <void (rai::block const &, rai::account const &)>> observers;
     std::vector <std::function <void (rai::vote const &)>> vote_observers;
-    std::vector <std::string> preconfigured_peers;
 	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;
 	std::vector <std::function <void ()>> disconnect_observers;
 	static double constexpr price_max = 1024.0;
