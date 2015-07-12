@@ -30,12 +30,12 @@ rai_daemon::daemon_config::daemon_config (bool & error_a, std::istream & input_a
     boost::property_tree::ptree tree;
 	try
 	{
+        boost::property_tree::read_json (input_a, tree);
 		rpc_enable = tree.get <bool> ("rpc_enable");
-		boost::property_tree::read_json (input_a, tree);
 		auto node_l (tree.get_child ("node"));
 		error_a = error_a || node.deserialize_json (node_l);
 		auto rpc_l (tree.get_child ("rpc"));
-		error_a = error_a || node.deserialize_json (rpc_l);
+		error_a = error_a || rpc.deserialize_json (rpc_l);
 	}
 	catch (std::runtime_error const &)
 	{
