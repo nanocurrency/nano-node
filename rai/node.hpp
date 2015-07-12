@@ -106,8 +106,8 @@ public:
     void announce_vote ();
     void timeout_action ();
     void start_request (rai::block const &);
-    rai::uint128_t uncontested_threshold (rai::ledger &);
-    rai::uint128_t contested_threshold (rai::ledger &);
+    rai::uint128_t uncontested_threshold (MDB_txn *, rai::ledger &);
+    rai::uint128_t contested_threshold (MDB_txn *, rai::ledger &);
     rai::votes votes;
     std::weak_ptr <rai::node> node;
     std::chrono::system_clock::time_point last_vote;
@@ -391,7 +391,7 @@ public:
     void add (rai::block const &, rai::block_hash);
     std::unique_ptr <rai::block> get (rai::block_hash const &);
     void vote (MDB_txn *, rai::vote const &);
-    rai::uint128_t bootstrap_threshold ();
+    rai::uint128_t bootstrap_threshold (MDB_txn *);
     boost::multi_index_container
     <
         rai::gap_information,

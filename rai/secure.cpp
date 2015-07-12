@@ -2540,9 +2540,10 @@ rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block co
 }
 
 // Money supply for heuristically calculating vote percentages
-rai::uint128_t rai::ledger::supply ()
+rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 {
-    return rai::genesis_amount;
+	auto unallocated (account_balance (transaction_a, rai::genesis_account));
+    return rai::genesis_amount - unallocated;
 }
 
 rai::account rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)

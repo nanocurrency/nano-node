@@ -1740,7 +1740,7 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
         if (changed)
         {
             auto winner (node.ledger.winner (transaction_a, *existing->votes));
-            if (winner.first > bootstrap_threshold ())
+            if (winner.first > bootstrap_threshold (transaction_a))
             {
                 BOOST_LOG (node.log) << boost::str (boost::format ("Initiating bootstrap for confirmed gap: %1%") % hash.to_string ());
                 node.bootstrap_initiator.bootstrap_any ();
@@ -1749,9 +1749,10 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
     }
 }
 
-rai::uint128_t rai::gap_cache::bootstrap_threshold ()
+rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 {
-    return (node.ledger.supply () / 256) * node.config.bootstrap_fraction_numerator;
+    auto result ((node.ledger.supply (transaction_a) / 256) * node.config.bootstrap_fraction_numerator);
+	return result;
 }
 
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, size_t rebroadcast_a)
@@ -5136,14 +5137,14 @@ void rai::election::timeout_action ()
 	}
 }
 
-rai::uint128_t rai::election::uncontested_threshold (rai::ledger & ledger_a)
+rai::uint128_t rai::election::uncontested_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
-    return ledger_a.supply () / 2;
+    return ledger_a.supply (transaction_a) / 2;
 }
 
-rai::uint128_t rai::election::contested_threshold (rai::ledger & ledger_a)
+rai::uint128_t rai::election::contested_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
-    return (ledger_a.supply () / 16) * 15;
+    return (ledger_a.supply (transaction_a) / 16) * 15;
 }
 
 void rai::election::vote (rai::vote const & vote_a)
@@ -5169,14 +5170,14 @@ void rai::election::vote (rai::vote const & vote_a)
 				}
 				if (tally_l.size () == 1)
 				{
-					if (tally_l.begin ()->first > uncontested_threshold (node_l->ledger))
+					if (tally_l.begin ()->first > uncontested_threshold (transaction, node_l->ledger))
 					{
 						confirmed = true;
 					}
 				}
 				else
 				{
-					if (tally_l.begin ()->first > contested_threshold (node_l->ledger))
+					if (tally_l.begin ()->first > contested_threshold (transaction, node_l->ledger))
 					{
 						confirmed = true;
 					}

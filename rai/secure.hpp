@@ -475,7 +475,7 @@ public:
 	rai::block_hash latest_root (MDB_txn *, rai::account const &);
 	rai::account representative (MDB_txn *, rai::block_hash const &);
 	rai::account representative_calculated (MDB_txn *, rai::block_hash const &);
-	rai::uint128_t supply ();
+	rai::uint128_t supply (MDB_txn *);
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
