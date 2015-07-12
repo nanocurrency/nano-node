@@ -9,6 +9,7 @@
 rai_daemon::daemon_config::daemon_config () :
 rpc_enable (false),
 rpc_address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
+rpc_port (rai::network::rpc_port),
 rpc_enable_control (false)
 {
 }
