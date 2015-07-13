@@ -2109,8 +2109,14 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
                 }
                 rai::private_key prv;
                 auto error (i->second->store.fetch (transaction, representative, prv));
-                assert (!error);
-                network.confirm_block (prv, representative, block_a.clone (), 0, sender, 0);
+                if (!error)
+				{
+					network.confirm_block (prv, representative, block_a.clone (), 0, sender, 0);
+				}
+				else
+				{
+					BOOST_LOG (log) << boost::str (boost::format ("Unable to fetch private key"));
+				}
 			}
 		}
 	}

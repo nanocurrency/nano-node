@@ -360,7 +360,6 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
 }
 
-
 TEST (node, price)
 {
 	rai::system system (24000, 1);
@@ -400,4 +399,13 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
+}
+
+TEST (node, confirm_locked)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->store.enter_password (rai::transaction (system.nodes [0]->store.environment, nullptr, false), "1");
+	rai::send_block block (0, 0, 0, 0, 0, 0);
+	system.nodes [0]->process_confirmation (block, rai::endpoint ());
 }
