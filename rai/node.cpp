@@ -5238,7 +5238,11 @@ void rai::election::vote (rai::vote const & vote_a)
 		}
 		if (!was_confirmed && confirmed)
 		{
-			node_l->process_confirmed (*winner);
+			std::shared_ptr <rai::block> winner_l (winner.release ());
+			node_l->service.add (std::chrono::system_clock::now (), [node_l, winner_l] ()
+			{
+				node_l->process_confirmed (*winner_l);
+			});
 		}
 	}
 }
