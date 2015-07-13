@@ -2969,6 +2969,16 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 				response_l.add_child ("frontiers", frontiers);
 				set_response (response, response_l);
             }
+            else if (action == "search_pending")
+            {
+				auto node_l (node.shared_from_this ());
+				node.service.add (std::chrono::system_clock::now (), [node_l] ()
+				{
+					node_l->search_pending ();
+				});
+				boost::property_tree::ptree response_l;
+				set_response (response, response_l);
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
@@ -3299,6 +3309,7 @@ void rai::node::search_pending ()
 	{
 		std::unordered_set <rai::uint256_union> wallet;
 		rai::transaction transaction (store.environment, nullptr, false);
+		BOOST_LOG (log) << "Search pending building account list";
 		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 		{
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
@@ -3306,13 +3317,17 @@ void rai::node::search_pending ()
 				wallet.insert (j->first);
 			}
 		}
+		BOOST_LOG (log) << "Search pending looking for pending blocks";
 		for (auto i (store.pending_begin (transaction)), n (store.pending_end ()); i != n; ++i)
 		{
 			if (wallet.find (rai::receivable (i->second).destination) != wallet.end ())
 			{
-				blocks.insert (i->first);
+				rai::block_hash hash (i->first);
+				BOOST_LOG (log) << boost::str (boost::format ("Found a pending block %1%") % hash.to_string ());
+				blocks.insert (hash);
 			}
 		}
+		BOOST_LOG (log) << "Search pending finished";
 	}
 	for (auto i: blocks)
 	{

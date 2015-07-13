@@ -113,7 +113,7 @@ public:
 class send_block : public rai::block
 {
 public:
-	send_block (rai::account const &, rai::block_hash const &, rai::amount const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::private_key const &, rai::public_key const &, uint64_t);
 	send_block (bool &, rai::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
