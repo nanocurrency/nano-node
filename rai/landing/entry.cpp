@@ -5,7 +5,6 @@
 
 #include <chrono>
 #include <fstream>
-#include <thread>
 
 namespace rai
 {
@@ -113,28 +112,7 @@ int main (int argc, char * const * argv)
 			if (!init.error ())
 			{
 				node->start ();
-				std::thread network_thread ([&service] ()
-					{
-						try
-						{
-							service->run ();
-						}
-						catch (...)
-						{
-							assert (false);
-						}
-					});
-				std::thread processor_thread ([&processor] ()
-					{
-						try
-						{
-							processor.run ();
-						}
-						catch (...)
-						{
-							assert (false);
-						}
-					});
+				rai::thread_runner runner (*service, processor);
 				auto wallet (node->wallets.open (config.wallet));
 				if (wallet == nullptr)
 				{
@@ -175,8 +153,7 @@ int main (int argc, char * const * argv)
 				std::string line;
 				std::cin >> line;
 				landing.distribute_ongoing ();
-				network_thread.join ();
-				processor_thread.join ();
+				runner.join ();
 			}
 			else
 			{

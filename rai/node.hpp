@@ -7,6 +7,7 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
+#include <thread>
 
 #include <boost/asio.hpp>
 #include <boost/network/include/http/server.hpp>
@@ -884,6 +885,13 @@ public:
 	static int constexpr interval_exponent = 6;
 	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (1 << interval_exponent); // 64 seconds
 	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (7);
+};
+class thread_runner
+{
+public:
+	thread_runner (boost::asio::io_service &, rai::processor_service &);
+	void join ();
+	std::vector <std::thread> threads;
 };
 extern std::chrono::milliseconds const confirm_wait;
 }

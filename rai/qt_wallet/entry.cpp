@@ -5,8 +5,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <thread>
-
 class qt_wallet_config
 {
 public:
@@ -111,28 +109,7 @@ int main (int argc, char * const * argv)
                     node->start ();
                     std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
                     gui->client_window->show ();
-                    std::thread network_thread ([&service] ()
-                    {
-                        try
-                        {
-                            service->run ();
-                        }
-                        catch (...)
-                        {
-                            assert (false);
-                        }
-                    });
-                    std::thread processor_thread ([&processor] ()
-                    {
-                        try
-                        {
-                            processor.run ();
-                        }
-                        catch (...)
-                        {
-                            assert (false);
-                        }
-                    });
+					rai::thread_runner runner (*service, processor);
                     int result;
                     try
                     {
@@ -143,8 +120,7 @@ int main (int argc, char * const * argv)
                         result = -1;
                         assert (false);
                     }
-                    network_thread.join ();
-                    processor_thread.join ();
+					runner.join ();
                     return result;
                 }
                 else

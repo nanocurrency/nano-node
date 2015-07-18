@@ -4,7 +4,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <iostream>
 #include <fstream>
-#include <thread>
 
 rai_daemon::daemon_config::daemon_config () :
 rpc_enable (false)
@@ -80,30 +79,8 @@ void rai_daemon::daemon::run ()
             {
                 rpc.start ();
             }
-            std::thread network_thread ([&service] ()
-                {
-                    try
-                    {
-                        service->run ();
-                    }
-                    catch (...)
-                    {
-                        assert (false);
-                    }
-                });
-            std::thread processor_thread ([&processor] ()
-                {
-                    try
-                    {
-                        processor.run ();
-                    }
-                    catch (...)
-                    {
-                        assert (false);
-                    }
-                });
-            network_thread.join ();
-            processor_thread.join ();
+			rai::thread_runner runner (*service, processor);
+			runner.join ();
         }
         else
         {

@@ -20,28 +20,7 @@ int main (int argc, char ** argv)
         client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
     }
     client_tabs->show ();
-    std::thread network_thread ([&system] ()
-    {
-        try
-        {
-            system.service->run ();
-        }
-        catch (...)
-        {
-            assert (false);
-        }
-    });
-    std::thread processor_thread ([&system] ()
-    {
-        try
-        {
-            system.processor.run ();
-        }
-        catch (...)
-        {
-            assert (false);
-        }
-    });
+	rai::thread_runner runner (*system.service, system.processor);
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {
         for (auto & i: system.nodes)
@@ -60,7 +39,6 @@ int main (int argc, char ** argv)
         result = -1;
         assert (false);
     }
-    network_thread.join ();
-    processor_thread.join ();
+	runner.join ();
     return result;
 }

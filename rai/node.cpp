@@ -5740,5 +5740,46 @@ void rai::landing::distribute_ongoing ()
 	node.service.add (std::chrono::system_clock::now () + sleep_seconds, [this] () {distribute_ongoing ();});
 }
 
+rai::thread_runner::thread_runner (boost::asio::io_service & service_a, rai::processor_service & processor_a)
+{
+	auto count (std::max <unsigned> (4, std::thread::hardware_concurrency ()));
+	for (auto i (0); i < count; ++i)
+	{
+		threads.push_back (std::thread ([&service_a] ()
+		{
+			try
+			{
+				service_a.run ();
+			}
+			catch (...)
+			{
+				assert (false && "Unhandled service exception");
+			}
+		}));
+	}
+	for (auto i (0); i < count; ++i)
+	{
+		threads.push_back (std::thread ([&processor_a] ()
+		{
+			try
+			{
+				processor_a.run ();
+			}
+			catch (...)
+			{
+				assert (false && "Unhandled processor exception");
+			}
+		}));
+	}
+}
+
+void rai::thread_runner::join ()
+{
+	for (auto &i : threads)
+	{
+		i.join ();
+	}
+}
+
 std::chrono::seconds constexpr rai::landing::distribution_interval;
 std::chrono::seconds constexpr rai::landing::sleep_seconds;
