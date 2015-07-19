@@ -3303,7 +3303,8 @@ void rai::node::ongoing_keepalive ()
     {
         network.send_keepalive (i->endpoint);
     }
-    service.add (std::chrono::system_clock::now () + period, [this] () { ongoing_keepalive ();});
+	auto node_l (shared_from_this ());
+    service.add (std::chrono::system_clock::now () + period, [node_l] () { node_l->ongoing_keepalive ();});
 }
 
 void rai::node::backup_wallet ()
@@ -3475,10 +3476,11 @@ void rai::bootstrap_initiator::bootstrap_any ()
 
 void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)
 {
-    auto processor (std::make_shared <rai::bootstrap_client> (node.shared (), [this] ()
+	auto node_l (node.shared ());
+    auto processor (std::make_shared <rai::bootstrap_client> (node_l, [node_l] ()
 	{
-		std::lock_guard <std::mutex> lock (mutex);
-		in_progress = false;
+		std::lock_guard <std::mutex> lock (node_l->bootstrap_initiator.mutex);
+		node_l->bootstrap_initiator.in_progress = false;
 	}));
     processor->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 }
