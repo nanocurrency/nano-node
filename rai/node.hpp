@@ -791,6 +791,7 @@ public:
 		service.add (std::chrono::system_clock::now (), action_a);
 	}
     void send_keepalive (rai::endpoint const &);
+	void keepalive (std::string const &, uint16_t);
     void start ();
     void stop ();
     std::shared_ptr <rai::node> shared ();

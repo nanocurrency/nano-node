@@ -781,3 +781,33 @@ TEST (rpc, search_pending)
 		ASSERT_LT (iterations, 200);
 	}
 }
+
+TEST (rpc, keepalive)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
+    node1->start ();
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "keepalive");
+	request_tree.put ("address", boost::str (boost::format ("%1%") % node1->network.endpoint ().address ()));
+	request_tree.put ("port", boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+	auto iterations (0);
+	ASSERT_FALSE (system.nodes [0]->peers.known_peer (node1->network.endpoint ()));
+	while (!system.nodes [0]->peers.known_peer (node1->network.endpoint ()))
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+}

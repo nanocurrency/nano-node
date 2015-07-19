@@ -522,7 +522,7 @@ TEST (bootstrap_processor, process_one)
 	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), system.nodes [0]->latest (rai::test_genesis_key.pub));
 	while (node1->latest (rai::test_genesis_key.pub) != system.nodes [0]->latest (rai::test_genesis_key.pub))
 	{
-	        system.poll ();
+		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
@@ -549,7 +549,7 @@ TEST (bootstrap_processor, process_two)
 	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), system.nodes [0]->latest (rai::test_genesis_key.pub));
 	while (node1->latest (rai::test_genesis_key.pub) != system.nodes [0]->latest (rai::test_genesis_key.pub))
 	{
-	        system.poll ();
+		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
@@ -566,7 +566,7 @@ TEST (bootstrap_processor, process_new)
 	auto iterations1 (0);
 	while (system.nodes [0]->balance (key2.pub).is_zero ())
 	{
-	        system.poll ();
+		system.poll ();
 		++iterations1;
 		ASSERT_LT (iterations1, 200);
 	}
@@ -871,4 +871,23 @@ TEST (network, ipv6_bind_send_ipv4)
         ASSERT_FALSE (error);
         ASSERT_EQ (16, size_a);
     });
+}
+
+TEST (bootstrap_processor, unchecked_only)
+{
+	rai::system system (24000, 1);
+	rai::node_init init1;
+	auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
+	rai::send_block block1 (node1->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node1->store.unchecked_put (rai::transaction (node1->store.environment, nullptr, true), block1.hash (), block1);
+	node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
+	ASSERT_EQ (block1.previous (), node1->latest (rai::test_genesis_key.pub));
+	auto iterations (0);
+	while (node1->latest (rai::test_genesis_key.pub) == block1.previous ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+    node1->stop ();
 }

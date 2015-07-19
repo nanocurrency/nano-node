@@ -228,6 +228,25 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
         });
 }
 
+void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
+{
+	auto node_l (shared_from_this ());
+	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a), boost::asio::ip::resolver_query_base::all_matching | boost::asio::ip::resolver_query_base::v4_mapped), [node_l, address_a] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
+	{
+		if (!ec)
+		{
+			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator {}); i != n; ++i)
+			{
+				node_l->send_keepalive (i->endpoint ());
+			}
+		}
+		else
+		{
+			BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving address: %1%, %2%") % address_a % ec.message ());
+		}
+	});
+}
+
 void rai::network::republish_block (std::unique_ptr <rai::block> block, size_t rebroadcast_a)
 {
 	auto hash (block->hash ());
@@ -2297,6 +2316,55 @@ void set_response (boost::network::http::server <rai::rpc>::response & response,
     response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
     response.content = ostream.str ();
 }
+bool parse_port (std::string const & string_a, uint16_t & port_a)
+{
+	bool result;
+	size_t converted;
+	port_a = std::stoul (string_a, &converted);
+	result = converted != string_a.size () || converted > std::numeric_limits <uint16_t>::max ();
+	return result;
+}
+bool parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
+{
+    auto result (false);
+    auto port_position (string.rfind (':'));
+    if (port_position != std::string::npos && port_position > 0)
+    {
+        std::string port_string (string.substr (port_position + 1));
+        try
+        {
+			uint16_t port;
+			result = parse_port (port_string, port);
+            if (!result)
+            {
+                boost::system::error_code ec;
+                auto address (boost::asio::ip::address_v4::from_string (string.substr (0, port_position), ec));
+                if (ec == 0)
+                {
+                    address_a = address;
+                    port_a = port;
+                }
+                else
+                {
+                    result = true;
+                }
+            }
+            else
+            {
+                result = true;
+            }
+        }
+        catch (...)
+        {
+            result = true;
+        }
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
+}
 }
 
 void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request const & request, boost::network::http::server <rai::rpc>::response & response)
@@ -2985,6 +3053,23 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 				boost::property_tree::ptree response_l;
 				set_response (response, response_l);
             }
+            else if (action == "keepalive")
+            {
+                std::string address_text (request_l.get <std::string> ("address"));
+				std::string port_text (request_l.get <std::string> ("port"));
+				uint16_t port;
+				if (!parse_port (port_text, port))
+				{
+					node.keepalive (address_text, port);
+					boost::property_tree::ptree response_l;
+					set_response (response, response_l);
+				}
+				else
+				{
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Invalid port";
+				}
+            }
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
@@ -3065,51 +3150,6 @@ public:
     }
     rai::ledger & ledger;
 };
-}
-
-namespace
-{
-bool parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
-{
-    auto result (false);
-    auto port_position (string.rfind (':'));
-    if (port_position != std::string::npos && port_position > 0)
-    {
-        std::string port_string (string.substr (port_position + 1));
-        try
-        {
-            size_t converted;
-            auto port (std::stoul (port_string, &converted));
-            if (port <= std::numeric_limits <uint16_t>::max () && converted == port_string.size ())
-            {
-                boost::system::error_code ec;
-                auto address (boost::asio::ip::address_v4::from_string (string.substr (0, port_position), ec));
-                if (ec == 0)
-                {
-                    address_a = address;
-                    port_a = port;
-                }
-                else
-                {
-                    result = true;
-                }
-            }
-            else
-            {
-                result = true;
-            }
-        }
-        catch (...)
-        {
-            result = true;
-        }
-    }
-    else
-    {
-        result = true;
-    }
-    return result;
-}
 }
 
 bool rai::parse_endpoint (std::string const & string, rai::endpoint & endpoint_a)
@@ -3211,23 +3251,10 @@ void rai::node::stop ()
 
 void rai::node::keepalive_preconfigured (std::vector <std::string> const & peers_a)
 {
-    auto node_l (shared ());
-    service.add (std::chrono::system_clock::now (), [node_l, peers_a] ()
-    {
-        for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
-        {
-            node_l->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (*i, std::to_string (rai::network::node_port)), [node_l] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
-            {
-                if (!ec)
-                {
-                    for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator {}); i != n; ++i)
-                    {
-                        node_l->send_keepalive (i->endpoint ());
-                    }
-                }
-            });
-        }
-    });
+	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
+	{
+		keepalive (*i, rai::network::node_port);
+	}
 }
 
 rai::block_hash rai::node::latest (rai::account const & account_a)
@@ -4818,11 +4845,11 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         rai::bufferstream latest_stream (receive_buffer.data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
         auto error2 (rai::read (latest_stream, latest));
         assert (!error2);
-		rai::transaction transaction (connection->node->store.environment, nullptr, true);
         if (!account.is_zero ())
         {
             while (!current.is_zero () && current < account)
             {
+				rai::transaction transaction (connection->node->store.environment, nullptr, true);
                 // We know about an account they don't.
 				unsynced (transaction, info.head, 0);
 				next ();
@@ -4837,6 +4864,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
                     }
                     else
 					{
+						rai::transaction transaction (connection->node->store.environment, nullptr, true);
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
@@ -4864,12 +4892,15 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         }
         else
         {
-            while (!current.is_zero ())
-            {
-                // We know about an account they don't.
-				unsynced (transaction, info.head, 0);
-                next ();
-            }
+			{
+				rai::transaction transaction (connection->node->store.environment, nullptr, true);
+				while (!current.is_zero ())
+				{
+					// We know about an account they don't.
+					unsynced (transaction, info.head, 0);
+					next ();
+				}
+			}
             completed_requests ();
         }
     }
