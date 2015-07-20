@@ -1223,7 +1223,8 @@ void rai::processor_service::run ()
             }
             else
             {
-                condition.wait_until (lock, operation_l.wakeup);
+				auto wakeup (operation_l.wakeup);
+                condition.wait_until (lock, wakeup);
             }
         }
         else
