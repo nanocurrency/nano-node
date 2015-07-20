@@ -64,6 +64,7 @@ void rai_daemon::daemon::run ()
             config.serialize (config_file);
         }
     }
+	std::unique_ptr <rai::thread_runner> runner;
     if (!config_error)
     {
         auto service (boost::make_shared <boost::asio::io_service> ());
@@ -79,8 +80,8 @@ void rai_daemon::daemon::run ()
             {
                 rpc.start ();
             }
-			rai::thread_runner runner (*service, processor);
-			runner.join ();
+			runner.reset (new rai::thread_runner (*service, processor));
+			runner->join ();
         }
         else
         {
