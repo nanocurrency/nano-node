@@ -261,7 +261,11 @@ TEST (receivable_processor, confirm_insufficient_pos)
     rai::genesis genesis;
     rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
-    node1.conflicts.start (block1, true);
+	auto node_l (system.nodes [0]);
+    node1.conflicts.start (block1, [node_l] (rai::block & block_a)
+	{
+		node_l->process_confirmed (block_a);
+	}, true);
     rai::keypair key1;
     rai::confirm_ack con1 (key1.pub, key1.prv, 0, block1.clone ());
 	node1.process_message (con1, node1.network.endpoint ());
@@ -274,7 +278,11 @@ TEST (receivable_processor, confirm_sufficient_pos)
     rai::genesis genesis;
     rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
-    node1.conflicts.start (block1, true);
+	auto node_l (system.nodes [0]);
+    node1.conflicts.start (block1, [node_l] (rai::block & block_a)
+	{
+		node_l->process_confirmed (block_a);
+	}, true);
     rai::confirm_ack con1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
 	node1.process_message (con1, node1.network.endpoint ());
 }

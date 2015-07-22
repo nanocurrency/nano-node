@@ -101,7 +101,7 @@ class node;
 class election : public std::enable_shared_from_this <rai::election>
 {
 public:
-    election (std::shared_ptr <rai::node>, rai::block const &);
+    election (std::shared_ptr <rai::node>, rai::block const &, std::function <void (rai::block &)> const &);
     void start ();
     void vote (rai::vote const &);
     void announce_vote ();
@@ -114,12 +114,13 @@ public:
     std::chrono::system_clock::time_point last_vote;
 	std::unique_ptr <rai::block> last_winner;
     bool confirmed;
+	std::function <void (rai::block &)> confirmation_action;
 };
 class conflicts
 {
 public:
     conflicts (rai::node &);
-    void start (rai::block const &, bool);
+    void start (rai::block const &, std::function <void (rai::block &)> const &, bool);
     bool no_conflict (rai::block_hash const &);
     void update (rai::vote const &);
     void stop (rai::block_hash const &);

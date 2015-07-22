@@ -1479,10 +1479,13 @@ public:
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
 			}
-			node.conflicts.start (block_a, false);
+			auto node_l (node.shared ());
+			node.conflicts.start (block_a, [node_l] (rai::block & block_a)
+			{
+				node_l->process_confirmed (block_a);
+			}, false);
 			auto root (block_a.root ());
 			std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
-			auto node_l (node.shared ());
 			node.service.add (std::chrono::system_clock::now () + rai::confirm_wait, [node_l, root, block_l] ()
 			{
 				if (node_l->conflicts.no_conflict (root))
@@ -1951,7 +1954,11 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
 				rai::transaction transaction (store.environment, nullptr, false);
 				root = ledger.successor (transaction, block_a.root ());
 			}
-			conflicts.start (*root, false);
+			auto node_l (shared_from_this ());
+			conflicts.start (*root, [node_l] (rai::block & block_a)
+			{
+				node_l->process_confirmed (block_a);
+			}, false);
             break;
         }
         case rai::process_result::account_mismatch:
@@ -3245,6 +3252,7 @@ void rai::node::start ()
 void rai::node::stop ()
 {
     BOOST_LOG (log) << "Node stopping";
+	conflicts.roots.clear ();
     network.stop ();
     bootstrap.stop ();
     service.stop ();
@@ -3373,7 +3381,11 @@ void rai::node::search_pending ()
 		}
 		assert (block != nullptr);
 		assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-		conflicts.start (*block, true);
+		auto node_l (shared_from_this ());
+		conflicts.start (*block, [node_l] (rai::block & block_a)
+		{
+			node_l->process_confirmed (block_a);
+		}, true);
 	}
 }
 
@@ -5195,12 +5207,13 @@ rai::uint128_t rai::wallet_store::balance (MDB_txn * transaction_a, rai::ledger 
     return result;
 }
 
-rai::election::election (std::shared_ptr <rai::node> node_a, rai::block const & block_a) :
+rai::election::election (std::shared_ptr <rai::node> node_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a) :
 votes (block_a.root ()),
 node (node_a),
 last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
-confirmed (false)
+confirmed (false),
+confirmation_action (confirmation_action_a)
 {
 	{
 		rai::transaction transaction (node_a->store.environment, nullptr, false);
@@ -5240,6 +5253,7 @@ void rai::election::timeout_action ()
 		{
 			auto root_l (votes.id);
 			node_l->conflicts.stop (root_l);
+			BOOST_LOG (node_l->log) << boost::str (boost::format ("Election timed out for block %1%") % last_winner->hash ().to_string ());
 		}
 	}
 }
@@ -5294,9 +5308,10 @@ void rai::election::vote (rai::vote const & vote_a)
 		if (!was_confirmed && confirmed)
 		{
 			std::shared_ptr <rai::block> winner_l (winner.release ());
-			node_l->service.add (std::chrono::system_clock::now (), [node_l, winner_l] ()
+			auto confirmation_action_l (confirmation_action);
+			node_l->service.add (std::chrono::system_clock::now (), [winner_l, confirmation_action_l] ()
 			{
-				node_l->process_confirmed (*winner_l);
+				confirmation_action_l (*winner_l);
 			});
 		}
 	}
@@ -5333,14 +5348,14 @@ void rai::election::announce_vote ()
 	}
 }
 
-void rai::conflicts::start (rai::block const & block_a, bool request_a)
+void rai::conflicts::start (rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a, bool request_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto root (block_a.root ());
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
-        auto election (std::make_shared <rai::election> (node.shared (), block_a));
+        auto election (std::make_shared <rai::election> (node.shared (), block_a, confirmation_action_a));
 		node.service.add (std::chrono::system_clock::now (), [election] () {election->start ();});
         roots.insert (std::make_pair (root, election));
         if (request_a)

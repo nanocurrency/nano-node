@@ -660,7 +660,11 @@ TEST (votes, add_unsigned)
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
-	node1.conflicts.start (send1, false);
+	auto node_l (system.nodes [0]);
+	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	{
+		node_l->process_confirmed (block_a);
+	}, false);
 	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
 	ASSERT_NE (nullptr, votes1);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -680,7 +684,11 @@ TEST (votes, add_one)
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
-	node1.conflicts.start (send1, false);
+	auto node_l (system.nodes [0]);
+	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	{
+		node_l->process_confirmed (block_a);
+	}, false);
 	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
@@ -706,7 +714,11 @@ TEST (votes, add_two)
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
-	node1.conflicts.start (send1, false);
+	auto node_l (system.nodes [0]);
+	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	{
+		node_l->process_confirmed (block_a);
+	}, false);
 	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
@@ -736,7 +748,11 @@ TEST (votes, add_existing)
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
-	node1.conflicts.start (send1, false);
+	auto node_l (system.nodes [0]);
+	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	{
+		node_l->process_confirmed (block_a);
+	}, false);
 	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
@@ -764,7 +780,11 @@ TEST (votes, add_old)
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
-	node1.conflicts.start (send1, false);
+	auto node_l (system.nodes [0]);
+	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	{
+		node_l->process_confirmed (block_a);
+	}, false);
 	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1.clone ());
 	votes1->vote (vote1);
