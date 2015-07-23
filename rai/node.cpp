@@ -5151,24 +5151,24 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
         rai::serialize_block (stream, block_a);
     }
     auto this_l (shared_from_this ());
-    boost::asio::async_write (connection->connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
-        {
-            if (!ec)
-            {
-                if (!this_l->synchronization.blocks.empty ())
-                {
-                    this_l->synchronization.synchronize_one ();
-                }
-                else
-                {
-                    this_l->push ();
-                }
-            }
-            else
-            {
-                BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Error sending block during bulk push %1%") % ec.message ());
-            }
-        });
+    boost::asio::async_write (connection->connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a)
+	{
+		if (!ec)
+		{
+			if (!this_l->synchronization.blocks.empty ())
+			{
+				this_l->synchronization.synchronize_one ();
+			}
+			else
+			{
+				this_l->push ();
+			}
+		}
+		else
+		{
+			BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Error sending block during bulk push %1%") % ec.message ());
+		}
+	});
 }
 
 bool rai::keepalive::operator == (rai::keepalive const & other_a) const
