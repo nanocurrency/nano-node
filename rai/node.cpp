@@ -4571,7 +4571,7 @@ std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::
 
 void rai::network::initiate_send ()
 {
-	std::unique_lock <std::mutex> lock (socket_mutex);
+	assert (!socket_mutex.try_lock ());
 	assert (!sends.empty ());
 	auto & front (sends.front ());
 	if (node.config.logging.network_packet_logging ())
@@ -4629,6 +4629,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
 		}
 		node.service.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.config.packet_delay_microseconds), [this] ()
 		{
+			std::unique_lock <std::mutex> lock (socket_mutex);
 			initiate_send ();
 		});
 	}
