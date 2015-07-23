@@ -338,6 +338,7 @@ public:
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
+	bool search_pending ();
     rai::wallet_store store;
     rai::node & node;
 };
@@ -348,6 +349,7 @@ public:
 	wallets (bool &, rai::node &);
 	std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
 	std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
+    bool search_pending (rai::uint256_union const &);
 	void destroy (rai::uint256_union const &);
 	void cache_work (rai::account const &);
 	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
@@ -798,7 +800,6 @@ public:
     std::shared_ptr <rai::node> shared ();
     bool representative_vote (rai::election &, rai::block const &);
     void vote (rai::vote const &);
-    void search_pending ();
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);

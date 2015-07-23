@@ -759,6 +759,7 @@ TEST (rpc, search_pending)
 {
     rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	auto wallet (system.nodes [0]->wallets.items.begin ()->first.to_string ());
 	rai::send_block block (system.nodes [0]->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (rai::transaction (system.nodes [0]->store.environment, nullptr, true), block).code);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -768,6 +769,7 @@ TEST (rpc, search_pending)
     request.method = "POST";
     boost::property_tree::ptree request_tree;
     request_tree.put ("action", "search_pending");
+	request_tree.put ("wallet", wallet);
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
     request.body = ostream.str ();

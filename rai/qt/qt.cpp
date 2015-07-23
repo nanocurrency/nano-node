@@ -774,8 +774,7 @@ wallet (wallet_a)
     });
     QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
     {
-		auto node (wallet.node.shared ());
-        node->background ([node] () {node->search_pending ();});
+		wallet.wallet_m->search_pending ();
     });
     QObject::connect (create_block, &QPushButton::released, [this] ()
     {

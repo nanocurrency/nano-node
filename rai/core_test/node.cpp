@@ -282,7 +282,7 @@ TEST (node, search_pending)
     }
 	system.wallet (0)->insert (key2.prv);
 	auto node (system.nodes [0]);
-    node->background ([node] {node->search_pending ();});
+	ASSERT_FALSE (system.wallet (0)->search_pending ());
     auto iterations2 (0);
     while (system.nodes [0]->balance (key2.pub).is_zero ())
     {
