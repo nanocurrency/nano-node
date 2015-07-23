@@ -4002,6 +4002,10 @@ void rai::bootstrap_client::connect_action (boost::system::error_code const & ec
             rai::vectorstream stream (*send_buffer);
             request->serialize (stream);
         }
+		if (node->config.logging.network_logging ())
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Initiating frontier request for %1% age %2% count %3%") % request->start.to_string () % request->age % request->count);
+		}
         auto this_l (shared_from_this ());
         boost::asio::async_write (socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
         {
@@ -4047,6 +4051,10 @@ void rai::bulk_pull_client::request ()
             rai::vectorstream stream (*buffer);
             req.serialize (stream);
         }
+		if (connection->connection->node->config.logging.network_logging ())
+		{
+			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_string () % req.end.to_string ());
+		}
         auto this_l (shared_from_this ());
         boost::asio::async_write (connection->connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a)
             {
