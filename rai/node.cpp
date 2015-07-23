@@ -4571,6 +4571,7 @@ std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::
 
 void rai::network::initiate_send ()
 {
+	std::unique_lock <std::mutex> lock (socket_mutex);
 	assert (!sends.empty ());
 	auto & front (sends.front ());
 	if (node.config.logging.network_packet_logging ())
