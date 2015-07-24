@@ -4212,7 +4212,7 @@ bool rai::block_synchronization::fill_dependencies ()
     auto done (false);
     while (!result && !done)
     {
-		auto top (blocks.top ());
+	auto top (blocks.top ());
         auto block (retrieve (top));
         if (block != nullptr)
         {
@@ -4232,9 +4232,9 @@ bool rai::block_synchronization::synchronize_one ()
     if (!result)
     {
         auto block (retrieve (blocks.top ()));
+        blocks.pop ();
         assert (block != nullptr);
         target (*block);
-        blocks.pop ();
     }
     return result;
 }
