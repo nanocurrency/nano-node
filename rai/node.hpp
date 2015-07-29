@@ -330,7 +330,7 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	void change (rai::account const &, rai::account const &, std::function <void (bool)> const &);
-    void receive (rai::send_block const &, rai::private_key const &, rai::account const &, std::function <void (bool)> const &);
+    bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
 	// Send from a specific account in the wallet
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
 	// Send from any of the accounts in the wallet

@@ -851,7 +851,7 @@ void rai::wallet_store::destroy (MDB_txn * transaction_a)
 	assert (status == 0);
 }
 
-void rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a, std::function <void (bool)> const & completion_a)
+bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
 {
     auto hash (send_a.hash ());
     bool result;
@@ -883,7 +883,7 @@ void rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 	{
 		node.process_receive_republish (std::move (block), node.config.creation_rebroadcast);
 	}
-	completion_a (result);
+    return result;
 }
 
 void rai::wallet::change (rai::account const & source_a, rai::account const & representative_a, std::function <void (bool)> const & completion_a)
@@ -1148,15 +1148,11 @@ public:
 			if (block != nullptr)
 			{
 				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-				auto wallet_l (wallet);
-				std::shared_ptr <rai::block> block_l (block.release ());
-				wallet->receive (static_cast <rai::send_block const &> (*block_l), prv, representative, [wallet_l, block_l] (bool error_a)
+				auto error (wallet->receive (static_cast <rai::send_block const &> (*block), prv, representative));
+				if (error)
 				{
-					if (error_a)
-					{
-						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block_l->hash ().to_string ());
-					}
-				});
+					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
+				}
 			}
 			prv.clear ();
 		}
@@ -3523,7 +3519,8 @@ public:
 				}
 				if (!error)
 				{
-					wallet->receive (block_a, prv, representative, [] (bool error_a) {});
+					auto error (wallet->receive (block_a, prv, representative));
+					(void)error; // Might be interesting to view during debug
 					prv.clear ();
 				}
 				else
