@@ -444,24 +444,22 @@ last_status (rai_qt::status::disconnected)
                 auto parse_error (account_l.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-					wallet_m->send (account, account_l, coins, [this] (bool error_a)
-					{
-						if (!error_a)
-						{
-							QPalette palette;
-							palette.setColor (QPalette::Text, Qt::black);
-							send_account->setPalette (palette);
-							send_count->clear ();
-							send_account->clear ();
-							accounts.refresh ();
-						}
-						else
-						{
-							QPalette palette;
-							palette.setColor (QPalette::Text, Qt::red);
-							send_count->setPalette (palette);
-						}
-					});
+                    auto send_error (wallet_m->send (account, account_l, coins));
+                    if (!send_error)
+                    {
+                        QPalette palette;
+                        palette.setColor (QPalette::Text, Qt::black);
+                        send_account->setPalette (palette);
+                        send_count->clear ();
+                        send_account->clear ();
+                        accounts.refresh ();
+                    }
+                    else
+                    {
+                        QPalette palette;
+                        palette.setColor (QPalette::Text, Qt::red);
+                        send_count->setPalette (palette);
+                    }
                 }
                 else
                 {

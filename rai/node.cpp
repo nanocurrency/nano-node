@@ -928,7 +928,7 @@ void rai::wallet::change (rai::account const & source_a, rai::account const & re
 	completion_a (result);
 }
 
-void rai::wallet::send (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void (bool)> const & completion_a)
+bool rai::wallet::send (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::unique_ptr <rai::send_block> block;
 	auto result (false);
@@ -975,7 +975,7 @@ void rai::wallet::send (rai::account const & source_a, rai::account const & acco
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
 	}
-	completion_a (result);
+	return result;
 }
 
 bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a)
@@ -5885,19 +5885,17 @@ void rai::landing::distribute_one ()
 	while (!error && store.last + distribution_interval.count () < now)
 	{
 		auto amount (distribution_amount ((store.last - store.start) >> 6));
-		wallet->send (store.source, store.destination, amount, [this, amount] (bool error_a)
+		error = wallet->send (store.source, store.destination, amount);
+		if (!error)
 		{
-			if (!error_a)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%") % amount);
-				store.last += distribution_interval.count ();
-				write_store ();
-			}
-			else
-			{
-				BOOST_LOG (node.log) << "Error while sending distribution";
-			}
-		});
+			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%\n") % amount);
+			store.last += distribution_interval.count ();
+			write_store ();
+		}
+		else
+		{
+			BOOST_LOG (node.log) << "Error while sending distribution\n";
+		}
 	}
 }
 
