@@ -332,7 +332,7 @@ public:
 	void change (rai::account const &, rai::account const &, std::function <void (bool)> const &);
     void receive (rai::send_block const &, rai::private_key const &, rai::account const &, std::function <void (bool)> const &);
 	// Send from a specific account in the wallet
-	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
+	void send (rai::account const &, rai::account const &, rai::uint128_t const &, std::function <void (bool)> const &);
 	// Send from any of the accounts in the wallet
     bool send_all (rai::account const &, rai::uint128_t const &);
     void work_generate (rai::account const &, rai::block_hash const &);

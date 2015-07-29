@@ -110,8 +110,11 @@ TEST (wallet, insufficient_spend_one)
     rai::system system (24000, 1);
     rai::keypair key1;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-    ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, 500));
-    ASSERT_TRUE (system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, rai::genesis_amount));
+	auto error (true);
+    system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, 500, [&error] (bool error_a) { error = error_a; });
+	ASSERT_FALSE (error);
+    system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, rai::genesis_amount, [&error] (bool error_a) { error = error_a; });
+	ASSERT_TRUE (error);
 }
 
 TEST (wallet, spend_all_one)
@@ -141,8 +144,11 @@ TEST (wallet, spend)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key2;
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
-	ASSERT_TRUE (system.wallet (0)->send (0, key2.pub, 0));
-    ASSERT_FALSE (system.wallet (0)->send (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
+	auto error (false);
+	system.wallet (0)->send (0, key2.pub, 0, [&error] (bool error_a) { error = error_a; });
+	ASSERT_TRUE (error);
+    system.wallet (0)->send (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), [&error] (bool error_a) { error = error_a; });
+	ASSERT_FALSE (error);
     rai::account_info info2;
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
