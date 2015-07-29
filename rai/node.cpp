@@ -978,7 +978,7 @@ void rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	completion_a (result);
 }
 
-bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a)
+void rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void (bool)> const & completion_a)
 {
     std::vector <std::unique_ptr <rai::send_block>> blocks;
 	auto result (false);
@@ -1024,7 +1024,7 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 	{
 		node.process_receive_republish (std::move (*i), node.config.creation_rebroadcast);
 	}
-    return result;
+	completion_a (result);
 }
 
 // Update work for account if latest root is root_a
@@ -2789,7 +2789,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                                 auto error (amount.decode_dec (amount_text));
                                 if (!error)
                                 {
-                                    auto error (existing->second->send_all (account, amount.number ()));
+									bool error;
+									existing->second->send_all (account, amount.number (), [&error] (bool error_a) { error = error_a; });
                                     boost::property_tree::ptree response_l;
                                     response_l.put ("sent", error ? "0" : "1");
                                     set_response (response, response_l);
@@ -5280,7 +5281,7 @@ void rai::system::generate_send_existing (rai::node & node_a)
 		destination = rai::account (entry->first);
 		amount = get_random_amount (transaction, node_a);
 	}
-    wallet (0)->send_all (destination, amount);
+    wallet (0)->send_all (destination, amount, [] (bool) {});
 }
 
 void rai::system::generate_send_new (rai::node & node_a)
@@ -5293,7 +5294,7 @@ void rai::system::generate_send_new (rai::node & node_a)
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
 		amount = get_random_amount (transaction, node_a);
 	}
-    node_a.wallets.items.begin ()->second->send_all (key.pub, amount);
+    node_a.wallets.items.begin ()->second->send_all (key.pub, amount, [] (bool) {});
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
