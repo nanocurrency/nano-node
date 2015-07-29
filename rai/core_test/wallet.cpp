@@ -162,9 +162,7 @@ TEST (wallet, change)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key2;
 	ASSERT_EQ (rai::genesis_account, system.nodes [0]->representative (rai::test_genesis_key.pub));
-	auto error (true);
-	system.wallet (0)->change (rai::test_genesis_key.pub, key2.pub, [&error] (bool error_a) { error = error_a; });
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (system.wallet (0)->change (rai::test_genesis_key.pub, key2.pub));
 	ASSERT_EQ (key2.pub, system.nodes [0]->representative (rai::test_genesis_key.pub));
 }
 
