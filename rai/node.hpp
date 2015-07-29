@@ -334,7 +334,7 @@ public:
 	// Send from a specific account in the wallet
 	void send (rai::account const &, rai::account const &, rai::uint128_t const &, std::function <void (bool)> const &);
 	// Send from any of the accounts in the wallet
-    void send_all (rai::account const &, rai::uint128_t const &, std::function <void (bool)> const &);
+    bool send_all (rai::account const &, rai::uint128_t const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);

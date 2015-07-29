@@ -279,9 +279,9 @@ TEST (wallet, create_open_receive)
 	rai::keypair key;
 	rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->send_all (key.pub, 100, [] (bool) {});
+	system.wallet (0)->send_all (key.pub, 100);
 	rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	system.wallet (0)->send_all (key.pub, 100, [] (bool) {});
+	system.wallet (0)->send_all (key.pub, 100);
 	rai::block_hash latest2 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	ASSERT_NE (latest1, latest2);
 	system.wallet (0)->insert (key.prv);

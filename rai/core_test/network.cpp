@@ -330,9 +330,7 @@ TEST (network, receive_weight_change)
 		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, true);
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
-	auto error (true);
-	system.wallet (0)->send_all (key2.pub, 2, [&error] (bool error_a) { error = error_a; });
-    ASSERT_FALSE (error);
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 2));
 	auto iterations (0);
     while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a){ return node_a->weight (key2.pub) != 2;}))
     {
@@ -440,9 +438,7 @@ TEST (bulk_pull, end_not_owned)
     rai::system system (24000, 1);
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	auto error (true);
-	system.wallet (0)->send_all (key2.pub, 100, [&error] (bool error_a) { error = error_a; });
-    ASSERT_FALSE (error);
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
     rai::open_block open (0, 1, 2, 3, 4, 5);
     open.hashables.account = key2.pub;
@@ -523,9 +519,7 @@ TEST (bootstrap_processor, process_one)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	auto error (true);
-	system.wallet (0)->send_all (rai::test_genesis_key.pub, 100, [&error] (bool error_a) { error = error_a; });
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 100));
 	rai::node_init init1;
 	auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
 	rai::block_hash hash1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
@@ -548,12 +542,9 @@ TEST (bootstrap_processor, process_two)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	rai::block_hash hash1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	auto error (true);
-	system.wallet (0)->send_all (rai::test_genesis_key.pub, 50, [&error] (bool error_a) { error = error_a; });
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 50));
 	rai::block_hash hash2 (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	system.wallet (0)->send_all (rai::test_genesis_key.pub, 50, [&error] (bool error_a) { error = error_a; });
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (system.wallet (0)->send_all (rai::test_genesis_key.pub, 50));
 	rai::block_hash hash3 (system.nodes [0]->latest ( rai::test_genesis_key.pub));
 	ASSERT_NE (hash1, hash2);
 	ASSERT_NE (hash1, hash3);
@@ -579,9 +570,7 @@ TEST (bootstrap_processor, process_new)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	rai::keypair key2;
 	system.wallet (1)->insert (key2.prv);
-	auto error (true);
-	system.wallet (0)->send_all (key2.pub, 100, [&error] (bool error_a) { error = error_a; });
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
 	auto iterations1 (0);
 	while (system.nodes [0]->balance (key2.pub).is_zero ())
 	{
@@ -670,9 +659,7 @@ TEST (bootstrap_processor, push_one)
     ASSERT_NE (nullptr, wallet);
 	wallet->insert (rai::test_genesis_key.prv);
     rai::uint128_t balance1 (node1->balance (rai::test_genesis_key.pub));
-	auto error (true);
-	wallet->send_all (key1.pub, 100, [&error] (bool error_a) { error = error_a; });
-    ASSERT_FALSE (error);
+    ASSERT_FALSE (wallet->send_all (key1.pub, 100));
 	ASSERT_NE (balance1, node1->balance (rai::test_genesis_key.pub));
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations (0);
@@ -770,9 +757,7 @@ TEST (bulk, genesis)
 	rai::block_hash latest2 (node1->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (latest1, latest2);
     rai::keypair key2;
-	auto error (true);
-	system.wallet (0)->send_all (key2.pub, 100, [&error] (bool error_a) { error = error_a; });
-    ASSERT_FALSE (error);
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
     rai::block_hash latest3 (system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_NE (latest1, latest3);
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
@@ -807,9 +792,7 @@ TEST (bulk, offline_send)
     rai::keypair key2;
 	auto wallet (node1->wallets.create (rai::uint256_union ()));
 	wallet->insert (key2.prv);
-	auto error (true);
-	system.wallet (0)->send_all (key2.pub, 100, [&error] (bool error_a) { error = error_a; });
-    ASSERT_FALSE (error);
+    ASSERT_FALSE (system.wallet (0)->send_all (key2.pub, 100));
 	ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.nodes [0]->balance (rai::test_genesis_key.pub));
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);
