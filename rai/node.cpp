@@ -886,7 +886,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
     return result;
 }
 
-bool rai::wallet::change (rai::account const & source_a, rai::account const & representative_a)
+void rai::wallet::change (rai::account const & source_a, rai::account const & representative_a, std::function <void (bool)> const & completion_a)
 {
 	std::unique_ptr <rai::change_block> block;
 	auto result (false);
@@ -925,7 +925,7 @@ bool rai::wallet::change (rai::account const & source_a, rai::account const & re
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
 	}
-	return result;
+	completion_a (result);
 }
 
 bool rai::wallet::send (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
