@@ -799,14 +799,15 @@ void rai::wallet::enter_initial_password (MDB_txn * transaction_a)
 
 rai::public_key rai::wallet::insert (rai::private_key const & key_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
-	auto key (store.insert (transaction, key_a));
-	auto this_l (shared_from_this ());
-	auto root (node.ledger.latest_root (transaction, key));
-	node.service.add (std::chrono::system_clock::now (), [this_l, key, root] ()
+	rai::block_hash root;
+	rai::public_key key;
 	{
-		this_l->work_generate (key, root);
-	});
+		rai::transaction transaction (store.environment, nullptr, true);
+		key = store.insert (transaction, key_a);
+		auto this_l (shared_from_this ());
+		root = node.ledger.latest_root (transaction, key);
+	}
+	work_generate (key, root);
 	return key;
 }
 
@@ -881,7 +882,9 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
 	}
 	if (!result)
 	{
-		node.process_receive_republish (std::move (block), node.config.creation_rebroadcast);
+		assert (block != nullptr);
+		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		work_generate (send_a.hashables.destination, block->hash ());
 	}
     return result;
 }
@@ -891,7 +894,7 @@ bool rai::wallet::change (rai::account const & source_a, rai::account const & re
 	std::unique_ptr <rai::change_block> block;
 	auto result (false);
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
+		rai::transaction transaction (store.environment, nullptr, false);
 		result = !store.valid_password (transaction);
 		if (!result)
 		{
@@ -924,6 +927,7 @@ bool rai::wallet::change (rai::account const & source_a, rai::account const & re
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		work_generate (source_a, block->hash ());
 	}
 	return result;
 }
@@ -933,7 +937,7 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	std::unique_ptr <rai::send_block> block;
 	auto result (false);
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
+		rai::transaction transaction (store.environment, nullptr, false);
 		result = !store.valid_password (transaction);
 		if (!result)
 		{
@@ -974,16 +978,17 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		work_generate (source_a, block->hash ());
 	}
 	return result;
 }
 
 bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a)
 {
-    std::vector <std::unique_ptr <rai::send_block>> blocks;
+    std::vector <std::tuple <rai::account, std::unique_ptr <rai::send_block>>> blocks;
 	auto result (false);
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
+		rai::transaction transaction (store.environment, nullptr, false);
 		result = !store.valid_password (transaction);
 		if (!result)
 		{
@@ -1004,7 +1009,7 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 					assert (!result);
 					std::unique_ptr <rai::send_block> block (new rai::send_block (info.head, account_a, balance - amount, prv, account, work_fetch (transaction, account, info.head)));
 					prv.clear ();
-					blocks.push_back (std::move (block));
+					blocks.push_back (std::make_tuple (account, std::move (block)));
 				}
 			}
 			if (!remaining.is_zero ())
@@ -1022,7 +1027,9 @@ bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const
 	}
 	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 	{
-		node.process_receive_republish (std::move (*i), node.config.creation_rebroadcast);
+		auto & block (std::get <1> (*i));
+		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		work_generate (std::get <0> (*i), block->hash ());
 	}
     return result;
 }
@@ -1050,7 +1057,7 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
     uint64_t result;
     auto error (store.work_get (transaction_a, account_a, result));
     if (error)
-    {
+	{
         result = rai::work_generate (root_a);
     }
 	else
