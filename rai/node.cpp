@@ -2793,32 +2793,43 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         auto existing (node.wallets.items.find (wallet));
                         if (existing != node.wallets.items.end ())
                         {
-                            std::string account_text (request_l.get <std::string> ("account"));
-                            rai::uint256_union account;
-                            auto error (account.decode_base58check (account_text));
-                            if (!error)
-                            {
-                                std::string amount_text (request_l.get <std::string> ("amount"));
-                                rai::amount amount;
-                                auto error (amount.decode_dec (amount_text));
-                                if (!error)
-                                {
-                                    auto error (existing->second->send_all (account, amount.number ()));
-                                    boost::property_tree::ptree response_l;
-                                    response_l.put ("sent", error ? "0" : "1");
-                                    set_response (response, response_l);
-                                }
-                                else
-                                {
-                                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                                    response.content = "Bad amount format";
-                                }
-                            }
-                            else
-                            {
-                                response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                                response.content = "Bad account number";
-                            }
+							std::string source_text (request_l.get <std::string> ("source"));
+							rai::account source;
+							auto error (source.decode_base58check (source_text));
+							if (!error)
+							{
+								std::string destination_text (request_l.get <std::string> ("destination"));
+								rai::account destination;
+								auto error (destination.decode_base58check (destination_text));
+								if (!error)
+								{
+									std::string amount_text (request_l.get <std::string> ("amount"));
+									rai::amount amount;
+									auto error (amount.decode_dec (amount_text));
+									if (!error)
+									{
+										auto error (existing->second->send (source, destination, amount.number ()));
+										boost::property_tree::ptree response_l;
+										response_l.put ("sent", error ? "0" : "1");
+										set_response (response, response_l);
+									}
+									else
+									{
+										response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+										response.content = "Bad amount format";
+									}
+								}
+								else
+								{
+									response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+									response.content = "Bad destination account";
+								}
+							}
+							else
+							{
+								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+								response.content = "Bad source account";
+							}
                         }
                         else
                         {

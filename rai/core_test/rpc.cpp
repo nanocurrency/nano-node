@@ -190,10 +190,8 @@ TEST (rpc, send)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
-    rai::keypair key1;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key1.prv);
-    boost::network::http::server <rai::rpc>::request request;
+    system.wallet (0)->insert (rai::test_genesis_key.prv);
+	boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
     boost::property_tree::ptree request_tree;
@@ -201,7 +199,8 @@ TEST (rpc, send)
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request_tree.put ("wallet", wallet);
     request_tree.put ("action", "send");
-    request_tree.put ("account", rai::test_genesis_key.pub.to_base58check ());
+	request_tree.put ("source", rai::test_genesis_key.pub.to_base58check ());
+    request_tree.put ("destination", rai::test_genesis_key.pub.to_base58check ());
     request_tree.put ("amount", "100");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);
@@ -220,8 +219,6 @@ TEST (rpc, send_fail)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
-    rai::keypair key1;
-	system.wallet (0)->insert (key1.prv);
     boost::network::http::server <rai::rpc>::request request;
     boost::network::http::server <rai::rpc>::response response;
     request.method = "POST";
@@ -230,7 +227,8 @@ TEST (rpc, send_fail)
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request_tree.put ("wallet", wallet);
     request_tree.put ("action", "send");
-    request_tree.put ("account", rai::test_genesis_key.pub.to_base58check ());
+	request_tree.put ("source", rai::test_genesis_key.pub.to_base58check ());
+    request_tree.put ("destination", rai::test_genesis_key.pub.to_base58check ());
     request_tree.put ("amount", "100");
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_tree);

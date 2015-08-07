@@ -309,8 +309,7 @@ TEST (receivable_processor, send_with_receive)
     auto iterations (0);
     while (system.nodes [0]->balance (key2.pub) != 100)
     {
-        system.service->poll_one ();
-        system.processor.poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -334,8 +333,7 @@ TEST (network, receive_weight_change)
 	auto iterations (0);
     while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a){ return node_a->weight (key2.pub) != 2;}))
     {
-        system.service->poll_one ();
-        system.processor.poll_one ();
+        system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
     }
