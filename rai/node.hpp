@@ -275,6 +275,7 @@ class wallet_store
 public:
     wallet_store (bool &, MDB_txn *, std::string const &);
     wallet_store (bool &, MDB_txn *, std::string const &, std::string const &);
+	std::vector <rai::account> accounts (MDB_txn *);
     void initialize (MDB_txn *, bool &, std::string const &);
     rai::uint256_union check (MDB_txn *);
     bool rekey (MDB_txn *, std::string const &);
@@ -296,7 +297,6 @@ public:
     rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
     rai::uint256_union derive_key (MDB_txn *, std::string const &);
-    rai::uint128_t balance (MDB_txn *, rai::ledger &);
     void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);
     bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
@@ -847,7 +847,8 @@ public:
     void generate_mass_activity (uint32_t, rai::node &);
     void generate_usage_traffic (uint32_t, uint32_t, size_t);
     void generate_usage_traffic (uint32_t, uint32_t);
-    rai::uint128_t get_random_amount (MDB_txn *, rai::node &);
+	rai::account get_random_account (MDB_txn *, rai::node &);
+    rai::uint128_t get_random_amount (MDB_txn *, rai::node &, rai::account const &);
     void generate_send_new (rai::node &);
     void generate_send_existing (rai::node &);
     std::shared_ptr <rai::wallet> wallet (size_t);

@@ -598,6 +598,17 @@ environment (mdb_txn_env (transaction_a))
     }
 }
 
+std::vector <rai::account> rai::wallet_store::accounts (MDB_txn * transaction_a)
+{
+	std::vector <rai::account> result;
+	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
+	{
+		rai::account account (i->first);
+		result.push_back (account);
+	}
+	return result;
+}
+
 void rai::wallet_store::initialize (MDB_txn * transaction_a, bool & init_a, std::string const & path_a)
 {
 	assert (strlen (path_a.c_str ()) == path_a.size ());
@@ -5256,9 +5267,17 @@ void rai::system::generate_activity (rai::node & node_a)
     }
 }
 
-rai::uint128_t rai::system::get_random_amount (MDB_txn * transaction_a, rai::node & node_a)
+rai::account rai::system::get_random_account (MDB_txn * transaction_a, rai::node & node_a)
 {
-    rai::uint128_t balance (wallet (0)->store.balance (transaction_a, node_a.ledger));
+	auto accounts (wallet (0)->store.accounts (transaction_a));
+	auto index (random_pool.GenerateWord32 (0, accounts.size () - 1));
+	auto result (accounts [index]);
+	return result;
+}
+
+rai::uint128_t rai::system::get_random_amount (MDB_txn * transaction_a, rai::node & node_a, rai::account const & account_a)
+{
+    rai::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
     std::string balance_text (balance.convert_to <std::string> ());
     rai::uint128_union random_amount;
     random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
@@ -5269,11 +5288,12 @@ rai::uint128_t rai::system::get_random_amount (MDB_txn * transaction_a, rai::nod
 
 void rai::system::generate_send_existing (rai::node & node_a)
 {
-    rai::account account;
-    random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
 	rai::uint128_t amount;
 	rai::account destination;
+	rai::account source;
 	{
+		rai::account account;
+		random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
 		rai::store_iterator entry (node_a.store.latest_begin (transaction, account));
 		if (entry == node_a.store.latest_end ())
@@ -5282,9 +5302,10 @@ void rai::system::generate_send_existing (rai::node & node_a)
 		}
 		assert (entry != node_a.store.latest_end ());
 		destination = rai::account (entry->first);
-		amount = get_random_amount (transaction, node_a);
+		source = get_random_account (transaction, node_a);
+		amount = get_random_amount (transaction, node_a, source);
 	}
-    wallet (0)->send_all (destination, amount);
+    wallet (0)->send (source, destination, amount);
 }
 
 void rai::system::generate_send_new (rai::node & node_a)
@@ -5292,10 +5313,12 @@ void rai::system::generate_send_new (rai::node & node_a)
     assert (node_a.wallets.items.size () == 1);
     rai::keypair key;
 	rai::uint128_t amount;
+	rai::account source;
 	node_a.wallets.items.begin ()->second->insert (key.prv);
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
-		amount = get_random_amount (transaction, node_a);
+		source = get_random_account (transaction, node_a);
+		amount = get_random_amount (transaction, node_a, source);
 	}
     node_a.wallets.items.begin ()->second->send_all (key.pub, amount);
 }
@@ -5314,18 +5337,6 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
         }
         generate_activity (node_a);
     }
-}
-
-rai::uint128_t rai::wallet_store::balance (MDB_txn * transaction_a, rai::ledger & ledger_a)
-{
-    rai::uint128_t result;
-    for (auto i (begin (transaction_a)), n (end ()); i !=  n; ++i)
-    {
-        auto pub (i->first);
-        auto account_balance (ledger_a.account_balance (transaction_a, pub));
-        result += account_balance;
-    }
-    return result;
 }
 
 rai::election::election (std::shared_ptr <rai::node> node_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a) :
