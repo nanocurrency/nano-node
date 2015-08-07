@@ -331,10 +331,7 @@ public:
 	void serialize (std::string &);
 	bool change (rai::account const &, rai::account const &);
     bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
-	// Send from a specific account in the wallet
 	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
-	// Send from any of the accounts in the wallet
-    bool send_all (rai::account const &, rai::uint128_t const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);

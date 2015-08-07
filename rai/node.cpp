@@ -994,57 +994,6 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 	return result;
 }
 
-bool rai::wallet::send_all (rai::account const & account_a, rai::uint128_t const & amount_a)
-{
-    std::vector <std::tuple <rai::account, std::unique_ptr <rai::send_block>>> blocks;
-	auto result (false);
-	{
-		rai::transaction transaction (store.environment, nullptr, false);
-		result = !store.valid_password (transaction);
-		if (!result)
-		{
-			rai::uint128_t remaining (amount_a);
-			for (auto i (store.begin (transaction)), j (store.end ()); i != j && !result && !remaining.is_zero (); ++i)
-			{
-				auto account (i->first);
-				auto balance (node.ledger.account_balance (transaction, account));
-				if (!balance.is_zero ())
-				{
-					rai::account_info info;
-					result = node.ledger.store.account_get (transaction, account, info);
-					assert (!result);
-					auto amount (std::min (remaining, balance));
-					remaining -= amount;
-					rai::private_key prv;
-					result = store.fetch (transaction, account, prv);
-					assert (!result);
-					std::unique_ptr <rai::send_block> block (new rai::send_block (info.head, account_a, balance - amount, prv, account, work_fetch (transaction, account, info.head)));
-					prv.clear ();
-					blocks.push_back (std::make_tuple (account, std::move (block)));
-				}
-			}
-			if (!remaining.is_zero ())
-			{
-				BOOST_LOG (node.log) << "Wallet contained insufficient coins";
-				// Destroy the sends because they're signed and we're not going to use them.
-				result = true;
-				blocks.clear ();
-			}
-		}
-		else
-		{
-			BOOST_LOG (node.log) << "Wallet key is invalid";
-		}
-	}
-	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
-	{
-		auto & block (std::get <1> (*i));
-		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
-		work_generate (std::get <0> (*i), block->hash ());
-	}
-    return result;
-}
-
 // Update work for account if latest root is root_a
 void rai::wallet::work_update (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {
