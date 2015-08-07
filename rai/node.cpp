@@ -5314,13 +5314,13 @@ void rai::system::generate_send_new (rai::node & node_a)
     rai::keypair key;
 	rai::uint128_t amount;
 	rai::account source;
-	node_a.wallets.items.begin ()->second->insert (key.prv);
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
 		source = get_random_account (transaction, node_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
-    node_a.wallets.items.begin ()->second->send_all (key.pub, amount);
+	node_a.wallets.items.begin ()->second->insert (key.prv);
+    node_a.wallets.items.begin ()->second->send (source, key.pub, amount);
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)

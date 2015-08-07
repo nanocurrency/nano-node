@@ -20,32 +20,38 @@ TEST (system, generate_mass_activity)
 
 TEST (system, generate_mass_activity_long)
 {
-    rai::system system (24000, 1);
 	std::vector <std::thread> threads;
-	for (auto i (0), n (4); i != n; ++i)
 	{
-		threads.push_back (std::thread ([&system] ()
+		rai::system system (24000, 1);
+		for (auto i (0), n (4); i != n; ++i)
 		{
-			system.service->run ();
-		}));
+			threads.push_back (std::thread ([&system] ()
+			{
+				system.service->run ();
+			}));
+		}
+		for (auto i (0), n (4); i != n; ++i)
+		{
+			threads.push_back (std::thread ([&system] ()
+			{
+				system.processor.run ();
+			}));
+		}
+		system.wallet (0)->insert (rai::test_genesis_key.prv);
+		size_t count (10000);
+		system.generate_mass_activity (count, *system.nodes [0]);
+		size_t accounts (0);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		for (auto i (system.nodes [0]->store.latest_begin (transaction)), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
+		{
+			++accounts;
+		}
+		ASSERT_GT (accounts, count / 10);
 	}
-	for (auto i (0), n (4); i != n; ++i)
+	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
 	{
-		threads.push_back (std::thread ([&system] ()
-		{
-			system.processor.run ();
-		}));
+		i->join ();
 	}
-    system.wallet (0)->insert (rai::test_genesis_key.prv);
-    size_t count (10000);
-    system.generate_mass_activity (count, *system.nodes [0]);
-    size_t accounts (0);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    for (auto i (system.nodes [0]->store.latest_begin (transaction)), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
-    {
-        ++accounts;
-    }
-    ASSERT_GT (accounts, count / 10);
 }
 
 TEST (ledger, deep_account_compute)
