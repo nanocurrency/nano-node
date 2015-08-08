@@ -351,7 +351,6 @@ public:
 	std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
     bool search_pending (rai::uint256_union const &);
 	void destroy (rai::uint256_union const &);
-	void cache_work (rai::account const &);
 	void queue_wallet_action (rai::account const &, std::function <void ()> const &);
 	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
 	std::unordered_multimap <rai::account, std::function <void ()>> pending_actions;

@@ -1211,7 +1211,16 @@ bool rai::wallet::search_pending ()
 
 void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
 {
+	auto begin (std::chrono::system_clock::now ());
+	if (node.config.logging.work_generation_time ())
+	{
+		BOOST_LOG (node.log) << "Beginning work generation";
+	}
     auto work (rai::work_generate (root_a));
+	if (node.config.logging.work_generation_time ())
+	{
+		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
+	}
 	rai::transaction transaction (store.environment, nullptr, true);
     work_update (transaction, account_a, root_a, work);
 }
@@ -1303,32 +1312,6 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
     auto wallet (existing->second);
     items.erase (existing);
 	existing->second->store.destroy (transaction);
-}
-
-void rai::wallets::cache_work (rai::account const & account_a)
-{
-	rai::transaction transaction (node.store.environment, nullptr, false);
-	auto root (node.ledger.latest_root (transaction, account_a));
-	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
-	{
-		auto wallet (i->second);
-		if (wallet->store.exists (transaction, account_a))
-		{
-			node.service.add (std::chrono::system_clock::now (), [wallet, account_a, root] ()
-			{
-				auto begin (std::chrono::system_clock::now ());
-				if (wallet->node.config.logging.work_generation_time ())
-				{
-					BOOST_LOG (wallet->node.log) << "Beginning work generation";
-				}
-				wallet->work_generate (account_a, root);
-				if (wallet->node.config.logging.work_generation_time ())
-				{
-					BOOST_LOG (wallet->node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
-				}
-			});
-		}
-	}
 }
 
 void rai::wallets::queue_wallet_action (rai::account const & account_a, std::function <void ()> const & action_a)
@@ -1844,22 +1827,6 @@ application_path (application_path_a)
     {
 		send_visitor visitor (*this);
 		block_a.visit (visitor);
-    });
-    observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
-    {
-		auto hash (block_a.hash ());
-		auto this_l (shared ());
-		service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (20), [this_l, hash, account_a] ()
-		{
-			if (this_l->latest (account_a) == hash)
-			{
-				this_l->wallets.cache_work (account_a);
-			}
-			else
-			{
-				// Latest block already invalid, don't generate work
-			}
-		});
     });
     if (!init_a.error ())
     {
