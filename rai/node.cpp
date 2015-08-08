@@ -863,8 +863,16 @@ void rai::wallet_store::destroy (MDB_txn * transaction_a)
 	assert (status == 0);
 }
 
+namespace {
+bool check_ownership (rai::wallets & wallets_a, rai::account const & account_a) {
+	std::lock_guard <std::mutex> lock (wallets_a.action_mutex);
+	return wallets_a.current_actions.find (account_a) == wallets_a.current_actions.end ();
+}
+}
+
 bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
 {
+	assert (!check_ownership (node.wallets, send_a.hashables.destination));
     auto hash (send_a.hash ());
     bool result;
 	std::unique_ptr <rai::block> block;
@@ -902,6 +910,7 @@ bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_k
 
 bool rai::wallet::change_action (rai::account const & source_a, rai::account const & representative_a)
 {
+	assert (!check_ownership (node.wallets, source_a));
 	std::unique_ptr <rai::change_block> block;
 	auto result (false);
 	{
@@ -945,6 +954,7 @@ bool rai::wallet::change_action (rai::account const & source_a, rai::account con
 
 bool rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
+	assert (!check_ownership (node.wallets, source_a));
 	std::unique_ptr <rai::send_block> block;
 	auto result (false);
 	{
