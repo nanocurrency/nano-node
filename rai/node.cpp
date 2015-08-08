@@ -1125,7 +1125,7 @@ public:
 	}
 	void receive_all (rai::account const & account_a)
 	{
-		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_string ());
+		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_base58check ());
 		rai::block_hash hash (current_block);
 		while (!hash.is_zero ())
 		{
@@ -1148,7 +1148,7 @@ public:
 						auto error (wallet->store.fetch (transaction, receivable.destination, prv));
 						if (error)
 						{
-							BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % receivable.destination.to_string ());
+							BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % receivable.destination.to_base58check ());
 							block.reset ();
 						}
 					}
