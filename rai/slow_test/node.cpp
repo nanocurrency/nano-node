@@ -88,3 +88,32 @@ TEST (ledger, deep_account_compute)
 		auto balance (ledger.balance (transaction, rprevious));
 	}
 }
+
+TEST (wallet, multithreaded_send)
+{
+	std::vector <std::thread> threads;
+	{
+		rai::system system (24000, 1);
+		rai::keypair key;
+		auto wallet_l (system.wallet (0));
+		wallet_l->insert (rai::test_genesis_key.prv);
+		for (auto i (0); i < 20; ++i)
+		{
+			threads.push_back (std::thread ([wallet_l, &key] ()
+			{
+				for (auto i (0); i < 1000; ++i)
+				{
+					wallet_l->send_sync (rai::test_genesis_key.pub, key.pub, 1000);
+				}
+			}));
+		}
+		while (system.nodes [0]->balance(rai::test_genesis_key.pub) != (rai::genesis_amount - 20 * 1000 * 1000))
+		{
+			system.poll ();
+		}
+	}
+	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
+	{
+		i->join ();
+	}
+}
