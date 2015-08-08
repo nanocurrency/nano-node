@@ -1068,12 +1068,12 @@ TEST (ledger, fork_bootstrap_flip)
 		rai::transaction transaction (node2.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node2.ledger.process (transaction, *send2).code);
 	}
-	system.wallet (0)->send (rai::test_genesis_key.pub, key1.pub, 100);
+	system.wallet (0)->send_sync (rai::test_genesis_key.pub, key1.pub, 100);
 	auto iterations2 (0);
 	auto again (true);
 	while (again)
 	{
-	        system.poll ();
+		system.poll ();
 		++iterations2;
 		ASSERT_LT (iterations2, 200);
 		rai::transaction transaction (node2.store.environment, nullptr, false);

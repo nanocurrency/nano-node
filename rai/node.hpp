@@ -329,9 +329,12 @@ public:
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
-	bool change (rai::account const &, rai::account const &);
-    bool receive (rai::send_block const &, rai::private_key const &, rai::account const &);
-	bool send (rai::account const &, rai::account const &, rai::uint128_t const &);
+	bool change_action (rai::account const &, rai::account const &);
+    bool receive_action (rai::send_block const &, rai::private_key const &, rai::account const &);
+	bool send_action (rai::account const &, rai::account const &, rai::uint128_t const &);
+	bool change_sync (rai::account const &, rai::account const &);
+    bool receive_sync (rai::send_block const &, rai::private_key const &, rai::account const &);
+	bool send_sync (rai::account const &, rai::account const &, rai::uint128_t const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
@@ -349,7 +352,11 @@ public:
     bool search_pending (rai::uint256_union const &);
 	void destroy (rai::uint256_union const &);
 	void cache_work (rai::account const &);
+	void queue_wallet_action (rai::account const &, std::function <void ()> const &);
 	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
+	std::unordered_multimap <rai::account, std::function <void ()>> pending_actions;
+	std::unordered_set <rai::account> current_actions;
+	std::mutex action_mutex;
 	MDB_dbi handle;
 	rai::node & node;
 };

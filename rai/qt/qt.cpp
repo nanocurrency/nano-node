@@ -444,7 +444,7 @@ last_status (rai_qt::status::disconnected)
                 auto parse_error (account_l.decode_base58check (account_text_narrow));
                 if (!parse_error)
                 {
-                    auto send_error (wallet_m->send (account, account_l, coins));
+                    auto send_error (wallet_m->send_sync (account, account_l, coins));
                     if (!send_error)
                     {
                         QPalette palette;

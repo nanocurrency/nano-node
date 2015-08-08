@@ -863,7 +863,7 @@ void rai::wallet_store::destroy (MDB_txn * transaction_a)
 	assert (status == 0);
 }
 
-bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
+bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
 {
     auto hash (send_a.hash ());
     bool result;
@@ -900,7 +900,7 @@ bool rai::wallet::receive (rai::send_block const & send_a, rai::private_key cons
     return result;
 }
 
-bool rai::wallet::change (rai::account const & source_a, rai::account const & representative_a)
+bool rai::wallet::change_action (rai::account const & source_a, rai::account const & representative_a)
 {
 	std::unique_ptr <rai::change_block> block;
 	auto result (false);
@@ -943,7 +943,7 @@ bool rai::wallet::change (rai::account const & source_a, rai::account const & re
 	return result;
 }
 
-bool rai::wallet::send (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+bool rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::unique_ptr <rai::send_block> block;
 	auto result (false);
@@ -991,6 +991,48 @@ bool rai::wallet::send (rai::account const & source_a, rai::account const & acco
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
 		work_generate (source_a, block->hash ());
 	}
+	return result;
+}
+
+bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
+{
+	std::mutex complete;
+	complete.lock ();
+	bool result;
+	node.wallets.queue_wallet_action (source_a, [this, source_a, representative_a, &complete, &result] ()
+	{
+		result = change_action (source_a, representative_a);
+		complete.unlock ();
+	});
+	complete.lock ();
+	return result;
+}
+
+bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::private_key const & prv_a, rai::account const & account_a)
+{
+	std::mutex complete;
+	complete.lock ();
+	bool result;
+	node.wallets.queue_wallet_action (block_a.hashables.destination, [this, &block_a, &prv_a, account_a, &result, &complete] ()
+	{
+		result = receive_action (block_a, prv_a, account_a);
+		complete.unlock ();
+	});
+	complete.lock ();
+	return result;
+}
+
+bool rai::wallet::send_sync (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+{
+	std::mutex complete;
+	complete.lock ();
+	bool result;
+	node.wallets.queue_wallet_action (source_a, [this, source_a, account_a, amount_a, &complete, &result] ()
+	{
+		result = send_action (source_a, account_a, amount_a);
+		complete.unlock ();
+	});
+	complete.lock ();
 	return result;
 }
 
@@ -1089,7 +1131,7 @@ public:
 		{
 			rai::account representative;
 			rai::private_key prv;
-			std::unique_ptr <rai::block> block;
+			std::shared_ptr <rai::send_block> block;
 			{
 				hash.clear ();
 				rai::transaction transaction (wallet->node.store.environment, nullptr, false);
@@ -1114,12 +1156,16 @@ public:
 			}
 			if (block != nullptr)
 			{
-				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-				auto error (wallet->receive (static_cast <rai::send_block const &> (*block), prv, representative));
-				if (error)
+				auto wallet_l (wallet);
+				wallet->node.wallets.queue_wallet_action (block->hashables.destination, [wallet_l, block, representative, prv] ()
 				{
-					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
-				}
+					BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
+					auto error (wallet_l->receive_action (*block, prv, representative));
+					if (error)
+					{
+						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
+					}
+				});
 			}
 			prv.clear ();
 		}
@@ -1271,6 +1317,37 @@ void rai::wallets::cache_work (rai::account const & account_a)
 					BOOST_LOG (wallet->node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
 				}
 			});
+		}
+	}
+}
+
+void rai::wallets::queue_wallet_action (rai::account const & account_a, std::function <void ()> const & action_a)
+{
+	auto current (std::move (action_a));
+	auto perform (false);
+	{
+		std::lock_guard <std::mutex> lock (action_mutex);
+		perform = current_actions.insert (account_a).second;
+		if (!perform)
+		{
+			pending_actions.insert (decltype (pending_actions)::value_type (account_a, std::move (current)));
+		}
+	}
+	while (perform)
+	{
+		current ();
+		std::lock_guard <std::mutex> lock (node.wallets.action_mutex);
+		auto existing (node.wallets.pending_actions.find (account_a));
+		if (existing != node.wallets.pending_actions.end ())
+		{
+			current = std::move (existing->second);
+			node.wallets.pending_actions.erase (existing);
+		}
+		else
+		{
+			auto erased (node.wallets.current_actions.erase (account_a));
+			assert (erased == 1); (void) erased;
+			perform = false;
 		}
 	}
 }
@@ -2757,7 +2834,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 									auto error (amount.decode_dec (amount_text));
 									if (!error)
 									{
-										auto error (existing->second->send (source, destination, amount.number ()));
+										bool error (existing->second->send_sync (source, destination, amount.number ()));
 										boost::property_tree::ptree response_l;
 										response_l.put ("sent", error ? "0" : "1");
 										set_response (response, response_l);
@@ -3497,8 +3574,12 @@ public:
 				}
 				if (!error)
 				{
-					auto error (wallet->receive (block_a, prv, representative));
-					(void)error; // Might be interesting to view during debug
+					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));
+					node.wallets.queue_wallet_action (block_a.hashables.destination, [block_l, prv, representative, wallet] ()
+					{
+						auto error (wallet->receive_action (*block_l, prv, representative));
+						(void)error; // Might be interesting to view during debug
+					});
 					prv.clear ();
 				}
 				else
@@ -5265,7 +5346,7 @@ void rai::system::generate_send_existing (rai::node & node_a)
 		source = get_random_account (transaction, node_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
-    wallet (0)->send (source, destination, amount);
+    wallet (0)->send_sync (source, destination, amount);
 }
 
 void rai::system::generate_send_new (rai::node & node_a)
@@ -5280,7 +5361,7 @@ void rai::system::generate_send_new (rai::node & node_a)
 		amount = get_random_amount (transaction, node_a, source);
 	}
 	node_a.wallets.items.begin ()->second->insert (key.prv);
-    node_a.wallets.items.begin ()->second->send (source, key.pub, amount);
+    node_a.wallets.items.begin ()->second->send_sync (source, key.pub, amount);
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
@@ -5515,6 +5596,7 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
 				auto representative (i->second->store.representative (transaction));
 				rai::private_key prv;
 				auto error (i->second->store.fetch (transaction, representative, prv));
+				(void)error;
 				vote_l = rai::vote (representative, prv, 0, block_a.clone ());
 				prv.clear ();
 				result = true;
@@ -5860,7 +5942,7 @@ void rai::landing::distribute_one ()
 	while (!error && store.last + distribution_interval.count () < now)
 	{
 		auto amount (distribution_amount ((store.last - store.start) >> 6));
-		error = wallet->send (store.source, store.destination, amount);
+		error = wallet->send_sync (store.source, store.destination, amount);
 		if (!error)
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%\n") % amount);
