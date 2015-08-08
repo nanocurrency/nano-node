@@ -3552,12 +3552,15 @@ public:
 				if (!error)
 				{
 					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));
-					node.wallets.queue_wallet_action (block_a.hashables.destination, [block_l, prv, representative, wallet] ()
+					auto node_l (node.shared ());
+					node.service.add (std::chrono::system_clock::now (), [block_l, prv, representative, wallet, node_l] ()
 					{
-						auto error (wallet->receive_action (*block_l, prv, representative));
-						(void)error; // Might be interesting to view during debug
+						node_l->wallets.queue_wallet_action (block_l->hashables.destination, [block_l, prv, representative, wallet] ()
+						{
+							auto error (wallet->receive_action (*block_l, prv, representative));
+							(void)error; // Might be interesting to view during debug
+						});
 					});
-					prv.clear ();
 				}
 				else
 				{
