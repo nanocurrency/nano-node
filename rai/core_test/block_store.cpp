@@ -64,7 +64,7 @@ TEST (block_store, add_two_items)
 	rai::transaction transaction (store.environment, nullptr, true);
     auto latest1 (store.block_get (transaction, hash1));
     ASSERT_EQ (nullptr, latest1);
-    rai::open_block block2 (0, 0, 3, 0, 0, rai::work_generate (3));
+    rai::open_block block2 (0, 0, 3, 0, 0, 0);
     block2.hashables.account = 3;
     rai::uint256_union hash2 (block2.hash ());
     block2.signature = rai::sign_message (key1.prv, key1.pub, hash2);
@@ -225,7 +225,7 @@ TEST (block_store, one_block)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    rai::open_block block1 (0, 0, 0, 0, 0, rai::work_generate (0));
+    rai::open_block block1 (0, 0, 0, 0, 0, 0);
 	rai::transaction transaction (store.environment, nullptr, true);
     store.block_put (transaction, block1.hash (), block1);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));

@@ -115,8 +115,7 @@ TEST (block, open_serialize_json)
 
 TEST (block, change_serialize_json)
 {
-    rai::change_block block1 (0, 1, 2, 3, rai::work_generate (0));
-	ASSERT_FALSE (rai::work_validate (block1));
+    rai::change_block block1 (0, 1, 2, 3, 4);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
