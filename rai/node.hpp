@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+#include <atomic>
 
 #include <boost/asio.hpp>
 #include <boost/network/include/http/server.hpp>

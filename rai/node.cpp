@@ -1516,6 +1516,7 @@ public:
 
 rai::work_pool::work_pool () :
 current (0),
+ticket (0),
 done (false)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
