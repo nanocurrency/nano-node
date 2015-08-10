@@ -4462,7 +4462,7 @@ bool rai::block_synchronization::fill_dependencies ()
     auto done (false);
     while (!result && !done)
     {
-	auto top (blocks.top ());
+		auto top (blocks.top ());
         auto block (retrieve (top));
         if (block != nullptr)
         {
@@ -4483,8 +4483,14 @@ bool rai::block_synchronization::synchronize_one ()
     {
         auto block (retrieve (blocks.top ()));
         blocks.pop ();
-        assert (block != nullptr);
-        target (*block);
+        if (block != nullptr)
+        {
+			target (*block);
+		}
+		else
+		{
+			result = true;
+		}
     }
     return result;
 }
@@ -4578,6 +4584,7 @@ void rai::bulk_pull_client::process_end ()
 		auto error (synchronization.synchronize (block));
         if (error)
         {
+			BOOST_LOG (connection->connection->node->log) << "Error synchronizing block";
 			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
             while (!synchronization.blocks.empty ())
             {
