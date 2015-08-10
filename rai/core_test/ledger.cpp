@@ -874,11 +874,11 @@ TEST (ledger, fork_keep)
 	system.wallet (0)->insert ( rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
-    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ())));
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
     rai::publish publish1;
     publish1.block = std::move (send1);
     rai::keypair key2;
-    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ())));
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
     rai::publish publish2;
     publish2.block = std::move (send2);
     node1.process_message (publish1, node1.network.endpoint ());
@@ -930,11 +930,11 @@ TEST (ledger, fork_flip)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
-    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ())));
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
     rai::publish publish1;
     publish1.block = std::move (send1);
     rai::keypair key2;
-    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ())));
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
     rai::publish publish2;
     publish2.block = std::move (send2);
     node1.process_message (publish1, node1.network.endpoint ());
@@ -990,14 +990,14 @@ TEST (ledger, fork_multi_flip)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
-    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ())));
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
     rai::publish publish1;
     publish1.block = std::move (send1);
     rai::keypair key2;
-    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ())));
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
     rai::publish publish2;
     publish2.block = std::move (send2);
-    std::unique_ptr <rai::send_block> send3 (new rai::send_block (publish2.block->hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (publish2.block->hash ())));
+    std::unique_ptr <rai::send_block> send3 (new rai::send_block (publish2.block->hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (publish2.block->hash ())));
     rai::publish publish3;
     publish3.block = std::move (send3);
     node1.process_message (publish1, node1.network.endpoint ());
@@ -1057,9 +1057,9 @@ TEST (ledger, fork_bootstrap_flip)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	rai::keypair key1;
-	std::unique_ptr <rai::send_block> send1 (new rai::send_block (latest, key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest)));
+	std::unique_ptr <rai::send_block> send1 (new rai::send_block (latest, key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
 	rai::keypair key2;
-	std::unique_ptr <rai::send_block> send2 (new rai::send_block (latest, key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest)));
+	std::unique_ptr <rai::send_block> send2 (new rai::send_block (latest, key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);

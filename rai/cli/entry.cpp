@@ -138,7 +138,8 @@ int main (int argc, char * const * argv)
         rai::processor_service processor;
 		rai::logging logging;
 		rai::node_init init;
-        auto node (std::make_shared <rai::node> (init, service, 24000,  working, processor, logging));
+		rai::work_pool work;
+        auto node (std::make_shared <rai::node> (init, service, 24000,  working, processor, logging, work));
 		for (auto i (node->wallets.items.begin ()), n (node->wallets.items.end ()); i != n; ++i)
 		{
 			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
@@ -163,12 +164,13 @@ int main (int argc, char * const * argv)
     }
 	else if (vm.count ("generate_bootstrap"))
 	{
+		rai::work_pool work;
         rai::keypair genesis;
         std::cout << "Genesis: " << genesis.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
 		rai::keypair landing;
 		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
 		rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
-		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, rai::work_generate (genesis.pub));
+		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
 		std::cout << genesis_block.to_json ();
 		rai::block_hash previous (genesis_block.hash ());
 		for (auto i (0); i != 8; ++i)
@@ -179,7 +181,7 @@ int main (int argc, char * const * argv)
 			{
 				assert (balance > weekly_distribution);
 				balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-				rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, rai::work_generate (previous));
+				rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, work.generate (previous));
 				previous = send.hash ();
 				std::cout << send.to_json ();
 				std::cout.flush ();
@@ -202,13 +204,14 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("profile_work"))
     {
+		rai::work_pool work;
         rai::change_block block (0, 0, 0, 0, 0);
         std::cerr << "Starting\n";
         for (uint64_t i (0); true; ++i)
         {
             block.hashables.previous.qwords [0] += 1;
             auto begin1 (std::chrono::high_resolution_clock::now ());
-            rai::work_generate (block);
+            work.generate (block);
             auto end1 (std::chrono::high_resolution_clock::now ());
             rai::work_validate (block);
             auto end2 (std::chrono::high_resolution_clock::now ());

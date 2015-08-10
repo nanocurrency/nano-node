@@ -726,6 +726,33 @@ public:
     rai::node & node;
     bool on;
 };
+class work_pool
+{
+public:
+	work_pool ();
+	~work_pool ();
+	void loop (uint64_t);
+	void stop ();
+	uint64_t generate (rai::uint256_union const &);
+	void generate (rai::block &);
+	rai::uint256_union current;
+	std::atomic <int> ticket;
+	bool done;
+	std::vector <std::thread> threads;
+	std::unordered_map <rai::uint256_union, uint64_t> completed;
+	std::queue <rai::uint256_union> pending;
+	std::mutex mutex;
+	std::condition_variable consumer_condition;
+	std::condition_variable producer_condition;
+};
+class kdf
+{
+public:
+	kdf (size_t);
+	rai::uint256_union generate (std::string const &, rai::uint256_union const &);
+	size_t const entries;
+	std::unique_ptr <uint64_t []> data;
+};
 class logging
 {
 public:
@@ -788,8 +815,8 @@ public:
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
-    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &);
-    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, boost::filesystem::path const &, rai::processor_service &, rai::node_config const &);
+    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &, rai::work_pool &);
+    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, boost::filesystem::path const &, rai::processor_service &, rai::node_config const &, rai::work_pool &);
     ~node ();
 	template <typename T>
 	void background (T action_a)
@@ -820,6 +847,7 @@ public:
 	int price (rai::uint128_t const &, int);
 	rai::node_config config;
     rai::processor_service & service;
+	rai::work_pool & work;
     boost::log::sources::logger log;
     rai::block_store store;
     rai::gap_cache gap_cache;
@@ -857,6 +885,7 @@ public:
     std::shared_ptr <rai::wallet> wallet (size_t);
     rai::account account (MDB_txn *, size_t);
 	void poll ();
+	rai::work_pool work;
     boost::shared_ptr <boost::asio::io_service> service;
     rai::processor_service processor;
     std::vector <std::shared_ptr <rai::node>> nodes;

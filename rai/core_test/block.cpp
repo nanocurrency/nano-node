@@ -288,18 +288,20 @@ TEST (frontier_req, serialization)
 
 TEST (work, one)
 {
-    rai::change_block block (0, 1, 2, 3, 4);
-    rai::work_generate (block);
+	rai::work_pool pool;
+    rai::change_block block (1, 1, 2, 3, 4);
+    pool.generate (block);
     auto work (block.block_work ());
-    rai::work_generate (block);
+    pool.generate (block);
     ASSERT_EQ (work, block.block_work ());
 }
 
 TEST (work, validate)
 {
-	rai::send_block send_block (0, 1, 2, 3, 4, 5);
+	rai::work_pool work;
+	rai::send_block send_block (1, 1, 2, 3, 4, 5);
     ASSERT_TRUE (rai::work_validate (send_block));
-    rai::work_generate (send_block);
+    work.generate (send_block);
     ASSERT_FALSE (rai::work_validate (send_block));
 }
 

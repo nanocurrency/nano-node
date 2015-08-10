@@ -95,8 +95,6 @@ std::unique_ptr <rai::block> deserialize_block (rai::stream &);
 std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
 std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
 void serialize_block (rai::stream &, rai::block const &);
-void work_generate (rai::block &);
-uint64_t work_generate (rai::block_hash const &);
 bool work_validate (rai::block &);
 bool work_validate (rai::block_hash const &, uint64_t);
 class send_hashables
@@ -450,14 +448,6 @@ public:
 	rai::block_hash id;
 	// All votes received by account
 	std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
-};
-class kdf
-{
-public:
-	kdf (size_t);
-	rai::uint256_union generate (std::string const &, rai::uint256_union const &);
-	size_t const entries;
-	std::unique_ptr <uint64_t []> data;
 };
 class ledger
 {

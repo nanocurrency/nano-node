@@ -59,7 +59,7 @@ TEST (rpc, account_weight)
     rai::keypair key;
     rai::system system (24000, 1);
     rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-    rai::change_block block (latest, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
+    rai::change_block block (latest, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest));
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (block).code);
 	auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
@@ -621,7 +621,7 @@ TEST (rpc, process_block)
     rai::system system (24000, 1);
 	rai::keypair key;
 	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
     boost::network::http::server <rai::rpc>::request request;
@@ -786,7 +786,7 @@ TEST (rpc, keepalive)
 {
     rai::system system (24000, 1);
 	rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
     node1->start ();
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));

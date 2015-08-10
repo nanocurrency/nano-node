@@ -1070,14 +1070,14 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
     auto error (store.work_get (transaction_a, account_a, result));
     if (error)
 	{
-        result = rai::work_generate (root_a);
+        result = node.work.generate (root_a);
     }
 	else
 	{
 		if (rai::work_validate (root_a, result))
 		{
 			BOOST_LOG (node.log) << "Cached work invalid, regenerating";
-			result = rai::work_generate (root_a);
+			result = node.work.generate (root_a);
 		}
 	}
     return result;
@@ -1216,7 +1216,7 @@ void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash
 	{
 		BOOST_LOG (node.log) << "Beginning work generation";
 	}
-    auto work (rai::work_generate (root_a));
+    auto work (node.work.generate (root_a));
 	if (node.config.logging.work_generation_time ())
 	{
 		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
@@ -1486,6 +1486,216 @@ void rai::processor_service::stop ()
 bool rai::operation::operator > (rai::operation const & other_a) const
 {
     return wakeup > other_a.wakeup;
+}
+
+namespace
+{
+class xorshift1024star
+{
+public:
+    xorshift1024star ():
+    p (0)
+    {
+    }
+    std::array <uint64_t, 16> s;
+    unsigned p;
+    uint64_t next ()
+    {
+        auto p_l (p);
+        auto pn ((p_l + 1) & 15);
+        p = pn;
+        uint64_t s0 = s[ p_l ];
+        uint64_t s1 = s[ pn ];
+        s1 ^= s1 << 31; // a
+        s1 ^= s1 >> 11; // b
+        s0 ^= s0 >> 30; // c
+        return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
+    }
+};
+}
+
+rai::work_pool::work_pool () :
+current (0),
+done (false)
+{
+	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
+	auto count (std::max (1u, std::thread::hardware_concurrency ()));
+	for (auto i (0); i < count; ++i)
+	{
+		threads.push_back (std::thread ([this, i] ()
+		{
+			loop (i);
+		}));
+	}
+}
+
+rai::work_pool::~work_pool ()
+{
+	stop ();
+	for (auto &i: threads)
+	{
+		i.join ();
+	}
+}
+
+void rai::work_pool::loop (uint64_t thread)
+{
+    xorshift1024star rng;
+    rng.s.fill (0x0123456789abcdef + thread);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
+	uint64_t work;
+	uint64_t output;
+    blake2b_state hash;
+	blake2b_init (&hash, sizeof (output));
+	std::unique_lock <std::mutex> lock (mutex);
+	while (!done || !pending.empty())
+	{
+		auto current_l (current);
+		if (!current_l.is_zero ())
+		{
+			int ticket_l (ticket);
+			lock.unlock ();
+			output = 0;
+			while (ticket == ticket_l && output < rai::block::publish_threshold)
+			{
+				auto iteration (std::numeric_limits <uint16_t>::max ());
+				while (iteration && output < rai::block::publish_threshold)
+				{
+					work = rng.next ();
+					blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work), sizeof (work));
+					blake2b_update (&hash, current_l.bytes.data (), current_l.bytes.size ());
+					blake2b_final (&hash, reinterpret_cast <uint8_t *> (&output), sizeof (output));
+					blake2b_init (&hash, sizeof (output));
+					iteration -= 1;
+				}
+			}
+			lock.lock ();
+			if (current == current_l)
+			{
+				assert (output >= rai::block::publish_threshold);
+				++ticket;
+				completed [current_l] = work;
+				consumer_condition.notify_all ();
+				// Change current so only one work thread publishes their result
+				current.clear ();
+			}
+		}
+		else
+		{
+			if (!pending.empty ())
+			{
+				current = pending.front ();
+				pending.pop ();
+				producer_condition.notify_all ();
+			}
+			else
+			{
+				producer_condition.wait (lock);
+			}
+		}
+	}
+}
+
+void rai::work_pool::generate (rai::block & block_a)
+{
+    block_a.block_work_set (generate (block_a.root ()));
+}
+
+void rai::work_pool::stop ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	done = true;
+	producer_condition.notify_all ();
+}
+
+uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
+{
+	assert (!root_a.is_zero ());
+	uint64_t result;
+	std::unique_lock <std::mutex> lock (mutex);
+	pending.push (root_a);
+	producer_condition.notify_one ();
+	auto done (false);
+	while (!done)
+	{
+		consumer_condition.wait (lock);
+		auto finish (completed.find (root_a));
+		if (finish != completed.end ())
+		{
+			done = true;
+			result = finish->second;
+			completed.erase (finish);
+		}
+	}
+	return result;
+}
+
+namespace
+{
+    size_t constexpr stepping (16);
+}
+rai::kdf::kdf (size_t entries_a) :
+entries (entries_a),
+data (new uint64_t [entries_a])
+{
+    assert ((entries_a & (stepping - 1)) == 0);
+}
+
+// Derive a wallet key from a password and salt.
+rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint256_union const & salt_a)
+{
+    rai::uint256_union input;
+    blake2b_state hash;
+	blake2b_init (&hash, 32);
+    blake2b_update (&hash, reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
+    blake2b_final (&hash, input.bytes.data (), input.bytes.size ());
+    input ^= salt_a;
+    blake2b_init (&hash, 32);
+    auto entries_l (entries);
+    auto mask (entries_l - 1);
+    xorshift1024star rng;
+    rng.s [0] = input.qwords [0];
+    rng.s [1] = input.qwords [1];
+    rng.s [2] = input.qwords [2];
+    rng.s [3] = input.qwords [3];
+    for (auto i (4), n (16); i != n; ++i)
+    {
+        rng.s [i] = 0;
+    }
+    // Random-fill buffer for an initialized starting point
+    for (auto i (data.get ()), n (data.get () + entries_l); i != n; ++i)
+    {
+        auto next (rng.next ());
+        *i = next;
+    }
+    auto previous (rng.next ());
+    // Random-write buffer to break n+1 = f(n) relation
+    for (size_t i (0), n (entries); i != n; ++i)
+    {
+        auto index (previous & mask);
+        auto value (rng.next ());
+		// Use the index from the previous random value so LSB (data[index]) != value
+        data [index] = value;
+    }
+    // Random-read buffer to prevent partial memorization
+    union
+    {
+        std::array <uint64_t, stepping> qwords;
+        std::array <uint8_t, stepping * sizeof (uint64_t)> bytes;
+    } value;
+	// Hash the memory buffer to derive encryption key
+    for (size_t i (0), n (entries); i != n; i += stepping)
+    {
+        for (size_t j (0), m (stepping); j != m; ++j)
+        {
+            auto index (rng.next () % (entries_l - (i + j)));
+            value.qwords [j] = data [index];
+            data [index] = data [entries_l - (i + j) - 1];
+        }
+        blake2b_update (&hash, reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
+    }
+    rai::uint256_union result;
+    blake2b_final (&hash, result.bytes.data (), result.bytes.size ());
+    return result;
 }
 
 rai::logging::logging () :
@@ -1769,14 +1979,15 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 	return result;
 }
 
-rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a) :
-node (init_a, service_a, application_path_a, processor_a, rai::node_config (peering_port_a, logging_a))
+rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a, rai::work_pool & work_a) :
+node (init_a, service_a, application_path_a, processor_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::node_config const & config_a) :
+rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::node_config const & config_a, rai::work_pool & work_a) :
 config (config_a),
 service (processor_a),
+work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb"),
 gap_cache (*this),
 ledger (store),
@@ -2209,7 +2420,7 @@ service (new boost::asio::io_service)
     {
         rai::node_init init;
 		rai::node_config config (port_a + i, logging);
-        auto node (std::make_shared <rai::node> (init, service, rai::unique_path (), processor, config));
+        auto node (std::make_shared <rai::node> (init, service, rai::unique_path (), processor, config, work));
         assert (!init.error ());
         node->start ();
 		rai::uint256_union wallet;

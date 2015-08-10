@@ -18,7 +18,8 @@ TEST (node, block_store_path_failure)
     rai::processor_service processor;
     auto service (boost::make_shared <boost::asio::io_service> ());
 	rai::logging logging;
-    auto node (std::make_shared <rai::node> (init, service, 0, rai::unique_path (), processor, logging));
+	rai::work_pool work;
+    auto node (std::make_shared <rai::node> (init, service, 0, rai::unique_path (), processor, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
     node->stop ();
 }
@@ -124,8 +125,8 @@ TEST (node, send_out_of_order)
     rai::system system (24000, 2);
     rai::keypair key2;
     rai::genesis genesis;
-    rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 1000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (genesis.hash ()));
-    rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 2000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, rai::work_generate (send1.hash ()));
+    rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 1000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
+    rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 2000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
     system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)), 0);
     system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)), 0);
     auto iterations (0);
@@ -142,9 +143,8 @@ TEST (node, quick_confirm)
     rai::system system (24000, 1);
     rai::keypair key;
 	rai::block_hash previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	uint64_t work (rai::work_generate (previous));
 	system.wallet (0)->insert (key.prv);
-    rai::send_block send (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work);
+    rai::send_block send (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous));
     ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send).code);
     auto iterations (0);
     while (system.nodes [0]->balance (key.pub).is_zero ())
@@ -170,7 +170,7 @@ TEST (node, auto_bootstrap)
 		ASSERT_LT (iterations1, 200);
 	}
 	rai::node_init init1;
-	auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
+	auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 	node1->start ();
@@ -211,7 +211,7 @@ TEST (node, auto_bootstrap_reverse)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key2.prv);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
     ASSERT_FALSE (init1.error ());
     ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 100));
     system.nodes [0]->network.send_keepalive (node1->network.endpoint ());
@@ -278,7 +278,7 @@ TEST (node, connect_after_junk)
 {
     rai::system system (24000, 1);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
     uint64_t junk (0);
     node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);

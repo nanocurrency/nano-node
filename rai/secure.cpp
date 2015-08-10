@@ -144,100 +144,6 @@ rai::keypair::keypair (std::string const & prv_a)
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
-namespace
-{
-class xorshift1024star
-{
-public:
-    xorshift1024star ():
-    p (0)
-    {
-    }
-    std::array <uint64_t, 16> s;
-    unsigned p;
-    uint64_t next ()
-    {
-        auto p_l (p);
-        auto pn ((p_l + 1) & 15);
-        p = pn;
-        uint64_t s0 = s[ p_l ];
-        uint64_t s1 = s[ pn ];
-        s1 ^= s1 << 31; // a
-        s1 ^= s1 >> 11; // b
-        s0 ^= s0 >> 30; // c
-        return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
-    }
-};
-}
-
-namespace {
-    size_t constexpr stepping (16);
-}
-rai::kdf::kdf (size_t entries_a) :
-entries (entries_a),
-data (new uint64_t [entries_a])
-{
-    assert ((entries_a & (stepping - 1)) == 0);
-}
-
-// Derive a wallet key from a password and salt.
-rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint256_union const & salt_a)
-{
-    rai::uint256_union input;
-    blake2b_state hash;
-	blake2b_init (&hash, 32);
-    blake2b_update (&hash, reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-    blake2b_final (&hash, input.bytes.data (), input.bytes.size ());
-    input ^= salt_a;
-    blake2b_init (&hash, 32);
-    auto entries_l (entries);
-    auto mask (entries_l - 1);
-    xorshift1024star rng;
-    rng.s [0] = input.qwords [0];
-    rng.s [1] = input.qwords [1];
-    rng.s [2] = input.qwords [2];
-    rng.s [3] = input.qwords [3];
-    for (auto i (4), n (16); i != n; ++i)
-    {
-        rng.s [i] = 0;
-    }
-    // Random-fill buffer for an initialized starting point
-    for (auto i (data.get ()), n (data.get () + entries_l); i != n; ++i)
-    {
-        auto next (rng.next ());
-        *i = next;
-    }
-    auto previous (rng.next ());
-    // Random-write buffer to break n+1 = f(n) relation
-    for (size_t i (0), n (entries); i != n; ++i)
-    {
-        auto index (previous & mask);
-        auto value (rng.next ());
-		// Use the index from the previous random value so LSB (data[index]) != value
-        data [index] = value;
-    }
-    // Random-read buffer to prevent partial memorization
-    union
-    {
-        std::array <uint64_t, stepping> qwords;
-        std::array <uint8_t, stepping * sizeof (uint64_t)> bytes;
-    } value;
-	// Hash the memory buffer to derive encryption key
-    for (size_t i (0), n (entries); i != n; i += stepping)
-    {
-        for (size_t j (0), m (stepping); j != m; ++j)
-        {
-            auto index (rng.next () % (entries_l - (i + j)));
-            value.qwords [j] = data [index];
-            data [index] = data [entries_l - (i + j) - 1];
-        }
-        blake2b_update (&hash, reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
-    }
-    rai::uint256_union result;
-    blake2b_final (&hash, result.bytes.data (), result.bytes.size ());
-    return result;
-}
-
 rai::ledger::ledger (rai::block_store & store_a) :
 store (store_a)
 {
@@ -652,30 +558,6 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
     block_a.serialize (stream_a);
 }
 
-uint64_t rai::work_generate (rai::block_hash const & root_a)
-{
-    xorshift1024star rng;
-    rng.s.fill (0x0123456789abcdef);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
-    uint64_t work;
-    blake2b_state hash;
-	blake2b_init (&hash, sizeof (work));
-    uint64_t output;
-    do
-    {
-        work = rng.next ();
-        blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work), sizeof (work));
-        blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-        blake2b_final (&hash, reinterpret_cast <uint8_t *> (&output), sizeof (output));
-        blake2b_init (&hash, sizeof (work));
-    } while (output < rai::block::publish_threshold);
-    return work;
-}
-
-void rai::work_generate (rai::block & block_a)
-{
-    block_a.block_work_set (rai::work_generate (block_a.root ()));
-}
-
 bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
 {
     uint64_t result;
@@ -953,7 +835,7 @@ work (work_a)
 
 rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, std::nullptr_t) :
 hashables (source_a, representative_a, account_a),
-work (rai::work_generate (root ()))
+work (0)
 {
 	signature.clear ();
 }

@@ -486,7 +486,7 @@ TEST (wallet, empty_work)
     rai::system system (24000, 1);
     auto wallet (system.wallet (0));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-	ASSERT_FALSE (rai::work_validate (0, wallet->work_fetch (transaction, 0, 0)));
+	ASSERT_FALSE (rai::work_validate (1, wallet->work_fetch (transaction, 0, 1)));
 }
 
 // Test work is precached when a key is inserted
@@ -546,6 +546,6 @@ TEST (wallet, unsynced_work)
     auto wallet (system.wallet (0));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 	wallet->store.work_put (transaction, 0, 0);
-	auto work1 (wallet->work_fetch (transaction, 0, 0));
-	ASSERT_FALSE (rai::work_validate (0, work1));
+	auto work1 (wallet->work_fetch (transaction, 0, 1));
+	ASSERT_FALSE (rai::work_validate (1, work1));
 }
