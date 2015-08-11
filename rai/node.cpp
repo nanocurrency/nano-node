@@ -3395,11 +3395,19 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 					try
 					{
 						auto amount (std::stoi (amount_text));
-						auto balance (node.balance (account));
-						auto price (node.price (balance, amount));
-						boost::property_tree::ptree response_l;
-						response_l.put ("price", std::to_string (price));
-						set_response (response, response_l);
+						if (amount < 1000)
+						{
+							auto balance (node.balance (account));
+							auto price (node.price (balance, amount));
+							boost::property_tree::ptree response_l;
+							response_l.put ("price", std::to_string (price));
+							set_response (response, response_l);
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Cannot purchase more than 1000";
+						}
 					}
 					catch (std::invalid_argument const &)
 					{
