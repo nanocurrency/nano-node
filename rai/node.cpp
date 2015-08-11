@@ -4570,10 +4570,10 @@ void rai::bulk_pull_client::process_end ()
 				break;
 			case rai::process_result::fork:
 				connection->connection->node->network.broadcast_confirm_req (block_a);
-				BOOST_LOG (connection->connection->node->log) << "Fork received in bootstrap";
+				BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
 				break;
 			default:
-				BOOST_LOG (connection->connection->node->log) << "Error inserting block in bootstrap";
+				BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
 				break;
 		}
 		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
@@ -4585,7 +4585,7 @@ void rai::bulk_pull_client::process_end ()
 		auto error (synchronization.synchronize (block));
         if (error)
         {
-			BOOST_LOG (connection->connection->node->log) << "Error synchronizing block";
+			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error synchronizing block: %1%") % block.to_string ());
 			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
             while (!synchronization.blocks.empty ())
             {
