@@ -6155,7 +6155,7 @@ void rai::landing::distribute_one ()
 		error = wallet->send_sync (store.source, store.destination, amount);
 		if (!error)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%\n") % amount);
+			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%") % amount);
 			store.last += distribution_interval.count ();
 			write_store ();
 		}
