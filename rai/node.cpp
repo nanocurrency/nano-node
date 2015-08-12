@@ -5633,7 +5633,10 @@ void rai::election::timeout_action ()
 		{
 			auto root_l (votes.id);
 			node_l->conflicts.stop (root_l);
-			BOOST_LOG (node_l->log) << boost::str (boost::format ("Election timed out for block %1%") % last_winner->hash ().to_string ());
+			if (!confirmed)
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Election timed out for block %1%") % last_winner->hash ().to_string ());
+			}
 		}
 	}
 }
