@@ -337,7 +337,7 @@ public:
     {
         if (node.config.logging.network_keepalive_logging ())
         {
-            BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive from %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
         }
         ++node.network.keepalive_count;
         node.peers.contacted (sender);
@@ -347,7 +347,7 @@ public:
     {
         if (node.config.logging.network_message_logging ())
         {
-            BOOST_LOG (node.log) << boost::str (boost::format ("Received publish req from %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received publish message from %1%") % sender);
         }
         ++node.network.publish_count;
         node.peers.contacted (sender);
@@ -358,7 +358,7 @@ public:
     {
         if (node.config.logging.network_message_logging ())
         {
-            BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm req %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_req message from %1%") % sender);
         }
         ++node.network.confirm_req_count;
         node.peers.contacted (sender);
@@ -378,7 +378,7 @@ public:
     {
         if (node.config.logging.network_message_logging ())
         {
-            BOOST_LOG (node.log) << boost::str (boost::format ("Received Confirm from %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1%") % sender);
         }
         ++node.network.confirm_ack_count;
         node.peers.contacted (sender);
