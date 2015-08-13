@@ -4151,7 +4151,7 @@ void rai::bulk_pull_server::send_next ()
             rai::serialize_block (stream, *block);
         }
         auto this_l (shared_from_this ());
-        if (connection->node->config.logging.network_logging ())
+        if (connection->node->config.logging.bulk_pull_logging ())
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
         }
