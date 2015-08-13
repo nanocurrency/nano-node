@@ -2166,16 +2166,15 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
                     if (!node.peers.knows_about (j->endpoint, hash))
                     {
                         confirm_block (prv, pub, block_a->clone (), sequence_a, j->endpoint, rebroadcast_a);
+						result = true;
                     }
                 }
+				prv.clear ();
             }
             else
             {
 				BOOST_LOG (node.log) << "Representative unable to broadcast confirmation, wallet locked";
-                // Wallet is locked
             }
-			result = true;
-            prv.clear ();
         }
     }
     return result;
@@ -2191,16 +2190,16 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
     }
     if (node.config.logging.network_publish_logging ())
     {
-        BOOST_LOG (node.log) << boost::str (boost::format ("Confirm %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
+        BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
     }
     auto node_l (node.shared ());
-    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l] (boost::system::error_code const & ec, size_t size_a)
+    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t size_a)
         {
             if (node_l->config.logging.network_logging ())
             {
                 if (ec)
                 {
-                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirmation: %1%") % ec.message ());
+                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ());
                 }
             }
         });
