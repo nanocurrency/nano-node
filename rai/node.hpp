@@ -353,6 +353,7 @@ public:
     bool search_pending (rai::uint256_union const &);
 	void destroy (rai::uint256_union const &);
 	void queue_wallet_action (rai::account const &, std::function <void ()> const &);
+	void foreach_representative (std::function <void (rai::public_key const &, rai::private_key const &)> const &);
 	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
 	std::unordered_multimap <rai::account, std::function <void ()>> pending_actions;
 	std::unordered_set <rai::account> current_actions;

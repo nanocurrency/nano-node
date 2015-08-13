@@ -1345,6 +1345,33 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, std::fun
 	}
 }
 
+void rai::wallets::foreach_representative (std::function <void (rai::public_key const & pub_a, rai::private_key const & prv_a)> const & action_a)
+{
+    for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+    {
+		rai::transaction transaction (node.store.environment, nullptr, false);
+        auto & wallet (*i->second);
+		for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m; ++j)
+        {
+			if (wallet.store.valid_password (transaction))
+			{
+				if (!node.ledger.weight (transaction, j->first).is_zero ())
+				{
+					rai::private_key prv;
+					auto error (wallet.store.fetch (transaction, j->first, prv));
+					assert (!error);
+					action_a (j->first, prv);
+					prv.clear ();
+				}
+			}
+			else
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Skipping locked wallet %1%") % i->first.to_string ());;
+			}
+        }
+    }
+}
+
 rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a)
 {
     rai::store_iterator result (transaction_a, handle, rai::uint256_union (special_count).val ());
@@ -2149,34 +2176,18 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, size_t rebroadcast_a)
 {
     bool result (false);
-    for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
-    {
-		rai::transaction transaction (node.store.environment, nullptr, false);
-        auto & wallet (*i->second);
-        if (wallet.store.is_representative (transaction))
-        {
-            auto pub (wallet.store.representative (transaction));
-            rai::private_key prv;
-            auto error (wallet.store.fetch (transaction, pub, prv));
-            if (!error)
-            {
-                auto hash (block_a->hash ());
-                for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-                {
-                    if (!node.peers.knows_about (j->endpoint, hash))
-                    {
-                        confirm_block (prv, pub, block_a->clone (), sequence_a, j->endpoint, rebroadcast_a);
-						result = true;
-                    }
-                }
-				prv.clear ();
-            }
-            else
-            {
-				BOOST_LOG (node.log) << "Representative unable to broadcast confirmation, wallet locked";
-            }
-        }
-    }
+	node.wallets.foreach_representative ([&result, &block_a, &list_a, this, sequence_a, rebroadcast_a] (rai::public_key const & pub_a, rai::private_key const & prv_a)
+	{
+		auto hash (block_a->hash ());
+		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+		{
+			if (!node.peers.knows_about (j->endpoint, hash))
+			{
+				confirm_block (prv_a, pub_a, block_a->clone (), sequence_a, j->endpoint, rebroadcast_a);
+				result = true;
+			}
+		}
+	});
     return result;
 }
 
@@ -2488,32 +2499,14 @@ void rai::system::poll ()
 
 void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
-    for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+	wallets.foreach_representative ([this, &block_a, &sender] (rai::public_key const & pub_a, rai::private_key const & prv_a)
 	{
-		rai::transaction transaction (i->second->store.environment, nullptr, false);
-		if (i->second->store.is_representative (transaction))
-        {
-            auto representative (i->second->store.representative (transaction));
-			auto weight (ledger.weight (transaction, representative));
-			if (!weight.is_zero ())
-            {
-                if (config.logging.network_message_logging ())
-                {
-                    BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
-                }
-                rai::private_key prv;
-                auto error (i->second->store.fetch (transaction, representative, prv));
-                if (!error)
-				{
-					network.confirm_block (prv, representative, block_a.clone (), 0, sender, 0);
-				}
-				else
-				{
-					BOOST_LOG (log) << boost::str (boost::format ("Unable to fetch private key"));
-				}
-			}
+		if (config.logging.network_message_logging ())
+		{
+			BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
 		}
-	}
+		network.confirm_block (prv_a, pub_a, block_a.clone (), 0, sender, 0);
+	});
 }
 
 rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a) :
