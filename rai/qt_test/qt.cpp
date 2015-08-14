@@ -439,7 +439,7 @@ TEST (wallet, import)
 	auto path (rai::unique_path ());
 	{
 		std::ofstream stream;
-		stream.open (path.c_str ());
+		stream.open (path.string ().c_str ());
 		stream << json;
 	}
     rai_qt::wallet wallet (*test_application, *system.nodes [1], system.wallet (1), key2.pub);
