@@ -335,8 +335,7 @@ TEST (rpc, wallet_password_enter)
 	auto iterations (0);
 	while (system.wallet (0)->store.password.value () == 0)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}

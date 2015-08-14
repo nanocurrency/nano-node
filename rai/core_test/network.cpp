@@ -39,7 +39,7 @@ TEST (network, tcp_connection)
         });
     while (!done1 || !done2)
     {
-        service.poll_one ();
+        service.poll ();
     }
     ASSERT_EQ (0, message1.size ());
     ASSERT_EQ (0, message2.size ());
@@ -76,7 +76,7 @@ TEST (network, send_keepalive)
     auto iterations (0);
     while (system.nodes [0]->network.keepalive_count == initial)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -102,7 +102,7 @@ TEST (network, keepalive_ipv4)
     auto iterations (0);
     while (system.nodes [0]->network.keepalive_count == initial)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -156,7 +156,7 @@ TEST (network, send_discarded_publish)
     auto iterations (0);
     while (system.nodes [1]->network.publish_count == 0)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -175,7 +175,7 @@ TEST (network, send_invalid_publish)
     auto iterations (0);
     while (system.nodes [1]->network.publish_count == 0)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -197,7 +197,7 @@ TEST (network, send_valid_confirm_ack)
     auto iterations (0);
     while (system.nodes [1]->network.confirm_ack_count == 0)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -221,7 +221,7 @@ TEST (network, send_valid_publish)
     auto iterations (0);
     while (system.nodes [0]->network.publish_count == 0)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -247,7 +247,7 @@ TEST (network, send_insufficient_work)
     auto iterations (0);
     while (system.nodes [1]->network.insufficient_work_count == 0)
     {
-        system.service->poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -795,8 +795,7 @@ TEST (bulk, offline_send)
     auto iterations2 (0);
     while (node1->balance (key2.pub) != 100)
     {
-        system.service->poll_one ();
-        system.processor.poll_one ();
+        system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
     }
@@ -860,7 +859,7 @@ TEST (network, ipv6_bind_send_ipv4)
     });
     while (!finish1)
     {
-        service.poll_one ();
+        service.poll ();
     }
     ASSERT_EQ (endpoint6, endpoint3);
     std::array <uint8_t, 16> bytes2;

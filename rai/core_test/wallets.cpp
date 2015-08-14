@@ -31,8 +31,7 @@ TEST (wallets, DISABLED_open_existing)
 		auto iterations (0);
 		while (wallet->store.password.value () == 0)
 		{
-			system.service->poll_one ();
-			system.processor.poll_one ();
+			system.poll ();
 			++iterations;
 			ASSERT_LT (iterations, 200);
 		}

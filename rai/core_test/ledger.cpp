@@ -834,8 +834,7 @@ TEST (fork, publish)
 		auto iterations2 (0);
 		while (node1.conflicts.roots.size () == 0)
 		{
-            system.service->poll_one ();
-            system.processor.poll_one ();
+            system.poll ();
 			++iterations2;
 			ASSERT_LT (iterations2, 200);
 		}
@@ -848,8 +847,7 @@ TEST (fork, publish)
 		auto iterations1 (0);
         while (votes1->votes.rep_votes.size () == 1)
         {
-            system.service->poll_one ();
-            system.processor.poll_one ();
+            system.poll ();
 			++iterations1;
 			ASSERT_LT (iterations1, 200);
         }
@@ -890,8 +888,7 @@ TEST (ledger, fork_keep)
 	auto iterations2 (0);
     while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+		system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 	}
@@ -908,8 +905,7 @@ TEST (ledger, fork_keep)
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+		system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
 	}
@@ -946,8 +942,7 @@ TEST (ledger, fork_flip)
 	auto iterations2 (0);
 	while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
 	{
-        system.service->poll_one ();
-        system.processor.poll_one ();
+        system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 	}
@@ -967,8 +962,7 @@ TEST (ledger, fork_flip)
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
     {
-        system.service->poll_one ();
-        system.processor.poll_one ();
+        system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
@@ -1011,8 +1005,7 @@ TEST (ledger, fork_multi_flip)
 	auto iterations2 (0);
     while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+		system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 	}
@@ -1033,8 +1026,7 @@ TEST (ledger, fork_multi_flip)
     auto iterations (0);
     while (votes1->votes.rep_votes.size () == 1)
 	{
-		system.service->poll_one ();
-		system.processor.poll_one ();
+		system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
 	}

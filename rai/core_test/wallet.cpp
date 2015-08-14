@@ -523,8 +523,7 @@ TEST (wallet, work_generate)
     auto iterations1 (0);
     while (system.nodes [0]->ledger.account_balance (rai::transaction (system.nodes [0]->store.environment, nullptr, false), rai::test_genesis_key.pub) == amount1)
     {
-        system.service->poll_one ();
-        system.processor.poll_one ();
+        system.poll ();
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
