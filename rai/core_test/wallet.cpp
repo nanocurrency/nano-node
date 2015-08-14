@@ -195,7 +195,7 @@ TEST (wallet, find_none)
 	rai::transaction transaction (environment, nullptr, true);
     rai::wallet_store wallet (init, transaction, "0");
     ASSERT_FALSE (init);
-    rai::uint256_union account (0);
+    rai::uint256_union account (1000);
     ASSERT_EQ (wallet.end (), wallet.find (transaction, account));
 }
 

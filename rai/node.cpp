@@ -1307,11 +1307,11 @@ bool rai::wallets::search_pending (rai::uint256_union const & wallet_a)
 void rai::wallets::destroy (rai::uint256_union const & id_a)
 {
 	rai::transaction transaction (node.store.environment, nullptr, true);
-    auto existing (items.find (id_a));
-    assert (existing != items.end ());
-    auto wallet (existing->second);
-    items.erase (existing);
-	existing->second->store.destroy (transaction);
+	auto existing (items.find (id_a));
+	assert (existing != items.end ());
+	auto wallet (existing->second);
+	items.erase (existing);
+	wallet->store.destroy (transaction);
 }
 
 void rai::wallets::queue_wallet_action (rai::account const & account_a, std::function <void ()> const & action_a)
@@ -4649,7 +4649,10 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
         auto index (random_pool.GenerateWord32 (0, peers.size () - 1));
         assert (index < peers.size ());
         assert (index >= 0);
-        peers [index] = peers [peers.size () - 1];
+	if (index != peers.size () - 1)
+	{
+        	peers [index] = peers [peers.size () - 1];
+	}
         peers.pop_back ();
     }
     assert (peers.size () <= target_a.size ());
