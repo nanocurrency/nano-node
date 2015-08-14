@@ -47,17 +47,25 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 {
 	boost::system::error_code error;
-	boost::filesystem::create_directories (path_a.parent_path (), error);
-	if (!error)
+	if (path_a.has_parent_path ())
 	{
-		auto status1 (mdb_env_create (&environment));
-		assert (status1 == 0);
-		auto status2 (mdb_env_set_maxdbs (environment, 128));
-		assert (status2 == 0);
-		auto status3 (mdb_env_set_mapsize (environment, 1024 * 1024 * 1024));
-		assert (status3 == 0);
-		auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR, 00600));
-		error_a = status4 != 0;
+		boost::filesystem::create_directories (path_a.parent_path (), error);
+		if (!error)
+		{
+			auto status1 (mdb_env_create (&environment));
+			assert (status1 == 0);
+			auto status2 (mdb_env_set_maxdbs (environment, 128));
+			assert (status2 == 0);
+			auto status3 (mdb_env_set_mapsize (environment, 1024 * 1024 * 1024));
+			assert (status3 == 0);
+			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR, 00600));
+			error_a = status4 != 0;
+		}
+		else
+		{
+			error_a = true;
+			environment = nullptr;
+		}
 	}
 	else
 	{
