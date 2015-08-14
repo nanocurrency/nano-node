@@ -449,7 +449,7 @@ TEST (wallet, import)
 	ASSERT_EQ (wallet.accounts.window, wallet.main_stack->currentWidget ());
 	QTest::mouseClick (wallet.accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet.import.window, wallet.main_stack->currentWidget ());
-	QTest::keyClicks (wallet.import.filename, path.c_str ());
+	QTest::keyClicks (wallet.import.filename, path.string ().c_str ());
 	QTest::keyClicks (wallet.import.password, "");
 	ASSERT_FALSE (system.wallet (1)->exists (key1.pub));
 	QTest::mouseClick (wallet.import.perform, Qt::LeftButton);
