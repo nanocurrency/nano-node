@@ -195,7 +195,7 @@ TEST (wallet, find_none)
 	rai::transaction transaction (environment, nullptr, true);
     rai::wallet_store wallet (init, transaction, "0");
     ASSERT_FALSE (init);
-    rai::uint256_union account;
+    rai::uint256_union account (0);
     ASSERT_EQ (wallet.end (), wallet.find (transaction, account));
 }
 
@@ -291,7 +291,7 @@ TEST (wallet, hash_password)
 
 TEST (fan, reconstitute)
 {
-    rai::uint256_union value0;
+    rai::uint256_union value0 (0);
     rai::fan fan (value0, 1024);
     for (auto & i: fan.values)
     {
@@ -303,8 +303,8 @@ TEST (fan, reconstitute)
 
 TEST (fan, change)
 {
-    rai::uint256_union value0;
-    rai::uint256_union value1;
+    rai::uint256_union value0 (0);
+    rai::uint256_union value1 (1);
     ASSERT_NE (value0, value1);
     rai::fan fan (value0, 1024);
     ASSERT_EQ (value0, fan.value ());

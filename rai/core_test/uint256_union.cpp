@@ -27,7 +27,7 @@ TEST (uint256_union, key_encryption)
 
 TEST (uint256_union, encryption)
 {
-    rai::uint256_union key;
+    rai::uint256_union key (0);
     rai::uint256_union number1 (1);
     rai::uint256_union encrypted1 (number1, key, key.owords [0]);
     rai::uint256_union encrypted2 (number1, key, key.owords [0]);
