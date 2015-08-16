@@ -4185,6 +4185,10 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
     {
         send_next ();
     }
+	else
+	{
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unable to bulk send block: %1%") % ec.message ());
+	}
 }
 
 void rai::bulk_pull_server::send_finished ()
@@ -4209,6 +4213,10 @@ void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec,
         assert (size_a == 1);
 		connection->finish_request ();
     }
+	else
+	{
+		BOOST_LOG (connection->node->log) << "Unable to send not-a-block";
+	}
 }
 
 rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::function <void ()> const & completion_action_a) :
@@ -4387,7 +4395,7 @@ void rai::bulk_pull_client::received_type ()
         }
         default:
         {
-            BOOST_LOG (connection->connection->node->log) << "Unknown type received as block type";
+            BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Unknown type received as block type: %1%") % type);
             break;
         }
     }
@@ -4620,6 +4628,10 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
         {
             BOOST_LOG (connection->connection->node->log) << "Error deserializing block received from pull request";
         }
+	}
+	else
+	{
+		BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error bulk receiving block: %1%") % ec.message ());
 	}
 }
 
