@@ -118,6 +118,7 @@ int main (int argc, char * const * argv)
 		("generate_bootstrap", "Generate bootstrap sequence of blocks")
 		("expand_key", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
         ("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
+		("get_key", boost::program_options::value <std::string> (), "Get the public key for the base58check encoded account number")
         ("xorshift_profile", "Profile xorshift algorithms")
         ("verify_profile", "Profile signature verification");
     boost::program_options::variables_map vm;
@@ -202,6 +203,12 @@ int main (int argc, char * const * argv)
         pub.decode_hex (vm ["get_account"].as <std::string> ());
         std::cout << "Account: " << pub.to_base58check () << std::endl;
     }
+	else if (vm.count ("get_key"))
+	{
+		rai::uint256_union account;
+		account.decode_base58check (vm ["get_key"].as <std::string> ());
+		std::cout << "Hex: " << account.to_string () << std::endl;
+	}
     else if (vm.count ("profile_work"))
     {
 		rai::work_pool work;

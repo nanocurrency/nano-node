@@ -4107,7 +4107,7 @@ void rai::bulk_pull_server::set_current_end ()
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_string ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_base58check ());
 		}
 		current = request->end;
 	}
