@@ -107,40 +107,40 @@ void fill_zero (void * data)
 
 int main (int argc, char * const * argv)
 {
-    boost::program_options::options_description description ("Command line options");
-    description.add_options ()
-        ("help", "Print out options")
-        ("debug_activity", "Generates fake debug activity")
+	boost::program_options::options_description description ("Command line options");
+	description.add_options ()
+		("help", "Print out options")
+		("debug_activity", "Generates fake debug activity")
 		("dump_wallets", "Dumps wallet IDs and public keys")
-        ("profile_work", "Profile the work function")
-        ("profile_kdf", "Profile kdf function")
-        ("generate_key", "Generates a random keypair")
+		("profile_work", "Profile the work function")
+		("profile_kdf", "Profile kdf function")
+		("generate_key", "Generates a random keypair")
 		("generate_bootstrap", "Generate bootstrap sequence of blocks")
 		("expand_key", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
-        ("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
+		("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
 		("get_key", boost::program_options::value <std::string> (), "Get the public key for the base58check encoded account number")
-        ("xorshift_profile", "Profile xorshift algorithms")
-        ("verify_profile", "Profile signature verification");
-    boost::program_options::variables_map vm;
-    boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
-    boost::program_options::notify (vm);
-    int result (0);
-    if (vm.count ("help"))
-    {
-        std::cout << description << std::endl;
-        result = -1;
-    }
+		("xorshift_profile", "Profile xorshift algorithms")
+		("verify_profile", "Profile signature verification");
+	boost::program_options::variables_map vm;
+	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
+	boost::program_options::notify (vm);
+	int result (0);
+	if (vm.count ("help"))
+	{
+		std::cout << description << std::endl;
+		result = -1;
+	}
 	else if (vm.count ("dump_wallets"))
 	{
 		auto working (rai::working_path ());
 		boost::filesystem::create_directories (working);
-        auto service (boost::make_shared <boost::asio::io_service> ());
-        auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-        rai::processor_service processor;
+		auto service (boost::make_shared <boost::asio::io_service> ());
+		auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+		rai::processor_service processor;
 		rai::logging logging;
 		rai::node_init init;
 		rai::work_pool work;
-        auto node (std::make_shared <rai::node> (init, service, 24000,  working, processor, logging, work));
+		auto node (std::make_shared <rai::node> (init, service, 24000,  working, processor, logging, work));
 		for (auto i (node->wallets.items.begin ()), n (node->wallets.items.end ()); i != n; ++i)
 		{
 			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
