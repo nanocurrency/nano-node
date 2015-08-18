@@ -5050,11 +5050,11 @@ void rai::frontier_req_server::send_next ()
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_base58check () % info.head.to_string ());
         }
+		next ();
         async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
         {
             this_l->sent_action (ec, size_a);
         });
-		next ();
     }
     else
     {
