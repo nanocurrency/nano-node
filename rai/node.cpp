@@ -1727,17 +1727,17 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
 }
 
 rai::logging::logging () :
-ledger_logging_value (true),
+ledger_logging_value (false),
 ledger_duplicate_logging_value (false),
 network_logging_value (true),
-network_message_logging_value (true),
+network_message_logging_value (false),
 network_publish_logging_value (false),
 network_packet_logging_value (false),
 network_keepalive_logging_value (false),
 node_lifetime_tracing_value (false),
 insufficient_work_logging_value (true),
 log_rpc_value (true),
-bulk_pull_logging_value (true),
+bulk_pull_logging_value (false),
 work_generation_time_value (true),
 log_to_cerr_value (false)
 {
@@ -4593,6 +4593,8 @@ void rai::bulk_pull_client::process_end ()
 		auto error (synchronization.synchronize (block));
         if (error)
         {
+			// Pulling account chains isn't transactional so updates happening during the process can cause dependency failures
+			// A node may also have erroneously not sent the required dependent blocks
 			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error synchronizing block: %1%") % block.to_string ());
 			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
             while (!synchronization.blocks.empty ())
