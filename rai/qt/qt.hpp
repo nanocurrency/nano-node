@@ -53,36 +53,38 @@ namespace rai_qt {
     class advanced_actions
     {
     public:
-        advanced_actions (rai_qt::wallet &);
-        QWidget * window;
-        QVBoxLayout * layout;
-        QPushButton * enter_password;
-        QPushButton * change_password;
-        QPushButton * accounts;
-        QPushButton * show_ledger;
-        QPushButton * show_peers;
-        QPushButton * search_for_receivables;
-        QPushButton * wallet_refresh;
-        QPushButton * create_block;
-        QPushButton * enter_block;
+		advanced_actions (rai_qt::wallet &);
+		QWidget * window;
+		QVBoxLayout * layout;
+		QPushButton * enter_password;
+		QPushButton * change_password;
+		QPushButton * accounts;
+		QPushButton * show_ledger;
+		QPushButton * show_peers;
+		QPushButton * search_for_receivables;
+		QPushButton * wallet_refresh;
+		QPushButton * create_block;
+		QPushButton * enter_block;
 		QPushButton * block_viewer;
-        QPushButton * back;
-        
-        QWidget * ledger_window;
-        QVBoxLayout * ledger_layout;
-        QStandardItemModel * ledger_model;
-        QTableView * ledger_view;
-        QPushButton * ledger_refresh;
-        QPushButton * ledger_back;
-        
-        QWidget * peers_window;
-        QVBoxLayout * peers_layout;
-        QStringListModel * peers_model;
-        QListView * peers_view;
-        QPushButton * peers_refresh;
-        QPushButton * peers_back;
-                
-        rai_qt::wallet & wallet;
+		QPushButton * back;
+
+		QWidget * ledger_window;
+		QVBoxLayout * ledger_layout;
+		QStandardItemModel * ledger_model;
+		QTableView * ledger_view;
+		QPushButton * ledger_refresh;
+		QPushButton * ledger_back;
+
+		QWidget * peers_window;
+		QVBoxLayout * peers_layout;
+		QStringListModel * peers_model;
+		QListView * peers_view;
+		QLineEdit * bootstrap_line;
+		QPushButton * peers_bootstrap;
+		QPushButton * peers_refresh;
+		QPushButton * peers_back;
+				
+		rai_qt::wallet & wallet;
     private:
         void refresh_ledger ();
         void refresh_peers ();

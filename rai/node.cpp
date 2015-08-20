@@ -2706,7 +2706,7 @@ bool parse_address_port (std::string const & string, boost::asio::ip::address & 
             if (!result)
             {
                 boost::system::error_code ec;
-                auto address (boost::asio::ip::address_v4::from_string (string.substr (0, port_position), ec));
+                auto address (boost::asio::ip::address_v6::from_string (string.substr (0, port_position), ec));
                 if (ec == 0)
                 {
                     address_a = address;

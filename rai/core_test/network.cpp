@@ -341,30 +341,23 @@ TEST (network, receive_weight_change)
 
 TEST (parse_endpoint, valid)
 {
-    std::string string ("127.0.0.1:24000");
+    std::string string ("::1:24000");
     rai::endpoint endpoint;
     ASSERT_FALSE (rai::parse_endpoint (string, endpoint));
-    ASSERT_EQ (boost::asio::ip::address_v4::loopback (), endpoint.address ());
+    ASSERT_EQ (boost::asio::ip::address_v6::loopback (), endpoint.address ());
     ASSERT_EQ (24000, endpoint.port ());
 }
 
 TEST (parse_endpoint, invalid_port)
 {
-    std::string string ("127.0.0.1:24a00");
+    std::string string ("::1:24a00");
     rai::endpoint endpoint;
     ASSERT_TRUE (rai::parse_endpoint (string, endpoint));
 }
 
 TEST (parse_endpoint, invalid_address)
 {
-    std::string string ("127.0q.0.1:24000");
-    rai::endpoint endpoint;
-    ASSERT_TRUE (rai::parse_endpoint (string, endpoint));
-}
-
-TEST (parse_endpoint, nothing)
-{
-    std::string string ("127.0q.0.1:24000");
+    std::string string ("::q:24000");
     rai::endpoint endpoint;
     ASSERT_TRUE (rai::parse_endpoint (string, endpoint));
 }
@@ -378,14 +371,14 @@ TEST (parse_endpoint, no_address)
 
 TEST (parse_endpoint, no_port)
 {
-    std::string string ("127.0.0.1:");
+    std::string string ("::1:");
     rai::endpoint endpoint;
     ASSERT_TRUE (rai::parse_endpoint (string, endpoint));
 }
 
 TEST (parse_endpoint, no_colon)
 {
-    std::string string ("127.0.0.1");
+    std::string string ("::1");
     rai::endpoint endpoint;
     ASSERT_TRUE (rai::parse_endpoint (string, endpoint));
 }

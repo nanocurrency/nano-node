@@ -687,6 +687,8 @@ peers_window (new QWidget),
 peers_layout (new QVBoxLayout),
 peers_model (new QStringListModel),
 peers_view (new QListView),
+bootstrap_line (new QLineEdit),
+peers_bootstrap (new QPushButton ("Bootstrap")),
 peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
 wallet (wallet_a)
@@ -709,6 +711,8 @@ wallet (wallet_a)
     peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     peers_view->setModel (peers_model);
     peers_layout->addWidget (peers_view);
+	peers_layout->addWidget (bootstrap_line);
+	peers_layout->addWidget (peers_bootstrap);
     peers_layout->addWidget (peers_refresh);
     peers_layout->addWidget (peers_back);
     peers_layout->setContentsMargins (0, 0, 0, 0);
@@ -760,6 +764,15 @@ wallet (wallet_a)
     {
         wallet.pop_main_stack ();
     });
+	QObject::connect (peers_bootstrap, &QPushButton::released, [this] ()
+	{
+		rai::endpoint endpoint;
+		auto error (rai::parse_endpoint (bootstrap_line->text ().toStdString (), endpoint));
+		if (!error)
+		{
+			wallet.node.bootstrap_initiator.bootstrap (endpoint);
+		}
+	});
     QObject::connect (peers_refresh, &QPushButton::released, [this] ()
     {
         refresh_peers ();
