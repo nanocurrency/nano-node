@@ -184,7 +184,6 @@ target_link_libraries (qt_system node secure lmdb xxhash ed25519 qt blake2 ${Boo
 
 if (APPLE)
 	get_filename_component (Qt5Core_framework_DIR ${Qt5_DIR}/../../QtCore.framework ABSOLUTE)
-	message ("Qt5Core ${Qt5Core_framework_DIR}")
 	get_filename_component (Qt5Gui_framework_DIR ${Qt5_DIR}/../../QtGui.framework ABSOLUTE)
 	get_filename_component (Qt5PrintSupport_framework_DIR ${Qt5_DIR}/../../QtPrintSupport.framework ABSOLUTE)
 	get_filename_component (Qt5Test_framework_DIR ${Qt5_DIR}/../../QtTest.framework ABSOLUTE)

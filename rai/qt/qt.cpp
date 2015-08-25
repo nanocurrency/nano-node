@@ -364,8 +364,7 @@ account (account_a),
 history (node.ledger, account_a, rendering_ratio),
 accounts (*this),
 self (*this, account_a),
-password_change (*this),
-enter_password (*this),
+password_management (*this),
 advanced (*this),
 block_creation (*this),
 block_entry (*this),
@@ -378,8 +377,10 @@ client_window (new QWidget),
 client_layout (new QVBoxLayout),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
+separator (new QFrame),
 account_history_label (new QLabel ("Account history:")),
 send_blocks (new QPushButton ("Send")),
+password (new QPushButton ("Password management")),
 show_advanced (new QPushButton ("Advanced")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
@@ -404,6 +405,7 @@ last_status (rai_qt::status::disconnected)
 	entry_window_layout->addWidget (account_history_label);
 	entry_window_layout->addWidget (history.view);
     entry_window_layout->addWidget (send_blocks);
+	entry_window_layout->addWidget (password);
     entry_window_layout->addWidget (show_advanced);
     entry_window_layout->setContentsMargins (0, 0, 0, 0);
     entry_window_layout->setSpacing (5);
@@ -412,15 +414,22 @@ last_status (rai_qt::status::disconnected)
     main_stack->addWidget (entry_window);
 
 	status->setAlignment (Qt::AlignHCenter);
+	separator->setFrameShape (QFrame::HLine);
+	separator->setFrameShadow (QFrame::Sunken);
 	
 	client_layout->addWidget (status);
     client_layout->addWidget (self.window);
+	client_layout->addWidget (separator);
     client_layout->addWidget (main_stack);
     client_layout->setSpacing (0);
     client_layout->setContentsMargins (0, 0, 0, 0);
     client_window->setLayout (client_layout);
     client_window->resize (320, 480);
 
+    QObject::connect (password, &QPushButton::released, [this] ()
+    {
+        password_management.activate ();
+    });
     QObject::connect (show_advanced, &QPushButton::released, [this] ()
     {
         push_main_stack (advanced.window);
@@ -547,78 +556,62 @@ void rai_qt::wallet::pop_main_stack ()
     main_stack->removeWidget (main_stack->currentWidget ());
 }
 
-void rai_qt::password_change::clear ()
-{
-    password_label->setStyleSheet ("QLabel { color: black }");
-    password->clear ();
-    retype_label->setStyleSheet ("QLabel { color: black }");
-    retype->clear ();
-}
-
-rai_qt::password_change::password_change (rai_qt::wallet & wallet_a) :
+rai_qt::password_management::password_management (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-password_label (new QLabel ("New password:")),
+valid (new QLabel),
 password (new QLineEdit),
-retype_label (new QLabel ("Retype password:")),
-retype (new QLineEdit),
+lock_window (new QWidget),
+lock_layout (new QHBoxLayout),
+unlock (new QPushButton ("Unlock")),
+lock (new QPushButton ("Lock")),
+separator (new QFrame),
+new_password (new QLineEdit),
+retype_password (new QLineEdit),
 change (new QPushButton ("Change password")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
+	password->setPlaceholderText("Password");
     password->setEchoMode (QLineEdit::EchoMode::Password);
-    layout->addWidget (password_label);
+    layout->addWidget (valid);
     layout->addWidget (password);
-    retype->setEchoMode (QLineEdit::EchoMode::Password);
-    layout->addWidget (retype_label);
-    layout->addWidget (retype);
+	layout->addWidget (lock_window);
+    lock_layout->addWidget (unlock);
+    lock_layout->addWidget (lock);
+	lock_window->setLayout (lock_layout);
+	separator->setFrameShape (QFrame::HLine);
+	separator->setFrameShadow (QFrame::Sunken);
+	layout->addWidget (separator);
+    new_password->setEchoMode (QLineEdit::EchoMode::Password);
+	new_password->setPlaceholderText ("New password");
+    layout->addWidget (new_password);
+    retype_password->setEchoMode (QLineEdit::EchoMode::Password);
+	retype_password->setPlaceholderText ("Retype password");
+    layout->addWidget (retype_password);
     layout->addWidget (change);
     layout->addStretch ();
     layout->addWidget (back);
-    layout->setContentsMargins (0, 0, 0, 0);
     window->setLayout (layout);
     QObject::connect (change, &QPushButton::released, [this] ()
     {
 		rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, true);
         if (wallet.wallet_m->store.valid_password (transaction))
         {
-            if (password->text () == retype->text ())
+            if (new_password->text () == retype_password->text ())
             {
-                wallet.wallet_m->store.rekey (transaction, std::string (password->text ().toLocal8Bit ()));
-                clear ();
+                wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
+                new_password->clear ();
+				retype_password->clear ();
+				retype_password->setPlaceholderText ("Retype password");
             }
             else
             {
-                password_label->setStyleSheet ("QLabel { color: red }");
-                retype_label->setStyleSheet ("QLabel { color: red }");
+				retype_password->clear ();
+				retype_password->setPlaceholderText ("Password mismatch");
             }
         }
     });
-    QObject::connect (back, &QPushButton::released, [this] ()
-    {
-        clear ();
-        wallet.pop_main_stack ();
-    });
-}
-
-rai_qt::enter_password::enter_password (rai_qt::wallet & wallet_a) :
-window (new QWidget),
-layout (new QVBoxLayout),
-valid (new QLabel),
-password (new QLineEdit),
-unlock (new QPushButton ("Unlock")),
-lock (new QPushButton ("Lock")),
-back (new QPushButton ("Back")),
-wallet (wallet_a)
-{
-    password->setEchoMode (QLineEdit::EchoMode::Password);
-    layout->addWidget (valid);
-    layout->addWidget (password);
-    layout->addWidget (unlock);
-    layout->addWidget (lock);
-    layout->addStretch ();
-    layout->addWidget (back);
-    window->setLayout (layout);
     QObject::connect (back, &QPushButton::released, [this] ()
     {
         assert (wallet.main_stack->currentWidget () == window);
@@ -641,33 +634,31 @@ wallet (wallet_a)
     });
 }
 
-void rai_qt::enter_password::activate ()
+void rai_qt::password_management::activate ()
 {
     wallet.push_main_stack (window);
     update_label ();
 }
 
-void rai_qt::enter_password::update_label ()
+void rai_qt::password_management::update_label ()
 {
 	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
     if (wallet.wallet_m->store.valid_password (transaction))
     {
         valid->setStyleSheet ("QLabel { color: black }");
-        valid->setText ("Password: Valid");
+        valid->setText ("Wallet: Unlocked");
         password->setText ("");
     }
     else
     {
         valid->setStyleSheet ("QLabel { color: red }");
-        valid->setText ("Password: INVALID");
+        valid->setText ("Wallet: LOCKED");
     }
 }
 
 rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-enter_password (new QPushButton ("Enter Password")),
-change_password (new QPushButton ("Change Password")),
 accounts (new QPushButton ("Accounts")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
@@ -718,8 +709,6 @@ wallet (wallet_a)
     peers_layout->setContentsMargins (0, 0, 0, 0);
     peers_window->setLayout (peers_layout);
 
-    layout->addWidget (enter_password);
-    layout->addWidget (change_password);
     layout->addWidget (accounts);
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
@@ -735,14 +724,6 @@ wallet (wallet_a)
     QObject::connect (accounts, &QPushButton::released, [this] ()
     {
         wallet.push_main_stack (wallet.accounts.window);
-    });
-    QObject::connect (enter_password, &QPushButton::released, [this] ()
-    {
-        wallet.enter_password.activate ();
-    });
-    QObject::connect (change_password, &QPushButton::released, [this] ()
-    {
-        wallet.push_main_stack (wallet.password_change.window);
     });
     QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
     {

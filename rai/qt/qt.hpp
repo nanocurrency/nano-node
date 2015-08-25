@@ -20,33 +20,24 @@ namespace rai_qt {
 		eventloop_event (std::function <void ()> const &);
 		std::function <void ()> action;
 	};
-    class password_change
+    class password_management
     {
     public:
-        password_change (rai_qt::wallet &);
-        void clear ();
-        QWidget * window;
-        QVBoxLayout * layout;
-        QLabel * password_label;
-        QLineEdit * password;
-        QLabel * retype_label;
-        QLineEdit * retype;
-        QPushButton * change;
-        QPushButton * back;
-        rai_qt::wallet & wallet;
-    };
-    class enter_password
-    {
-    public:
-        enter_password (rai_qt::wallet &);
+        password_management (rai_qt::wallet &);
         void activate ();
         void update_label ();
         QWidget * window;
         QVBoxLayout * layout;
         QLabel * valid;
         QLineEdit * password;
+		QWidget * lock_window;
+		QHBoxLayout * lock_layout;
         QPushButton * unlock;
         QPushButton * lock;
+		QFrame * separator;
+        QLineEdit * new_password;
+        QLineEdit * retype_password;
+        QPushButton * change;
         QPushButton * back;
         rai_qt::wallet & wallet;
     };
@@ -56,8 +47,6 @@ namespace rai_qt {
 		advanced_actions (rai_qt::wallet &);
 		QWidget * window;
 		QVBoxLayout * layout;
-		QPushButton * enter_password;
-		QPushButton * change_password;
 		QPushButton * accounts;
 		QPushButton * show_ledger;
 		QPushButton * show_peers;
@@ -230,8 +219,7 @@ namespace rai_qt {
 		rai_qt::history history;
         rai_qt::accounts accounts;
 		rai_qt::self_pane self;
-        rai_qt::password_change password_change;
-        rai_qt::enter_password enter_password;
+        rai_qt::password_management password_management;
         rai_qt::advanced_actions advanced;
         rai_qt::block_creation block_creation;
         rai_qt::block_entry block_entry;
@@ -247,8 +235,10 @@ namespace rai_qt {
         
         QWidget * entry_window;
         QVBoxLayout * entry_window_layout;
+		QFrame * separator;
 		QLabel * account_history_label;
         QPushButton * send_blocks;
+		QPushButton * password;
         QPushButton * show_advanced;
         
         QWidget * send_blocks_window;
