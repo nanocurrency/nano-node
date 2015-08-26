@@ -476,6 +476,7 @@ public:
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 };
+extern rai::keypair const zero_key;
 extern rai::keypair const test_genesis_key;
 extern rai::account const rai_test_account;
 extern rai::account const rai_beta_account;

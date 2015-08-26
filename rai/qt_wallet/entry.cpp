@@ -70,7 +70,7 @@ int main (int argc, char * const * argv)
 	auto uninitialized (true);
 	if (!config_file.fail ())
 	{
-	config = qt_wallet_config (config_error, config_file);
+		config = qt_wallet_config (config_error, config_file);
 		uninitialized = false;
 	}
     if (!config_error)
@@ -86,15 +86,15 @@ int main (int argc, char * const * argv)
         {
             if (uninitialized || config.wallet.is_zero ())
             {
-		if (config.wallet.is_zero ())
-		{
-			rai::random_pool.GenerateBlock (config.wallet.bytes.data (), config.wallet.bytes.size ());
-		}
+				if (config.wallet.is_zero ())
+				{
+					rai::random_pool.GenerateBlock (config.wallet.bytes.data (), config.wallet.bytes.size ());
+				}
                 auto wallet (node->wallets.create (config.wallet));
                 rai::keypair key;
                 config.account = key.pub;
                 wallet->insert (key.prv);
-		assert (wallet->exists (config.account));
+				assert (wallet->exists (config.account));
                 std::ofstream config_file;
                 config_file.open (config_path);
                 if (!config_file.fail ())

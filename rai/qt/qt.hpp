@@ -20,10 +20,10 @@ namespace rai_qt {
 		eventloop_event (std::function <void ()> const &);
 		std::function <void ()> action;
 	};
-    class password_management
+    class settings
     {
     public:
-        password_management (rai_qt::wallet &);
+        settings (rai_qt::wallet &);
         void activate ();
         void update_label ();
         QWidget * window;
@@ -34,10 +34,14 @@ namespace rai_qt {
 		QHBoxLayout * lock_layout;
         QPushButton * unlock;
         QPushButton * lock;
-		QFrame * separator;
+		QFrame * sep1;
         QLineEdit * new_password;
         QLineEdit * retype_password;
         QPushButton * change;
+		QFrame * sep2;
+		QLabel * representative;
+		QLineEdit * new_representative;
+		QPushButton * change_rep;
         QPushButton * back;
         rai_qt::wallet & wallet;
     };
@@ -219,7 +223,7 @@ namespace rai_qt {
 		rai_qt::history history;
         rai_qt::accounts accounts;
 		rai_qt::self_pane self;
-        rai_qt::password_management password_management;
+        rai_qt::settings settings;
         rai_qt::advanced_actions advanced;
         rai_qt::block_creation block_creation;
         rai_qt::block_entry block_entry;
@@ -238,7 +242,7 @@ namespace rai_qt {
 		QFrame * separator;
 		QLabel * account_history_label;
         QPushButton * send_blocks;
-		QPushButton * password;
+		QPushButton * settings_button;
         QPushButton * show_advanced;
         
         QWidget * send_blocks_window;

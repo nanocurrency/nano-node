@@ -72,9 +72,9 @@ TEST (wallet, main)
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
     ASSERT_EQ (wallet.send_blocks_window, wallet.main_stack->currentWidget ());
     QTest::mouseClick (wallet.send_blocks_back, Qt::LeftButton);
-    QTest::mouseClick (wallet.password, Qt::LeftButton);
-    ASSERT_EQ (wallet.password_management.window, wallet.main_stack->currentWidget ());
-    QTest::mouseClick (wallet.password_management.back, Qt::LeftButton);
+    QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
+    ASSERT_EQ (wallet.settings.window, wallet.main_stack->currentWidget ());
+    QTest::mouseClick (wallet.settings.back, Qt::LeftButton);
     ASSERT_EQ (wallet.entry_window, wallet.main_stack->currentWidget ());
     QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
     ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
@@ -100,20 +100,20 @@ TEST (wallet, password_change)
 		account = system.account (transaction, 0);
 	}
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), account);
-    QTest::mouseClick (wallet.password, Qt::LeftButton);
+    QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_NE (system.wallet (0)->store.derive_key (transaction, "1"), system.wallet (0)->store.password.value ());
 	}
-    QTest::keyClicks (wallet.password_management.new_password, "1");
-    QTest::keyClicks (wallet.password_management.retype_password, "1");
-    QTest::mouseClick (wallet.password_management.change, Qt::LeftButton);
+    QTest::keyClicks (wallet.settings.new_password, "1");
+    QTest::keyClicks (wallet.settings.retype_password, "1");
+    QTest::mouseClick (wallet.settings.change, Qt::LeftButton);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_EQ (system.wallet (0)->store.derive_key (transaction, "1"), system.wallet (0)->store.password.value ());
 	}
-    ASSERT_EQ ("", wallet.password_management.new_password->text ());
-    ASSERT_EQ ("", wallet.password_management.retype_password->text ());
+    ASSERT_EQ ("", wallet.settings.new_password->text ());
+    ASSERT_EQ ("", wallet.settings.retype_password->text ());
 }
 
 TEST (client, password_nochange)
@@ -126,7 +126,7 @@ TEST (client, password_nochange)
 		account = system.account (transaction, 0);
 	}
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), account);
-    QTest::mouseClick (wallet.password, Qt::LeftButton);
+    QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
 	auto iterations (0);
 	while (system.wallet (0)->store.password.value () == 0)
 	{
@@ -138,15 +138,15 @@ TEST (client, password_nochange)
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_EQ (system.wallet (0)->store.derive_key (transaction, ""), system.wallet (0)->store.password.value ());
 	}
-    QTest::keyClicks (wallet.password_management.new_password, "1");
-    QTest::keyClicks (wallet.password_management.retype_password, "2");
-    QTest::mouseClick (wallet.password_management.change, Qt::LeftButton);
+    QTest::keyClicks (wallet.settings.new_password, "1");
+    QTest::keyClicks (wallet.settings.retype_password, "2");
+    QTest::mouseClick (wallet.settings.change, Qt::LeftButton);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_EQ (system.wallet (0)->store.derive_key (transaction, ""), system.wallet (0)->store.password.value ());
 	}
-    ASSERT_EQ ("", wallet.password_management.new_password->text ());
-    ASSERT_EQ ("", wallet.password_management.retype_password->text ());
+    ASSERT_EQ ("1", wallet.settings.new_password->text ());
+    ASSERT_EQ ("", wallet.settings.retype_password->text ());
 }
 
 TEST (wallet, enter_password)
@@ -159,24 +159,24 @@ TEST (wallet, enter_password)
 		account = system.account (transaction, 0);
 	}
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), account);
-    ASSERT_NE (-1, wallet.password_management.layout->indexOf (wallet.password_management.valid));
-    ASSERT_NE (-1, wallet.password_management.layout->indexOf (wallet.password_management.password));
-    ASSERT_NE (-1, wallet.password_management.lock_layout->indexOf (wallet.password_management.unlock));
-    ASSERT_NE (-1, wallet.password_management.lock_layout->indexOf (wallet.password_management.lock));
-    ASSERT_NE (-1, wallet.password_management.layout->indexOf (wallet.password_management.back));
+    ASSERT_NE (-1, wallet.settings.layout->indexOf (wallet.settings.valid));
+    ASSERT_NE (-1, wallet.settings.layout->indexOf (wallet.settings.password));
+    ASSERT_NE (-1, wallet.settings.lock_layout->indexOf (wallet.settings.unlock));
+    ASSERT_NE (-1, wallet.settings.lock_layout->indexOf (wallet.settings.lock));
+    ASSERT_NE (-1, wallet.settings.layout->indexOf (wallet.settings.back));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		ASSERT_FALSE (system.wallet (0)->store.rekey (transaction, "abc"));
 	}
-    QTest::mouseClick (wallet.password, Qt::LeftButton);
-    QTest::keyClicks (wallet.password_management.new_password, "a");
-    QTest::mouseClick (wallet.password_management.unlock, Qt::LeftButton);
-    ASSERT_EQ ("Wallet: LOCKED", wallet.password_management.valid->text ());
-    wallet.password_management.new_password->setText ("");
-    QTest::keyClicks (wallet.password_management.password, "abc");
-    QTest::mouseClick (wallet.password_management.unlock, Qt::LeftButton);
-    ASSERT_EQ ("Wallet: Unlocked", wallet.password_management.valid->text ());
-    ASSERT_EQ ("", wallet.password_management.password->text ());
+    QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
+    QTest::keyClicks (wallet.settings.new_password, "a");
+    QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
+    ASSERT_EQ ("Wallet: LOCKED", wallet.settings.valid->text ());
+    wallet.settings.new_password->setText ("");
+    QTest::keyClicks (wallet.settings.password, "abc");
+    QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
+    ASSERT_EQ ("Wallet: Unlocked", wallet.settings.valid->text ());
+    ASSERT_EQ ("", wallet.settings.password->text ());
 }
 
 TEST (wallet, send)

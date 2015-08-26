@@ -22,6 +22,7 @@ size_t constexpr rai::receive_block::size;
 size_t constexpr rai::open_block::size;
 size_t constexpr rai::change_block::size;
 
+rai::keypair const rai::zero_key ("0");
 rai::keypair const rai::test_genesis_key (rai_test_private_key);
 rai::account const rai::rai_test_account (rai_test_public_key);
 rai::account const rai::rai_beta_account (rai_beta_public_key);
