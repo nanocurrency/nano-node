@@ -154,9 +154,12 @@ TEST (wallet, change)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key2;
-	ASSERT_EQ (rai::genesis_account, system.nodes [0]->representative (rai::test_genesis_key.pub));
+	auto block1 (system.nodes [0]->representative (rai::test_genesis_key.pub));
+	ASSERT_FALSE (block1.is_zero ());
 	ASSERT_FALSE (system.wallet (0)->change_sync (rai::test_genesis_key.pub, key2.pub));
-	ASSERT_EQ (key2.pub, system.nodes [0]->representative (rai::test_genesis_key.pub));
+	auto block2 (system.nodes [0]->representative (rai::test_genesis_key.pub));
+	ASSERT_FALSE (block2.is_zero ());
+	ASSERT_NE (block1, block2);
 }
 
 TEST (wallet, partial_spend)

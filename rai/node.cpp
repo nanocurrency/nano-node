@@ -3509,7 +3509,7 @@ public:
         rai::account_info info;
         ledger.store.account_get (transaction, receivable.source, info);
 		ledger.store.pending_del (transaction, hash);
-        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, info.representative, ledger.balance (transaction, block_a.hashables.previous));
+        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
 		ledger.store.block_del (transaction, hash);
     }
     void receive_block (rai::receive_block const & block_a) override
@@ -3682,7 +3682,7 @@ rai::account rai::node::representative (rai::account const & account_a)
 	rai::account result (0);
 	if (!store.account_get (transaction, account_a, info))
 	{
-		result = info.representative;
+		result = info.rep_block;
 	}
 	return result;
 }
@@ -5018,7 +5018,7 @@ request (std::move (request_a))
 rai::frontier_req_server::frontier_req_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
-info (0, 0, 0, 0),
+info (0, 0, 0, 0, false),
 request (std::move (request_a))
 {
 	next ();

@@ -268,14 +268,14 @@ public:
 	account_info ();
 	account_info (MDB_val const &);
 	account_info (rai::account_info const &) = default;
-	account_info (rai::block_hash const &, rai::account const &, rai::amount const &, uint64_t);
+	account_info (rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, bool);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator == (rai::account_info const &) const;
 	bool operator != (rai::account_info const &) const;
 	rai::mdb_val val () const;
 	rai::block_hash head;
-	rai::account representative;
+	rai::block_hash rep_block;
 	rai::amount balance;
 	uint64_t modified;
 };

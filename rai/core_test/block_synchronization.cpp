@@ -98,7 +98,7 @@ TEST (pull_synchronization, open_dependencies)
 	ASSERT_FALSE (init);
 	rai::open_block block1 (0, 1, 2, 3, 4, 5);
 	rai::send_block block2 (block1.hash (), 0, 1, 2, 3, 4);
-	rai::open_block block3 (block2.hash (), 0, 1, 3, 4, 5);
+	rai::open_block block3 (block2.hash (), 1, 1, 3, 4, 5);
 	std::vector <std::unique_ptr <rai::block>> blocks;
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
@@ -125,7 +125,7 @@ TEST (pull_synchronization, receive_dependencies)
 	ASSERT_FALSE (init);
 	rai::open_block block1 (0, 1, 2, 3, 4, 5);
 	rai::send_block block2 (block1.hash (), 0, 1, 2, 3, 4);
-	rai::open_block block3 (block2.hash (), 0, 1, 3, 4, 5);
+	rai::open_block block3 (block2.hash (), 1, 1, 3, 4, 5);
 	rai::send_block block4 (block2.hash (), 0, 1, 2, 3, 4);
 	rai::receive_block block5 (block3.hash (), block4.hash (), 0, 0, 0);
 	std::vector <std::unique_ptr <rai::block>> blocks;
@@ -158,7 +158,7 @@ TEST (pull_synchronization, ladder_dependencies)
 	ASSERT_FALSE (init);
 	rai::open_block block1 (0, 1, 2, 3, 4, 5);
 	rai::send_block block2 (block1.hash (), 0, 1, 2, 3, 4);
-	rai::open_block block3 (block2.hash (), 0, 1, 3, 4, 5);
+	rai::open_block block3 (block2.hash (), 1, 1, 3, 4, 5);
 	rai::send_block block4 (block3.hash (), 0, 1, 2, 3, 4);
 	rai::receive_block block5 (block2.hash (), block4.hash (), 0, 0, 0);
 	rai::send_block block6 (block5.hash (), 0, 1, 2, 3, 4);

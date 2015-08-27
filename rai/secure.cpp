@@ -842,6 +842,7 @@ hashables (source_a, representative_a, account_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
+	assert (!representative_a.is_zero ());
 }
 
 rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, std::nullptr_t) :
@@ -1259,7 +1260,7 @@ rai::account rai::change_block::representative () const
 
 rai::account_info::account_info () :
 head (0),
-representative (0),
+rep_block (0),
 balance (0),
 modified (0)
 {
@@ -1268,13 +1269,13 @@ modified (0)
 rai::account_info::account_info (MDB_val const & val_a)
 {
 	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (head) + sizeof (representative) + sizeof (balance) + sizeof (modified) == sizeof (*this), "Class not packed");
+	static_assert (sizeof (head) + sizeof (rep_block) + sizeof (balance) + sizeof (modified) == sizeof (*this), "Class not packed");
 	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast <uint8_t *> (this));
 }
 
-rai::account_info::account_info (rai::block_hash const & head_a, rai::account const & representative_a, rai::amount const & balance_a, uint64_t modified_a) :
+rai::account_info::account_info (rai::block_hash const & head_a, rai::account const & rep_block_a, rai::amount const & balance_a, uint64_t modified_a, bool) :
 head (head_a),
-representative (representative_a),
+rep_block (rep_block_a),
 balance (balance_a),
 modified (modified_a)
 {
@@ -1283,7 +1284,7 @@ modified (modified_a)
 void rai::account_info::serialize (rai::stream & stream_a) const
 {
     write (stream_a, head.bytes);
-    write (stream_a, representative.bytes);
+    write (stream_a, rep_block.bytes);
     write (stream_a, balance.bytes);
     write (stream_a, modified);
 }
@@ -1293,7 +1294,7 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
     auto result (read (stream_a, head.bytes));
     if (!result)
     {
-        result = read (stream_a, representative.bytes);
+        result = read (stream_a, rep_block.bytes);
         if (!result)
         {
             result = read (stream_a, balance.bytes);
@@ -1308,7 +1309,7 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 
 bool rai::account_info::operator == (rai::account_info const & other_a) const
 {
-    return head == other_a.head && representative == other_a.representative && balance == other_a.balance && modified == other_a.modified;
+    return head == other_a.head && rep_block == other_a.rep_block && balance == other_a.balance && modified == other_a.modified;
 }
 
 bool rai::account_info::operator != (rai::account_info const & other_a) const
@@ -2303,11 +2304,11 @@ public:
     }
     void open_block (rai::open_block const & block_a) override
     {
-        result = block_a.representative ();
+        result = block_a.hash ();
     }
     void change_block (rai::change_block const & block_a) override
     {
-        result = block_a.representative ();
+        result = block_a.hash ();
     }
 	MDB_txn * transaction;
     rai::block_store & store;
@@ -2334,7 +2335,7 @@ public:
         rai::account_info info;
         ledger.store.account_get (transaction, receivable.source, info);
         ledger.store.pending_del (transaction, hash);
-        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, info.representative, ledger.balance (transaction, block_a.hashables.previous));
+        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
         ledger.store.block_del (transaction, hash);
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, receivable.source);
@@ -2371,7 +2372,7 @@ public:
         auto account (ledger.account (transaction, block_a.hashables.previous));
         rai::account_info info;
         ledger.store.account_get (transaction, account, info);
-        ledger.move_representation (transaction, block_a.representative (), representative, ledger.balance (transaction, block_a.hashables.previous));
+        ledger.move_representation (transaction, hash, representative, ledger.balance (transaction, block_a.hashables.previous));
         ledger.store.block_del (transaction, hash);
         ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance);
 		ledger.store.frontier_del (transaction, hash);
@@ -2452,6 +2453,7 @@ rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 rai::account rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (representative_calculated (transaction_a, hash_a));
+	assert (result.is_zero () || store.block_exists (transaction_a, result));
     return result;
 }
 
@@ -2500,13 +2502,21 @@ rai::uint128_t rai::ledger::amount (MDB_txn * transaction_a, rai::block_hash con
     return amount.result;
 }
 
-void rai::ledger::move_representation (MDB_txn * transaction_a, rai::account const & source_a, rai::account const & destination_a, rai::uint128_t const & amount_a)
+void rai::ledger::move_representation (MDB_txn * transaction_a, rai::block_hash const & source_a, rai::block_hash const & destination_a, rai::uint128_t const & amount_a)
 {
-    auto source_previous (store.representation_get (transaction_a, source_a));
+	auto source_block (store.block_get (transaction_a, source_a));
+	assert (source_block != nullptr);
+	auto source_rep (source_block->representative ());
+	assert (!source_rep.is_zero ());
+	auto destination_block (store.block_get (transaction_a, destination_a));
+	assert (destination_block != nullptr);
+	auto destination_rep (destination_block->representative ());
+	assert (!destination_rep.is_zero ());
+    auto source_previous (store.representation_get (transaction_a, source_rep));
     assert (source_previous >= amount_a);
-    store.representation_put (transaction_a, source_a, source_previous - amount_a);
-    auto destination_previous (store.representation_get (transaction_a, destination_a));
-    store.representation_put (transaction_a, destination_a, destination_previous + amount_a);
+    store.representation_put (transaction_a, source_rep, source_previous - amount_a);
+    auto destination_previous (store.representation_get (transaction_a, destination_rep));
+    store.representation_put (transaction_a, destination_rep, destination_previous + amount_a);
 }
 
 // Return latest block for account
@@ -2564,7 +2574,7 @@ void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash cons
     store.checksum_put (transaction_a, 0, 0, value);
 }
 
-void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::account const & representative_a, rai::amount const & balance_a)
+void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a)
 {
     rai::account_info info;
     auto exists (!store.account_get (transaction_a, account_a, info));
@@ -2575,7 +2585,7 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
     if (!hash_a.is_zero())
     {
         info.head = hash_a;
-        info.representative = representative_a;
+        info.rep_block = rep_block_a;
         info.balance = balance_a;
         info.modified = store.now ();
         store.account_put (transaction_a, account_a, info);
@@ -2620,9 +2630,9 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 				result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
 				if (result.code == rai::process_result::progress)
 				{
-					ledger.move_representation (transaction, info.representative, block_a.representative (), ledger.balance (transaction, block_a.hashables.previous));
 					ledger.store.block_put (transaction, hash, block_a);
-					ledger.change_latest (transaction, account, hash, block_a.representative (), info.balance);
+					ledger.move_representation (transaction, info.rep_block, hash, ledger.balance (transaction, block_a.hashables.previous));
+					ledger.change_latest (transaction, account, hash, hash, info.balance);
 					ledger.store.frontier_del (transaction, block_a.hashables.previous);
 					ledger.store.frontier_put (transaction, hash, account);
 					result.account = account;
@@ -2658,7 +2668,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 					if (result.code == rai::process_result::progress)
 					{
 						ledger.store.block_put (transaction, hash, block_a);
-						ledger.change_latest (transaction, account, hash, info.representative, block_a.hashables.balance);
+						ledger.change_latest (transaction, account, hash, info.rep_block, block_a.hashables.balance);
 						ledger.store.pending_put (transaction, hash, {account, info.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
 						ledger.store.frontier_del (transaction, block_a.hashables.previous);
 						ledger.store.frontier_put (transaction, hash, account);
@@ -2702,8 +2712,8 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
                             assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, receivable.destination, hash, info.representative, new_balance);
-							ledger.move_representation (transaction, source_info.representative, info.representative, receivable.amount.number ());
+							ledger.change_latest (transaction, receivable.destination, hash, info.rep_block, new_balance);
+							ledger.move_representation (transaction, source_info.rep_block, info.rep_block, receivable.amount.number ());
 							ledger.store.frontier_del (transaction, block_a.hashables.previous);
 							ledger.store.frontier_put (transaction, hash, receivable.destination);
 							result.account = receivable.destination;
@@ -2749,8 +2759,8 @@ void ledger_processor::open_block (rai::open_block const & block_a)
                             assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, receivable.destination, hash, block_a.representative (), receivable.amount.number ());
-							ledger.move_representation (transaction, source_info.representative, block_a.representative (), receivable.amount.number ());
+							ledger.change_latest (transaction, receivable.destination, hash, hash, receivable.amount.number ());
+							ledger.move_representation (transaction, source_info.rep_block, hash, receivable.amount.number ());
 							ledger.store.frontier_put (transaction, hash, receivable.destination);
 							result.account = receivable.destination;
                         }
@@ -2822,7 +2832,7 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
 	store_a.block_put (transaction_a, hash_l, open);
-	store_a.account_put (transaction_a, genesis_account, {hash_l, open.representative (), std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
+	store_a.account_put (transaction_a, genesis_account, {hash_l, open.hash (), std::numeric_limits <rai::uint128_t>::max (), store_a.now (), false});
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits <rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);

@@ -35,7 +35,11 @@ TEST (node, balance)
 TEST (node, representative)
 {
     rai::system system (24000, 1);
-	ASSERT_EQ (rai::test_genesis_key.pub, system.nodes [0]->representative (rai::test_genesis_key.pub));
+	auto block1 (system.nodes [0]->representative (rai::test_genesis_key.pub));
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_TRUE (system.nodes [0]->ledger.store.block_exists (transaction, block1));
+	}
 	rai::keypair key;
 	ASSERT_TRUE (system.nodes [0]->representative (key.pub).is_zero ());
 }
