@@ -3543,7 +3543,7 @@ public:
         auto account (ledger.account (transaction, block_a.hashables.previous));
         rai::account_info info;
         ledger.store.account_get (transaction, account, info);
-		ledger.move_representation (transaction, block_a.hashables.representative, representative, ledger.balance (transaction, block_a.hashables.previous));
+		ledger.move_representation (transaction, block_a.representative (), representative, ledger.balance (transaction, block_a.hashables.previous));
 		ledger.store.block_del (transaction, block_a.hash ());
         ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance);
     }

@@ -232,7 +232,7 @@ public:
 	}
 	void change_block (rai::change_block const & block_a)
 	{
-		text = boost::str (boost::format ("Changed: %1%") % block_a.hashables.representative.to_base58check ());
+		text = boost::str (boost::format ("Changed: %1%") % block_a.representative ().to_base58check ());
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;

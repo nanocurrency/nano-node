@@ -484,6 +484,11 @@ rai::block_hash rai::receive_block::root () const
 	return hashables.previous;
 }
 
+rai::account rai::receive_block::representative () const
+{
+	return 0;
+}
+
 std::unique_ptr <rai::block> rai::receive_block::clone () const
 {
     return std::unique_ptr <rai::block> (new rai::receive_block (*this));
@@ -777,6 +782,11 @@ rai::block_hash rai::send_block::root () const
 	return hashables.previous;
 }
 
+rai::account rai::send_block::representative () const
+{
+	return 0;
+}
+
 rai::open_hashables::open_hashables (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a) :
 source (source_a),
 representative (representative_a),
@@ -912,7 +922,7 @@ void rai::open_block::serialize_json (std::string & string_a) const
     boost::property_tree::ptree tree;
     tree.put ("type", "open");
     tree.put ("source", hashables.source.to_string ());
-    tree.put ("representative", hashables.representative.to_base58check ());
+    tree.put ("representative", representative ().to_base58check ());
     tree.put ("account", hashables.account.to_base58check ());
     std::string signature_l;
     signature.encode_hex (signature_l);
@@ -1020,6 +1030,11 @@ rai::block_hash rai::open_block::source () const
 rai::block_hash rai::open_block::root () const
 {
 	return hashables.account;
+}
+
+rai::account rai::open_block::representative () const
+{
+	return hashables.representative;
 }
 
 rai::change_hashables::change_hashables (rai::block_hash const & previous_a, rai::account const & representative_a) :
@@ -1137,7 +1152,7 @@ void rai::change_block::serialize_json (std::string & string_a) const
     boost::property_tree::ptree tree;
     tree.put ("type", "change");
     tree.put ("previous", hashables.previous.to_string ());
-    tree.put ("representative", hashables.representative.to_base58check ());
+    tree.put ("representative", representative ().to_base58check ());
     tree.put ("work", rai::to_string_hex (work));
     std::string signature_l;
     signature.encode_hex (signature_l);
@@ -1235,6 +1250,11 @@ rai::block_hash rai::change_block::source () const
 rai::block_hash rai::change_block::root () const
 {
 	return hashables.previous;
+}
+
+rai::account rai::change_block::representative () const
+{
+	return hashables.representative;
 }
 
 rai::account_info::account_info () :
@@ -2283,11 +2303,11 @@ public:
     }
     void open_block (rai::open_block const & block_a) override
     {
-        result = block_a.hashables.representative;
+        result = block_a.representative ();
     }
     void change_block (rai::change_block const & block_a) override
     {
-        result = block_a.hashables.representative;
+        result = block_a.representative ();
     }
 	MDB_txn * transaction;
     rai::block_store & store;
@@ -2351,7 +2371,7 @@ public:
         auto account (ledger.account (transaction, block_a.hashables.previous));
         rai::account_info info;
         ledger.store.account_get (transaction, account, info);
-        ledger.move_representation (transaction, block_a.hashables.representative, representative, ledger.balance (transaction, block_a.hashables.previous));
+        ledger.move_representation (transaction, block_a.representative (), representative, ledger.balance (transaction, block_a.hashables.previous));
         ledger.store.block_del (transaction, hash);
         ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance);
 		ledger.store.frontier_del (transaction, hash);
@@ -2600,9 +2620,9 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 				result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
 				if (result.code == rai::process_result::progress)
 				{
-					ledger.move_representation (transaction, info.representative, block_a.hashables.representative, ledger.balance (transaction, block_a.hashables.previous));
+					ledger.move_representation (transaction, info.representative, block_a.representative (), ledger.balance (transaction, block_a.hashables.previous));
 					ledger.store.block_put (transaction, hash, block_a);
-					ledger.change_latest (transaction, account, hash, block_a.hashables.representative, info.balance);
+					ledger.change_latest (transaction, account, hash, block_a.representative (), info.balance);
 					ledger.store.frontier_del (transaction, block_a.hashables.previous);
 					ledger.store.frontier_put (transaction, hash, account);
 					result.account = account;
@@ -2729,8 +2749,8 @@ void ledger_processor::open_block (rai::open_block const & block_a)
                             assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, receivable.destination, hash, block_a.hashables.representative, receivable.amount.number ());
-							ledger.move_representation (transaction, source_info.representative, block_a.hashables.representative, receivable.amount.number ());
+							ledger.change_latest (transaction, receivable.destination, hash, block_a.representative (), receivable.amount.number ());
+							ledger.move_representation (transaction, source_info.representative, block_a.representative (), receivable.amount.number ());
 							ledger.store.frontier_put (transaction, hash, receivable.destination);
 							result.account = receivable.destination;
                         }
@@ -2802,7 +2822,7 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
 	store_a.block_put (transaction_a, hash_l, open);
-	store_a.account_put (transaction_a, genesis_account, {hash_l, open.hashables.representative, std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
+	store_a.account_put (transaction_a, genesis_account, {hash_l, open.representative (), std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits <rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);
