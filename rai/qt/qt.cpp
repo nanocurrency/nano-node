@@ -439,7 +439,7 @@ last_status (rai_qt::status::disconnected)
     QObject::connect (send_blocks_send, &QPushButton::released, [this] ()
     {
 		rai::amount amount;
-		if (!amount.decode_dec (send_count->text ().toLocal8Bit ().toStdString ()))
+		if (!amount.decode_dec (send_count->text ().toStdString ()))
 		{
 			rai::uint128_t actual (amount.number () * rendering_ratio);
 			if (actual / rendering_ratio == amount.number ())
