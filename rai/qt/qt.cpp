@@ -438,60 +438,58 @@ last_status (rai_qt::status::disconnected)
     });
     QObject::connect (send_blocks_send, &QPushButton::released, [this] ()
     {
-        QString coins_text (send_count->text ());
-        std::string coins_text_narrow (coins_text.toLocal8Bit ());
-        try
-        {
-            rai::amount amount (coins_text_narrow);
-            rai::uint128_t coins (amount.number () * rendering_ratio);
-            if (coins / rendering_ratio == amount.number ())
-            {
-                QPalette palette;
-                palette.setColor (QPalette::Text, Qt::black);
-                send_count->setPalette (palette);
-                QString account_text (send_account->text ());
-                std::string account_text_narrow (account_text.toLocal8Bit ());
-                rai::account account_l;
-                auto parse_error (account_l.decode_base58check (account_text_narrow));
-                if (!parse_error)
-                {
-                    auto send_error (wallet_m->send_sync (account, account_l, coins));
-                    if (!send_error)
-                    {
-                        QPalette palette;
-                        palette.setColor (QPalette::Text, Qt::black);
-                        send_account->setPalette (palette);
-                        send_count->clear ();
-                        send_account->clear ();
-                        accounts.refresh ();
-                    }
-                    else
-                    {
-                        QPalette palette;
-                        palette.setColor (QPalette::Text, Qt::red);
-                        send_count->setPalette (palette);
-                    }
-                }
-                else
-                {
-                    QPalette palette;
-                    palette.setColor (QPalette::Text, Qt::red);
-                    send_account->setPalette (palette);
-                }
-            }
-            else
-            {
-                QPalette palette;
-                palette.setColor (QPalette::Text, Qt::red);
-                send_account->setPalette (palette);
-            }
-        }
-        catch (...)
-        {
-            QPalette palette;
-            palette.setColor (QPalette::Text, Qt::red);
-            send_count->setPalette (palette);
-        }
+		rai::amount amount;
+		if (!amount.decode_dec (send_count->text ().toLocal8Bit ().toStdString ()))
+		{
+			rai::uint128_t actual (amount.number () * rendering_ratio);
+			if (actual / rendering_ratio == amount.number ())
+			{
+				QPalette palette;
+				palette.setColor (QPalette::Text, Qt::black);
+				send_count->setPalette (palette);
+				QString account_text (send_account->text ());
+				std::string account_text_narrow (account_text.toLocal8Bit ());
+				rai::account account_l;
+				auto parse_error (account_l.decode_base58check (account_text_narrow));
+				if (!parse_error)
+				{
+					auto send_error (wallet_m->send_sync (account, account_l, actual));
+					if (!send_error)
+					{
+						QPalette palette;
+						palette.setColor (QPalette::Text, Qt::black);
+						send_account->setPalette (palette);
+						send_count->clear ();
+						send_account->clear ();
+						accounts.refresh ();
+					}
+					else
+					{
+						QPalette palette;
+						palette.setColor (QPalette::Text, Qt::red);
+						send_count->setPalette (palette);
+					}
+				}
+				else
+				{
+					QPalette palette;
+					palette.setColor (QPalette::Text, Qt::red);
+					send_account->setPalette (palette);
+				}
+			}
+			else
+			{
+				QPalette palette;
+				palette.setColor (QPalette::Text, Qt::red);
+				send_account->setPalette (palette);
+			}
+		}
+		else
+		{
+			QPalette palette;
+			palette.setColor (QPalette::Text, Qt::red);
+			send_count->setPalette (palette);
+		}
     });
     QObject::connect (send_blocks_back, &QPushButton::released, [this] ()
     {
@@ -1066,7 +1064,7 @@ void rai_qt::block_creation::create_send ()
     if (!error)
     {
         rai::amount amount_l;
-        error = amount_l.decode_hex (amount->text ().toStdString ());
+        error = amount_l.decode_dec (amount->text ().toStdString ());
         if (!error)
         {
             rai::account destination_l;

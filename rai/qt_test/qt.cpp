@@ -254,7 +254,7 @@ TEST (wallet, create_send)
 	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet.block_creation.send, Qt::LeftButton);
 	QTest::keyClicks (wallet.block_creation.account, rai::test_genesis_key.pub.to_base58check ().c_str ());
-	QTest::keyClicks (wallet.block_creation.amount, "56bc75e2d63100000");
+	QTest::keyClicks (wallet.block_creation.amount, "100000000000000000000");
 	QTest::keyClicks (wallet.block_creation.destination, key.pub.to_base58check ().c_str ());
 	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
 	std::string json (wallet.block_creation.block->toPlainText ().toStdString ());
