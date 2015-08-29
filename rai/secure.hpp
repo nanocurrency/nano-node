@@ -1,6 +1,5 @@
 #pragma once 
 
-#include <rai/config.hpp>
 #include <rai/utility.hpp>
 
 #include <boost/property_tree/ptree.hpp>

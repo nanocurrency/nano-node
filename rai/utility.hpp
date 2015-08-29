@@ -14,6 +14,8 @@
 
 #include <liblmdb/lmdb.h>
 
+#include <rai/config.hpp>
+
 namespace rai
 {
 extern CryptoPP::AutoSeededRandomPool random_pool;
