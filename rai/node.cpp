@@ -517,9 +517,9 @@ rai::uint256_union const rai::wallet_store::check_special (3);
 rai::uint256_union const rai::wallet_store::representative_special (4);
 int const rai::wallet_store::special_count (5);
 
-rai::wallet_store::wallet_store (bool & init_a, MDB_txn * transaction_a, std::string const & wallet_a, std::string const & json_a) :
+rai::wallet_store::wallet_store (bool & init_a, rai::transaction & transaction_a, std::string const & wallet_a, std::string const & json_a) :
 password (0, 1024),
-environment (mdb_txn_env (transaction_a))
+environment (transaction_a.environment)
 {
     init_a = false;
     initialize (transaction_a, init_a, wallet_a);
@@ -561,9 +561,9 @@ environment (mdb_txn_env (transaction_a))
     }
 }
 
-rai::wallet_store::wallet_store (bool & init_a, MDB_txn * transaction_a, std::string const & wallet_a) :
+rai::wallet_store::wallet_store (bool & init_a, rai::transaction & transaction_a, std::string const & wallet_a) :
 password (0, 1024),
-environment (mdb_txn_env (transaction_a))
+environment (transaction_a.environment)
 {
     init_a = false;
     initialize (transaction_a, init_a, wallet_a);
@@ -780,13 +780,13 @@ void rai::wallet_store::work_put (MDB_txn * transaction_a, rai::public_key const
 	entry_put_raw (transaction_a, pub_a, entry);
 }
 
-rai::wallet::wallet (bool & init_a, MDB_txn * transaction_a, rai::node & node_a, std::string const & wallet_a) :
+rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a) :
 store (init_a, transaction_a, wallet_a),
 node (node_a)
 {
 }
 
-rai::wallet::wallet (bool & init_a, MDB_txn * transaction_a, rai::node & node_a, std::string const & wallet_a, std::string const & json) :
+rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a, std::string const & json) :
 store (init_a, transaction_a, wallet_a, json),
 node (node_a)
 {

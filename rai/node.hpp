@@ -274,8 +274,8 @@ public:
 class wallet_store
 {
 public:
-    wallet_store (bool &, MDB_txn *, std::string const &);
-    wallet_store (bool &, MDB_txn *, std::string const &, std::string const &);
+    wallet_store (bool &, rai::transaction &, std::string const &);
+    wallet_store (bool &, rai::transaction &, std::string const &, std::string const &);
 	std::vector <rai::account> accounts (MDB_txn *);
     void initialize (MDB_txn *, bool &, std::string const &);
     rai::uint256_union check (MDB_txn *);
@@ -316,15 +316,15 @@ public:
     static size_t const kdf_full_work = 8 * 1024 * 1024; // 8 * 8 * 1024 * 1024 = 64 MB memory to derive key
     static size_t const kdf_test_work = 1024;
     static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
-	MDB_env * environment;
+	rai::mdb_env & environment;
     MDB_dbi handle;
 };
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet : public std::enable_shared_from_this <rai::wallet>
 {
 public:
-    wallet (bool &, MDB_txn *, rai::node &, std::string const &);
-    wallet (bool &, MDB_txn *, rai::node &, std::string const &, std::string const &);
+    wallet (bool &, rai::transaction &, rai::node &, std::string const &);
+    wallet (bool &, rai::transaction &, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password (MDB_txn *);
 	rai::public_key insert (rai::private_key const &);
     bool exists (rai::public_key const &);

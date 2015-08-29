@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <condition_variable>
 #include <type_traits>
 
 #include <blake2/blake2.h>
@@ -74,11 +75,11 @@ public:
 class transaction
 {
 public:
-	transaction (std::nullptr_t);
-	transaction (MDB_env *, MDB_txn *, bool);
+	transaction (rai::mdb_env &, MDB_txn *, bool);
 	~transaction ();
 	operator MDB_txn * () const;
 	MDB_txn * handle;
+	rai::mdb_env & environment;
 };
 union uint128_union
 {

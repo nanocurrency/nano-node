@@ -103,12 +103,8 @@ rai::mdb_val::operator MDB_val const & () const
 	return value;
 }
 
-rai::transaction::transaction (std::nullptr_t) :
-handle (nullptr)
-{
-}
-
-rai::transaction::transaction (MDB_env * environment_a, MDB_txn * parent_a, bool write)
+rai::transaction::transaction (rai::mdb_env & environment_a, MDB_txn * parent_a, bool write) :
+environment (environment_a)
 {
 	auto status (mdb_txn_begin (environment_a, parent_a, write ? 0 : MDB_RDONLY, &handle));
 	assert (status == 0);
@@ -116,11 +112,8 @@ rai::transaction::transaction (MDB_env * environment_a, MDB_txn * parent_a, bool
 
 rai::transaction::~transaction ()
 {
-	if (handle != nullptr)
-	{
-		auto status (mdb_txn_commit (handle));
-		assert (status == 0);
-	}
+	auto status (mdb_txn_commit (handle));
+	assert (status == 0);
 }
 
 rai::transaction::operator MDB_txn * () const
