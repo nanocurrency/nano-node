@@ -356,6 +356,57 @@ void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a
 	}
 }
 
+rai_qt::status::status (rai_qt::wallet & wallet_a) :
+wallet (wallet_a)
+{
+	active.insert (rai_qt::status_types::nominal);
+	set_text ();
+}
+
+void rai_qt::status::erase (rai_qt::status_types status_a)
+{
+	assert (status_a != rai_qt::status_types::nominal);
+	auto erased (active.erase (status_a)); (void)erased;
+	set_text ();
+}
+
+void rai_qt::status::insert (rai_qt::status_types status_a)
+{
+	assert (status_a != rai_qt::status_types::nominal);
+	active.insert (status_a);
+	set_text ();
+}
+
+void rai_qt::status::set_text ()
+{
+	wallet.status->setText (text ().c_str ());
+}
+
+std::string rai_qt::status::text ()
+{
+	assert (!active.empty ());
+	std::string result;
+	switch (*active.begin ())
+	{
+		case rai_qt::status_types::disconnected:
+			result = "Status: Disconnected";
+			break;
+		case rai_qt::status_types::synchronizing:
+			result = "Status: Synchronizing";
+			break;
+		case rai_qt::status_types::locked:
+			result = "Status: Wallet locked";
+			break;
+		case rai_qt::status_types::nominal:
+			result = "Status: Running";
+			break;
+		default:
+			assert (false);
+			break;
+	}
+	return result;
+}
+
 rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account const & account_a) :
 rendering_ratio (rai::Mrai_ratio),
 node (node_a),
@@ -371,7 +422,7 @@ block_entry (*this),
 block_viewer (*this),
 import (*this),
 application (application_a),
-status (new QLabel ("Status: Disconnected")),
+status (new QLabel),
 main_stack (new QStackedWidget),
 client_window (new QWidget),
 client_layout (new QVBoxLayout),
@@ -390,8 +441,10 @@ send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back")),
-last_status (rai_qt::status::disconnected)
+active_status (*this)
 {
+	update_connected ();
+    settings.update_locked ();
     send_blocks_layout->addWidget (send_account_label);
 	send_account->setPlaceholderText (rai::zero_key.pub.to_base58check ().c_str ());
     send_blocks_layout->addWidget (send_account);
@@ -516,19 +569,11 @@ last_status (rai_qt::status::disconnected)
     });
 	node.endpoint_observers.push_back ([this] (rai::endpoint const &)
 	{
-		if (last_status == rai_qt::status::disconnected)
-		{
-			last_status = rai_qt::status::connected;
-			status->setText ("Status: Connected");
-		}
+		update_connected ();
 	});
 	node.disconnect_observers.push_back ([this] ()
 	{
-		if (last_status == rai_qt::status::connected)
-		{
-			last_status = rai_qt::status::disconnected;
-			status->setText ("Status: Disconnected");
-		}
+		update_connected ();
 	});
 	refresh ();
 }
@@ -545,6 +590,18 @@ void rai_qt::wallet::refresh ()
     history.refresh ();
 }
 
+void rai_qt::wallet::update_connected ()
+{
+	if (node.peers.empty ())
+	{
+		active_status.insert (rai_qt::status_types::disconnected);
+	}
+	else
+	{
+		active_status.erase (rai_qt::status_types::disconnected);
+	}
+}
+
 void rai_qt::wallet::push_main_stack (QWidget * widget_a)
 {
     main_stack->addWidget (widget_a);
@@ -559,7 +616,6 @@ void rai_qt::wallet::pop_main_stack ()
 rai_qt::settings::settings (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-valid (new QLabel),
 password (new QLineEdit),
 lock_window (new QWidget),
 lock_layout (new QHBoxLayout),
@@ -578,7 +634,6 @@ wallet (wallet_a)
 {
 	password->setPlaceholderText("Password");
     password->setEchoMode (QLineEdit::EchoMode::Password);
-    layout->addWidget (valid);
     layout->addWidget (password);
 	layout->addWidget (lock_window);
     lock_layout->addWidget (unlock);
@@ -651,37 +706,34 @@ wallet (wallet_a)
 			rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
 			wallet.wallet_m->store.enter_password (transaction, std::string (password->text ().toLocal8Bit ()));
 		}
-        update_label ();
+        update_locked ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
     {
         rai::uint256_union empty;
         empty.clear ();
         wallet.wallet_m->store.password.value_set (empty);
-        update_label ();
+        update_locked ();
     });
 }
 
 void rai_qt::settings::activate ()
 {
     wallet.push_main_stack (window);
-    update_label ();
 }
 
-void rai_qt::settings::update_label ()
+void rai_qt::settings::update_locked ()
 {
 	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
-    if (wallet.wallet_m->store.valid_password (transaction))
-    {
-        valid->setStyleSheet ("QLabel { color: black }");
-        valid->setText ("Wallet: Unlocked");
-        password->setText ("");
-    }
-    else
-    {
-        valid->setStyleSheet ("QLabel { color: red }");
-        valid->setText ("Wallet: LOCKED");
-    }
+	if (wallet.wallet_m->store.valid_password (transaction))
+	{
+		password->clear ();
+		wallet.active_status.erase (rai_qt::status_types::locked);
+	}
+	else
+	{
+		wallet.active_status.insert (rai_qt::status_types::locked);
+	}
 }
 
 rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :

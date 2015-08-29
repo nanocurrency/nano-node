@@ -25,10 +25,9 @@ namespace rai_qt {
     public:
         settings (rai_qt::wallet &);
         void activate ();
-        void update_label ();
+        void update_locked ();
         QWidget * window;
         QVBoxLayout * layout;
-        QLabel * valid;
         QLineEdit * password;
 		QWidget * lock_window;
 		QHBoxLayout * lock_layout;
@@ -204,17 +203,31 @@ namespace rai_qt {
 		QPushButton * back;
 		rai_qt::wallet & wallet;
 	};
-	enum class status
+	enum class status_types
 	{
 		not_a_status,
 		disconnected,
-		connected
+		synchronizing,
+		locked,
+		nominal
+	};
+	class status
+	{
+	public:
+		status (rai_qt::wallet &);
+		void erase (rai_qt::status_types);
+		void insert (rai_qt::status_types);
+		void set_text ();
+		std::string text ();
+		std::set <rai_qt::status_types> active;
+		rai_qt::wallet & wallet;
 	};
     class wallet
     {
     public:
         wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account const &);
         void refresh ();
+		void update_connected ();
 		rai::uint128_t rendering_ratio;
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;
@@ -254,7 +267,7 @@ namespace rai_qt {
         QPushButton * send_blocks_send;
         QPushButton * send_blocks_back;
 		
-		rai_qt::status last_status;
+		rai_qt::status active_status;
         void pop_main_stack ();
         void push_main_stack (QWidget *);
     };

@@ -31,7 +31,7 @@ TEST (wallet, status)
 	rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
 	ASSERT_EQ ("Status: Disconnected", wallet.status->text ().toStdString ());
 	system.nodes [0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	ASSERT_EQ ("Status: Connected", wallet.status->text ().toStdString ());
+	ASSERT_EQ ("Status: Running", wallet.status->text ().toStdString ());
 	system.nodes [0]->peers.purge_list (std::chrono::system_clock::now () + std::chrono::seconds (5));
 	ASSERT_EQ ("Status: Disconnected", wallet.status->text ().toStdString ());
 }
@@ -151,7 +151,7 @@ TEST (client, password_nochange)
 
 TEST (wallet, enter_password)
 {
-    rai::system system (24000, 1);
+    rai::system system (24000, 2);
 	rai::account account;
 	system.wallet (0)->insert (rai::keypair ().prv);
 	{
@@ -159,7 +159,6 @@ TEST (wallet, enter_password)
 		account = system.account (transaction, 0);
 	}
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), account);
-    ASSERT_NE (-1, wallet.settings.layout->indexOf (wallet.settings.valid));
     ASSERT_NE (-1, wallet.settings.layout->indexOf (wallet.settings.password));
     ASSERT_NE (-1, wallet.settings.lock_layout->indexOf (wallet.settings.unlock));
     ASSERT_NE (-1, wallet.settings.lock_layout->indexOf (wallet.settings.lock));
@@ -171,11 +170,11 @@ TEST (wallet, enter_password)
     QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
     QTest::keyClicks (wallet.settings.new_password, "a");
     QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
-    ASSERT_EQ ("Wallet: LOCKED", wallet.settings.valid->text ());
+    ASSERT_EQ ("Status: Wallet locked", wallet.status->text ());
     wallet.settings.new_password->setText ("");
     QTest::keyClicks (wallet.settings.password, "abc");
     QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
-    ASSERT_EQ ("Wallet: Unlocked", wallet.settings.valid->text ());
+    ASSERT_EQ ("Status: Running", wallet.status->text ());
     ASSERT_EQ ("", wallet.settings.password->text ());
 }
 
