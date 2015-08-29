@@ -569,11 +569,31 @@ active_status (*this)
     });
 	node.endpoint_observers.push_back ([this] (rai::endpoint const &)
 	{
-		update_connected ();
+		application.postEvent (&processor, new eventloop_event ([this] ()
+		{
+			update_connected ();
+		}));
 	});
 	node.disconnect_observers.push_back ([this] ()
 	{
-		update_connected ();
+		application.postEvent (&processor, new eventloop_event ([this] ()
+		{
+			update_connected ();
+		}));
+	});
+	node.bootstrap_initiator.observers.push_back ([this] (bool active_a)
+	{
+		application.postEvent (&processor, new eventloop_event ([this, active_a] ()
+		{
+			if (active_a)
+			{
+				active_status.insert (rai_qt::status_types::synchronizing);
+			}
+			else
+			{
+				active_status.erase (rai_qt::status_types::synchronizing);
+			}
+		}));
 	});
 	refresh ();
 }

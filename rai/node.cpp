@@ -3820,6 +3820,7 @@ void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 	{
 		warmed_up.insert (endpoint_a);
 		in_progress = true;
+		notify_listeners ();
 		initiate (endpoint_a);
 	}
 }
@@ -3849,8 +3850,17 @@ void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)
 	{
 		std::lock_guard <std::mutex> lock (node_l->bootstrap_initiator.mutex);
 		node_l->bootstrap_initiator.in_progress = false;
+		node_l->bootstrap_initiator.notify_listeners ();
 	}));
     processor->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
+}
+
+void rai::bootstrap_initiator::notify_listeners ()
+{
+	for (auto & i: observers)
+	{
+		i (in_progress);
+	}
 }
 
 rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::node & node_a) :

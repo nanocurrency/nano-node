@@ -621,6 +621,8 @@ public:
 	void bootstrap (rai::endpoint const &);
     void bootstrap_any ();
 	void initiate (rai::endpoint const &);
+	void notify_listeners ();
+	std::vector <std::function <void (bool)>> observers;
 	std::mutex mutex;
 	rai::node & node;
 	bool in_progress;
@@ -887,11 +889,11 @@ public:
     std::shared_ptr <rai::wallet> wallet (size_t);
     rai::account account (MDB_txn *, size_t);
 	void poll ();
-	rai::work_pool work;
     boost::shared_ptr <boost::asio::io_service> service;
     rai::processor_service processor;
     std::vector <std::shared_ptr <rai::node>> nodes;
 	rai::logging logging;
+	rai::work_pool work;
 };
 class landing_store
 {
