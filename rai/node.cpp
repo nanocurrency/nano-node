@@ -4649,7 +4649,13 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 
 rai::endpoint rai::network::endpoint ()
 {
-    return rai::endpoint (boost::asio::ip::address_v6::loopback (), socket.local_endpoint ().port ());
+	boost::system::error_code ec;
+	auto port (socket.local_endpoint (ec).port ());
+	if (ec)
+	{
+		BOOST_LOG (node.log) << "Unable to retrieve port: " << ec.message ();
+	}
+    return rai::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
 boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()

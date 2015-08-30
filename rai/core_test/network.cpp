@@ -888,3 +888,12 @@ TEST (bootstrap_processor, unchecked_only)
 	}
     node1->stop ();
 }
+
+TEST (network, endpoint_bad_fd)
+{
+	rai::system system (24000, 1);
+	system.nodes [0]->stop ();
+	auto endpoint (system.nodes [0]->network.endpoint ());
+	ASSERT_TRUE (endpoint.address ().is_loopback ());
+	ASSERT_EQ (0, endpoint.port ());
+}

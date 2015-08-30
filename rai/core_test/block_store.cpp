@@ -491,9 +491,9 @@ TEST (block_store, large_iteration)
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	std::unordered_set <rai::account> accounts1;
-	rai::transaction transaction (store.environment, nullptr, true);
-	for (auto i (0); i < 100000; ++i)
+	for (auto i (0); i < 10000; ++i)
 	{
+		rai::transaction transaction (store.environment, nullptr, true);
 		rai::account account;
 		rai::random_pool.GenerateBlock (account.bytes.data (), account.bytes.size ());
 		accounts1.insert (account);
@@ -501,6 +501,7 @@ TEST (block_store, large_iteration)
 	}
 	std::unordered_set <rai::account> accounts2;
 	rai::account previous (0);
+	rai::transaction transaction (store.environment, nullptr, false);
 	for (auto i (store.latest_begin (transaction, 0)), n (store.latest_end ()); i != n; ++i)
 	{
 		rai::account current (i->first);

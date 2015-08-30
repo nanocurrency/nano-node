@@ -44,7 +44,9 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
     return result;
 }
 
-rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
+rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a) :
+counter (0),
+resizing (false)
 {
 	boost::system::error_code error;
 	if (path_a.has_parent_path ())
@@ -56,8 +58,6 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 			assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, 128));
 			assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, rai::rai_network == rai::rai_networks::rai_test_network ? size_t (128) * 1024 * 1024 :  size_t (16) * 1024 * 1024 * 1024));
-			assert (status3 == 0);
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR, 00600));
 			error_a = status4 != 0;
 		}
@@ -87,6 +87,43 @@ rai::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
+void rai::mdb_env::add_transaction ()
+{
+	std::unique_lock <std::mutex> lock_l (lock);
+	while (resizing)
+	{
+		condition.wait (lock_l);
+	}
+	if ((counter % rai::database_check_interval) == 0)
+	{
+		MDB_stat stats;
+		mdb_env_stat (environment, &stats);
+		MDB_envinfo info;
+		mdb_env_info (environment, &info);
+		size_t load (info.me_last_pgno * stats.ms_psize);
+		auto slack (info.me_mapsize - load);
+		if (slack < rai::database_free_space)
+		{
+			resizing = true;
+			while (counter > 0)
+			{
+				condition.wait (lock_l);
+			}
+			auto next_size (((info.me_mapsize / database_size_increment) + 1) * database_size_increment);
+			mdb_env_set_mapsize (environment, next_size);
+			resizing = false;
+		}
+	}
+	++counter;
+}
+
+void rai::mdb_env::remove_transaction ()
+{
+	std::lock_guard <std::mutex> lock_l (lock);
+	--counter;
+	condition.notify_all ();
+}
+
 rai::mdb_val::mdb_val (size_t size_a, void * data_a) :
 value ({size_a, data_a})
 {
@@ -106,12 +143,14 @@ rai::mdb_val::operator MDB_val const & () const
 rai::transaction::transaction (rai::mdb_env & environment_a, MDB_txn * parent_a, bool write) :
 environment (environment_a)
 {
+	environment_a.add_transaction ();
 	auto status (mdb_txn_begin (environment_a, parent_a, write ? 0 : MDB_RDONLY, &handle));
 	assert (status == 0);
 }
 
 rai::transaction::~transaction ()
 {
+	environment.remove_transaction ();
 	auto status (mdb_txn_commit (handle));
 	assert (status == 0);
 }

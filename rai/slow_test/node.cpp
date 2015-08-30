@@ -117,3 +117,18 @@ TEST (wallet, multithreaded_send)
 		i->join ();
 	}
 }
+
+TEST (store, load)
+{
+	rai::system system (24000, 1);
+	for (auto i (0); i != 10000; ++i)
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		for (auto j (0); j != 1000; ++j)
+		{
+			rai::block_hash hash;
+			rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+			system.nodes [0]->store.account_put (transaction, hash, rai::account_info ());
+		}
+	}
+}
