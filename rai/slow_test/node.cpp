@@ -121,14 +121,25 @@ TEST (wallet, multithreaded_send)
 TEST (store, load)
 {
 	rai::system system (24000, 1);
-	for (auto i (0); i != 10000; ++i)
+	std::vector <std::thread> threads;
+	for (auto i (0); i < 100; ++i)
 	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		for (auto j (0); j != 1000; ++j)
+		threads.push_back (std::thread ([&system] ()
 		{
-			rai::block_hash hash;
-			rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
-			system.nodes [0]->store.account_put (transaction, hash, rai::account_info ());
-		}
+			for (auto i (0); i != 1000; ++i)
+			{
+				rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+				for (auto j (0); j != 10; ++j)
+				{
+					rai::block_hash hash;
+					rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+					system.nodes [0]->store.account_put (transaction, hash, rai::account_info ());
+				}
+			}
+		}));
+	}
+	for (auto &i: threads)
+	{
+		i.join ();
 	}
 }

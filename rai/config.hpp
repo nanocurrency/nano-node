@@ -16,6 +16,5 @@ enum class rai_networks
 };
 rai::rai_networks const rai_network = rai_networks::ACTIVE_NETWORK;
 int const database_check_interval = rai_network == rai::rai_networks::rai_test_network ? 4 : 1024;
-size_t const database_free_space = 16 * 1024 * 1024;
 size_t const database_size_increment = rai_network == rai::rai_networks::rai_test_network ? 2 * 1024 * 1024 : 256 * 1024 * 1024;
 }

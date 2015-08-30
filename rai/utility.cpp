@@ -45,7 +45,8 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
 }
 
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a) :
-counter (0),
+open_transactions (0),
+transaction_iteration (0),
 resizing (false)
 {
 	boost::system::error_code error;
@@ -58,6 +59,8 @@ resizing (false)
 			assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, 128));
 			assert (status2 == 0);
+			auto status3 (mdb_env_set_mapsize (environment, database_size_increment));
+			assert (status3 == 0);
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR, 00600));
 			error_a = status4 != 0;
 		}
@@ -92,9 +95,9 @@ void rai::mdb_env::add_transaction ()
 	std::unique_lock <std::mutex> lock_l (lock);
 	while (resizing)
 	{
-		condition.wait (lock_l);
+		resize_notify.wait (lock_l);
 	}
-	if ((counter % rai::database_check_interval) == 0)
+	if ((transaction_iteration % rai::database_check_interval) == 0)
 	{
 		MDB_stat stats;
 		mdb_env_stat (environment, &stats);
@@ -102,26 +105,28 @@ void rai::mdb_env::add_transaction ()
 		mdb_env_info (environment, &info);
 		size_t load (info.me_last_pgno * stats.ms_psize);
 		auto slack (info.me_mapsize - load);
-		if (slack < rai::database_free_space)
+		if (slack < (rai::database_size_increment / 4))
 		{
 			resizing = true;
-			while (counter > 0)
+			while (open_transactions > 0)
 			{
-				condition.wait (lock_l);
+				open_notify.wait (lock_l);
 			}
 			auto next_size (((info.me_mapsize / database_size_increment) + 1) * database_size_increment);
 			mdb_env_set_mapsize (environment, next_size);
 			resizing = false;
+			resize_notify.notify_all ();
 		}
 	}
-	++counter;
+	++transaction_iteration;
+	++open_transactions;
 }
 
 void rai::mdb_env::remove_transaction ()
 {
 	std::lock_guard <std::mutex> lock_l (lock);
-	--counter;
-	condition.notify_all ();
+	--open_transactions;
+	open_notify.notify_all ();
 }
 
 rai::mdb_val::mdb_val (size_t size_a, void * data_a) :
@@ -150,8 +155,8 @@ environment (environment_a)
 
 rai::transaction::~transaction ()
 {
-	environment.remove_transaction ();
 	auto status (mdb_txn_commit (handle));
+	environment.remove_transaction ();
 	assert (status == 0);
 }
 

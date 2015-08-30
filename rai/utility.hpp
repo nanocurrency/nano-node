@@ -66,8 +66,10 @@ public:
 	void remove_transaction ();
 	MDB_env * environment;
 	std::mutex lock;
-	std::condition_variable condition;
-	int counter;
+	std::condition_variable open_notify;
+	unsigned open_transactions;
+	unsigned transaction_iteration;
+	std::condition_variable resize_notify;
 	bool resizing;
 };
 class mdb_val
