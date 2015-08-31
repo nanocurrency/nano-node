@@ -119,6 +119,9 @@ int main (int argc, char * const * argv)
 		("expand_key", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
 		("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
 		("get_key", boost::program_options::value <std::string> (), "Get the public key for the base58check encoded account number")
+		("wallet", boost::program_options::value <std::string> (), "Wallet to operate on")
+		("password", boost::program_options::value <std::string> (), "Wallet password")
+		("insert_key", boost::program_options::value <std::string> (), "Insert key in to wallet")
 		("xorshift_profile", "Profile xorshift algorithms")
 		("verify_profile", "Profile signature verification");
 	boost::program_options::variables_map vm;
@@ -208,6 +211,55 @@ int main (int argc, char * const * argv)
 		rai::uint256_union account;
 		account.decode_base58check (vm ["get_key"].as <std::string> ());
 		std::cout << "Hex: " << account.to_string () << std::endl;
+	}
+	else if (vm.count ("insert_key"))
+	{
+		if (vm.count ("wallet") > 0)
+		{
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+			{
+				std::string password;
+				if (vm.count ("password") > 0)
+				{
+					password = vm ["password"].as <std::string> ();
+				}
+				rai::node_init init;
+				rai::node_config config;
+				rai::work_pool work;
+				rai::processor_service processor;
+				auto service (boost::make_shared <boost::asio::io_service> ());
+				auto working (rai::working_path ());
+				boost::filesystem::create_directories (working);
+				auto node (std::make_shared <rai::node> (init, service, working, processor, config, work));
+				auto wallet (node->wallets.open (wallet_id));
+				if (wallet != nullptr)
+				{
+					rai::transaction transaction (wallet->store.environment, nullptr, true);
+					wallet->store.enter_password (transaction, password);
+					if (wallet->store.valid_password (transaction))
+					{
+						wallet->store.insert (transaction, vm ["insert_key"].as <std::string> ());
+					}
+					else
+					{
+						std::cerr << "Invalid password\n";
+					}
+				}
+				else
+				{
+					std::cerr << "Wallet doesn't exist\n";
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id\n";
+			}
+		}
+		else
+		{
+			std::cerr << "Wallet needs to be specified\n";
+		}
 	}
     else if (vm.count ("profile_work"))
     {
