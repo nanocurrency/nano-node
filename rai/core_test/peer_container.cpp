@@ -122,3 +122,16 @@ TEST (peer_container, fill_random_part)
     ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
     ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
+
+TEST (peer_container, bootstrap_limit)
+{
+    rai::peer_container peers (rai::endpoint {});
+	auto one (rai::endpoint (boost::asio::ip::address_v6::loopback(), 2048));
+	peers.insert (one);
+	auto list0 (peers.bootstrap_candidates ());
+	ASSERT_EQ (1, list0.size ());
+	ASSERT_EQ (one, list0 [0].endpoint);
+	peers.bootstrap_failed (one);
+	auto list1 (peers.bootstrap_candidates ());
+	ASSERT_EQ (0, list1.size ());
+}

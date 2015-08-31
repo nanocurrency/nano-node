@@ -2369,6 +2369,21 @@ std::vector <rai::peer_information> rai::peer_container::list ()
     return result;
 }
 
+std::vector <rai::peer_information> rai::peer_container::bootstrap_candidates ()
+{
+    std::vector <rai::peer_information> result;
+    std::lock_guard <std::mutex> lock (mutex);
+	auto now (std::chrono::system_clock::now ());
+    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+    {
+		if (now - i->last_bootstrap_failure > std::chrono::minutes (15))
+		{
+			result.push_back (*i);
+		}
+    }
+    return result;
+}
+
 void rai::publish::visit (rai::message_visitor & visitor_a) const
 {
     visitor_a.publish (*this);
@@ -3836,7 +3851,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 
 void rai::bootstrap_initiator::bootstrap_any ()
 {
-    auto list (node.peers.list ());
+    auto list (node.peers.bootstrap_candidates ());
     if (!list.empty ())
     {
         bootstrap (list [random_pool.GenerateWord32 (0, list.size () - 1)].endpoint);
@@ -4252,42 +4267,43 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
         BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint_a);
     }
     auto this_l (shared_from_this ());
-    socket.async_connect (endpoint_a, [this_l] (boost::system::error_code const & ec)
+    socket.async_connect (endpoint_a, [this_l, endpoint_a] (boost::system::error_code const & ec)
     {
-        this_l->connect_action (ec);
+		if (!ec)
+		{
+			this_l->connect_action ();
+		}
+		else
+		{
+			if (this_l->node->config.logging.network_logging ())
+			{
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ());
+			}
+			this_l->node->peers.bootstrap_failed (rai::endpoint (endpoint_a.address (), endpoint_a.port ()));
+		}
     });
 }
 
-void rai::bootstrap_client::connect_action (boost::system::error_code const & ec)
+void rai::bootstrap_client::connect_action ()
 {
-    if (!ec)
-    {
-        std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
-        request->start.clear ();
-        request->age = std::numeric_limits <decltype (request->age)>::max ();
-        request->count = std::numeric_limits <decltype (request->age)>::max ();
-        auto send_buffer (std::make_shared <std::vector <uint8_t>> ());
-        {
-            rai::vectorstream stream (*send_buffer);
-            request->serialize (stream);
-        }
-		if (node->config.logging.network_logging ())
-		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Initiating frontier request for %1% age %2% count %3%") % request->start.to_string () % request->age % request->count);
-		}
-        auto this_l (shared_from_this ());
-        boost::asio::async_write (socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
-        {
-            this_l->sent_request (ec, size_a);
-        });
-    }
-    else
-    {
-        if (node->config.logging.network_logging ())
-        {
-            BOOST_LOG (node->log) << boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ());
-        }
-    }
+	std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
+	request->start.clear ();
+	request->age = std::numeric_limits <decltype (request->age)>::max ();
+	request->count = std::numeric_limits <decltype (request->age)>::max ();
+	auto send_buffer (std::make_shared <std::vector <uint8_t>> ());
+	{
+		rai::vectorstream stream (*send_buffer);
+		request->serialize (stream);
+	}
+	if (node->config.logging.network_logging ())
+	{
+		BOOST_LOG (node->log) << boost::str (boost::format ("Initiating frontier request for %1% age %2% count %3%") % request->start.to_string () % request->age % request->count);
+	}
+	auto this_l (shared_from_this ());
+	boost::asio::async_write (socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
+	{
+		this_l->sent_request (ec, size_a);
+	});
 }
 
 void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, size_t size_a)
@@ -4671,6 +4687,19 @@ rai::bootstrap_server::~bootstrap_server ()
     }
 }
 
+void rai::peer_container::bootstrap_failed (rai::endpoint const & endpoint_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	auto existing (peers.find (endpoint_a));
+	if (existing != peers.end ())
+	{
+		peers.modify (existing, [] (rai::peer_information & info_a)
+		{
+			info_a.last_bootstrap_failure = std::chrono::system_clock::now ();
+		});
+	}
+}
+
 void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
 {
     auto peers (list ());
@@ -4678,11 +4707,11 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
     {
         auto index (random_pool.GenerateWord32 (0, peers.size () - 1));
         assert (index < peers.size ());
-        assert (index >= 0);
-	if (index != peers.size () - 1)
-	{
-        	peers [index] = peers [peers.size () - 1];
-	}
+		assert (index >= 0);
+		if (index != peers.size () - 1)
+		{
+				peers [index] = peers [peers.size () - 1];
+		}
         peers.pop_back ();
     }
     assert (peers.size () <= target_a.size ());
@@ -4783,7 +4812,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_h
         }
         else
         {
-            peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now (), hash_a});
+            peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now (), std::chrono::system_clock::time_point (), hash_a});
 			unknown = true;
         }
     }

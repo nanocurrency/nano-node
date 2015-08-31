@@ -453,7 +453,7 @@ public:
 	bootstrap_client (std::shared_ptr <rai::node>, std::function <void ()> const & = [] () {});
     ~bootstrap_client ();
     void run (rai::tcp_endpoint const &);
-    void connect_action (boost::system::error_code const &);
+    void connect_action ();
     void sent_request (boost::system::error_code const &, size_t);
     std::shared_ptr <rai::node> node;
     boost::asio::ip::tcp::socket socket;
@@ -526,6 +526,7 @@ public:
 	rai::endpoint endpoint;
 	std::chrono::system_clock::time_point last_contact;
 	std::chrono::system_clock::time_point last_attempt;
+	std::chrono::system_clock::time_point last_bootstrap_failure;
 	rai::block_hash most_recent;
 };
 class peer_container
@@ -544,8 +545,13 @@ public:
 	bool insert (rai::endpoint const &, rai::block_hash const &);
 	// Does this peer probably know about this block
 	bool knows_about (rai::endpoint const &, rai::block_hash const &);
+	// Notify of bootstrap failure
+	void bootstrap_failed (rai::endpoint const &);
 	void random_fill (std::array <rai::endpoint, 8> &);
+	// List of all peers
 	std::vector <peer_information> list ();
+	// List of peers that haven't failed bootstrapping in a while
+	std::vector <peer_information> bootstrap_candidates ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
 	size_t size ();
