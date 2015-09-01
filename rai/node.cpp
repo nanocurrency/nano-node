@@ -2986,33 +2986,6 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Invalid port";
 				}
             }
-            else if (action == "password_valid")
-            {
-                std::string wallet_text (request_l.get <std::string> ("wallet"));
-                rai::uint256_union wallet;
-                auto error (wallet.decode_hex (wallet_text));
-                if (!error)
-                {
-                    auto existing (node.wallets.items.find (wallet));
-                    if (existing != node.wallets.items.end ())
-                    {
-						rai::transaction transaction (node.store.environment, nullptr, false);
-                        boost::property_tree::ptree response_l;
-                        response_l.put ("valid", existing->second->store.valid_password (transaction) ? "1" : "0");
-                        set_response (response, response_l);
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Wallet not found";
-                    }
-                }
-                else
-                {
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
-                }
-            }
             else if (action == "password_change")
             {
                 std::string wallet_text (request_l.get <std::string> ("wallet"));
@@ -3056,6 +3029,33 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         boost::property_tree::ptree response_l;
                         std::string password_text (request_l.get <std::string> ("password"));
                         existing->second->store.enter_password (transaction, password_text);
+                        response_l.put ("valid", existing->second->store.valid_password (transaction) ? "1" : "0");
+                        set_response (response, response_l);
+                    }
+                    else
+                    {
+                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                        response.content = "Wallet not found";
+                    }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
+            else if (action == "password_valid")
+            {
+                std::string wallet_text (request_l.get <std::string> ("wallet"));
+                rai::uint256_union wallet;
+                auto error (wallet.decode_hex (wallet_text));
+                if (!error)
+                {
+                    auto existing (node.wallets.items.find (wallet));
+                    if (existing != node.wallets.items.end ())
+                    {
+						rai::transaction transaction (node.store.environment, nullptr, false);
+                        boost::property_tree::ptree response_l;
                         response_l.put ("valid", existing->second->store.valid_password (transaction) ? "1" : "0");
                         set_response (response, response_l);
                     }
