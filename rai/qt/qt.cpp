@@ -214,14 +214,15 @@ public:
 		auto amount (ledger.amount (transaction, block_a.hash ()));
 		std::string balance;
 		rai::amount (amount / rendering_ratio).encode_dec (balance);
-		text = boost::str (boost::format ("Sent %1%") % balance);
+		text = boost::str (boost::format ("Sent %1% to %2%") % balance % block_a.hashables.destination.to_base58check ().substr (0, 16));
 	}
 	void receive_block (rai::receive_block const & block_a)
 	{
 		auto amount (ledger.amount (transaction, block_a.source ()));
 		std::string balance;
 		rai::amount (amount / rendering_ratio).encode_dec (balance);
-		text = boost::str (boost::format ("Received %1%") % balance);
+		auto account (ledger.account (transaction, block_a.source ()));
+		text = boost::str (boost::format ("Received %1% from %2%") % balance % account.to_base58check ().substr (0, 16));
 	}
 	void open_block (rai::open_block const & block_a)
 	{
@@ -232,7 +233,7 @@ public:
 	}
 	void change_block (rai::change_block const & block_a)
 	{
-		text = boost::str (boost::format ("Changed: %1%") % block_a.representative ().to_base58check ());
+		text = boost::str (boost::format ("Changed: %1%") % block_a.representative ().to_base58check ().substr (0, 16));
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
