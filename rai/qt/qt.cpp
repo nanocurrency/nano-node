@@ -247,7 +247,7 @@ void rai_qt::history::refresh ()
 	model->removeRows (0, model->rowCount ());
 	auto hash (ledger.latest (transaction, account));
 	short_text_visitor visitor (transaction, ledger, rendering_ratio);
-	while (!hash.is_zero ())
+	for (auto i (0); i < 32 && !hash.is_zero (); ++i)
 	{
 		QList <QStandardItem *> items;
 		auto block (ledger.store.block_get (transaction, hash));
