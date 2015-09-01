@@ -3834,8 +3834,8 @@ void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 	if (!in_progress && warmed_up.size () < 2 && !in_progress && warmed_up.find (endpoint_a) == warmed_up.end ())
 	{
 		warmed_up.insert (endpoint_a);
-		notify_listeners ();
 		in_progress = true;
+		notify_listeners ();
 		initiate (endpoint_a);
 	}
 }
