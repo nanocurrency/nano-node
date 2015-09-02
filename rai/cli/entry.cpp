@@ -105,114 +105,78 @@ void fill_zero (void * data)
 }
 #endif // 0
 
-int main (int argc, char * const * argv)
+class inactive_node
 {
-	boost::program_options::options_description description ("Command line options");
-	description.add_options ()
-		("help", "Print out options")
-		("debug_activity", "Generates fake debug activity")
-		("dump_wallets", "Dumps wallet IDs and public keys")
-		("profile_work", "Profile the work function")
-		("profile_kdf", "Profile kdf function")
-		("generate_key", "Generates a random keypair")
-		("generate_bootstrap", "Generate bootstrap sequence of blocks")
-		("expand_key", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
-		("get_account", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
-		("get_key", boost::program_options::value <std::string> (), "Get the public key for the base58check encoded account number")
-		("wallet", boost::program_options::value <std::string> (), "Wallet to operate on")
-		("password", boost::program_options::value <std::string> (), "Wallet password")
-		("insert_key", boost::program_options::value <std::string> (), "Insert key in to wallet")
-		("xorshift_profile", "Profile xorshift algorithms")
-		("verify_profile", "Profile signature verification");
-	boost::program_options::variables_map vm;
-	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
-	boost::program_options::notify (vm);
-	int result (0);
-	if (vm.count ("help"))
-	{
-		std::cout << description << std::endl;
-		result = -1;
-	}
-	else if (vm.count ("dump_wallets"))
+public:
+	inactive_node ()
 	{
 		auto working (rai::working_path ());
 		boost::filesystem::create_directories (working);
 		auto service (boost::make_shared <boost::asio::io_service> ());
-		auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-		rai::processor_service processor;
-		rai::logging logging;
-		rai::node_init init;
-		rai::work_pool work;
-		auto node (std::make_shared <rai::node> (init, service, 24000,  working, processor, logging, work));
-		for (auto i (node->wallets.items.begin ()), n (node->wallets.items.end ()); i != n; ++i)
-		{
-			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
-			rai::transaction transaction (i->second->store.environment, nullptr, false);
-			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
-			{
-				std::cout << rai::uint256_union (j->first).to_base58check () << '\n';
-			}
-		}
+		node = std::make_shared <rai::node> (init, service, 24000,  working, processor, logging, work);
 	}
-    else if (vm.count ("debug_activity"))
+	rai::processor_service processor;
+	rai::logging logging;
+	rai::node_init init;
+	rai::work_pool work;
+	std::shared_ptr <rai::node> node;
+};
+
+int main (int argc, char * const * argv)
+{
+	boost::program_options::options_description description ("Command line options");
+	description.add_options ()
+		("account_base58", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
+		("account_key", boost::program_options::value <std::string> (), "Get the public key for the base58check encoded account number")
+		("daemon", "Start node daemon")
+		("key_create", "Generates a random keypair")
+		("key_expand", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
+		("wallet_add", boost::program_options::value <std::string> (), "Insert key in to wallet")
+		("wallet_list", "Dumps wallet IDs and public keys")
+		("password", boost::program_options::value <std::string> (), "Wallet password")
+		("wallet", boost::program_options::value <std::string> (), "Wallet to operate on")
+		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_mass_activity", "Generates fake debug activity")
+		("debug_profile_work", "Profile the work function")
+		("debug_profile_kdf", "Profile kdf function")
+		("debug_verify_profile", "Profile signature verification")
+		("debug_xorshift_profile", "Profile xorshift algorithms")
+		("help", "Print out options");
+	boost::program_options::variables_map vm;
+	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
+	boost::program_options::notify (vm);
+	int result (0);
+    if (vm.count ("account_base58"))
     {
-        rai::system system (24000, 1);
-        system.wallet (0)->insert (rai::test_genesis_key.prv);
-        size_t count (10000);
-        system.generate_mass_activity (count, *system.nodes [0]);
+        rai::uint256_union pub;
+        pub.decode_hex (vm ["account_base58"].as <std::string> ());
+        std::cout << "Account: " << pub.to_base58check () << std::endl;
     }
-    else if (vm.count ("generate_key"))
+	else if (vm.count ("account_key"))
+	{
+		rai::uint256_union account;
+		account.decode_base58check (vm ["account_key"].as <std::string> ());
+		std::cout << "Hex: " << account.to_string () << std::endl;
+	}
+	else if (vm.count ("daemon"))
+	{
+        rai_daemon::daemon daemon;
+        daemon.run ();
+	}
+    else if (vm.count ("key_create"))
     {
         rai::keypair pair;
         std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_base58check () << std::endl;
     }
-	else if (vm.count ("generate_bootstrap"))
-	{
-		rai::work_pool work;
-        rai::keypair genesis;
-        std::cout << "Genesis: " << genesis.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
-		rai::keypair landing;
-		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
-		rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
-		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
-		std::cout << genesis_block.to_json ();
-		rai::block_hash previous (genesis_block.hash ());
-		for (auto i (0); i != 8; ++i)
-		{
-			rai::uint128_t yearly_distribution (rai::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
-			auto weekly_distribution (yearly_distribution / 52);
-			for (auto j (0); j != 52; ++j)
-			{
-				assert (balance > weekly_distribution);
-				balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-				rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, work.generate (previous));
-				previous = send.hash ();
-				std::cout << send.to_json ();
-				std::cout.flush ();
-			}
-		}
-	}
-	else if (vm.count ("expand_key"))
+	else if (vm.count ("key_expand"))
 	{
 		rai::uint256_union prv;
-		prv.decode_hex (vm ["expand_key"].as <std::string> ());
+		prv.decode_hex (vm ["key_expand"].as <std::string> ());
 		rai::uint256_union pub;
 		ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 		std::cout << "Private: " << prv.to_string () << std::endl << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_base58check () << std::endl;
 	}
-    else if (vm.count ("get_account"))
-    {
-        rai::uint256_union pub;
-        pub.decode_hex (vm ["get_account"].as <std::string> ());
-        std::cout << "Account: " << pub.to_base58check () << std::endl;
-    }
-	else if (vm.count ("get_key"))
-	{
-		rai::uint256_union account;
-		account.decode_base58check (vm ["get_key"].as <std::string> ());
-		std::cout << "Hex: " << account.to_string () << std::endl;
-	}
-	else if (vm.count ("insert_key"))
+	else if (vm.count ("wallet_add"))
 	{
 		if (vm.count ("wallet") > 0)
 		{
@@ -224,15 +188,8 @@ int main (int argc, char * const * argv)
 				{
 					password = vm ["password"].as <std::string> ();
 				}
-				rai::node_init init;
-				rai::node_config config;
-				rai::work_pool work;
-				rai::processor_service processor;
-				auto service (boost::make_shared <boost::asio::io_service> ());
-				auto working (rai::working_path ());
-				boost::filesystem::create_directories (working);
-				auto node (std::make_shared <rai::node> (init, service, working, processor, config, work));
-				auto wallet (node->wallets.open (wallet_id));
+				inactive_node node;
+				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
 					rai::transaction transaction (wallet->store.environment, nullptr, true);
@@ -261,7 +218,68 @@ int main (int argc, char * const * argv)
 			std::cerr << "Wallet needs to be specified\n";
 		}
 	}
-    else if (vm.count ("profile_work"))
+	else if (vm.count ("wallet_list"))
+	{
+		inactive_node node;
+		for (auto i (node.node->wallets.items.begin ()), n (node.node->wallets.items.end ()); i != n; ++i)
+		{
+			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
+			rai::transaction transaction (i->second->store.environment, nullptr, false);
+			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
+			{
+				std::cout << rai::uint256_union (j->first).to_base58check () << '\n';
+			}
+		}
+	}
+	else if (vm.count ("debug_bootstrap_generate"))
+	{
+		rai::work_pool work;
+        rai::keypair genesis;
+        std::cout << "Genesis: " << genesis.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
+		rai::keypair landing;
+		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
+		rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
+		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
+		std::cout << genesis_block.to_json ();
+		rai::block_hash previous (genesis_block.hash ());
+		for (auto i (0); i != 8; ++i)
+		{
+			rai::uint128_t yearly_distribution (rai::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
+			auto weekly_distribution (yearly_distribution / 52);
+			for (auto j (0); j != 52; ++j)
+			{
+				assert (balance > weekly_distribution);
+				balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
+				rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, work.generate (previous));
+				previous = send.hash ();
+				std::cout << send.to_json ();
+				std::cout.flush ();
+			}
+		}
+	}
+    else if (vm.count ("debug_mass_activity"))
+    {
+        rai::system system (24000, 1);
+        system.wallet (0)->insert (rai::test_genesis_key.prv);
+        size_t count (10000);
+        system.generate_mass_activity (count, *system.nodes [0]);
+    }
+    else if (vm.count ("debug_profile_kdf"))
+    {
+        rai::kdf kdf (rai::wallet_store::kdf_work);
+        for (auto i (kdf.data.get ()), n (kdf.data.get () + kdf.entries); i != n; ++i)
+        {
+            *i = 0;
+        }
+        for (uint64_t i (0); true; ++i)
+        {
+            auto begin1 (std::chrono::high_resolution_clock::now ());
+            auto value (kdf.generate ("", i));
+            auto end1 (std::chrono::high_resolution_clock::now ());
+            std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+        }
+    }
+    else if (vm.count ("debug_profile_work"))
     {
 		rai::work_pool work;
         rai::change_block block (0, 0, 0, 0, 0);
@@ -277,23 +295,22 @@ int main (int argc, char * const * argv)
             std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
         }
     }
-    else if (vm.count ("profile_kdf"))
+    else if (vm.count ("debug_verify_profile"))
     {
-        rai::kdf kdf (rai::wallet_store::kdf_work);
-        for (auto i (kdf.data.get ()), n (kdf.data.get () + kdf.entries); i != n; ++i)
+        rai::keypair key;
+        rai::uint256_union message;
+        rai::uint512_union signature;
+        signature = rai::sign_message (key.prv, key.pub, message);
+        auto begin (std::chrono::high_resolution_clock::now ());
+        for (auto i (0u); i < 1000; ++i)
         {
-            *i = 0;
+            rai::validate_message (key.pub, key.prv, signature);
         }
-        for (uint64_t i (0); true; ++i)
-        {
-            auto begin1 (std::chrono::high_resolution_clock::now ());
-            auto value (kdf.generate ("", i));
-            auto end1 (std::chrono::high_resolution_clock::now ());
-            std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
-        }
+        auto end (std::chrono::high_resolution_clock::now ());
+        std::cerr << "Signature verifications " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
     }
 #if 0
-    else if (vm.count ("xorshift_profile"))
+    else if (vm.count ("debug_xorshift_profile"))
     {
         auto unaligned (new uint8_t [64 * 1024 * 1024 + 16]);
         auto aligned (reinterpret_cast <void *> (reinterpret_cast <uintptr_t> (unaligned) & ~uintptr_t (0xfu)));
@@ -349,24 +366,10 @@ int main (int argc, char * const * argv)
         }
     }
 #endif // 0
-    else if (vm.count ("verify_profile"))
-    {
-        rai::keypair key;
-        rai::uint256_union message;
-        rai::uint512_union signature;
-        signature = rai::sign_message (key.prv, key.pub, message);
-        auto begin (std::chrono::high_resolution_clock::now ());
-        for (auto i (0u); i < 1000; ++i)
-        {
-            rai::validate_message (key.pub, key.prv, signature);
-        }
-        auto end (std::chrono::high_resolution_clock::now ());
-        std::cerr << "Signature verifications " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
-    }
     else
     {
-        rai_daemon::daemon daemon;
-        daemon.run ();
+		std::cout << description << std::endl;
+		result = -1;
     }
     return result;
 }
