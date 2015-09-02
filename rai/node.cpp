@@ -3085,10 +3085,18 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 						if (amount < 1000)
 						{
 							auto balance (node.balance (account));
-							auto price (node.price (balance, amount));
-							boost::property_tree::ptree response_l;
-							response_l.put ("price", std::to_string (price));
-							set_response (response, response_l);
+							if (balance >= amount * rai::Grai_ratio)
+							{
+								auto price (node.price (balance, amount));
+								boost::property_tree::ptree response_l;
+								response_l.put ("price", std::to_string (price));
+								set_response (response, response_l);
+							}
+							else
+							{
+								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+								response.content = "Requesting more blocks than are available 1000";
+							}
 						}
 						else
 						{
@@ -3740,14 +3748,15 @@ void rai::node::backup_wallet ()
 
 int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 {
+	assert (balance_a >= amount_a * rai::Grai_ratio);
 	auto balance_l (balance_a);
 	int result (0);
 	for (auto i (0); i < amount_a; ++i)
 	{
+		balance_l -= rai::Grai_ratio;
 		auto units ((balance_l / rai::Grai_ratio).convert_to <double> ());
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);
-		balance_l -= rai::Grai_ratio;
 	}
 	return result;
 }

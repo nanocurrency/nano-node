@@ -348,11 +348,11 @@ TEST (logging, serialization)
 TEST (node, price)
 {
 	rai::system system (24000, 1);
-	auto price1 (system.nodes [0]->price (0, 1));
+	auto price1 (system.nodes [0]->price (rai::Grai_ratio, 1));
 	ASSERT_EQ (rai::node::price_max, price1);
-	auto price2 (system.nodes [0]->price (rai::Grai_ratio * int (rai::node::free_cutoff), 1));
+	auto price2 (system.nodes [0]->price (rai::Grai_ratio * int (rai::node::free_cutoff + 1), 1));
 	ASSERT_EQ (0, price2);
-	auto price3 (system.nodes [0]->price (rai::Grai_ratio * int (rai::node::free_cutoff) / 2, 1));
+	auto price3 (system.nodes [0]->price (rai::Grai_ratio * int (rai::node::free_cutoff + 2) / 2, 1));
 	ASSERT_EQ (rai::node::price_max / 2, price3);
 	auto price4 (system.nodes [0]->price (rai::Grai_ratio * int (rai::node::free_cutoff) * 2, 1));
 	ASSERT_EQ (0, price4);
