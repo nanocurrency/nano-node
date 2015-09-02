@@ -127,13 +127,13 @@ int main (int argc, char * const * argv)
 	boost::program_options::options_description description ("Command line options");
 	description.add_options ()
 		("account_base58", boost::program_options::value <std::string> (), "Get base58 account number for the <key>")
-		("account_delete", "Deletes the <account> from the <wallet>")
 		("account_key", "Get the public key for the <account>")
 		("daemon", "Start node daemon")
 		("key_create", "Generates a random keypair")
 		("key_expand", "Derive public key and account number from <key>")
 		("wallet_add", "Insert <key> in to <wallet>")
 		("wallet_list", "Dumps wallet IDs and public keys")
+		("wallet_remove", "Remove <account> from <wallet>")
 		("account", boost::program_options::value <std::string> (), "Defines <account> for other commands, base58")
 		("key", boost::program_options::value <std::string> (), "Defines the <key> for other commands, hex")
 		("password", boost::program_options::value <std::string> (), "Defines <password> for other commands")
@@ -228,16 +228,19 @@ int main (int argc, char * const * argv)
 					else
 					{
 						std::cerr << "Invalid password\n";
+						result = -1;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
+					result = -1;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
+				result = -1;
 			}
 		}
 		else
@@ -257,6 +260,56 @@ int main (int argc, char * const * argv)
 			{
 				std::cout << rai::uint256_union (j->first).to_base58check () << '\n';
 			}
+		}
+	}
+	else if (vm.count ("wallet_remove"))
+	{
+		if (vm.count ("wallet") == 1 && vm.count ("account") == 1)
+		{
+			inactive_node node;
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+			{
+				auto wallet (node.node->wallets.items.find (wallet_id));
+				if (wallet != node.node->wallets.items.end ())
+				{
+					rai::account account_id;
+					if (!account_id.decode_base58check (vm ["account"].as <std::string> ()))
+					{
+						rai::transaction transaction (wallet->second->store.environment, nullptr, true);
+						auto account (wallet->second->store.find (transaction, account_id));
+						if (account != wallet->second->store.end ())
+						{
+							wallet->second->store.erase (transaction, account_id);
+						}
+						else
+						{
+							std::cerr << "Account not found in wallet\n";
+							result = -1;
+						}
+					}
+					else
+					{
+						std::cerr << "Invalid account id\n";
+						result = -1;
+					}
+				}
+				else
+				{
+					std::cerr << "Wallet not found\n";
+					result = -1;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id\n";
+				result = -1;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_remove command requires one <wallet> and one <account> option";
+			result = -1;
 		}
 	}
 	else if (vm.count ("debug_bootstrap_generate"))
