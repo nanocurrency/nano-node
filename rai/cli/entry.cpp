@@ -126,15 +126,18 @@ int main (int argc, char * const * argv)
 {
 	boost::program_options::options_description description ("Command line options");
 	description.add_options ()
-		("account_base58", boost::program_options::value <std::string> (), "Get base58check encoded account from public key")
-		("account_key", boost::program_options::value <std::string> (), "Get the public key for the base58check encoded account number")
+		("account_base58", boost::program_options::value <std::string> (), "Get base58 account number for the <key>")
+		("account_delete", "Deletes the <account> from the <wallet>")
+		("account_key", "Get the public key for the <account>")
 		("daemon", "Start node daemon")
 		("key_create", "Generates a random keypair")
-		("key_expand", boost::program_options::value <std::string> (), "Derive public key and account number from private key")
-		("wallet_add", boost::program_options::value <std::string> (), "Insert key in to wallet")
+		("key_expand", "Derive public key and account number from <key>")
+		("wallet_add", "Insert <key> in to <wallet>")
 		("wallet_list", "Dumps wallet IDs and public keys")
-		("password", boost::program_options::value <std::string> (), "Wallet password")
-		("wallet", boost::program_options::value <std::string> (), "Wallet to operate on")
+		("account", boost::program_options::value <std::string> (), "Defines <account> for other commands, base58")
+		("key", boost::program_options::value <std::string> (), "Defines the <key> for other commands, hex")
+		("password", boost::program_options::value <std::string> (), "Defines <password> for other commands")
+		("wallet", boost::program_options::value <std::string> (), "Defines <wallet> for other commands")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_work", "Profile the work function")
@@ -146,19 +149,35 @@ int main (int argc, char * const * argv)
 	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
 	boost::program_options::notify (vm);
 	int result (0);
-    if (vm.count ("account_base58"))
+    if (vm.count ("account_base58") > 0)
     {
-        rai::uint256_union pub;
-        pub.decode_hex (vm ["account_base58"].as <std::string> ());
-        std::cout << "Account: " << pub.to_base58check () << std::endl;
+		if (vm.count ("key") == 1)
+		{
+			rai::uint256_union pub;
+			pub.decode_hex (vm ["key"].as <std::string> ());
+			std::cout << "Account: " << pub.to_base58check () << std::endl;
+		}
+		else
+		{
+			std::cerr << "account_base58 comand requires one <key> option";
+			result = -1;
+		}
     }
-	else if (vm.count ("account_key"))
+	else if (vm.count ("account_key") > 0)
 	{
-		rai::uint256_union account;
-		account.decode_base58check (vm ["account_key"].as <std::string> ());
-		std::cout << "Hex: " << account.to_string () << std::endl;
+		if (vm.count ("account") == 1)
+		{
+			rai::uint256_union account;
+			account.decode_base58check (vm ["account"].as <std::string> ());
+			std::cout << "Hex: " << account.to_string () << std::endl;
+		}
+		else
+		{
+			std::cerr << "account_key command requires one <account> option";
+			result = -1;
+		}
 	}
-	else if (vm.count ("daemon"))
+	else if (vm.count ("daemon") > 0)
 	{
         rai_daemon::daemon daemon;
         daemon.run ();
@@ -170,15 +189,23 @@ int main (int argc, char * const * argv)
     }
 	else if (vm.count ("key_expand"))
 	{
-		rai::uint256_union prv;
-		prv.decode_hex (vm ["key_expand"].as <std::string> ());
-		rai::uint256_union pub;
-		ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-		std::cout << "Private: " << prv.to_string () << std::endl << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_base58check () << std::endl;
+		if (vm.count ("key") == 1)
+		{
+			rai::uint256_union prv;
+			prv.decode_hex (vm ["key"].as <std::string> ());
+			rai::uint256_union pub;
+			ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+			std::cout << "Private: " << prv.to_string () << std::endl << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_base58check () << std::endl;
+		}
+		else
+		{
+			std::cerr << "key_expand command requires one <key> option";
+			result = -1;
+		}
 	}
 	else if (vm.count ("wallet_add"))
 	{
-		if (vm.count ("wallet") > 0)
+		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
 		{
 			rai::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
@@ -196,7 +223,7 @@ int main (int argc, char * const * argv)
 					wallet->store.enter_password (transaction, password);
 					if (wallet->store.valid_password (transaction))
 					{
-						wallet->store.insert (transaction, vm ["insert_key"].as <std::string> ());
+						wallet->store.insert (transaction, vm ["key"].as <std::string> ());
 					}
 					else
 					{
@@ -215,7 +242,8 @@ int main (int argc, char * const * argv)
 		}
 		else
 		{
-			std::cerr << "Wallet needs to be specified\n";
+			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option";
+			result = -1;
 		}
 	}
 	else if (vm.count ("wallet_list"))
