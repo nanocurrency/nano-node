@@ -3754,7 +3754,8 @@ int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 	for (auto i (0); i < amount_a; ++i)
 	{
 		balance_l -= rai::Grai_ratio;
-		auto units ((balance_l / rai::Grai_ratio).convert_to <double> ());
+		auto balance_scaled ((balance_l / rai::Mrai_ratio).convert_to <double> ());
+		auto units (balance_scaled / 1000.0);
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);
 	}

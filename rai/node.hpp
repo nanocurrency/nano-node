@@ -873,7 +873,7 @@ public:
     std::vector <std::function <void (rai::vote const &)>> vote_observers;
 	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;
 	std::vector <std::function <void ()>> disconnect_observers;
-	static double constexpr price_max = 1024.0;
+	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
