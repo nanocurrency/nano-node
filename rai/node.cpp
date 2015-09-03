@@ -3095,7 +3095,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 							else
 							{
 								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-								response.content = "Requesting more blocks than are available 1000";
+								response.content = "Requesting more blocks than are available";
 							}
 						}
 						else
