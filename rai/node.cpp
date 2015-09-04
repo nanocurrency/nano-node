@@ -3110,7 +3110,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 						else
 						{
 							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-							response.content = "Can't convert amount to number";
+							response.content = "Unable to convert amount to number";
 						}
 					}
 					catch (std::invalid_argument const &)
