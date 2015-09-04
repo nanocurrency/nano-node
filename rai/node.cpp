@@ -6164,6 +6164,12 @@ void rai::landing::write_store ()
 	{
 		store.serialize (store_file);
 	}
+	else
+	{
+		std::stringstream str;
+		store.serialize (str);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Error writing store file %1%") % str.str ());
+	}
 }
 
 rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
@@ -6234,7 +6240,7 @@ void rai::landing::distribute_one ()
 		}
 		else
 		{
-			BOOST_LOG (node.log) << "Error while sending distribution\n";
+			BOOST_LOG (node.log) << "Error while sending distribution";
 		}
 	}
 }
