@@ -684,6 +684,25 @@ TEST (rpc, price_amount_high)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.status);
 }
 
+TEST (rpc, price_bad)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    boost::network::http::server <rai::rpc>::request request;
+    boost::network::http::server <rai::rpc>::response response;
+    request.method = "POST";
+    boost::property_tree::ptree request_tree;
+    request_tree.put ("action", "price");
+	request_tree.put ("account", rai::test_genesis_key.pub.to_base58check ());
+	request_tree.put ("amount", "1a");
+    std::stringstream ostream;
+    boost::property_tree::write_json (ostream, request_tree);
+    request.body = ostream.str ();
+    rpc (request, response);
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.status);
+}
+
 TEST (rpc, frontier)
 {
     rai::system system (24000, 1);

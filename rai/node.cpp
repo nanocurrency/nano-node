@@ -3081,27 +3081,36 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 					auto amount_text (request_l.get <std::string> ("amount"));
 					try
 					{
-						auto amount (std::stoi (amount_text));
-						if (amount < 1000)
+						size_t end;
+						auto amount (std::stoi (amount_text, &end));
+						if (end == amount_text.size ())
 						{
-							auto balance (node.balance (account));
-							if (balance >= amount * rai::Grai_ratio)
+							if (amount <= 1000)
 							{
-								auto price (node.price (balance, amount));
-								boost::property_tree::ptree response_l;
-								response_l.put ("price", std::to_string (price));
-								set_response (response, response_l);
+								auto balance (node.balance (account));
+								if (balance >= amount * rai::Grai_ratio)
+								{
+									auto price (node.price (balance, amount));
+									boost::property_tree::ptree response_l;
+									response_l.put ("price", std::to_string (price));
+									set_response (response, response_l);
+								}
+								else
+								{
+									response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+									response.content = "Requesting more blocks than are available";
+								}
 							}
 							else
 							{
 								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-								response.content = "Requesting more blocks than are available";
+								response.content = "Cannot purchase more than 1000";
 							}
 						}
 						else
 						{
 							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-							response.content = "Cannot purchase more than 1000";
+							response.content = "Can't convert amount to number";
 						}
 					}
 					catch (std::invalid_argument const &)
@@ -3750,7 +3759,7 @@ int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 {
 	assert (balance_a >= amount_a * rai::Grai_ratio);
 	auto balance_l (balance_a);
-	int result (0);
+	double result (0.0);
 	for (auto i (0); i < amount_a; ++i)
 	{
 		balance_l -= rai::Grai_ratio;
@@ -3759,7 +3768,7 @@ int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);
 	}
-	return result;
+	return static_cast <int> (result * 100.0);
 }
 
 namespace
