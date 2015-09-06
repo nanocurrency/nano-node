@@ -4446,7 +4446,8 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
-rai::block_synchronization::block_synchronization (std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::block_synchronization::block_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+log (log_a),
 target (target_a),
 store (store_a)
 {
@@ -4489,13 +4490,12 @@ public:
     {
         if (!sync.synchronized (hash_a))
         {
-//			std::cerr << "Queueing: " << hash_a.to_string () << std::endl;
             result = false;
             sync.blocks.push (hash_a);
         }
 		else
 		{
-//			std::cerr << "Completed: " << hash_a.to_string () << std::endl;
+			BOOST_LOG (sync.log) << boost::str (boost::format ("Unable to add synchronized dependency %1%") % hash_a.to_string ());
 		}
     }
     rai::block_synchronization & sync;
@@ -4516,14 +4516,15 @@ bool rai::block_synchronization::fill_dependencies ()
     auto done (false);
     while (!result && !done)
     {
-		auto top (blocks.top ());
-        auto block (retrieve (top));
+		auto hash (blocks.top ());
+        auto block (retrieve (hash));
         if (block != nullptr)
         {
             done = add_dependency (*block);
         }
         else
         {
+			BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while generating dependencies %1%") % hash.to_string ());
             result = true;
         }
     }
@@ -4535,7 +4536,8 @@ bool rai::block_synchronization::synchronize_one ()
     auto result (fill_dependencies ());
     if (!result)
     {
-        auto block (retrieve (blocks.top ()));
+		auto hash (blocks.top ());
+        auto block (retrieve (hash));
         blocks.pop ();
         if (block != nullptr)
         {
@@ -4543,6 +4545,7 @@ bool rai::block_synchronization::synchronize_one ()
 		}
 		else
 		{
+			BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while synchronizing %1%") % hash.to_string ());
 			result = true;
 		}
     }
@@ -4560,8 +4563,8 @@ bool rai::block_synchronization::synchronize (rai::block_hash const & hash_a)
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
-block_synchronization (target_a, store_a)
+rai::pull_synchronization::pull_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+block_synchronization (log_a, target_a, store_a)
 {
 }
 
@@ -4577,8 +4580,8 @@ bool rai::pull_synchronization::synchronized (rai::block_hash const & hash_a)
     return store.block_exists (transaction, hash_a);
 }
 
-rai::push_synchronization::push_synchronization (std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
-block_synchronization (target_a, store_a)
+rai::push_synchronization::push_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+block_synchronization (log_a, target_a, store_a)
 {
 }
 
@@ -4613,7 +4616,7 @@ rai::block_hash rai::bulk_pull_client::first ()
 
 void rai::bulk_pull_client::process_end ()
 {
-	rai::pull_synchronization synchronization ([this] (rai::block const & block_a)
+	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
 	{
 		auto process_result (connection->connection->node->process_receive (block_a));
 		switch (process_result.code)
@@ -5409,7 +5412,7 @@ void rai::frontier_req_client::completed_pushes ()
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
 connection (connection_a),
-synchronization ([this] (rai::block const & block_a)
+synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
 {
     push_block (block_a);
 }, connection_a->connection->node->store)

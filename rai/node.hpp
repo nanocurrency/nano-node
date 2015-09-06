@@ -418,7 +418,7 @@ public:
 class block_synchronization
 {
 public:
-    block_synchronization (std::function <void (rai::block const &)> const &, rai::block_store &);
+    block_synchronization (boost::log::sources::logger &, std::function <void (rai::block const &)> const &, rai::block_store &);
     ~block_synchronization ();
     // Return true if target already has block
     virtual bool synchronized (rai::block_hash const &) = 0;
@@ -430,20 +430,21 @@ public:
     bool synchronize (rai::block_hash const &);
     std::stack <rai::block_hash> blocks;
     std::unordered_set <rai::block_hash> sent;
+	boost::log::sources::logger & log;
     std::function <void (rai::block const &)> target;
     rai::block_store & store;
 };
 class pull_synchronization : public rai::block_synchronization
 {
 public:
-    pull_synchronization (std::function <void (rai::block const &)> const &, rai::block_store &);
+    pull_synchronization (boost::log::sources::logger &, std::function <void (rai::block const &)> const &, rai::block_store &);
     bool synchronized (rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
 };
 class push_synchronization : public rai::block_synchronization
 {
 public:
-    push_synchronization (std::function <void (rai::block const &)> const &, rai::block_store &);
+    push_synchronization (boost::log::sources::logger &, std::function <void (rai::block const &)> const &, rai::block_store &);
     bool synchronized (rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
 };
