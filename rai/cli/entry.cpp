@@ -134,6 +134,8 @@ int main (int argc, char * const * argv)
 		("wallet_add", "Insert <key> in to <wallet>")
 		("wallet_list", "Dumps wallet IDs and public keys")
 		("wallet_remove", "Remove <account> from <wallet>")
+		("wallet_representative_get", "Prints default representative for <wallet>")
+		("wallet_representative_set", "Set <account> as default representative for <wallet>")
 		("account", boost::program_options::value <std::string> (), "Defines <account> for other commands, base58")
 		("key", boost::program_options::value <std::string> (), "Defines the <key> for other commands, hex")
 		("password", boost::program_options::value <std::string> (), "Defines <password> for other commands")
@@ -308,7 +310,89 @@ int main (int argc, char * const * argv)
 		}
 		else
 		{
-			std::cerr << "wallet_remove command requires one <wallet> and one <account> option";
+			std::cerr << "wallet_remove command requires one <wallet> and one <account> option\n";
+			result = -1;
+		}
+	}
+	else if (vm.count ("wallet_representative_get"))
+	{
+		if (vm.count ("wallet") == 1)
+		{
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+			{
+				inactive_node node;
+				auto wallet (node.node->wallets.items.find (wallet_id));
+				if (wallet != node.node->wallets.items.end ())
+				{
+					rai::transaction transaction (wallet->second->store.environment, nullptr, false);
+					auto representative (wallet->second->store.representative (transaction));
+					std::cout << boost::str (boost::format ("Representative: %1%\n") % representative.to_base58check ());
+				}
+				else
+				{
+					std::cerr << "Wallet not found\n";
+					result = -1;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id\n";
+				result = -1;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_representative_get requires one <wallet> option\n";
+			result = -1;
+		}
+	}
+	else if (vm.count ("wallet_representative_set"))
+	{
+		if (vm.count ("wallet") == 1)
+		{
+			if (vm.count ("account") == 1)
+			{
+				rai::uint256_union wallet_id;
+				if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+				{
+					rai::account account;
+					if (!account.decode_base58check (vm ["account"].as <std::string> ()))
+					{
+						inactive_node node;
+						auto wallet (node.node->wallets.items.find (wallet_id));
+						if (wallet != node.node->wallets.items.end ())
+						{
+							rai::transaction transaction (wallet->second->store.environment, nullptr, true);
+							wallet->second->store.representative_set (transaction, account);
+						}
+						else
+						{
+							std::cerr << "Wallet not found\n";
+							result = -1;
+						}
+					}
+					else
+					{
+						std::cerr << "Invalid account\n";
+						result = -1;
+					}
+				}
+				else
+				{
+					std::cerr << "Invalid wallet id\n";
+					result = -1;
+				}
+			}
+			else
+			{
+				std::cerr << "wallet_representative_set requires one <account> option\n";
+				result = -1;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_representative_set requires one <wallet> option\n";
 			result = -1;
 		}
 	}
