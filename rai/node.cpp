@@ -1933,6 +1933,7 @@ creation_rebroadcast (2),
 rebroadcast_delay (15)
 {
 	preconfigured_peers.push_back ("rai.raiblocks.net");
+	preconfigured_representatives.push_back (rai::genesis_account);
 }
 
 rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
@@ -1963,6 +1964,14 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 		preconfigured_peers_l.push_back (std::make_pair ("", entry));
 	}
 	tree_a.add_child ("preconfigured_peers", preconfigured_peers_l);
+	boost::property_tree::ptree preconfigured_representatives_l;
+	for (auto i (preconfigured_representatives.begin ()), n (preconfigured_representatives.end ()); i != n; ++i)
+	{
+		boost::property_tree::ptree entry;
+		entry.put ("", i->to_base58check ());
+		preconfigured_representatives_l.push_back (std::make_pair ("", entry));
+	}
+	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
 }
 
 bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -1982,6 +1991,14 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 		{
 			auto bootstrap_peer (i->second.get <std::string> (""));
 			preconfigured_peers.push_back (bootstrap_peer);
+		}
+		auto preconfigured_representatives_l (tree_a.get_child ("preconfigured_representatives"));
+		preconfigured_representatives.clear ();
+		for (auto i (preconfigured_representatives_l.begin ()), n (preconfigured_representatives_l.end ()); i != n; ++i)
+		{
+			rai::account representative (0);
+			result = result || representative.decode_base58check (i->second.get <std::string> (""));
+			preconfigured_representatives.push_back (representative);
 		}
 		try
 		{

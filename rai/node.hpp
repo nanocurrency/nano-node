@@ -815,6 +815,7 @@ public:
 	uint16_t peering_port;
 	rai::logging logging;
 	std::vector <std::string> preconfigured_peers;
+	std::vector <rai::account> preconfigured_representatives;
 	unsigned packet_delay_microseconds;
 	unsigned bootstrap_fraction_numerator;
 	unsigned creation_rebroadcast;
