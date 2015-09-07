@@ -267,7 +267,7 @@ TEST (block_store, frontier_retrieval)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::account account1 (0);
-    rai::account_info info1 (0, 0, 0, 0, false);
+    rai::account_info info1 (0, 0, 0, 0);
 	rai::transaction transaction (store.environment, nullptr, true);
     store.account_put (transaction, account1, info1);
     rai::account_info info2;
@@ -283,7 +283,7 @@ TEST (block_store, one_account)
     rai::account account (0);
     rai::block_hash hash (0);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account, {hash, account, 42, 100, false});
+    store.account_put (transaction, account, {hash, account, 42, 100});
     auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
@@ -327,8 +327,8 @@ TEST (block_store, two_account)
     rai::account account2 (3);
     rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account1, {hash1, account1, 42, 100, false});
-    store.account_put (transaction, account2, {hash2, account2, 84, 200, false});
+    store.account_put (transaction, account1, {hash1, account1, 42, 100});
+    store.account_put (transaction, account2, {hash2, account2, 84, 200});
     auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
@@ -358,8 +358,8 @@ TEST (block_store, latest_find)
     rai::account account2 (3);
     rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account1, {hash1, account1, 100, 0, false});
-    store.account_put (transaction, account2, {hash2, account2, 200, 0, false});
+    store.account_put (transaction, account1, {hash1, account1, 100, 0});
+    store.account_put (transaction, account2, {hash2, account2, 200, 0});
     auto first (store.latest_begin (transaction));
     auto second (store.latest_begin (transaction));
     ++second;

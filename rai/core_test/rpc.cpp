@@ -713,7 +713,7 @@ TEST (rpc, frontier)
 		{
 			rai::keypair key;
 			source [key.pub] = key.prv;
-			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv, 0, 0, 0, false));
+			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv, 0, 0, 0));
 		}
 	}
 	rai::keypair key;

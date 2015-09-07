@@ -1273,7 +1273,7 @@ rai::account_info::account_info (MDB_val const & val_a)
 	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast <uint8_t *> (this));
 }
 
-rai::account_info::account_info (rai::block_hash const & head_a, rai::account const & rep_block_a, rai::amount const & balance_a, uint64_t modified_a, bool) :
+rai::account_info::account_info (rai::block_hash const & head_a, rai::account const & rep_block_a, rai::amount const & balance_a, uint64_t modified_a) :
 head (head_a),
 rep_block (rep_block_a),
 balance (balance_a),
@@ -2832,7 +2832,7 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
 	store_a.block_put (transaction_a, hash_l, open);
-	store_a.account_put (transaction_a, genesis_account, {hash_l, open.hash (), std::numeric_limits <rai::uint128_t>::max (), store_a.now (), false});
+	store_a.account_put (transaction_a, genesis_account, {hash_l, open.hash (), std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits <rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);
