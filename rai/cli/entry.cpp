@@ -402,7 +402,12 @@ int main (int argc, char * const * argv)
         rai::keypair genesis;
         std::cout << "Genesis: " << genesis.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
 		rai::keypair landing;
-		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
+		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << landing.pub.to_string () << std::endl << "Account: " << landing.pub.to_base58check () << std::endl;
+		for (auto i (0); i != 32; ++i)
+		{
+			rai::keypair rep;
+			std::cout << "Rep" << i << ": " << rep.prv.to_string () << std::endl << "Public: " << rep.pub.to_string () << std::endl << "Account: " << rep.pub.to_base58check () << std::endl;
+		}
 		rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
 		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
 		std::cout << genesis_block.to_json ();
