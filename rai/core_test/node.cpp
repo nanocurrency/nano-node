@@ -394,3 +394,11 @@ TEST (node, confirm_locked)
 	rai::send_block block (0, 0, 0, 0, 0, 0);
 	system.nodes [0]->process_confirmation (block, rai::endpoint ());
 }
+
+TEST (node_config, random_rep)
+{
+	rai::logging logging1;
+	rai::node_config config1 (100, logging1);
+	auto rep (config1.random_representative ());
+	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
+}

@@ -1944,6 +1944,7 @@ bootstrap_fraction_numerator (1),
 creation_rebroadcast (2),
 rebroadcast_delay (15)
 {
+	preconfigured_representatives.push_back (rai::genesis_account);
 }
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
@@ -2021,6 +2022,14 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 	{
 		result = true;
 	}
+	return result;
+}
+
+rai::account rai::node_config::random_representative ()
+{
+	assert (preconfigured_representatives.size () > 0);
+	size_t index (rai::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
+	auto result (preconfigured_representatives [index]);
 	return result;
 }
 
