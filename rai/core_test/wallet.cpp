@@ -9,7 +9,7 @@ TEST (wallet, no_key)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
     rai::private_key prv1;
@@ -23,7 +23,7 @@ TEST (wallet, retrieval)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
     ASSERT_TRUE (wallet.valid_password (transaction));
@@ -44,7 +44,7 @@ TEST (wallet, empty_iteration)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     auto i (wallet.begin (transaction));
     auto j (wallet.end ());
@@ -57,7 +57,7 @@ TEST (wallet, one_item_iteration)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
     wallet.insert (transaction, key1.prv);
@@ -80,7 +80,7 @@ TEST (wallet, two_item_iteration)
 	std::unordered_set <rai::private_key> prvs;
 	{
 		rai::transaction transaction (environment, nullptr, true);
-		rai::wallet_store wallet (init, transaction, "0");
+		rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
 		ASSERT_FALSE (init);
 		wallet.insert (transaction, key1.prv);
 		wallet.insert (transaction, key2.prv);
@@ -196,7 +196,7 @@ TEST (wallet, find_none)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     rai::uint256_union account (1000);
     ASSERT_EQ (wallet.end (), wallet.find (transaction, account));
@@ -208,7 +208,7 @@ TEST (wallet, find_existing)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
     ASSERT_FALSE (wallet.exists (transaction, key1.pub));
@@ -226,7 +226,7 @@ TEST (wallet, rekey)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
 	ASSERT_FALSE (init);
     ASSERT_TRUE (wallet.password.value ().is_zero ());
     ASSERT_FALSE (init);
@@ -283,7 +283,7 @@ TEST (wallet, hash_password)
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (init, transaction, "0");
+    rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     auto hash1 (wallet.derive_key (transaction, ""));
     auto hash2 (wallet.derive_key (transaction, ""));
@@ -322,14 +322,14 @@ TEST (wallet, reopen_default_password)
 	rai::transaction transaction (environment, nullptr, true);
 	ASSERT_FALSE (init);
     {
-        rai::wallet_store wallet (init, transaction, "0");
+        rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
         ASSERT_FALSE (init);
 		wallet.rekey (transaction, "");
         ASSERT_TRUE (wallet.valid_password (transaction));
     }
     {
         bool init;
-        rai::wallet_store wallet (init, transaction, "0");
+        rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
         ASSERT_FALSE (init);
         ASSERT_TRUE (wallet.valid_password (transaction));
         wallet.enter_password (transaction, " ");
@@ -345,7 +345,7 @@ TEST (wallet, representative)
 	rai::mdb_env environment (error, rai::unique_path ());
 	ASSERT_FALSE (error);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet (error, transaction, "0");
+    rai::wallet_store wallet (error, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (error);
     ASSERT_FALSE (wallet.is_representative (transaction));
     ASSERT_EQ (rai::genesis_account, wallet.representative (transaction));
@@ -365,11 +365,11 @@ TEST (wallet, serialize_json_empty)
 	rai::mdb_env environment (error, rai::unique_path ());
 	ASSERT_FALSE (error);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet1 (error, transaction, "0");
+    rai::wallet_store wallet1 (error, transaction, rai::genesis_account, "0");
 	ASSERT_FALSE (error);
     std::string serialized;
     wallet1.serialize_json (transaction, serialized);
-    rai::wallet_store wallet2 (error, transaction, "1", serialized);
+    rai::wallet_store wallet2 (error, transaction, rai::genesis_account, "1", serialized);
     ASSERT_FALSE (error);
     ASSERT_EQ (wallet1.wallet_key (transaction), wallet2.wallet_key (transaction));
     ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
@@ -385,13 +385,13 @@ TEST (wallet, serialize_json_one)
 	rai::mdb_env environment (error, rai::unique_path ());
 	ASSERT_FALSE (error);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet1 (error, transaction, "0");
+    rai::wallet_store wallet1 (error, transaction, rai::genesis_account, "0");
 	ASSERT_FALSE (error);
     rai::keypair key;
     wallet1.insert (transaction, key.prv);
     std::string serialized;
     wallet1.serialize_json (transaction, serialized);
-    rai::wallet_store wallet2 (error, transaction, "1", serialized);
+    rai::wallet_store wallet2 (error, transaction, rai::genesis_account, "1", serialized);
     ASSERT_FALSE (error);
     ASSERT_EQ (wallet1.wallet_key (transaction), wallet2.wallet_key (transaction));
     ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
@@ -409,14 +409,14 @@ TEST (wallet, serialize_json_password)
 	rai::mdb_env environment (error, rai::unique_path ());
 	ASSERT_FALSE (error);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet1 (error, transaction, "0");
+    rai::wallet_store wallet1 (error, transaction, rai::genesis_account, "0");
 	ASSERT_FALSE (error);
     rai::keypair key;
     wallet1.rekey (transaction, "password");
     wallet1.insert (transaction, key.prv);
     std::string serialized;
     wallet1.serialize_json (transaction, serialized);
-    rai::wallet_store wallet2 (error, transaction, "1", serialized);
+    rai::wallet_store wallet2 (error, transaction, rai::genesis_account, "1", serialized);
     ASSERT_FALSE (error);
     ASSERT_FALSE (wallet2.valid_password (transaction));
     wallet2.enter_password (transaction, "password");
@@ -437,11 +437,11 @@ TEST (wallet_store, move)
 	rai::mdb_env environment (error, rai::unique_path ());
 	ASSERT_FALSE (error);
 	rai::transaction transaction (environment, nullptr, true);
-    rai::wallet_store wallet1 (error, transaction, "0");
+    rai::wallet_store wallet1 (error, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (error);
     rai::keypair key1;
     wallet1.insert (transaction, key1.prv);
-    rai::wallet_store wallet2 (error, transaction, "1");
+    rai::wallet_store wallet2 (error, transaction, rai::genesis_account, "1");
     ASSERT_FALSE (error);
     rai::keypair key2;
     wallet2.insert (transaction, key2.prv);

@@ -524,7 +524,7 @@ TEST (rpc, wallet_export)
     std::string wallet_json (response_tree.get <std::string> ("json"));
     bool error (false);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    rai::wallet_store store (error, transaction, "0", wallet_json);
+    rai::wallet_store store (error, transaction, rai::genesis_account, "0", wallet_json);
     ASSERT_FALSE (error);
     ASSERT_TRUE (store.exists (transaction, rai::test_genesis_key.pub));
 }
