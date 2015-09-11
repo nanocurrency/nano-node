@@ -526,3 +526,18 @@ TEST (block_store, frontier)
 	store.frontier_del (transaction, hash);
 	ASSERT_TRUE (store.frontier_get (transaction, hash).is_zero ());
 }
+
+TEST (block_store, block_replace)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::send_block send1 (0, 0, 0, 0, 0, 1);
+	rai::send_block send2 (0, 0, 0, 0, 0, 2);
+	rai::transaction transaction (store.environment, nullptr, true);
+	store.block_put (transaction, 0, send1);
+	store.block_put (transaction, 0, send2);
+	auto block3 (store.block_get (transaction, 0));
+	ASSERT_NE (nullptr, block3);
+	ASSERT_EQ (2, block3->block_work ());
+}

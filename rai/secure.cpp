@@ -564,7 +564,7 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
     block_a.serialize (stream_a);
 }
 
-bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
 {
     uint64_t result;
     blake2b_state hash;
@@ -572,7 +572,13 @@ bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
     blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
     blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
     blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
-    return result < rai::block::publish_threshold;
+	return result;
+}
+
+bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+{
+    auto result (rai::work_value (root_a, work_a) < rai::block::publish_threshold);
+	return result;
 }
 
 bool rai::work_validate (rai::block & block_a)

@@ -96,6 +96,7 @@ std::unique_ptr <rai::block> deserialize_block (rai::stream &);
 std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
 std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
 void serialize_block (rai::stream &, rai::block const &);
+uint64_t work_value (rai::block_hash const &, uint64_t);
 bool work_validate (rai::block &);
 bool work_validate (rai::block_hash const &, uint64_t);
 class send_hashables

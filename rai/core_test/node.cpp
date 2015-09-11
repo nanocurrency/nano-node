@@ -402,3 +402,39 @@ TEST (node_config, random_rep)
 	auto rep (config1.random_representative ());
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
 }
+
+TEST (node, block_replace)
+{
+	rai::system system (24000, 2);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, 0, 1000));
+	std::unique_ptr <rai::block> block1;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		block1 = system.nodes [0]->store.block_get (transaction, system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+	}
+	ASSERT_NE (nullptr, block1);
+	auto initial_work (block1->block_work ());
+	while (rai::work_value (block1->root (), block1->block_work ()) <= rai::work_value (block1->root (), initial_work))
+	{
+		system.work.generate (*block1);
+	}
+	system.nodes [1]->network.republish_block (block1->clone (), 0);
+	auto iterations1 (0);
+	std::unique_ptr <rai::block> block2;
+	while (block2 == nullptr)
+	{
+		system.poll ();
+		++iterations1;
+		ASSERT_LT (iterations1, 200);
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		auto block (system.nodes [0]->store.block_get (transaction, system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub)));
+		if (block->block_work () != initial_work)
+		{
+			block2 = std::move (block);
+		}
+	}
+	ASSERT_NE (initial_work, block1->block_work ());
+	ASSERT_EQ (block1->block_work (), block2->block_work ());
+	ASSERT_GT (rai::work_value (block2->root (), block2->block_work ()), rai::work_value (block1->root (), initial_work));
+}

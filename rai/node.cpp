@@ -2309,6 +2309,24 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
         }
         case rai::process_result::old:
         {
+			{
+				auto root (block_a.root ());
+				auto hash (block_a.hash ());
+				rai::transaction transaction (store.environment, nullptr, true);
+				auto existing (store.block_get (transaction, hash));
+				if (existing != nullptr)
+				{
+					// Replace block with one that has higher work value
+					if (rai::work_value (root, block_a.block_work ()) > rai::work_value (root, existing->block_work ()))
+					{
+						store.block_put (transaction, hash, block_a);
+					}
+				}
+				else
+				{
+					// Could have been rolled back, maybe
+				}
+			}
             if (config.logging.ledger_duplicate_logging ())
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Old for: %1%") % block_a.hash ().to_string ());
