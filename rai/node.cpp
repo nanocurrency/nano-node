@@ -1682,6 +1682,7 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
     blake2b_init (&hash, 32);
     auto entries_l (entries);
     auto mask (entries_l - 1);
+	assert ((mask & entries_l) == 0);
 	// Seed our random sequence with the mixed input
     xorshift1024star rng;
     rng.s [0] = input.qwords [0];
