@@ -1672,14 +1672,17 @@ data (new uint64_t [entries_a])
 rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint256_union const & salt_a)
 {
     rai::uint256_union input;
+	// Compress password string to 256 bits
     blake2b_state hash;
 	blake2b_init (&hash, 32);
     blake2b_update (&hash, reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
     blake2b_final (&hash, input.bytes.data (), input.bytes.size ());
+	// Mix compressed password with salt
     input ^= salt_a;
     blake2b_init (&hash, 32);
     auto entries_l (entries);
     auto mask (entries_l - 1);
+	// Seed our random sequence with the mixed input
     xorshift1024star rng;
     rng.s [0] = input.qwords [0];
     rng.s [1] = input.qwords [1];
@@ -1700,9 +1703,9 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
     for (size_t i (0), n (entries); i != n; ++i)
     {
         auto index (previous & mask);
-        auto value (rng.next ());
+        previous = rng.next ();
 		// Use the index from the previous random value so LSB (data[index]) != value
-        data [index] = value;
+        data [index] = previous;
     }
     // Random-read buffer to prevent partial memorization
     union
@@ -1713,6 +1716,7 @@ rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint
 	// Hash the memory buffer to derive encryption key
     for (size_t i (0), n (entries); i != n; i += stepping)
     {
+		// Pick up `stepping' entries at a time and hash them all at once for lower function call overhead
         for (size_t j (0), m (stepping); j != m; ++j)
         {
             auto index (rng.next () % (entries_l - (i + j)));
