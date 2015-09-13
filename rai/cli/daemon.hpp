@@ -1,6 +1,5 @@
 #include <rai/node.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/asio/ip/address_v6.hpp>
+#include <rai/rpc.hpp>
 
 namespace rai_daemon
 {

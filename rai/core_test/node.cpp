@@ -2,6 +2,8 @@
 #include <rai/node.hpp>
 #include <rai/working.hpp>
 
+#include <boost/make_shared.hpp>
+
 TEST (node, stop)
 {
     rai::system system (24000, 1);
