@@ -299,7 +299,7 @@ TEST (work, one)
 TEST (work, validate)
 {
 	rai::work_pool pool;
-	rai::send_block send_block (1, 1, 2, 3, 4, 5);
+	rai::send_block send_block (1, 1, 2, 3, 4, 6);
     ASSERT_TRUE (pool.work_validate (send_block));
     pool.generate (send_block);
     ASSERT_FALSE (pool.work_validate (send_block));

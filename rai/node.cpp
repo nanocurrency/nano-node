@@ -1575,8 +1575,7 @@ void rai::work_pool::loop (uint64_t thread)
     rng.s.fill (0x0123456789abcdef + thread);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
 	uint64_t work;
 	uint64_t output;
-    blake2b_state hash;
-	blake2b_init (&hash, sizeof (output));
+	Argon2_Context argon (reinterpret_cast <uint8_t *> (&output), sizeof (output), nullptr, sizeof (rai::uint256_union), reinterpret_cast <uint8_t *> (&work), sizeof (work), nullptr, 0, nullptr, 0, 1, block_work, 1, nullptr, nullptr, false, false, false);
 	std::unique_lock <std::mutex> lock (mutex);
 	while (!done || !pending.empty())
 	{
@@ -1586,16 +1585,15 @@ void rai::work_pool::loop (uint64_t thread)
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
+			argon.pwd = current_l.bytes.data ();
 			while (ticket == ticket_l && output < rai::work_pool::publish_threshold)
 			{
-				auto iteration (std::numeric_limits <uint16_t>::max ());
+				auto iteration (16);
 				while (iteration && output < rai::work_pool::publish_threshold)
 				{
 					work = rng.next ();
-					blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work), sizeof (work));
-					blake2b_update (&hash, current_l.bytes.data (), current_l.bytes.size ());
-					blake2b_final (&hash, reinterpret_cast <uint8_t *> (&output), sizeof (output));
-					blake2b_init (&hash, sizeof (output));
+					auto status (Argon2d (&argon));
+					assert (status == 0); (void) status;
 					iteration -= 1;
 				}
 			}
@@ -1603,6 +1601,7 @@ void rai::work_pool::loop (uint64_t thread)
 			if (current == current_l)
 			{
 				assert (output >= rai::work_pool::publish_threshold);
+				assert (work_value (current_l, work) == output);
 				++ticket;
 				completed [current_l] = work;
 				consumer_condition.notify_all ();
@@ -1633,12 +1632,10 @@ void rai::work_pool::generate (rai::block & block_a)
 
 uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t work_a)
 {
-    uint64_t result;
-    blake2b_state hash;
-	blake2b_init (&hash, sizeof (result));
-    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
-    blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
+	uint64_t result;
+	Argon2_Context argon (reinterpret_cast <uint8_t *> (&result), sizeof (result), const_cast <uint8_t *> (root_a.bytes.data ()), sizeof (rai::uint256_union), reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a), nullptr, 0, nullptr, 0, 1, block_work, 1, nullptr, nullptr, false, false, false);
+	auto status (Argon2d (&argon));
+	assert (status == 0); (void) status;
 	return result;
 }
 
