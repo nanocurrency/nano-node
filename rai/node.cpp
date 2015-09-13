@@ -1550,8 +1550,7 @@ ticket (0),
 done (false)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	auto count (std::max (1u, std::thread::hardware_concurrency ()));
-	for (auto i (0); i < count; ++i)
+	for (auto i (0); i < 1; ++i)
 	{
 		threads.push_back (std::thread ([this, i] ()
 		{
@@ -1588,7 +1587,7 @@ void rai::work_pool::loop (uint64_t thread)
 			argon.pwd = current_l.bytes.data ();
 			while (ticket == ticket_l && output < rai::work_pool::publish_threshold)
 			{
-				auto iteration (16);
+				auto iteration (1);
 				while (iteration && output < rai::work_pool::publish_threshold)
 				{
 					work = rng.next ();

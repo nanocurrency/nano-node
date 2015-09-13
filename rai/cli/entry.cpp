@@ -144,7 +144,8 @@ int main (int argc, char * const * argv)
 		("wallet", boost::program_options::value <std::string> (), "Defines <wallet> for other commands")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_mass_activity", "Generates fake debug activity")
-		("debug_profile_work", "Profile the work function")
+		("debug_profile_generate", "Profile work generation")
+		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_xorshift_profile", "Profile xorshift algorithms")
@@ -449,7 +450,7 @@ int main (int argc, char * const * argv)
             std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
     }
-    else if (vm.count ("debug_profile_work"))
+    else if (vm.count ("debug_profile_generate"))
     {
 		rai::work_pool work;
         rai::change_block block (0, 0, 0, 0, 0);
@@ -460,9 +461,21 @@ int main (int argc, char * const * argv)
             auto begin1 (std::chrono::high_resolution_clock::now ());
             work.generate (block);
             auto end1 (std::chrono::high_resolution_clock::now ());
+            std::cerr << boost::str (boost::format ("Generation time: %|1$ 12d|us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+        }
+    }
+    else if (vm.count ("debug_profile_verify"))
+    {
+		rai::work_pool work;
+        rai::change_block block (0, 0, 0, 0, 0);
+        std::cerr << "Starting\n";
+        for (uint64_t i (0); true; ++i)
+        {
+            block.hashables.previous.qwords [0] += 1;
+            auto begin1 (std::chrono::high_resolution_clock::now ());
             work.work_validate (block);
-            auto end2 (std::chrono::high_resolution_clock::now ());
-            std::cerr << boost::str (boost::format ("Generation time: %|1$ 12d|us validation time: %|2$ 12d|us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
+            auto end1 (std::chrono::high_resolution_clock::now ());
+            std::cerr << boost::str (boost::format ("Verification time: %|1$ 12d|us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
     }
     else if (vm.count ("debug_verify_profile"))

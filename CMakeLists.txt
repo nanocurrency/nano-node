@@ -59,7 +59,7 @@ add_library (argon2
 	Argon2/Source/Common/brg-endian.h
 	Argon2/Source/Core/argon2-core.cpp
 	Argon2/Source/Core/argon2-core.h
-	Argon2/Source/Core/argon2-ref-core.cpp)
+	Argon2/Source/Core/argon2-opt-core.cpp)
 
 add_library (xxhash
 	xxhash/xxhash.c
@@ -163,7 +163,7 @@ set (CPACK_PACKAGE_VERSION_PATCH "5")
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
-set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "-std=c++11")
+set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "-msse4 -std=c++11")
 set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "-msse2 -std=c11")
 set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-msse2 -std=c11 -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (secure node core_test slow_test qt_test cli qt qt_wallet qt_system landing PROPERTIES COMPILE_FLAGS "-msse2 -std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
