@@ -1,5 +1,7 @@
 #include <rai/node.hpp>
 
+#include <argon2.h>
+
 #include <ed25519-donna/ed25519.h>
 
 #include <unordered_set>
@@ -1678,80 +1680,6 @@ uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
 		}
 	}
 	return result;
-}
-
-namespace
-{
-    size_t constexpr stepping (16);
-}
-rai::kdf::kdf (size_t entries_a) :
-entries (entries_a),
-data (new uint64_t [entries_a])
-{
-    assert ((entries_a & (stepping - 1)) == 0);
-}
-
-// Derive a wallet key from a password and salt.
-rai::uint256_union rai::kdf::generate (std::string const & password_a, rai::uint256_union const & salt_a)
-{
-    rai::uint256_union input;
-	// Compress password string to 256 bits
-    blake2b_state hash;
-	blake2b_init (&hash, 32);
-    blake2b_update (&hash, reinterpret_cast <uint8_t const *> (password_a.data ()), password_a.size ());
-    blake2b_final (&hash, input.bytes.data (), input.bytes.size ());
-	// Mix compressed password with salt
-    input ^= salt_a;
-    blake2b_init (&hash, 32);
-    auto entries_l (entries);
-    auto mask (entries_l - 1);
-	assert ((mask & entries_l) == 0);
-	// Seed our random sequence with the mixed input
-    xorshift1024star rng;
-    rng.s [0] = input.qwords [0];
-    rng.s [1] = input.qwords [1];
-    rng.s [2] = input.qwords [2];
-    rng.s [3] = input.qwords [3];
-    for (auto i (4), n (16); i != n; ++i)
-    {
-        rng.s [i] = 0;
-    }
-    // Random-fill buffer for an initialized starting point
-    for (auto i (data.get ()), n (data.get () + entries_l); i != n; ++i)
-    {
-        auto next (rng.next ());
-        *i = next;
-    }
-    auto previous (rng.next ());
-    // Random-write buffer to break n+1 = f(n) relation
-    for (size_t i (0), n (entries); i != n; ++i)
-    {
-        auto index (previous & mask);
-        previous = rng.next ();
-		// Use the index from the previous random value so LSB (data[index]) != value
-        data [index] = previous;
-    }
-    // Random-read buffer to prevent partial memorization
-    union
-    {
-        std::array <uint64_t, stepping> qwords;
-        std::array <uint8_t, stepping * sizeof (uint64_t)> bytes;
-    } value;
-	// Hash the memory buffer to derive encryption key
-    for (size_t i (0), n (entries); i != n; i += stepping)
-    {
-		// Pick up `stepping' entries at a time and hash them all at once for lower function call overhead
-        for (size_t j (0), m (stepping); j != m; ++j)
-        {
-            auto index (rng.next () % (entries_l - (i + j)));
-            value.qwords [j] = data [index];
-            data [index] = data [entries_l - (i + j) - 1];
-        }
-        blake2b_update (&hash, reinterpret_cast <uint8_t *> (value.bytes.data ()), stepping * sizeof (uint64_t));
-    }
-    rai::uint256_union result;
-    blake2b_final (&hash, result.bytes.data (), result.bytes.size ());
-    return result;
 }
 
 rai::logging::logging () :
@@ -6027,8 +5955,10 @@ bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & pass
 
 rai::uint256_union rai::wallet_store::derive_key (MDB_txn * transaction_a, std::string const & password_a)
 {
-    rai::kdf kdf (kdf_work);
-    auto result (kdf.generate (password_a, salt (transaction_a)));
+	rai::uint256_union result;
+	auto salt_l (salt (transaction_a));
+    auto success (PHS (result.bytes.data (), result.bytes.size (), password_a.data (), password_a.size (), salt_l.bytes.data (), salt_l.bytes.size (), 1, kdf_work));
+	assert (success == 0); (void) success;
     return result;
 }
 

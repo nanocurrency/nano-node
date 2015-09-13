@@ -314,9 +314,9 @@ public:
     static rai::uint256_union const check_special;
     static rai::uint256_union const representative_special;
     static int const special_count;
-    static size_t const kdf_full_work = 8 * 1024 * 1024; // 8 * 8 * 1024 * 1024 = 64 MB memory to derive key
-    static size_t const kdf_test_work = 1024;
-    static size_t const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
+    static unsigned const kdf_full_work = 1 * 1024 * 1024;
+    static unsigned const kdf_test_work = 8;
+    static unsigned const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
 	rai::mdb_env & environment;
     MDB_dbi handle;
 };
@@ -766,14 +766,6 @@ public:
 	static uint64_t const publish_full_threshold = 0xfffffe0000000000;
 	static uint64_t const publish_live_threshold = 0xfffffff000000000;
 	static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
-};
-class kdf
-{
-public:
-	kdf (size_t);
-	rai::uint256_union generate (std::string const &, rai::uint256_union const &);
-	size_t const entries;
-	std::unique_ptr <uint64_t []> data;
 };
 class logging
 {

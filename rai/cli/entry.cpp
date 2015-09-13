@@ -1,6 +1,8 @@
 #include <rai/node.hpp>
 #include <rai/cli/daemon.hpp>
 
+#include <argon2.h>
+
 #include <boost/program_options.hpp>
 
 #include <emmintrin.h>
@@ -436,16 +438,14 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("debug_profile_kdf"))
     {
-        rai::kdf kdf (rai::wallet_store::kdf_work);
-        for (auto i (kdf.data.get ()), n (kdf.data.get () + kdf.entries); i != n; ++i)
-        {
-            *i = 0;
-        }
-        for (uint64_t i (0); true; ++i)
+		rai::uint256_union result;
+		rai::uint256_union salt (0);
+		std::string password ("");
+        for (; true;)
         {
             auto begin1 (std::chrono::high_resolution_clock::now ());
-            auto value (kdf.generate ("", i));
-            auto end1 (std::chrono::high_resolution_clock::now ());
+			auto success (PHS (result.bytes.data (), result.bytes.size (), password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), 1, rai::wallet_store::kdf_work));
+			auto end1 (std::chrono::high_resolution_clock::now ());
             std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
     }
