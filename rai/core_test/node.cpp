@@ -415,7 +415,7 @@ TEST (node, block_replace)
 	}
 	ASSERT_NE (nullptr, block1);
 	auto initial_work (block1->block_work ());
-	while (rai::work_value (block1->root (), block1->block_work ()) <= rai::work_value (block1->root (), initial_work))
+	while (system.work.work_value (block1->root (), block1->block_work ()) <= system.work.work_value (block1->root (), initial_work))
 	{
 		system.work.generate (*block1);
 	}
@@ -436,5 +436,5 @@ TEST (node, block_replace)
 	}
 	ASSERT_NE (initial_work, block1->block_work ());
 	ASSERT_EQ (block1->block_work (), block2->block_work ());
-	ASSERT_GT (rai::work_value (block2->root (), block2->block_work ()), rai::work_value (block1->root (), initial_work));
+	ASSERT_GT (system.work.work_value (block2->root (), block2->block_work ()), system.work.work_value (block1->root (), initial_work));
 }

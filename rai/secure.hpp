@@ -79,11 +79,6 @@ public:
 	virtual bool operator == (rai::block const &) const = 0;
 	virtual std::unique_ptr <rai::block> clone () const = 0;
 	virtual rai::block_type type () const = 0;
-	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
-	static uint64_t const publish_test_threshold = 0xff00000000000000;
-	static uint64_t const publish_full_threshold = 0xfffffe0000000000;
-	static uint64_t const publish_live_threshold = 0xfffffff000000000;
-	static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
 };
 class unique_ptr_block_hash
 {
@@ -96,9 +91,6 @@ std::unique_ptr <rai::block> deserialize_block (rai::stream &);
 std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
 std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
 void serialize_block (rai::stream &, rai::block const &);
-uint64_t work_value (rai::block_hash const &, uint64_t);
-bool work_validate (rai::block &);
-bool work_validate (rai::block_hash const &, uint64_t);
 class send_hashables
 {
 public:

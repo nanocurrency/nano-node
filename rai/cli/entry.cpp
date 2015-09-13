@@ -460,7 +460,7 @@ int main (int argc, char * const * argv)
             auto begin1 (std::chrono::high_resolution_clock::now ());
             work.generate (block);
             auto end1 (std::chrono::high_resolution_clock::now ());
-            rai::work_validate (block);
+            work.work_validate (block);
             auto end2 (std::chrono::high_resolution_clock::now ());
             std::cerr << boost::str (boost::format ("Generation time: %1%us validation time: %2%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count () % std::chrono::duration_cast <std::chrono::microseconds> (end2 - end1).count ());
         }

@@ -167,7 +167,6 @@ uint64_t rai::send_block::block_work () const
 
 void rai::send_block::block_work_set (uint64_t work_a)
 {
-	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 
@@ -454,7 +453,6 @@ uint64_t rai::receive_block::block_work () const
 
 void rai::receive_block::block_work_set (uint64_t work_a)
 {
-	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 
@@ -562,28 +560,6 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
 {
     write (stream_a, block_a.type ());
     block_a.serialize (stream_a);
-}
-
-uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
-{
-    uint64_t result;
-    blake2b_state hash;
-	blake2b_init (&hash, sizeof (result));
-    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
-    blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
-	return result;
-}
-
-bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
-{
-    auto result (rai::work_value (root_a, work_a) < rai::block::publish_threshold);
-	return result;
-}
-
-bool rai::work_validate (rai::block & block_a)
-{
-    return rai::work_validate (block_a.root (), block_a.block_work ());
 }
 
 std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a)
@@ -905,7 +881,6 @@ uint64_t rai::open_block::block_work () const
 
 void rai::open_block::block_work_set (uint64_t work_a)
 {
-	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 
@@ -1137,7 +1112,6 @@ uint64_t rai::change_block::block_work () const
 
 void rai::change_block::block_work_set (uint64_t work_a)
 {
-	assert (!rai::work_validate (root (), work_a));
     work = work_a;
 }
 

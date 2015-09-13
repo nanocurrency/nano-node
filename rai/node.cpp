@@ -15,8 +15,9 @@
 
 #include <thread>
 
-rai::message_parser::message_parser (rai::message_visitor & visitor_a) :
+rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
+pool (pool_a),
 error (false),
 insufficient_work (false)
 {
@@ -90,7 +91,7 @@ void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t 
     auto error_l (incoming.deserialize (stream));
     if (!error_l && at_end (stream))
     {
-        if (!rai::work_validate (*incoming.block))
+        if (!pool.work_validate (*incoming.block))
         {
             visitor.publish (incoming);
         }
@@ -112,7 +113,7 @@ void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, siz
     auto error_l (incoming.deserialize (stream));
     if (!error_l && at_end (stream))
     {
-        if (!rai::work_validate (*incoming.block))
+        if (!pool.work_validate (*incoming.block))
         {
             visitor.confirm_req (incoming);
         }
@@ -134,7 +135,7 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
     rai::confirm_ack incoming (error_l, stream);
     if (!error_l && at_end (stream))
     {
-        if (!rai::work_validate (*incoming.vote.block))
+        if (!pool.work_validate (*incoming.vote.block))
         {
             visitor.confirm_ack (incoming);
         }
@@ -410,7 +411,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         if (!rai::reserved_address (remote) && remote != endpoint ())
         {
             network_message_visitor visitor (node, remote);
-            rai::message_parser parser (visitor);
+            rai::message_parser parser (visitor, node.work);
             parser.deserialize_buffer (buffer.data (), size_a);
             if (parser.error)
             {
@@ -1049,7 +1050,7 @@ bool rai::wallet::send_sync (rai::account const & source_a, rai::account const &
 // Update work for account if latest root is root_a
 void rai::wallet::work_update (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {
-    assert (!rai::work_validate (root_a, work_a));
+    assert (!node.work.work_validate (root_a, work_a));
     assert (store.exists (transaction_a, account_a));
     auto latest (node.ledger.latest_root (transaction_a, account_a));
     if (latest == root_a)
@@ -1074,7 +1075,7 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
     }
 	else
 	{
-		if (rai::work_validate (root_a, result))
+		if (node.work.work_validate (root_a, result))
 		{
 			BOOST_LOG (node.log) << "Cached work invalid, regenerating";
 			result = node.work.generate (root_a);
@@ -1583,10 +1584,10 @@ void rai::work_pool::loop (uint64_t thread)
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
-			while (ticket == ticket_l && output < rai::block::publish_threshold)
+			while (ticket == ticket_l && output < rai::work_pool::publish_threshold)
 			{
 				auto iteration (std::numeric_limits <uint16_t>::max ());
-				while (iteration && output < rai::block::publish_threshold)
+				while (iteration && output < rai::work_pool::publish_threshold)
 				{
 					work = rng.next ();
 					blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work), sizeof (work));
@@ -1599,7 +1600,7 @@ void rai::work_pool::loop (uint64_t thread)
 			lock.lock ();
 			if (current == current_l)
 			{
-				assert (output >= rai::block::publish_threshold);
+				assert (output >= rai::work_pool::publish_threshold);
 				++ticket;
 				completed [current_l] = work;
 				consumer_condition.notify_all ();
@@ -1626,6 +1627,28 @@ void rai::work_pool::loop (uint64_t thread)
 void rai::work_pool::generate (rai::block & block_a)
 {
     block_a.block_work_set (generate (block_a.root ()));
+}
+
+uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t work_a)
+{
+    uint64_t result;
+    blake2b_state hash;
+	blake2b_init (&hash, sizeof (result));
+    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
+    blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
+    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
+	return result;
+}
+
+bool rai::work_pool::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+{
+    auto result (work_value (root_a, work_a) < rai::work_pool::publish_threshold);
+	return result;
+}
+
+bool rai::work_pool::work_validate (rai::block & block_a)
+{
+    return work_validate (block_a.root (), block_a.block_work ());
 }
 
 void rai::work_pool::stop ()
@@ -2322,7 +2345,7 @@ rai::process_return rai::node::process_receive (rai::block const & block_a)
 				if (existing != nullptr)
 				{
 					// Replace block with one that has higher work value
-					if (rai::work_value (root, block_a.block_work ()) > rai::work_value (root, existing->block_work ()))
+					if (work.work_value (root, block_a.block_work ()) > work.work_value (root, existing->block_work ()))
 					{
 						store.block_put (transaction, hash, block_a);
 					}

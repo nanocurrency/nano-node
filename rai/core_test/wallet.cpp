@@ -489,7 +489,7 @@ TEST (wallet, empty_work)
     rai::system system (24000, 1);
     auto wallet (system.wallet (0));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-	ASSERT_FALSE (rai::work_validate (1, wallet->work_fetch (transaction, 0, 1)));
+	ASSERT_FALSE (system.work.work_validate (1, wallet->work_fetch (transaction, 0, 1)));
 }
 
 // Test work is precached when a key is inserted
@@ -505,7 +505,7 @@ TEST (wallet, work)
 	// Make sure work_get and work_fetch retrieve the same thing
     ASSERT_FALSE (wallet->store.work_get (transaction, account1, work3));
 	auto work4 (wallet->work_fetch (transaction, account1, root1));
-	ASSERT_FALSE (rai::work_validate (root1, work4));
+	ASSERT_FALSE (system.work.work_validate (root1, work4));
 	ASSERT_EQ (work3, work4);
 }
 
@@ -538,7 +538,7 @@ TEST (wallet, work_generate)
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		again = wallet->store.work_get (transaction, account1, work1) || rai::work_validate (system.nodes [0]->ledger.latest_root (transaction, account1), work1);
+		again = wallet->store.work_get (transaction, account1, work1) || system.work.work_validate (system.nodes [0]->ledger.latest_root (transaction, account1), work1);
     }
 }
 
@@ -549,5 +549,5 @@ TEST (wallet, unsynced_work)
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 	wallet->store.work_put (transaction, 0, 0);
 	auto work1 (wallet->work_fetch (transaction, 0, 1));
-	ASSERT_FALSE (rai::work_validate (1, work1));
+	ASSERT_FALSE (system.work.work_validate (1, work1));
 }

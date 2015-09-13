@@ -508,10 +508,11 @@ public:
     std::shared_ptr <rai::frontier_req_client> connection;
     rai::push_synchronization synchronization;
 };
+class work_pool;
 class message_parser
 {
 public:
-    message_parser (rai::message_visitor &);
+    message_parser (rai::message_visitor &, rai::work_pool &);
     void deserialize_buffer (uint8_t const *, size_t);
     void deserialize_keepalive (uint8_t const *, size_t);
     void deserialize_publish (uint8_t const *, size_t);
@@ -519,6 +520,7 @@ public:
     void deserialize_confirm_ack (uint8_t const *, size_t);
     bool at_end (rai::bufferstream &);
     rai::message_visitor & visitor;
+	rai::work_pool & pool;
     bool error;
     bool insufficient_work;
 };
@@ -747,6 +749,9 @@ public:
 	void stop ();
 	uint64_t generate (rai::uint256_union const &);
 	void generate (rai::block &);
+	uint64_t work_value (rai::block_hash const &, uint64_t);
+	bool work_validate (rai::block &);
+	bool work_validate (rai::block_hash const &, uint64_t);
 	rai::uint256_union current;
 	std::atomic <int> ticket;
 	bool done;
@@ -756,6 +761,11 @@ public:
 	std::mutex mutex;
 	std::condition_variable consumer_condition;
 	std::condition_variable producer_condition;
+	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
+	static uint64_t const publish_test_threshold = 0xff00000000000000;
+	static uint64_t const publish_full_threshold = 0xfffffe0000000000;
+	static uint64_t const publish_live_threshold = 0xfffffff000000000;
+	static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
 };
 class kdf
 {
