@@ -70,17 +70,11 @@ add_library (lmdb
 	liblmdb/mdb.c
 	liblmdb/midl.c)
 
-if (WIN32)
-	set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
-else (WIN32)
-	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
-endif (WIN32)
-
 add_library (blake2
 	blake2/blake2-config.h
 	blake2/blake2-impl.h
 	blake2/blake2.h
-	${BLAKE2_IMPLEMENTATION})
+	blake2/blake2b.c)
 
 if (APPLE)
 	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm)
@@ -160,17 +154,17 @@ add_executable (qt_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 add_executable (qt_system
 	rai/qt_system/entry.cpp)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "6")
-set (CPACK_PACKAGE_VERSION_MINOR "1")
-set (CPACK_PACKAGE_VERSION_PATCH "5")
+set (CPACK_PACKAGE_VERSION_MAJOR "7")
+set (CPACK_PACKAGE_VERSION_MINOR "0")
+set (CPACK_PACKAGE_VERSION_PATCH "0")
 
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
 set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "-msse4 -std=c++11")
-set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "-msse2 -std=c11")
-set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-msse2 -std=c11 -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
-set_target_properties (secure node core_test slow_test qt_test cli qt qt_wallet qt_system landing PROPERTIES COMPILE_FLAGS "-msse2 -std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
+set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "-msse4 -std=c11")
+set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-msse4 -std=c11 -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
+set_target_properties (secure node core_test slow_test qt_test cli qt qt_wallet qt_system landing PROPERTIES COMPILE_FLAGS "-msse4 -std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
 set_target_properties (secure node core_test slow_test cli qt qt_system landing PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 set_target_properties (qt_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
@@ -252,16 +246,29 @@ if (APPLE)
 	install (FILES "${CMAKE_CURRENT_BINARY_DIR}/packaging/libqcocoa.dylib" DESTINATION RaiBlocks.app/Contents/PlugIns/platforms PERMISSIONS OWNER_EXECUTE OWNER_READ)
 	install (FILES RaiBlocks.icns DESTINATION RaiBlocks.app/Contents/Resources)
 elseif (WIN32)
+	get_target_property (Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin LOCATION)
 	get_filename_component (Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
 	install (TARGETS qt_wallet DESTINATION .)
 	install (FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)
 	install (FILES ${Qt5_bin_DIR}/Qt5Gui.dll DESTINATION .)
 	install (FILES ${Qt5_bin_DIR}/Qt5Widgets.dll DESTINATION .)
 	install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
-	install (FILES ${Qt5_DIR}/../../../plugins/platforms/qwindows.dll DESTINATION platforms)
-	install (FILES "../../../bin/libgcc_s_dw2-1.dll" DESTINATION .)
-	install (FILES "../../../bin/libwinpthread-1.dll" DESTINATION .)
-	install (FILES "../../../bin/libstdc++-6.dll" DESTINATION .)
+	install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
+	install (FILES "../../../mingw64/bin/libwinpthread-1.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libstdc++-6.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libgcc_s_seh-1.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libicuin55.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libicuuc55.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libpcre16-0.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/zlib1.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libharfbuzz-0.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libpng16-16.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libicudt55.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libfreetype-6.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libglib-2.0-0.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libbz2-1.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libintl-8.dll" DESTINATION .)
+	install (FILES "../../../mingw64/bin/libiconv-2.dll" DESTINATION .)
 else ()
 	install (TARGETS qt_wallet DESTINATION .)
 endif ()
