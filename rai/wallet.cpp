@@ -15,7 +15,7 @@ ticket (0),
 done (false)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	for (auto i (0); i < 1; ++i)
+	for (auto i (0); i < 2; ++i)
 	{
 		threads.push_back (std::thread ([this, i] ()
 		{

@@ -33,9 +33,9 @@ public:
 	std::condition_variable producer_condition;
 	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
 	static uint64_t const publish_test_threshold = 0xf000000000000000;
-	static uint64_t const publish_full_threshold = 0xfff0000000000000;
+	static uint64_t const publish_full_threshold = 0xfffc000000000000;
 	static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
-    static unsigned const block_full_work = 1024;
+    static unsigned const block_full_work = 64;
     static unsigned const block_test_work = 8;
     static unsigned const block_work = rai::rai_network == rai::rai_networks::rai_test_network ? block_test_work : block_full_work;
 };

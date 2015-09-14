@@ -454,28 +454,28 @@ int main (int argc, char * const * argv)
     {
 		rai::work_pool work;
         rai::change_block block (0, 0, 0, 0, 0);
-        std::cerr << "Starting\n";
+        std::cerr << "Starting generation profiling\n";
         for (uint64_t i (0); true; ++i)
         {
             block.hashables.previous.qwords [0] += 1;
             auto begin1 (std::chrono::high_resolution_clock::now ());
             work.generate (block);
             auto end1 (std::chrono::high_resolution_clock::now ());
-            std::cerr << boost::str (boost::format ("Generation time: %|1$ 12d|us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+            std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
     }
     else if (vm.count ("debug_profile_verify"))
     {
 		rai::work_pool work;
         rai::change_block block (0, 0, 0, 0, 0);
-        std::cerr << "Starting\n";
+        std::cerr << "Starting verification profiling\n";
         for (uint64_t i (0); true; ++i)
         {
             block.hashables.previous.qwords [0] += 1;
             auto begin1 (std::chrono::high_resolution_clock::now ());
             work.work_validate (block);
             auto end1 (std::chrono::high_resolution_clock::now ());
-            std::cerr << boost::str (boost::format ("Verification time: %|1$ 12d|us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+            std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
     }
     else if (vm.count ("debug_verify_profile"))
