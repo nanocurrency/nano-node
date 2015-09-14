@@ -79,7 +79,7 @@ void rai::work_pool::loop (uint64_t thread)
 			output = 0;
 			while (ticket == ticket_l && output < rai::work_pool::publish_threshold)
 			{
-				unsigned iteration (16384);
+				unsigned iteration (256);
 				while (iteration && output < rai::work_pool::publish_threshold)
 				{
 					work = rng.next ();
