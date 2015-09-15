@@ -977,6 +977,7 @@ void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash
 }
 
 rai::wallets::wallets (bool & error_a, rai::node & node_a) :
+observer ([] (rai::account const &, bool) {}),
 node (node_a)
 {
 	if (!error_a)
@@ -1079,6 +1080,7 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, std::fun
 	}
 	while (perform)
 	{
+		observer (account_a, true);
 		current ();
 		std::lock_guard <std::mutex> lock (node.wallets.action_mutex);
 		auto existing (node.wallets.pending_actions.find (account_a));
@@ -1093,6 +1095,7 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, std::fun
 			assert (erased == 1); (void) erased;
 			perform = false;
 		}
+		observer (account_a, false);
 	}
 }
 

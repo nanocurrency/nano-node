@@ -926,6 +926,13 @@ bootstrap (*service_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a)
 {
+	wallets.observer = [this] (rai::account const & account_a, bool active)
+	{
+		for (auto i: wallet_observers)
+		{
+			i (account_a, active);
+		}
+	};
 	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
 	{
 		for (auto i: endpoint_observers)

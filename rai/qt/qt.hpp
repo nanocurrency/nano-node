@@ -209,6 +209,7 @@ namespace rai_qt {
 		disconnected,
 		synchronizing,
 		locked,
+		active,
 		nominal
 	};
 	class status

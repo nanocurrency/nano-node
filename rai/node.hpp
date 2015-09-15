@@ -714,6 +714,7 @@ public:
     rai::peer_container peers;
 	boost::filesystem::path application_path;
     std::vector <std::function <void (rai::block const &, rai::account const &)>> observers;
+	std::vector <std::function <void (rai::account const &, bool)>> wallet_observers;
     std::vector <std::function <void (rai::vote const &)>> vote_observers;
 	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;
 	std::vector <std::function <void ()>> disconnect_observers;

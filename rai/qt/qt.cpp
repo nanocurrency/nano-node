@@ -398,6 +398,9 @@ std::string rai_qt::status::text ()
 		case rai_qt::status_types::locked:
 			result = "Status: Wallet locked";
 			break;
+		case rai_qt::status_types::active:
+			result = "Status: Wallet active";
+			break;
 		case rai_qt::status_types::nominal:
 			result = "Status: Running";
 			break;
@@ -568,6 +571,23 @@ active_status (*this)
 			}
 		}));
     });
+	node.wallet_observers.push_back ([this] (rai::account const & account_a, bool active_a)
+	{
+		application.postEvent (&processor, new eventloop_event ([this, account_a, active_a] ()
+		{
+			if (account == account_a)
+			{
+				if (active_a)
+				{
+					active_status.insert (rai_qt::status_types::active);
+				}
+				else
+				{
+					active_status.erase (rai_qt::status_types::active);
+				}
+			}
+		}));
+	});
 	node.endpoint_observers.push_back ([this] (rai::endpoint const &)
 	{
 		application.postEvent (&processor, new eventloop_event ([this] ()
