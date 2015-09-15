@@ -1938,6 +1938,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 	std::lock_guard <std::mutex> lock (mutex);
 	if (!in_progress)
 	{
+		in_progress = true;
 		initiate (endpoint_a);
 	}
 }

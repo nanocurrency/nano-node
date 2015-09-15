@@ -39,7 +39,7 @@ public:
 		}
 		catch (std::runtime_error const &)
 		{
-		    std::cout << "Error parsing config file" << std::endl;
+		    std::cout << "Error parsing config file\n" << std::endl;
 		    error_a = true;
 		}
 	}
@@ -132,12 +132,12 @@ int main (int argc, char * const * argv)
                 }
                 else
                 {
-                    std::cerr << "Wallet account doesn't exist";
+                    std::cerr << "Wallet account doesn't exist\n";
                 }
             }
             else
             {
-                std::cerr << "Wallet id doesn't exist";
+                std::cerr << "Wallet id doesn't exist\n";
             }
         }
         else
@@ -147,6 +147,6 @@ int main (int argc, char * const * argv)
     }
     else
     {
-        std::cerr << "Error in config file";
+        std::cerr << "Error in config file\n";
     }
 }
