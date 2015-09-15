@@ -833,3 +833,324 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
 	}
     return result;
 }
+
+namespace
+{
+class search_action : public std::enable_shared_from_this <search_action>
+{
+public:
+	search_action (std::shared_ptr <rai::wallet> const & wallet_a, MDB_txn * transaction_a) :
+	current_block (0),
+	wallet (wallet_a)
+	{
+		for (auto i (wallet_a->store.begin (transaction_a)), n (wallet_a->store.end ()); i != n; ++i)
+		{
+			keys.insert (i->first);
+		}
+	}
+	void run ()
+	{
+		BOOST_LOG (wallet->node.log) << "Beginning pending block search";
+		rai::account account;
+		std::unique_ptr <rai::block> block;
+		{
+			rai::transaction transaction (wallet->node.store.environment, nullptr, false);
+			auto next (current_block.number () + 1);
+			current_block = 0;
+			for (auto i (wallet->node.store.pending_begin (transaction, next)), n (wallet->node.store.pending_end ()); i != n && block == nullptr; ++i)
+			{
+				rai::receivable receivable (i->second);
+				if (keys.find (receivable.destination) != keys.end ())
+				{
+					current_block = i->first;
+					rai::account_info info;
+					wallet->node.store.account_get (transaction, receivable.source, info);
+					account = receivable.source;
+					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % current_block.to_string () % account.to_string () % info.head.to_string ());
+					block = wallet->node.store.block_get (transaction, info.head);
+				}
+			}
+		}
+		if (!current_block.is_zero ())
+		{
+			auto this_l (shared_from_this ());
+			wallet->node.conflicts.start (*block, [this_l, account] (rai::block &)
+			{
+				this_l->receive_all (account);
+			}, true);
+		}
+		else
+		{
+			BOOST_LOG (wallet->node.log) << "Pending block search complete";
+		}
+	}
+	void receive_all (rai::account const & account_a)
+	{
+		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_base58check ());
+		rai::block_hash hash (current_block);
+		while (!hash.is_zero ())
+		{
+			rai::account representative;
+			rai::private_key prv;
+			std::shared_ptr <rai::send_block> block;
+			{
+				hash.clear ();
+				rai::transaction transaction (wallet->node.store.environment, nullptr, false);
+				representative = wallet->store.representative (transaction);
+				for (auto i (wallet->node.store.pending_begin (transaction, hash)), n (wallet->node.store.pending_end ()); i != n; ++i)
+				{
+					rai::receivable receivable (i->second);
+					if (receivable.source == account_a)
+					{
+						hash = i->first;
+						auto block_l (wallet->node.store.block_get (transaction, i->first));
+						assert (dynamic_cast <rai::send_block *> (block_l.get ()) != nullptr);
+						block.reset (static_cast <rai::send_block *> (block_l.release ()));
+						auto error (wallet->store.fetch (transaction, receivable.destination, prv));
+						if (error)
+						{
+							BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % receivable.destination.to_base58check ());
+							block.reset ();
+						}
+					}
+				}
+			}
+			if (block != nullptr)
+			{
+				auto wallet_l (wallet);
+				wallet->node.wallets.queue_wallet_action (block->hashables.destination, [wallet_l, block, representative, prv] ()
+				{
+					BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
+					auto error (wallet_l->receive_action (*block, prv, representative));
+					if (error)
+					{
+						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
+					}
+				});
+			}
+			prv.clear ();
+		}
+		if (!current_block.is_zero ())
+		{
+			run ();
+		}
+	}
+	rai::block_hash current_block;
+	std::unordered_set <rai::uint256_union> keys;
+	std::shared_ptr <rai::wallet> wallet;
+};
+}
+
+bool rai::wallet::search_pending ()
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	auto result (!store.valid_password (transaction));
+	if (!result)
+	{
+		auto search (std::make_shared <search_action> (shared_from_this (), transaction));
+		node.service.add (std::chrono::system_clock::now (), [search] ()
+		{
+			search->run ();
+		});
+	}
+	else
+	{
+		BOOST_LOG (node.log) << "Stopping search, wallet is locked";
+	}
+	return result;
+}
+
+void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
+{
+	auto begin (std::chrono::system_clock::now ());
+	if (node.config.logging.work_generation_time ())
+	{
+		BOOST_LOG (node.log) << "Beginning work generation";
+	}
+    auto work (node.work.generate (root_a));
+	if (node.config.logging.work_generation_time ())
+	{
+		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
+	}
+	rai::transaction transaction (store.environment, nullptr, true);
+    work_update (transaction, account_a, root_a, work);
+}
+
+rai::wallets::wallets (bool & error_a, rai::node & node_a) :
+node (node_a)
+{
+	if (!error_a)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
+		assert (status == 0);
+		std::string beginning (rai::uint256_union (0).to_string ());
+		std::string end ((rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
+		for (rai::store_iterator i (transaction, handle, rai::mdb_val (beginning.size (), const_cast <char *> (beginning.c_str ()))), n (transaction, handle, rai::mdb_val (end.size (), const_cast <char *> (end.c_str ()))); i != n; ++i)
+		{
+			rai::uint256_union id;
+			std::string text (reinterpret_cast <char const *> (i->first.mv_data), i->first.mv_size);
+			auto error (id.decode_hex (text));
+			assert (!error);
+			assert (items.find (id) == items.end ());
+			auto wallet (std::make_shared <rai::wallet> (error, transaction, node_a, text));
+			if (!error)
+			{
+				node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
+				{
+					rai::transaction transaction (wallet->store.environment, nullptr, true);
+					wallet->enter_initial_password (transaction);
+				});
+				items [id] = wallet;
+			}
+			else
+			{
+				// Couldn't open wallet
+			}
+		}
+	}
+}
+
+std::shared_ptr <rai::wallet> rai::wallets::open (rai::uint256_union const & id_a)
+{
+    std::shared_ptr <rai::wallet> result;
+    auto existing (items.find (id_a));
+    if (existing != items.end ())
+    {
+        result = existing->second;
+    }
+    return result;
+}
+
+std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & id_a)
+{
+    assert (items.find (id_a) == items.end ());
+    std::shared_ptr <rai::wallet> result;
+    bool error;
+	rai::transaction transaction (node.store.environment, nullptr, true);
+    auto wallet (std::make_shared <rai::wallet> (error, transaction, node, id_a.to_string ()));
+    if (!error)
+    {
+		node.service.add (std::chrono::system_clock::now (), [wallet] ()
+		{
+			rai::transaction transaction (wallet->store.environment, nullptr, true);
+			wallet->enter_initial_password (transaction);
+		});
+        items [id_a] = wallet;
+        result = wallet;
+    }
+    return result;
+}
+
+bool rai::wallets::search_pending (rai::uint256_union const & wallet_a)
+{
+	auto result (false);
+	auto existing (items.find (wallet_a));
+	result = existing == items.end ();
+	if (!result)
+	{
+		auto wallet (existing->second);
+		result = wallet->search_pending ();
+	}
+	return result;
+}
+
+void rai::wallets::destroy (rai::uint256_union const & id_a)
+{
+	rai::transaction transaction (node.store.environment, nullptr, true);
+	auto existing (items.find (id_a));
+	assert (existing != items.end ());
+	auto wallet (existing->second);
+	items.erase (existing);
+	wallet->store.destroy (transaction);
+}
+
+void rai::wallets::queue_wallet_action (rai::account const & account_a, std::function <void ()> const & action_a)
+{
+	auto current (std::move (action_a));
+	auto perform (false);
+	{
+		std::lock_guard <std::mutex> lock (action_mutex);
+		perform = current_actions.insert (account_a).second;
+		if (!perform)
+		{
+			pending_actions.insert (decltype (pending_actions)::value_type (account_a, std::move (current)));
+		}
+	}
+	while (perform)
+	{
+		current ();
+		std::lock_guard <std::mutex> lock (node.wallets.action_mutex);
+		auto existing (node.wallets.pending_actions.find (account_a));
+		if (existing != node.wallets.pending_actions.end ())
+		{
+			current = std::move (existing->second);
+			node.wallets.pending_actions.erase (existing);
+		}
+		else
+		{
+			auto erased (node.wallets.current_actions.erase (account_a));
+			assert (erased == 1); (void) erased;
+			perform = false;
+		}
+	}
+}
+
+void rai::wallets::foreach_representative (std::function <void (rai::public_key const & pub_a, rai::private_key const & prv_a)> const & action_a)
+{
+    for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+    {
+		rai::transaction transaction (node.store.environment, nullptr, false);
+        auto & wallet (*i->second);
+		for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m; ++j)
+        {
+			if (wallet.store.valid_password (transaction))
+			{
+				if (!node.ledger.weight (transaction, j->first).is_zero ())
+				{
+					rai::private_key prv;
+					auto error (wallet.store.fetch (transaction, j->first, prv));
+					assert (!error);
+					action_a (j->first, prv);
+					prv.clear ();
+				}
+			}
+			else
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Skipping locked wallet %1%") % i->first.to_string ());;
+			}
+        }
+    }
+}
+
+rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a)
+{
+    rai::store_iterator result (transaction_a, handle, rai::uint256_union (special_count).val ());
+    return result;
+}
+
+rai::store_iterator rai::wallet_store::find (MDB_txn * transaction_a, rai::uint256_union const & key)
+{
+    rai::store_iterator result (transaction_a, handle, key.val ());
+    rai::store_iterator end (nullptr);
+    if (result != end)
+    {
+        if (rai::uint256_union (result->first) == key)
+        {
+            return result;
+        }
+        else
+        {
+            return end;
+        }
+    }
+    else
+    {
+        return end;
+    }
+}
+
+rai::store_iterator rai::wallet_store::end ()
+{
+    return rai::store_iterator (nullptr);
+}
