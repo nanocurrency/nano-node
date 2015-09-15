@@ -479,6 +479,10 @@ extern rai::keypair const test_genesis_key;
 extern rai::account const rai_test_account;
 extern rai::account const rai_beta_account;
 extern rai::account const rai_live_account;
+extern std::string const rai_test_genesis;
+extern std::string const rai_beta_genesis;
+extern std::string const rai_live_genesis;
+extern std::string const genesis_block;
 extern rai::account const genesis_account;
 extern rai::uint128_t const genesis_amount;
 class genesis
@@ -487,6 +491,6 @@ public:
 	explicit genesis ();
 	void initialize (MDB_txn *, rai::block_store &) const;
 	rai::block_hash hash () const;
-	rai::open_block open;
+	std::unique_ptr <rai::open_block> open;
 };
 }

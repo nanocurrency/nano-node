@@ -28,7 +28,28 @@ rai::account const rai::rai_test_account (rai_test_public_key);
 rai::account const rai::rai_beta_account (rai_beta_public_key);
 rai::account const rai::rai_live_account (rai_live_public_key);
 
+std::string const rai::rai_test_genesis = R"%%%({
+    "type": "open",
+    "source": "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0",
+    "representative": "TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib",
+    "account": "TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib",
+    "work": "9680625b39d3363d",
+    "signature": "ECDA914373A2F0CA1296475BAEE40500A7F0A7AD72A5A80C81D7FAB7F6C802B2CC7DB50F5DD0FB25B2EF11761FA7344A158DD5A700B21BD47DE5BD0F63153A02"
+})%%%";
+
+std::string const rai::rai_beta_genesis = R"%%%({
+    "type": "open",
+    "source": "9D3A5B66B478670455B241D6BAC3D3FE1CBB7E7B7EAA429FA036C2704C3DC0A4",
+    "representative": "TuodHikZrYyNy4biERcXNSdA9ydXQNqww8BbHvfKiZPXidDLtj",
+    "account": "TuodHikZrYyNy4biERcXNSdA9ydXQNqww8BbHvfKiZPXidDLtj",
+    "work": "6eb12d4c42dba31e",
+    "signature": "BD0D374FCEB33EAABDF728E9B4DCDBF3B226DA97EEAB8EA5B7EDE286B1282C24D6EB544644FE871235E4F58CD94DF66D9C555309895F67A7D1F922AAC12CE907"
+})%%%";
+
+std::string const rai::rai_live_genesis = "";
+
 rai::account const rai::genesis_account = rai_network == rai_networks::rai_test_network ? rai_test_account : rai_network == rai_networks::rai_beta_network ? rai_beta_account : rai_live_account;
+std::string const rai::genesis_block = rai_network == rai_networks::rai_test_network ? rai_test_genesis : rai_network == rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis;
 rai::uint128_t const rai::genesis_amount = std::numeric_limits <rai::uint128_t>::max ();
 
 boost::filesystem::path rai::working_path ()
@@ -2802,17 +2823,22 @@ rai::uint256_union rai::vote::hash () const
     return result;
 }
 
-rai::genesis::genesis () :
-open (genesis_account, genesis_account, genesis_account, nullptr)
+rai::genesis::genesis ()
 {
+	boost::property_tree::ptree tree;
+	std::stringstream istream (rai::genesis_block);
+	boost::property_tree::read_json (istream, tree);
+	auto block (rai::deserialize_block_json (tree));
+	assert (dynamic_cast <rai::open_block *> (block.get ()) != nullptr);
+	open.reset (static_cast <rai::open_block *> (block.release ()));
 }
 
 void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store_a) const
 {
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
-	store_a.block_put (transaction_a, hash_l, open);
-	store_a.account_put (transaction_a, genesis_account, {hash_l, open.hash (), std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
+	store_a.block_put (transaction_a, hash_l, *open);
+	store_a.account_put (transaction_a, genesis_account, {hash_l, open->hash (), std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits <rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);
@@ -2820,5 +2846,5 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 
 rai::block_hash rai::genesis::hash () const
 {
-    return open.hash ();
+    return open->hash ();
 }

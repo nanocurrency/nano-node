@@ -319,7 +319,7 @@ TEST (ledger, representative_genesis)
 	genesis.initialize (transaction, store);
 	auto latest (ledger.latest (transaction, rai::test_genesis_key.pub));
 	ASSERT_FALSE (latest.is_zero ());
-	ASSERT_EQ (genesis.open.hash (), ledger.representative (transaction, latest));
+	ASSERT_EQ (genesis.open->hash (), ledger.representative (transaction, latest));
 }
 
 TEST (ledger, weight)
