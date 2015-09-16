@@ -760,7 +760,7 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 	std::mutex complete;
 	complete.lock ();
 	bool result;
-	node.wallets.queue_wallet_action (source_a, [this, source_a, representative_a, &complete, &result] ()
+	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, representative_a, &complete, &result] ()
 	{
 		result = change_action (source_a, representative_a);
 		complete.unlock ();
@@ -769,12 +769,12 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 	return result;
 }
 
-bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::private_key const & prv_a, rai::account const & account_a)
+bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::private_key const & prv_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::mutex complete;
 	complete.lock ();
 	bool result;
-	node.wallets.queue_wallet_action (block_a.hashables.destination, [this, &block_a, &prv_a, account_a, &result, &complete] ()
+	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, &prv_a, account_a, &result, &complete] ()
 	{
 		result = receive_action (block_a, prv_a, account_a);
 		complete.unlock ();
@@ -788,7 +788,7 @@ bool rai::wallet::send_sync (rai::account const & source_a, rai::account const &
 	std::mutex complete;
 	complete.lock ();
 	bool result;
-	node.wallets.queue_wallet_action (source_a, [this, source_a, account_a, amount_a, &complete, &result] ()
+	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &complete, &result] ()
 	{
 		result = send_action (source_a, account_a, amount_a);
 		complete.unlock ();
@@ -891,6 +891,7 @@ public:
 		while (!hash.is_zero ())
 		{
 			rai::account representative;
+			rai::uint128_t amount;
 			rai::private_key prv;
 			std::shared_ptr <rai::send_block> block;
 			{
@@ -906,6 +907,7 @@ public:
 						auto block_l (wallet->node.store.block_get (transaction, i->first));
 						assert (dynamic_cast <rai::send_block *> (block_l.get ()) != nullptr);
 						block.reset (static_cast <rai::send_block *> (block_l.release ()));
+						amount = receivable.amount.number ();
 						auto error (wallet->store.fetch (transaction, receivable.destination, prv));
 						if (error)
 						{
@@ -918,7 +920,7 @@ public:
 			if (block != nullptr)
 			{
 				auto wallet_l (wallet);
-				wallet->node.wallets.queue_wallet_action (block->hashables.destination, [wallet_l, block, representative, prv] ()
+				wallet->node.wallets.queue_wallet_action (block->hashables.destination, amount, [wallet_l, block, representative, prv] ()
 				{
 					BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
 					auto error (wallet_l->receive_action (*block, prv, representative));
@@ -1066,7 +1068,7 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
 	wallet->store.destroy (transaction);
 }
 
-void rai::wallets::queue_wallet_action (rai::account const & account_a, std::function <void ()> const & action_a)
+void rai::wallets::queue_wallet_action (rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void ()> const & action_a)
 {
 	auto current (std::move (action_a));
 	auto perform (false);
@@ -1075,7 +1077,7 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, std::fun
 		perform = current_actions.insert (account_a).second;
 		if (!perform)
 		{
-			pending_actions.insert (decltype (pending_actions)::value_type (account_a, std::move (current)));
+			pending_actions [account_a].insert (decltype (pending_actions)::mapped_type::value_type (amount_a, std::move (current)));
 		}
 	}
 	while (perform)
@@ -1086,8 +1088,15 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, std::fun
 		auto existing (node.wallets.pending_actions.find (account_a));
 		if (existing != node.wallets.pending_actions.end ())
 		{
-			current = std::move (existing->second);
-			node.wallets.pending_actions.erase (existing);
+			auto & entries (existing->second);
+			auto first (entries.begin ());
+			assert (first != entries.end ());
+			current = std::move (first->second);
+			entries.erase (first);
+			if (entries.empty ())
+			{
+				node.wallets.pending_actions.erase (existing);
+			}
 		}
 		else
 		{

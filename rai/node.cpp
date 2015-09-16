@@ -1863,19 +1863,22 @@ public:
 			{
 				rai::private_key prv;
 				rai::account representative;
+				rai::receivable receivable;
 				auto error (false);
 				{
 					rai::transaction transaction (node.store.environment, nullptr, false);
 					error = wallet->store.fetch (transaction, block_a.hashables.destination, prv);
+					error = error | node.store.pending_get (transaction, block_a.hash (), receivable);
 					representative = wallet->store.representative (transaction);
 				}
 				if (!error)
 				{
 					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));
 					auto node_l (node.shared ());
-					node.service.add (std::chrono::system_clock::now (), [block_l, prv, representative, wallet, node_l] ()
+					auto amount (receivable.amount.number ());
+					node.service.add (std::chrono::system_clock::now (), [block_l, prv, representative, wallet, node_l, amount] ()
 					{
-						node_l->wallets.queue_wallet_action (block_l->hashables.destination, [block_l, prv, representative, wallet] ()
+						node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, prv, representative, wallet] ()
 						{
 							auto error (wallet->receive_action (*block_l, prv, representative));
 							(void)error; // Might be interesting to view during debug

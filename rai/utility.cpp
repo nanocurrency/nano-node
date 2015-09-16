@@ -190,6 +190,11 @@ bool rai::uint128_union::operator == (rai::uint128_union const & other_a) const
     return qwords [0] == other_a.qwords [0] && qwords [1] == other_a.qwords [1];
 }
 
+bool rai::uint128_union::operator < (rai::uint128_union const & other_a) const
+{
+	return number () < other_a.number ();
+}
+
 rai::uint128_t rai::uint128_union::number () const
 {
     boost::multiprecision::uint128_t result;

@@ -729,7 +729,7 @@ wallet (wallet_a)
 				rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, true);
 				wallet.wallet_m->store.representative_set (transaction, representative_l);
 			}
-			wallet.node.wallets.queue_wallet_action (wallet.account, [this, representative_l] ()
+			wallet.node.wallets.queue_wallet_action (wallet.account, std::numeric_limits <rai::uint128_t>::max (), [this, representative_l] ()
 			{
 				wallet.wallet_m->change_action (wallet.account, representative_l);
 				change_rep->setEnabled (true);
