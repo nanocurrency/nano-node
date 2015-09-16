@@ -898,7 +898,7 @@ public:
 				hash.clear ();
 				rai::transaction transaction (wallet->node.store.environment, nullptr, false);
 				representative = wallet->store.representative (transaction);
-				for (auto i (wallet->node.store.pending_begin (transaction, hash)), n (wallet->node.store.pending_end ()); i != n; ++i)
+				for (auto i (wallet->node.store.pending_begin (transaction, hash)), n (wallet->node.store.pending_end ()); i != n && hash.is_zero (); ++i)
 				{
 					rai::receivable receivable (i->second);
 					if (receivable.source == account_a)
