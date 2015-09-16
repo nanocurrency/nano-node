@@ -2573,7 +2573,7 @@ public:
         }
 		else
 		{
-			BOOST_LOG (sync.log) << boost::str (boost::format ("Unable to add synchronized dependency %1%") % hash_a.to_string ());
+			// Block is already synchronized, normal
 		}
     }
     rai::block_synchronization & sync;
