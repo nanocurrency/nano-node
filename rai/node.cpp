@@ -971,8 +971,8 @@ application_path (application_path_a)
         boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
     }
     boost::log::add_common_attributes ();
-    boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-    BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
+	boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+	BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
 	observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
     {
 		send_visitor visitor (*this);
@@ -2694,6 +2694,13 @@ rai::block_hash rai::bulk_pull_client::first ()
 	{
 		result = rai::block_hash (iterator->first);
 	}
+	else
+	{
+		if (connection->connection->node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->connection->node->log) << "Nothing left in unchecked table";
+		}
+	}
 	return result;
 }
 
@@ -2730,7 +2737,47 @@ void rai::bulk_pull_client::process_end ()
 			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
             while (!synchronization.blocks.empty ())
             {
-                connection->connection->node->store.unchecked_del (transaction, synchronization.blocks.top ());
+				auto hash (synchronization.blocks.top ());
+				if (!connection->connection->node->store.block_exists (transaction, hash))
+				{
+					if (connection->connection->node->config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
+					}
+				}
+				else
+				{
+					auto block (connection->connection->node->store.unchecked_get (transaction, hash));
+					assert (block != nullptr);
+					auto previous (block->previous ());
+					if (connection->connection->node->store.block_exists (transaction, previous))
+					{
+						auto source (block->source ());
+						if (connection->connection->node->store.block_exists (transaction, source))
+						{
+							if (connection->connection->node->config.logging.bulk_pull_logging ())
+							{
+								BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Everything seems to exist for %1%, both %2% and %3%") % hash.to_string () % previous.to_string () % source.to_string ());
+							}
+						}
+						else
+						{
+							if (connection->connection->node->config.logging.bulk_pull_logging ())
+							{
+								BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Caching: %1% on source: %2%") % hash.to_string () % source.to_string ());
+							}
+						}
+					}
+					else
+					{
+						if (connection->connection->node->config.logging.bulk_pull_logging ())
+						{
+							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Caching: %1% on previous: %2%") % hash.to_string () % previous.to_string ());
+						}
+						connection->connection->node->gap_cache.add (*block, previous);
+					}
+				}
+                connection->connection->node->store.unchecked_del (transaction, hash);
                 synchronization.blocks.pop ();
             }
         }
