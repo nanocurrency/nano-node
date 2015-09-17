@@ -108,6 +108,7 @@ public:
 	bool is_zero () const;
 	rai::mdb_val val () const;
 	std::string to_string () const;
+	std::string to_string_dec () const;
 	std::array <uint8_t, 16> bytes;
 	std::array <char, 16> chars;
 	std::array <uint32_t, 4> dwords;

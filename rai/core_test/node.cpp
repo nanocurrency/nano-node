@@ -52,7 +52,7 @@ TEST (node, send_unkeyed)
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->store.password.value_set (rai::uint256_union (1));
-    ASSERT_TRUE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 1000));
+    ASSERT_TRUE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 }
 
 TEST (node, send_self)
@@ -61,7 +61,7 @@ TEST (node, send_self)
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 1000));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     auto iterations (0);
     while (system.nodes [0]->balance (key2.pub).is_zero ())
     {
@@ -69,7 +69,7 @@ TEST (node, send_self)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.nodes [0]->balance (rai::test_genesis_key.pub));
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
 TEST (node, send_single)
@@ -78,8 +78,8 @@ TEST (node, send_single)
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (1)->insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 1000));
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.nodes [0]->balance (rai::test_genesis_key.pub));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_TRUE (system.nodes [0]->balance (key2.pub).is_zero ());
 	auto iterations (0);
     while (system.nodes [0]->balance (key2.pub).is_zero ())
@@ -96,11 +96,11 @@ TEST (node, send_single_observing_peer)
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (1)->insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 1000));
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.nodes [0]->balance (rai::test_genesis_key.pub));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_TRUE (system.nodes [0]->balance (key2.pub).is_zero ());
 	auto iterations (0);
-    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->balance (key2.pub).is_zero();}))
+    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) { return node_a->balance (key2.pub).is_zero (); }))
     {
         system.poll ();
         ++iterations;
@@ -114,11 +114,11 @@ TEST (node, send_single_many_peers)
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (1)->insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 1000));
-	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 1000, system.nodes [0]->balance (rai::test_genesis_key.pub));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_TRUE (system.nodes [0]->balance (key2.pub).is_zero ());
 	auto iterations (0);
-    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->balance (key2.pub).is_zero();}))
+    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) { return node_a->balance (key2.pub).is_zero(); }))
     {
         system.poll ();
         ++iterations;
@@ -131,12 +131,12 @@ TEST (node, send_out_of_order)
     rai::system system (24000, 2);
     rai::keypair key2;
     rai::genesis genesis;
-    rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 1000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-    rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - 2000, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
+    rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
+    rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
     system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)), 0);
     system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)), 0);
     auto iterations (0);
-    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - 2000;}))
+    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - system.nodes [0]->config.receive_minimum.number () * 2;}))
     {
         system.poll ();
         ++iterations;
@@ -167,9 +167,9 @@ TEST (node, auto_bootstrap)
 	rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key2.prv);
-	ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 100));
+	ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	auto iterations1 (0);
-	while (system.nodes [0]->balance (key2.pub) != 100)
+	while (system.nodes [0]->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
 	{
 		system.poll ();
 		++iterations1;
@@ -194,7 +194,7 @@ TEST (node, auto_bootstrap)
 	ASSERT_EQ (1, node1->bootstrap_initiator.warmed_up.size ());
 	ASSERT_EQ (1, system.nodes [0]->bootstrap_initiator.warmed_up.size ());
 	auto iterations3 (0);
-	while (node1->balance (key2.pub) != 100)
+	while (node1->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
 	{
 		system.poll ();
 		++iterations3;
@@ -219,11 +219,11 @@ TEST (node, auto_bootstrap_reverse)
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
     ASSERT_FALSE (init1.error ());
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 100));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     system.nodes [0]->network.send_keepalive (node1->network.endpoint ());
     node1->start ();
     auto iterations (0);
-    while (node1->balance (key2.pub) != 100)
+    while (node1->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
     {
         system.poll ();
         ++iterations;
@@ -260,7 +260,7 @@ TEST (node, search_pending)
     rai::keypair key2;
 	rai::uint128_t balance (system.nodes [0]->balance (rai::test_genesis_key.pub));
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 1000));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     auto iterations1 (0);
     while (system.nodes [0]->balance (rai::test_genesis_key.pub) == balance)
     {
@@ -368,6 +368,7 @@ TEST (node_config, serialization)
 	config1.bootstrap_fraction_numerator = 10;
 	config1.creation_rebroadcast = 10;
 	config1.rebroadcast_delay = 10;
+	config1.receive_minimum = 10;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;

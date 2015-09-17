@@ -295,28 +295,28 @@ TEST (receivable_processor, send_with_receive)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (1)->insert (key2.prv);
-    auto block1 (new rai::send_block (latest1, key2.pub, amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1)));
+    auto block1 (new rai::send_block (latest1, key2.pub, amount - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1)));
 	ASSERT_EQ (amount, system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
 	ASSERT_EQ (amount, system.nodes [1]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [1]->balance (key2.pub));
     system.nodes [0]->process_receive_republish (block1->clone (), 0);
     system.nodes [1]->process_receive_republish (block1->clone (), 0);
-	ASSERT_EQ (amount - 100, system.nodes [0]->balance (rai::test_genesis_key.pub));
+	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
-	ASSERT_EQ (amount - 100, system.nodes [1]->balance (rai::test_genesis_key.pub));
+	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [1]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [1]->balance (key2.pub));
     auto iterations (0);
-    while (system.nodes [0]->balance (key2.pub) != 100)
+    while (system.nodes [0]->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
     {
         system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-	ASSERT_EQ (amount - 100, system.nodes [0]->balance (rai::test_genesis_key.pub));
-	ASSERT_EQ (100, system.nodes [0]->balance (key2.pub));
-	ASSERT_EQ (amount - 100, system.nodes [1]->balance (rai::test_genesis_key.pub));
-	ASSERT_EQ (100, system.nodes [1]->balance (key2.pub));
+	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
+	ASSERT_EQ (system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (key2.pub));
+	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [1]->balance (rai::test_genesis_key.pub));
+	ASSERT_EQ (system.nodes [0]->config.receive_minimum.number (), system.nodes [1]->balance (key2.pub));
 }
 
 TEST (network, receive_weight_change)
@@ -329,9 +329,9 @@ TEST (network, receive_weight_change)
 		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, true);
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 2));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	auto iterations (0);
-    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a){ return node_a->weight (key2.pub) != 2;}))
+    while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) { return node_a->weight (key2.pub) != system.nodes [0]->config.receive_minimum.number (); }))
     {
         system.poll ();
 		++iterations;
@@ -561,7 +561,7 @@ TEST (bootstrap_processor, process_new)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	rai::keypair key2;
 	system.wallet (1)->insert (key2.prv);
-	ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 100));
+	ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	auto iterations1 (0);
 	while (system.nodes [0]->balance (key2.pub).is_zero ())
 	{
@@ -782,11 +782,11 @@ TEST (bulk, offline_send)
     rai::keypair key2;
 	auto wallet (node1->wallets.create (rai::uint256_union ()));
 	wallet->insert (key2.prv);
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 100));
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	ASSERT_NE (std::numeric_limits <rai::uint256_t>::max (), system.nodes [0]->balance (rai::test_genesis_key.pub));
     node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
     auto iterations2 (0);
-    while (node1->balance (key2.pub) != 100)
+    while (node1->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
     {
         system.poll ();
         ++iterations2;

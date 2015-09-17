@@ -803,7 +803,8 @@ peering_port (rai::network::node_port),
 packet_delay_microseconds (5000),
 bootstrap_fraction_numerator (1),
 creation_rebroadcast (2),
-rebroadcast_delay (15)
+rebroadcast_delay (15),
+receive_minimum (rai::Mrai_ratio)
 {
 	preconfigured_peers.push_back ("rai.raiblocks.net");
 	preconfigured_representatives.push_back (rai::genesis_account);
@@ -815,7 +816,8 @@ logging (logging_a),
 packet_delay_microseconds (5000),
 bootstrap_fraction_numerator (1),
 creation_rebroadcast (2),
-rebroadcast_delay (15)
+rebroadcast_delay (15),
+receive_minimum (rai::Mrai_ratio)
 {
 	preconfigured_representatives.push_back (rai::genesis_account);
 }
@@ -827,6 +829,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("creation_rebroadcast", std::to_string (creation_rebroadcast));
 	tree_a.put ("rebroadcast_delay", std::to_string (rebroadcast_delay));
+	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
 	boost::property_tree::ptree logging_l;
 	logging.serialize_json (logging_l);
 	tree_a.add_child ("logging", logging_l);
@@ -858,6 +861,7 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 		auto bootstrap_fraction_numerator_l (tree_a.get <std::string> ("bootstrap_fraction_numerator"));
 		auto creation_rebroadcast_l (tree_a.get <std::string> ("creation_rebroadcast"));
 		auto rebroadcast_delay_l (tree_a.get <std::string> ("rebroadcast_delay"));
+		auto receive_minimum_l (tree_a.get <std::string> ("receive_minimum"));
 		auto logging_l (tree_a.get_child ("logging"));
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
@@ -885,6 +889,7 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 			result = result || rebroadcast_delay > 300;
 			result = result || peering_port > std::numeric_limits <uint16_t>::max ();
 			result = result || logging.deserialize_json (logging_l);
+			result = result || receive_minimum.decode_dec (receive_minimum_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -1878,9 +1883,9 @@ public:
 					auto amount (receivable.amount.number ());
 					node.service.add (std::chrono::system_clock::now (), [block_l, prv, representative, wallet, node_l, amount] ()
 					{
-						node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, prv, representative, wallet] ()
+						node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, prv, representative, wallet, amount] ()
 						{
-							auto error (wallet->receive_action (*block_l, prv, representative));
+							auto error (wallet->receive_action (*block_l, prv, representative, amount));
 							(void)error; // Might be interesting to view during debug
 						});
 					});

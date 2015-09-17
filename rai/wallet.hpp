@@ -117,7 +117,7 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_action (rai::account const &, rai::account const &);
-    bool receive_action (rai::send_block const &, rai::private_key const &, rai::account const &);
+    bool receive_action (rai::send_block const &, rai::private_key const &, rai::account const &, rai::uint128_union const &);
 	bool send_action (rai::account const &, rai::account const &, rai::uint128_t const &);
 	bool change_sync (rai::account const &, rai::account const &);
     bool receive_sync (rai::send_block const &, rai::private_key const &, rai::account const &, rai::uint128_t const &);

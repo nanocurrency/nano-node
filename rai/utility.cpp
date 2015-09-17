@@ -290,6 +290,13 @@ std::string rai::uint128_union::to_string () const
 	return result;
 }
 
+std::string rai::uint128_union::to_string_dec () const
+{
+	std::string result;
+	encode_dec (result);
+	return result;
+}
+
 bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const
 {
 	return bytes == other_a.bytes;

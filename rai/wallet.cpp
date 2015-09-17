@@ -621,12 +621,13 @@ bool check_ownership (rai::wallets & wallets_a, rai::account const & account_a) 
 }
 }
 
-bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a)
+bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a, rai::uint128_union const & amount_a)
 {
 	assert (!check_ownership (node.wallets, send_a.hashables.destination));
     auto hash (send_a.hash ());
     bool result;
 	std::unique_ptr <rai::block> block;
+	if (node.config.receive_minimum.number () <= amount_a.number ())
 	{
 		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
 		if (node.ledger.store.pending_exists (transaction, hash))
@@ -649,6 +650,12 @@ bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_k
 			result = true;
 			// Ledger doesn't have this marked as available to receive anymore
 		}
+	}
+	else
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Not receiving block %1% due to minimum receive threshold") % hash.to_string ());
+		// Someone sent us something below the threshold of receiving
+		result = true;
 	}
 	if (!result)
 	{
@@ -774,9 +781,9 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::private_ke
 	std::mutex complete;
 	complete.lock ();
 	bool result;
-	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, &prv_a, account_a, &result, &complete] ()
+	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, &prv_a, account_a, &result, &complete, amount_a] ()
 	{
-		result = receive_action (block_a, prv_a, account_a);
+		result = receive_action (block_a, prv_a, account_a, amount_a);
 		complete.unlock ();
 	});
 	complete.lock ();
@@ -903,10 +910,10 @@ public:
 				auto amount (receivable.amount.number ());
 				wallet->node.background ([wallet_l, block, representative, prv, amount]
 				{
-					wallet_l->node.wallets.queue_wallet_action (block->hashables.destination, amount, [wallet_l, block, representative, prv] ()
+					wallet_l->node.wallets.queue_wallet_action (block->hashables.destination, amount, [wallet_l, block, representative, prv, amount] ()
 					{
 						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-						auto error (wallet_l->receive_action (*block, prv, representative));
+						auto error (wallet_l->receive_action (*block, prv, representative, amount));
 						if (error)
 						{
 							BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
