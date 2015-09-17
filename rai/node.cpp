@@ -2766,6 +2766,7 @@ void rai::bulk_pull_client::process_end ()
 							{
 								BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Caching: %1% on source: %2%") % hash.to_string () % source.to_string ());
 							}
+							connection->connection->node->gap_cache.add (*block, source);
 						}
 					}
 					else
