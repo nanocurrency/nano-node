@@ -84,3 +84,24 @@ TEST (gap_cache, gap_bootstrap)
 		ASSERT_LT (iterations2, 200);
 	}
 }
+
+TEST (gap_cache, two_dependencies)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::genesis genesis;
+	rai::send_block send1 (genesis.hash (), key.pub, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
+	rai::send_block send2 (send1.hash (), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	rai::open_block open (send1.hash (), key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub));
+	ASSERT_EQ (0, system.nodes [0]->gap_cache.blocks.size ());
+	system.nodes [0]->process_receive_many (send2);
+	ASSERT_EQ (1, system.nodes [0]->gap_cache.blocks.size ());
+	system.nodes [0]->process_receive_many (open);
+	ASSERT_EQ (2, system.nodes [0]->gap_cache.blocks.size ());
+	system.nodes [0]->process_receive_many (send1);
+	ASSERT_EQ (0, system.nodes [0]->gap_cache.blocks.size ());
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, send2.hash ()));
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, open.hash ()));
+}

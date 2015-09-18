@@ -288,7 +288,7 @@ class gap_cache
 public:
     gap_cache (rai::node &);
     void add (rai::block const &, rai::block_hash);
-    std::unique_ptr <rai::block> get (rai::block_hash const &);
+    std::vector <std::unique_ptr <rai::block>> get (rai::block_hash const &);
     void vote (MDB_txn *, rai::vote const &);
     rai::uint128_t bootstrap_threshold (MDB_txn *);
     boost::multi_index_container
@@ -296,7 +296,7 @@ public:
         rai::gap_information,
         boost::multi_index::indexed_by
         <
-            boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::required>>,
+            boost::multi_index::hashed_non_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::required>>,
             boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>,
             boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>
         >
@@ -689,7 +689,7 @@ public:
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_receive_republish (std::unique_ptr <rai::block>, size_t);
-    void process_receive_many (std::unique_ptr <rai::block>, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
+    void process_receive_many (rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
     rai::process_return process_receive_one (rai::block const &);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);

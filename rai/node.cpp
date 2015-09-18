@@ -1028,15 +1028,18 @@ node (node_a)
 
 void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
 {
+	auto hash (block_a.hash ());
     std::lock_guard <std::mutex> lock (mutex);
-    auto existing (blocks.find (needed_a));
-    if (existing != blocks.end ())
+    auto existing (blocks.get <2>().find (hash));
+    if (existing != blocks.get <2> ().end ())
     {
-        blocks.modify (existing, [] (rai::gap_information & info) {info.arrival = std::chrono::system_clock::now ();});
+        blocks.get <2> ().modify (existing, [&block_a] (rai::gap_information & info)
+		{
+			info.arrival = std::chrono::system_clock::now ();
+		});
     }
     else
     {
-        auto hash (block_a.hash ());
 		blocks.insert ({std::chrono::system_clock::now (), needed_a, hash, std::unique_ptr <rai::votes> (new rai::votes (hash)), block_a.clone ()});
         if (blocks.size () > max)
         {
@@ -1045,16 +1048,18 @@ void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
     }
 }
 
-std::unique_ptr <rai::block> rai::gap_cache::get (rai::block_hash const & hash_a)
+std::vector <std::unique_ptr <rai::block>> rai::gap_cache::get (rai::block_hash const & hash_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    std::unique_ptr <rai::block> result;
-    auto existing (blocks.find (hash_a));
-    if (existing != blocks.end ())
+    std::vector <std::unique_ptr <rai::block>> result;
+    for (auto i (blocks.find (hash_a)), n (blocks.end ()); i != n && i->required == hash_a; ++i)
     {
-        blocks.modify (existing, [&] (rai::gap_information & info) {result.swap (info.block);});
-        blocks.erase (existing);
+        blocks.modify (i, [&result] (rai::gap_information & info)
+		{
+			result.push_back (std::move (info.block));
+		});
     }
+	blocks.erase (hash_a);
     return result;
 }
 
@@ -1071,8 +1076,14 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
             auto winner (node.ledger.winner (transaction_a, *existing->votes));
             if (winner.first > bootstrap_threshold (transaction_a))
             {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Initiating bootstrap for confirmed gap: %1%") % hash.to_string ());
-                node.bootstrap_initiator.bootstrap_any ();
+				if (!node.store.block_exists (transaction_a, hash))
+				{
+					node.bootstrap_initiator.bootstrap_any ();
+				}
+				else
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("Block: %1% was inserted while voting") % hash.to_string ());
+				}
             }
         }
     }
@@ -1116,21 +1127,21 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
     }
     auto node_l (node.shared ());
     node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t size_a)
-        {
-            if (node_l->config.logging.network_logging ())
-            {
-                if (ec)
-                {
-                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ());
-                }
-            }
-        });
+	{
+		if (node_l->config.logging.network_logging ())
+		{
+			if (ec)
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ());
+			}
+		}
+	});
 }
 
 void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming, size_t rebroadcast_a)
 {
 	assert (incoming != nullptr);
-	process_receive_many (std::move (incoming), [this, rebroadcast_a] (rai::process_return result_a, rai::block const & block_a)
+	process_receive_many (*incoming, [this, rebroadcast_a] (rai::process_return result_a, rai::block const & block_a)
 	{
 		switch (result_a.code)
 		{
@@ -1147,18 +1158,21 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 	});
 }
 
-void rai::node::process_receive_many (std::unique_ptr <rai::block> incoming, std::function <void (rai::process_return, rai::block const &)> completed_a)
+void rai::node::process_receive_many (rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
 {
-	assert (incoming != nullptr);
-    std::unique_ptr <rai::block> block (std::move (incoming));
-    do
+	std::vector <std::unique_ptr <rai::block>> blocks;
+	blocks.push_back (block_a.clone ());
+    while (!blocks.empty ())
     {
-		auto result (process_receive_one (*block));
-		completed_a (result, *block);
+		auto block (std::move (blocks.back ()));
+		blocks.pop_back ();
         auto hash (block->hash ());
-        block = gap_cache.get (hash);
+        auto process_result (process_receive_one (*block));
+		completed_a (process_result, *block);
+		auto cached (gap_cache.get (hash));
+		blocks.resize (blocks.size () + cached.size ());
+		std::move (cached.begin (), cached.end (), blocks.end () - cached.size ());
     }
-    while (block != nullptr);
 }
 
 rai::process_return rai::node::process_receive_one (rai::block const & block_a)
@@ -1971,6 +1985,7 @@ void rai::bootstrap_initiator::bootstrap_any ()
 
 void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)
 {
+	BOOST_LOG (node.log) << boost::str (boost::format ("Initiating bootstrap to: %1%") % endpoint_a);
 	auto node_l (node.shared ());
     auto processor (std::make_shared <rai::bootstrap_client> (node_l, [node_l] ()
 	{
@@ -2717,7 +2732,7 @@ void rai::bulk_pull_client::process_end ()
 {
 	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
 	{
-		connection->connection->node->process_receive_many (block_a.clone (), [this] (rai::process_return result_a, rai::block const & block_a)
+		connection->connection->node->process_receive_many (block_a, [this] (rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{
@@ -2727,6 +2742,14 @@ void rai::bulk_pull_client::process_end ()
 				case rai::process_result::fork:
 					connection->connection->node->network.broadcast_confirm_req (block_a);
 					BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+					break;
+				case rai::process_result::gap_previous:
+				case rai::process_result::gap_source:
+					if (connection->connection->node->config.logging.bulk_pull_logging ())
+					{
+						// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
+						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+					}
 					break;
 				default:
 					BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
@@ -2739,58 +2762,38 @@ void rai::bulk_pull_client::process_end ()
 	rai::block_hash block (first ());
     while (!block.is_zero ())
     {
+		BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
 		auto error (synchronization.synchronize (block));
         if (error)
         {
-			// Pulling account chains isn't transactional so updates happening during the process can cause dependency failures
-			// A node may also have erroneously not sent the required dependent blocks
-			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error synchronizing block: %1%") % block.to_string ());
-			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
             while (!synchronization.blocks.empty ())
             {
-				auto hash (synchronization.blocks.top ());
-				if (!connection->connection->node->store.block_exists (transaction, hash))
+				std::unique_ptr <rai::block> block;
 				{
-					if (connection->connection->node->config.logging.bulk_pull_logging ())
+					rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
+					auto hash (synchronization.blocks.top ());
+					synchronization.blocks.pop ();
+					if (!connection->connection->node->store.block_exists (transaction, hash))
 					{
-						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
-					}
-				}
-				else
-				{
-					auto block (connection->connection->node->store.unchecked_get (transaction, hash));
-					assert (block != nullptr);
-					auto previous (block->previous ());
-					if (connection->connection->node->store.block_exists (transaction, previous))
-					{
-						auto source (block->source ());
-						if (connection->connection->node->store.block_exists (transaction, source))
+						if (connection->connection->node->config.logging.bulk_pull_logging ())
 						{
-							if (connection->connection->node->config.logging.bulk_pull_logging ())
-							{
-								BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Everything seems to exist for %1%, both %2% and %3%") % hash.to_string () % previous.to_string () % source.to_string ());
-							}
-						}
-						else
-						{
-							if (connection->connection->node->config.logging.bulk_pull_logging ())
-							{
-								BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Caching: %1% on source: %2%") % hash.to_string () % source.to_string ());
-							}
-							connection->connection->node->gap_cache.add (*block, source);
+							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
 						}
 					}
 					else
 					{
 						if (connection->connection->node->config.logging.bulk_pull_logging ())
 						{
-							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Caching: %1% on previous: %2%") % hash.to_string () % previous.to_string ());
+							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
 						}
-						connection->connection->node->gap_cache.add (*block, previous);
+						auto block (connection->connection->node->store.unchecked_get (transaction, hash));
 					}
+					connection->connection->node->store.unchecked_del (transaction, hash);
 				}
-                connection->connection->node->store.unchecked_del (transaction, hash);
-                synchronization.blocks.pop ();
+				if (block != nullptr)
+				{
+					connection->connection->node->process_receive_many (*block);
+				}
             }
         }
 		block = first ();
