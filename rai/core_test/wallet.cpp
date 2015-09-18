@@ -332,9 +332,9 @@ TEST (wallet, reopen_default_password)
         rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
         ASSERT_FALSE (init);
         ASSERT_TRUE (wallet.valid_password (transaction));
-        wallet.enter_password (transaction, " ");
+        wallet.attempt_password (transaction, " ");
         ASSERT_FALSE (wallet.valid_password (transaction));
-        wallet.enter_password (transaction, "");
+        wallet.attempt_password (transaction, "");
         ASSERT_TRUE (wallet.valid_password (transaction));
     }
 }
@@ -419,7 +419,7 @@ TEST (wallet, serialize_json_password)
     rai::wallet_store wallet2 (error, transaction, rai::genesis_account, "1", serialized);
     ASSERT_FALSE (error);
     ASSERT_FALSE (wallet2.valid_password (transaction));
-    wallet2.enter_password (transaction, "password");
+    ASSERT_FALSE (wallet2.attempt_password (transaction, "password"));
     ASSERT_TRUE (wallet2.valid_password (transaction));
     ASSERT_EQ (wallet1.wallet_key (transaction), wallet2.wallet_key (transaction));
     ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));

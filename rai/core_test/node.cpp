@@ -280,6 +280,37 @@ TEST (node, search_pending)
     }
 }
 
+TEST (node, unlock_search)
+{
+    rai::system system (24000, 1);
+    rai::keypair key2;
+	rai::uint128_t balance (system.nodes [0]->balance (rai::test_genesis_key.pub));
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, true);
+		system.wallet (0)->store.rekey (transaction, "");
+	}
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+    auto iterations1 (0);
+    while (system.nodes [0]->balance (rai::test_genesis_key.pub) == balance)
+    {
+        system.poll ();
+        ++iterations1;
+        ASSERT_LT (iterations1, 200);
+    }
+	system.wallet (0)->insert (key2.prv);
+	system.wallet (0)->store.password.value_set (0);
+	auto node (system.nodes [0]);
+	ASSERT_FALSE (system.wallet (0)->enter_password (""));
+    auto iterations2 (0);
+    while (system.nodes [0]->balance (key2.pub).is_zero ())
+    {
+        system.poll ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}
+
 TEST (node, connect_after_junk)
 {
     rai::system system (24000, 1);
@@ -393,7 +424,7 @@ TEST (node, confirm_locked)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->store.enter_password (rai::transaction (system.nodes [0]->store.environment, nullptr, false), "1");
+	system.wallet (0)->enter_password ("1");
 	rai::send_block block (0, 0, 0, 0, 0, 0);
 	system.nodes [0]->process_confirmation (block, rai::endpoint ());
 }

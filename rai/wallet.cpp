@@ -91,7 +91,7 @@ void rai::work_pool::loop (uint64_t thread)
 				}
 			}
 			lock.lock ();
-			if (current == current_l)
+			if (current == current_l && output >= rai::work_pool::publish_threshold)
 			{
 				assert (output >= rai::work_pool::publish_threshold);
 				assert (work_value (current_l, work) == output);
@@ -205,9 +205,11 @@ bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
     return check (transaction_a) == check_l;
 }
 
-void rai::wallet_store::enter_password (MDB_txn * transaction_a, std::string const & password_a)
+bool rai::wallet_store::attempt_password (MDB_txn * transaction_a, std::string const & password_a)
 {
     password.value_set (derive_key (transaction_a, password_a));
+	auto result (!valid_password (transaction_a));
+	return result;
 }
 
 bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & password_a)
@@ -344,7 +346,7 @@ environment (transaction_a.environment)
         }
         else
         {
-            enter_password (transaction_a, "");
+            attempt_password (transaction_a, "");
         }
     }
 }
@@ -543,20 +545,43 @@ node (node_a)
 {
 }
 
-void rai::wallet::enter_initial_password (MDB_txn * transaction_a)
+void rai::wallet::enter_initial_password ()
 {
 	if (store.password.value ().is_zero ())
 	{
-		if (store.valid_password (transaction_a))
+		rai::transaction transaction (store.environment, nullptr, true);
+		if (valid_password ())
 		{
 			// Newly created wallets have a zero key
-			store.rekey (transaction_a, "");
+			store.rekey (transaction, "");
 		}
 		else
 		{
-			store.enter_password (transaction_a, "");
+			store.attempt_password (transaction, "");
 		}
 	}
+}
+
+bool rai::wallet::valid_password ()
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	auto result (store.valid_password (transaction));
+	return result;
+}
+
+bool rai::wallet::enter_password (std::string const & password_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	auto result (store.attempt_password (transaction, password_a));
+	if (!result)
+	{
+		auto this_l (shared_from_this ());
+		node.background([this_l] ()
+		{
+			this_l->search_pending ();
+		});
+	}
+	return result;
 }
 
 rai::public_key rai::wallet::insert (rai::private_key const & key_a)
@@ -588,14 +613,10 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
 	rai::wallet_store temp (error, transaction, 0, id.to_string (), json_a);
 	if (!error)
 	{
-		temp.enter_password (transaction, password_a);
-		if (temp.valid_password (transaction))
+		error = temp.attempt_password (transaction, password_a);
+		if (!error)
 		{
 			error = store.import (transaction, temp);
-		}
-		else
-		{
-			error = true;
 		}
 	}
 	temp.destroy (transaction);
@@ -990,8 +1011,7 @@ node (node_a)
 			{
 				node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
 				{
-					rai::transaction transaction (wallet->store.environment, nullptr, true);
-					wallet->enter_initial_password (transaction);
+					wallet->enter_initial_password ();
 				});
 				items [id] = wallet;
 			}
@@ -1025,8 +1045,7 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
     {
 		node.service.add (std::chrono::system_clock::now (), [wallet] ()
 		{
-			rai::transaction transaction (wallet->store.environment, nullptr, true);
-			wallet->enter_initial_password (transaction);
+			wallet->enter_initial_password ();
 		});
         items [id_a] = wallet;
         result = wallet;

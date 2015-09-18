@@ -360,11 +360,10 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     auto existing (node.wallets.items.find (wallet));
                     if (existing != node.wallets.items.end ())
                     {
-						rai::transaction transaction (node.store.environment, nullptr, false);
                         boost::property_tree::ptree response_l;
                         std::string password_text (request_l.get <std::string> ("password"));
-                        existing->second->store.enter_password (transaction, password_text);
-                        response_l.put ("valid", existing->second->store.valid_password (transaction) ? "1" : "0");
+                        auto error (existing->second->enter_password (password_text));
+                        response_l.put ("valid", error ? "0" : "1");
                         set_response (response, response_l);
                     }
                     else

@@ -743,11 +743,8 @@ wallet (wallet_a)
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-		{
-			rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
-			wallet.wallet_m->store.enter_password (transaction, std::string (password->text ().toLocal8Bit ()));
-		}
-        update_locked ();
+		wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ()));
+		update_locked ();
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
     {

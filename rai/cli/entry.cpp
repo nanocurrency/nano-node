@@ -224,10 +224,9 @@ int main (int argc, char * const * argv)
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					rai::transaction transaction (wallet->store.environment, nullptr, true);
-					wallet->store.enter_password (transaction, password);
-					if (wallet->store.valid_password (transaction))
+					if (!wallet->enter_password (password))
 					{
+						rai::transaction transaction (wallet->store.environment, nullptr, true);
 						wallet->store.insert (transaction, vm ["key"].as <std::string> ());
 					}
 					else

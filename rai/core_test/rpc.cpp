@@ -324,12 +324,11 @@ TEST (rpc, wallet_password_change)
     boost::property_tree::read_json (istream, response_tree);
     std::string account_text1 (response_tree.get <std::string> ("changed"));
     ASSERT_EQ (account_text1, "1");
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
-    system.wallet (0)->store.enter_password (transaction, "");
-    ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
-    system.wallet (0)->store.enter_password (transaction, "test");
-    ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
+    ASSERT_TRUE (system.wallet (0)->valid_password ());
+    ASSERT_TRUE (system.wallet (0)->enter_password (""));
+    ASSERT_FALSE (system.wallet (0)->valid_password ());
+    ASSERT_FALSE (system.wallet (0)->enter_password ("test"));
+    ASSERT_TRUE (system.wallet (0)->valid_password ());
 }
 
 TEST (rpc, wallet_password_enter)

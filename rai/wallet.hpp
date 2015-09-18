@@ -66,7 +66,7 @@ public:
     rai::uint256_union check (MDB_txn *);
     bool rekey (MDB_txn *, std::string const &);
     bool valid_password (MDB_txn *);
-    void enter_password (MDB_txn *, std::string const &);
+    bool attempt_password (MDB_txn *, std::string const &);
     rai::uint256_union wallet_key (MDB_txn *);
     rai::uint256_union salt (MDB_txn *);
     bool is_representative (MDB_txn *);
@@ -111,7 +111,9 @@ class wallet : public std::enable_shared_from_this <rai::wallet>
 public:
     wallet (bool &, rai::transaction &, rai::node &, std::string const &);
     wallet (bool &, rai::transaction &, rai::node &, std::string const &, std::string const &);
-	void enter_initial_password (MDB_txn *);
+	void enter_initial_password ();
+    bool valid_password ();
+    bool enter_password (std::string const &);
 	rai::public_key insert (rai::private_key const &);
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
