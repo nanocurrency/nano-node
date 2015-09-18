@@ -1,5 +1,5 @@
-#include <rai/node.hpp>
-#include <rai/rpc.hpp>
+#include <rai/node/node.hpp>
+#include <rai/node/rpc.hpp>
 
 namespace rai_daemon
 {

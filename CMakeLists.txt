@@ -93,13 +93,15 @@ add_library (secure
 	rai/utility.hpp)
 
 add_library (node
-	rai/node.hpp
-	rai/node.cpp
-	rai/rpc.hpp
-	rai/rpc.cpp
-	rai/wallet.hpp
-	rai/wallet.cpp
-	rai/working.hpp)
+	rai/node/node.hpp
+	rai/node/node.cpp
+	rai/node/rpc.hpp
+	rai/node/rpc.cpp
+	rai/node/testing.hpp
+	rai/node/testing.cpp
+	rai/node/wallet.hpp
+	rai/node/wallet.cpp
+	rai/node/working.hpp)
 
 add_executable (core_test
 	rai/core_test/block.cpp

@@ -1,6 +1,6 @@
-#include <rai/wallet.hpp>
+#include <rai/node/wallet.hpp>
 
-#include <rai/node.hpp>
+#include <rai/node/node.hpp>
 
 #include <argon2.h>
 

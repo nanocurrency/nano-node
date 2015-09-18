@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <rai/node.hpp>
+#include <rai/node/testing.hpp>
 #include <fstream>
 
 TEST (wallet, no_key)

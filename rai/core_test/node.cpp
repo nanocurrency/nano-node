@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include <rai/node.hpp>
-#include <rai/working.hpp>
+#include <rai/node/testing.hpp>
+#include <rai/node/working.hpp>
 
 #include <boost/make_shared.hpp>
 

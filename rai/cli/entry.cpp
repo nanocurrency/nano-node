@@ -1,4 +1,5 @@
-#include <rai/node.hpp>
+#include <rai/node/node.hpp>
+#include <rai/node/testing.hpp>
 #include <rai/cli/daemon.hpp>
 
 #include <argon2.h>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/wallet.hpp>
+#include <rai/node/wallet.hpp>
 
 #include <unordered_set>
 #include <memory>
@@ -725,59 +725,6 @@ public:
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
-};
-class system
-{
-public:
-    system (uint16_t, size_t);
-    ~system ();
-    void generate_activity (rai::node &);
-    void generate_mass_activity (uint32_t, rai::node &);
-    void generate_usage_traffic (uint32_t, uint32_t, size_t);
-    void generate_usage_traffic (uint32_t, uint32_t);
-	rai::account get_random_account (MDB_txn *, rai::node &);
-    rai::uint128_t get_random_amount (MDB_txn *, rai::node &, rai::account const &);
-    void generate_send_new (rai::node &);
-    void generate_send_existing (rai::node &);
-    std::shared_ptr <rai::wallet> wallet (size_t);
-    rai::account account (MDB_txn *, size_t);
-	void poll ();
-    boost::shared_ptr <boost::asio::io_service> service;
-    rai::processor_service processor;
-    std::vector <std::shared_ptr <rai::node>> nodes;
-	rai::logging logging;
-	rai::work_pool work;
-};
-class landing_store
-{
-public:
-	landing_store ();
-	landing_store (rai::account const &, rai::account const &, uint64_t, uint64_t);
-	landing_store (bool &, std::istream &);
-	rai::account source;
-	rai::account destination;
-	uint64_t start;
-	uint64_t last;
-	bool deserialize (std::istream &);
-	void serialize (std::ostream &) const;
-	bool operator == (rai::landing_store const &) const;
-};
-class landing
-{
-public:
-	landing (rai::node &, std::shared_ptr <rai::wallet>, rai::landing_store &, boost::filesystem::path const &);
-	void write_store ();
-	rai::uint128_t distribution_amount (uint64_t);
-	uint64_t seconds_since_epoch ();
-	void distribute_one ();
-	void distribute_ongoing ();
-	boost::filesystem::path path;
-	rai::landing_store & store;
-	std::shared_ptr <rai::wallet> wallet;
-	rai::node & node;
-	static int constexpr interval_exponent = 6;
-	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (1 << interval_exponent); // 64 seconds
-	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (7);
 };
 class thread_runner
 {

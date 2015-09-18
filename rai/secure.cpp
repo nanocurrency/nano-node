@@ -1,6 +1,6 @@
 #include <rai/secure.hpp>
 
-#include <rai/working.hpp>
+#include <rai/node/working.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

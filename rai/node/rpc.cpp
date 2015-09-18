@@ -1,6 +1,6 @@
-#include <rai/rpc.hpp>
+#include <rai/node/rpc.hpp>
 
-#include <rai/node.hpp>
+#include <rai/node/node.hpp>
 
 #include <ed25519-donna/ed25519.h>
 

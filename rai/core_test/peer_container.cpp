@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <rai/node.hpp>
+#include <rai/node/node.hpp>
 
 TEST (peer_container, empty_peers)
 {

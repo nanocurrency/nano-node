@@ -1,6 +1,6 @@
-#include <rai/node.hpp>
+#include <rai/node/testing.hpp>
 
-#include <rai/working.hpp>
+#include <rai/node/working.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/property_tree/json_parser.hpp>

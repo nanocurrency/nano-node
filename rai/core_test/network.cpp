@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <boost/thread.hpp>
-#include <rai/node.hpp>
+#include <rai/node/testing.hpp>
 
 TEST (network, tcp_connection)
 {

@@ -1,6 +1,6 @@
 #include <rai/qt/qt.hpp>
 
-#include <rai/working.hpp>
+#include <rai/node/working.hpp>
 #include <rai/icon.hpp>
 
 #include <boost/make_shared.hpp>

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <rai/node.hpp>
-#include <rai/rpc.hpp>
+#include <rai/node/testing.hpp>
+#include <rai/node/rpc.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>

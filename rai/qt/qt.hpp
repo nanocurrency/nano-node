@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/node.hpp>
+#include <rai/node/node.hpp>
 
 #include <boost/thread.hpp>
 

@@ -1,4 +1,5 @@
 #include <rai/qt/qt.hpp>
+#include <rai/node/testing.hpp>
 
 #include <thread>
 

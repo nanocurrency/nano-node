@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <rai/node.hpp>
+#include <rai/node/node.hpp>
 
 static boost::log::sources::logger test_log;
 
