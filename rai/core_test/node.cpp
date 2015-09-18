@@ -151,7 +151,7 @@ TEST (node, quick_confirm)
 	rai::block_hash previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->insert (key.prv);
     rai::send_block send (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous));
-    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive (send).code);
+    ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive_one (send).code);
     auto iterations (0);
     while (system.nodes [0]->balance (key.pub).is_zero ())
     {

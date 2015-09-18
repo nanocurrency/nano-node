@@ -292,8 +292,6 @@ TEST (work, one)
     rai::change_block block (1, 1, 2, 3, 4);
     pool.generate (block);
     ASSERT_FALSE (pool.work_validate (block));
-    pool.generate (block);
-    ASSERT_FALSE (pool.work_validate (block));
 }
 
 TEST (work, validate)

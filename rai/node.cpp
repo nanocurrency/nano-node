@@ -1130,29 +1130,38 @@ void rai::network::confirm_block (rai::private_key const & prv, rai::public_key 
 void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming, size_t rebroadcast_a)
 {
 	assert (incoming != nullptr);
+	process_receive_many (std::move (incoming), [this, rebroadcast_a] (rai::process_return result_a, rai::block const & block_a)
+	{
+		switch (result_a.code)
+		{
+			case rai::process_result::progress:
+			{
+				network.republish_block (block_a.clone (), rebroadcast_a);
+				break;
+			}
+			default:
+			{
+				break;
+			}
+		}
+	});
+}
+
+void rai::node::process_receive_many (std::unique_ptr <rai::block> incoming, std::function <void (rai::process_return, rai::block const &)> completed_a)
+{
+	assert (incoming != nullptr);
     std::unique_ptr <rai::block> block (std::move (incoming));
     do
     {
+		auto result (process_receive_one (*block));
+		completed_a (result, *block);
         auto hash (block->hash ());
-        auto process_result (process_receive (*block));
-        switch (process_result.code)
-        {
-            case rai::process_result::progress:
-            {
-                network.republish_block (std::move (block), rebroadcast_a);
-                break;
-            }
-            default:
-            {
-                break;
-            }
-        }
         block = gap_cache.get (hash);
     }
     while (block != nullptr);
 }
 
-rai::process_return rai::node::process_receive (rai::block const & block_a)
+rai::process_return rai::node::process_receive_one (rai::block const & block_a)
 {
 	rai::process_return result;
 	{
@@ -2708,20 +2717,22 @@ void rai::bulk_pull_client::process_end ()
 {
 	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
 	{
-		auto process_result (connection->connection->node->process_receive (block_a));
-		switch (process_result.code)
+		connection->connection->node->process_receive_many (block_a.clone (), [this] (rai::process_return result_a, rai::block const & block_a)
 		{
-			case rai::process_result::progress:
-			case rai::process_result::old:
-				break;
-			case rai::process_result::fork:
-				connection->connection->node->network.broadcast_confirm_req (block_a);
-				BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-				break;
-			default:
-				BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
-				break;
-		}
+			switch (result_a.code)
+			{
+				case rai::process_result::progress:
+				case rai::process_result::old:
+					break;
+				case rai::process_result::fork:
+					connection->connection->node->network.broadcast_confirm_req (block_a);
+					BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+					break;
+				default:
+					BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
+					break;
+			}
+		});
 		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
 		connection->connection->node->store.unchecked_del (transaction, block_a.hash ());
 	}, connection->connection->node->store);
