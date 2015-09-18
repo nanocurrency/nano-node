@@ -43,7 +43,7 @@ void rai_qt::self_pane::refresh_balance ()
 	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
 	std::string balance;
 	rai::amount (wallet.node.ledger.account_balance (transaction, wallet.account) / wallet.rendering_ratio).encode_dec (balance);
-	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + balance).c_str ()));
+	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + balance + std::string (" Mrai")).c_str ()));
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
