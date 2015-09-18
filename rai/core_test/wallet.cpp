@@ -324,7 +324,6 @@ TEST (wallet, reopen_default_password)
     {
         rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
         ASSERT_FALSE (init);
-		wallet.rekey (transaction, "");
         ASSERT_TRUE (wallet.valid_password (transaction));
     }
     {
@@ -332,6 +331,18 @@ TEST (wallet, reopen_default_password)
         rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
         ASSERT_FALSE (init);
         ASSERT_TRUE (wallet.valid_password (transaction));
+    }
+    {
+        rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
+        ASSERT_FALSE (init);
+		wallet.rekey (transaction, "");
+        ASSERT_TRUE (wallet.valid_password (transaction));
+    }
+    {
+        bool init;
+        rai::wallet_store wallet (init, transaction, rai::genesis_account, "0");
+        ASSERT_FALSE (init);
+        ASSERT_FALSE (wallet.valid_password (transaction));
         wallet.attempt_password (transaction, " ");
         ASSERT_FALSE (wallet.valid_password (transaction));
         wallet.attempt_password (transaction, "");

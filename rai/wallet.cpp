@@ -344,10 +344,6 @@ environment (transaction_a.environment)
             wallet_key.clear ();
 			entry_put_raw (transaction_a, rai::wallet_store::representative_special, rai::wallet_value (representative_a));
         }
-        else
-        {
-            attempt_password (transaction_a, "");
-        }
     }
 }
 
