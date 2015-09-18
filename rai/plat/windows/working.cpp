@@ -1,4 +1,4 @@
-#include <rai/working.hpp>
+#include <rai/node/working.hpp>
 
 #include <shlobj.h>
 
