@@ -1850,30 +1850,40 @@ public:
 				rai::private_key prv;
 				rai::account representative;
 				rai::receivable receivable;
+				rai::transaction transaction (node.store.environment, nullptr, false);
 				auto error (false);
 				{
-					rai::transaction transaction (node.store.environment, nullptr, false);
 					error = wallet->store.fetch (transaction, block_a.hashables.destination, prv);
-					error = error | node.store.pending_get (transaction, block_a.hash (), receivable);
 					representative = wallet->store.representative (transaction);
 				}
 				if (!error)
 				{
-					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));
-					auto node_l (node.shared ());
-					auto amount (receivable.amount.number ());
-					node.service.add (std::chrono::system_clock::now (), [block_l, prv, representative, wallet, node_l, amount] ()
+					error = error | node.store.pending_get (transaction, block_a.hash (), receivable);
+					if (!error)
 					{
-						node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, prv, representative, wallet, amount] ()
+						auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));
+						auto node_l (node.shared ());
+						auto amount (receivable.amount.number ());
+						node.service.add (std::chrono::system_clock::now (), [block_l, prv, representative, wallet, node_l, amount] ()
 						{
-							auto error (wallet->receive_action (*block_l, prv, representative, amount));
-							(void)error; // Might be interesting to view during debug
+							node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, prv, representative, wallet, amount] ()
+							{
+								auto error (wallet->receive_action (*block_l, prv, representative, amount));
+								(void)error; // Might be interesting to view during debug
+							});
 						});
-					});
+					}
+					else
+					{
+						if (node.config.logging.ledger_duplicate_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Block confirmed before timeout %1%") % block_a.hash ().to_string ());
+						}
+					}
 				}
 				else
 				{
-					BOOST_LOG (node.log) << "While confirming, unable to fetch wallet key";
+					BOOST_LOG (node.log) << boost::str (boost::format ("While confirming %1%, unable to fetch wallet key") % block_a.hash ().to_string ());
 				}
 			}
         }
