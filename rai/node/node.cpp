@@ -269,22 +269,28 @@ void rai::network::republish_block (std::unique_ptr <rai::block> block, size_t r
 					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % i->endpoint);
 				}
 				send_buffer (bytes->data (), bytes->size (), i->endpoint, rebroadcast_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
+				{
+					if (node_l->config.logging.network_logging ())
 					{
-						if (node_l->config.logging.network_logging ())
+						if (ec)
 						{
-							if (ec)
-							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
-							}
+							BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
 						}
-					});
+					}
+				});
 			}
         }
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was published from %2%") % hash.to_string () % endpoint ());
+		if (node.config.logging.network_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was published from %2%") % hash.to_string () % endpoint ());
+		}
     }
 	else
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed from %2%") % hash.to_string () % endpoint ());
+		if (node.config.logging.network_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed from %2%") % hash.to_string () % endpoint ());
+		}
 	}
 }
 
@@ -612,7 +618,8 @@ insufficient_work_logging_value (true),
 log_rpc_value (true),
 bulk_pull_logging_value (false),
 work_generation_time_value (true),
-log_to_cerr_value (false)
+log_to_cerr_value (false),
+max_size (16 * 1024 * 1024)
 {
 }
 
@@ -631,6 +638,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("bulk_pull", bulk_pull_logging_value);
 	tree_a.put ("work_generation_time", work_generation_time_value);
 	tree_a.put ("log_to_cerr", log_to_cerr_value);
+	tree_a.put ("max_size", max_size);
 }
 
 bool rai::logging::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -651,6 +659,7 @@ bool rai::logging::deserialize_json (boost::property_tree::ptree const & tree_a)
 		bulk_pull_logging_value = tree_a.get <bool> ("bulk_pull");
 		work_generation_time_value = tree_a.get <bool> ("work_generation_time");
 		log_to_cerr_value = tree_a.get <bool> ("log_to_cerr");
+		max_size = tree_a.get <uintmax_t> ("max_size");
 	}
 	catch (std::runtime_error const &)
 	{
@@ -668,6 +677,7 @@ bool rai::logging::ledger_duplicate_logging () const
 {
 	return ledger_logging () && ledger_duplicate_logging_value;
 }
+
 bool rai::logging::network_logging () const
 {
 	return network_logging_value;
@@ -971,7 +981,7 @@ application_path (application_path_a)
         boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
     }
     boost::log::add_common_attributes ();
-	boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = 16 * 1024 * 1024, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+	boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = config.logging.max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
 	observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
     {
@@ -1076,14 +1086,20 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
             auto winner (node.ledger.winner (transaction_a, *existing->votes));
             if (winner.first > bootstrap_threshold (transaction_a))
             {
-				if (!node.store.block_exists (transaction_a, hash))
+				auto node_l (node.shared ());
+				node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_l, hash] ()
 				{
-					node.bootstrap_initiator.bootstrap_any ();
-				}
-				else
-				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Block: %1% was inserted while voting") % hash.to_string ());
-				}
+					rai::transaction transaction (node_l->store.environment, nullptr, false);
+					if (!node_l->store.block_exists (transaction, hash))
+					{
+						BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+						node_l->bootstrap_initiator.bootstrap_any ();
+					}
+					else
+					{
+						BOOST_LOG (node_l->log) << boost::str (boost::format ("Block: %1% was inserted while voting") % hash.to_string ());
+					}
+				});
             }
         }
     }

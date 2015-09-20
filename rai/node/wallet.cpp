@@ -1005,7 +1005,7 @@ node (node_a)
 			auto wallet (std::make_shared <rai::wallet> (error, transaction, node_a, text));
 			if (!error)
 			{
-				node_a.service.add (std::chrono::system_clock::now (), [wallet] ()
+				node_a.background ([wallet] ()
 				{
 					wallet->enter_initial_password ();
 				});
@@ -1039,7 +1039,7 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
     auto wallet (std::make_shared <rai::wallet> (error, transaction, node, id_a.to_string ()));
     if (!error)
     {
-		node.service.add (std::chrono::system_clock::now (), [wallet] ()
+		node.background ([wallet] ()
 		{
 			wallet->enter_initial_password ();
 		});

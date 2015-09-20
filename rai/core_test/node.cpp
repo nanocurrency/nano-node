@@ -359,6 +359,7 @@ TEST (logging, serialization)
 	logging1.bulk_pull_logging_value = !logging1.bulk_pull_logging_value;
 	logging1.work_generation_time_value = !logging1.work_generation_time_value;
 	logging1.log_to_cerr_value = !logging1.log_to_cerr_value;
+	logging1.max_size = 10;
 	boost::property_tree::ptree tree;
 	logging1.serialize_json (tree);
 	rai::logging logging2;
@@ -376,6 +377,7 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.bulk_pull_logging_value, logging2.bulk_pull_logging_value);
 	ASSERT_EQ (logging1.work_generation_time_value, logging2.work_generation_time_value);
 	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
+	ASSERT_EQ (logging1.max_size, logging2.max_size);
 }
 
 TEST (node, price)

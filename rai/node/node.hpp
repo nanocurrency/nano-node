@@ -637,6 +637,7 @@ public:
 	bool bulk_pull_logging_value;
 	bool work_generation_time_value;
 	bool log_to_cerr_value;
+	uintmax_t max_size;
 };
 class node_init
 {
