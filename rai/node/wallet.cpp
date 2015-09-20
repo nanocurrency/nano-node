@@ -831,7 +831,6 @@ void rai::wallet::work_update (MDB_txn * transaction_a, rai::account const & acc
     auto latest (node.ledger.latest_root (transaction_a, account_a));
     if (latest == root_a)
     {
-        BOOST_LOG (node.log) << "Successfully cached work";
         store.work_put (transaction_a, account_a, work_a);
     }
     else
@@ -973,14 +972,10 @@ bool rai::wallet::search_pending ()
 void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
 {
 	auto begin (std::chrono::system_clock::now ());
-	if (node.config.logging.work_generation_time ())
-	{
-		BOOST_LOG (node.log) << "Beginning work generation";
-	}
     auto work (node.work.generate (root_a));
 	if (node.config.logging.work_generation_time ())
 	{
-		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << "us";
+		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << " us";
 	}
 	rai::transaction transaction (store.environment, nullptr, true);
     work_update (transaction, account_a, root_a, work);
