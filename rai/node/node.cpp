@@ -809,15 +809,8 @@ public:
 }
 
 rai::node_config::node_config () :
-peering_port (rai::network::node_port),
-packet_delay_microseconds (5000),
-bootstrap_fraction_numerator (1),
-creation_rebroadcast (2),
-rebroadcast_delay (15),
-receive_minimum (rai::Mrai_ratio)
+node_config (rai::network::node_port, rai::logging ())
 {
-	preconfigured_peers.push_back ("rai.raiblocks.net");
-	preconfigured_representatives.push_back (rai::genesis_account);
 }
 
 rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
@@ -829,7 +822,23 @@ creation_rebroadcast (2),
 rebroadcast_delay (15),
 receive_minimum (rai::Mrai_ratio)
 {
-	preconfigured_representatives.push_back (rai::genesis_account);
+	switch (rai::rai_network)
+	{
+		case rai::rai_networks::rai_test_network:
+			preconfigured_representatives.push_back (rai::genesis_account);
+			break;
+		case rai::rai_networks::rai_beta_network:
+			preconfigured_peers.push_back ("rai.raiblocks.net");
+			preconfigured_representatives.push_back (rai::genesis_account);
+			break;
+		case rai::rai_networks::rai_live_network:
+			preconfigured_peers.push_back ("rai.raiblocks.net");
+			preconfigured_representatives.push_back (rai::genesis_account);
+			break;
+		default:
+			assert (false);
+			break;
+	}
 }
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
@@ -887,6 +896,10 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 			rai::account representative (0);
 			result = result || representative.decode_base58check (i->second.get <std::string> (""));
 			preconfigured_representatives.push_back (representative);
+		}
+		if (preconfigured_representatives.empty ())
+		{
+			result = true;
 		}
 		try
 		{

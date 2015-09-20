@@ -401,33 +401,50 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("debug_bootstrap_generate"))
 	{
-		rai::work_pool work;
-        rai::keypair genesis;
-        std::cout << "Genesis: " << genesis.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
-		rai::keypair landing;
-		std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << landing.pub.to_string () << std::endl << "Account: " << landing.pub.to_base58check () << std::endl;
-		for (auto i (0); i != 32; ++i)
+		if (vm.count ("key") == 1)
 		{
-			rai::keypair rep;
-			std::cout << "Rep" << i << ": " << rep.prv.to_string () << std::endl << "Public: " << rep.pub.to_string () << std::endl << "Account: " << rep.pub.to_base58check () << std::endl;
-		}
-		rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
-		rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
-		std::cout << genesis_block.to_json ();
-		rai::block_hash previous (genesis_block.hash ());
-		for (auto i (0); i != 8; ++i)
-		{
-			rai::uint128_t yearly_distribution (rai::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
-			auto weekly_distribution (yearly_distribution / 52);
-			for (auto j (0); j != 52; ++j)
+			rai::uint256_union key;
+			if (!key.decode_hex (vm ["key"].as <std::string> ()))
 			{
-				assert (balance > weekly_distribution);
-				balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-				rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, work.generate (previous));
-				previous = send.hash ();
-				std::cout << send.to_json ();
-				std::cout.flush ();
+				rai::keypair genesis (key.to_string ());
+				rai::work_pool work;
+				std::cout << "Genesis: " << genesis.prv.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
+				rai::keypair landing;
+				std::cout << "Landing: " << landing.prv.to_string () << std::endl << "Public: " << landing.pub.to_string () << std::endl << "Account: " << landing.pub.to_base58check () << std::endl;
+				for (auto i (0); i != 32; ++i)
+				{
+					rai::keypair rep;
+					std::cout << "Rep" << i << ": " << rep.prv.to_string () << std::endl << "Public: " << rep.pub.to_string () << std::endl << "Account: " << rep.pub.to_base58check () << std::endl;
+				}
+				rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
+				rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
+				std::cout << genesis_block.to_json ();
+				rai::block_hash previous (genesis_block.hash ());
+				for (auto i (0); i != 8; ++i)
+				{
+					rai::uint128_t yearly_distribution (rai::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
+					auto weekly_distribution (yearly_distribution / 52);
+					for (auto j (0); j != 52; ++j)
+					{
+						assert (balance > weekly_distribution);
+						balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
+						rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, work.generate (previous));
+						previous = send.hash ();
+						std::cout << send.to_json ();
+						std::cout.flush ();
+					}
+				}
 			}
+			else
+			{
+				std::cerr << "Invalid key\n";
+				result = -1;
+			}
+		}
+		else
+		{
+			std::cerr << "Bootstrapping requires one <key> option\n";
+			result = -1;
 		}
 	}
     else if (vm.count ("debug_mass_activity"))
