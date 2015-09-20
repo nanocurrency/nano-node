@@ -428,7 +428,7 @@ int main (int argc, char * const * argv)
 					{
 						assert (balance > weekly_distribution);
 						balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-						rai::send_block send (landing.pub, previous, balance, genesis.prv, genesis.pub, work.generate (previous));
+						rai::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, work.generate (previous));
 						previous = send.hash ();
 						std::cout << send.to_json ();
 						std::cout.flush ();
