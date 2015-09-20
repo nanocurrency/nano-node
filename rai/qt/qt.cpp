@@ -510,8 +510,8 @@ active_status (*this)
 				auto parse_error (account_l.decode_base58check (account_text_narrow));
 				if (!parse_error)
 				{
-					auto send_error (wallet_m->send_sync (account, account_l, actual));
-					if (!send_error)
+					auto block (wallet_m->send_sync (account, account_l, actual));
+					if (!block.is_zero ())
 					{
 						QPalette palette;
 						palette.setColor (QPalette::Text, Qt::black);

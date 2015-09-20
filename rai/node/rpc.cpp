@@ -598,9 +598,9 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 									auto error (amount.decode_dec (amount_text));
 									if (!error)
 									{
-										bool error (existing->second->send_sync (source, destination, amount.number ()));
+										auto block (existing->second->send_sync (source, destination, amount.number ()));
 										boost::property_tree::ptree response_l;
-										response_l.put ("sent", error ? "0" : "1");
+										response_l.put ("block", block.to_string ());
 										set_response (response, response_l);
 									}
 									else

@@ -727,11 +727,11 @@ bool rai::wallet::change_action (rai::account const & source_a, rai::account con
 	return result;
 }
 
-bool rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+rai::block_hash rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	assert (!check_ownership (node.wallets, source_a));
 	std::unique_ptr <rai::send_block> block;
-	auto result (false);
+	auto result (0);
 	{
 		rai::transaction transaction (store.environment, nullptr, false);
 		result = !store.valid_password (transaction);
@@ -770,13 +770,15 @@ bool rai::wallet::send_action (rai::account const & source_a, rai::account const
 			}
 		}
 	}
+	rai::block_hash hash (0);
 	if (!result)
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
-		work_generate (source_a, block->hash ());
+		hash = block->hash ();
+		work_generate (source_a, hash);
 	}
-	return result;
+	return hash;
 }
 
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
@@ -807,11 +809,11 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::private_ke
 	return result;
 }
 
-bool rai::wallet::send_sync (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::mutex complete;
 	complete.lock ();
-	bool result;
+	rai::block_hash result (0);
 	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &complete, &result] ()
 	{
 		result = send_action (source_a, account_a, amount_a);

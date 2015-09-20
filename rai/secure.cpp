@@ -2465,6 +2465,13 @@ rai::account rai::ledger::representative_calculated (MDB_txn * transaction_a, ra
     return visitor.result;
 }
 
+bool rai::ledger::block_exists (rai::block_hash const & hash_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	auto result (store.block_exists (transaction, hash_a));
+	return result;
+}
+
 // Vote weight of an account
 rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const & account_a)
 {

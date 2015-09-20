@@ -213,8 +213,10 @@ TEST (rpc, send)
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
-    std::string sent_text (response_tree.get <std::string> ("sent"));
-    ASSERT_EQ ("1", sent_text);
+    std::string block_text (response_tree.get <std::string> ("block"));
+	rai::block_hash block;
+	ASSERT_FALSE (block.decode_hex (block_text));
+	ASSERT_TRUE (system.nodes [0]->ledger.block_exists (block));
 }
 
 TEST (rpc, send_fail)
@@ -241,8 +243,10 @@ TEST (rpc, send_fail)
     boost::property_tree::ptree response_tree;
     std::stringstream istream (response.content);
     boost::property_tree::read_json (istream, response_tree);
-    std::string sent_text (response_tree.get <std::string> ("sent"));
-    ASSERT_EQ ("0", sent_text);
+    std::string block_text (response_tree.get <std::string> ("block"));
+	rai::block_hash block;
+	ASSERT_FALSE (block.decode_hex (block_text));
+	ASSERT_TRUE (block.is_zero ());
 }
 
 TEST (rpc, wallet_add)

@@ -353,14 +353,14 @@ uint64_t rai::landing::seconds_since_epoch ()
 void rai::landing::distribute_one ()
 {
 	auto now (seconds_since_epoch ());
-	auto error (false);
-	while (!error && store.last + distribution_interval.count () < now)
+	rai::block_hash last (1);
+	while (!last.is_zero () && store.last + distribution_interval.count () < now)
 	{
 		auto amount (distribution_amount ((store.last - store.start) >> 6));
-		error = wallet->send_sync (store.source, store.destination, amount);
-		if (!error)
+		last = wallet->send_sync (store.source, store.destination, amount);
+		if (!last.is_zero ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1%") % amount);
+			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1% in block %2%") % amount % last.to_string ());
 			store.last += distribution_interval.count ();
 			write_store ();
 		}
