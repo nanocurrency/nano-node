@@ -1,4 +1,4 @@
-#include <rai/cli/daemon.hpp>
+#include <rai/rai_node/daemon.hpp>
 
 #include <rai/node/working.hpp>
 #include <boost/property_tree/json_parser.hpp>
