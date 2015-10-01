@@ -4,6 +4,26 @@
 
 #include <sstream>
 
+namespace
+{
+void show_line_error (QLineEdit & line)
+{
+	line.setStyleSheet ("QLineEdit { color: red }");
+}
+void show_line_ok (QLineEdit & line)
+{
+	line.setStyleSheet ("QLineEdit { color: black }");
+}
+void show_label_error (QLabel & label)
+{
+	label.setStyleSheet ("QLabel { color: red }");
+}
+void show_label_ok (QLabel & label)
+{
+	label.setStyleSheet ("QLabel { color: black }");
+}
+}
+
 bool rai_qt::eventloop_processor::event (QEvent * event_a)
 {
 	assert(dynamic_cast <rai_qt::eventloop_event *>(event_a) != nullptr);
@@ -96,9 +116,7 @@ wallet (wallet_a)
 		rai::private_key key;
 		if (!key.decode_hex (key_text))
 		{
-			QPalette palette;
-			palette.setColor (QPalette::Text, Qt::black);
-			account_key_line->setPalette (palette);
+			show_line_ok (*account_key_line);
 			account_key_line->clear ();
 			wallet.wallet_m->insert (key);
 			wallet.accounts.refresh ();
@@ -106,9 +124,7 @@ wallet (wallet_a)
 		}
 		else
 		{
-			QPalette palette;
-			palette.setColor (QPalette::Text, Qt::red);
-			account_key_line->setPalette (palette);
+			show_line_error (*account_key_line);
 		}
 	});
     QObject::connect (back, &QPushButton::clicked, [this] ()
@@ -498,15 +514,14 @@ active_status (*this)
     });
     QObject::connect (send_blocks_send, &QPushButton::released, [this] ()
     {
+		show_line_ok (*send_count);
+		show_line_ok (*send_account);
 		rai::amount amount;
 		if (!amount.decode_dec (send_count->text ().toStdString ()))
 		{
 			rai::uint128_t actual (amount.number () * rendering_ratio);
 			if (actual / rendering_ratio == amount.number ())
 			{
-				QPalette palette;
-				palette.setColor (QPalette::Text, Qt::black);
-				send_count->setPalette (palette);
 				QString account_text (send_account->text ());
 				std::string account_text_narrow (account_text.toLocal8Bit ());
 				rai::account account_l;
@@ -516,39 +531,28 @@ active_status (*this)
 					auto block (wallet_m->send_sync (account, account_l, actual));
 					if (!block.is_zero ())
 					{
-						QPalette palette;
-						palette.setColor (QPalette::Text, Qt::black);
-						send_account->setPalette (palette);
 						send_count->clear ();
 						send_account->clear ();
 						accounts.refresh ();
 					}
 					else
 					{
-						QPalette palette;
-						palette.setColor (QPalette::Text, Qt::red);
-						send_count->setPalette (palette);
+						show_line_error (*send_count);
 					}
 				}
 				else
 				{
-					QPalette palette;
-					palette.setColor (QPalette::Text, Qt::red);
-					send_account->setPalette (palette);
+					show_line_error (*send_account);
 				}
 			}
 			else
 			{
-				QPalette palette;
-				palette.setColor (QPalette::Text, Qt::red);
-				send_account->setPalette (palette);
+				show_line_error (*send_account);
 			}
 		}
 		else
 		{
-			QPalette palette;
-			palette.setColor (QPalette::Text, Qt::red);
-			send_count->setPalette (palette);
+			show_line_error (*send_count);
 		}
     });
     QObject::connect (send_blocks_back, &QPushButton::released, [this] ()
@@ -884,7 +888,12 @@ wallet (wallet_a)
 		auto error (rai::parse_endpoint (bootstrap_line->text ().toStdString (), endpoint));
 		if (!error)
 		{
+			show_line_ok (*bootstrap_line);
 			wallet.node.bootstrap_initiator.bootstrap (endpoint);
+		}
+		else
+		{
+			show_line_error (*bootstrap_line);
 		}
 	});
     QObject::connect (peers_refresh, &QPushButton::released, [this] ()
@@ -981,17 +990,19 @@ wallet (wallet_a)
             auto block_l (rai::deserialize_block_json (tree));
             if (block_l != nullptr)
             {
+				show_label_ok (*status);
+				status->setText ("");
                 wallet.node.process_receive_republish (std::move (block_l), 0);
             }
             else
             {
-                status->setStyleSheet ("QLabel { color: red }");
-                status->setText ("Unable to parse block");
+				show_label_error (*status);
+				status->setText ("Unable to parse block");
             }
         }
         catch (std::runtime_error const &)
         {
-            status->setStyleSheet ("QLabel { color: red }");
+			show_label_error (*status);
             status->setText ("Unable to parse block");
         }
     });
@@ -1191,36 +1202,36 @@ void rai_qt::block_creation::create_send ()
                         std::string block_l;
                         send.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
-                        status->setStyleSheet ("QLabel { color: black }");
+						show_label_ok (*status);
                         status->setText ("Created block");
                     }
                     else
                     {
-                        status->setStyleSheet ("QLabel { color: red }");
+						show_label_error (*status);
                         status->setText ("Insufficient balance");
                     }
                 }
                 else
                 {
-                    status->setStyleSheet ("QLabel { color: red }");
+					show_label_error (*status);
                     status->setText ("Account is not in wallet");
                 }
             }
             else
             {
-                status->setStyleSheet ("QLabel { color: red }");
+				show_label_error (*status);
                 status->setText ("Unable to decode destination");
             }
         }
         else
         {
-            status->setStyleSheet ("QLabel { color: red }");
+			show_label_error (*status);
             status->setText ("Unable to decode amount");
         }
     }
     else
     {
-        status->setStyleSheet ("QLabel { color: red }");
+		show_label_error (*status);
         status->setText ("Unable to decode account");
     }
 }
@@ -1248,30 +1259,30 @@ void rai_qt::block_creation::create_receive ()
                     std::string block_l;
                     receive.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
-                    status->setStyleSheet ("QLabel { color: black }");
+					show_label_ok (*status);
                     status->setText ("Created block");
                 }
                 else
                 {
-                    status->setStyleSheet ("QLabel { color: red }");
+					show_label_error (*status);
                     status->setText ("Account is not in wallet");
                 }
             }
             else
             {
-                status->setStyleSheet ("QLabel { color: red }");
+				show_label_error (*status);
                 status->setText ("Account not yet open");
             }
         }
         else
         {
-            status->setStyleSheet ("QLabel { color: red }");
+			show_label_error (*status);
             status->setText ("Source block is not pending to receive");
         }
     }
     else
     {
-        status->setStyleSheet ("QLabel { color: red }");
+		show_label_error (*status);
         status->setText ("Unable to decode source");
     }
 }
@@ -1300,30 +1311,30 @@ void rai_qt::block_creation::create_change ()
                     std::string block_l;
                     change.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
-                    status->setStyleSheet ("QLabel { color: black }");
+					show_label_ok (*status);
                     status->setText ("Created block");
                 }
                 else
                 {
-                    status->setStyleSheet ("QLabel { color: red }");
+					show_label_error (*status);
                     status->setText ("Account is not in wallet");
                 }
             }
             else
             {
-                status->setStyleSheet ("QLabel { color: red }");
+				show_label_error (*status);
                 status->setText ("Account not yet open");
             }
         }
         else
         {
-            status->setStyleSheet ("QLabel { color: red }");
+			show_label_error (*status);
             status->setText ("Unable to decode representative");
         }
     }
     else
     {
-        status->setStyleSheet ("QLabel { color: red }");
+		show_label_error (*status);
         status->setText ("Unable to decode account");
     }
 }
@@ -1355,36 +1366,36 @@ void rai_qt::block_creation::create_open ()
                         std::string block_l;
                         open.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
-                        status->setStyleSheet ("QLabel { color: black }");
+						show_label_ok (*status);
                         status->setText ("Created block");
                     }
                     else
                     {
-                        status->setStyleSheet ("QLabel { color: red }");
+						show_label_error (*status);
                         status->setText ("Account is not in wallet");
                     }
                 }
                 else
                 {
-                    status->setStyleSheet ("QLabel { color: red }");
+					show_label_error (*status);
                     status->setText ("Account already open");
                 }
             }
             else
             {
-                status->setStyleSheet ("QLabel { color: red }");
+				show_label_error (*status);
                 status->setText ("Source block is not pending to receive");
             }
         }
         else
         {
-            status->setStyleSheet ("QLabel { color: red }");
+			show_label_error (*status);
             status->setText ("Unable to decode representative");
         }
     }
     else
     {
-        status->setStyleSheet ("QLabel { color: red }");
+		show_label_error (*status);
         status->setText ("Unable to decode source");
     }
 }
