@@ -172,6 +172,8 @@ TEST (wallet, enter_password)
     ASSERT_NE (-1, wallet.settings.lock_layout->indexOf (wallet.settings.unlock));
     ASSERT_NE (-1, wallet.settings.lock_layout->indexOf (wallet.settings.lock));
     ASSERT_NE (-1, wallet.settings.layout->indexOf (wallet.settings.back));
+    QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
+    ASSERT_EQ ("Status: Wallet password empty", wallet.status->text ());
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		ASSERT_FALSE (system.wallet (0)->store.rekey (transaction, "abc"));

@@ -530,14 +530,14 @@ void rai::wallet_store::work_put (MDB_txn * transaction_a, rai::public_key const
 }
 
 rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a) :
-lock_observer ([](bool){}),
+lock_observer ([](bool, bool){}),
 store (init_a, transaction_a, node_a.config.random_representative (), wallet_a),
 node (node_a)
 {
 }
 
 rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a, std::string const & json) :
-lock_observer ([](bool){}),
+lock_observer ([](bool, bool){}),
 store (init_a, transaction_a, node_a.config.random_representative (), wallet_a, json),
 node (node_a)
 {
@@ -579,7 +579,7 @@ bool rai::wallet::enter_password (std::string const & password_a)
 			this_l->search_pending ();
 		});
 	}
-	lock_observer (result);
+	lock_observer (result, password_a.empty());
 	return result;
 }
 

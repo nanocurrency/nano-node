@@ -398,6 +398,9 @@ std::string rai_qt::status::text ()
 		case rai_qt::status_types::locked:
 			result = "Status: Wallet locked";
 			break;
+		case rai_qt::status_types::vulnerable:
+			result = "Status: Wallet password empty";
+			break;
 		case rai_qt::status_types::active:
 			result = "Status: Wallet active";
 			break;
@@ -448,7 +451,7 @@ send_blocks_back (new QPushButton ("Back")),
 active_status (*this)
 {
 	update_connected ();
-    settings.update_locked (true);
+    settings.update_locked (true, true);
     send_blocks_layout->addWidget (send_account_label);
 	send_account->setPlaceholderText (rai::zero_key.pub.to_base58check ().c_str ());
     send_blocks_layout->addWidget (send_account);
@@ -616,9 +619,9 @@ active_status (*this)
 			}
 		}));
 	});
-	wallet_m->lock_observer = [this] (bool invalid)
+	wallet_m->lock_observer = [this] (bool invalid, bool vulnerable)
 	{
-		settings.update_locked (invalid);
+		settings.update_locked (invalid, vulnerable);
 	};
 	refresh ();
 }
@@ -757,7 +760,7 @@ wallet (wallet_a)
         rai::uint256_union empty;
         empty.clear ();
         wallet.wallet_m->store.password.value_set (empty);
-        update_locked (true);
+        update_locked (true, true);
     });
 }
 
@@ -766,7 +769,7 @@ void rai_qt::settings::activate ()
     wallet.push_main_stack (window);
 }
 
-void rai_qt::settings::update_locked (bool invalid)
+void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
 {
 	if (invalid)
 	{
@@ -775,6 +778,14 @@ void rai_qt::settings::update_locked (bool invalid)
 	else
 	{
 		wallet.active_status.erase (rai_qt::status_types::locked);
+	}
+	if (vulnerable)
+	{
+		wallet.active_status.insert (rai_qt::status_types::vulnerable);
+	}
+	else
+	{
+		wallet.active_status.erase (rai_qt::status_types::vulnerable);
 	}
 }
 

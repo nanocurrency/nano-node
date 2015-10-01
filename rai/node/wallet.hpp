@@ -128,7 +128,7 @@ public:
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
 	bool search_pending ();
-	std::function <void (bool)> lock_observer;
+	std::function <void (bool, bool)> lock_observer;
     rai::wallet_store store;
     rai::node & node;
 };
