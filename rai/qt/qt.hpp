@@ -25,7 +25,7 @@ namespace rai_qt {
     public:
         settings (rai_qt::wallet &);
         void activate ();
-        void update_locked ();
+        void update_locked (bool);
         QWidget * window;
         QVBoxLayout * layout;
         QLineEdit * password;

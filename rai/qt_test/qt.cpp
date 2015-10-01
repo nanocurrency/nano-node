@@ -52,7 +52,7 @@ TEST (wallet, startup_balance)
     rai::keypair key;
 	wallet_l->insert (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
-	ASSERT_EQ ("Balance: 0", wallet.self.balance_label->text().toStdString ());
+	ASSERT_EQ ("Balance: 0 Mrai", wallet.self.balance_label->text().toStdString ());
 }
 
 TEST (wallet, select_account)
@@ -183,7 +183,8 @@ TEST (wallet, enter_password)
     wallet.settings.new_password->setText ("");
     QTest::keyClicks (wallet.settings.password, "abc");
     QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
-    ASSERT_EQ ("Status: Running", wallet.status->text ());
+	auto status (wallet.status->text ());
+    ASSERT_EQ ("Status: Running", status);
     ASSERT_EQ ("", wallet.settings.password->text ());
 }
 

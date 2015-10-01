@@ -448,7 +448,7 @@ send_blocks_back (new QPushButton ("Back")),
 active_status (*this)
 {
 	update_connected ();
-    settings.update_locked ();
+    settings.update_locked (true);
     send_blocks_layout->addWidget (send_account_label);
 	send_account->setPlaceholderText (rai::zero_key.pub.to_base58check ().c_str ());
     send_blocks_layout->addWidget (send_account);
@@ -616,6 +616,10 @@ active_status (*this)
 			}
 		}));
 	});
+	wallet_m->lock_observer = [this] (bool invalid)
+	{
+		settings.update_locked (invalid);
+	};
 	refresh ();
 }
 
@@ -743,15 +747,17 @@ wallet (wallet_a)
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-		wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ()));
-		update_locked ();
+		if (!wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
+		{
+			password->clear ();
+		}
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
     {
         rai::uint256_union empty;
         empty.clear ();
         wallet.wallet_m->store.password.value_set (empty);
-        update_locked ();
+        update_locked (true);
     });
 }
 
@@ -760,17 +766,15 @@ void rai_qt::settings::activate ()
     wallet.push_main_stack (window);
 }
 
-void rai_qt::settings::update_locked ()
+void rai_qt::settings::update_locked (bool invalid)
 {
-	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
-	if (wallet.wallet_m->store.valid_password (transaction))
+	if (invalid)
 	{
-		password->clear ();
-		wallet.active_status.erase (rai_qt::status_types::locked);
+		wallet.active_status.insert (rai_qt::status_types::locked);
 	}
 	else
 	{
-		wallet.active_status.insert (rai_qt::status_types::locked);
+		wallet.active_status.erase (rai_qt::status_types::locked);
 	}
 }
 
