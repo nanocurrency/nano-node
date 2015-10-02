@@ -815,8 +815,9 @@ peers_window (new QWidget),
 peers_layout (new QVBoxLayout),
 peers_model (new QStringListModel),
 peers_view (new QListView),
+bootstrap_label (new QLabel ("IPV6:port \"::ffff:192.168.0.1:7075\"")),
 bootstrap_line (new QLineEdit),
-peers_bootstrap (new QPushButton ("Bootstrap")),
+peers_bootstrap (new QPushButton ("Initiate Bootstrap")),
 peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
 wallet (wallet_a)
@@ -839,6 +840,7 @@ wallet (wallet_a)
     peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     peers_view->setModel (peers_model);
     peers_layout->addWidget (peers_view);
+	peers_layout->addWidget (bootstrap_label);
 	peers_layout->addWidget (bootstrap_line);
 	peers_layout->addWidget (peers_bootstrap);
     peers_layout->addWidget (peers_refresh);
@@ -889,6 +891,7 @@ wallet (wallet_a)
 		if (!error)
 		{
 			show_line_ok (*bootstrap_line);
+			bootstrap_line->clear ();
 			wallet.node.bootstrap_initiator.bootstrap (endpoint);
 		}
 		else

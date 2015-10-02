@@ -71,6 +71,7 @@ namespace rai_qt {
 		QVBoxLayout * peers_layout;
 		QStringListModel * peers_model;
 		QListView * peers_view;
+		QLabel * bootstrap_label;
 		QLineEdit * bootstrap_line;
 		QPushButton * peers_bootstrap;
 		QPushButton * peers_refresh;
