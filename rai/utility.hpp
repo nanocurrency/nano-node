@@ -120,7 +120,7 @@ union uint256_union
 {
 	uint256_union () = default;
 	uint256_union (std::string const &);
-	uint256_union (uint64_t, uint64_t = 0, uint64_t = 0, uint64_t = 0);
+	uint256_union (uint64_t);
 	uint256_union (rai::uint256_t const &);
 	uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
 	uint256_union (MDB_val const &);

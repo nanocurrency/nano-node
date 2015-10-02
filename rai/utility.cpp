@@ -465,12 +465,9 @@ bool rai::uint256_union::decode_dec (std::string const & text)
     return result;
 }
 
-rai::uint256_union::uint256_union (uint64_t value0, uint64_t value1, uint64_t value2, uint64_t value3)
+rai::uint256_union::uint256_union (uint64_t value0)
 {
-    qwords [0] = value0;
-    qwords [1] = value1;
-    qwords [2] = value2;
-    qwords [3] = value3;
+    *this = rai::uint256_t (value0);
 }
 
 bool rai::uint256_union::operator != (rai::uint256_union const & other_a) const

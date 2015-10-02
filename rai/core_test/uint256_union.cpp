@@ -12,6 +12,13 @@ TEST (uint128_union, decode_dec)
     ASSERT_EQ (16, value.bytes [15]);
 }
 
+TEST (unions, identity)
+{
+	ASSERT_EQ (1, rai::uint128_union (1).number ().convert_to <uint8_t> ());
+	ASSERT_EQ (1, rai::uint256_union (1).number ().convert_to <uint8_t> ());
+	ASSERT_EQ (1, rai::uint512_union (1).number ().convert_to <uint8_t> ());
+}
+
 TEST (uint256_union, key_encryption)
 {
     rai::keypair key1;
