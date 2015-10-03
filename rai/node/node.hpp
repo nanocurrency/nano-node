@@ -93,6 +93,11 @@ struct hash <rai::endpoint>
         return hash (endpoint_a);
     }
 };
+namespace program_options
+{
+class options_description;
+class variables_map;
+}
 }
 
 namespace rai
@@ -733,6 +738,18 @@ public:
 	thread_runner (boost::asio::io_service &, rai::processor_service &);
 	void join ();
 	std::vector <std::thread> threads;
+};
+void add_node_options (boost::program_options::options_description &);
+bool handle_node_options (boost::program_options::variables_map &);
+class inactive_node
+{
+public:
+	inactive_node ();
+	rai::processor_service processor;
+	rai::logging logging;
+	rai::node_init init;
+	rai::work_pool work;
+	std::shared_ptr <rai::node> node;
 };
 extern std::chrono::milliseconds const confirm_wait;
 }

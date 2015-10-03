@@ -4,6 +4,8 @@
 #include <rai/icon.hpp>
 
 #include <boost/make_shared.hpp>
+
+#include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -60,7 +62,7 @@ public:
 	rai::node_config node;
 };
 
-int main (int argc, char * const * argv)
+int run_wallet (int argc, char * const * argv)
 {
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
@@ -70,6 +72,7 @@ int main (int argc, char * const * argv)
 	std::ifstream config_file;
 	config_file.open (config_path);
 	auto uninitialized (true);
+    int result (0);
 	if (!config_file.fail ())
 	{
 		config = qt_wallet_config (config_error, config_file);
@@ -117,7 +120,6 @@ int main (int argc, char * const * argv)
                     std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
                     gui->client_window->show ();
 					rai::thread_runner runner (*service, processor);
-                    int result;
                     try
                     {
                         result = application.exec ();
@@ -128,7 +130,6 @@ int main (int argc, char * const * argv)
                         assert (false);
                     }
 					runner.join ();
-                    return result;
                 }
                 else
                 {
@@ -149,4 +150,28 @@ int main (int argc, char * const * argv)
     {
         std::cerr << "Error in config file\n";
     }
+	return result;
+}
+
+int main (int argc, char * const * argv)
+{
+	boost::program_options::options_description description ("Command line options");
+	description.add_options () ("help", "Print out options");
+	rai::add_node_options (description);
+	boost::program_options::variables_map vm;
+	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
+	boost::program_options::notify (vm);
+	int result (0);
+	if (!rai::handle_node_options (vm))
+	{
+	}
+	else if (vm.count ("help") != 0)
+	{
+		std::cout << description << std::endl;
+	}
+    else
+    {
+		result = run_wallet (argc, argv);
+    }
+    return result;
 }
