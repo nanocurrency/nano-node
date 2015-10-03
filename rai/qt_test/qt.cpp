@@ -65,9 +65,13 @@ TEST (wallet, select_account)
 	ASSERT_EQ (key1, wallet.account);
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
-	wallet.accounts.view->selectionModel ()->setCurrentIndex (wallet.accounts.model->index (0, 1), QItemSelectionModel::SelectionFlag::Select);
+	wallet.accounts.view->selectionModel ()->setCurrentIndex (wallet.accounts.model->index (0, 0), QItemSelectionModel::SelectionFlag::Select);
 	QTest::mouseClick (wallet.accounts.use_account, Qt::LeftButton);
-	ASSERT_EQ (key2, wallet.account);
+	auto key3 (wallet.account);
+	wallet.accounts.view->selectionModel ()->setCurrentIndex (wallet.accounts.model->index (1, 0), QItemSelectionModel::SelectionFlag::Select);
+	QTest::mouseClick (wallet.accounts.use_account, Qt::LeftButton);
+	auto key4 (wallet.account);
+	ASSERT_NE (key3, key4);
 }
 
 TEST (wallet, main)

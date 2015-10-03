@@ -190,9 +190,24 @@ wallet (wallet_a)
 		stream.open (filename->text ().toStdString ().c_str ());
 		if (!stream.fail ())
 		{
+			show_line_ok (*filename);
 			std::stringstream contents;
 			contents << stream.rdbuf ();
-			wallet.wallet_m->import (contents.str (), password->text ().toStdString ().c_str ());
+			if (!wallet.wallet_m->import (contents.str (), password->text ().toStdString ().c_str ()))
+			{
+				show_line_ok (*password);
+				wallet.accounts.refresh ();
+				password->clear ();
+				filename->clear ();
+			}
+			else
+			{
+				show_line_error (*password);
+			}
+		}
+		else
+		{
+			show_line_error (*filename);
 		}
 	});
 	QObject::connect (back, &QPushButton::released, [this] ()
