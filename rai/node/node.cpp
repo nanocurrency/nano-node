@@ -4065,6 +4065,8 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("key_create", "Generates a random keypair")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add", "Insert <key> in to <wallet>")
+	("wallet_create", "Creates a new wallet and prints the ID")
+	("wallet_destroy", "Destroys <wallet> and all keys it contains")
 	("wallet_list", "Dumps wallet IDs and public keys")
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
@@ -4169,6 +4171,43 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		else
 		{
 			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option";
+			result = true;
+		}
+	}
+	else if (vm.count ("wallet_create"))
+	{
+		inactive_node node;
+		rai::keypair key;
+		std::cout << key.pub.to_string () << std::endl;
+		node.node->wallets.create (key.pub);
+	}
+	else if (vm.count ("wallet_destroy"))
+	{
+		if (vm.count ("wallet") == 1)
+		{
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+			{
+				inactive_node node;
+				if (node.node->wallets.items.find (wallet_id) != node.node->wallets.items.end ())
+				{
+					node.node->wallets.destroy (wallet_id);
+				}
+				else
+				{
+					std::cerr << "Wallet doesn't exist\n";
+					result = true;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id\n";
+				result = true;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_destroy requires one <wallet> option";
 			result = true;
 		}
 	}
