@@ -189,60 +189,68 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "account_move")
             {
-                std::string wallet_text (request_l.get <std::string> ("wallet"));
-                std::string source_text (request_l.get <std::string> ("source"));
-                auto accounts_text (request_l.get_child ("accounts"));
-                rai::uint256_union wallet;
-                auto error (wallet.decode_hex (wallet_text));
-                if (!error)
-                {
-                    auto existing (node.wallets.items.find (wallet));
-                    if (existing != node.wallets.items.end ())
-                    {
-                        auto wallet (existing->second);
-                        rai::uint256_union source;
-                        auto error (source.decode_hex (source_text));
-                        if (!error)
-                        {
-                            auto existing (node.wallets.items.find (source));
-                            if (existing != node.wallets.items.end ())
-                            {
-                                auto source (existing->second);
-                                std::vector <rai::public_key> accounts;
-                                for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
-                                {
-                                    rai::public_key account;
-                                    account.decode_hex (i->second.get <std::string> (""));
-                                    accounts.push_back (account);
-                                }
-								rai::transaction transaction (node.store.environment, nullptr, true);
-                                auto error (wallet->store.move (transaction, source->store, accounts));
-                                boost::property_tree::ptree response_l;
-                                response_l.put ("moved", error ? "0" : "1");
-                                set_response (response, response_l);
-                            }
-                            else
-                            {
-                                response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                                response.content = "Source not found";
-                            }
-                        }
-                        else
-                        {
-                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                            response.content = "Bad source number";
-                        }
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Wallet not found";
-                    }
+				if (config.enable_control)
+				{
+					std::string wallet_text (request_l.get <std::string> ("wallet"));
+					std::string source_text (request_l.get <std::string> ("source"));
+					auto accounts_text (request_l.get_child ("accounts"));
+					rai::uint256_union wallet;
+					auto error (wallet.decode_hex (wallet_text));
+					if (!error)
+					{
+						auto existing (node.wallets.items.find (wallet));
+						if (existing != node.wallets.items.end ())
+						{
+							auto wallet (existing->second);
+							rai::uint256_union source;
+							auto error (source.decode_hex (source_text));
+							if (!error)
+							{
+								auto existing (node.wallets.items.find (source));
+								if (existing != node.wallets.items.end ())
+								{
+									auto source (existing->second);
+									std::vector <rai::public_key> accounts;
+									for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
+									{
+										rai::public_key account;
+										account.decode_hex (i->second.get <std::string> (""));
+										accounts.push_back (account);
+									}
+									rai::transaction transaction (node.store.environment, nullptr, true);
+									auto error (wallet->store.move (transaction, source->store, accounts));
+									boost::property_tree::ptree response_l;
+									response_l.put ("moved", error ? "0" : "1");
+									set_response (response, response_l);
+								}
+								else
+								{
+									response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+									response.content = "Source not found";
+								}
+							}
+							else
+							{
+								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+								response.content = "Bad source number";
+							}
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Wallet not found";
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad wallet number";
+					}
                 }
                 else
                 {
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad wallet number";
+                    response.content = "RPC control is disabled";
                 }
             }
             else if (action == "account_weight")
@@ -306,48 +314,64 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "keepalive")
             {
-                std::string address_text (request_l.get <std::string> ("address"));
-				std::string port_text (request_l.get <std::string> ("port"));
-				uint16_t port;
-				if (!rai::parse_port (port_text, port))
+				if (config.enable_control)
 				{
-					node.keepalive (address_text, port);
-					boost::property_tree::ptree response_l;
-					set_response (response, response_l);
-				}
-				else
-				{
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Invalid port";
-				}
-            }
-            else if (action == "password_change")
-            {
-                std::string wallet_text (request_l.get <std::string> ("wallet"));
-                rai::uint256_union wallet;
-                auto error (wallet.decode_hex (wallet_text));
-                if (!error)
-                {
-                    auto existing (node.wallets.items.find (wallet));
-                    if (existing != node.wallets.items.end ())
-                    {
-						rai::transaction transaction (node.store.environment, nullptr, true);
-                        boost::property_tree::ptree response_l;
-                        std::string password_text (request_l.get <std::string> ("password"));
-                        auto error (existing->second->store.rekey (transaction, password_text));
-                        response_l.put ("changed", error ? "0" : "1");
-                        set_response (response, response_l);
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Wallet not found";
-                    }
+					std::string address_text (request_l.get <std::string> ("address"));
+					std::string port_text (request_l.get <std::string> ("port"));
+					uint16_t port;
+					if (!rai::parse_port (port_text, port))
+					{
+						node.keepalive (address_text, port);
+						boost::property_tree::ptree response_l;
+						set_response (response, response_l);
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Invalid port";
+					}
                 }
                 else
                 {
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
+                    response.content = "RPC control is disabled";
+                }
+            }
+            else if (action == "password_change")
+            {
+				if (config.enable_control)
+				{
+					std::string wallet_text (request_l.get <std::string> ("wallet"));
+					rai::uint256_union wallet;
+					auto error (wallet.decode_hex (wallet_text));
+					if (!error)
+					{
+						auto existing (node.wallets.items.find (wallet));
+						if (existing != node.wallets.items.end ())
+						{
+							rai::transaction transaction (node.store.environment, nullptr, true);
+							boost::property_tree::ptree response_l;
+							std::string password_text (request_l.get <std::string> ("password"));
+							auto error (existing->second->store.rekey (transaction, password_text));
+							response_l.put ("changed", error ? "0" : "1");
+							set_response (response, response_l);
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Wallet not found";
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad account number";
+					}
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "RPC control is disabled";
                 }
             }
             else if (action == "password_enter")
@@ -512,64 +536,80 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "representative_set")
             {
-                std::string wallet_text (request_l.get <std::string> ("wallet"));
-                rai::uint256_union wallet;
-                auto error (wallet.decode_hex (wallet_text));
-                if (!error)
-                {
-                    auto existing (node.wallets.items.find (wallet));
-                    if (existing != node.wallets.items.end ())
-                    {
-                        std::string representative_text (request_l.get <std::string> ("representative"));
-                        rai::account representative;
-                        auto error (representative.decode_base58check (representative_text));
-						if (!error)
+				if (config.enable_control)
+				{
+					std::string wallet_text (request_l.get <std::string> ("wallet"));
+					rai::uint256_union wallet;
+					auto error (wallet.decode_hex (wallet_text));
+					if (!error)
+					{
+						auto existing (node.wallets.items.find (wallet));
+						if (existing != node.wallets.items.end ())
 						{
-							rai::transaction transaction (node.store.environment, nullptr, true);
-							existing->second->store.representative_set (transaction, representative);
+							std::string representative_text (request_l.get <std::string> ("representative"));
+							rai::account representative;
+							auto error (representative.decode_base58check (representative_text));
+							if (!error)
+							{
+								rai::transaction transaction (node.store.environment, nullptr, true);
+								existing->second->store.representative_set (transaction, representative);
+								boost::property_tree::ptree response_l;
+								response_l.put ("set", "1");
+								set_response (response, response_l);
+							}
+							else
+							{
+								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+								response.content = "Invalid account number";
+							}
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Wallet not found";
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad account number";
+					}
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "RPC control is disabled";
+                }
+            }
+            else if (action == "search_pending")
+            {
+				if (config.enable_control)
+				{
+					std::string wallet_text (request_l.get <std::string> ("wallet"));
+					rai::uint256_union wallet;
+					auto error (wallet.decode_hex (wallet_text));
+					if (!error)
+					{
+						auto existing (node.wallets.items.find (wallet));
+						if (existing != node.wallets.items.end ())
+						{
+							auto error (existing->second->search_pending ());
 							boost::property_tree::ptree response_l;
-							response_l.put ("set", "1");
+							response_l.put ("started", !error);
 							set_response (response, response_l);
 						}
 						else
 						{
 							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-							response.content = "Invalid account number";
+							response.content = "Wallet not found";
 						}
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Wallet not found";
-                    }
+					}
                 }
                 else
                 {
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad account number";
+                    response.content = "RPC control is disabled";
                 }
-            }
-            else if (action == "search_pending")
-            {
-				std::string wallet_text (request_l.get <std::string> ("wallet"));
-                rai::uint256_union wallet;
-                auto error (wallet.decode_hex (wallet_text));
-                if (!error)
-                {
-                    auto existing (node.wallets.items.find (wallet));
-                    if (existing != node.wallets.items.end ())
-                    {
-						auto error (existing->second->search_pending ());
-						boost::property_tree::ptree response_l;
-						response_l.put ("started", !error);
-						set_response (response, response_l);
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Wallet not found";
-                    }
-				}
             }
             else if (action == "send")
             {
@@ -738,36 +778,52 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "wallet_create")
             {
-                rai::keypair wallet_id;
-                auto wallet (node.wallets.create (wallet_id.prv));
-                boost::property_tree::ptree response_l;
-                response_l.put ("wallet", wallet_id.prv.to_string ());
-                set_response (response, response_l);
-            }
-            else if (action == "wallet_destroy")
-            {
-                std::string wallet_text (request_l.get <std::string> ("wallet"));
-                rai::uint256_union wallet;
-                auto error (wallet.decode_hex (wallet_text));
-                if (!error)
-                {
-                    auto existing (node.wallets.items.find (wallet));
-                    if (existing != node.wallets.items.end ())
-                    {
-                        node.wallets.destroy (wallet);
-                        boost::property_tree::ptree response_l;
-                        set_response (response, response_l);
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Wallet not found";
-                    }
+				if (config.enable_control)
+				{
+					rai::keypair wallet_id;
+					auto wallet (node.wallets.create (wallet_id.prv));
+					boost::property_tree::ptree response_l;
+					response_l.put ("wallet", wallet_id.prv.to_string ());
+					set_response (response, response_l);
                 }
                 else
                 {
                     response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "Bad wallet number";
+                    response.content = "RPC control is disabled";
+                }
+            }
+            else if (action == "wallet_destroy")
+            {
+				if (config.enable_control)
+				{
+					std::string wallet_text (request_l.get <std::string> ("wallet"));
+					rai::uint256_union wallet;
+					auto error (wallet.decode_hex (wallet_text));
+					if (!error)
+					{
+						auto existing (node.wallets.items.find (wallet));
+						if (existing != node.wallets.items.end ())
+						{
+							node.wallets.destroy (wallet);
+							boost::property_tree::ptree response_l;
+							set_response (response, response_l);
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Wallet not found";
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad wallet number";
+					}
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "RPC control is disabled";
                 }
             }
             else if (action == "wallet_export")
@@ -801,40 +857,32 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "wallet_key_valid")
             {
-                if (config.enable_control)
-                {
-                    std::string wallet_text (request_l.get <std::string> ("wallet"));
-                    rai::uint256_union wallet;
-                    auto error (wallet.decode_hex (wallet_text));
-                    if (!error)
-                    {
-                        auto existing (node.wallets.items.find (wallet));
-                        if (existing != node.wallets.items.end ())
-                        {
-							rai::transaction transaction (node.store.environment, nullptr, false);
-                            auto valid (existing->second->store.valid_password (transaction));
-                            boost::property_tree::ptree response_l;
-                            response_l.put ("valid", valid ? "1" : "0");
-                            set_response (response, response_l);
-                        }
-                        else
-                        {
-                            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                            response.content = "Wallet not found";
-                        }
-                    }
-                    else
-                    {
-                        response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                        response.content = "Bad wallet number";
-                    }
-                }
-                else
-                {
-                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-                    response.content = "RPC control is disabled";
-                }
-            }
+				std::string wallet_text (request_l.get <std::string> ("wallet"));
+				rai::uint256_union wallet;
+				auto error (wallet.decode_hex (wallet_text));
+				if (!error)
+				{
+					auto existing (node.wallets.items.find (wallet));
+					if (existing != node.wallets.items.end ())
+					{
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						auto valid (existing->second->store.valid_password (transaction));
+						boost::property_tree::ptree response_l;
+						response_l.put ("valid", valid ? "1" : "0");
+						set_response (response, response_l);
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Wallet not found";
+					}
+				}
+				else
+				{
+					response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+					response.content = "Bad wallet number";
+				}
+			}
             else
             {
                 response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
