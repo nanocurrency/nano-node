@@ -14,7 +14,7 @@ namespace
     std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
     std::string rai_test_public_key = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib
     std::string rai_beta_public_key = "9D3A5B66B478670455B241D6BAC3D3FE1CBB7E7B7EAA429FA036C2704C3DC0A4"; // TuodHikZrYyNy4biERcXNSdA9ydXQNqww8BbHvfKiZPXidDLtj
-    std::string rai_live_public_key = "0";
+    std::string rai_live_public_key = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // SKjE18BrMwx7xSuDErD3zmTPGeHQkTx9CQDFzDMrP8kkE2FPXw
 }
 
 size_t constexpr rai::send_block::size;
@@ -46,7 +46,14 @@ std::string const rai::rai_beta_genesis = R"%%%({
     "signature": "BD0D374FCEB33EAABDF728E9B4DCDBF3B226DA97EEAB8EA5B7EDE286B1282C24D6EB544644FE871235E4F58CD94DF66D9C555309895F67A7D1F922AAC12CE907"
 })%%%";
 
-std::string const rai::rai_live_genesis = "";
+std::string const rai::rai_live_genesis = R"%%%({
+    "type": "open",
+    "source": "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA",
+    "representative": "SKjE18BrMwx7xSuDErD3zmTPGeHQkTx9CQDFzDMrP8kkE2FPXw",
+    "account": "SKjE18BrMwx7xSuDErD3zmTPGeHQkTx9CQDFzDMrP8kkE2FPXw",
+    "work": "62f05417dd3fb691",
+    "signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
+})%%%";;
 
 rai::account const rai::genesis_account = rai_network == rai_networks::rai_test_network ? rai_test_account : rai_network == rai_networks::rai_beta_network ? rai_beta_account : rai_live_account;
 std::string const rai::genesis_block = rai_network == rai_networks::rai_test_network ? rai_test_genesis : rai_network == rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis;
