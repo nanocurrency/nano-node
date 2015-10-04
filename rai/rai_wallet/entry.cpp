@@ -159,7 +159,7 @@ int main (int argc, char * const * argv)
 	description.add_options () ("help", "Print out options");
 	rai::add_node_options (description);
 	boost::program_options::variables_map vm;
-	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
+	boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
 	boost::program_options::notify (vm);
 	int result (0);
 	if (!rai::handle_node_options (vm))
