@@ -56,11 +56,17 @@ public:
 	uint64_t work;
 };
 class node_config;
+class kdf
+{
+public:
+	void phs (rai::uint256_union &, std::string const &, rai::uint256_union const &);
+	std::mutex mutex;
+};
 class wallet_store
 {
 public:
-    wallet_store (bool &, rai::transaction &, rai::account, std::string const &);
-    wallet_store (bool &, rai::transaction &, rai::account, std::string const &, std::string const &);
+    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, std::string const &);
+    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, std::string const &, std::string const &);
 	std::vector <rai::account> accounts (MDB_txn *);
     void initialize (MDB_txn *, bool &, std::string const &);
     rai::uint256_union check (MDB_txn *);
@@ -101,6 +107,7 @@ public:
     static unsigned const kdf_full_work = 256 * 1024;
     static unsigned const kdf_test_work = 8;
     static unsigned const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
+	rai::kdf & kdf;
 	rai::mdb_env & environment;
     MDB_dbi handle;
 };
@@ -148,6 +155,7 @@ public:
 	std::unordered_map <rai::account, std::multimap <rai::uint128_t, std::function <void ()>, std::greater <rai::uint128_t>>> pending_actions;
 	std::unordered_set <rai::account> current_actions;
 	std::mutex action_mutex;
+	rai::kdf kdf;
 	MDB_dbi handle;
 	rai::node & node;
 };

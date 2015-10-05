@@ -237,8 +237,7 @@ rai::uint256_union rai::wallet_store::derive_key (MDB_txn * transaction_a, std::
 {
 	rai::uint256_union result;
 	auto salt_l (salt (transaction_a));
-    auto success (PHS (result.bytes.data (), result.bytes.size (), password_a.data (), password_a.size (), salt_l.bytes.data (), salt_l.bytes.size (), 1, kdf_work));
-	assert (success == 0); (void) success;
+	kdf.phs (result, password_a, salt_l);
     return result;
 }
 
@@ -270,8 +269,9 @@ rai::uint256_union const rai::wallet_store::check_special (3);
 rai::uint256_union const rai::wallet_store::representative_special (4);
 int const rai::wallet_store::special_count (5);
 
-rai::wallet_store::wallet_store (bool & init_a, rai::transaction & transaction_a, rai::account representative_a, std::string const & wallet_a, std::string const & json_a) :
+rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::transaction & transaction_a, rai::account representative_a, std::string const & wallet_a, std::string const & json_a) :
 password (0, 1024),
+kdf (kdf_a),
 environment (transaction_a.environment)
 {
     init_a = false;
@@ -314,8 +314,9 @@ environment (transaction_a.environment)
     }
 }
 
-rai::wallet_store::wallet_store (bool & init_a, rai::transaction & transaction_a, rai::account representative_a, std::string const & wallet_a) :
+rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::transaction & transaction_a, rai::account representative_a, std::string const & wallet_a) :
 password (0, 1024),
+kdf (kdf_a),
 environment (transaction_a.environment)
 {
     init_a = false;
@@ -529,16 +530,23 @@ void rai::wallet_store::work_put (MDB_txn * transaction_a, rai::public_key const
 	entry_put_raw (transaction_a, pub_a, entry);
 }
 
+void rai::kdf::phs (rai::uint256_union & result_a, std::string const & password_a, rai::uint256_union const & salt_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+    auto success (PHS (result_a.bytes.data (), result_a.bytes.size (), password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), 1, rai::wallet_store::kdf_work));
+	assert (success == 0); (void) success;
+}
+
 rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a) :
 lock_observer ([](bool, bool){}),
-store (init_a, transaction_a, node_a.config.random_representative (), wallet_a),
+store (init_a, node_a.wallets.kdf, transaction_a, node_a.config.random_representative (), wallet_a),
 node (node_a)
 {
 }
 
 rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a, std::string const & json) :
 lock_observer ([](bool, bool){}),
-store (init_a, transaction_a, node_a.config.random_representative (), wallet_a, json),
+store (init_a, node_a.wallets.kdf, transaction_a, node_a.config.random_representative (), wallet_a, json),
 node (node_a)
 {
 }
@@ -609,7 +617,7 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
 	rai::uint256_union id;
 	random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
 	auto error (false);
-	rai::wallet_store temp (error, transaction, 0, id.to_string (), json_a);
+	rai::wallet_store temp (error, node.wallets.kdf, transaction, 0, id.to_string (), json_a);
 	if (!error)
 	{
 		error = temp.attempt_password (transaction, password_a);

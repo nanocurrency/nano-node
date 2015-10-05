@@ -4062,6 +4062,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	description_a.add_options ()
 	("account_base58", boost::program_options::value <std::string> (), "Get base58 account number for the <key>")
 	("account_key", "Get the public key for the <account>")
+	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a random keypair")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add", "Insert <key> in to <wallet>")
@@ -4107,6 +4108,17 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			std::cerr << "account_key command requires one <account> option";
 			result = true;
 		}
+	}
+	else if (vm.count ("diagnostics"))
+	{
+		std::cout << "Testing hash function" << std::endl;
+		rai::send_block send (0, 0, 0, 0, 0, 0);
+		auto hash (send.hash ());
+		std::cout << "Testing key derivation function" << std::endl;
+		rai::uint256_union junk1 (0);
+		rai::uint256_union junk2 (0);
+		rai::kdf kdf;
+		kdf.phs (junk1, "", junk2);
 	}
     else if (vm.count ("key_create"))
     {
