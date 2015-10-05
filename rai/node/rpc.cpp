@@ -894,6 +894,11 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
             response.content = "Unable to parse JSON";
         }
+		catch (...)
+        {
+            response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+            response.content = "Internal server error in RPC";
+        }
     }
     else
     {
