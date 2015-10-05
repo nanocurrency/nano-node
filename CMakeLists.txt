@@ -140,8 +140,8 @@ add_library (qt
 	rai/qt/qt.cpp
 	rai/qt/qt.hpp)
 
-add_executable (landing
-	rai/landing/entry.cpp)
+add_executable (rai_landing
+	rai/rai_landing/entry.cpp)
 
 if (WIN32)
 	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
@@ -166,8 +166,8 @@ set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_ne
 set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "-msse4 -std=c++11")
 set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "-msse4 -std=c11")
 set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "-msse4 -std=c11 -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
-set_target_properties (secure node core_test slow_test qt_test rai_node qt rai_wallet qt_system landing PROPERTIES COMPILE_FLAGS "-msse4 -std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
-set_target_properties (secure node core_test slow_test rai_node qt qt_system landing PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
+set_target_properties (secure node core_test slow_test qt_test rai_node qt rai_wallet qt_system rai_landing PROPERTIES COMPILE_FLAGS "-msse4 -std=c++11 -Werror=switch ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
+set_target_properties (secure node core_test slow_test rai_node qt qt_system rai_landing PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 set_target_properties (rai_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
 if (WIN32)
@@ -188,7 +188,7 @@ target_link_libraries (slow_test node secure lmdb xxhash ed25519 argon2 blake2 $
 
 target_link_libraries (rai_node node secure lmdb xxhash ed25519 argon2 blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY}  ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS})
 
-target_link_libraries (landing node secure lmdb xxhash ed25519 argon2 blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY}  ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS})
+target_link_libraries (rai_landing node secure lmdb xxhash ed25519 argon2 blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY}  ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} pthread ${PLATFORM_LIBS})
 
 target_link_libraries (qt_test node secure lmdb xxhash ed25519 qt argon2 blake2 ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${GTEST_LIBRARY} ${CRYPTOPP_LIBRARY} ${CPPNETLIB_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} pthread ${PLATFORM_LIBS})
 
