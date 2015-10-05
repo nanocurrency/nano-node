@@ -98,7 +98,7 @@ public:
     static rai::uint256_union const check_special;
     static rai::uint256_union const representative_special;
     static int const special_count;
-    static unsigned const kdf_full_work = 1 * 1024 * 1024;
+    static unsigned const kdf_full_work = 256 * 1024;
     static unsigned const kdf_test_work = 8;
     static unsigned const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
 	rai::mdb_env & environment;
