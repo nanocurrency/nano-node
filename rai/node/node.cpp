@@ -4191,7 +4191,8 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		inactive_node node;
 		rai::keypair key;
 		std::cout << key.pub.to_string () << std::endl;
-		node.node->wallets.create (key.pub);
+		auto wallet (node.node->wallets.create (key.pub));
+		wallet->enter_initial_password ();
 	}
 	else if (vm.count ("wallet_destroy"))
 	{
