@@ -1043,16 +1043,18 @@ std::shared_ptr <rai::wallet> rai::wallets::create (rai::uint256_union const & i
     assert (items.find (id_a) == items.end ());
     std::shared_ptr <rai::wallet> result;
     bool error;
-	rai::transaction transaction (node.store.environment, nullptr, true);
-    auto wallet (std::make_shared <rai::wallet> (error, transaction, node, id_a.to_string ()));
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		result = std::make_shared <rai::wallet> (error, transaction, node, id_a.to_string ());
+        items [id_a] = result;
+        result = result;
+	}
     if (!error)
     {
-		node.background ([wallet] ()
+		node.background ([result] ()
 		{
-			wallet->enter_initial_password ();
+			result->enter_initial_password ();
 		});
-        items [id_a] = wallet;
-        result = wallet;
     }
     return result;
 }
