@@ -561,10 +561,7 @@ void rai::wallet::enter_initial_password ()
 			// Newly created wallets have a zero key
 			store.rekey (transaction, "");
 		}
-		else
-		{
-			enter_password ("");
-		}
+		enter_password ("");
 	}
 }
 
@@ -601,7 +598,10 @@ rai::public_key rai::wallet::insert (rai::private_key const & key_a)
 		auto this_l (shared_from_this ());
 		root = node.ledger.latest_root (transaction, key);
 	}
-	work_generate (key, root);
+	auto this_l (shared_from_this ());
+	node.background ([this_l, key, root] () {
+		this_l->work_generate (key, root);
+	});
 	return key;
 }
 
