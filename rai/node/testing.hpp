@@ -53,8 +53,8 @@ public:
 	rai::landing_store & store;
 	std::shared_ptr <rai::wallet> wallet;
 	rai::node & node;
-	static int constexpr interval_exponent = 6;
-	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (1 << interval_exponent); // 64 seconds
+	static int constexpr interval_exponent = 10;
+	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (1 << interval_exponent); // 1024 seconds
 	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (7);
 };
 }

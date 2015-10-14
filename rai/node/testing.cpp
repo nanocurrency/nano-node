@@ -301,13 +301,13 @@ void rai::landing::write_store ()
 rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
 {
 	// Halfing period ~= Exponent of 2 in secounds approixmately 1 year = 2^25 = 33554432
-	// Interval = Exponent of 2 in seconds approximately 1 minute = 2^6 = 64
+	// Interval = Exponent of 2 in seconds approximately 1 minute = 2^10 = 64
 	uint64_t intervals_per_period (1 << (25 - interval_exponent));
 	rai::uint128_t result;
 	if (interval < intervals_per_period * 1)
 	{
 		// Total supply / 2^halfing period / intervals per period
-		// 2^128 / 2^1 / (2^25 / 2^6)
+		// 2^128 / 2^1 / (2^25 / 2^10)
 		result = rai::uint128_t (1) << (127 - (25 - interval_exponent)); // 50%
 	}
 	else if (interval < intervals_per_period * 2)
@@ -356,7 +356,7 @@ void rai::landing::distribute_one ()
 	rai::block_hash last (1);
 	while (!last.is_zero () && store.last + distribution_interval.count () < now)
 	{
-		auto amount (distribution_amount ((store.last - store.start) >> 6));
+		auto amount (distribution_amount ((store.last - store.start) >> interval_exponent));
 		last = wallet->send_sync (store.source, store.destination, amount);
 		if (!last.is_zero ())
 		{
