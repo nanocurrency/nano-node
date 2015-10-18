@@ -523,6 +523,7 @@ TEST (rpc, frontier)
     boost::property_tree::ptree request;
     request.put ("action", "frontiers");
 	request.put ("account", rai::account (0).to_base58check ());
+	request.put ("count", std::to_string (std::numeric_limits <uint64_t>::max ()));
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     auto & frontiers_node (response.first.get_child ("frontiers"));
@@ -539,22 +540,78 @@ TEST (rpc, frontier)
 	ASSERT_EQ (source, frontiers);
 }
 
+TEST (rpc, frontier_limited)
+{
+    rai::system system (24000, 1);
+	std::unordered_map <rai::account, rai::block_hash> source;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		for (auto i (0); i < 1000; ++i)
+		{
+			rai::keypair key;
+			source [key.pub] = key.prv;
+			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv, 0, 0, 0));
+		}
+	}
+	rai::keypair key;
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    boost::property_tree::ptree request;
+    request.put ("action", "frontiers");
+	request.put ("account", rai::account (0).to_base58check ());
+	request.put ("count", std::to_string (100));
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    auto & frontiers_node (response.first.get_child ("frontiers"));
+	ASSERT_EQ (100, frontiers_node.size ());
+}
+
+TEST (rpc, frontier_startpoint)
+{
+    rai::system system (24000, 1);
+	std::unordered_map <rai::account, rai::block_hash> source;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		for (auto i (0); i < 1000; ++i)
+		{
+			rai::keypair key;
+			source [key.pub] = key.prv;
+			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv, 0, 0, 0));
+		}
+	}
+	rai::keypair key;
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    boost::property_tree::ptree request;
+    request.put ("action", "frontiers");
+	request.put ("account", source.begin ()->first.to_base58check ());
+	request.put ("count", std::to_string (1));
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    auto & frontiers_node (response.first.get_child ("frontiers"));
+	ASSERT_EQ (1, frontiers_node.size ());
+	ASSERT_EQ (source.begin ()->first.to_base58check (), frontiers_node.begin ()->first);
+}
+
 TEST (rpc_config, serialization)
 {
 	rai::rpc_config config1;
 	config1.address = boost::asio::ip::address_v6::any();
 	config1.port = 10;
 	config1.enable_control = true;
+	config1.frontier_request_limit = 8192;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::rpc_config config2;
 	ASSERT_NE (config2.address, config1.address);
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);
+	ASSERT_NE (config2.frontier_request_limit, config1.frontier_request_limit);
 	config2.deserialize_json (tree);
 	ASSERT_EQ (config2.address, config1.address);
 	ASSERT_EQ (config2.port, config1.port);
 	ASSERT_EQ (config2.enable_control, config1.enable_control);
+	ASSERT_EQ (config2.frontier_request_limit, config1.frontier_request_limit);
 }
 
 TEST (rpc, search_pending)

@@ -7,14 +7,16 @@
 rai::rpc_config::rpc_config () :
 address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
 port (rai::network::rpc_port),
-enable_control (false)
+enable_control (false),
+frontier_request_limit (16384)
 {
 }
 
 rai::rpc_config::rpc_config (bool enable_control_a) :
 address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
 port (rai::network::rpc_port),
-enable_control (enable_control_a)
+enable_control (enable_control_a),
+frontier_request_limit (16384)
 {
 }
 
@@ -23,6 +25,7 @@ void rai::rpc_config::serialize_json (boost::property_tree::ptree & tree_a) cons
     tree_a.put ("address", address.to_string ());
     tree_a.put ("port", std::to_string (port));
     tree_a.put ("enable_control", enable_control);
+	tree_a.put ("frontier_request_limit", frontier_request_limit);
 }
 
 bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -33,10 +36,12 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 		auto address_l (tree_a.get <std::string> ("address"));
 		auto port_l (tree_a.get <std::string> ("port"));
 		enable_control = tree_a.get <bool> ("enable_control");
+		auto frontier_request_limit_l (tree_a.get <std::string> ("frontier_request_limit"));
 		try
 		{
 			port = std::stoul (port_l);
 			result = port > std::numeric_limits <uint16_t>::max ();
+			frontier_request_limit = std::stoull (frontier_request_limit_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -302,15 +307,35 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
             }
             else if (action == "frontiers")
             {
-				boost::property_tree::ptree response_l;
-				boost::property_tree::ptree frontiers;
-				rai::transaction transaction (node.store.environment, nullptr, false);
-				for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+				std::string account_text (request_l.get <std::string> ("account"));
+				std::string count_text (request_l.get <std::string> ("count"));
+				rai::account start;
+				if (!start.decode_base58check (account_text))
 				{
-					frontiers.put (rai::account (i->first).to_base58check (), rai::account_info (i->second).head.to_string ());
+					uint64_t count;
+					if (!decode_unsigned (count_text, count))
+					{
+						boost::property_tree::ptree response_l;
+						boost::property_tree::ptree frontiers;
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
+						{
+							frontiers.put (rai::account (i->first).to_base58check (), rai::account_info (i->second).head.to_string ());
+						}
+						response_l.add_child ("frontiers", frontiers);
+						set_response (response, response_l);
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Invalid count limit";
+					}
 				}
-				response_l.add_child ("frontiers", frontiers);
-				set_response (response, response_l);
+				else
+				{
+					response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+					response.content = "Invalid starting account";
+				}
             }
             else if (action == "keepalive")
             {
@@ -437,46 +462,32 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 if (!error)
                 {
 					auto amount_text (request_l.get <std::string> ("amount"));
-					try
+					uint64_t amount;
+					if (!decode_unsigned (amount_text, amount))
 					{
-						size_t end;
-						auto amount (std::stoi (amount_text, &end));
-						if (end == amount_text.size ())
+						if (amount <= 1000)
 						{
-							if (amount <= 1000)
+							auto balance (node.balance (account));
+							if (balance >= amount * rai::Grai_ratio)
 							{
-								auto balance (node.balance (account));
-								if (balance >= amount * rai::Grai_ratio)
-								{
-									auto price (node.price (balance, amount));
-									boost::property_tree::ptree response_l;
-									response_l.put ("price", std::to_string (price));
-									set_response (response, response_l);
-								}
-								else
-								{
-									response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-									response.content = "Requesting more blocks than are available";
-								}
+								auto price (node.price (balance, amount));
+								boost::property_tree::ptree response_l;
+								response_l.put ("price", std::to_string (price));
+								set_response (response, response_l);
 							}
 							else
 							{
 								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-								response.content = "Cannot purchase more than 1000";
+								response.content = "Requesting more blocks than are available";
 							}
 						}
 						else
 						{
 							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-							response.content = "Unable to convert amount to number";
+							response.content = "Cannot purchase more than 1000";
 						}
 					}
-					catch (std::invalid_argument const &)
-					{
-						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
-						response.content = "Invalid amount number";
-					}
-					catch (std::out_of_range const &)
+					else
 					{
 						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
 						response.content = "Invalid amount";
@@ -905,4 +916,25 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
         response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::method_not_allowed);
         response.content = "Can only POST requests";
     }
+}
+
+bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
+{
+	bool result;
+	size_t end;
+	try
+	{
+		number = std::stoull (text, &end);
+		result = false;
+	}
+	catch (std::invalid_argument const &)
+	{
+		result = true;
+	}
+	catch (std::out_of_range const &)
+	{
+		result = true;
+	}
+	result = result || end != text.size ();
+	return result;
 }
