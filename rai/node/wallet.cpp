@@ -1130,9 +1130,10 @@ void rai::wallets::foreach_representative (std::function <void (rai::public_key 
         auto & wallet (*i->second);
 		for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m; ++j)
         {
-			if (wallet.store.valid_password (transaction))
+			rai::account account (j->first);
+			if (!node.ledger.weight (transaction, account).is_zero ())
 			{
-				if (!node.ledger.weight (transaction, j->first).is_zero ())
+				if (wallet.store.valid_password (transaction))
 				{
 					rai::private_key prv;
 					auto error (wallet.store.fetch (transaction, j->first, prv));
@@ -1140,10 +1141,10 @@ void rai::wallets::foreach_representative (std::function <void (rai::public_key 
 					action_a (j->first, prv);
 					prv.clear ();
 				}
-			}
-			else
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Skipping locked wallet %1%") % i->first.to_string ());;
+				else
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("Skipping locked wallet %1% with account %2%") % i->first.to_string () % account.to_base58check ());
+				}
 			}
         }
     }
