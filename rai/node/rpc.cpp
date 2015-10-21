@@ -8,7 +8,8 @@ rai::rpc_config::rpc_config () :
 address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
 port (rai::network::rpc_port),
 enable_control (false),
-frontier_request_limit (16384)
+frontier_request_limit (16384),
+chain_request_limit (16384)
 {
 }
 
@@ -16,7 +17,8 @@ rai::rpc_config::rpc_config (bool enable_control_a) :
 address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
 port (rai::network::rpc_port),
 enable_control (enable_control_a),
-frontier_request_limit (16384)
+frontier_request_limit (16384),
+chain_request_limit (16384)
 {
 }
 
@@ -26,6 +28,7 @@ void rai::rpc_config::serialize_json (boost::property_tree::ptree & tree_a) cons
     tree_a.put ("port", std::to_string (port));
     tree_a.put ("enable_control", enable_control);
 	tree_a.put ("frontier_request_limit", frontier_request_limit);
+	tree_a.put ("chain_request_limit", chain_request_limit);
 }
 
 bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -37,11 +40,13 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 		auto port_l (tree_a.get <std::string> ("port"));
 		enable_control = tree_a.get <bool> ("enable_control");
 		auto frontier_request_limit_l (tree_a.get <std::string> ("frontier_request_limit"));
+		auto chain_request_limit_l (tree_a.get <std::string> ("chain_request_limit"));
 		try
 		{
 			port = std::stoul (port_l);
 			result = port > std::numeric_limits <uint16_t>::max ();
 			frontier_request_limit = std::stoull (frontier_request_limit_l);
+			chain_request_limit = std::stoull (chain_request_limit_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -305,6 +310,49 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                     response.content = "Bad hash number";
                 }
             }
+			else if (action == "chain")
+			{
+				std::string block_text (request_l.get <std::string> ("block"));
+				std::string count_text (request_l.get <std::string> ("count"));
+				rai::block_hash block;
+				if (!block.decode_hex (block_text))
+				{
+					uint64_t count;
+					if (!decode_unsigned (count_text, count))
+					{
+						boost::property_tree::ptree response_l;
+						boost::property_tree::ptree blocks;
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						while (!block.is_zero () && blocks.size () < count)
+						{
+							auto block_l (node.store.block_get (transaction, block));
+							if (block_l != nullptr)
+							{
+								boost::property_tree::ptree entry;
+								entry.put ("", block.to_string ());
+								blocks.push_back (std::make_pair ("", entry));
+								block = block_l->previous ();
+							}
+							else
+							{
+								block.clear ();
+							}
+						}
+						response_l.add_child ("blocks", blocks);
+						set_response (response, response_l);
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Invalid count limit";
+					}
+				}
+				else
+				{
+					response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+					response.content = "Invalid block hash";
+				}
+			}
             else if (action == "frontiers")
             {
 				std::string account_text (request_l.get <std::string> ("account"));

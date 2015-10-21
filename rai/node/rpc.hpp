@@ -20,6 +20,7 @@ public:
 	uint16_t port;
 	bool enable_control;
 	uint64_t frontier_request_limit;
+	uint64_t chain_request_limit;
 };
 class rpc
 {

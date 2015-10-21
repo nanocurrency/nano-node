@@ -443,6 +443,61 @@ TEST (rpc, block)
     ASSERT_FALSE (contents.empty ());
 }
 
+TEST (rpc, chain)
+{
+    rai::system system (24000, 1);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	rai::keypair key;
+	auto genesis (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto block (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, 1));
+	ASSERT_FALSE (block.is_zero ());
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    boost::property_tree::ptree request;
+    request.put ("action", "chain");
+	request.put ("block", block.to_string ());
+	request.put ("count", std::to_string (std::numeric_limits <uint64_t>::max ()));
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    auto & blocks_node (response.first.get_child ("blocks"));
+	std::vector <rai::block_hash> blocks;
+	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
+	{
+		blocks.push_back (rai::block_hash (i->second.get <std::string> ("")));
+	}
+	ASSERT_EQ (2, blocks.size ());
+	ASSERT_EQ (block, blocks [0]);
+	ASSERT_EQ (genesis, blocks [1]);
+}
+
+TEST (rpc, limit)
+{
+    rai::system system (24000, 1);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	rai::keypair key;
+	auto genesis (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto block (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, 1));
+	ASSERT_FALSE (block.is_zero ());
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    boost::property_tree::ptree request;
+    request.put ("action", "chain");
+	request.put ("block", block.to_string ());
+	request.put ("count", 1);
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    auto & blocks_node (response.first.get_child ("blocks"));
+	std::vector <rai::block_hash> blocks;
+	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
+	{
+		blocks.push_back (rai::block_hash (i->second.get <std::string> ("")));
+	}
+	ASSERT_EQ (1, blocks.size ());
+	ASSERT_EQ (block, blocks [0]);
+}
+
 TEST (rpc, process_block)
 {
     rai::system system (24000, 1);
@@ -600,6 +655,7 @@ TEST (rpc_config, serialization)
 	config1.port = 10;
 	config1.enable_control = true;
 	config1.frontier_request_limit = 8192;
+	config1.chain_request_limit = 4096;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::rpc_config config2;
@@ -607,11 +663,13 @@ TEST (rpc_config, serialization)
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);
 	ASSERT_NE (config2.frontier_request_limit, config1.frontier_request_limit);
+	ASSERT_NE (config2.chain_request_limit, config1.chain_request_limit);
 	config2.deserialize_json (tree);
 	ASSERT_EQ (config2.address, config1.address);
 	ASSERT_EQ (config2.port, config1.port);
 	ASSERT_EQ (config2.enable_control, config1.enable_control);
 	ASSERT_EQ (config2.frontier_request_limit, config1.frontier_request_limit);
+	ASSERT_EQ (config2.chain_request_limit, config1.chain_request_limit);
 }
 
 TEST (rpc, search_pending)
