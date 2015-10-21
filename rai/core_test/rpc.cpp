@@ -471,7 +471,7 @@ TEST (rpc, chain)
 	ASSERT_EQ (genesis, blocks [1]);
 }
 
-TEST (rpc, limit)
+TEST (rpc, chain_limit)
 {
     rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
