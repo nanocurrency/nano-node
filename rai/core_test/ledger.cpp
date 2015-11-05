@@ -478,7 +478,9 @@ TEST (system, generate_send_existing)
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
 		ASSERT_FALSE (system.nodes [0]->store.account_get (transaction, rai::test_genesis_key.pub, info1));
 	}
-    system.generate_send_existing (*system.nodes [0]);
+	std::vector <rai::account> accounts;
+	accounts.push_back (rai::test_genesis_key.pub);
+    system.generate_send_existing (*system.nodes [0], accounts);
     rai::account_info info2;
 	{
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
@@ -512,7 +514,9 @@ TEST (system, generate_send_new)
 		++iterator1;
 		ASSERT_EQ (system.nodes [0]->store.latest_end (), iterator1);
 	}
-    system.generate_send_new (*system.nodes [0]);
+	std::vector <rai::account> accounts;
+	accounts.push_back (rai::test_genesis_key.pub);
+    system.generate_send_new (*system.nodes [0], accounts);
 	rai::account new_account (0);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);

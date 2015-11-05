@@ -94,13 +94,14 @@ public:
     {
         auto count_l (count - 1);
         count = count_l - 1;
-        system.generate_activity (*node);
+        system.generate_activity (*node, accounts);
         if (count_l > 0)
         {
             auto this_l (shared_from_this ());
             node->service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
         }
     }
+	std::vector <rai::account> accounts;
     uint32_t count;
     uint32_t wait;
     std::shared_ptr <rai::node> node;
@@ -124,24 +125,23 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, siz
     generate->run ();
 }
 
-void rai::system::generate_activity (rai::node & node_a)
+void rai::system::generate_activity (rai::node & node_a, std::vector <rai::account> & accounts_a)
 {
     auto what (random_pool.GenerateByte ());
     if (what < 0xc0)
     {
-        generate_send_existing (node_a);
+        generate_send_existing (node_a, accounts_a);
     }
     else
     {
-        generate_send_new (node_a);
+        generate_send_new (node_a, accounts_a);
     }
 }
 
-rai::account rai::system::get_random_account (MDB_txn * transaction_a, rai::node & node_a)
+rai::account rai::system::get_random_account (std::vector <rai::account> & accounts_a)
 {
-	auto accounts (wallet (0)->store.accounts (transaction_a));
-	auto index (random_pool.GenerateWord32 (0, accounts.size () - 1));
-	auto result (accounts [index]);
+	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
+	auto result (accounts_a [index]);
 	return result;
 }
 
@@ -156,7 +156,7 @@ rai::uint128_t rai::system::get_random_amount (MDB_txn * transaction_a, rai::nod
     return result;
 }
 
-void rai::system::generate_send_existing (rai::node & node_a)
+void rai::system::generate_send_existing (rai::node & node_a, std::vector <rai::account> & accounts_a)
 {
 	rai::uint128_t amount;
 	rai::account destination;
@@ -172,13 +172,13 @@ void rai::system::generate_send_existing (rai::node & node_a)
 		}
 		assert (entry != node_a.store.latest_end ());
 		destination = rai::account (entry->first);
-		source = get_random_account (transaction, node_a);
+		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
     wallet (0)->send_sync (source, destination, amount);
 }
 
-void rai::system::generate_send_new (rai::node & node_a)
+void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::account> & accounts_a)
 {
     assert (node_a.wallets.items.size () == 1);
     rai::keypair key;
@@ -186,26 +186,30 @@ void rai::system::generate_send_new (rai::node & node_a)
 	rai::account source;
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
-		source = get_random_account (transaction, node_a);
+		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
+	accounts_a.push_back (key.pub);
 	node_a.wallets.items.begin ()->second->insert (key.prv);
     node_a.wallets.items.begin ()->second->send_sync (source, key.pub, amount);
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 {
+	std::vector <rai::account> accounts;
+    wallet (0)->insert (rai::test_genesis_key.prv);
+	accounts.push_back (rai::test_genesis_key.pub);
     auto previous (std::chrono::system_clock::now ());
     for (uint32_t i (0); i < count_a; ++i)
     {
-        if ((i & 0x3ff) == 0)
+        if ((i & 0xfff) == 0)
         {
             auto now (std::chrono::system_clock::now ());
-            auto ms (std::chrono::duration_cast <std::chrono::milliseconds> (now - previous).count ());
-            std::cerr << boost::str (boost::format ("Mass activity iteration %1% ms %2% ms/t %3%\n") % i % ms % (ms / 256));
+            auto us (std::chrono::duration_cast <std::chrono::microseconds> (now - previous).count ());
+            std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3%\n") % i % us % (us / 256));
             previous = now;
         }
-        generate_activity (node_a);
+        generate_activity (node_a, accounts);
     }
 }
 

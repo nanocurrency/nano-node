@@ -183,8 +183,7 @@ int main (int argc, char * const * argv)
     else if (vm.count ("debug_mass_activity"))
     {
         rai::system system (24000, 1);
-        system.wallet (0)->insert (rai::test_genesis_key.prv);
-        size_t count (10000);
+        size_t count (1000000);
         system.generate_mass_activity (count, *system.nodes [0]);
     }
     else if (vm.count ("debug_profile_kdf"))

@@ -9,14 +9,14 @@ class system
 public:
     system (uint16_t, size_t);
     ~system ();
-    void generate_activity (rai::node &);
+    void generate_activity (rai::node &, std::vector <rai::account> &);
     void generate_mass_activity (uint32_t, rai::node &);
     void generate_usage_traffic (uint32_t, uint32_t, size_t);
     void generate_usage_traffic (uint32_t, uint32_t);
-	rai::account get_random_account (MDB_txn *, rai::node &);
+	rai::account get_random_account (std::vector <rai::account> &);
     rai::uint128_t get_random_amount (MDB_txn *, rai::node &, rai::account const &);
-    void generate_send_new (rai::node &);
-    void generate_send_existing (rai::node &);
+    void generate_send_new (rai::node &, std::vector <rai::account> &);
+    void generate_send_existing (rai::node &, std::vector <rai::account> &);
     std::shared_ptr <rai::wallet> wallet (size_t);
     rai::account account (MDB_txn *, size_t);
 	void poll ();
