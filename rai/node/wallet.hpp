@@ -126,10 +126,10 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_action (rai::account const &, rai::account const &);
-    bool receive_action (rai::send_block const &, rai::private_key const &, rai::account const &, rai::uint128_union const &);
+    bool receive_action (rai::send_block const &, rai::account const &, rai::uint128_union const &);
 	rai::block_hash send_action (rai::account const &, rai::account const &, rai::uint128_t const &);
 	bool change_sync (rai::account const &, rai::account const &);
-    bool receive_sync (rai::send_block const &, rai::private_key const &, rai::account const &, rai::uint128_t const &);
+    bool receive_sync (rai::send_block const &, rai::account const &, rai::uint128_t const &);
 	rai::block_hash send_sync (rai::account const &, rai::account const &, rai::uint128_t const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);

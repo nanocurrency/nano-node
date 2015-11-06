@@ -649,7 +649,7 @@ bool check_ownership (rai::wallets & wallets_a, rai::account const & account_a) 
 }
 }
 
-bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_key const & prv_a, rai::account const & representative_a, rai::uint128_union const & amount_a)
+bool rai::wallet::receive_action (rai::send_block const & send_a, rai::account const & representative_a, rai::uint128_union const & amount_a)
 {
 	assert (!check_ownership (node.wallets, send_a.hashables.destination));
     auto hash (send_a.hash ());
@@ -660,18 +660,28 @@ bool rai::wallet::receive_action (rai::send_block const & send_a, rai::private_k
 		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
 		if (node.ledger.store.pending_exists (transaction, hash))
 		{
-			rai::account_info info;
-			auto new_account (node.ledger.store.account_get (transaction, send_a.hashables.destination, info));
-			if (!new_account)
+			rai::private_key prv;
+			if (!store.fetch (transaction, send_a.hashables.destination, prv))
 			{
-				auto receive (new rai::receive_block (info.head, hash, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, info.head)));
-				block.reset (receive);
+				rai::account_info info;
+				auto new_account (node.ledger.store.account_get (transaction, send_a.hashables.destination, info));
+				if (!new_account)
+				{
+					auto receive (new rai::receive_block (info.head, hash, prv, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, info.head)));
+					block.reset (receive);
+				}
+				else
+				{
+					block.reset (new rai::open_block (hash, representative_a, send_a.hashables.destination, prv, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, send_a.hashables.destination)));
+				}
+				result = false;
 			}
 			else
 			{
-				block.reset (new rai::open_block (hash, representative_a, send_a.hashables.destination, prv_a, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, send_a.hashables.destination)));
+				result = true;
+				BOOST_LOG (node.log) << "Unable to receive, wallet locked";
 			}
-			result = false;
+			prv.clear ();
 		}
 		else
 		{
@@ -806,14 +816,14 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 	return result;
 }
 
-bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::private_key const & prv_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::mutex complete;
 	complete.lock ();
 	bool result;
-	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, &prv_a, account_a, &result, &complete, amount_a] ()
+	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, account_a, &result, &complete, amount_a] ()
 	{
-		result = receive_action (block_a, prv_a, account_a, amount_a);
+		result = receive_action (block_a, account_a, amount_a);
 		complete.unlock ();
 	});
 	complete.lock ();
@@ -923,23 +933,21 @@ public:
 			rai::receivable receivable (i->second);
 			if (receivable.source == account_a)
 			{
-				if (wallet->store.exists(transaction, receivable.destination))
+				if (wallet->store.exists (transaction, receivable.destination))
 				{
-					rai::private_key prv;
-					auto error (wallet->store.fetch (transaction, receivable.destination, prv));
-					if (!error)
+					if (wallet->store.valid_password (transaction))
 					{
 						auto block_l (wallet->node.store.block_get (transaction, i->first));
 						assert (dynamic_cast <rai::send_block *> (block_l.get ()) != nullptr);
 						std::shared_ptr <rai::send_block> block (static_cast <rai::send_block *> (block_l.release ()));
 						auto wallet_l (wallet);
 						auto amount (receivable.amount.number ());
-						wallet->node.background ([wallet_l, block, representative, prv, amount]
+						wallet->node.background ([wallet_l, block, representative, amount]
 						{
-							wallet_l->node.wallets.queue_wallet_action (block->hashables.destination, amount, [wallet_l, block, representative, prv, amount] ()
+							wallet_l->node.wallets.queue_wallet_action (block->hashables.destination, amount, [wallet_l, block, representative, amount] ()
 							{
 								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-								auto error (wallet_l->receive_action (*block, prv, representative, amount));
+								auto error (wallet_l->receive_action (*block, representative, amount));
 								if (error)
 								{
 									BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
@@ -951,7 +959,6 @@ public:
 					{
 						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % receivable.destination.to_base58check ());
 					}
-					prv.clear ();
 				}
 			}
 		}
