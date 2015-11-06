@@ -113,8 +113,8 @@ wallet (wallet_a)
 	{
 		QString key_text_wide (account_key_line->text ());
 		std::string key_text (key_text_wide.toLocal8Bit ());
-		rai::private_key key;
-		if (!key.decode_hex (key_text))
+		rai::raw_key key;
+		if (!key.data.decode_hex (key_text))
 		{
 			show_line_ok (*account_key_line);
 			account_key_line->clear ();
@@ -776,8 +776,8 @@ wallet (wallet_a)
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
     {
-        rai::uint256_union empty;
-        empty.clear ();
+        rai::raw_key empty;
+        empty.data.clear ();
         wallet.wallet_m->store.password.value_set (empty);
         update_locked (true, true);
     });
@@ -1206,7 +1206,7 @@ void rai_qt::block_creation::create_send ()
             if (!error)
             {
 				rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-                rai::private_key key;
+                rai::raw_key key;
                 if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
                 {
                     auto balance (wallet.node.ledger.account_balance (transaction, account_l));
@@ -1216,7 +1216,6 @@ void rai_qt::block_creation::create_send ()
                         auto error (wallet.node.store.account_get (transaction, account_l, info));
                         assert (!error);
                         rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
-                        key.clear ();
                         std::string block_l;
                         send.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));
@@ -1268,12 +1267,11 @@ void rai_qt::block_creation::create_receive ()
             auto error (wallet.node.store.account_get (transaction, receivable.destination, info));
             if (!error)
             {
-                rai::private_key key;
+                rai::raw_key key;
                 auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                 if (!error)
                 {
                     rai::receive_block receive (info.head, source_l, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, info.head));
-                    key.clear ();
                     std::string block_l;
                     receive.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -1320,12 +1318,11 @@ void rai_qt::block_creation::create_change ()
             auto error (wallet.node.store.account_get (transaction, account_l, info));
             if (!error)
             {
-                rai::private_key key;
+                rai::raw_key key;
                 auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
                 if (!error)
                 {
                     rai::change_block change (info.head, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
-                    key.clear ();
                     std::string block_l;
                     change.serialize_json (block_l);
                     block->setPlainText (QString (block_l.c_str ()));
@@ -1375,12 +1372,11 @@ void rai_qt::block_creation::create_open ()
                 auto error (wallet.node.store.account_get (transaction, receivable.destination, info));
                 if (error)
                 {
-                    rai::private_key key;
+                    rai::raw_key key;
                     auto error (wallet.wallet_m->store.fetch (transaction, receivable.destination, key));
                     if (!error)
                     {
                         rai::open_block open (source_l, representative_l, receivable.destination, key, receivable.destination, wallet.wallet_m->work_fetch (transaction, receivable.destination, receivable.destination));
-                        key.clear ();
                         std::string block_l;
                         open.serialize_json (block_l);
                         block->setPlainText (QString (block_l.c_str ()));

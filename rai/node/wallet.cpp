@@ -186,28 +186,30 @@ rai::uint256_union rai::wallet_store::salt (MDB_txn * transaction_a)
     return value.key;
 }
 
-rai::uint256_union rai::wallet_store::wallet_key (MDB_txn * transaction_a)
+void rai::wallet_store::wallet_key (rai::raw_key & prv_a, MDB_txn * transaction_a)
 {
 	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::wallet_key_special));
-    auto password_l (password.value ());
-    auto result (value.key.prv (password_l, salt (transaction_a).owords [0]));
-    password_l.clear ();
-    return result;
+    rai::raw_key password_l;
+	password.value (password_l);
+    prv_a.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
 }
 
 bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
 {
-    rai::uint256_union zero;
-    zero.clear ();
-    auto wallet_key_l (wallet_key (transaction_a));
-    rai::uint256_union check_l (zero, wallet_key_l, salt (transaction_a).owords [0]);
-    wallet_key_l.clear ();
+    rai::raw_key zero;
+    zero.data.clear ();
+    rai::raw_key wallet_key_l;
+	wallet_key (wallet_key_l, transaction_a);
+    rai::uint256_union check_l;
+	check_l.encrypt (zero, wallet_key_l, salt (transaction_a).owords [0]);
     return check (transaction_a) == check_l;
 }
 
 bool rai::wallet_store::attempt_password (MDB_txn * transaction_a, std::string const & password_a)
 {
-    password.value_set (derive_key (transaction_a, password_a));
+	rai::raw_key password_l;
+	derive_key (password_l, transaction_a, password_a);
+    password.value_set (password_l);
 	auto result (!valid_password (transaction_a));
 	return result;
 }
@@ -217,14 +219,17 @@ bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & pass
     bool result (false);
 	if (valid_password (transaction_a))
     {
-        auto password_new (derive_key (transaction_a, password_a));
-        auto wallet_key_l (wallet_key (transaction_a));
-        auto password_l (password.value ());
-        (*password.values [0]) ^= password_l;
-        (*password.values [0]) ^= password_new;
-        rai::uint256_union encrypted (wallet_key_l, password_new, salt (transaction_a).owords [0]);
+        rai::raw_key password_new;
+		derive_key (password_new, transaction_a, password_a);
+        rai::raw_key wallet_key_l;
+		wallet_key (wallet_key_l, transaction_a);
+        rai::raw_key password_l;
+		password.value (password_l);
+        (*password.values [0]) ^= password_l.data;
+        (*password.values [0]) ^= password_new.data;
+        rai::uint256_union encrypted;
+		encrypted.encrypt (wallet_key_l, password_new, salt (transaction_a).owords [0]);
 		entry_put_raw (transaction_a, rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted));
-        wallet_key_l.clear ();
     }
     else
     {
@@ -233,12 +238,10 @@ bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & pass
     return result;
 }
 
-rai::uint256_union rai::wallet_store::derive_key (MDB_txn * transaction_a, std::string const & password_a)
+void rai::wallet_store::derive_key (rai::raw_key & prv_a, MDB_txn * transaction_a, std::string const & password_a)
 {
-	rai::uint256_union result;
 	auto salt_l (salt (transaction_a));
-	kdf.phs (result, password_a, salt_l);
-    return result;
+	kdf.phs (prv_a, password_a, salt_l);
 }
 
 rai::wallet_value::wallet_value (MDB_val const & val_a)
@@ -310,7 +313,9 @@ environment (transaction_a.environment)
 		init_a = init_a || mdb_get (transaction_a, handle, salt_special.val (), &junk) != 0;
 		init_a = init_a || mdb_get (transaction_a, handle, check_special.val (), &junk) != 0;
 		init_a = init_a || mdb_get (transaction_a, handle, representative_special.val (), &junk) != 0;
-		password.value_set (0);
+		rai::raw_key key;
+		key.data.clear();
+		password.value_set (key);
     }
 }
 
@@ -333,16 +338,20 @@ environment (transaction_a.environment)
             random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
 			entry_put_raw (transaction_a, rai::wallet_store::salt_special, rai::wallet_value (salt_l));
             // Wallet key is a fixed random key that encrypts all entries
-            rai::uint256_union wallet_key;
-            random_pool.GenerateBlock (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-            password.value_set (0);
+            rai::raw_key wallet_key;
+            random_pool.GenerateBlock (wallet_key.data.bytes.data (), sizeof (wallet_key.data.bytes));
+			rai::raw_key password_l;
+			password_l.data.clear ();
+            password.value_set (password_l);
+            rai::raw_key zero;
+			zero.data.clear ();
             // Wallet key is encrypted by the user's password
-            rai::uint256_union encrypted (wallet_key, 0, salt_l.owords [0]);
+            rai::uint256_union encrypted;
+			encrypted.encrypt (wallet_key, zero, salt_l.owords [0]);
 			entry_put_raw (transaction_a, rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted));
-            rai::uint256_union zero (0);
-            rai::uint256_union check (zero, wallet_key, salt_l.owords [0]);
+            rai::uint256_union check;
+			check.encrypt (zero, wallet_key, salt_l.owords [0]);
 			entry_put_raw (transaction_a, rai::wallet_store::check_special, rai::wallet_value (check));
-            wallet_key.clear ();
 			entry_put_raw (transaction_a, rai::wallet_store::representative_special, rai::wallet_value (representative_a));
         }
     }
@@ -382,11 +391,15 @@ rai::account rai::wallet_store::representative (MDB_txn * transaction_a)
     return value.key;
 }
 
-rai::public_key rai::wallet_store::insert (MDB_txn * transaction_a, rai::private_key const & prv)
+rai::public_key rai::wallet_store::insert (MDB_txn * transaction_a, rai::raw_key const & prv)
 {
     rai::public_key pub;
-    ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-	entry_put_raw (transaction_a, pub, rai::wallet_value (rai::uint256_union (prv, wallet_key (transaction_a), salt (transaction_a).owords [0])));
+    ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	rai::raw_key password_l;
+	wallet_key (password_l, transaction_a);
+	rai::uint256_union ciphertext;
+	ciphertext.encrypt (prv, password_l, salt (transaction_a).owords [0]);
+	entry_put_raw (transaction_a, pub, rai::wallet_value (ciphertext));
 	return pub;
 }
 
@@ -419,15 +432,17 @@ void rai::wallet_store::entry_put_raw (MDB_txn * transaction_a, rai::public_key 
 	assert (status == 0);
 }
 
-bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & pub, rai::private_key & prv)
+bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & pub, rai::raw_key & prv)
 {
     auto result (false);
 	rai::wallet_value value (entry_get_raw (transaction_a, pub));
     if (!value.key.is_zero ())
     {
-        prv = value.key.prv (wallet_key (transaction_a), salt (transaction_a).owords [0]);
+		rai::raw_key password_l;
+		wallet_key (password_l, transaction_a);
+        prv.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
         rai::public_key compare;
-        ed25519_publickey (prv.bytes.data (), compare.bytes.data ());
+        ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
         if (!(pub == compare))
         {
             result = true;
@@ -476,7 +491,7 @@ bool rai::wallet_store::move (MDB_txn * transaction_a, rai::wallet_store & other
     auto result (false);
     for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
     {
-        rai::private_key prv;
+        rai::raw_key prv;
         auto error (other_a.fetch (transaction_a, *i, prv));
         result = result | error;
         if (!result)
@@ -495,7 +510,7 @@ bool rai::wallet_store::import (MDB_txn * transaction_a, rai::wallet_store & oth
     auto result (false);
     for (auto i (other_a.begin (transaction_a)), n (end ()); i != n; ++i)
     {
-        rai::private_key prv;
+        rai::raw_key prv;
         auto error (other_a.fetch (transaction_a, i->first, prv));
         result = result | error;
         if (!result)
@@ -530,10 +545,10 @@ void rai::wallet_store::work_put (MDB_txn * transaction_a, rai::public_key const
 	entry_put_raw (transaction_a, pub_a, entry);
 }
 
-void rai::kdf::phs (rai::uint256_union & result_a, std::string const & password_a, rai::uint256_union const & salt_a)
+void rai::kdf::phs (rai::raw_key & result_a, std::string const & password_a, rai::uint256_union const & salt_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-    auto success (PHS (result_a.bytes.data (), result_a.bytes.size (), password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), 1, rai::wallet_store::kdf_work));
+    auto success (PHS (result_a.data.bytes.data (), result_a.data.bytes.size (), password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), 1, rai::wallet_store::kdf_work));
 	assert (success == 0); (void) success;
 }
 
@@ -553,7 +568,9 @@ node (node_a)
 
 void rai::wallet::enter_initial_password ()
 {
-	if (store.password.value ().is_zero ())
+	rai::raw_key password_l;
+	store.password.value (password_l);
+	if (password_l.data.is_zero ())
 	{
 		if (valid_password ())
 		{
@@ -588,7 +605,7 @@ bool rai::wallet::enter_password (std::string const & password_a)
 	return result;
 }
 
-rai::public_key rai::wallet::insert (rai::private_key const & key_a)
+rai::public_key rai::wallet::insert (rai::raw_key const & key_a)
 {
 	rai::block_hash root;
 	rai::public_key key;
@@ -660,7 +677,7 @@ bool rai::wallet::receive_action (rai::send_block const & send_a, rai::account c
 		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
 		if (node.ledger.store.pending_exists (transaction, hash))
 		{
-			rai::private_key prv;
+			rai::raw_key prv;
 			if (!store.fetch (transaction, send_a.hashables.destination, prv))
 			{
 				rai::account_info info;
@@ -681,7 +698,6 @@ bool rai::wallet::receive_action (rai::send_block const & send_a, rai::account c
 				result = true;
 				BOOST_LOG (node.log) << "Unable to receive, wallet locked";
 			}
-			prv.clear ();
 		}
 		else
 		{
@@ -722,11 +738,10 @@ bool rai::wallet::change_action (rai::account const & source_a, rai::account con
 					rai::account_info info;
 					result = node.ledger.store.account_get (transaction, source_a, info);
 					assert (!result);
-					rai::private_key prv;
+					rai::raw_key prv;
 					result = store.fetch (transaction, source_a, prv);
 					assert (!result);
 					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, work_fetch (transaction, source_a, info.head)));
-					prv.clear ();
 				}
 				else
 				{
@@ -769,11 +784,10 @@ rai::block_hash rai::wallet::send_action (rai::account const & source_a, rai::ac
 						rai::account_info info;
 						result = node.ledger.store.account_get (transaction, source_a, info);
 						assert (!result);
-						rai::private_key prv;
+						rai::raw_key prv;
 						result = store.fetch (transaction, source_a, prv);
 						assert (!result);
 						block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, info.head)));
-						prv.clear ();
 					}
 					else
 					{
@@ -1129,7 +1143,7 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, rai::uin
 	}
 }
 
-void rai::wallets::foreach_representative (std::function <void (rai::public_key const & pub_a, rai::private_key const & prv_a)> const & action_a)
+void rai::wallets::foreach_representative (std::function <void (rai::public_key const & pub_a, rai::raw_key const & prv_a)> const & action_a)
 {
     for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
     {
@@ -1142,11 +1156,10 @@ void rai::wallets::foreach_representative (std::function <void (rai::public_key 
 			{
 				if (wallet.store.valid_password (transaction))
 				{
-					rai::private_key prv;
+					rai::raw_key prv;
 					auto error (wallet.store.fetch (transaction, j->first, prv));
 					assert (!error);
 					action_a (j->first, prv);
-					prv.clear ();
 				}
 				else
 				{

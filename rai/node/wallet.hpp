@@ -41,8 +41,8 @@ class fan
 {
 public:
     fan (rai::uint256_union const &, size_t);
-    rai::uint256_union value ();
-    void value_set (rai::uint256_union const &);
+    void value (rai::raw_key &);
+    void value_set (rai::raw_key const &);
     std::vector <std::unique_ptr <rai::uint256_union>> values;
 };
 class wallet_value
@@ -59,7 +59,7 @@ class node_config;
 class kdf
 {
 public:
-	void phs (rai::uint256_union &, std::string const &, rai::uint256_union const &);
+	void phs (rai::raw_key &, std::string const &, rai::uint256_union const &);
 	std::mutex mutex;
 };
 class wallet_store
@@ -73,22 +73,22 @@ public:
     bool rekey (MDB_txn *, std::string const &);
     bool valid_password (MDB_txn *);
     bool attempt_password (MDB_txn *, std::string const &);
-    rai::uint256_union wallet_key (MDB_txn *);
+    void wallet_key (rai::raw_key &, MDB_txn *);
     rai::uint256_union salt (MDB_txn *);
     bool is_representative (MDB_txn *);
     rai::account representative (MDB_txn *);
     void representative_set (MDB_txn *, rai::account const &);
-    rai::public_key insert (MDB_txn *, rai::private_key const &);
+    rai::public_key insert (MDB_txn *, rai::raw_key const &);
     void erase (MDB_txn *, rai::public_key const &);
 	rai::wallet_value entry_get_raw (MDB_txn *, rai::public_key const &);
 	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
-    bool fetch (MDB_txn *, rai::public_key const &, rai::private_key &);
+    bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
     bool exists (MDB_txn *, rai::public_key const &);
 	void destroy (MDB_txn *);
     rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
     rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
-    rai::uint256_union derive_key (MDB_txn *, std::string const &);
+    void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
     void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);
     bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
@@ -121,7 +121,7 @@ public:
 	void enter_initial_password ();
     bool valid_password ();
     bool enter_password (std::string const &);
-	rai::public_key insert (rai::private_key const &);
+	rai::public_key insert (rai::raw_key const &);
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
@@ -149,7 +149,7 @@ public:
     bool search_pending (rai::uint256_union const &);
 	void destroy (rai::uint256_union const &);
 	void queue_wallet_action (rai::account const &, rai::uint128_t const &, std::function <void ()> const &);
-	void foreach_representative (std::function <void (rai::public_key const &, rai::private_key const &)> const &);
+	void foreach_representative (std::function <void (rai::public_key const &, rai::raw_key const &)> const &);
 	std::function <void (rai::account const &, bool)> observer;
 	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
 	std::unordered_map <rai::account, std::multimap <rai::uint128_t, std::function <void ()>, std::greater <rai::uint128_t>>> pending_actions;

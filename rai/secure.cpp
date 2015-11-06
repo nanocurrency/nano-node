@@ -161,16 +161,16 @@ id (id_a)
 // Create a new random keypair
 rai::keypair::keypair ()
 {
-    random_pool.GenerateBlock (prv.bytes.data (), prv.bytes.size ());
-	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+    random_pool.GenerateBlock (prv.data.bytes.data (), prv.data.bytes.size ());
+	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a hex string of the private key
 rai::keypair::keypair (std::string const & prv_a)
 {
-	auto error (prv.decode_hex (prv_a));
+	auto error (prv.data.decode_hex (prv_a));
 	assert (!error);
-	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
 rai::ledger::ledger (rai::block_store & store_a) :
@@ -427,7 +427,7 @@ void rai::receive_block::serialize_json (std::string & string_a) const
     string_a = ostream.str ();
 }
 
-rai::receive_block::receive_block (rai::block_hash const & previous_a, rai::block_hash const & source_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::receive_block::receive_block (rai::block_hash const & previous_a, rai::block_hash const & source_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, source_a),
 signature (rai::sign_message (prv_a, pub_a, hash())),
 work (work_a)
@@ -708,7 +708,7 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a)
     return result;
 }
 
-rai::send_block::send_block (rai::block_hash const & previous_a, rai::account const & destination_a, rai::amount const & balance_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::send_block::send_block (rai::block_hash const & previous_a, rai::account const & destination_a, rai::amount const & balance_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, destination_a, balance_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -847,7 +847,7 @@ void rai::open_hashables::hash (blake2b_state & hash_a) const
     blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 }
 
-rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (source_a, representative_a, account_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -1086,7 +1086,7 @@ void rai::change_hashables::hash (blake2b_state & hash_a) const
     blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 }
 
-rai::change_block::change_block (rai::block_hash const & previous_a, rai::account const & representative_a, rai::private_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::change_block::change_block (rai::block_hash const & previous_a, rai::account const & representative_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, representative_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -2813,7 +2813,7 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 	}
 }
 
-rai::vote::vote (rai::account const & account_a, rai::private_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
+rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
 sequence (sequence_a),
 block (std::move (block_a)),
 account (account_a),

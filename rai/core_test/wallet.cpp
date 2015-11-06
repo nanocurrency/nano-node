@@ -13,7 +13,7 @@ TEST (wallet, no_key)
     rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
-    rai::private_key prv1;
+    rai::raw_key prv1;
     ASSERT_TRUE (wallet.fetch (transaction, key1.pub, prv1));
     ASSERT_TRUE (wallet.valid_password (transaction));
 }
@@ -30,12 +30,12 @@ TEST (wallet, retrieval)
     rai::keypair key1;
     ASSERT_TRUE (wallet.valid_password (transaction));
     wallet.insert (transaction, key1.prv);
-    rai::private_key prv1;
+    rai::raw_key prv1;
     ASSERT_FALSE (wallet.fetch (transaction, key1.pub, prv1));
     ASSERT_TRUE (wallet.valid_password (transaction));
     ASSERT_EQ (key1.prv, prv1);
     wallet.password.values [0]->bytes [16] ^= 1;
-    rai::private_key prv2;
+    rai::raw_key prv2;
     ASSERT_TRUE (wallet.fetch (transaction, key1.pub, prv2));
     ASSERT_FALSE (wallet.valid_password (transaction));
 }
@@ -68,7 +68,11 @@ TEST (wallet, one_item_iteration)
     for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
     {
         ASSERT_EQ (key1.pub, i->first);
-        ASSERT_EQ (key1.prv, rai::wallet_value (i->second).key.prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
+		rai::raw_key password;
+		wallet.wallet_key (password, transaction);
+		rai::raw_key key;
+		key.decrypt (rai::wallet_value (i->second).key, password, wallet.salt (transaction).owords [0]);
+        ASSERT_EQ (key1.prv, key);
     }
 }
 
@@ -92,15 +96,19 @@ TEST (wallet, two_item_iteration)
 		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 		{
 			pubs.insert (i->first);
-			prvs.insert (rai::wallet_value (i->second).key.prv (wallet.wallet_key (transaction), wallet.salt (transaction).owords [0]));
+			rai::raw_key password;
+			wallet.wallet_key (password, transaction);
+			rai::raw_key key;
+			key.decrypt (rai::wallet_value (i->second).key, password, wallet.salt (transaction).owords [0]);
+			prvs.insert (key.data);
 		}
 	}
     ASSERT_EQ (2, pubs.size ());
     ASSERT_EQ (2, prvs.size ());
     ASSERT_NE (pubs.end (), pubs.find (key1.pub));
-    ASSERT_NE (prvs.end (), prvs.find (key1.prv));
+    ASSERT_NE (prvs.end (), prvs.find (key1.prv.data));
     ASSERT_NE (pubs.end (), pubs.find (key2.pub));
-    ASSERT_NE (prvs.end (), prvs.find (key2.prv));
+    ASSERT_NE (prvs.end (), prvs.find (key2.prv.data));
 }
 
 TEST (wallet, insufficient_spend_one)
@@ -238,16 +246,21 @@ TEST (wallet, rekey)
 	rai::kdf kdf;
     rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, "0");
 	ASSERT_FALSE (init);
-    ASSERT_TRUE (wallet.password.value ().is_zero ());
+	rai::raw_key password;
+	wallet.password.value (password);
+    ASSERT_TRUE (password.data.is_zero ());
     ASSERT_FALSE (init);
     rai::keypair key1;
     wallet.insert (transaction, key1.prv);
-    rai::uint256_union prv1;
+    rai::raw_key prv1;
     wallet.fetch (transaction, key1.pub, prv1);
     ASSERT_EQ (key1.prv, prv1);
     ASSERT_FALSE (wallet.rekey (transaction, "1"));
-    ASSERT_EQ (wallet.derive_key (transaction, "1"), wallet.password.value ());
-    rai::uint256_union prv2;
+	wallet.password.value (password);
+	rai::raw_key password1;
+	wallet.derive_key (password1, transaction, "1");
+    ASSERT_EQ (password1, password);
+    rai::raw_key prv2;
     wallet.fetch (transaction, key1.pub, prv2);
     ASSERT_EQ (key1.prv, prv2);
     *wallet.password.values [0] = 2;
@@ -296,10 +309,13 @@ TEST (wallet, hash_password)
 	rai::kdf kdf;
     rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, "0");
     ASSERT_FALSE (init);
-    auto hash1 (wallet.derive_key (transaction, ""));
-    auto hash2 (wallet.derive_key (transaction, ""));
+    rai::raw_key hash1;
+	wallet.derive_key (hash1, transaction, "");
+	rai::raw_key hash2;
+	wallet.derive_key (hash2, transaction, "");
     ASSERT_EQ (hash1, hash2);
-    auto hash3 (wallet.derive_key (transaction, "a"));
+    rai::raw_key hash3;
+	wallet.derive_key (hash3, transaction, "a");
     ASSERT_NE (hash1, hash3);
 }
 
@@ -311,19 +327,25 @@ TEST (fan, reconstitute)
     {
         ASSERT_NE (value0, *i);
     }
-    auto value1 (fan.value ());
-    ASSERT_EQ (value0, value1);
+    rai::raw_key value1;
+	fan.value (value1);
+    ASSERT_EQ (value0, value1.data);
 }
 
 TEST (fan, change)
 {
-    rai::uint256_union value0 (0);
-    rai::uint256_union value1 (1);
+    rai::raw_key value0;
+	value0.data = 0;
+    rai::raw_key value1;
+	value1.data = 1;
     ASSERT_NE (value0, value1);
-    rai::fan fan (value0, 1024);
-    ASSERT_EQ (value0, fan.value ());
+    rai::fan fan (value0.data, 1024);
+	rai::raw_key value2;
+	fan.value (value2);
+    ASSERT_EQ (value0, value2);
     fan.value_set (value1);
-    ASSERT_EQ (value1, fan.value ());
+	fan.value (value2);
+    ASSERT_EQ (value1, value2);
 }
 
 TEST (wallet, reopen_default_password)
@@ -396,7 +418,11 @@ TEST (wallet, serialize_json_empty)
     wallet1.serialize_json (transaction, serialized);
     rai::wallet_store wallet2 (error, kdf, transaction, rai::genesis_account, "1", serialized);
     ASSERT_FALSE (error);
-    ASSERT_EQ (wallet1.wallet_key (transaction), wallet2.wallet_key (transaction));
+	rai::raw_key password1;
+	rai::raw_key password2;
+	wallet1.wallet_key (password1, transaction);
+	wallet2.wallet_key (password2, transaction);
+    ASSERT_EQ (password1, password2);
     ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
     ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
     ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
@@ -419,12 +445,16 @@ TEST (wallet, serialize_json_one)
     wallet1.serialize_json (transaction, serialized);
     rai::wallet_store wallet2 (error, kdf, transaction, rai::genesis_account, "1", serialized);
     ASSERT_FALSE (error);
-    ASSERT_EQ (wallet1.wallet_key (transaction), wallet2.wallet_key (transaction));
+	rai::raw_key password1;
+	rai::raw_key password2;
+	wallet1.wallet_key (password1, transaction);
+	wallet2.wallet_key (password2, transaction);
+    ASSERT_EQ (password1, password2);
     ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
     ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
     ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
     ASSERT_TRUE (wallet2.exists (transaction, key.pub));
-    rai::private_key prv;
+    rai::raw_key prv;
     wallet2.fetch (transaction, key.pub, prv);
     ASSERT_EQ (key.prv, prv);
 }
@@ -448,12 +478,16 @@ TEST (wallet, serialize_json_password)
     ASSERT_FALSE (wallet2.valid_password (transaction));
     ASSERT_FALSE (wallet2.attempt_password (transaction, "password"));
     ASSERT_TRUE (wallet2.valid_password (transaction));
-    ASSERT_EQ (wallet1.wallet_key (transaction), wallet2.wallet_key (transaction));
+	rai::raw_key password1;
+	rai::raw_key password2;
+	wallet1.wallet_key (password1, transaction);
+	wallet2.wallet_key (password2, transaction);
+    ASSERT_EQ (password1, password2);
     ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
     ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
     ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
     ASSERT_TRUE (wallet2.exists (transaction, key.pub));
-    rai::private_key prv;
+    rai::raw_key prv;
     wallet2.fetch (transaction, key.pub, prv);
     ASSERT_EQ (key.prv, prv);
 }

@@ -116,15 +116,15 @@ public:
 };
 // Balances are 128 bit.
 using amount = uint128_union;
+class raw_key;
 union uint256_union
 {
 	uint256_union () = default;
 	uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (rai::uint256_t const &);
-	uint256_union (rai::uint256_union const &, rai::uint256_union const &, uint128_union const &);
 	uint256_union (MDB_val const &);
-	uint256_union prv (uint256_union const &, uint128_union const &) const;
+	void encrypt (rai::raw_key const &, rai::raw_key const &, uint128_union const &);
 	uint256_union & operator ^= (rai::uint256_union const &);
 	uint256_union operator ^ (rai::uint256_union const &) const;
 	bool operator == (rai::uint256_union const &) const;
@@ -154,6 +154,19 @@ using public_key = uint256_union;
 using private_key = uint256_union;
 using secret_key = uint256_union;
 using checksum = uint256_union;
+class raw_key
+{
+public:
+	raw_key () = default;
+	~raw_key ();
+	void decrypt (rai::uint256_union const &, rai::raw_key const &, uint128_union const &);
+	raw_key (rai::raw_key const &) = delete;
+	raw_key (rai::raw_key const &&) = delete;
+	rai::raw_key & operator = (rai::raw_key const &) = delete;
+	bool operator == (rai::raw_key const &) const;
+	bool operator != (rai::raw_key const &) const;
+	rai::uint256_union data;
+};
 union uint512_union
 {
 	uint512_union () = default;
@@ -172,6 +185,6 @@ union uint512_union
 };
 // Only signatures are 512 bit.
 using signature = uint512_union;
-rai::uint512_union sign_message (rai::private_key const &, rai::public_key const &, rai::uint256_union const &);
+rai::uint512_union sign_message (rai::raw_key const &, rai::public_key const &, rai::uint256_union const &);
 bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
 }

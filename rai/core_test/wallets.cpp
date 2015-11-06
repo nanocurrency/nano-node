@@ -29,11 +29,14 @@ TEST (wallets, DISABLED_open_existing)
 		ASSERT_NE (nullptr, wallet);
 		ASSERT_EQ (wallet, wallets.open (id));
 		auto iterations (0);
-		while (wallet->store.password.value () == 0)
+		rai::raw_key password;
+		password.data.clear ();
+		while (password.data == 0)
 		{
 			system.poll ();
 			++iterations;
 			ASSERT_LT (iterations, 200);
+			wallet->store.password.value (password);
 		}
 	}
 	{

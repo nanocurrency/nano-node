@@ -22,24 +22,31 @@ TEST (unions, identity)
 TEST (uint256_union, key_encryption)
 {
     rai::keypair key1;
-    rai::uint256_union secret_key;
-    secret_key.bytes.fill (0);
-    rai::uint256_union encrypted (key1.prv, secret_key, key1.pub.owords [0]);
-    rai::private_key key4 (encrypted.prv (secret_key, key1.pub.owords [0]));
+    rai::raw_key secret_key;
+    secret_key.data.bytes.fill (0);
+    rai::uint256_union encrypted;
+	encrypted.encrypt (key1.prv, secret_key, key1.pub.owords [0]);
+    rai::raw_key key4;
+	key4.decrypt (encrypted, secret_key, key1.pub.owords [0]);
     ASSERT_EQ (key1.prv, key4);
     rai::public_key pub;
-    ed25519_publickey (key4.bytes.data (), pub.bytes.data ());
+    ed25519_publickey (key4.data.bytes.data (), pub.bytes.data ());
     ASSERT_EQ (key1.pub, pub);
 }
 
 TEST (uint256_union, encryption)
 {
-    rai::uint256_union key (0);
-    rai::uint256_union number1 (1);
-    rai::uint256_union encrypted1 (number1, key, key.owords [0]);
-    rai::uint256_union encrypted2 (number1, key, key.owords [0]);
+    rai::raw_key key;
+	key.data.clear ();
+    rai::raw_key number1;
+	number1.data = 1;
+    rai::uint256_union encrypted1;
+	encrypted1.encrypt (number1, key, key.data.owords [0]);
+    rai::uint256_union encrypted2;
+	encrypted2.encrypt (number1, key, key.data.owords [0]);
     ASSERT_EQ (encrypted1, encrypted2);
-    auto number2 (encrypted1.prv (key, key.owords [0]));
+    rai::raw_key number2;
+	number2.decrypt (encrypted1, key, key.data.owords [0]);
     ASSERT_EQ (number1, number2);
 }
 

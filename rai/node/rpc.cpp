@@ -753,8 +753,8 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                 {
                     std::string key_text (request_l.get <std::string> ("key"));
                     std::string wallet_text (request_l.get <std::string> ("wallet"));
-                    rai::private_key key;
-                    auto error (key.decode_hex (key_text));
+                    rai::raw_key key;
+                    auto error (key.data.decode_hex (key_text));
                     if (!error)
                     {
                         rai::uint256_union wallet;
@@ -767,7 +767,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 								rai::transaction transaction (node.store.environment, nullptr, true);
                                 existing->second->store.insert (transaction, key);
                                 rai::public_key pub;
-                                ed25519_publickey (key.bytes.data (), pub.bytes.data ());
+                                ed25519_publickey (key.data.bytes.data (), pub.bytes.data ());
                                 boost::property_tree::ptree response_l;
                                 response_l.put ("account", pub.to_base58check ());
                                 set_response (response, response_l);
@@ -840,9 +840,9 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 				if (config.enable_control)
 				{
 					rai::keypair wallet_id;
-					auto wallet (node.wallets.create (wallet_id.prv));
+					auto wallet (node.wallets.create (wallet_id.pub));
 					boost::property_tree::ptree response_l;
-					response_l.put ("wallet", wallet_id.prv.to_string ());
+					response_l.put ("wallet", wallet_id.pub.to_string ());
 					set_response (response, response_l);
                 }
                 else

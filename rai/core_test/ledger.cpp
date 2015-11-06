@@ -630,7 +630,7 @@ TEST (ledger, double_open)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send1).code);
 	rai::open_block open1 (send1.hash (), key2.pub, key2.pub, key2.prv, key2.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, open1).code);
-	rai::open_block open2 (send1.hash (), rai::test_genesis_key.pub, key2.pub, key2.pub, key2.prv, 0);
+	rai::open_block open2 (send1.hash (), rai::test_genesis_key.pub, key2.pub, key2.prv, key2.pub, 0);
 	ASSERT_EQ (rai::process_result::unreceivable, ledger.process (transaction, open2).code);
 }
 
@@ -671,7 +671,8 @@ TEST (votes, add_unsigned)
 	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
 	ASSERT_NE (nullptr, votes1);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-	rai::vote vote1 (key1.pub, 0, 1, send1.clone ());
+	rai::keypair key2;
+	rai::vote vote1 (0, key2.prv, 1, send1.clone ());
 	votes1->vote (vote1);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 }
@@ -1119,7 +1120,7 @@ TEST (ledger, fail_change_bad_signature)
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair key1;
-	rai::change_block block (genesis.hash (), key1.pub, rai::private_key (0), rai::public_key (0), 0);
+	rai::change_block block (genesis.hash (), key1.pub, rai::keypair ().prv, 0, 0);
 	auto result1 (ledger.process (transaction, block));
 	ASSERT_EQ (rai::process_result::bad_signature, result1.code);
 }
@@ -1185,7 +1186,7 @@ TEST (ledger, fail_send_bad_signature)
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair key1;
-	rai::send_block block (genesis.hash (), key1.pub, 1, 0, 0, 0);
+	rai::send_block block (genesis.hash (), key1.pub, 1, rai::keypair ().prv, 0, 0);
 	auto result1 (ledger.process (transaction, block));
 	ASSERT_EQ (rai::process_result::bad_signature, result1.code);
 }
@@ -1412,7 +1413,7 @@ TEST (ledger, fail_receive_bad_signature)
 	rai::open_block block3 (block1.hash (), 1, key1.pub, key1.prv, key1.pub, 0);
 	auto result3 (ledger.process (transaction, block3));
 	ASSERT_EQ (rai::process_result::progress, result3.code);
-	rai::receive_block block4 (block3.hash (), block2.hash (), 0, 0, 0);
+	rai::receive_block block4 (block3.hash (), block2.hash (), rai::keypair ().prv, 0, 0);
 	auto result4 (ledger.process (transaction, block4));
 	ASSERT_EQ (rai::process_result::bad_signature, result4.code);
 }

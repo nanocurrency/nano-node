@@ -1140,7 +1140,7 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, size_t rebroadcast_a)
 {
     bool result (false);
-	node.wallets.foreach_representative ([&result, &block_a, &list_a, this, sequence_a, rebroadcast_a] (rai::public_key const & pub_a, rai::private_key const & prv_a)
+	node.wallets.foreach_representative ([&result, &block_a, &list_a, this, sequence_a, rebroadcast_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
 		auto hash (block_a->hash ());
 		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
@@ -1155,7 +1155,7 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
     return result;
 }
 
-void rai::network::confirm_block (rai::private_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a, size_t rebroadcast_a)
+void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a, size_t rebroadcast_a)
 {
     rai::confirm_ack confirm (pub, prv, sequence_a, std::move (block_a));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -1434,7 +1434,7 @@ size_t rai::processor_service::size ()
 
 void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
-	wallets.foreach_representative ([this, &block_a, &sender] (rai::public_key const & pub_a, rai::private_key const & prv_a)
+	wallets.foreach_representative ([this, &block_a, &sender] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
 		if (config.logging.network_message_logging ())
 		{
@@ -1450,7 +1450,7 @@ vote (error_a, stream_a, block_type ())
 {
 }
 
-rai::confirm_ack::confirm_ack (rai::account const & account_a, rai::private_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
+rai::confirm_ack::confirm_ack (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
 message (rai::message_type::confirm_ack),
 vote (account_a, prv_a, sequence_a, std::move (block_a))
 {
@@ -3862,11 +3862,10 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
 			if (is_representative)
 			{
 				auto representative (i->second->store.representative (transaction));
-				rai::private_key prv;
+				rai::raw_key prv;
 				auto error (i->second->store.fetch (transaction, representative, prv));
 				(void)error;
 				vote_l = rai::vote (representative, prv, 0, block_a.clone ());
-				prv.clear ();
 				result = true;
 			}
 		}
@@ -3901,22 +3900,21 @@ rai::fan::fan (rai::uint256_union const & key, size_t count_a)
     values.push_back (std::move (first));
 }
 
-rai::uint256_union rai::fan::value ()
+void rai::fan::value (rai::raw_key & prv_a)
 {
-    rai::uint256_union result;
-    result.clear ();
+    prv_a.data.clear ();
     for (auto & i: values)
     {
-        result ^= *i;
+        prv_a.data ^= *i;
     }
-    return result;
 }
 
-void rai::fan::value_set (rai::uint256_union const & value_a)
+void rai::fan::value_set (rai::raw_key const & value_a)
 {
-    auto value_l (value ());
-    *(values [0]) ^= value_l;
-    *(values [0]) ^= value_a;
+    rai::raw_key value_l;
+	value (value_l);
+    *(values [0]) ^= value_l.data;
+    *(values [0]) ^= value_a.data;
 }
 
 std::array <uint8_t, 2> constexpr rai::message::magic_number;
@@ -4100,10 +4098,13 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	else if (vm.count ("diagnostics"))
 	{
 		std::cout << "Testing hash function" << std::endl;
-		rai::send_block send (0, 0, 0, 0, 0, 0);
+		rai:raw_key key;
+		key.data.clear ();
+		rai::send_block send (0, 0, 0, key, 0, 0);
 		auto hash (send.hash ());
 		std::cout << "Testing key derivation function" << std::endl;
-		rai::uint256_union junk1 (0);
+		rai::raw_key junk1;
+		junk1.data.clear ();
 		rai::uint256_union junk2 (0);
 		rai::kdf kdf;
 		kdf.phs (junk1, "", junk2);
@@ -4111,7 +4112,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
     else if (vm.count ("key_create"))
     {
         rai::keypair pair;
-        std::cout << "Private: " << pair.prv.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_base58check () << std::endl;
+        std::cout << "Private: " << pair.prv.data.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_base58check () << std::endl;
     }
 	else if (vm.count ("key_expand"))
 	{
@@ -4148,7 +4149,9 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 					if (!wallet->enter_password (password))
 					{
 						rai::transaction transaction (wallet->store.environment, nullptr, true);
-						wallet->store.insert (transaction, vm ["key"].as <std::string> ());
+						rai::raw_key key;
+						key.data.decode_hex (vm ["key"].as <std::string> ());
+						wallet->store.insert (transaction, key);
 					}
 					else
 					{

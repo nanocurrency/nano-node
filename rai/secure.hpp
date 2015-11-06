@@ -45,7 +45,7 @@ public:
 	keypair ();
 	keypair (std::string const &);
 	rai::public_key pub;
-	rai::private_key prv;
+	rai::raw_key prv;
 };
 class block_visitor;
 enum class block_type : uint8_t
@@ -105,7 +105,7 @@ public:
 class send_block : public rai::block
 {
 public:
-	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	send_block (bool &, rai::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
@@ -143,7 +143,7 @@ public:
 class receive_block : public rai::block
 {
 public:
-	receive_block (rai::block_hash const &, rai::block_hash const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	receive_block (rai::block_hash const &, rai::block_hash const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	receive_block (bool &, rai::stream &);
 	receive_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
@@ -182,7 +182,7 @@ public:
 class open_block : public rai::block
 {
 public:
-	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	open_block (rai::block_hash const &, rai::account const &, rai::account const &, std::nullptr_t);
 	open_block (bool &, rai::stream &);
 	open_block (bool &, boost::property_tree::ptree const &);
@@ -221,7 +221,7 @@ public:
 class change_block : public rai::block
 {
 public:
-	change_block (rai::block_hash const &, rai::account const &, rai::private_key const &, rai::public_key const &, uint64_t);
+	change_block (rai::block_hash const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	change_block (bool &, rai::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
 	using rai::block::hash;
@@ -425,7 +425,7 @@ class vote
 public:
 	vote () = default;
 	vote (bool &, rai::stream &, rai::block_type);
-	vote (rai::account const &, rai::private_key const &, uint64_t, std::unique_ptr <rai::block>);
+	vote (rai::account const &, rai::raw_key const &, uint64_t, std::unique_ptr <rai::block>);
 	rai::uint256_union hash () const;
 	// Vote round sequence number
 	uint64_t sequence;

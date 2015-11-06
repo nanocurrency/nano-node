@@ -191,7 +191,7 @@ TEST (rpc, wallet_add)
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
     rai::keypair key1;
     std::string key_text;
-    key1.prv.encode_hex (key_text);
+    key1.prv.data.encode_hex (key_text);
 	system.wallet (0)->insert (key1.prv);
     boost::property_tree::ptree request;
     std::string wallet;
@@ -247,11 +247,14 @@ TEST (rpc, wallet_password_enter)
 {
     rai::system system (24000, 1);
 	auto iterations (0);
-	while (system.wallet (0)->store.password.value () == 0)
+	rai::raw_key password_l;
+	password_l.data.clear ();
+	while (password_l.data == 0)
 	{
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
+		system.wallet (0)->store.password.value (password_l);
 	}
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
@@ -409,12 +412,12 @@ TEST (rpc, account_move)
     rai::keypair key;
 	destination->insert (rai::test_genesis_key.prv);
     rai::keypair source_id;
-    auto source (system.nodes [0]->wallets.create (source_id.prv));
+    auto source (system.nodes [0]->wallets.create (source_id.pub));
 	source->insert (key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "account_move");
     request.put ("wallet", wallet_id.to_string ());
-    request.put ("source", source_id.prv.to_string ());
+    request.put ("source", source_id.pub.to_string ());
     boost::property_tree::ptree keys;
     boost::property_tree::ptree entry;
     entry.put ("", key.pub.to_string ());
@@ -568,8 +571,8 @@ TEST (rpc, frontier)
 		for (auto i (0); i < 1000; ++i)
 		{
 			rai::keypair key;
-			source [key.pub] = key.prv;
-			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv, 0, 0, 0));
+			source [key.pub] = key.prv.data;
+			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0));
 		}
 	}
 	rai::keypair key;
@@ -604,8 +607,8 @@ TEST (rpc, frontier_limited)
 		for (auto i (0); i < 1000; ++i)
 		{
 			rai::keypair key;
-			source [key.pub] = key.prv;
-			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv, 0, 0, 0));
+			source [key.pub] = key.prv.data;
+			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0));
 		}
 	}
 	rai::keypair key;
@@ -630,8 +633,8 @@ TEST (rpc, frontier_startpoint)
 		for (auto i (0); i < 1000; ++i)
 		{
 			rai::keypair key;
-			source [key.pub] = key.prv;
-			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv, 0, 0, 0));
+			source [key.pub] = key.prv.data;
+			system.nodes [0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0));
 		}
 	}
 	rai::keypair key;

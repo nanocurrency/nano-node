@@ -59,8 +59,8 @@ TEST (wallet, select_account)
 {
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
-	rai::public_key key1 (wallet_l->insert (1));
-	rai::public_key key2 (wallet_l->insert (2));
+	rai::public_key key1 (wallet_l->insert (rai::keypair ().prv));
+	rai::public_key key2 (wallet_l->insert (rai::keypair ().prv));
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key1);
 	ASSERT_EQ (key1, wallet.account);
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
@@ -116,14 +116,22 @@ TEST (wallet, password_change)
     QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		ASSERT_NE (system.wallet (0)->store.derive_key (transaction, "1"), system.wallet (0)->store.password.value ());
+		rai::raw_key password1;
+		rai::raw_key password2;
+		system.wallet (0)->store.derive_key (password1, transaction, "1");
+		system.wallet (0)->store.password.value (password2);
+		ASSERT_NE (password1, password2);
 	}
     QTest::keyClicks (wallet.settings.new_password, "1");
     QTest::keyClicks (wallet.settings.retype_password, "1");
     QTest::mouseClick (wallet.settings.change, Qt::LeftButton);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		ASSERT_EQ (system.wallet (0)->store.derive_key (transaction, "1"), system.wallet (0)->store.password.value ());
+		rai::raw_key password1;
+		rai::raw_key password2;
+		system.wallet (0)->store.derive_key (password1, transaction, "1");
+		system.wallet (0)->store.password.value (password2);
+		ASSERT_EQ (password1, password2);
 	}
     ASSERT_EQ ("", wallet.settings.new_password->text ());
     ASSERT_EQ ("", wallet.settings.retype_password->text ());
@@ -141,22 +149,33 @@ TEST (client, password_nochange)
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), account);
     QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
 	auto iterations (0);
-	while (system.wallet (0)->store.password.value () == 0)
+	rai::raw_key password;
+	password.data.clear ();
+	while (password.data == 0)
 	{
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
+		system.wallet (0)->store.password.value (password);
 	}
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		ASSERT_EQ (system.wallet (0)->store.derive_key (transaction, ""), system.wallet (0)->store.password.value ());
+		rai::raw_key password1;
+		system.wallet (0)->store.derive_key (password1, transaction, "");
+		rai::raw_key password2;
+		system.wallet (0)->store.password.value (password2);
+		ASSERT_EQ (password1, password2);
 	}
     QTest::keyClicks (wallet.settings.new_password, "1");
     QTest::keyClicks (wallet.settings.retype_password, "2");
     QTest::mouseClick (wallet.settings.change, Qt::LeftButton);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		ASSERT_EQ (system.wallet (0)->store.derive_key (transaction, ""), system.wallet (0)->store.password.value ());
+		rai::raw_key password1;
+		system.wallet (0)->store.derive_key (password1, transaction, "");
+		rai::raw_key password2;
+		system.wallet (0)->store.password.value (password2);
+		ASSERT_EQ (password1, password2);
 	}
     ASSERT_EQ ("1", wallet.settings.new_password->text ());
     ASSERT_EQ ("", wallet.settings.retype_password->text ());
@@ -198,7 +217,7 @@ TEST (wallet, send)
 {
     rai::system system (24000, 2);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	rai::public_key key1 (system.wallet (1)->insert (1));
+	rai::public_key key1 (system.wallet (1)->insert (rai::keypair ().prv));
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
     QTest::keyClicks (wallet.send_account, key1.to_base58check ().c_str ());

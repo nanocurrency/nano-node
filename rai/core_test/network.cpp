@@ -148,7 +148,7 @@ TEST (network, multi_keepalive)
 TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
-    std::unique_ptr <rai::send_block> block (new rai::send_block (1, 1, 2, 3, 4, system.work.generate (1)));
+    std::unique_ptr <rai::send_block> block (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
     system.nodes [0]->network.republish_block (std::move (block), 0);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
@@ -431,7 +431,7 @@ TEST (bulk_pull, end_not_owned)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 100).is_zero ());
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-    rai::open_block open (0, 1, 2, 3, 4, 5);
+    rai::open_block open (0, 1, 2, rai::keypair ().prv, 4, 5);
     open.hashables.account = key2.pub;
     open.hashables.representative = key2.pub;
     open.hashables.source = latest;
@@ -501,7 +501,7 @@ TEST (bootstrap_processor, DISABLED_process_incomplete)
     auto frontier_req_client (std::make_shared <rai::frontier_req_client> (node1));
     frontier_req_client->pulls [rai::test_genesis_key.pub] = genesis.hash ();
     auto bulk_pull_client (std::make_shared <rai::bulk_pull_client> (frontier_req_client));
-    std::unique_ptr <rai::send_block> block1 (new rai::send_block (0, 1, 2, 3, 4, 5));
+    std::unique_ptr <rai::send_block> block1 (new rai::send_block (0, 1, 2, rai::keypair ().prv, 4, 5));
     bulk_pull_client->process_end ();
 }
 

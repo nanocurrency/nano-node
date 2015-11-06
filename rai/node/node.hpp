@@ -207,7 +207,7 @@ class confirm_ack : public message
 {
 public:
 	confirm_ack (bool &, rai::stream &);
-    confirm_ack (rai::account const &, rai::private_key const &, uint64_t, std::unique_ptr <rai::block>);
+    confirm_ack (rai::account const &, rai::raw_key const &, uint64_t, std::unique_ptr <rai::block>);
     bool deserialize (rai::stream &) override;
     void serialize (rai::stream &) override;
     void visit (rai::message_visitor &) const override;
@@ -489,7 +489,7 @@ public:
     void republish_block (std::unique_ptr <rai::block>, size_t);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
     bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, uint64_t, size_t);
-	void confirm_block (rai::private_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &, size_t);
+	void confirm_block (rai::raw_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &, size_t);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (rai::block const &);

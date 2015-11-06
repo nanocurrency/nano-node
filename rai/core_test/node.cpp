@@ -51,7 +51,7 @@ TEST (node, send_unkeyed)
     rai::system system (24000, 1);
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->store.password.value_set (rai::uint256_union (1));
+	system.wallet (0)->store.password.value_set (rai::keypair ().prv);
     ASSERT_TRUE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()).is_zero ());
 }
 
@@ -237,7 +237,7 @@ TEST (node, receive_gap)
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
     ASSERT_EQ (0, node1.gap_cache.blocks.size ());
-    rai::send_block block (0, 1, 2, 3, 4, 5);
+    rai::send_block block (0, 1, 2, rai::keypair ().prv, 4, 5);
     rai::confirm_req message;
     message.block = block.clone ();
     node1.process_message (message, node1.network.endpoint ());
@@ -299,7 +299,7 @@ TEST (node, unlock_search)
         ASSERT_LT (iterations1, 200);
     }
 	system.wallet (0)->insert (key2.prv);
-	system.wallet (0)->store.password.value_set (0);
+	system.wallet (0)->store.password.value_set (rai::keypair ().prv);
 	auto node (system.nodes [0]);
 	ASSERT_FALSE (system.wallet (0)->enter_password (""));
     auto iterations2 (0);
@@ -427,7 +427,7 @@ TEST (node, confirm_locked)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->enter_password ("1");
-	rai::send_block block (0, 0, 0, 0, 0, 0);
+	rai::send_block block (0, 0, 0, rai::keypair ().prv, 0, 0);
 	system.nodes [0]->process_confirmation (block, rai::endpoint ());
 }
 

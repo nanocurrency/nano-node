@@ -35,7 +35,7 @@ TEST (transaction_block, empty)
 
 TEST (block, send_serialize)
 {
-    rai::send_block block1 (0, 1, 2, 3, 4, 5);
+    rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);
@@ -54,7 +54,7 @@ TEST (block, send_serialize)
 
 TEST (block, send_serialize_json)
 {
-    rai::send_block block1 (0, 1, 2, 3, 4, 5);
+    rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
@@ -69,7 +69,7 @@ TEST (block, send_serialize_json)
 
 TEST (block, receive_serialize)
 {
-    rai::receive_block block1 (0, 1, 2, 3, 4);
+    rai::receive_block block1 (0, 1, rai::keypair ().prv, 3, 4);
     rai::keypair key1;
     std::vector <uint8_t> bytes;
     {
@@ -85,7 +85,7 @@ TEST (block, receive_serialize)
 
 TEST (block, receive_serialize_json)
 {
-    rai::receive_block block1 (0, 1, 2, 3, 4);
+    rai::receive_block block1 (0, 1, rai::keypair ().prv, 3, 4);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
@@ -100,7 +100,7 @@ TEST (block, receive_serialize_json)
 
 TEST (block, open_serialize_json)
 {
-    rai::open_block block1 (0, 1, 0, 0, 0, 0);
+    rai::open_block block1 (0, 1, 0, rai::keypair ().prv, 0, 0);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
@@ -115,7 +115,7 @@ TEST (block, open_serialize_json)
 
 TEST (block, change_serialize_json)
 {
-    rai::change_block block1 (0, 1, 2, 3, 4);
+    rai::change_block block1 (0, 1, rai::keypair ().prv, 3, 4);
     std::string string1;
     block1.serialize_json (string1);
     ASSERT_NE (0, string1.size ());
@@ -197,7 +197,7 @@ TEST (uint512_union, parse_error_overflow)
 
 TEST (send_block, deserialize)
 {
-    rai::send_block block1 (0, 1, 2, 3, 4, 5);
+    rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
@@ -214,7 +214,7 @@ TEST (send_block, deserialize)
 
 TEST (receive_block, deserialize)
 {
-    rai::receive_block block1 (0, 1, 2, 3, 4);
+    rai::receive_block block1 (0, 1, rai::keypair ().prv, 3, 4);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     block1.hashables.previous = 2;
     block1.hashables.source = 4;
@@ -233,7 +233,7 @@ TEST (receive_block, deserialize)
 
 TEST (open_block, deserialize)
 {
-    rai::open_block block1 (0, 1, 0, 0, 0, 0);
+    rai::open_block block1 (0, 1, 0, rai::keypair ().prv, 0, 0);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
@@ -250,7 +250,7 @@ TEST (open_block, deserialize)
 
 TEST (change_block, deserialize)
 {
-    rai::change_block block1 (1, 2, 3, 4, 5);
+    rai::change_block block1 (1, 2, rai::keypair ().prv, 4, 5);
 	ASSERT_EQ (block1.hash (), block1.hash ());
     std::vector <uint8_t> bytes;
     {
@@ -289,7 +289,7 @@ TEST (frontier_req, serialization)
 TEST (work, one)
 {
 	rai::work_pool pool;
-    rai::change_block block (1, 1, 2, 3, 4);
+    rai::change_block block (1, 1, rai::keypair ().prv, 3, 4);
     pool.generate (block);
     ASSERT_FALSE (pool.work_validate (block));
 }
@@ -297,7 +297,7 @@ TEST (work, one)
 TEST (work, validate)
 {
 	rai::work_pool pool;
-	rai::send_block send_block (1, 1, 2, 3, 4, 6);
+	rai::send_block send_block (1, 1, 2, rai::keypair ().prv, 4, 6);
     ASSERT_TRUE (pool.work_validate (send_block));
     pool.generate (send_block);
     ASSERT_FALSE (pool.work_validate (send_block));
@@ -307,7 +307,7 @@ TEST (block, publish_req_serialization)
 {
     rai::keypair key1;
     rai::keypair key2;
-    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, 1, 2, 3)));
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
     rai::publish req (std::move (block));
     std::vector <uint8_t> bytes;
     {
@@ -326,7 +326,7 @@ TEST (block, confirm_req_serialization)
 {
     rai::keypair key1;
     rai::keypair key2;
-    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, 1, 2, 3)));
+    auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
     rai::confirm_req req (std::move (block));
     std::vector <uint8_t> bytes;
     {

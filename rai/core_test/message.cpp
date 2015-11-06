@@ -40,7 +40,7 @@ TEST (message, keepalive_deserialize)
 
 TEST (message, publish_serialization)
 {
-    rai::publish publish (std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, 3, 4, 5)));
+    rai::publish publish (std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, rai::keypair ().prv, 4, 5)));
     ASSERT_EQ (rai::block_type::send, publish.block_type ());
     ASSERT_FALSE (publish.ipv4_only ());
     publish.ipv4_only_set (true);
@@ -75,7 +75,7 @@ TEST (message, publish_serialization)
 TEST (message, confirm_ack_serialization)
 {
     rai::keypair key1;
-    rai::confirm_ack con1 (key1.pub, key1.prv, 0, std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, 3, 4, 5)));
+    rai::confirm_ack con1 (key1.pub, key1.prv, 0, std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, key1.prv, 4, 5)));
     std::vector <uint8_t> bytes;
     {
         rai::vectorstream stream1 (bytes);

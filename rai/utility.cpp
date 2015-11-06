@@ -303,12 +303,11 @@ bool rai::uint256_union::operator == (rai::uint256_union const & other_a) const
 }
 
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
-rai::uint256_union::uint256_union (rai::private_key const & cleartext, rai::secret_key const & key, uint128_union const & iv)
+void rai::uint256_union::encrypt (rai::raw_key const & cleartext, rai::raw_key const & key, uint128_union const & iv)
 {
-	rai::uint256_union exponent (cleartext);
-	CryptoPP::AES::Encryption alg (key.bytes.data (), sizeof (key.bytes));
+	CryptoPP::AES::Encryption alg (key.data.bytes.data (), sizeof (key.data.bytes));
     CryptoPP::CTR_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
-	enc.ProcessData (bytes.data (), exponent.bytes.data (), sizeof (exponent.bytes));
+	enc.ProcessData (bytes.data (), cleartext.data.bytes.data (), sizeof (cleartext.data.bytes));
 }
 
 rai::uint256_union::uint256_union (MDB_val const & val_a)
@@ -316,16 +315,6 @@ rai::uint256_union::uint256_union (MDB_val const & val_a)
 	assert (val_a.mv_size == sizeof (*this));
 	static_assert (sizeof (bytes) == sizeof (*this), "Class not packed");
 	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), bytes.data ());
-}
-
-// Return a uint256_union = AES_DEC_CTR (this, key, iv)
-rai::private_key rai::uint256_union::prv (rai::secret_key const & key_a, uint128_union const & iv) const
-{
-	CryptoPP::AES::Encryption alg (key_a.bytes.data (), sizeof (key_a.bytes));
-	CryptoPP::CTR_Mode_ExternalCipher::Decryption dec (alg, iv.bytes.data ());
-	rai::private_key result;
-	dec.ProcessData (result.bytes.data (), bytes.data (), sizeof (bytes));
-	return result;
 }
 
 bool rai::uint256_union::is_zero () const
@@ -473,6 +462,29 @@ rai::uint256_union::uint256_union (uint64_t value0)
 bool rai::uint256_union::operator != (rai::uint256_union const & other_a) const
 {
     return ! (*this == other_a);
+}
+
+rai::raw_key::~raw_key ()
+{
+	data.clear ();
+}
+
+bool rai::raw_key::operator == (rai::raw_key const & other_a) const
+{
+	return data == other_a.data;
+}
+
+bool rai::raw_key::operator != (rai::raw_key const & other_a) const
+{
+	return !(*this == other_a);
+}
+
+// This this = AES_DEC_CTR (ciphertext, key, iv)
+void rai::raw_key::decrypt (rai::uint256_union const & ciphertext, rai::raw_key const & key_a, uint128_union const & iv)
+{
+	CryptoPP::AES::Encryption alg (key_a.data.bytes.data (), sizeof (key_a.data.bytes));
+	CryptoPP::CTR_Mode_ExternalCipher::Decryption dec (alg, iv.bytes.data ());
+	dec.ProcessData (data.bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
 }
 
 // Base58check is an encoding using [0-9][a-z][A-Z] excluding characters that can be confused
@@ -675,10 +687,10 @@ void ed25519_hash (uint8_t * out, uint8_t const * in, size_t inlen)
 }
 }
 
-rai::uint512_union rai::sign_message (rai::private_key const & private_key, rai::public_key const & public_key, rai::uint256_union const & message)
+rai::uint512_union rai::sign_message (rai::raw_key const & private_key, rai::public_key const & public_key, rai::uint256_union const & message)
 {
 	rai::uint512_union result;
-    ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+    ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
 	return result;
 }
 
