@@ -2696,6 +2696,7 @@ rai::block_hash rai::bulk_pull_client::first ()
 
 void rai::bulk_pull_client::process_end ()
 {
+	block_flush ();
 	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
 	{
 		connection->connection->node->process_receive_many (block_a, [this] (rai::process_return result_a, rai::block const & block_a)
@@ -2766,6 +2767,16 @@ void rai::bulk_pull_client::process_end ()
     }
 }
 
+void rai::bulk_pull_client::block_flush ()
+{
+	rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
+	for (auto & i: blocks)
+	{
+		connection->connection->node->store.unchecked_put (transaction, i->hash(), *i);
+	}
+	blocks.clear ();
+}
+
 void rai::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
@@ -2781,9 +2792,10 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
                 block->serialize_json (block_l);
                 BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
             }
+			blocks.emplace_back (std::move (block));
+			if (blocks.size () == block_count)
 			{
-				rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
-				connection->connection->node->store.unchecked_put (transaction, hash, *block);
+				block_flush ();
 			}
             receive_block ();
 		}
@@ -3358,6 +3370,7 @@ connection (connection_a),
 current (connection->pulls.begin ()),
 end (connection->pulls.end ())
 {
+	blocks.reserve (block_count);
 }
 
 rai::bulk_pull_client::~bulk_pull_client ()

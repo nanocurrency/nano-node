@@ -384,9 +384,12 @@ public:
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
     void process_end ();
+	void block_flush ();
 	rai::block_hash first ();
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::frontier_req_client> connection;
+	size_t const block_count = 4096;
+	std::vector <std::unique_ptr <rai::block>> blocks;
     std::unordered_map <rai::account, rai::block_hash>::iterator current;
     std::unordered_map <rai::account, rai::block_hash>::iterator end;
 };
