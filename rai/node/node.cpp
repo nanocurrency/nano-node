@@ -1202,6 +1202,7 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 
 void rai::node::process_receive_many (rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
 {
+	rai::transaction transaction (store.environment, nullptr, true);
 	std::vector <std::unique_ptr <rai::block>> blocks;
 	blocks.push_back (block_a.clone ());
     while (!blocks.empty ())
@@ -1209,7 +1210,7 @@ void rai::node::process_receive_many (rai::block const & block_a, std::function 
 		auto block (std::move (blocks.back ()));
 		blocks.pop_back ();
         auto hash (block->hash ());
-        auto process_result (process_receive_one (*block));
+        auto process_result (process_receive_one (transaction, *block));
 		completed_a (process_result, *block);
 		auto cached (gap_cache.get (hash));
 		blocks.resize (blocks.size () + cached.size ());
@@ -1217,13 +1218,10 @@ void rai::node::process_receive_many (rai::block const & block_a, std::function 
     }
 }
 
-rai::process_return rai::node::process_receive_one (rai::block const & block_a)
+rai::process_return rai::node::process_receive_one (rai::transaction & transaction_a, rai::block const & block_a)
 {
 	rai::process_return result;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		result = ledger.process (transaction, block_a);
-	}
+	result = ledger.process (transaction_a, block_a);
     switch (result.code)
     {
         case rai::process_result::progress:
@@ -1262,14 +1260,13 @@ rai::process_return rai::node::process_receive_one (rai::block const & block_a)
 			{
 				auto root (block_a.root ());
 				auto hash (block_a.hash ());
-				rai::transaction transaction (store.environment, nullptr, true);
-				auto existing (store.block_get (transaction, hash));
+				auto existing (store.block_get (transaction_a, hash));
 				if (existing != nullptr)
 				{
 					// Replace block with one that has higher work value
 					if (work.work_value (root, block_a.block_work ()) > work.work_value (root, existing->block_work ()))
 					{
-						store.block_put (transaction, hash, block_a);
+						store.block_put (transaction_a, hash, block_a);
 					}
 				}
 				else
@@ -1322,10 +1319,7 @@ rai::process_return rai::node::process_receive_one (rai::block const & block_a)
                 BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
             }
 			std::unique_ptr <rai::block> root;
-			{
-				rai::transaction transaction (store.environment, nullptr, false);
-				root = ledger.successor (transaction, block_a.root ());
-			}
+			root = ledger.successor (transaction_a, block_a.root ());
 			auto node_l (shared_from_this ());
 			conflicts.start (*root, [node_l] (rai::block & block_a)
 			{

@@ -68,7 +68,10 @@ TEST (gap_cache, gap_bootstrap)
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	rai::keypair key;
 	rai::send_block send (latest, key.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest));
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive_one (send).code);
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive_one (transaction, send).code);
+	}
 	ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes [1]->balance (rai::genesis_account));
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
