@@ -438,7 +438,7 @@ public:
 class votes
 {
 public:
-	votes (rai::block_hash const &);
+	votes (rai::block const &);
 	bool vote (rai::vote const &);
 	// Our vote round sequence number
 	uint64_t sequence;

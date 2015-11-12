@@ -1076,7 +1076,7 @@ void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
     }
     else
     {
-		blocks.insert ({std::chrono::system_clock::now (), needed_a, hash, std::unique_ptr <rai::votes> (new rai::votes (hash)), block_a.clone ()});
+		blocks.insert ({std::chrono::system_clock::now (), needed_a, hash, std::unique_ptr <rai::votes> (new rai::votes (block_a)), block_a.clone ()});
         if (blocks.size () > max)
         {
             blocks.get <1> ().erase (blocks.get <1> ().begin ());
@@ -3659,20 +3659,13 @@ std::shared_ptr <rai::node> rai::node::shared ()
 }
 
 rai::election::election (std::shared_ptr <rai::node> node_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a) :
-votes (block_a.root ()),
+votes (block_a),
 node (node_a),
 last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
 confirmed (false),
 confirmation_action (confirmation_action_a)
 {
-	{
-		rai::transaction transaction (node_a->store.environment, nullptr, false);
-		assert (node_a->store.block_exists (transaction, block_a.hash ()));
-	}
-    rai::keypair anonymous;
-    rai::vote vote_l (anonymous.pub, anonymous.prv, 0, block_a.clone ());
-    vote (vote_l);
 }
 
 void rai::election::start ()

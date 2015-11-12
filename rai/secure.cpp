@@ -151,11 +151,12 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 	return result;
 }
 
-rai::votes::votes (rai::block_hash const & id_a) :
+rai::votes::votes (rai::block const & block_a) :
 // Sequence 0 is the first response by a representative before a fork was observed
 sequence (1),
-id (id_a)
+id (block_a.root ())
 {
+	rep_votes.insert (std::make_pair (0, std::make_pair (0, block_a.clone ())));
 }
 
 // Create a new random keypair
