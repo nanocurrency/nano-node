@@ -313,35 +313,35 @@ public:
 class block_synchronization
 {
 public:
-    block_synchronization (boost::log::sources::logger &, std::function <void (rai::block const &)> const &, rai::block_store &);
+    block_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
     ~block_synchronization ();
     // Return true if target already has block
-    virtual bool synchronized (rai::block_hash const &) = 0;
-    virtual std::unique_ptr <rai::block> retrieve (rai::block_hash const &) = 0;
+    virtual bool synchronized (rai::transaction &, rai::block_hash const &) = 0;
+    virtual std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) = 0;
     // return true if all dependencies are synchronized
-    bool add_dependency (rai::block const &);
-    bool fill_dependencies ();
-    bool synchronize_one ();
-    bool synchronize (rai::block_hash const &);
+    bool add_dependency (rai::transaction &, rai::block const &);
+    bool fill_dependencies (rai::transaction &);
+    bool synchronize_one (rai::transaction &);
+    bool synchronize (rai::transaction &, rai::block_hash const &);
     std::stack <rai::block_hash> blocks;
     std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger & log;
-    std::function <void (rai::block const &)> target;
+    std::function <void (rai::transaction &, rai::block const &)> target;
     rai::block_store & store;
 };
 class pull_synchronization : public rai::block_synchronization
 {
 public:
-    pull_synchronization (boost::log::sources::logger &, std::function <void (rai::block const &)> const &, rai::block_store &);
-    bool synchronized (rai::block_hash const &) override;
-    std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
+    pull_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
+    bool synchronized (rai::transaction &, rai::block_hash const &) override;
+    std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
 };
 class push_synchronization : public rai::block_synchronization
 {
 public:
-    push_synchronization (boost::log::sources::logger &, std::function <void (rai::block const &)> const &, rai::block_store &);
-    bool synchronized (rai::block_hash const &) override;
-    std::unique_ptr <rai::block> retrieve (rai::block_hash const &) override;
+    push_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
+    bool synchronized (rai::transaction &, rai::block_hash const &) override;
+    std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
 };
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {

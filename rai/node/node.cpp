@@ -2513,7 +2513,7 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
-rai::block_synchronization::block_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::block_synchronization::block_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
 log (log_a),
 target (target_a),
 store (store_a)
@@ -2528,7 +2528,8 @@ namespace {
 class add_dependency_visitor : public rai::block_visitor
 {
 public:
-    add_dependency_visitor (rai::block_synchronization & sync_a) :
+    add_dependency_visitor (rai::transaction & transaction_a, rai::block_synchronization & sync_a) :
+	transaction (transaction_a),
     sync (sync_a),
     result (true)
     {
@@ -2555,7 +2556,7 @@ public:
     }
     void add_dependency (rai::block_hash const & hash_a)
     {
-        if (!sync.synchronized (hash_a))
+        if (!sync.synchronized (transaction, hash_a))
         {
             result = false;
             sync.blocks.push (hash_a);
@@ -2565,29 +2566,30 @@ public:
 			// Block is already synchronized, normal
 		}
     }
+	rai::transaction & transaction;
     rai::block_synchronization & sync;
     bool result;
 };
 }
 
-bool rai::block_synchronization::add_dependency (rai::block const & block_a)
+bool rai::block_synchronization::add_dependency (rai::transaction & transaction_a, rai::block const & block_a)
 {
-    add_dependency_visitor visitor (*this);
+    add_dependency_visitor visitor (transaction_a, *this);
     block_a.visit (visitor);
     return visitor.result;
 }
 
-bool rai::block_synchronization::fill_dependencies ()
+bool rai::block_synchronization::fill_dependencies (rai::transaction & transaction_a)
 {
     auto result (false);
     auto done (false);
     while (!result && !done)
     {
 		auto hash (blocks.top ());
-        auto block (retrieve (hash));
+        auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
-            done = add_dependency (*block);
+            done = add_dependency (transaction_a, *block);
         }
         else
         {
@@ -2598,17 +2600,17 @@ bool rai::block_synchronization::fill_dependencies ()
     return result;
 }
 
-bool rai::block_synchronization::synchronize_one ()
+bool rai::block_synchronization::synchronize_one (rai::transaction & transaction_a)
 {
-    auto result (fill_dependencies ());
+    auto result (fill_dependencies (transaction_a));
     if (!result)
     {
 		auto hash (blocks.top ());
-        auto block (retrieve (hash));
+        auto block (retrieve (transaction_a,hash));
         blocks.pop ();
         if (block != nullptr)
         {
-			target (*block);
+			target (transaction_a, *block);
 		}
 		else
 		{
@@ -2619,54 +2621,50 @@ bool rai::block_synchronization::synchronize_one ()
     return result;
 }
 
-bool rai::block_synchronization::synchronize (rai::block_hash const & hash_a)
+bool rai::block_synchronization::synchronize (rai::transaction & transaction_a, rai::block_hash const & hash_a)
 {
     auto result (false);
     blocks.push (hash_a);
     while (!result && !blocks.empty ())
     {
-        result = synchronize_one ();
+        result = synchronize_one (transaction_a);
     }
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::pull_synchronization::pull_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
 
-std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (rai::block_hash const & hash_a)
+std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (rai::transaction & transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
-    return store.unchecked_get (transaction, hash_a);
+    return store.unchecked_get (transaction_a, hash_a);
 }
 
-bool rai::pull_synchronization::synchronized (rai::block_hash const & hash_a)
+bool rai::pull_synchronization::synchronized (rai::transaction & transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
-    return store.block_exists (transaction, hash_a);
+    return store.block_exists (transaction_a, hash_a);
 }
 
-rai::push_synchronization::push_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::push_synchronization::push_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
 
-bool rai::push_synchronization::synchronized (rai::block_hash const & hash_a)
+bool rai::push_synchronization::synchronized (rai::transaction & transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
-    auto result (!store.unsynced_exists (transaction, hash_a));
+    auto result (!store.unsynced_exists (transaction_a, hash_a));
 	if (!result)
 	{
-		store.unsynced_del (transaction, hash_a);
+		store.unsynced_del (transaction_a, hash_a);
 	}
 	return result;
 }
 
-std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::block_hash const & hash_a)
+std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::transaction & transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
-    return store.block_get (transaction, hash_a);
+    return store.block_get (transaction_a, hash_a);
 }
 
 rai::block_hash rai::bulk_pull_client::first ()
@@ -2691,10 +2689,9 @@ rai::block_hash rai::bulk_pull_client::first ()
 void rai::bulk_pull_client::process_end ()
 {
 	block_flush ();
-	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
+	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::transaction & transaction_a, rai::block const & block_a)
 	{
-		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
-		connection->connection->node->process_receive_many (transaction, block_a, [this] (rai::process_return result_a, rai::block const & block_a)
+		connection->connection->node->process_receive_many (transaction_a, block_a, [this] (rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{
@@ -2718,43 +2715,45 @@ void rai::bulk_pull_client::process_end ()
 					break;
 			}
 		});
-		connection->connection->node->store.unchecked_del (transaction, block_a.hash ());
+		connection->connection->node->store.unchecked_del (transaction_a, block_a.hash ());
 	}, connection->connection->node->store);
 	rai::block_hash block (first ());
     while (!block.is_zero ())
     {
-		BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
-		auto error (synchronization.synchronize (block));
-        if (error)
-        {
-            while (!synchronization.blocks.empty ())
-            {
-				rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
-				std::unique_ptr <rai::block> block;
-				auto hash (synchronization.blocks.top ());
-				synchronization.blocks.pop ();
-				if (!connection->connection->node->store.block_exists (transaction, hash))
+		{
+			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
+			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
+			auto error (synchronization.synchronize (transaction, block));
+			if (error)
+			{
+				while (!synchronization.blocks.empty ())
 				{
-					if (connection->connection->node->config.logging.bulk_pull_logging ())
+					std::unique_ptr <rai::block> block;
+					auto hash (synchronization.blocks.top ());
+					synchronization.blocks.pop ();
+					if (!connection->connection->node->store.block_exists (transaction, hash))
 					{
-						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
+						if (connection->connection->node->config.logging.bulk_pull_logging ())
+						{
+							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
+						}
+					}
+					else
+					{
+						if (connection->connection->node->config.logging.bulk_pull_logging ())
+						{
+							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
+						}
+						auto block (connection->connection->node->store.unchecked_get (transaction, hash));
+					}
+					connection->connection->node->store.unchecked_del (transaction, hash);
+					if (block != nullptr)
+					{
+						connection->connection->node->process_receive_many (transaction, *block);
 					}
 				}
-				else
-				{
-					if (connection->connection->node->config.logging.bulk_pull_logging ())
-					{
-						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
-					}
-					auto block (connection->connection->node->store.unchecked_get (transaction, hash));
-				}
-				connection->connection->node->store.unchecked_del (transaction, hash);
-				if (block != nullptr)
-				{
-					connection->connection->node->process_receive_many (transaction, *block);
-				}
-            }
-        }
+			}
+		}
 		block = first ();
     }
 }
@@ -3530,7 +3529,7 @@ void rai::frontier_req_client::completed_pushes ()
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
 connection (connection_a),
-synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
+synchronization (connection->connection->node->log, [this] (rai::transaction & transaction_a, rai::block const & block_a)
 {
     push_block (block_a);
 }, connection_a->connection->node->store)
@@ -3569,22 +3568,30 @@ void rai::bulk_push_client::start ()
 
 void rai::bulk_push_client::push ()
 {
-	rai::block_hash hash (0);
+	auto finished (false);
 	{
 		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
 		auto first (connection->connection->node->store.unsynced_begin (transaction));
 		if (first != rai::store_iterator (nullptr))
 		{
-			hash = first->first;
-			connection->connection->node->store.unsynced_del (transaction, hash);
+			rai::block_hash hash (first->first);
+			if (!hash.is_zero ())
+			{
+				connection->connection->node->store.unsynced_del (transaction, hash);
+				synchronization.blocks.push (hash);
+				synchronization.synchronize_one (transaction);
+			}
+			else
+			{
+				finished = true;
+			}
+		}
+		else
+		{
+			finished = true;
 		}
 	}
-	if (!hash.is_zero ())
-	{
-		synchronization.blocks.push (hash);
-        synchronization.synchronize_one ();
-    }
-    else
+	if (finished)
     {
         send_finished ();
     }
@@ -3619,7 +3626,8 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		{
 			if (!this_l->synchronization.blocks.empty ())
 			{
-				this_l->synchronization.synchronize_one ();
+				rai::transaction transaction (this_l->connection->connection->node->store.environment, nullptr, true);
+				this_l->synchronization.synchronize_one (transaction);
 			}
 			else
 			{
