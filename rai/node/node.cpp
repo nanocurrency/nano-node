@@ -1182,8 +1182,9 @@ void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key cons
 
 void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming, size_t rebroadcast_a)
 {
+	rai::transaction transaction (store.environment, nullptr, true);
 	assert (incoming != nullptr);
-	process_receive_many (*incoming, [this, rebroadcast_a] (rai::process_return result_a, rai::block const & block_a)
+	process_receive_many (transaction, *incoming, [this, rebroadcast_a] (rai::process_return result_a, rai::block const & block_a)
 	{
 		switch (result_a.code)
 		{
@@ -1200,9 +1201,8 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 	});
 }
 
-void rai::node::process_receive_many (rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
+void rai::node::process_receive_many (rai::transaction & transaction_a, rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
 	std::vector <std::unique_ptr <rai::block>> blocks;
 	blocks.push_back (block_a.clone ());
     while (!blocks.empty ())
@@ -1210,7 +1210,7 @@ void rai::node::process_receive_many (rai::block const & block_a, std::function 
 		auto block (std::move (blocks.back ()));
 		blocks.pop_back ();
         auto hash (block->hash ());
-        auto process_result (process_receive_one (transaction, *block));
+        auto process_result (process_receive_one (transaction_a, *block));
 		completed_a (process_result, *block);
 		auto cached (gap_cache.get (hash));
 		blocks.resize (blocks.size () + cached.size ());
@@ -2693,7 +2693,8 @@ void rai::bulk_pull_client::process_end ()
 	block_flush ();
 	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::block const & block_a)
 	{
-		connection->connection->node->process_receive_many (block_a, [this] (rai::process_return result_a, rai::block const & block_a)
+		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
+		connection->connection->node->process_receive_many (transaction, block_a, [this] (rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{
@@ -2717,7 +2718,6 @@ void rai::bulk_pull_client::process_end ()
 					break;
 			}
 		});
-		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
 		connection->connection->node->store.unchecked_del (transaction, block_a.hash ());
 	}, connection->connection->node->store);
 	rai::block_hash block (first ());
@@ -2729,31 +2729,29 @@ void rai::bulk_pull_client::process_end ()
         {
             while (!synchronization.blocks.empty ())
             {
+				rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
 				std::unique_ptr <rai::block> block;
+				auto hash (synchronization.blocks.top ());
+				synchronization.blocks.pop ();
+				if (!connection->connection->node->store.block_exists (transaction, hash))
 				{
-					rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
-					auto hash (synchronization.blocks.top ());
-					synchronization.blocks.pop ();
-					if (!connection->connection->node->store.block_exists (transaction, hash))
+					if (connection->connection->node->config.logging.bulk_pull_logging ())
 					{
-						if (connection->connection->node->config.logging.bulk_pull_logging ())
-						{
-							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
-						}
+						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
 					}
-					else
-					{
-						if (connection->connection->node->config.logging.bulk_pull_logging ())
-						{
-							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
-						}
-						auto block (connection->connection->node->store.unchecked_get (transaction, hash));
-					}
-					connection->connection->node->store.unchecked_del (transaction, hash);
 				}
+				else
+				{
+					if (connection->connection->node->config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
+					}
+					auto block (connection->connection->node->store.unchecked_get (transaction, hash));
+				}
+				connection->connection->node->store.unchecked_del (transaction, hash);
 				if (block != nullptr)
 				{
-					connection->connection->node->process_receive_many (*block);
+					connection->connection->node->process_receive_many (transaction, *block);
 				}
             }
         }
