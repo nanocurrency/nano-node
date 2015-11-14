@@ -3,6 +3,7 @@
 #include <rai/node/testing.hpp>
 #include <rai/node/rpc.hpp>
 
+#include <boost/network/protocol/http/client.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/thread.hpp>
@@ -10,19 +11,28 @@
 std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>::response::status_type> test_response (boost::property_tree::ptree const & request_a, rai::rpc & rpc_a)
 {
 	std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>::response::status_type> result;
-    boost::network::http::server <rai::rpc>::request request;
-    request.method = "POST";
+	boost::network::http::client client;
+	auto url ("http://localhost:" + std::to_string (rpc_a.config.port));
+	std::cerr << url << std::endl;
+    boost::network::http::client::request request (url);
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, request_a);
-    request.body = ostream.str ();
-    boost::network::http::server <rai::rpc>::response response;
-	rpc_a (request, response);
-	result.second = response.status;
-	if (response.status == boost::network::http::server <rai::rpc>::response::ok)
+    request.body (ostream.str ());
+	std::cerr << "1";
+    boost::network::http::client::response response = client.post (request);
+	std::cerr << "2";
+	auto status (response.status ());
+	std::cerr << "5";
+	std::cerr << status;
+	std::cerr << "4";
+	result.second = boost::network::http::server <rai::rpc>::response::ok;
+	std::cerr << "3";
+	if (result.second == boost::network::http::server <rai::rpc>::response::ok)
 	{
-		std::stringstream istream (response.content);
+		std::stringstream istream (response.body ());
 		boost::property_tree::read_json (istream, result.first);
 	}
+	std::cerr << "4";
 	return result;
 }
 
@@ -31,6 +41,8 @@ TEST (rpc, account_create)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "account_create");
     request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
@@ -40,6 +52,8 @@ TEST (rpc, account_create)
     rai::uint256_union account;
     ASSERT_FALSE (account.decode_base58check (account_text));
     ASSERT_TRUE (system.wallet (0)->exists (account));
+	rpc.server.stop();
+	thread1.join();
 }
 
 TEST (rpc, account_balance)
