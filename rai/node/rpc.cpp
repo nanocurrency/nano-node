@@ -921,147 +921,147 @@ void rai::rpc::operator () (boost::network::http::async_server <rai::rpc>::reque
 		}
 		else
 		{
-			***
+			BOOST_LOG (node.log) << boost::str (boost::format ("Error in RPC request: %1%") % error_a.message ());
 		}
 	});
 }
 
 void rai::rpc::read_headers (boost::network::http::async_server <rai::rpc>::request const & request_a, std::string const & body_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
 {
-    if (request_a.method == "POST")
-    {
-        try
-        {
-            boost::property_tree::ptree request_l;
-		std::stringstream istream (body_a);
-            boost::property_tree::read_json (istream, request_l);
-            std::string action (request_l.get <std::string> ("action"));
-            if (node.config.logging.log_rpc ())
-            {
-                BOOST_LOG (node.log) << request_a.body;
-            }
-		rai::rpc_handler handler (*this, request_l, connection_a);
-            if (action == "account_balance")
-            {
+	if (request_a.method == "POST")
+	{
+		try
+		{
+			boost::property_tree::ptree request_l;
+			std::stringstream istream (body_a);
+			boost::property_tree::read_json (istream, request_l);
+			std::string action (request_l.get <std::string> ("action"));
+			if (node.config.logging.log_rpc ())
+			{
+				BOOST_LOG (node.log) << request_a.body;
+			}
+			rai::rpc_handler handler (*this, request_l, connection_a);
+			if (action == "account_balance")
+			{
 				handler.account_balance ();
-            }
-            else if (action == "account_create")
-            {
+			}
+			else if (action == "account_create")
+			{
 				handler.account_create ();
-            }
-            else if (action == "account_list")
-            {
+			}
+			else if (action == "account_list")
+			{
 				handler.account_list ();
-            }
-            else if (action == "account_move")
-            {
+			}
+			else if (action == "account_move")
+			{
 				handler.account_move ();
-            }
-            else if (action == "account_weight")
-            {
+			}
+			else if (action == "account_weight")
+			{
 				handler.account_weight ();
-            }
-            else if (action == "block")
-            {
+			}
+			else if (action == "block")
+			{
 				handler.block ();
-            }
+			}
 			else if (action == "chain")
 			{
 				handler.chain ();
 			}
-            else if (action == "frontiers")
-            {
+			else if (action == "frontiers")
+			{
 				handler.frontiers ();
-            }
-            else if (action == "keepalive")
-            {
+			}
+			else if (action == "keepalive")
+			{
 				handler.keepalive ();
-            }
-            else if (action == "password_change")
-            {
+			}
+			else if (action == "password_change")
+			{
 				handler.password_change ();
-            }
-            else if (action == "password_enter")
-            {
+			}
+			else if (action == "password_enter")
+			{
 				handler.password_enter ();
-            }
-            else if (action == "password_valid")
-            {
+			}
+			else if (action == "password_valid")
+			{
 				handler.password_valid ();
-            }
-            else if (action == "price")
-            {
+			}
+			else if (action == "price")
+			{
 				handler.price ();
-            }
-            else if (action == "process")
-            {
+			}
+			else if (action == "process")
+			{
 				handler.process ();
-            }
-            else if (action == "representative")
-            {
+			}
+			else if (action == "representative")
+			{
 				handler.representative ();
-            }
-            else if (action == "representative_set")
-            {
+			}
+			else if (action == "representative_set")
+			{
 				handler.representative_set ();
-            }
-            else if (action == "search_pending")
-            {
+			}
+			else if (action == "search_pending")
+			{
 				handler.search_pending ();
-            }
-            else if (action == "send")
-            {
+			}
+			else if (action == "send")
+			{
 				handler.send ();
-            }
-            else if (action == "validate_account_number")
-            {
+			}
+			else if (action == "validate_account_number")
+			{
 				handler.validate_account_number ();
-            }
-            else if (action == "wallet_add")
-            {
+			}
+			else if (action == "wallet_add")
+			{
 				handler.wallet_add ();
-            }
-            else if (action == "wallet_contains")
-            {
+			}
+			else if (action == "wallet_contains")
+			{
 				handler.wallet_contains ();
-            }
-            else if (action == "wallet_create")
-            {
+			}
+			else if (action == "wallet_create")
+			{
 				handler.wallet_create ();
-            }
-            else if (action == "wallet_destroy")
-            {
+			}
+			else if (action == "wallet_destroy")
+			{
 				handler.wallet_destroy ();
-            }
-            else if (action == "wallet_export")
-            {
+			}
+			else if (action == "wallet_export")
+			{
 				handler.wallet_export ();
-            }
-            else if (action == "wallet_key_valid")
-            {
+			}
+			else if (action == "wallet_key_valid")
+			{
 				handler.wallet_key_valid ();
 			}
-            else
-            {
-                error_response (connection_a, "Unknown command");
-            }
-        }
-        catch (std::runtime_error const & err)
-        {
-		std::cerr << err.what() << std::endl;
-            error_response (connection_a, "Unable to parse JSON");
-        }
+			else
+			{
+				error_response (connection_a, "Unknown command");
+			}
+		}
+		catch (std::runtime_error const & err)
+		{
+			std::cerr << err.what() << std::endl;
+			error_response (connection_a, "Unable to parse JSON");
+		}
 		catch (...)
-        {
-            error_response (connection_a, "Internal server error in RPC");
-        }
-    }
-    else
-    {
-        auto response (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::method_not_allowed));
-        response.content = "Can only POST requests";
+		{
+			error_response (connection_a, "Internal server error in RPC");
+		}
+	}
+	else
+	{
+		auto response (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::method_not_allowed));
+		response.content = "Can only POST requests";
 		connection_a->write (response.to_buffers (), [] (boost::system::error_code) {});
-    }
+	}
 }
 
 bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
