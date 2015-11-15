@@ -912,19 +912,35 @@ void rai::rpc::error_response (boost::network::http::async_server <rai::rpc>::co
 
 void rai::rpc::operator () (boost::network::http::async_server <rai::rpc>::request const & request_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
 {
+	connection_a->read ([this, &request_a] (boost::network::http::async_server <rai::rpc>::connection::input_range range_a, boost::system::error_code error_a, size_t size_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
+	{
+		if (!error_a)
+		{
+			std::string body (range_a.begin (), range_a.begin () + size_a);
+			read_headers (request_a, body, connection_a);
+		}
+		else
+		{
+			***
+		}
+	});
+}
+
+void rai::rpc::read_headers (boost::network::http::async_server <rai::rpc>::request const & request_a, std::string const & body_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
+{
     if (request_a.method == "POST")
     {
         try
         {
             boost::property_tree::ptree request_l;
-            std::stringstream istream (request_a.body);
+		std::stringstream istream (body_a);
             boost::property_tree::read_json (istream, request_l);
             std::string action (request_l.get <std::string> ("action"));
             if (node.config.logging.log_rpc ())
             {
                 BOOST_LOG (node.log) << request_a.body;
             }
-			rai::rpc_handler handler (*this, request_l, connection_a);
+		rai::rpc_handler handler (*this, request_l, connection_a);
             if (action == "account_balance")
             {
 				handler.account_balance ();
@@ -1030,8 +1046,9 @@ void rai::rpc::operator () (boost::network::http::async_server <rai::rpc>::reque
                 error_response (connection_a, "Unknown command");
             }
         }
-        catch (std::runtime_error const &)
+        catch (std::runtime_error const & err)
         {
+		std::cerr << err.what() << std::endl;
             error_response (connection_a, "Unable to parse JSON");
         }
 		catch (...)

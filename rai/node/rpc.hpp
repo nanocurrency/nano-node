@@ -29,6 +29,7 @@ public:
     void start ();
     void stop ();
     void operator () (boost::network::http::async_server <rai::rpc>::request const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
+    void read_headers (boost::network::http::async_server <rai::rpc>::request const &, std::string const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
 	void error_response (boost::network::http::async_server <rai::rpc>::connection_ptr, std::string const &);
     void log (const char *) {}
 	bool decode_unsigned (std::string const &, uint64_t &);
