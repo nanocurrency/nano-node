@@ -29,7 +29,13 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 	if (result.second == boost::network::http::server <rai::rpc>::response::ok)
 	{
 		std::stringstream istream (response.body ());
-		boost::property_tree::read_json (istream, result.first);
+		try
+		{
+			boost::property_tree::read_json (istream, result.first);
+		}
+		catch (...)
+		{
+		}
 	}
 	return result;
 }
