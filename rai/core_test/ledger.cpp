@@ -668,7 +668,7 @@ TEST (votes, add_unsigned)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
+	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
 	ASSERT_NE (nullptr, votes1);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	rai::keypair key2;
@@ -693,7 +693,7 @@ TEST (votes, add_one)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
+	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
@@ -723,7 +723,7 @@ TEST (votes, add_two)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
+	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
 	rai::keypair key2;
@@ -757,7 +757,7 @@ TEST (votes, add_existing)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
+	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
 	rai::keypair key2;
@@ -789,7 +789,7 @@ TEST (votes, add_old)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->second);
+	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1.clone ());
 	votes1->vote (vote1);
 	rai::keypair key2;
@@ -846,7 +846,7 @@ TEST (fork, publish)
         ASSERT_EQ (1, node1.conflicts.roots.size ());
         auto conflict1 (node1.conflicts.roots.find (publish1.block->root ()));
         ASSERT_NE (node1.conflicts.roots.end (), conflict1);
-        auto votes1 (conflict1->second);
+        auto votes1 (conflict1->election);
         ASSERT_NE (nullptr, votes1);
         ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 		auto iterations1 (0);
@@ -899,7 +899,7 @@ TEST (ledger, fork_keep)
 	}
     auto conflict (node2.conflicts.roots.find (genesis.hash ()));
     ASSERT_NE (node2.conflicts.roots.end (), conflict);
-    auto votes1 (conflict->second);
+    auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	{
@@ -953,7 +953,7 @@ TEST (ledger, fork_flip)
 	}
     auto conflict (node2.conflicts.roots.find (genesis.hash ()));
     ASSERT_NE (node2.conflicts.roots.end (), conflict);
-    auto votes1 (conflict->second);
+    auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	{
@@ -1016,7 +1016,7 @@ TEST (ledger, fork_multi_flip)
 	}
     auto conflict (node2.conflicts.roots.find (genesis.hash ()));
     ASSERT_NE (node2.conflicts.roots.end (), conflict);
-    auto votes1 (conflict->second);
+    auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	{

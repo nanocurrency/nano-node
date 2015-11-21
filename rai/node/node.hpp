@@ -121,6 +121,12 @@ public:
     bool confirmed;
 	std::function <void (rai::block &)> confirmation_action;
 };
+class conflict_info
+{
+public:
+	rai::block_hash root;
+	std::shared_ptr <rai::election> election;
+};
 class conflicts
 {
 public:
@@ -129,7 +135,14 @@ public:
     bool no_conflict (rai::block_hash const &);
     void update (rai::vote const &);
     void stop (rai::block_hash const &);
-    std::unordered_map <rai::block_hash, std::shared_ptr <rai::election>> roots;
+    boost::multi_index_container
+	<
+		rai::conflict_info,
+		boost::multi_index::indexed_by
+		<
+			boost::multi_index::hashed_unique <boost::multi_index::member <rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>
+		>
+	> roots;
     rai::node & node;
     std::mutex mutex;
 };

@@ -3804,7 +3804,7 @@ void rai::conflicts::start (rai::block const & block_a, std::function <void (rai
     {
         auto election (std::make_shared <rai::election> (node.shared (), block_a, confirmation_action_a));
 		node.service.add (std::chrono::system_clock::now (), [election] () {election->start ();});
-        roots.insert (std::make_pair (root, election));
+        roots.insert (rai::conflict_info {root, election});
         if (request_a)
         {
             election->start_request (block_a);
@@ -3819,11 +3819,11 @@ bool rai::conflicts::no_conflict (rai::block_hash const & hash_a)
     auto existing (roots.find (hash_a));
     if (existing != roots.end ())
     {
-        auto size (existing->second->votes.rep_votes.size ());
+        auto size (existing->election->votes.rep_votes.size ());
 		if (size > 1)
 		{
-			auto & block (existing->second->votes.rep_votes.begin ()->second.second);
-			for (auto i (existing->second->votes.rep_votes.begin ()), n (existing->second->votes.rep_votes.end ()); i != n && result; ++i)
+			auto & block (existing->election->votes.rep_votes.begin ()->second.second);
+			for (auto i (existing->election->votes.rep_votes.begin ()), n (existing->election->votes.rep_votes.end ()); i != n && result; ++i)
 			{
 				result = *block == *i->second.second;
 			}
@@ -3839,7 +3839,7 @@ void rai::conflicts::update (rai::vote const & vote_a)
     auto existing (roots.find (vote_a.block->root ()));
     if (existing != roots.end ())
     {
-        existing->second->vote (vote_a);
+        existing->election->vote (vote_a);
     }
 }
 
