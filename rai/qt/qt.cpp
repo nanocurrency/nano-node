@@ -543,17 +543,25 @@ active_status (*this)
 				auto parse_error (account_l.decode_base58check (account_text_narrow));
 				if (!parse_error)
 				{
-					auto block (wallet_m->send_sync (account, account_l, actual));
-					if (!block.is_zero ())
+					send_blocks_send->setEnabled (false);
+					node.background ([this, account_l, actual] ()
 					{
-						send_count->clear ();
-						send_account->clear ();
-						accounts.refresh ();
-					}
-					else
-					{
-						show_line_error (*send_count);
-					}
+						auto block (wallet_m->send_sync (account, account_l, actual));
+						application.postEvent (&processor, new eventloop_event ([this, block] ()
+						{
+							send_blocks_send->setEnabled (true);
+							if (!block.is_zero ())
+							{
+								send_count->clear ();
+								send_account->clear ();
+								accounts.refresh ();
+							}
+							else
+							{
+								show_line_error (*send_count);
+							}
+						}));
+					});
 				}
 				else
 				{
