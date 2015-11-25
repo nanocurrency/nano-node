@@ -4052,19 +4052,22 @@ void rai::thread_runner::join ()
 void rai::add_node_options (boost::program_options::options_description & description_a)
 {
 	description_a.add_options ()
-	("account_base58", boost::program_options::value <std::string> (), "Get base58 account number for the <key>")
+	("account_base58", "Get base58 account number for the <key>")
 	("account_key", "Get the public key for the <account>")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a random keypair")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add", "Insert <key> in to <wallet>")
 	("wallet_create", "Creates a new wallet and prints the ID")
+	("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!")
 	("wallet_destroy", "Destroys <wallet> and all keys it contains")
+	("wallet_import", "Imports keys in <file> using <password> in to <wallet>")
 	("wallet_list", "Dumps wallet IDs and public keys")
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
 	("account", boost::program_options::value <std::string> (), "Defines <account> for other commands, base58")
+	("file", boost::program_options::value <std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value <std::string> (), "Defines the <key> for other commands, hex")
 	("password", boost::program_options::value <std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value <std::string> (), "Defines <wallet> for other commands");
@@ -4191,6 +4194,58 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		auto wallet (node.node->wallets.create (key.pub));
 		wallet->enter_initial_password ();
 	}
+	else if (vm.count ("wallet_decrypt_unsafe"))
+	{
+		if (vm.count ("wallet") == 1)
+		{
+			std::string password;
+			if (vm.count ("password") == 1)
+			{
+				password = vm ["password"].as <std::string> ();
+			}
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+			{
+				inactive_node node;
+				auto existing (node.node->wallets.items.find (wallet_id));
+				if (existing != node.node->wallets.items.end ())
+				{
+					if (!existing->second->enter_password (password))
+					{
+						rai::transaction transaction (existing->second->store.environment, nullptr, false);
+						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
+						{
+							rai::account account (i->first);
+							rai::raw_key key;
+							auto error (existing->second->store.fetch (transaction, account, key));
+							assert (!error);
+							std::cerr << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_string () % key.data.to_string ());
+						}
+					}
+					else
+					{
+						std::cerr << "Invalid password\n";
+						result = true;
+					}
+				}
+				else
+				{
+					std::cerr << "Wallet doesn't exist\n";
+					result = true;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id\n";
+				result = true;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_decrypt_unsafe requires one <wallet> option";
+			result = true;
+		}
+	}
 	else if (vm.count ("wallet_destroy"))
 	{
 		if (vm.count ("wallet") == 1)
@@ -4218,6 +4273,71 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		else
 		{
 			std::cerr << "wallet_destroy requires one <wallet> option";
+			result = true;
+		}
+	}
+	else if (vm.count ("wallet_import"))
+	{
+		if (vm.count ("file") == 1)
+		{
+			std::string filename (vm ["file"].as <std::string> ());
+			std::ifstream stream;
+			stream.open (filename.c_str ());
+			if (!stream.fail ())
+			{
+				std::stringstream contents;
+				contents << stream.rdbuf ();
+				std::string password;
+				if (vm.count ("password") == 1)
+				{
+					password = vm ["password"].as <std::string> ();
+				}
+				if (vm.count ("wallet") == 1)
+				{
+					rai::uint256_union wallet_id;
+					if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+					{
+						inactive_node node;
+						auto existing (node.node->wallets.items.find (wallet_id));
+						if (existing != node.node->wallets.items.end ())
+						{
+							if (!existing->second->import (contents.str (), password))
+							{
+								result = false;
+							}
+							else
+							{
+								std::cerr << "Unable to import wallet\n";
+								result = true;
+							}
+						}
+						else
+						{
+							std::cerr << "Wallet doesn't exist\n";
+							result = true;
+						}
+					}
+					else
+					{
+						std::cerr << "Invalid wallet id\n";
+						result = true;
+					}
+				}
+				else
+				{
+					std::cerr << "wallet_destroy requires one <wallet> option\n";
+					result = true;
+				}
+			}
+			else
+			{
+				std::cerr << "Unable to open <file>\n";
+				result = true;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_import requires one <file> option\n";
 			result = true;
 		}
 	}
