@@ -24,8 +24,6 @@ TEST (conflicts, start_stop)
     auto votes1 (existing1->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-    node1.conflicts.stop (root1);
-    ASSERT_EQ (0, node1.conflicts.roots.size ());
 }
 
 TEST (conflicts, add_existing)

@@ -107,10 +107,8 @@ class election : public std::enable_shared_from_this <rai::election>
 {
 public:
     election (std::shared_ptr <rai::node>, rai::block const &, std::function <void (rai::block &)> const &);
-    void start ();
     void vote (rai::vote const &);
-    void announce_vote ();
-    void timeout_action ();
+	void interval_action ();
     void start_request (rai::block const &);
     rai::uint128_t uncontested_threshold (MDB_txn *, rai::ledger &);
     rai::uint128_t contested_threshold (MDB_txn *, rai::ledger &);
@@ -134,7 +132,7 @@ public:
     void start (rai::block const &, std::function <void (rai::block &)> const &, bool);
     bool no_conflict (rai::block_hash const &);
     void update (rai::vote const &);
-    void stop (rai::block_hash const &);
+	void announce_votes ();
     boost::multi_index_container
 	<
 		rai::conflict_info,
