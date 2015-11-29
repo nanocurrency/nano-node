@@ -110,6 +110,7 @@ public:
     void vote (rai::vote const &);
 	void interval_action ();
     void start_request (rai::block const &);
+	void confirm (bool);
     rai::uint128_t uncontested_threshold (MDB_txn *, rai::ledger &);
     rai::uint128_t contested_threshold (MDB_txn *, rai::ledger &);
     rai::votes votes;

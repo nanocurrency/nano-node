@@ -3698,52 +3698,59 @@ rai::uint128_t rai::election::contested_threshold (MDB_txn * transaction_a, rai:
     return (ledger_a.supply (transaction_a) / 16) * 15;
 }
 
-void rai::election::vote (rai::vote const & vote_a)
+void rai::election::confirm (bool forced_a)
 {
-	auto node_l (node.lock ());
-	if (node_l != nullptr)
+	if (!confirmed)
 	{
-		auto changed (votes.vote (vote_a));
-		std::unique_ptr <rai::block> winner;
-		auto was_confirmed (confirmed);
+		auto node_l (node.lock ());
+		if (node_l != nullptr)
 		{
+			std::unique_ptr <rai::block> winner;
 			rai::transaction transaction (node_l->store.environment, nullptr, true);
-			if (!was_confirmed && changed)
+			auto tally_l (node_l->ledger.tally (transaction, votes));
+			assert (tally_l.size () > 0);
+			winner = tally_l.begin ()->second->clone ();
+			if (!(*winner == *last_winner))
 			{
-				auto tally_l (node_l->ledger.tally (transaction, votes));
-				assert (tally_l.size () > 0);
-				winner = tally_l.begin ()->second->clone ();
-				if (!(*winner == *last_winner))
+				// Replace our block with the winner and roll back any dependent blocks
+				node_l->ledger.rollback (transaction, last_winner->hash ());
+				node_l->ledger.process (transaction, *winner);
+				last_winner = winner->clone ();
+			}
+			auto do_confirm (forced_a);
+			// Check if we can do a fast confirm for the usual case of good actors
+			if (tally_l.size () == 1)
+			{
+				// No forks detected
+				if (tally_l.begin ()->first > uncontested_threshold (transaction, node_l->ledger))
 				{
-					node_l->ledger.rollback (transaction, last_winner->hash ());
-					node_l->ledger.process (transaction, *winner);
-					last_winner = winner->clone ();
-				}
-				if (tally_l.size () == 1)
-				{
-					if (tally_l.begin ()->first > uncontested_threshold (transaction, node_l->ledger))
-					{
-						confirmed = true;
-					}
-				}
-				else
-				{
-					if (tally_l.begin ()->first > contested_threshold (transaction, node_l->ledger))
-					{
-						confirmed = true;
-					}
+					// We have vote quarum
+					do_confirm = true;
 				}
 			}
-		}
-		if (!was_confirmed && confirmed)
-		{
-			std::shared_ptr <rai::block> winner_l (winner.release ());
-			auto confirmation_action_l (confirmation_action);
-			node_l->background ([winner_l, confirmation_action_l] ()
+			if (do_confirm)
 			{
-				confirmation_action_l (*winner_l);
-			});
+				confirmed = true;
+				std::shared_ptr <rai::block> winner_l (winner.release ());
+				auto confirmation_action_l (confirmation_action);
+				node_l->background ([winner_l, confirmation_action_l] ()
+				{
+					confirmation_action_l (*winner_l);
+				});
+			}
 		}
+		else
+		{
+			// Node weak pointer is inactive, node is shutting down
+		}
+	}
+}
+
+void rai::election::vote (rai::vote const & vote_a)
+{
+	if (votes.vote (vote_a))
+	{
+		confirm (false);
 	}
 }
 
@@ -3770,6 +3777,7 @@ void rai::conflicts::announce_votes ()
 			i->election->interval_action ();
 			if (i->announcements >= contigious_announcements - 1)
 			{
+				i->election->confirm (true);
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
 			}
