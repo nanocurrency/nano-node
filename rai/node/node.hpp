@@ -138,7 +138,7 @@ public:
 		rai::conflict_info,
 		boost::multi_index::indexed_by
 		<
-			boost::multi_index::hashed_unique <boost::multi_index::member <rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>
+			boost::multi_index::ordered_unique <boost::multi_index::member <rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>
 		>
 	> roots;
     rai::node & node;
