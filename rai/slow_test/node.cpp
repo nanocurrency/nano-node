@@ -143,3 +143,70 @@ TEST (store, load)
 		i.join ();
 	}
 }
+
+TEST (node, fork_storm)
+{
+	rai::system system (24000, 64);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	auto previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	auto balance (system.nodes [0]->balance (rai::test_genesis_key.pub));
+	ASSERT_FALSE (previous.is_zero ());
+	for (auto j (0); j != system.nodes.size (); ++j)
+	{
+		balance -= 1;
+		rai::keypair key;
+		rai::send_block send (previous, key.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		previous = send.hash ();
+		for (auto i (0); i != system.nodes.size (); ++i)
+		{
+			auto send_result (system.nodes [i]->process (send));
+			ASSERT_EQ (rai::process_result::progress, send_result.code);
+			rai::keypair rep;
+			rai::open_block open (previous, rep.pub, key.pub, key.prv, key.pub, 0);
+			system.work.generate (open);
+			auto open_result (system.nodes [i]->process (open));
+			ASSERT_EQ (rai::process_result::progress, open_result.code);
+			system.nodes [i]->network.republish_block (open.clone (), 0);
+		}
+	}
+	auto again (true);
+	
+	int empty (0);
+	int single (0);
+	while (again)
+	{
+		empty = 0;
+		single = 0;
+		std::for_each (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a)
+		{
+			if (node_a->conflicts.roots.empty ())
+			{
+				++empty;
+			}
+			else
+			{
+				if (node_a->conflicts.roots.begin ()->election->votes.rep_votes.size () == 1)
+				{
+					++single;
+				}
+			}
+		});
+		system.poll ();
+		std::cerr << "Empty: " << empty << " single: " << single << std::endl;
+		again = empty != 0 || single != 0;
+	}
+	ASSERT_TRUE (true);
+}
+
+TEST (gap_cache, limit)
+{
+    rai::system system (24000, 1);
+    rai::gap_cache cache (*system.nodes [0]);
+    for (auto i (0); i < cache.max * 2; ++i)
+    {
+        rai::send_block block1 (i, 0, 1, rai::keypair ().prv, 3, 4);
+        auto previous (block1.previous ());
+        cache.add (rai::send_block (block1), previous);
+    }
+    ASSERT_EQ (cache.max, cache.blocks.size ());
+}

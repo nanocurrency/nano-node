@@ -631,7 +631,7 @@ TEST (ledger, double_open)
 	rai::open_block open1 (send1.hash (), key2.pub, key2.pub, key2.prv, key2.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, open1).code);
 	rai::open_block open2 (send1.hash (), rai::test_genesis_key.pub, key2.pub, key2.prv, key2.pub, 0);
-	ASSERT_EQ (rai::process_result::unreceivable, ledger.process (transaction, open2).code);
+	ASSERT_EQ (rai::process_result::fork, ledger.process (transaction, open2).code);
 }
 
 TEST (ledegr, double_receive)
@@ -1257,24 +1257,6 @@ TEST (ledger, fail_open_gap_source)
 	ASSERT_EQ (rai::process_result::gap_source, result2.code);
 }
 
-TEST (ledger, fail_open_overreceive)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_FALSE (init);
-	rai::ledger ledger (store);
-	rai::genesis genesis;
-	rai::transaction transaction (store.environment, nullptr, true);
-	genesis.initialize (transaction, store);
-	rai::keypair key1;
-	rai::send_block block1 (genesis.hash (), key1.pub, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block1).code);
-	rai::open_block block2 (block1.hash (), 2, key1.pub, key1.prv, key1.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block2).code);
-	rai::open_block block3 (block1.hash (), 1, key1.pub, key1.prv, key1.pub, 0);
-	ASSERT_EQ (rai::process_result::unreceivable, ledger.process (transaction, block3).code);
-}
-
 TEST (ledger, fail_open_bad_signature)
 {
 	bool init (false);
@@ -1324,7 +1306,8 @@ TEST (ledger, fail_open_account_mismatch)
 	rai::keypair key1;
 	rai::send_block block1 (genesis.hash (), key1.pub, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block1).code);
-	rai::open_block block2 (block1.hash (), 1, 1, key1.prv, key1.pub, 0);
+	rai::keypair badkey;
+	rai::open_block block2 (block1.hash (), 1, badkey.pub, badkey.prv, badkey.pub, 0);
 	ASSERT_EQ (rai::process_result::account_mismatch, ledger.process (transaction, block2).code);
 }
 

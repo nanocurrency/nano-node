@@ -2756,33 +2756,33 @@ void ledger_processor::open_block (rai::open_block const & block_a)
         result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
         if (result.code == rai::process_result::progress)
         {
-            rai::receivable receivable;
-            result.code = ledger.store.pending_get (transaction, block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
-            if (result.code == rai::process_result::progress)
-            {
-                result.code = receivable.destination == block_a.hashables.account ? rai::process_result::progress : rai::process_result::account_mismatch;
-                if (result.code == rai::process_result::progress)
-                {
-                    result.code = rai::validate_message (receivable.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
-                    if (result.code == rai::process_result::progress)
-                    {
-                        rai::account_info info;
-                        result.code = ledger.store.account_get (transaction, receivable.destination, info) ? rai::process_result::progress : rai::process_result::fork; // Has this account already been opened? (Malicious)
-                        if (result.code == rai::process_result::progress)
-                        {
-                            rai::account_info source_info;
-                            auto error (ledger.store.account_get (transaction, receivable.source, source_info));
-                            assert (!error);
+			result.code = rai::validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+			if (result.code == rai::process_result::progress)
+			{
+				rai::account_info info;
+				result.code = ledger.store.account_get (transaction, block_a.hashables.account, info) ? rai::process_result::progress : rai::process_result::fork; // Has this account already been opened? (Malicious)
+				if (result.code == rai::process_result::progress)
+				{
+					rai::receivable receivable;
+					result.code = ledger.store.pending_get (transaction, block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
+					if (result.code == rai::process_result::progress)
+					{
+						result.code = receivable.destination == block_a.hashables.account ? rai::process_result::progress : rai::process_result::account_mismatch; // Does the account listed in the open block match the one named in the send block? (Malformed)
+						if (result.code == rai::process_result::progress)
+						{
+							rai::account_info source_info;
+							auto error (ledger.store.account_get (transaction, receivable.source, source_info));
+							assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
 							ledger.change_latest (transaction, receivable.destination, hash, hash, receivable.amount.number ());
 							ledger.move_representation (transaction, source_info.rep_block, hash, receivable.amount.number ());
 							ledger.store.frontier_put (transaction, hash, receivable.destination);
 							result.account = receivable.destination;
-                        }
-                    }
-                }
-            }
+						}
+					}
+				}
+			}
         }
     }
 }
