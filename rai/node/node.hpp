@@ -124,6 +124,8 @@ class conflict_info
 public:
 	rai::block_hash root;
 	std::shared_ptr <rai::election> election;
+	// Number of announcements in a row for this fork
+	int announcements;
 };
 class conflicts
 {
@@ -143,6 +145,8 @@ public:
 	> roots;
     rai::node & node;
     std::mutex mutex;
+	static size_t constexpr announcements_per_interval = 32;
+	static size_t constexpr contigious_announcements = 4;
 };
 enum class message_type : uint8_t
 {

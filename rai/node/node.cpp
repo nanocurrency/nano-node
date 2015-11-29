@@ -3761,13 +3761,33 @@ void rai::conflicts::announce_votes ()
 	std::vector <rai::block_hash> inactive;
 	auto now (std::chrono::system_clock::now ());
 	std::lock_guard <std::mutex> lock (mutex);
-	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
+	size_t announcements (0);
 	{
-		i->election->interval_action ();
-		if (std::chrono::seconds (15) < now - i->election->last_vote)
+		auto i (roots.begin ());
+		auto n (roots.end ());
+		for (; i != n && announcements < announcements_per_interval; ++i)
 		{
-			auto root_l (i->election->votes.id);
-			inactive.push_back (root_l);
+			i->election->interval_action ();
+			if (i->announcements >= contigious_announcements - 1)
+			{
+				auto root_l (i->election->votes.id);
+				inactive.push_back (root_l);
+			}
+			else
+			{
+				roots.modify (i, [] (rai::conflict_info & info_a)
+				{
+					++info_a.announcements;
+				});
+			}
+		}
+		for (; i != n; ++i)
+		{
+			// Reset announcement count for conflicts above announcement cutoff
+			roots.modify (i, [] (rai::conflict_info & info_a)
+			{
+				info_a.announcements = 0;
+			});
 		}
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
@@ -3778,7 +3798,7 @@ void rai::conflicts::announce_votes ()
 	if (!roots.empty ())
 	{
 		auto node_l (node.shared ());
-		node.service.add (now + std::chrono::seconds (15), [node_l] () {node_l->conflicts.announce_votes ();});
+		node.service.add (now + std::chrono::seconds (16), [node_l] () {node_l->conflicts.announce_votes ();});
 	}
 }
 
@@ -3791,7 +3811,7 @@ void rai::conflicts::start (rai::block const & block_a, std::function <void (rai
     if (existing == roots.end ())
     {
         auto election (std::make_shared <rai::election> (node.shared (), block_a, confirmation_action_a));
-        roots.insert (rai::conflict_info {root, election});
+        roots.insert (rai::conflict_info {root, election, 0});
         if (request_a)
         {
             election->start_request (block_a);
