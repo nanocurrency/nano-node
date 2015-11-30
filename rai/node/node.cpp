@@ -1308,7 +1308,7 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
         {
             if (config.logging.ledger_logging ())
             {
-                BOOST_LOG (log) << boost::str (boost::format ("Not receive from spend for: %1%") % block_a.hash ().to_string ());
+                BOOST_LOG (log) << boost::str (boost::format ("Not receive from send for: %1%") % block_a.hash ().to_string ());
             }
             break;
         }
