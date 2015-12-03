@@ -477,3 +477,349 @@ TEST (node, block_replace)
 	ASSERT_EQ (block1->block_work (), block2->block_work ());
 	ASSERT_GT (system.work.work_value (block2->root (), block2->block_work ()), system.work.work_value (block1->root (), initial_work));
 }
+
+TEST (node, fork_publish)
+{
+    std::weak_ptr <rai::node> node0;
+    {
+        rai::system system (24000, 1);
+        node0 = system.nodes [0];
+        auto & node1 (*system.nodes [0]);
+		system.wallet (0)->insert (rai::test_genesis_key.prv);
+        rai::keypair key1;
+		rai::genesis genesis;
+        std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+        rai::publish publish1;
+        publish1.block = std::move (send1);
+        rai::keypair key2;
+        std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+        rai::publish publish2;
+        publish2.block = std::move (send2);
+        node1.process_message (publish1, node1.network.endpoint ());
+        ASSERT_EQ (0, node1.conflicts.roots.size ());
+        node1.process_message (publish2, node1.network.endpoint ());
+		auto iterations2 (0);
+		while (node1.conflicts.roots.size () == 0)
+		{
+            system.poll ();
+			++iterations2;
+			ASSERT_LT (iterations2, 200);
+		}
+        ASSERT_EQ (1, node1.conflicts.roots.size ());
+        auto conflict1 (node1.conflicts.roots.find (publish1.block->root ()));
+        ASSERT_NE (node1.conflicts.roots.end (), conflict1);
+        auto votes1 (conflict1->election);
+        ASSERT_NE (nullptr, votes1);
+        ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+		auto iterations1 (0);
+        while (votes1->votes.rep_votes.size () == 1)
+        {
+            system.poll ();
+			++iterations1;
+			ASSERT_LT (iterations1, 200);
+        }
+        ASSERT_EQ (2, votes1->votes.rep_votes.size ());
+        auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
+        ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
+        ASSERT_EQ (*publish1.block, *existing1->second.second);
+		rai::transaction transaction (node1.store.environment, nullptr, false);
+        auto winner (node1.ledger.winner (transaction, votes1->votes));
+        ASSERT_EQ (*publish1.block, *winner.second);
+        ASSERT_EQ (rai::genesis_amount, winner.first);
+    }
+    ASSERT_TRUE (node0.expired ());
+}
+
+TEST (node, fork_keep)
+{
+    rai::system system (24000, 2);
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+	ASSERT_EQ (1, node1.peers.size ());
+	system.wallet (0)->insert ( rai::test_genesis_key.prv);
+    rai::keypair key1;
+	rai::genesis genesis;
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish1;
+    publish1.block = std::move (send1);
+    rai::keypair key2;
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish2;
+    publish2.block = std::move (send2);
+    node1.process_message (publish1, node1.network.endpoint ());
+	node2.process_message (publish1, node2.network.endpoint ());
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    node1.process_message (publish2, node1.network.endpoint ());
+	node2.process_message (publish2, node2.network.endpoint ());
+	auto iterations2 (0);
+    while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	{
+		system.poll ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+	}
+    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto votes1 (conflict->election);
+    ASSERT_NE (nullptr, votes1);
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, publish1.block->hash ()));
+		ASSERT_TRUE (system.nodes [1]->store.block_exists (transaction, publish1.block->hash ()));
+	}
+    auto iterations (0);
+    while (votes1->votes.rep_votes.size () == 1)
+	{
+		system.poll ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+	}
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto winner (node1.ledger.winner (transaction, votes1->votes));
+    ASSERT_EQ (*publish1.block, *winner.second);
+    ASSERT_EQ (rai::genesis_amount, winner.first);
+	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_TRUE (system.nodes [1]->store.block_exists (transaction, publish1.block->hash ()));
+}
+
+TEST (node, fork_flip)
+{
+    rai::system system (24000, 2);
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+    ASSERT_EQ (1, node1.peers.size ());
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    rai::keypair key1;
+	rai::genesis genesis;
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish1;
+    publish1.block = std::move (send1);
+    rai::keypair key2;
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish2;
+    publish2.block = std::move (send2);
+    node1.process_message (publish1, node1.network.endpoint ());
+    node2.process_message (publish2, node1.network.endpoint ());
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    node1.process_message (publish2, node1.network.endpoint ());
+    node2.process_message (publish1, node2.network.endpoint ());
+	auto iterations2 (0);
+	while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	{
+        system.poll ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+	}
+    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto votes1 (conflict->election);
+    ASSERT_NE (nullptr, votes1);
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, false);
+		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
+	}
+    auto iterations (0);
+    while (votes1->votes.rep_votes.size () == 1)
+    {
+        system.poll ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto winner (node2.ledger.winner (transaction, votes1->votes));
+    ASSERT_EQ (*publish1.block, *winner.second);
+    ASSERT_EQ (rai::genesis_amount, winner.first);
+    ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
+    ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
+}
+
+TEST (node, fork_multi_flip)
+{
+    rai::system system (24000, 2);
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+	ASSERT_EQ (1, node1.peers.size ());
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    rai::keypair key1;
+	rai::genesis genesis;
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish1;
+    publish1.block = std::move (send1);
+    rai::keypair key2;
+    std::unique_ptr <rai::send_block> send2 (new rai::send_block (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish2;
+    publish2.block = std::move (send2);
+    std::unique_ptr <rai::send_block> send3 (new rai::send_block (publish2.block->hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (publish2.block->hash ())));
+    rai::publish publish3;
+    publish3.block = std::move (send3);
+    node1.process_message (publish1, node1.network.endpoint ());
+	node2.process_message (publish2, node2.network.endpoint ());
+    node2.process_message (publish3, node2.network.endpoint ());
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    node1.process_message (publish2, node1.network.endpoint ());
+    node1.process_message (publish3, node1.network.endpoint ());
+	node2.process_message (publish1, node2.network.endpoint ());
+	auto iterations2 (0);
+    while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	{
+		system.poll ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+	}
+    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto votes1 (conflict->election);
+    ASSERT_NE (nullptr, votes1);
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, false);
+		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
+		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
+	}
+    auto iterations (0);
+    while (votes1->votes.rep_votes.size () == 1)
+	{
+		system.poll ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+	}
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto winner (node1.ledger.winner (transaction, votes1->votes));
+    ASSERT_EQ (*publish1.block, *winner.second);
+    ASSERT_EQ (rai::genesis_amount, winner.first);
+	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
+    ASSERT_FALSE (node2.store.block_exists (transaction, publish3.block->hash ()));
+}
+
+// Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
+TEST (node, fork_bootstrap_flip)
+{
+	rai::system system (24000, 2);
+	auto & node1 (*system.nodes [0]);
+	auto & node2 (*system.nodes [1]);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::keypair key1;
+	std::unique_ptr <rai::send_block> send1 (new rai::send_block (latest, key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
+	rai::keypair key2;
+	std::unique_ptr <rai::send_block> send2 (new rai::send_block (latest, key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
+	{
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
+	}
+	{
+		rai::transaction transaction (node2.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node2.ledger.process (transaction, *send2).code);
+	}
+	system.wallet (0)->send_sync (rai::test_genesis_key.pub, key1.pub, 100);
+	auto iterations2 (0);
+	auto again (true);
+	while (again)
+	{
+		system.poll ();
+		++iterations2;
+		ASSERT_LT (iterations2, 200);
+		rai::transaction transaction (node2.store.environment, nullptr, false);
+		again = !node2.store.block_exists (transaction, send1->hash ());
+	}
+}
+
+TEST (node, fork_open)
+{
+    rai::system system (24000, 1);
+    auto & node1 (*system.nodes [0]);
+	system.wallet (0)->insert ( rai::test_genesis_key.prv);
+    rai::keypair key1;
+	rai::genesis genesis;
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish1;
+    publish1.block = std::move (send1);
+    node1.process_message (publish1, node1.network.endpoint ());
+    std::unique_ptr <rai::open_block> open1 (new rai::open_block (publish1.block->hash (), 1, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
+    rai::publish publish2;
+    publish2.block = std::move (open1);
+    node1.process_message (publish2, node1.network.endpoint ());
+    std::unique_ptr <rai::open_block> open2 (new rai::open_block (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
+    rai::publish publish3;
+    publish3.block = std::move (open2);
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+	node1.process_message (publish3, node1.network.endpoint ());
+}
+
+TEST (node, fork_open_flip)
+{
+    rai::system system (24000, 2);
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+    ASSERT_EQ (1, node1.peers.size ());
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    rai::keypair key1;
+	rai::genesis genesis;
+    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, rai::genesis_amount - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+    rai::publish publish1;
+    publish1.block = std::move (send1);
+    node1.process_message (publish1, node1.network.endpoint ());
+    node2.process_message (publish1, node2.network.endpoint ());
+    std::unique_ptr <rai::open_block> open1 (new rai::open_block (publish1.block->hash (), 1, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
+    rai::publish publish2;
+    publish2.block = std::move (open1);
+    std::unique_ptr <rai::open_block> open2 (new rai::open_block (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
+    rai::publish publish3;
+    publish3.block = std::move (open2);
+    node1.process_message (publish2, node1.network.endpoint ());
+    node2.process_message (publish3, node2.network.endpoint ());
+    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    node1.process_message (publish3, node1.network.endpoint ());
+    node2.process_message (publish2, node2.network.endpoint ());
+	auto iterations2 (0);
+	while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	{
+        system.poll ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+	}
+    auto conflict (node2.conflicts.roots.find (publish2.block->root ()));
+    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto votes1 (conflict->election);
+    ASSERT_NE (nullptr, votes1);
+    ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_TRUE (node1.store.block_exists (transaction, publish2.block->hash ()));
+	}
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, false);
+		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
+	}
+    auto iterations (0);
+    while (votes1->votes.rep_votes.size () == 1)
+    {
+        system.poll ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    auto winner (node2.ledger.winner (transaction, votes1->votes));
+    ASSERT_EQ (*publish2.block, *winner.second);
+    ASSERT_EQ (rai::genesis_amount - 1, winner.first);
+    ASSERT_TRUE (node1.store.block_exists (transaction, publish2.block->hash ()));
+    ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
+    ASSERT_FALSE (node2.store.block_exists (transaction, publish3.block->hash ()));
+}

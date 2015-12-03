@@ -1270,6 +1270,7 @@ rai::account rai::change_block::representative () const
 rai::account_info::account_info () :
 head (0),
 rep_block (0),
+open_block (0),
 balance (0),
 modified (0)
 {
@@ -1278,13 +1279,14 @@ modified (0)
 rai::account_info::account_info (MDB_val const & val_a)
 {
 	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (head) + sizeof (rep_block) + sizeof (balance) + sizeof (modified) == sizeof (*this), "Class not packed");
+	static_assert (sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) == sizeof (*this), "Class not packed");
 	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast <uint8_t *> (this));
 }
 
-rai::account_info::account_info (rai::block_hash const & head_a, rai::account const & rep_block_a, rai::amount const & balance_a, uint64_t modified_a) :
+rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a) :
 head (head_a),
 rep_block (rep_block_a),
+open_block (open_block_a),
 balance (balance_a),
 modified (modified_a)
 {
@@ -1294,6 +1296,7 @@ void rai::account_info::serialize (rai::stream & stream_a) const
 {
     write (stream_a, head.bytes);
     write (stream_a, rep_block.bytes);
+	write (stream_a, open_block.bytes);
     write (stream_a, balance.bytes);
     write (stream_a, modified);
 }
@@ -1306,11 +1309,15 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
         result = read (stream_a, rep_block.bytes);
         if (!result)
         {
-            result = read (stream_a, balance.bytes);
-            if (!result)
-            {
-                result = read (stream_a, modified);
-            }
+			result = read (stream_a, open_block.bytes);
+			if (!result)
+			{
+				result = read (stream_a, balance.bytes);
+				if (!result)
+				{
+					result = read (stream_a, modified);
+				}
+			}
         }
     }
     return result;
@@ -1318,7 +1325,7 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 
 bool rai::account_info::operator == (rai::account_info const & other_a) const
 {
-    return head == other_a.head && rep_block == other_a.rep_block && balance == other_a.balance && modified == other_a.modified;
+    return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified;
 }
 
 bool rai::account_info::operator != (rai::account_info const & other_a) const
@@ -2598,6 +2605,11 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
     {
         checksum_update (transaction_a, info.head);
     }
+	else
+	{
+		assert (dynamic_cast <rai::open_block *> (store.block_get (transaction_a, hash_a).get ()) != nullptr);
+		info.open_block = hash_a;
+	}
     if (!hash_a.is_zero())
     {
         info.head = hash_a;
@@ -2615,9 +2627,20 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 
 std::unique_ptr <rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai::block_hash const & block_a)
 {
-    assert (store.block_exists (transaction_a, block_a));
-    assert (latest (transaction_a, account (transaction_a, block_a)) != block_a);
-	auto successor (store.block_successor (transaction_a, block_a));
+    assert (store.account_exists (block_a) || store.block_exists (transaction_a, block_a));
+    assert (store.account_exists (block_a) || latest (transaction_a, account (transaction_a, block_a)) != block_a);
+	rai::block_hash successor;
+	if (store.account_exists (block_a))
+	{
+		rai::account_info info;
+		auto error (store.account_get (transaction_a, block_a, info));
+		assert (!error);
+		successor = info.open_block;
+	}
+	else
+	{
+		successor = store.block_successor (transaction_a, block_a);
+	}
 	assert (!successor.is_zero ());
 	auto result (store.block_get (transaction_a, successor));
 	assert (result != nullptr);
@@ -2853,7 +2876,7 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
 	store_a.block_put (transaction_a, hash_l, *open);
-	store_a.account_put (transaction_a, genesis_account, {hash_l, open->hash (), std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
+	store_a.account_put (transaction_a, genesis_account, {hash_l, open->hash (), open->hash (), std::numeric_limits <rai::uint128_t>::max (), store_a.now ()});
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits <rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);
