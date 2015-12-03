@@ -1,6 +1,7 @@
 #include <rai/secure.hpp>
 
 #include <rai/node/working.hpp>
+#include <rai/node/versioning.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -1484,10 +1485,75 @@ checksum (0)
 		error_a = error_a || mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
 		error_a = error_a || mdb_dbi_open (transaction, "stack", MDB_CREATE, &stack) != 0;
 		error_a = error_a || mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
+		error_a = error_a || mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
+			do_upgrades (transaction);
 			checksum_put (transaction, 0, 0, 0);
 		}
+	}
+}
+
+void rai::block_store::version_put (MDB_txn * transaction_a, int version_a)
+{
+	rai::uint256_union version_key (1);
+	rai::uint256_union version_value (version_a);
+	auto status (mdb_put (transaction_a, meta, version_key.val (), version_value.val (), 0));
+	assert (status == 0);
+}
+
+int rai::block_store::version_get (MDB_txn * transaction_a)
+{
+	rai::uint256_union version_key (1);
+	MDB_val data {0, nullptr};
+	auto error (mdb_get (transaction_a, meta, version_key.val (), &data));
+	int result;
+	if (error == MDB_NOTFOUND)
+	{
+		result = 1;
+	}
+	else
+	{
+		rai::uint256_union version_value (data);
+		assert (version_value.qwords [2] == 0 && version_value.qwords [1] == 0 && version_value.qwords [0] == 0);
+		result = version_value.number ().convert_to <int> ();
+	}
+	return result;
+}
+
+void rai::block_store::do_upgrades (MDB_txn * transaction_a)
+{
+	switch (version_get (transaction_a))
+	{
+		case 1:
+			upgrade_v1_to_v2 (transaction_a);
+			break;
+		case 2:
+		break;
+		default:
+		assert (false);
+	}
+}
+
+void rai::block_store::upgrade_v1_to_v2 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 2);
+	for (rai::store_iterator i (transaction_a, accounts, rai::block_hash (0).val ()), n (nullptr); i != n; ++i)
+	{
+		rai::account_info_v1 v1 (i->second);
+		rai::account_info v2;
+		v2.balance = v1.balance;
+		v2.head = v1.head;
+		v2.modified = v1.modified;
+		v2.rep_block = v1.rep_block;
+		auto block (block_get (transaction_a, v1.head));
+		while (!block->previous ().is_zero ())
+		{
+			block = block_get (transaction_a, block->previous ());
+		}
+		v2.open_block = block->hash ();
+		auto status (mdb_put (transaction_a, accounts, &i->first, v2.val (), 0));
+		assert (status == 0);
 	}
 }
 

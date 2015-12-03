@@ -99,6 +99,8 @@ add_library (node
 	rai/node/rpc.cpp
 	rai/node/testing.hpp
 	rai/node/testing.cpp
+	rai/node/versioning.cpp
+	rai/node/versioning.hpp
 	rai/node/wallet.hpp
 	rai/node/wallet.cpp
 	rai/node/working.hpp)
@@ -121,6 +123,7 @@ add_executable (core_test
 	rai/core_test/rpc.cpp
 	rai/core_test/network.cpp
 	rai/core_test/uint256_union.cpp
+	rai/core_test/versioning.cpp
 	rai/core_test/wallet.cpp
 	rai/core_test/wallets.cpp)
 

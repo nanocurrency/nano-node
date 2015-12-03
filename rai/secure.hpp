@@ -374,6 +374,11 @@ public:
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
 	
+	void version_put (MDB_txn *, int);
+	int version_get (MDB_txn *);
+	void do_upgrades (MDB_txn *);
+	void upgrade_v1_to_v2 (MDB_txn *);
+	
 	void clear (MDB_dbi);
 	
 	rai::mdb_env environment;
@@ -401,6 +406,8 @@ public:
 	MDB_dbi stack;
 	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
 	MDB_dbi checksum;
+	// uint256_union -> ?											// Meta information about block store
+	MDB_dbi meta;
 };
 enum class process_result
 {
