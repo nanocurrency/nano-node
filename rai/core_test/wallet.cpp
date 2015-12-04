@@ -560,15 +560,26 @@ TEST (wallet, work)
     rai::system system (24000, 1);
     auto wallet (system.wallet (0));
     wallet->insert (rai::test_genesis_key.prv);
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    auto account1 (system.account (transaction, 0));
-    auto root1 (system.nodes [0]->ledger.latest_root (transaction, account1));
-    uint64_t work3;
-	// Make sure work_get and work_fetch retrieve the same thing
-    ASSERT_FALSE (wallet->store.work_get (transaction, account1, work3));
-	auto work4 (wallet->work_fetch (transaction, account1, root1));
+	uint64_t work4;
+	rai::uint256_union root1;
+	rai::account account1;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		account1 = system.account (transaction, 0);
+		root1 = system.nodes [0]->ledger.latest_root (transaction, account1);
+		work4 = wallet->work_fetch (transaction, account1, root1);
+	}
 	ASSERT_FALSE (system.work.work_validate (root1, work4));
-	ASSERT_EQ (work3, work4);
+    uint64_t work3 (0);
+	auto iteration (0);
+	while (work3 != work4)
+	{
+		system.poll ();
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		// Make sure work_get and work_fetch retrieve the same thing
+		ASSERT_FALSE (wallet->store.work_get (transaction, account1, work3));
+		ASSERT_LT (iteration, 200);
+	}
 }
 
 TEST (wallet, work_generate)
