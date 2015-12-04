@@ -1538,22 +1538,34 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 void rai::block_store::upgrade_v1_to_v2 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 2);
-	for (rai::store_iterator i (transaction_a, accounts, rai::block_hash (0).val ()), n (nullptr); i != n; ++i)
+	rai::account account (1);
+	while (!account.is_zero ())
 	{
-		rai::account_info_v1 v1 (i->second);
-		rai::account_info v2;
-		v2.balance = v1.balance;
-		v2.head = v1.head;
-		v2.modified = v1.modified;
-		v2.rep_block = v1.rep_block;
-		auto block (block_get (transaction_a, v1.head));
-		while (!block->previous ().is_zero ())
+		rai::store_iterator i (transaction_a, accounts, account.val ());
+		std::cerr << std::hex;
+		if (i != rai::store_iterator (nullptr))
 		{
-			block = block_get (transaction_a, block->previous ());
+			account = i->first;
+			rai::account_info_v1 v1 (i->second);
+			rai::account_info v2;
+			v2.balance = v1.balance;
+			v2.head = v1.head;
+			v2.modified = v1.modified;
+			v2.rep_block = v1.rep_block;
+			auto block (block_get (transaction_a, v1.head));
+			while (!block->previous ().is_zero ())
+			{
+				block = block_get (transaction_a, block->previous ());
+			}
+			v2.open_block = block->hash ();
+			auto status (mdb_put (transaction_a, accounts, account.val (), v2.val (), 0));
+			assert (status == 0);
+			account = account.number () + 1;
 		}
-		v2.open_block = block->hash ();
-		auto status (mdb_put (transaction_a, accounts, &i->first, v2.val (), 0));
-		assert (status == 0);
+		else
+		{
+			account.clear ();
+		}
 	}
 }
 
