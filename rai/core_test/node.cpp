@@ -151,10 +151,7 @@ TEST (node, quick_confirm)
 	rai::block_hash previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->insert (key.prv);
     rai::send_block send (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous));
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive_one (transaction, send).code);
-	}
+	system.nodes [0]->process_receive_republish (send.clone (), 0);
     auto iterations (0);
     while (system.nodes [0]->balance (key.pub).is_zero ())
     {
@@ -822,4 +819,18 @@ TEST (node, fork_open_flip)
     ASSERT_TRUE (node1.store.block_exists (transaction, publish2.block->hash ()));
     ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
     ASSERT_FALSE (node2.store.block_exists (transaction, publish3.block->hash ()));
+}
+
+TEST (node, coherent_observer)
+{
+    rai::system system (24000, 1);
+    auto & node1 (*system.nodes [0]);
+	node1.observers.push_back ([&node1] (rai::block const & block_a, rai::account const & account_a)
+	{
+		rai::transaction transaction (node1.store.environment, nullptr, false);
+		ASSERT_TRUE (node1.store.block_exists (transaction, block_a.hash ()));
+	});
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	rai::keypair key;
+	system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, 1);
 }

@@ -1182,23 +1182,31 @@ void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key cons
 
 void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming, size_t rebroadcast_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
-	assert (incoming != nullptr);
-	process_receive_many (transaction, *incoming, [this, rebroadcast_a] (rai::process_return result_a, rai::block const & block_a)
+	std::vector <std::tuple <rai::process_return, std::unique_ptr <rai::block>>> completed;
 	{
-		switch (result_a.code)
+		rai::transaction transaction (store.environment, nullptr, true);
+		assert (incoming != nullptr);
+		process_receive_many (transaction, *incoming, [this, rebroadcast_a, &completed] (rai::process_return result_a, rai::block const & block_a)
 		{
-			case rai::process_result::progress:
+			switch (result_a.code)
 			{
-				network.republish_block (block_a.clone (), rebroadcast_a);
-				break;
+				case rai::process_result::progress:
+				{
+					completed.push_back (std::make_tuple (result_a, block_a.clone ()));
+					network.republish_block (block_a.clone (), rebroadcast_a);
+					break;
+				}
+				default:
+				{
+					break;
+				}
 			}
-			default:
-			{
-				break;
-			}
-		}
-	});
+		});
+	}
+	for (auto & i: completed)
+	{
+		call_observers (*std::get <1> (i), std::get <0> (i).account);
+	}
 }
 
 void rai::node::process_receive_many (rai::transaction & transaction_a, rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
@@ -1226,7 +1234,6 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
     {
         case rai::process_result::progress:
         {
-			call_observers (block_a, result.account);
             if (config.logging.ledger_logging ())
             {
                 std::string block;
