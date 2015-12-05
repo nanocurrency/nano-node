@@ -188,3 +188,22 @@ using signature = uint512_union;
 rai::uint512_union sign_message (rai::raw_key const &, rai::public_key const &, rai::uint256_union const &);
 bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
 }
+namespace std
+{
+template <>
+struct hash <rai::uint256_union>
+{
+	size_t operator () (rai::uint256_union const & data_a) const
+	{
+		return *reinterpret_cast <size_t const *> (data_a.bytes.data ());
+	}
+};
+template <>
+struct hash <rai::uint256_t>
+{
+	size_t operator () (rai::uint256_t const & number_a) const
+	{
+		return number_a.convert_to <size_t> ();
+	}
+};
+}

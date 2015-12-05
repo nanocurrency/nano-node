@@ -71,6 +71,15 @@ config (config_a),
 server (decltype (server)::options (*this).address (config.address.to_string ()).port (std::to_string (config.port)).io_service (service_a).thread_pool (pool_a)),
 node (node_a)
 {
+	node_a.observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		auto existing (payment_observers.find (account_a));
+		if (existing != payment_observers.end ())
+		{
+			existing->second ();
+		}
+	});
 }
 
 void rai::rpc::start ()
@@ -495,6 +504,272 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
                         response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
                         response.content = "Wallet not found";
                     }
+                }
+                else
+                {
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad account number";
+                }
+            }
+            else if (action == "payment_begin")
+			{
+                std::string inactive_text (request_l.get <std::string> ("inactive_wallet"));
+                std::string active_text (request_l.get <std::string> ("active_wallet"));
+				rai::uint256_union inactive;
+				if (!inactive.decode_hex (inactive_text))
+				{
+					rai::uint256_union active;
+					if (!active.decode_hex (active_text))
+					{
+						rai::transaction transaction (node.store.environment, nullptr, true);
+						std::shared_ptr <rai::wallet> inactive_wallet;
+						std::shared_ptr <rai::wallet> active_wallet;
+						if (!payment_wallets (transaction, inactive, active, inactive_wallet, active_wallet))
+						{
+							rai::account account (0);
+							for (auto i (inactive_wallet->store.begin (transaction)), n (inactive_wallet->store.end ()); i != n && account.is_zero (); ++i)
+							{
+								rai::account first (i->first);
+								if (node.ledger.account_balance (transaction, first).is_zero ())
+								account = first;
+							}
+							if (account.is_zero ())
+							{
+								rai::keypair key;
+								auto pub (active_wallet->store.insert (transaction, key.prv));
+								assert (key.pub == pub);
+								account = key.pub;
+							}
+							else
+							{
+								rai::raw_key key;
+								auto error (inactive_wallet->store.fetch (transaction, account, key));
+								assert (!error);
+								inactive_wallet->store.erase (transaction, account);
+								active_wallet->insert (key);
+							}
+							assert (!account.is_zero ());
+							assert (!inactive_wallet->store.exists (transaction, account));
+							assert (active_wallet->store.exists (transaction, account));
+							boost::property_tree::ptree response_l;
+							response_l.put ("account", account.to_base58check ());
+							set_response (response, response_l);
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Unable to find wallets";
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad active wallet number";
+					}
+				}
+				else
+				{
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad inactive wallet number";
+				}
+			}
+            else if (action == "payment_check")
+			{
+                std::string inactive_text (request_l.get <std::string> ("inactive_wallet"));
+                std::string active_text (request_l.get <std::string> ("active_wallet"));
+				rai::uint256_union inactive;
+				if (!inactive.decode_hex (inactive_text))
+				{
+					rai::uint256_union active;
+					if (!active.decode_hex (active_text))
+					{
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						std::shared_ptr <rai::wallet> inactive_wallet;
+						std::shared_ptr <rai::wallet> active_wallet;
+						if (!payment_wallets (transaction, inactive, active, inactive_wallet, active_wallet))
+						{
+							if (inactive_wallet->store.valid_password (transaction))
+							{
+								if (active_wallet->store.valid_password (transaction))
+								{
+									boost::property_tree::ptree response_l;
+									response_l.put ("status", "Ready");
+									set_response (response, response_l);
+								}
+								else
+								{
+									boost::property_tree::ptree response_l;
+									response_l.put ("status", "Active wallet locked");
+									set_response (response, response_l);
+								}
+							}
+							else
+							{
+								boost::property_tree::ptree response_l;
+								response_l.put ("status", "Inactive wallet locked");
+								set_response (response, response_l);
+							}
+						}
+						else
+						{
+							boost::property_tree::ptree response_l;
+							response_l.put ("status", "Unable to find wallets");
+							set_response (response, response_l);
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad active wallet number";
+					}
+				}
+				else
+				{
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad inactive wallet number";
+				}
+			}
+            else if (action == "payment_end")
+			{
+                std::string inactive_text (request_l.get <std::string> ("inactive_wallet"));
+                std::string active_text (request_l.get <std::string> ("active_wallet"));
+				std::string account_text (request_l.get <std::string> ("account"));
+				rai::uint256_union inactive;
+				if (!inactive.decode_hex (inactive_text))
+				{
+					rai::uint256_union active;
+					if (!active.decode_hex (active_text))
+					{
+						rai::transaction transaction (node.store.environment, nullptr, true);
+						std::shared_ptr <rai::wallet> inactive_wallet;
+						std::shared_ptr <rai::wallet> active_wallet;
+						if (!payment_wallets (transaction, inactive, active, inactive_wallet, active_wallet))
+						{
+							rai::account account;
+							if (!account.decode_base58check (account_text))
+							{
+								auto existing (active_wallet->store.find (transaction, account));
+								if (existing != active_wallet->store.end ())
+								{
+									rai::raw_key key;
+									auto error (active_wallet->store.fetch (transaction, account, key));
+									active_wallet->store.erase (transaction, account);
+									assert (!error);
+									auto pub (inactive_wallet->store.insert (transaction, key));
+									assert (pub == account);
+									boost::property_tree::ptree response_l;
+									set_response (response, response_l);
+								}
+								else
+								{
+									response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+									response.content = "Account not in active wallet";
+								}
+							}
+							else
+							{
+								response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+								response.content = "Invalid account number";
+							}
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Unable to find wallets";
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad active wallet number";
+					}
+				}
+				else
+				{
+                    response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+                    response.content = "Bad inactive wallet number";
+				}
+			}
+            /*else if (action == "payment_shutdown")
+			{
+			}
+            else if (action == "payment_startup")
+			{
+			}*/
+            else if (action == "payment_wait")
+            {
+                std::string account_text (request_l.get <std::string> ("account"));
+				std::string amount_text (request_l.get <std::string> ("amount"));
+				std::string timeout_text (request_l.get <std::string> ("timeout"));
+                rai::uint256_union account;
+                if (!account.decode_base58check (account_text))
+                {
+					rai::uint128_union amount;
+					if (!amount.decode_dec (amount_text))
+					{
+						uint64_t timeout;
+						if (!decode_unsigned (timeout_text, timeout))
+						{
+							std::chrono::system_clock::time_point cutoff (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout));
+							std::mutex mutex;
+							std::condition_variable condition;
+							rai::payment_observer observer (*this, account, [&mutex, & condition] ()
+							{
+								std::lock_guard <std::mutex> lock (mutex);
+								condition.notify_all ();
+							});
+							rai::payment_status status (rai::payment_status::unknown);
+							{
+								std::unique_lock <std::mutex> lock (mutex);
+								while (node.balance (account) < amount.number () && std::chrono::system_clock::now () < cutoff)
+								{
+									condition.wait_until (lock, cutoff);
+								}
+								
+							}
+							if (node.balance (account) < amount.number ())
+							{
+								status = rai::payment_status::nothing;
+							}
+							else
+							{
+								status = rai::payment_status::success;
+							}
+							switch (status)
+							{
+								case rai::payment_status::nothing:
+								{
+									boost::property_tree::ptree response_l;
+									response_l.put ("status", "nothing");
+									set_response (response, response_l);
+									break;
+								}
+								case rai::payment_status::success:
+								{
+									boost::property_tree::ptree response_l;
+									response_l.put ("status", "success");
+									set_response (response, response_l);
+									break;
+								}
+								default:
+								{
+									response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::internal_server_error);
+									response.content = "Internal payment error";
+									break;
+								}
+							}
+						}
+						else
+						{
+							response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+							response.content = "Bad timeout number";
+						}
+					}
+					else
+					{
+						response = boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request);
+						response.content = "Bad amount number";
+					}
                 }
                 else
                 {
@@ -966,6 +1241,23 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
     }
 }
 
+bool rai::rpc::payment_wallets (MDB_txn * transaction_a, rai::uint256_union const & inactive_wallet_a, rai::uint256_union const & active_wallet_a, std::shared_ptr <rai::wallet> & inactive_a, std::shared_ptr <rai::wallet> & active_a)
+{
+	auto inactive_existing (node.wallets.items.find (inactive_wallet_a));
+	auto active_existing (node.wallets.items.find (active_wallet_a));
+	auto result (false);
+	if (inactive_existing != node.wallets.items.end () && active_existing != node.wallets.items.end ())
+	{
+		inactive_a = inactive_existing->second;
+		active_a = active_existing->second;
+	}
+	else
+	{
+		result = true;
+	}
+	return result;
+}
+
 bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
 {
 	bool result;
@@ -985,4 +1277,20 @@ bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
 	}
 	result = result || end != text.size ();
 	return result;
+}
+
+rai::payment_observer::payment_observer (rai::rpc & rpc_a, rai::account const & account_a, std::function <void ()> const & action_a) :
+rpc (rpc_a),
+account (account_a)
+{
+	std::lock_guard <std::mutex> lock (rpc.mutex);
+	assert (rpc.payment_observers.find (account_a) == rpc.payment_observers.end ());
+	rpc.payment_observers [account_a] = action_a;
+}
+
+rai::payment_observer::~payment_observer ()
+{
+	std::lock_guard <std::mutex> lock (rpc.mutex);
+	assert (rpc.payment_observers.find (account) != rpc.payment_observers.end ());
+	rpc.payment_observers.erase (account);
 }
