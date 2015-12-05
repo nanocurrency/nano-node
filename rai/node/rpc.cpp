@@ -546,7 +546,7 @@ void rai::rpc::operator () (boost::network::http::server <rai::rpc>::request con
 								auto error (inactive_wallet->store.fetch (transaction, account, key));
 								assert (!error);
 								inactive_wallet->store.erase (transaction, account);
-								active_wallet->insert (key);
+								active_wallet->store.insert (transaction, key);
 							}
 							assert (!account.is_zero ());
 							assert (!inactive_wallet->store.exists (transaction, account));

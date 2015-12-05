@@ -779,6 +779,44 @@ TEST (rpc, payment_begin_end)
 	ASSERT_FALSE (active_wallet->exists (account));
 }
 
+TEST (rpc, payment_begin_reuse)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto node1 (system.nodes [0]);
+	rai::keypair inactive_wallet_id;
+	auto inactive_wallet (node1->wallets.create (inactive_wallet_id.pub));
+	ASSERT_TRUE (node1->wallets.items.find (inactive_wallet_id.pub) != node1->wallets.items.end ());
+	rai::keypair key;
+	inactive_wallet->insert (key.prv);
+	rai::keypair active_wallet_id;
+	auto active_wallet (node1->wallets.create (active_wallet_id.pub));
+	ASSERT_TRUE (node1->wallets.items.find (active_wallet_id.pub) != node1->wallets.items.end ());
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    boost::property_tree::ptree request1;
+	request1.put ("action", "payment_begin");
+	request1.put ("inactive_wallet", inactive_wallet_id.pub.to_string ());
+	request1.put ("active_wallet", active_wallet_id.pub.to_string ());
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
+	auto account_text (response1.first.get <std::string> ("account"));
+	rai::uint256_union account;
+	ASSERT_FALSE (account.decode_base58check (account_text));
+	ASSERT_EQ (key.pub, account);
+	ASSERT_TRUE (active_wallet->exists (account));
+	ASSERT_FALSE (inactive_wallet->exists (account));
+    boost::property_tree::ptree request2;
+	request2.put ("action", "payment_end");
+	request2.put ("inactive_wallet", inactive_wallet_id.pub.to_string ());
+	request2.put ("active_wallet", active_wallet_id.pub.to_string ());
+	request2.put ("account", account.to_base58check ());
+	auto response2 (test_response (request2, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
+	ASSERT_TRUE (inactive_wallet->exists (account));
+	ASSERT_FALSE (active_wallet->exists (account));
+}
+
 TEST (rpc, payment_wait)
 {
     rai::system system (24000, 1);
