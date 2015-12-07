@@ -792,8 +792,10 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 	bool result;
 	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, representative_a, &complete, &result] ()
 	{
-		result = change_action (source_a, representative_a) == nullptr;
+		auto block (change_action (source_a, representative_a));
+		result = block == nullptr;
 		complete.unlock ();
+		return block;
 	});
 	complete.lock ();
 	return result;
@@ -806,8 +808,10 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account co
 	bool result;
 	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, account_a, &result, &complete, amount_a] ()
 	{
-		result = receive_action (block_a, account_a, amount_a) == nullptr;
+		auto block (receive_action (block_a, account_a, amount_a));
+		result = block == nullptr;
 		complete.unlock ();
+		return block;
 	});
 	complete.lock ();
 	return result;
@@ -826,6 +830,7 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 			result = block->hash ();
 		}
 		complete.unlock ();
+		return block;
 	});
 	complete.lock ();
 	return result;
@@ -934,8 +939,8 @@ public:
 							wallet_l->node.wallets.queue_wallet_action (block->hashables.destination, amount, [wallet_l, block, representative, amount] ()
 							{
 								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-								auto error (wallet_l->receive_action (*block, representative, amount));
-								if (error)
+								auto block_l (wallet_l->receive_action (*block, representative, amount));
+								if (block_l == nullptr)
 								{
 									BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
 								}

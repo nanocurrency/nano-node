@@ -765,8 +765,9 @@ wallet (wallet_a)
 			}
 			wallet.node.wallets.queue_wallet_action (wallet.account, std::numeric_limits <rai::uint128_t>::max (), [this, representative_l] ()
 			{
-				wallet.wallet_m->change_action (wallet.account, representative_l);
+				auto block (wallet.wallet_m->change_action (wallet.account, representative_l));
 				change_rep->setEnabled (true);
+				return block;
 			});
 		}
 	});

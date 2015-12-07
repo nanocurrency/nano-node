@@ -1872,8 +1872,8 @@ public:
 					{
 						node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, representative, wallet, amount] ()
 						{
-							auto error (wallet->receive_action (*block_l, representative, amount));
-							(void)error; // Might be interesting to view during debug
+							auto block (wallet->receive_action (*block_l, representative, amount));
+							return block;
 						});
 					});
 				}
