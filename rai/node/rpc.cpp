@@ -1175,7 +1175,7 @@ void rai::rpc_handler::wallet_key_valid ()
 
 void rai::rpc::error_response (boost::network::http::async_server <rai::rpc>::connection_ptr connection_a, std::string const & message_a)
 {
-    auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::ok));
+    auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request));
 	auto response (std::make_shared <decltype (response_l)> (response_l));
 	response->content = message_a;
 	connection_a->write (response->to_buffers (), [connection_a, response] (boost::system::error_code) {});
