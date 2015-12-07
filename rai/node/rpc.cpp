@@ -69,7 +69,7 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 
 rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, rai::node & node_a, rai::rpc_config const & config_a) :
 config (config_a),
-server (decltype (server)::options (*this).address (config.address.to_string ()).port (std::to_string (config.port)).io_service (service_a).thread_pool (pool_a)),
+server (decltype (server)::options (*this).address (config.address.to_string ()).port (std::to_string (config.port)).io_service (service_a).thread_pool (pool_a).reuse_address (true)),
 node (node_a)
 {
 }
@@ -95,10 +95,14 @@ void rai::rpc_handler::send_response (boost::property_tree::ptree & tree)
 {
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, tree);
-    auto response (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::ok));
-    response.headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
-    response.content = ostream.str ();
-	connection->write (response.to_buffers (), [] (boost::system::error_code) {});
+    auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::ok));
+	auto response (std::make_shared <decltype (response_l)> (response_l));
+    response->headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
+    response->content = ostream.str ();
+	auto connection_l (connection);
+	connection->write (response->to_buffers (), [connection_l, response] (boost::system::error_code const & ec)
+	{
+	});
 }
 
 void rai::rpc_handler::error_response (std::string const & message_a)

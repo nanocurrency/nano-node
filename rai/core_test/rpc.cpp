@@ -13,7 +13,6 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 	std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>::response::status_type> result;
 	boost::network::http::client client;
 	auto url ("http://localhost:" + std::to_string (rpc_a.config.port));
-	std::cerr << url << std::endl;
 	boost::network::http::client::request request (url);
 	std::string request_string;
 	{
@@ -24,18 +23,18 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 	request.body (request_string);
 	boost::network::http::client::response response = client.post (request);
 	uint16_t status (boost::network::http::status (response));
-	std::string body_l (boost::network::http::body (response));
 	result.second = static_cast <boost::network::http::server <rai::rpc>::response::status_type> (status);
-	if (result.second == boost::network::http::server <rai::rpc>::response::ok)
+	try
 	{
-		std::stringstream istream (response.body ());
-		try
+		std::string body_l (boost::network::http::body (response));
+		if (result.second == boost::network::http::server <rai::rpc>::response::ok)
 		{
+			std::stringstream istream (response.body ());
 			boost::property_tree::read_json (istream, result.first);
 		}
-		catch (...)
-		{
-		}
+	}
+	catch (...)
+	{
 	}
 	return result;
 }
@@ -54,7 +53,7 @@ TEST (rpc, account_balance)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string balance_text (response.first.get <std::string> ("balance"));
     ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
-	rpc.server.stop ();
+	rpc.stop ();
 	thread1.join ();
 }
 
@@ -74,7 +73,7 @@ TEST (rpc, account_create)
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_base58check (account_text));
 	ASSERT_TRUE (system.wallet (0)->exists (account));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -96,7 +95,7 @@ TEST (rpc, account_weight)
 	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string balance_text (response.first.get <std::string> ("weight"));
     ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -118,7 +117,7 @@ TEST (rpc, wallet_contains)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("exists"));
     ASSERT_EQ ("1", exists_text);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -139,7 +138,7 @@ TEST (rpc, wallet_doesnt_contain)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("exists"));
     ASSERT_EQ ("0", exists_text);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -157,7 +156,7 @@ TEST (rpc, validate_account_number)
 	auto response (test_response (request, rpc));
     std::string exists_text (response.first.get <std::string> ("valid"));
     ASSERT_EQ ("1", exists_text);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -179,7 +178,7 @@ TEST (rpc, validate_account_invalid)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("valid"));
     ASSERT_EQ ("0", exists_text);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -205,7 +204,7 @@ TEST (rpc, send)
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (system.nodes [0]->ledger.block_exists (block));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -230,7 +229,7 @@ TEST (rpc, send_fail)
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (block.is_zero ());
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -255,7 +254,7 @@ TEST (rpc, wallet_add)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("account"));
     ASSERT_EQ (account_text1, key1.pub.to_base58check ());
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -275,7 +274,7 @@ TEST (rpc, wallet_password_valid)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("valid"));
     ASSERT_EQ (account_text1, "1");
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -301,7 +300,7 @@ TEST (rpc, wallet_password_change)
     ASSERT_FALSE (system.wallet (0)->valid_password ());
     ASSERT_FALSE (system.wallet (0)->enter_password ("test"));
     ASSERT_TRUE (system.wallet (0)->valid_password ());
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -332,7 +331,7 @@ TEST (rpc, wallet_password_enter)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("valid"));
     ASSERT_EQ (account_text1, "1");
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -352,7 +351,7 @@ TEST (rpc, representative)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("representative"));
     ASSERT_EQ (account_text1, rai::genesis_account.to_base58check ());
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -374,7 +373,7 @@ TEST (rpc, representative_set)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_EQ (key.pub, system.nodes [0]->wallets.items.begin ()->second->store.representative (transaction));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -409,7 +408,7 @@ TEST (rpc, account_list)
     {
         ASSERT_TRUE (system.wallet (0)->exists (*i));
     }
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -430,7 +429,7 @@ TEST (rpc, wallet_key_valid)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("valid"));
     ASSERT_EQ ("1", exists_text);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -449,7 +448,7 @@ TEST (rpc, wallet_create)
     rai::uint256_union wallet_id;
     ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
     ASSERT_NE (system.nodes [0]->wallets.items.end (), system.nodes [0]->wallets.items.find (wallet_id));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -473,7 +472,7 @@ TEST (rpc, wallet_export)
     rai::wallet_store store (error, kdf, transaction, rai::genesis_account, "0", wallet_json);
     ASSERT_FALSE (error);
     ASSERT_TRUE (store.exists (transaction, rai::test_genesis_key.pub));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -492,7 +491,7 @@ TEST (rpc, wallet_destroy)
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     ASSERT_EQ (system.nodes [0]->wallets.items.end (), system.nodes [0]->wallets.items.find (wallet_id));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -526,7 +525,7 @@ TEST (rpc, account_move)
     ASSERT_TRUE (destination->exists (rai::test_genesis_key.pub));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_EQ (source->store.end (), source->store.begin (transaction));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -544,7 +543,7 @@ TEST (rpc, block)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	auto contents (response.first.get <std::string> ("contents"));
     ASSERT_FALSE (contents.empty ());
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -576,7 +575,7 @@ TEST (rpc, chain)
 	ASSERT_EQ (2, blocks.size ());
 	ASSERT_EQ (block, blocks [0]);
 	ASSERT_EQ (genesis, blocks [1]);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -607,7 +606,7 @@ TEST (rpc, chain_limit)
 	}
 	ASSERT_EQ (1, blocks.size ());
 	ASSERT_EQ (block, blocks [0]);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -629,7 +628,7 @@ TEST (rpc, process_block)
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	ASSERT_EQ (send.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -649,7 +648,7 @@ TEST (rpc, price_free)
 	auto price (response.first.get <std::string> ("price"));
 	auto value (std::stoi (price));
 	ASSERT_EQ (0, value);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -667,7 +666,7 @@ TEST (rpc, price_amount_high)
 	request.put ("amount", "1");
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -684,7 +683,7 @@ TEST (rpc, price_bad)
 	request.put ("amount", "1a");
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -724,7 +723,7 @@ TEST (rpc, frontier)
     }
 	ASSERT_EQ (1, frontiers.erase (rai::test_genesis_key.pub));
 	ASSERT_EQ (source, frontiers);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -754,7 +753,7 @@ TEST (rpc, frontier_limited)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     auto & frontiers_node (response.first.get_child ("frontiers"));
 	ASSERT_EQ (100, frontiers_node.size ());
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -785,7 +784,7 @@ TEST (rpc, frontier_startpoint)
     auto & frontiers_node (response.first.get_child ("frontiers"));
 	ASSERT_EQ (1, frontiers_node.size ());
 	ASSERT_EQ (source.begin ()->first.to_base58check (), frontiers_node.begin ()->first);
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -836,7 +835,7 @@ TEST (rpc, search_pending)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
 
@@ -864,6 +863,6 @@ TEST (rpc, keepalive)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	rpc.server.stop();
+	rpc.stop();
 	thread1.join();
 }
