@@ -3906,6 +3906,12 @@ bool rai::node::representative_vote (rai::election & election_a, rai::block cons
     return result;
 }
 
+int rai::node::store_version ()
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	return store.version_get (transaction);
+}
+
 bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
 {
     return *block == *other_a.block;

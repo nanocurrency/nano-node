@@ -969,6 +969,14 @@ void rai::rpc_handler::send ()
 	}
 }
 
+void rai::rpc_handler::version ()
+{
+	boost::property_tree::ptree response_l;
+	response_l.put ("rpc_version", "1");
+	response_l.put ("store_version", std::to_string (rpc.node.store_version ()));
+	send_response (response_l);
+}
+
 void rai::rpc_handler::validate_account_number ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -1300,6 +1308,10 @@ void rai::rpc::read_headers (boost::network::http::async_server <rai::rpc>::requ
 			else if (action == "validate_account_number")
 			{
 				handler.validate_account_number ();
+			}
+			else if (action == "version")
+			{
+				handler.version ();
 			}
 			else if (action == "wallet_add")
 			{

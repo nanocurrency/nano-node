@@ -89,6 +89,7 @@ public:
 	void search_pending ();
 	void send ();
 	void validate_account_number ();
+	void version ();
 	void wallet_add ();
 	void wallet_contains ();
 	void wallet_create ();

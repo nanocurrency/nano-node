@@ -709,6 +709,7 @@ public:
     void stop ();
     std::shared_ptr <rai::node> shared ();
     bool representative_vote (rai::election &, rai::block const &);
+	int store_version ();
     void vote (rai::vote const &);
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
