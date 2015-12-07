@@ -3,6 +3,7 @@
 #include <rai/node/testing.hpp>
 #include <rai/node/rpc.hpp>
 
+#include <boost/network/protocol/http/client.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/thread.hpp>
@@ -10,36 +11,32 @@
 std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>::response::status_type> test_response (boost::property_tree::ptree const & request_a, rai::rpc & rpc_a)
 {
 	std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>::response::status_type> result;
-    boost::network::http::server <rai::rpc>::request request;
-    request.method = "POST";
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, request_a);
-    request.body = ostream.str ();
-    boost::network::http::server <rai::rpc>::response response;
-	rpc_a (request, response);
-	result.second = response.status;
-	if (response.status == boost::network::http::server <rai::rpc>::response::ok)
+	boost::network::http::client client;
+	auto url ("http://localhost:" + std::to_string (rpc_a.config.port));
+	boost::network::http::client::request request (url);
+	std::string request_string;
 	{
-		std::stringstream istream (response.content);
-		boost::property_tree::read_json (istream, result.first);
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, request_a);
+		request_string = ostream.str ();
+	}
+	request.body (request_string);
+	boost::network::http::client::response response = client.post (request);
+	uint16_t status (boost::network::http::status (response));
+	result.second = static_cast <boost::network::http::server <rai::rpc>::response::status_type> (status);
+	try
+	{
+		std::string body_l (boost::network::http::body (response));
+		if (result.second == boost::network::http::server <rai::rpc>::response::ok)
+		{
+			std::stringstream istream (response.body ());
+			boost::property_tree::read_json (istream, result.first);
+		}
+	}
+	catch (...)
+	{
 	}
 	return result;
-}
-
-TEST (rpc, account_create)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
-    boost::property_tree::ptree request;
-    request.put ("action", "account_create");
-    request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
-    auto response (test_response (request, rpc));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
-    auto account_text (response.first.get <std::string> ("account"));
-    rai::uint256_union account;
-    ASSERT_FALSE (account.decode_base58check (account_text));
-    ASSERT_TRUE (system.wallet (0)->exists (account));
 }
 
 TEST (rpc, account_balance)
@@ -47,6 +44,8 @@ TEST (rpc, account_balance)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "account_balance");
     request.put ("account", rai::test_genesis_key.pub.to_base58check ());
@@ -54,6 +53,28 @@ TEST (rpc, account_balance)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string balance_text (response.first.get <std::string> ("balance"));
     ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+	rpc.stop ();
+	thread1.join ();
+}
+
+TEST (rpc, account_create)
+{
+	rai::system system (24000, 1);
+	auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+	rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+	boost::property_tree::ptree request;
+	request.put ("action", "account_create");
+	request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
+	auto response (test_response (request, rpc));
+	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+	auto account_text (response.first.get <std::string> ("account"));
+	rai::uint256_union account;
+	ASSERT_FALSE (account.decode_base58check (account_text));
+	ASSERT_TRUE (system.wallet (0)->exists (account));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, account_weight)
@@ -65,6 +86,8 @@ TEST (rpc, account_weight)
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (block).code);
 	auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "account_weight");
     request.put ("account", key.pub.to_base58check ());
@@ -72,6 +95,8 @@ TEST (rpc, account_weight)
 	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string balance_text (response.first.get <std::string> ("weight"));
     ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_contains)
@@ -79,6 +104,8 @@ TEST (rpc, wallet_contains)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     std::string wallet;
@@ -90,6 +117,8 @@ TEST (rpc, wallet_contains)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("exists"));
     ASSERT_EQ ("1", exists_text);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_doesnt_contain)
@@ -97,6 +126,8 @@ TEST (rpc, wallet_doesnt_contain)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -107,6 +138,8 @@ TEST (rpc, wallet_doesnt_contain)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("exists"));
     ASSERT_EQ ("0", exists_text);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, validate_account_number)
@@ -114,6 +147,8 @@ TEST (rpc, validate_account_number)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "validate_account_number");
@@ -121,6 +156,8 @@ TEST (rpc, validate_account_number)
 	auto response (test_response (request, rpc));
     std::string exists_text (response.first.get <std::string> ("valid"));
     ASSERT_EQ ("1", exists_text);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, validate_account_invalid)
@@ -128,6 +165,8 @@ TEST (rpc, validate_account_invalid)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     std::string account;
     rai::test_genesis_key.pub.encode_base58check (account);
     account [0] ^= 0x1;
@@ -139,6 +178,8 @@ TEST (rpc, validate_account_invalid)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("valid"));
     ASSERT_EQ ("0", exists_text);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, send)
@@ -146,6 +187,8 @@ TEST (rpc, send)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     std::string wallet;
@@ -161,6 +204,8 @@ TEST (rpc, send)
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (system.nodes [0]->ledger.block_exists (block));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, send_fail)
@@ -168,6 +213,8 @@ TEST (rpc, send_fail)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -182,6 +229,8 @@ TEST (rpc, send_fail)
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (block.is_zero ());
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_add)
@@ -189,6 +238,8 @@ TEST (rpc, wallet_add)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     rai::keypair key1;
     std::string key_text;
     key1.prv.data.encode_hex (key_text);
@@ -203,6 +254,8 @@ TEST (rpc, wallet_add)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("account"));
     ASSERT_EQ (account_text1, key1.pub.to_base58check ());
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_password_valid)
@@ -210,6 +263,8 @@ TEST (rpc, wallet_password_valid)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -219,6 +274,8 @@ TEST (rpc, wallet_password_valid)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("valid"));
     ASSERT_EQ (account_text1, "1");
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_password_change)
@@ -226,6 +283,8 @@ TEST (rpc, wallet_password_change)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -241,6 +300,8 @@ TEST (rpc, wallet_password_change)
     ASSERT_FALSE (system.wallet (0)->valid_password ());
     ASSERT_FALSE (system.wallet (0)->enter_password ("test"));
     ASSERT_TRUE (system.wallet (0)->valid_password ());
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_password_enter)
@@ -258,6 +319,8 @@ TEST (rpc, wallet_password_enter)
 	}
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -268,6 +331,8 @@ TEST (rpc, wallet_password_enter)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("valid"));
     ASSERT_EQ (account_text1, "1");
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, representative)
@@ -275,6 +340,8 @@ TEST (rpc, representative)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -284,6 +351,8 @@ TEST (rpc, representative)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("representative"));
     ASSERT_EQ (account_text1, rai::genesis_account.to_base58check ());
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, representative_set)
@@ -291,6 +360,8 @@ TEST (rpc, representative_set)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -302,6 +373,8 @@ TEST (rpc, representative_set)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_EQ (key.pub, system.nodes [0]->wallets.items.begin ()->second->store.representative (transaction));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, account_list)
@@ -309,6 +382,8 @@ TEST (rpc, account_list)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     rai::keypair key2;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key2.prv);
@@ -333,6 +408,8 @@ TEST (rpc, account_list)
     {
         ASSERT_TRUE (system.wallet (0)->exists (*i));
     }
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_key_valid)
@@ -340,6 +417,8 @@ TEST (rpc, wallet_key_valid)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     std::string wallet;
@@ -350,6 +429,8 @@ TEST (rpc, wallet_key_valid)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("valid"));
     ASSERT_EQ ("1", exists_text);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_create)
@@ -357,6 +438,8 @@ TEST (rpc, wallet_create)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "wallet_create");
 	auto response (test_response (request, rpc));
@@ -365,6 +448,8 @@ TEST (rpc, wallet_create)
     rai::uint256_union wallet_id;
     ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
     ASSERT_NE (system.nodes [0]->wallets.items.end (), system.nodes [0]->wallets.items.find (wallet_id));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_export)
@@ -372,6 +457,8 @@ TEST (rpc, wallet_export)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "wallet_export");
@@ -385,6 +472,8 @@ TEST (rpc, wallet_export)
     rai::wallet_store store (error, kdf, transaction, rai::genesis_account, "0", wallet_json);
     ASSERT_FALSE (error);
     ASSERT_TRUE (store.exists (transaction, rai::test_genesis_key.pub));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, wallet_destroy)
@@ -393,6 +482,8 @@ TEST (rpc, wallet_destroy)
     auto wallet_id (system.nodes [0]->wallets.items.begin ()->first);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "wallet_destroy");
@@ -400,6 +491,8 @@ TEST (rpc, wallet_destroy)
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     ASSERT_EQ (system.nodes [0]->wallets.items.end (), system.nodes [0]->wallets.items.find (wallet_id));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, account_move)
@@ -408,6 +501,8 @@ TEST (rpc, account_move)
     auto wallet_id (system.nodes [0]->wallets.items.begin ()->first);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     auto destination (system.wallet (0));
     rai::keypair key;
 	destination->insert (rai::test_genesis_key.prv);
@@ -430,6 +525,8 @@ TEST (rpc, account_move)
     ASSERT_TRUE (destination->exists (rai::test_genesis_key.pub));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_EQ (source->store.end (), source->store.begin (transaction));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, block)
@@ -437,6 +534,8 @@ TEST (rpc, block)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "block");
 	request.put ("hash", system.nodes [0]->latest (rai::genesis_account).to_string ());
@@ -444,6 +543,8 @@ TEST (rpc, block)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	auto contents (response.first.get <std::string> ("contents"));
     ASSERT_FALSE (contents.empty ());
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, chain)
@@ -457,6 +558,8 @@ TEST (rpc, chain)
 	ASSERT_FALSE (block.is_zero ());
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "chain");
 	request.put ("block", block.to_string ());
@@ -472,6 +575,8 @@ TEST (rpc, chain)
 	ASSERT_EQ (2, blocks.size ());
 	ASSERT_EQ (block, blocks [0]);
 	ASSERT_EQ (genesis, blocks [1]);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, chain_limit)
@@ -485,6 +590,8 @@ TEST (rpc, chain_limit)
 	ASSERT_FALSE (block.is_zero ());
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "chain");
 	request.put ("block", block.to_string ());
@@ -499,6 +606,8 @@ TEST (rpc, chain_limit)
 	}
 	ASSERT_EQ (1, blocks.size ());
 	ASSERT_EQ (block, blocks [0]);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, process_block)
@@ -509,6 +618,8 @@ TEST (rpc, process_block)
 	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "process");
 	std::string json;
@@ -517,6 +628,8 @@ TEST (rpc, process_block)
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	ASSERT_EQ (send.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, price_free)
@@ -524,6 +637,8 @@ TEST (rpc, price_free)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "price");
 	request.put ("account", rai::test_genesis_key.pub.to_base58check ());
@@ -533,6 +648,8 @@ TEST (rpc, price_free)
 	auto price (response.first.get <std::string> ("price"));
 	auto value (std::stoi (price));
 	ASSERT_EQ (0, value);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, price_amount_high)
@@ -541,12 +658,16 @@ TEST (rpc, price_amount_high)
 	rai::keypair key;
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "price");
 	request.put ("account", key.pub.to_base58check ());
 	request.put ("amount", "1");
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, price_bad)
@@ -554,12 +675,16 @@ TEST (rpc, price_bad)
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "price");
 	request.put ("account", rai::test_genesis_key.pub.to_base58check ());
 	request.put ("amount", "1a");
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, frontier)
@@ -578,6 +703,8 @@ TEST (rpc, frontier)
 	rai::keypair key;
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "frontiers");
 	request.put ("account", rai::account (0).to_base58check ());
@@ -596,6 +723,8 @@ TEST (rpc, frontier)
     }
 	ASSERT_EQ (1, frontiers.erase (rai::test_genesis_key.pub));
 	ASSERT_EQ (source, frontiers);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, frontier_limited)
@@ -614,6 +743,8 @@ TEST (rpc, frontier_limited)
 	rai::keypair key;
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "frontiers");
 	request.put ("account", rai::account (0).to_base58check ());
@@ -622,6 +753,8 @@ TEST (rpc, frontier_limited)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     auto & frontiers_node (response.first.get_child ("frontiers"));
 	ASSERT_EQ (100, frontiers_node.size ());
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, frontier_startpoint)
@@ -640,6 +773,8 @@ TEST (rpc, frontier_startpoint)
 	rai::keypair key;
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "frontiers");
 	request.put ("account", source.begin ()->first.to_base58check ());
@@ -649,6 +784,8 @@ TEST (rpc, frontier_startpoint)
     auto & frontiers_node (response.first.get_child ("frontiers"));
 	ASSERT_EQ (1, frontiers_node.size ());
 	ASSERT_EQ (source.begin ()->first.to_base58check (), frontiers_node.begin ()->first);
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc_config, serialization)
@@ -684,6 +821,8 @@ TEST (rpc, search_pending)
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (rai::transaction (system.nodes [0]->store.environment, nullptr, true), block).code);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "search_pending");
 	request.put ("wallet", wallet);
@@ -696,6 +835,8 @@ TEST (rpc, search_pending)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, keepalive)
@@ -706,20 +847,24 @@ TEST (rpc, keepalive)
     node1->start ();
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "keepalive");
 	request.put ("address", boost::str (boost::format ("%1%") % node1->network.endpoint ().address ()));
 	request.put ("port", boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
+	ASSERT_FALSE (system.nodes [0]->peers.known_peer (node1->network.endpoint ()));
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	auto iterations (0);
-	ASSERT_FALSE (system.nodes [0]->peers.known_peer (node1->network.endpoint ()));
 	while (!system.nodes [0]->peers.known_peer (node1->network.endpoint ()))
 	{
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, payment_check)
@@ -735,6 +880,8 @@ TEST (rpc, payment_check)
 	ASSERT_TRUE (node1->wallets.items.find (active_wallet_id.pub) != node1->wallets.items.end ());
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
 	request.put ("action", "payment_check");
 	request.put ("inactive_wallet", inactive_wallet_id.pub.to_string ());
@@ -742,6 +889,8 @@ TEST (rpc, payment_check)
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	ASSERT_EQ ("Ready", response.first.get <std::string> ("status"));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, payment_begin_end)
@@ -757,6 +906,8 @@ TEST (rpc, payment_begin_end)
 	ASSERT_TRUE (node1->wallets.items.find (active_wallet_id.pub) != node1->wallets.items.end ());
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request1;
 	request1.put ("action", "payment_begin");
 	request1.put ("inactive_wallet", inactive_wallet_id.pub.to_string ());
@@ -777,6 +928,8 @@ TEST (rpc, payment_begin_end)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
 	ASSERT_TRUE (inactive_wallet->exists (account));
 	ASSERT_FALSE (active_wallet->exists (account));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, payment_begin_reuse)
@@ -794,6 +947,8 @@ TEST (rpc, payment_begin_reuse)
 	ASSERT_TRUE (node1->wallets.items.find (active_wallet_id.pub) != node1->wallets.items.end ());
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request1;
 	request1.put ("action", "payment_begin");
 	request1.put ("inactive_wallet", inactive_wallet_id.pub.to_string ());
@@ -815,6 +970,8 @@ TEST (rpc, payment_begin_reuse)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
 	ASSERT_TRUE (inactive_wallet->exists (account));
 	ASSERT_FALSE (active_wallet->exists (account));
+	rpc.stop();
+	thread1.join();
 }
 
 TEST (rpc, payment_wait)
@@ -828,6 +985,8 @@ TEST (rpc, payment_wait)
 	rai::thread_runner runner (*system.service, system.processor);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request1;
 	request1.put ("action", "payment_wait");
 	request1.put ("account", key.pub.to_base58check ());
@@ -841,5 +1000,7 @@ TEST (rpc, payment_wait)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
 	ASSERT_EQ ("success", response2.first.get <std::string> ("status"));
 	node1->stop ();
+	rpc.stop();
 	runner.join ();
+	thread1.join();
 }
