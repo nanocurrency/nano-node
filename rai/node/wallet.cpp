@@ -666,11 +666,10 @@ bool check_ownership (rai::wallets & wallets_a, rai::account const & account_a) 
 }
 }
 
-bool rai::wallet::receive_action (rai::send_block const & send_a, rai::account const & representative_a, rai::uint128_union const & amount_a)
+std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const & send_a, rai::account const & representative_a, rai::uint128_union const & amount_a)
 {
 	assert (!check_ownership (node.wallets, send_a.hashables.destination));
     auto hash (send_a.hash ());
-    bool result;
 	std::unique_ptr <rai::block> block;
 	if (node.config.receive_minimum.number () <= amount_a.number ())
 	{
@@ -691,17 +690,14 @@ bool rai::wallet::receive_action (rai::send_block const & send_a, rai::account c
 				{
 					block.reset (new rai::open_block (hash, representative_a, send_a.hashables.destination, prv, send_a.hashables.destination, work_fetch (transaction, send_a.hashables.destination, send_a.hashables.destination)));
 				}
-				result = false;
 			}
 			else
 			{
-				result = true;
 				BOOST_LOG (node.log) << "Unable to receive, wallet locked";
 			}
 		}
 		else
 		{
-			result = true;
 			// Ledger doesn't have this marked as available to receive anymore
 		}
 	}
@@ -709,26 +705,23 @@ bool rai::wallet::receive_action (rai::send_block const & send_a, rai::account c
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Not receiving block %1% due to minimum receive threshold") % hash.to_string ());
 		// Someone sent us something below the threshold of receiving
-		result = true;
 	}
-	if (!result)
+	if (block != nullptr)
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
 		work_generate (send_a.hashables.destination, block->hash ());
 	}
-    return result;
+    return block;
 }
 
-bool rai::wallet::change_action (rai::account const & source_a, rai::account const & representative_a)
+std::unique_ptr <rai::block> rai::wallet::change_action (rai::account const & source_a, rai::account const & representative_a)
 {
 	assert (!check_ownership (node.wallets, source_a));
-	std::unique_ptr <rai::change_block> block;
-	auto result (false);
+	std::unique_ptr <rai::block> block;
 	{
 		rai::transaction transaction (store.environment, nullptr, false);
-		result = !store.valid_password (transaction);
-		if (!result)
+		if (store.valid_password (transaction))
 		{
 			auto existing (store.find (transaction, source_a));
 			if (existing != store.end ())
@@ -736,42 +729,32 @@ bool rai::wallet::change_action (rai::account const & source_a, rai::account con
 				if (!node.ledger.latest (transaction, source_a).is_zero ())
 				{
 					rai::account_info info;
-					result = node.ledger.store.account_get (transaction, source_a, info);
-					assert (!result);
+					auto error1 (node.ledger.store.account_get (transaction, source_a, info));
+					assert (!error1);
 					rai::raw_key prv;
-					result = store.fetch (transaction, source_a, prv);
-					assert (!result);
+					auto error2 (store.fetch (transaction, source_a, prv));
+					assert (!error2);
 					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, work_fetch (transaction, source_a, info.head)));
 				}
-				else
-				{
-					result = true;
-				}
-			}
-			else
-			{
-				result = true;
 			}
 		}
 	}
-	if (!result)
+	if (block != nullptr)
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
 		work_generate (source_a, block->hash ());
 	}
-	return result;
+	return block;
 }
 
-rai::block_hash rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	assert (!check_ownership (node.wallets, source_a));
-	std::unique_ptr <rai::send_block> block;
-	auto result (0);
+	std::unique_ptr <rai::block> block;
 	{
 		rai::transaction transaction (store.environment, nullptr, false);
-		result = !store.valid_password (transaction);
-		if (!result)
+		if (store.valid_password (transaction))
 		{
 			auto existing (store.find (transaction, source_a));
 			if (existing != store.end ())
@@ -782,38 +765,24 @@ rai::block_hash rai::wallet::send_action (rai::account const & source_a, rai::ac
 					if (balance >= amount_a)
 					{
 						rai::account_info info;
-						result = node.ledger.store.account_get (transaction, source_a, info);
-						assert (!result);
+						auto error1 (node.ledger.store.account_get (transaction, source_a, info));
+						assert (!error1);
 						rai::raw_key prv;
-						result = store.fetch (transaction, source_a, prv);
-						assert (!result);
+						auto error2 (store.fetch (transaction, source_a, prv));
+						assert (!error2);
 						block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, work_fetch (transaction, source_a, info.head)));
 					}
-					else
-					{
-						result = true;
-					}
 				}
-				else
-				{
-					result = true;
-				}
-			}
-			else
-			{
-				result = true;
 			}
 		}
 	}
-	rai::block_hash hash (0);
-	if (!result)
+	if (block != nullptr)
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
-		hash = block->hash ();
-		work_generate (source_a, hash);
+		work_generate (source_a, block->hash ());
 	}
-	return hash;
+	return block;
 }
 
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
@@ -823,7 +792,7 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 	bool result;
 	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, representative_a, &complete, &result] ()
 	{
-		result = change_action (source_a, representative_a);
+		result = change_action (source_a, representative_a) == nullptr;
 		complete.unlock ();
 	});
 	complete.lock ();
@@ -837,7 +806,7 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account co
 	bool result;
 	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, account_a, &result, &complete, amount_a] ()
 	{
-		result = receive_action (block_a, account_a, amount_a);
+		result = receive_action (block_a, account_a, amount_a) == nullptr;
 		complete.unlock ();
 	});
 	complete.lock ();
@@ -851,7 +820,11 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 	rai::block_hash result (0);
 	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &complete, &result] ()
 	{
-		result = send_action (source_a, account_a, amount_a);
+		auto block (send_action (source_a, account_a, amount_a));
+		if (block != nullptr)
+		{
+			result = block->hash ();
+		}
 		complete.unlock ();
 	});
 	complete.lock ();
