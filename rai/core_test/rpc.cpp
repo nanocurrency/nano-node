@@ -853,10 +853,10 @@ TEST (rpc, keepalive)
     request.put ("action", "keepalive");
 	request.put ("address", boost::str (boost::format ("%1%") % node1->network.endpoint ().address ()));
 	request.put ("port", boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
+	ASSERT_FALSE (system.nodes [0]->peers.known_peer (node1->network.endpoint ()));
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	auto iterations (0);
-	ASSERT_FALSE (system.nodes [0]->peers.known_peer (node1->network.endpoint ()));
 	while (!system.nodes [0]->peers.known_peer (node1->network.endpoint ()))
 	{
 		system.poll ();
