@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <rai/secure.hpp>
-#include <rai/node/versioning.hpp>
+#include <rai/versioning.hpp>
 
 TEST (versioning, account_info_v1)
 {

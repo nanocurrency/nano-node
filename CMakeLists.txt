@@ -90,7 +90,9 @@ add_library (secure
 	rai/secure.cpp
 	rai/secure.hpp
 	rai/utility.cpp
-	rai/utility.hpp)
+	rai/utility.hpp
+	rai/versioning.hpp
+	rai/versioning.cpp)
 
 add_library (node
 	rai/node/node.hpp
@@ -99,8 +101,6 @@ add_library (node
 	rai/node/rpc.cpp
 	rai/node/testing.hpp
 	rai/node/testing.cpp
-	rai/node/versioning.cpp
-	rai/node/versioning.hpp
 	rai/node/wallet.hpp
 	rai/node/wallet.cpp
 	rai/node/working.hpp)

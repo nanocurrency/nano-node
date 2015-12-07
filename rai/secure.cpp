@@ -1,7 +1,7 @@
 #include <rai/secure.hpp>
 
 #include <rai/node/working.hpp>
-#include <rai/node/versioning.hpp>
+#include <rai/versioning.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

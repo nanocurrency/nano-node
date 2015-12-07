@@ -578,6 +578,7 @@ TEST (wallet, work)
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		// Make sure work_get and work_fetch retrieve the same thing
 		ASSERT_FALSE (wallet->store.work_get (transaction, account1, work3));
+		++iteration;
 		ASSERT_LT (iteration, 200);
 	}
 }

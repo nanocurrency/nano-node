@@ -1,4 +1,4 @@
-#include <rai/node/versioning.hpp>
+#include <rai/versioning.hpp>
 
 rai::account_info_v1::account_info_v1 () :
 head (0),
