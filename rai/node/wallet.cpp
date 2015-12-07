@@ -710,7 +710,6 @@ std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
-		work_generate (send_a.hashables.destination, block->hash ());
 	}
     return block;
 }
@@ -743,7 +742,6 @@ std::unique_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
-		work_generate (source_a, block->hash ());
 	}
 	return block;
 }
@@ -780,7 +778,6 @@ std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
-		work_generate (source_a, block->hash ());
 	}
 	return block;
 }
@@ -795,6 +792,10 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 		auto block (change_action (source_a, representative_a));
 		result = block == nullptr;
 		complete.unlock ();
+		if (block != nullptr)
+		{
+			work_generate (source_a, block->hash ());
+		}
 		return block;
 	});
 	complete.lock ();
@@ -811,6 +812,10 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account co
 		auto block (receive_action (block_a, account_a, amount_a));
 		result = block == nullptr;
 		complete.unlock ();
+		if (block != nullptr)
+		{
+			work_generate (block_a.hashables.destination, block->hash ());
+		}
 		return block;
 	});
 	complete.lock ();
@@ -830,6 +835,10 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 			result = block->hash ();
 		}
 		complete.unlock ();
+		if (block != nullptr)
+		{
+			work_generate (source_a, block->hash ());
+		}
 		return block;
 	});
 	complete.lock ();
