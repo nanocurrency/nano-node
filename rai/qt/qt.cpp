@@ -767,7 +767,6 @@ wallet (wallet_a)
 			{
 				auto block (wallet.wallet_m->change_action (wallet.account, representative_l));
 				change_rep->setEnabled (true);
-				return block;
 			});
 		}
 	});

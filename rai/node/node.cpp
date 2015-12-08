@@ -1873,7 +1873,6 @@ public:
 						node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, representative, wallet, amount] ()
 						{
 							auto block (wallet->receive_action (*block_l, representative, amount));
-							return block;
 						});
 					});
 				}
