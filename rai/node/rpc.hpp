@@ -44,9 +44,9 @@ public:
     void start ();
     void stop ();
     void operator () (boost::network::http::async_server <rai::rpc>::request const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
-    void read_headers (boost::network::http::async_server <rai::rpc>::request const &, std::string const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
 	void error_response (boost::network::http::async_server <rai::rpc>::connection_ptr, std::string const &);
     void log (const char *) {}
+	bool decode_unsigned (std::string const &, uint64_t &);
 	std::mutex mutex;
 	std::unordered_map <rai::account, std::function <void ()>> payment_observers;
 	rai::rpc_config config;
@@ -62,10 +62,13 @@ public:
 	rai::rpc & rpc;
 	rai::account account;
 };
-class rpc_handler
+class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
 {
 public:
-	rpc_handler (rai::rpc &, boost::property_tree::ptree const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
+	rpc_handler (rai::rpc &, size_t, boost::network::http::async_server <rai::rpc>::request const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
+    void read_or_process ();
+	void part_handler (boost::network::http::async_server <rai::rpc>::connection::input_range, boost::system::error_code, size_t);
+	void process_request ();
 	void account_balance ();
 	void account_create ();
 	void account_list ();
@@ -97,11 +100,13 @@ public:
 	void wallet_export ();
 	void wallet_key_valid ();
 	void error_response (std::string const &);
-	bool decode_unsigned (std::string const &, uint64_t &);
 	void send_response (boost::property_tree::ptree &);
 	bool payment_wallets (MDB_txn *, rai::uint256_union const &, rai::uint256_union const &, std::shared_ptr <rai::wallet> &, std::shared_ptr <rai::wallet> &);
+	size_t length;
+	std::string body;
 	rai::rpc & rpc;
-	boost::property_tree::ptree const & request;
+	boost::network::http::async_server <rai::rpc>::request const & headers;
+	boost::property_tree::ptree request;
 	boost::network::http::async_server <rai::rpc>::connection_ptr connection;
 };
 }

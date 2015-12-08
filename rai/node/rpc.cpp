@@ -93,9 +93,10 @@ void rai::rpc::stop ()
     server.stop ();
 }
 
-rai::rpc_handler::rpc_handler (rai::rpc & rpc_a, boost::property_tree::ptree const & request_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a) :
+rai::rpc_handler::rpc_handler (rai::rpc & rpc_a, size_t length_a, boost::network::http::async_server <rai::rpc>::request const & headers_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a) :
+length (length_a),
 rpc (rpc_a),
-request (request_a),
+headers (headers_a),
 connection (connection_a)
 {
 }
@@ -106,17 +107,13 @@ void rai::rpc_handler::send_response (boost::property_tree::ptree & tree)
     boost::property_tree::write_json (ostream, tree);
     auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::ok));
 	auto response (std::make_shared <decltype (response_l)> (response_l));
-    response->headers.push_back (boost::network::http::response_header_narrow {"Content-Type", "application/json"});
+	response->headers.clear ();
+    response->headers.push_back (boost::network::http::response_header_narrow {"content-type", "application/json"});
     response->content = ostream.str ();
-	auto connection_l (connection);
-	connection->write (response->to_buffers (), [connection_l, response] (boost::system::error_code const & ec)
+	response->headers.push_back (boost::network::http::response_header_narrow {"content-length", std::to_string (response->content.size ())});
+	connection->write (response->to_buffers (), [response] (boost::system::error_code const & ec)
 	{
 	});
-}
-
-void rai::rpc_handler::error_response (std::string const & message_a)
-{
-	rpc.error_response (connection, message_a);
 }
 
 void rai::rpc_handler::account_balance ()
@@ -320,7 +317,7 @@ void rai::rpc_handler::chain ()
 	if (!block.decode_hex (block_text))
 	{
 		uint64_t count;
-		if (!decode_unsigned (count_text, count))
+		if (!rpc.decode_unsigned (count_text, count))
 		{
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree blocks;
@@ -362,7 +359,7 @@ void rai::rpc_handler::frontiers ()
 	if (!start.decode_base58check (account_text))
 	{
 		uint64_t count;
-		if (!decode_unsigned (count_text, count))
+		if (!rpc.decode_unsigned (count_text, count))
 		{
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree frontiers;
@@ -506,7 +503,7 @@ void rai::rpc_handler::price ()
 	{
 		auto amount_text (request.get <std::string> ("amount"));
 		uint64_t amount;
-		if (!decode_unsigned (amount_text, amount))
+		if (!rpc.decode_unsigned (amount_text, amount))
 		{
 			if (amount <= 1000)
 			{
@@ -723,7 +720,7 @@ void rai::rpc_handler::payment_wait ()
 		if (!amount.decode_dec (amount_text))
 		{
 			uint64_t timeout;
-			if (!decode_unsigned (timeout_text, timeout))
+			if (!rpc.decode_unsigned (timeout_text, timeout))
 			{
 				std::chrono::system_clock::time_point cutoff (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout));
 				std::mutex mutex;
@@ -1173,104 +1170,149 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
-void rai::rpc::error_response (boost::network::http::async_server <rai::rpc>::connection_ptr connection_a, std::string const & message_a)
+void rai::rpc_handler::error_response (std::string const & message_a)
 {
     auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request));
 	auto response (std::make_shared <decltype (response_l)> (response_l));
 	response->content = message_a;
-	connection_a->write (response->to_buffers (), [connection_a, response] (boost::system::error_code) {});
+	connection->write (response->to_buffers (), [response] (boost::system::error_code) {});
 }
 
 void rai::rpc::operator () (boost::network::http::async_server <rai::rpc>::request const & request_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
 {
-	connection_a->read ([this, &request_a] (boost::network::http::async_server <rai::rpc>::connection::input_range range_a, boost::system::error_code error_a, size_t size_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
+	auto request_l (std::make_shared <boost::network::http::async_server <rai::rpc>::request> (request_a));
+	auto existing (std::find_if (request_a.headers.begin (), request_a.headers.end (), [] (decltype(*request_a.headers.begin()) const & item_a)
 	{
-		if (!error_a)
+		return boost::to_lower_copy(item_a.name) == "content-length";
+	}));
+	if (existing != request_a.headers.end ())
+	{
+		uint64_t length;
+		if (!decode_unsigned (existing->value, length))
 		{
-			std::string body (range_a.begin (), range_a.begin () + size_a);
-			read_headers (request_a, body, connection_a);
+			if (length < 16384)
+			{
+				auto handler (std::make_shared <rai::rpc_handler> (*this, length, request_a, connection_a));
+				handler->body.reserve (length);
+				handler->read_or_process ();
+			}
+			else
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("content-length is too large %1%") % length);
+			}
 		}
 		else
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Error in RPC request: %1%") % error_a.message ());
+			BOOST_LOG (node.log) << "content-length isn't a number";
 		}
-	});
+	}
+	else
+	{
+		BOOST_LOG (node.log) << "RPC request did not contain content-length header";
+	}
 }
 
-void rai::rpc::read_headers (boost::network::http::async_server <rai::rpc>::request const & request_a, std::string const & body_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
+void rai::rpc_handler::read_or_process ()
 {
-	if (request_a.method == "POST")
+	if (body.size () < length)
+	{
+		auto this_l (shared_from_this ());
+		connection->read ([this_l] (boost::network::http::async_server <rai::rpc>::connection::input_range range_a, boost::system::error_code error_a, size_t size_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
+		{
+			this_l->part_handler (range_a, error_a, size_a);
+		});
+	}
+	else
+	{
+		process_request ();
+	}
+}
+
+void rai::rpc_handler::part_handler (boost::network::http::async_server <rai::rpc>::connection::input_range range_a, boost::system::error_code error_a, size_t size_a)
+{
+	if (!error_a)
+	{
+		body.append (range_a.begin (), range_a.begin () + size_a);
+		read_or_process ();
+	}
+	else
+	{
+		BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Error in RPC request: %1%") % error_a.message ());
+	}
+}
+
+void rai::rpc_handler::process_request ()
+{
+	if (headers.method == "POST")
 	{
 		try
 		{
-			boost::property_tree::ptree request_l;
-			std::stringstream istream (body_a);
-			boost::property_tree::read_json (istream, request_l);
-			std::string action (request_l.get <std::string> ("action"));
-			if (node.config.logging.log_rpc ())
+			std::stringstream istream (body);
+			boost::property_tree::read_json (istream, request);
+			std::string action (request.get <std::string> ("action"));
+			if (rpc.node.config.logging.log_rpc ())
 			{
-				BOOST_LOG (node.log) << request_a.body;
+				BOOST_LOG (rpc.node.log) << body;
 			}
-			rai::rpc_handler handler (*this, request_l, connection_a);
 			if (action == "account_balance")
 			{
-				handler.account_balance ();
+				account_balance ();
 			}
 			else if (action == "account_create")
 			{
-				handler.account_create ();
+				account_create ();
 			}
 			else if (action == "account_list")
 			{
-				handler.account_list ();
+				account_list ();
 			}
 			else if (action == "account_move")
 			{
-				handler.account_move ();
+				account_move ();
 			}
 			else if (action == "account_weight")
 			{
-				handler.account_weight ();
+				account_weight ();
 			}
 			else if (action == "block")
 			{
-				handler.block ();
+				block ();
 			}
 			else if (action == "chain")
 			{
-				handler.chain ();
+				chain ();
 			}
 			else if (action == "frontiers")
 			{
-				handler.frontiers ();
+				frontiers ();
 			}
 			else if (action == "keepalive")
 			{
-				handler.keepalive ();
+				keepalive ();
 			}
 			else if (action == "password_change")
 			{
-				handler.password_change ();
+				password_change ();
 			}
 			else if (action == "password_enter")
 			{
-				handler.password_enter ();
+				password_enter ();
 			}
 			else if (action == "password_valid")
 			{
-				handler.password_valid ();
+				password_valid ();
 			}
 			else if (action == "payment_begin")
 			{
-				handler.payment_begin ();
+				payment_begin ();
 			}
 			else if (action == "payment_check")
 			{
-				handler.payment_check ();
+				payment_check ();
 			}
 			else if (action == "payment_end")
 			{
-				handler.payment_end ();
+				payment_end ();
 			}
             /*else if (action == "payment_shutdown")
 			{
@@ -1280,84 +1322,81 @@ void rai::rpc::read_headers (boost::network::http::async_server <rai::rpc>::requ
 			}*/
 			else if (action == "payment_wait")
 			{
-				handler.payment_wait ();
+				payment_wait ();
 			}
 			else if (action == "price")
 			{
-				handler.price ();
+				price ();
 			}
 			else if (action == "process")
 			{
-				handler.process ();
+				process ();
 			}
 			else if (action == "representative")
 			{
-				handler.representative ();
+				representative ();
 			}
 			else if (action == "representative_set")
 			{
-				handler.representative_set ();
+				representative_set ();
 			}
 			else if (action == "search_pending")
 			{
-				handler.search_pending ();
+				search_pending ();
 			}
 			else if (action == "send")
 			{
-				handler.send ();
+				send ();
 			}
 			else if (action == "validate_account_number")
 			{
-				handler.validate_account_number ();
+				validate_account_number ();
 			}
 			else if (action == "version")
 			{
-				handler.version ();
+				version ();
 			}
 			else if (action == "wallet_add")
 			{
-				handler.wallet_add ();
+				wallet_add ();
 			}
 			else if (action == "wallet_contains")
 			{
-				handler.wallet_contains ();
+				wallet_contains ();
 			}
 			else if (action == "wallet_create")
 			{
-				handler.wallet_create ();
+				wallet_create ();
 			}
 			else if (action == "wallet_destroy")
 			{
-				handler.wallet_destroy ();
+				wallet_destroy ();
 			}
 			else if (action == "wallet_export")
 			{
-				handler.wallet_export ();
+				wallet_export ();
 			}
 			else if (action == "wallet_key_valid")
 			{
-				handler.wallet_key_valid ();
+				wallet_key_valid ();
 			}
 			else
 			{
-				error_response (connection_a, "Unknown command");
+				error_response ("Unknown command");
 			}
 		}
 		catch (std::runtime_error const & err)
 		{
-			std::cerr << err.what() << std::endl;
-			error_response (connection_a, "Unable to parse JSON");
+			error_response ("Unable to parse JSON");
 		}
 		catch (...)
 		{
-			error_response (connection_a, "Internal server error in RPC");
+			error_response ("Internal server error in RPC");
 		}
 	}
 	else
 	{
-		auto response (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::method_not_allowed));
-		response.content = "Can only POST requests";
-		connection_a->write (response.to_buffers (), [] (boost::system::error_code) {});
+		error_response ("Can only POST requests");
 	}
 }
 
@@ -1378,7 +1417,7 @@ bool rai::rpc_handler::payment_wallets (MDB_txn * transaction_a, rai::uint256_un
 	return result;
 }
 
-bool rai::rpc_handler::decode_unsigned (std::string const & text, uint64_t & number)
+bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
 {
 	bool result;
 	size_t end;

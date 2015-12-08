@@ -21,11 +21,12 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 		request_string = ostream.str ();
 	}
 	request.body (request_string);
-	boost::network::http::client::response response = client.post (request);
-	uint16_t status (boost::network::http::status (response));
-	result.second = static_cast <boost::network::http::server <rai::rpc>::response::status_type> (status);
+	request.add_header (std::make_pair ("content-length", std::to_string (request_string.size ())));
 	try
 	{
+		boost::network::http::client::response response = client.post (request);
+		uint16_t status (boost::network::http::status (response));
+		result.second = static_cast <boost::network::http::server <rai::rpc>::response::status_type> (status);
 		std::string body_l (boost::network::http::body (response));
 		if (result.second == boost::network::http::server <rai::rpc>::response::ok)
 		{
@@ -33,7 +34,7 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 			boost::property_tree::read_json (istream, result.first);
 		}
 	}
-	catch (...)
+	catch (std::runtime_error const & error)
 	{
 	}
 	return result;
