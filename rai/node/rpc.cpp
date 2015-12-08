@@ -930,7 +930,7 @@ void rai::rpc_handler::send ()
 						auto error (amount.decode_dec (amount_text));
 						if (!error)
 						{
-							auto block (existing->second->send_sync (source, destination, amount.number ()));
+							auto block (existing->second->send_async (source, destination, amount.number ()));
 							boost::property_tree::ptree response_l;
 							response_l.put ("block", block.to_string ());
 							send_response (response_l);

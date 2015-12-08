@@ -842,6 +842,31 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 	return result;
 }
 
+rai::block_hash rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+{
+	std::mutex complete;
+	complete.lock ();
+	rai::block_hash result (0);
+	node.background ([this, source_a, account_a, amount_a, &complete, &result] ()
+	{
+		node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &complete, &result] ()
+		{
+			auto block (send_action (source_a, account_a, amount_a));
+			if (block != nullptr)
+			{
+				result = block->hash ();
+			}
+			complete.unlock ();
+			if (block != nullptr)
+			{
+				work_generate (source_a, block->hash ());
+			}
+		});
+	});
+	complete.lock ();
+	return result;
+}
+
 // Update work for account if latest root is root_a
 void rai::wallet::work_update (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {

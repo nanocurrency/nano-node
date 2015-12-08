@@ -199,14 +199,25 @@ TEST (rpc, send)
 	request.put ("source", rai::test_genesis_key.pub.to_base58check ());
     request.put ("destination", rai::test_genesis_key.pub.to_base58check ());
     request.put ("amount", "100");
+	std::thread thread2 ([&system] ()
+	{
+		auto iterations (0);
+		while (system.nodes [0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
+		{
+			system.poll ();
+			++iterations;
+			ASSERT_LT (iterations, 200);
+		}
+	});
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string block_text (response.first.get <std::string> ("block"));
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (system.nodes [0]->ledger.block_exists (block));
-	rpc.stop();
-	thread1.join();
+	rpc.stop ();
+	thread1.join ();
+	thread2.join ();
 }
 
 TEST (rpc, send_fail)
@@ -224,14 +235,27 @@ TEST (rpc, send_fail)
 	request.put ("source", rai::test_genesis_key.pub.to_base58check ());
     request.put ("destination", rai::test_genesis_key.pub.to_base58check ());
     request.put ("amount", "100");
+	auto done (false);
+	std::thread thread2 ([&system, &done] ()
+	{
+		auto iterations (0);
+		while (!done)
+		{
+			system.poll ();
+			++iterations;
+			ASSERT_LT (iterations, 200);
+		}
+	});
 	auto response (test_response (request, rpc));
+	done = true;
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string block_text (response.first.get <std::string> ("block"));
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (block.is_zero ());
-	rpc.stop();
-	thread1.join();
+	rpc.stop ();
+	thread1.join ();
+	thread2.join ();
 }
 
 TEST (rpc, wallet_add)

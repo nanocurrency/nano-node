@@ -142,6 +142,25 @@ TEST (wallet, spend_all_one)
     ASSERT_EQ (0, system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
+TEST (wallet, send_async)
+{
+    rai::system system (24000, 1);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    rai::keypair key2;
+	std::thread thread ([&system] ()
+	{
+		auto iterations (0);
+		while (!system.nodes [0]->balance (rai::test_genesis_key.pub).is_zero ())
+		{
+			system.poll ();
+			++iterations;
+			ASSERT_LT (iterations, 200);
+		}
+	});
+    ASSERT_FALSE (system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()).is_zero ());
+	thread.join ();
+}
+
 TEST (wallet, spend)
 {
 	rai::system system (24000, 1);
