@@ -796,7 +796,6 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 		{
 			work_generate (source_a, block->hash ());
 		}
-		return block;
 	});
 	complete.lock ();
 	return result;
@@ -816,7 +815,6 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account co
 		{
 			work_generate (block_a.hashables.destination, block->hash ());
 		}
-		return block;
 	});
 	complete.lock ();
 	return result;
@@ -839,7 +837,6 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 		{
 			work_generate (source_a, block->hash ());
 		}
-		return block;
 	});
 	complete.lock ();
 	return result;
