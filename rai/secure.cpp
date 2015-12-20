@@ -12,24 +12,11 @@
 // Genesis keys for network variants
 namespace
 {
-    std::string rai_test_private_key = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
-    std::string rai_test_public_key = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib
-    std::string rai_beta_public_key = "9D3A5B66B478670455B241D6BAC3D3FE1CBB7E7B7EAA429FA036C2704C3DC0A4"; // TuodHikZrYyNy4biERcXNSdA9ydXQNqww8BbHvfKiZPXidDLtj
-    std::string rai_live_public_key = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // SKjE18BrMwx7xSuDErD3zmTPGeHQkTx9CQDFzDMrP8kkE2FPXw
-}
-
-size_t constexpr rai::send_block::size;
-size_t constexpr rai::receive_block::size;
-size_t constexpr rai::open_block::size;
-size_t constexpr rai::change_block::size;
-
-rai::keypair const rai::zero_key ("0");
-rai::keypair const rai::test_genesis_key (rai_test_private_key);
-rai::account const rai::rai_test_account (rai_test_public_key);
-rai::account const rai::rai_beta_account (rai_beta_public_key);
-rai::account const rai::rai_live_account (rai_live_public_key);
-
-std::string const rai::rai_test_genesis = R"%%%({
+char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
+char const * test_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib
+char const * beta_public_key_data = "9D3A5B66B478670455B241D6BAC3D3FE1CBB7E7B7EAA429FA036C2704C3DC0A4"; // TuodHikZrYyNy4biERcXNSdA9ydXQNqww8BbHvfKiZPXidDLtj
+char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // SKjE18BrMwx7xSuDErD3zmTPGeHQkTx9CQDFzDMrP8kkE2FPXw
+char const * test_genesis_data = R"%%%({
     "type": "open",
     "source": "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0",
     "representative": "TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib",
@@ -38,7 +25,7 @@ std::string const rai::rai_test_genesis = R"%%%({
     "signature": "ECDA914373A2F0CA1296475BAEE40500A7F0A7AD72A5A80C81D7FAB7F6C802B2CC7DB50F5DD0FB25B2EF11761FA7344A158DD5A700B21BD47DE5BD0F63153A02"
 })%%%";
 
-std::string const rai::rai_beta_genesis = R"%%%({
+char const * beta_genesis_data = R"%%%({
     "type": "open",
     "source": "9D3A5B66B478670455B241D6BAC3D3FE1CBB7E7B7EAA429FA036C2704C3DC0A4",
     "representative": "TuodHikZrYyNy4biERcXNSdA9ydXQNqww8BbHvfKiZPXidDLtj",
@@ -47,18 +34,64 @@ std::string const rai::rai_beta_genesis = R"%%%({
     "signature": "BD0D374FCEB33EAABDF728E9B4DCDBF3B226DA97EEAB8EA5B7EDE286B1282C24D6EB544644FE871235E4F58CD94DF66D9C555309895F67A7D1F922AAC12CE907"
 })%%%";
 
-std::string const rai::rai_live_genesis = R"%%%({
+char const * live_genesis_data = R"%%%({
     "type": "open",
     "source": "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA",
     "representative": "SKjE18BrMwx7xSuDErD3zmTPGeHQkTx9CQDFzDMrP8kkE2FPXw",
     "account": "SKjE18BrMwx7xSuDErD3zmTPGeHQkTx9CQDFzDMrP8kkE2FPXw",
     "work": "62f05417dd3fb691",
     "signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
-})%%%";;
+})%%%";
 
-rai::account const rai::genesis_account = rai_network == rai_networks::rai_test_network ? rai_test_account : rai_network == rai_networks::rai_beta_network ? rai_beta_account : rai_live_account;
-std::string const rai::genesis_block = rai_network == rai_networks::rai_test_network ? rai_test_genesis : rai_network == rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis;
-rai::uint128_t const rai::genesis_amount = std::numeric_limits <rai::uint128_t>::max ();
+class ledger_constants
+{
+public:
+ledger_constants () :
+zero_key ("0"),
+test_genesis_key (test_private_key_data),
+rai_test_account (test_public_key_data),
+rai_beta_account (beta_public_key_data),
+rai_live_account (live_public_key_data),
+rai_test_genesis (test_genesis_data),
+rai_beta_genesis (beta_genesis_data),
+rai_live_genesis (live_genesis_data),
+genesis_account (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_account : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_account : rai_live_account),
+genesis_block (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_genesis : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis),
+genesis_amount (std::numeric_limits <rai::uint128_t>::max ())
+{
+}
+rai::keypair zero_key;
+rai::keypair test_genesis_key;
+rai::account rai_test_account;
+rai::account rai_beta_account;
+rai::account rai_live_account;
+std::string rai_test_genesis;
+std::string rai_beta_genesis;
+std::string rai_live_genesis;
+rai::account genesis_account;
+std::string genesis_block;
+rai::uint128_t genesis_amount;
+};
+ledger_constants const globals;
+}
+
+size_t constexpr rai::send_block::size;
+size_t constexpr rai::receive_block::size;
+size_t constexpr rai::open_block::size;
+size_t constexpr rai::change_block::size;
+
+rai::keypair const & rai::zero_key (globals.zero_key);
+rai::keypair const & rai::test_genesis_key (globals.test_genesis_key);
+rai::account const & rai::rai_test_account (globals.rai_test_account);
+rai::account const & rai::rai_beta_account (globals.rai_beta_account);
+rai::account const & rai::rai_live_account (globals.rai_live_account);
+std::string const & rai::rai_test_genesis (globals.rai_test_genesis);
+std::string const & rai::rai_beta_genesis (globals.rai_beta_genesis);
+std::string const & rai::rai_live_genesis (globals.rai_live_genesis);
+
+rai::account const & rai::genesis_account (globals.genesis_account);
+std::string const & rai::genesis_block (globals.genesis_block);
+rai::uint128_t const & rai::genesis_amount (globals.genesis_amount);
 
 boost::filesystem::path rai::working_path ()
 {
