@@ -147,7 +147,6 @@ TEST (wallet, send_async)
     rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key2;
-    ASSERT_FALSE (system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()).is_zero ());
 	std::thread thread ([&system] ()
 	{
 		auto iterations (0);
@@ -158,6 +157,7 @@ TEST (wallet, send_async)
 			ASSERT_LT (iterations, 200);
 		}
 	});
+    ASSERT_FALSE (system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()).is_zero ());
 	thread.join ();
 }
 

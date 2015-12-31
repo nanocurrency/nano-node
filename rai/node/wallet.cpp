@@ -9,6 +9,8 @@
 
 #include <ed25519-donna/ed25519.h>
 
+#include <future>
+
 rai::work_pool::work_pool () :
 current (0),
 ticket (0),
@@ -784,87 +786,79 @@ std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
 {
-	std::mutex complete;
-	complete.lock ();
-	bool result;
-	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, representative_a, &complete, &result] ()
+	std::promise <bool> result;
+	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, representative_a, &result] ()
 	{
 		auto block (change_action (source_a, representative_a));
-		result = block == nullptr;
-		complete.unlock ();
+		result.set_value (block == nullptr);
 		if (block != nullptr)
 		{
 			work_generate (source_a, block->hash ());
 		}
 	});
-	complete.lock ();
-	return result;
+	return result.get_future ().get ();
 }
 
 bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
-	std::mutex complete;
-	complete.lock ();
-	bool result;
-	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, account_a, &result, &complete, amount_a] ()
+	std::promise <bool> result;
+	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, account_a, &result, amount_a] ()
 	{
 		auto block (receive_action (block_a, account_a, amount_a));
-		result = block == nullptr;
-		complete.unlock ();
+		result.set_value (block == nullptr);
 		if (block != nullptr)
 		{
 			work_generate (block_a.hashables.destination, block->hash ());
 		}
 	});
-	complete.lock ();
-	return result;
+	return result.get_future ().get ();
 }
 
 rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
-	std::mutex complete;
-	complete.lock ();
-	rai::block_hash result (0);
-	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &complete, &result] ()
+	std::promise <rai::block_hash> result;
+	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &result] ()
 	{
 		auto block (send_action (source_a, account_a, amount_a));
 		if (block != nullptr)
 		{
-			result = block->hash ();
+			result.set_value (block->hash ());
 		}
-		complete.unlock ();
+		else
+		{
+		  result.set_value (0);
+		}
 		if (block != nullptr)
 		{
 			work_generate (source_a, block->hash ());
 		}
 	});
-	complete.lock ();
-	return result;
+	return result.get_future ().get ();
 }
 
 rai::block_hash rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
-	std::mutex complete;
-	complete.lock ();
-	rai::block_hash result (0);
-	node.background ([this, source_a, account_a, amount_a, &complete, &result] ()
+	std::promise <rai::block_hash> result;
+	node.background ([this, source_a, account_a, amount_a, &result] ()
 	{
-		node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &complete, &result] ()
+		node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &result] ()
 		{
 			auto block (send_action (source_a, account_a, amount_a));
 			if (block != nullptr)
 			{
-				result = block->hash ();
+				result.set_value (block->hash ());
 			}
-			complete.unlock ();
+			else
+			{
+			    result.set_value (0);
+			}
 			if (block != nullptr)
 			{
 				work_generate (source_a, block->hash ());
 			}
 		});
 	});
-	complete.lock ();
-	return result;
+	return result.get_future ().get ();
 }
 
 // Update work for account if latest root is root_a
