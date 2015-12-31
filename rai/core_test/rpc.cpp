@@ -876,14 +876,19 @@ TEST (rpc, keepalive)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "keepalive");
-	request.put ("address", boost::str (boost::format ("%1%") % node1->network.endpoint ().address ()));
-	request.put ("port", boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
+    auto address (boost::str (boost::format ("%1%") % node1->network.endpoint ().address ()));
+    auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
+    std::cerr << address << " " << port << std::endl;
+	request.put ("address", address);
+	request.put ("port", port);
 	ASSERT_FALSE (system.nodes [0]->peers.known_peer (node1->network.endpoint ()));
+	ASSERT_EQ (0, system.nodes [0]->peers.size());
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	auto iterations (0);
 	while (!system.nodes [0]->peers.known_peer (node1->network.endpoint ()))
 	{
+	  ASSERT_EQ (0, system.nodes [0]->peers.size());
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);

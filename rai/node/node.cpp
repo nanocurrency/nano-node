@@ -233,18 +233,23 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a), boost::asio::ip::resolver_query_base::all_matching | boost::asio::ip::resolver_query_base::v4_mapped), [node_l, address_a] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
+	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a)
 	{
 		if (!ec)
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator {}); i != n; ++i)
 			{
+			    auto endpoint (i->endpoint ());
+			    if (endpoint.address ().is_v4 ())
+			    {
+				endpoint = boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint.address ().to_v4 ()), endpoint.port ());
+			    }
 				node_l->send_keepalive (i->endpoint ());
 			}
 		}
 		else
 		{
-			BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving address: %1%, %2%") % address_a % ec.message ());
+			BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving address: %1%:%2%, %3%") % address_a % port_a % ec.message ());
 		}
 	});
 }
