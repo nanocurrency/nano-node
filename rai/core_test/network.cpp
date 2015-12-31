@@ -850,9 +850,12 @@ TEST (network, ipv6_bind_send_ipv4)
         ASSERT_FALSE (error);
         ASSERT_EQ (16, size_a);
     });
+    auto iterations (0);
     while (!finish1)
     {
         service.poll ();
+	++iterations;
+	ASSERT_LT (iterations, 200);
     }
     ASSERT_EQ (endpoint6, endpoint3);
     std::array <uint8_t, 16> bytes2;

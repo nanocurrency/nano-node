@@ -20,7 +20,7 @@ public:
 	rpc_config (bool);
     void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (boost::property_tree::ptree const &);
-	boost::asio::ip::address_v6 address;
+	boost::asio::ip::address_v4 address;
 	uint16_t port;
 	bool enable_control;
 	uint64_t frontier_request_limit;

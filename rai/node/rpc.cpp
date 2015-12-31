@@ -6,7 +6,7 @@
 #include <ed25519-donna/ed25519.h>
 
 rai::rpc_config::rpc_config () :
-address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
+address (boost::asio::ip::address_v4::loopback ()),
 port (rai::network::rpc_port),
 enable_control (false),
 frontier_request_limit (16384),
@@ -15,7 +15,7 @@ chain_request_limit (16384)
 }
 
 rai::rpc_config::rpc_config (bool enable_control_a) :
-address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ())),
+address (boost::asio::ip::address_v4::loopback ()),
 port (rai::network::rpc_port),
 enable_control (enable_control_a),
 frontier_request_limit (16384),
@@ -54,7 +54,7 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 			result = true;
 		}
 		boost::system::error_code ec;
-		address = boost::asio::ip::address_v6::from_string (address_l, ec);
+		address = boost::asio::ip::address_v4::from_string (address_l, ec);
 		if (ec)
 		{
 			result = true;
