@@ -878,7 +878,6 @@ TEST (rpc, keepalive)
     request.put ("action", "keepalive");
     auto address (boost::str (boost::format ("%1%") % node1->network.endpoint ().address ()));
     auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
-    std::cerr << address << " " << port << std::endl;
 	request.put ("address", address);
 	request.put ("port", port);
 	ASSERT_FALSE (system.nodes [0]->peers.known_peer (node1->network.endpoint ()));
@@ -888,7 +887,7 @@ TEST (rpc, keepalive)
 	auto iterations (0);
 	while (!system.nodes [0]->peers.known_peer (node1->network.endpoint ()))
 	{
-	  ASSERT_EQ (0, system.nodes [0]->peers.size());
+		ASSERT_EQ (0, system.nodes [0]->peers.size());
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);

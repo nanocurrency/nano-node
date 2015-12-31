@@ -242,9 +242,9 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 			    auto endpoint (i->endpoint ());
 			    if (endpoint.address ().is_v4 ())
 			    {
-				endpoint = boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint.address ().to_v4 ()), endpoint.port ());
+					endpoint = boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint.address ().to_v4 ()), endpoint.port ());
 			    }
-				node_l->send_keepalive (i->endpoint ());
+				node_l->send_keepalive (endpoint);
 			}
 		}
 		else
