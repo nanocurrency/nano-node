@@ -11,6 +11,8 @@
 
 #include <future>
 
+#include <pthread.h>
+
 rai::work_pool::work_pool () :
 current (0),
 ticket (0),
@@ -20,10 +22,23 @@ done (false)
 	auto count (std::max (1u, std::thread::hardware_concurrency ()));
 	for (auto i (0); i < count; ++i)
 	{
-		threads.push_back (std::thread ([this, i] ()
+		auto thread (std::thread ([this, i] ()
 		{
 			loop (i);
 		}));
+		auto handle (thread.native_handle ());
+		int policy;
+		struct sched_param sched;
+		if (pthread_getschedparam (handle, &policy, &sched) == 0)
+		{
+			sched.sched_priority = sched_get_priority_min (policy);
+			if (sched.sched_priority != -1)
+			{
+				auto result (pthread_setschedparam (handle, policy, &sched));
+				(void) result;
+			}
+		}
+		threads.push_back (std::move (thread));
 	}
 }
 
