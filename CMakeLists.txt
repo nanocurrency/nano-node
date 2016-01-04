@@ -77,11 +77,11 @@ add_library (blake2
 	blake2/blake2b.c)
 
 if (APPLE)
-	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm)
+	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm rai/plat/osx/priority.cpp)
 elseif (WIN32)
-	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp rai/plat/windows/priority.cpp)
 elseif (UNIX)
-	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/posix/priority.cpp)
 endif (APPLE)
 
 add_library (secure
