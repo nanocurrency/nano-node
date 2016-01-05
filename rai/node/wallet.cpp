@@ -22,7 +22,7 @@ done (false)
 	{
 		auto thread (std::thread ([this, i] ()
 		{
-			rai::lower_priority ();
+			rai::work_thread_reprioritize ();
 			loop (i);
 		}));
 		threads.push_back (std::move (thread));

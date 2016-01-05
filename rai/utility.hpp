@@ -29,7 +29,7 @@ boost::filesystem::path working_path ();
 // Get a unique path within the home directory, used for testing
 boost::filesystem::path unique_path ();
 // Lower priority of calling work generating thread
-void lower_priority ();
+void work_thread_reprioritize ();
 // Read a raw byte stream the size of `T' and fill value.
 template <typename T>
 bool read (rai::stream & stream_a, T & value)

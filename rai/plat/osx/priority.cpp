@@ -1,5 +1,5 @@
 #include <rai/utility.hpp>
 
-void rai::lower_priority ()
+void rai::work_thread_reprioritize ()
 {
 }
