@@ -12,7 +12,7 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 {
 	std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>::response::status_type> result;
 	boost::network::http::client client;
-	auto url ("http://localhost:" + std::to_string (rpc_a.config.port));
+	auto url ("http://[::1]:" + std::to_string (rpc_a.config.port));
 	boost::network::http::client::request request (url);
 	std::string request_string;
 	{
@@ -816,7 +816,7 @@ TEST (rpc, frontier_startpoint)
 TEST (rpc_config, serialization)
 {
 	rai::rpc_config config1;
-	config1.address = boost::asio::ip::address_v4::any();
+	config1.address = boost::asio::ip::address_v6::any();
 	config1.port = 10;
 	config1.enable_control = true;
 	config1.frontier_request_limit = 8192;
