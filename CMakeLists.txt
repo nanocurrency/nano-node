@@ -76,13 +76,21 @@ add_library (blake2
 	blake2/blake2.h
 	blake2/blake2b.c)
 
-if (APPLE)
-	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm rai/plat/osx/priority.cpp)
-elseif (WIN32)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm rai/plat/default/priority.cpp)
+	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp rai/plat/windows/priority.cpp)
-elseif (UNIX)
-	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/posix/priority.cpp)
-endif (APPLE)
+	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/linux/priority.cpp)
+	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/default/priority.cpp)
+	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+else ()
+	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
+endif ()
 
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
@@ -145,12 +153,6 @@ add_library (qt
 
 add_executable (rai_landing
 	rai/rai_landing/entry.cpp)
-
-if (WIN32)
-	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
-else (WIN32)
-	set (PLATFORM_WALLET_SOURCE rai/plat/unknown/icon.cpp)
-endif (WIN32)
 
 add_executable (rai_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 	${PLATFORM_WALLET_SOURCE}
