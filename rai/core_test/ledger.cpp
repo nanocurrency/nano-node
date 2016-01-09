@@ -104,6 +104,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (rai::test_genesis_key.pub, store.frontier_get (transaction, hash1));
 	ASSERT_EQ (rai::process_result::progress, return1.code);
 	ASSERT_EQ (rai::test_genesis_key.pub, return1.account);
+	ASSERT_EQ (rai::genesis_amount - 50, return1.amount.number ());
 	ASSERT_EQ (50, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	rai::account_info info2;
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info2));
@@ -116,7 +117,10 @@ TEST (ledger, process_send)
 	rai::open_block open (hash1, key2.pub, key2.pub, key2.prv, key2.pub, 0);
 	rai::block_hash hash2 (open.hash ());
 	// This was a valid block, it should progress.
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, open).code);
+	auto return2 (ledger.process (transaction, open));
+	ASSERT_EQ (rai::process_result::progress, return2.code);
+	ASSERT_EQ (key2.pub, return2.account);
+	ASSERT_EQ (rai::genesis_amount - 50, return2.amount.number ());
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash2));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.weight (transaction, rai::test_genesis_key.pub));
@@ -183,6 +187,7 @@ TEST (ledger, process_receive)
 	auto return1 (ledger.process (transaction, open));
 	ASSERT_EQ (rai::process_result::progress, return1.code);
 	ASSERT_EQ (key2.pub, return1.account);
+	ASSERT_EQ (rai::genesis_amount - 50, return1.amount.number ());
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key3.pub));
 	rai::send_block send2 (hash1, key2.pub, 25, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::block_hash hash3 (send2.hash ());
@@ -195,6 +200,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash4));
 	ASSERT_EQ (rai::process_result::progress, return2.code);
 	ASSERT_EQ (key2.pub, return2.account);
+	ASSERT_EQ (25, return2.amount.number ());
 	ASSERT_EQ (hash4, ledger.latest (transaction, key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (rai::genesis_amount - 25, ledger.account_balance (transaction, key2.pub));

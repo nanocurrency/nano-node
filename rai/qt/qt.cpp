@@ -586,7 +586,7 @@ active_status (*this)
     {
         push_main_stack (send_blocks_window);
     });
-    node.observers.push_back ([this] (rai::block const &, rai::account const & account_a)
+    node.observers.push_back ([this] (rai::block const &, rai::account const & account_a, rai::amount const &)
     {
 		application.postEvent (&processor, new eventloop_event ([this, account_a] ()
 		{

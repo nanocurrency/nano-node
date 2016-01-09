@@ -723,7 +723,7 @@ public:
 	rai::uint128_t balance (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
-	void call_observers (rai::block const & block_a, rai::account const & account_a);
+	void call_observers (rai::block const & block_a, rai::account const & account_a, rai::amount const &);
     void ongoing_keepalive ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
@@ -741,7 +741,7 @@ public:
     rai::bootstrap_listener bootstrap;
     rai::peer_container peers;
 	boost::filesystem::path application_path;
-    std::vector <std::function <void (rai::block const &, rai::account const &)>> observers;
+    std::vector <std::function <void (rai::block const &, rai::account const &, rai::amount const &)>> observers;
 	std::vector <std::function <void (rai::account const &, bool)>> wallet_observers;
     std::vector <std::function <void (rai::vote const &)>> vote_observers;
 	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;

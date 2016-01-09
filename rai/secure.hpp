@@ -407,6 +407,7 @@ class process_return
 public:
 	rai::process_result code;
 	rai::account account;
+	rai::amount amount;
 };
 class vote
 {

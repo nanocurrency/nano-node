@@ -72,7 +72,7 @@ config (config_a),
 server (decltype (server)::options (*this).address (config.address.to_string ()).port (std::to_string (config.port)).io_service (service_a).thread_pool (pool_a).reuse_address (true)),
 node (node_a)
 {
-	node_a.observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a)
+	node_a.observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		auto existing (payment_observers.find (account_a));

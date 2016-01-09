@@ -2786,6 +2786,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 					ledger.store.frontier_del (transaction, block_a.hashables.previous);
 					ledger.store.frontier_put (transaction, hash, account);
 					result.account = account;
+					result.amount = 0;
 				}
 			}
         }
@@ -2817,12 +2818,14 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 					result.code = info.balance.number () >= block_a.hashables.balance.number () ? rai::process_result::progress : rai::process_result::overspend; // Is this trying to spend more than they have (Malicious)
 					if (result.code == rai::process_result::progress)
 					{
+						auto amount (info.balance.number () - block_a.hashables.balance.number ());
 						ledger.store.block_put (transaction, hash, block_a);
 						ledger.change_latest (transaction, account, hash, info.rep_block, block_a.hashables.balance);
-						ledger.store.pending_put (transaction, hash, {account, info.balance.number () - block_a.hashables.balance.number (), block_a.hashables.destination});
+						ledger.store.pending_put (transaction, hash, {account, amount, block_a.hashables.destination});
 						ledger.store.frontier_del (transaction, block_a.hashables.previous);
 						ledger.store.frontier_put (transaction, hash, account);
 						result.account = account;
+						result.amount = amount;
 					}
 				}
 			}
@@ -2867,6 +2870,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 							ledger.store.frontier_del (transaction, block_a.hashables.previous);
 							ledger.store.frontier_put (transaction, hash, receivable.destination);
 							result.account = receivable.destination;
+							result.amount = receivable.amount;
                         }
                         else
                         {
@@ -2913,6 +2917,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 							ledger.move_representation (transaction, source_info.rep_block, hash, receivable.amount.number ());
 							ledger.store.frontier_put (transaction, hash, receivable.destination);
 							result.account = receivable.destination;
+							result.amount = receivable.amount;
 						}
 					}
 				}
