@@ -1006,6 +1006,15 @@ bool rai::wallet::search_pending ()
 	return result;
 }
 
+void rai::wallet::init_free_accounts (MDB_txn * transaction_a)
+{
+	free_accounts.clear ();
+	for (auto i (store.begin (transaction_a)), n (store.end ()); i != n; ++i)
+	{
+		free_accounts.insert (i->first);
+	}
+}
+
 void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
 {
 	auto begin (std::chrono::system_clock::now ());

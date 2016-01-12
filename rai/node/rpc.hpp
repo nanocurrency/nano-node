@@ -82,7 +82,7 @@ public:
 	void password_enter ();
 	void password_valid ();
 	void payment_begin ();
-	void payment_check ();
+	void payment_init ();
 	void payment_end ();
 	void payment_wait ();
 	void price ();
@@ -101,7 +101,6 @@ public:
 	void wallet_key_valid ();
 	void error_response (std::string const &);
 	void send_response (boost::property_tree::ptree &);
-	bool payment_wallets (MDB_txn *, rai::uint256_union const &, rai::uint256_union const &, std::shared_ptr <rai::wallet> &, std::shared_ptr <rai::wallet> &);
 	size_t length;
 	std::string body;
 	rai::rpc & rpc;

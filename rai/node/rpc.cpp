@@ -538,173 +538,145 @@ void rai::rpc_handler::price ()
 
 void rai::rpc_handler::payment_begin ()
 {
-	std::string inactive_text (request.get <std::string> ("inactive_wallet"));
-	std::string active_text (request.get <std::string> ("active_wallet"));
-	rai::uint256_union inactive;
-	if (!inactive.decode_hex (inactive_text))
+	std::string id_text (request.get <std::string> ("wallet"));
+	rai::uint256_union id;
+	if (!id.decode_hex (id_text))
 	{
-		rai::uint256_union active;
-		if (!active.decode_hex (active_text))
+		auto existing (rpc.node.wallets.items.find (id));
+		if (existing != rpc.node.wallets.items.end ())
 		{
 			rai::transaction transaction (rpc.node.store.environment, nullptr, true);
-			std::shared_ptr <rai::wallet> inactive_wallet;
-			std::shared_ptr <rai::wallet> active_wallet;
-			if (!payment_wallets (transaction, inactive, active, inactive_wallet, active_wallet))
+			std::shared_ptr <rai::wallet> wallet (existing->second);
+			if (wallet->store.valid_password (transaction))
 			{
 				rai::account account (0);
-				for (auto i (inactive_wallet->store.begin (transaction)), n (inactive_wallet->store.end ()); i != n && account.is_zero (); ++i)
+				do
 				{
-					rai::account first (i->first);
-					if (rpc.node.ledger.account_balance (transaction, first).is_zero ())
-					account = first;
-				}
-				if (account.is_zero ())
-				{
-					rai::keypair key;
-					auto pub (active_wallet->store.insert (transaction, key.prv));
-					assert (key.pub == pub);
-					account = key.pub;
-				}
-				else
-				{
-					rai::raw_key key;
-					auto error (inactive_wallet->store.fetch (transaction, account, key));
-					assert (!error);
-					inactive_wallet->store.erase (transaction, account);
-					active_wallet->store.insert (transaction, key);
-				}
-				assert (!account.is_zero ());
-				assert (!inactive_wallet->store.exists (transaction, account));
-				assert (active_wallet->store.exists (transaction, account));
+					auto existing (wallet->free_accounts.begin ());
+					if (existing != wallet->free_accounts.end ())
+					{
+						account = *existing;
+						wallet->free_accounts.erase (existing);
+						if (wallet->store.find (transaction, account) == wallet->store.end ())
+						{
+							BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Transaction wallet %1% externally modified listing account %1% as free but no longer exists") % id.to_string () % account.to_base58check ());
+							account.clear ();
+						}
+						else
+						{
+							if (!rpc.node.ledger.account_balance (transaction, account).is_zero ())
+							{
+								BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account since it's balance isn't zero") % account.to_base58check ());
+								account.clear ();
+							}
+						}
+					}
+					else
+					{
+						rai::keypair key;
+						account = key.pub;
+						auto error (wallet->store.insert (transaction, key.prv));
+						assert (!error.is_zero ());
+					}
+				} while (account.is_zero ());
 				boost::property_tree::ptree response_l;
 				response_l.put ("account", account.to_base58check ());
 				send_response (response_l);
 			}
 			else
 			{
-				error_response ("Unable to find wallets");
+				error_response ("Wallet locked");
 			}
 		}
 		else
 		{
-			error_response ("Bad active wallet number");
+			error_response ("Unable to find wallets");
 		}
 	}
 	else
 	{
-		error_response ("Bad inactive wallet number");
+		error_response ("Bad wallet number");
 	}
 }
 
-void rai::rpc_handler::payment_check ()
+void rai::rpc_handler::payment_init ()
 {
-	std::string inactive_text (request.get <std::string> ("inactive_wallet"));
-	std::string active_text (request.get <std::string> ("active_wallet"));
-	rai::uint256_union inactive;
-	if (!inactive.decode_hex (inactive_text))
+	std::string id_text (request.get <std::string> ("wallet"));
+	rai::uint256_union id;
+	if (!id.decode_hex (id_text))
 	{
-		rai::uint256_union active;
-		if (!active.decode_hex (active_text))
+		rai::transaction transaction (rpc.node.store.environment, nullptr, true);
+		auto existing (rpc.node.wallets.items.find (id));
+		if (existing != rpc.node.wallets.items.end ())
 		{
-			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
-			std::shared_ptr <rai::wallet> inactive_wallet;
-			std::shared_ptr <rai::wallet> active_wallet;
-			if (!payment_wallets (transaction, inactive, active, inactive_wallet, active_wallet))
+			auto wallet (existing->second);
+			if (wallet->store.valid_password (transaction))
 			{
-				if (inactive_wallet->store.valid_password (transaction))
-				{
-					if (active_wallet->store.valid_password (transaction))
-					{
-						boost::property_tree::ptree response_l;
-						response_l.put ("status", "Ready");
-						send_response (response_l);
-					}
-					else
-					{
-						boost::property_tree::ptree response_l;
-						response_l.put ("status", "Active wallet locked");
-						send_response (response_l);
-					}
-				}
-				else
-				{
-					boost::property_tree::ptree response_l;
-					response_l.put ("status", "Inactive wallet locked");
-					send_response (response_l);
-				}
+				wallet->init_free_accounts (transaction);
+				boost::property_tree::ptree response_l;
+				response_l.put ("status", "Ready");
+				send_response (response_l);
 			}
 			else
 			{
 				boost::property_tree::ptree response_l;
-				response_l.put ("status", "Unable to find wallets");
+				response_l.put ("status", "Transaction wallet locked");
 				send_response (response_l);
 			}
 		}
 		else
 		{
-			error_response ("Bad active wallet number");
+			boost::property_tree::ptree response_l;
+			response_l.put ("status", "Unable to find transaction wallet");
+			send_response (response_l);
 		}
 	}
 	else
 	{
-		error_response ("Bad inactive wallet number");
+		error_response ("Bad transaction wallet number");
 	}
 }
 
 void rai::rpc_handler::payment_end ()
 {
-	std::string inactive_text (request.get <std::string> ("inactive_wallet"));
-	std::string active_text (request.get <std::string> ("active_wallet"));
+	std::string id_text (request.get <std::string> ("wallet"));
 	std::string account_text (request.get <std::string> ("account"));
-	rai::uint256_union inactive;
-	if (!inactive.decode_hex (inactive_text))
+	rai::uint256_union id;
+	if (!id.decode_hex (id_text))
 	{
-		rai::uint256_union active;
-		if (!active.decode_hex (active_text))
+		rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+		auto existing (rpc.node.wallets.items.find (id));
+		if (existing != rpc.node.wallets.items.end ())
 		{
-			rai::transaction transaction (rpc.node.store.environment, nullptr, true);
-			std::shared_ptr <rai::wallet> inactive_wallet;
-			std::shared_ptr <rai::wallet> active_wallet;
-			if (!payment_wallets (transaction, inactive, active, inactive_wallet, active_wallet))
+			auto wallet (existing->second);
+			rai::account account;
+			if (!account.decode_base58check (account_text))
 			{
-				rai::account account;
-				if (!account.decode_base58check (account_text))
+				auto existing (wallet->store.find (transaction, account));
+				if (existing != wallet->store.end ())
 				{
-					auto existing (active_wallet->store.find (transaction, account));
-					if (existing != active_wallet->store.end ())
-					{
-						rai::raw_key key;
-						auto error (active_wallet->store.fetch (transaction, account, key));
-						active_wallet->store.erase (transaction, account);
-						assert (!error);
-						auto pub (inactive_wallet->store.insert (transaction, key));
-						assert (pub == account);
-						boost::property_tree::ptree response_l;
-						send_response (response_l);
-					}
-					else
-					{
-						error_response ("Account not in active wallet");
-					}
+					wallet->free_accounts.insert (account);
+					boost::property_tree::ptree response_l;
+					send_response (response_l);
 				}
 				else
 				{
-					error_response ("Invalid account number");
+					error_response ("Account not in wallet");
 				}
 			}
 			else
 			{
-				error_response ("Unable to find wallets");
+				error_response ("Invalid account number");
 			}
 		}
 		else
 		{
-			error_response ("Bad active wallet number");
+			error_response ("Unable to find wallet");
 		}
 	}
 	else
 	{
-		error_response ("Bad inactive wallet number");
+		error_response ("Bad wallet number");
 	}
 }
 
@@ -1306,9 +1278,9 @@ void rai::rpc_handler::process_request ()
 			{
 				payment_begin ();
 			}
-			else if (action == "payment_check")
+			else if (action == "payment_init")
 			{
-				payment_check ();
+				payment_init ();
 			}
 			else if (action == "payment_end")
 			{
@@ -1398,23 +1370,6 @@ void rai::rpc_handler::process_request ()
 	{
 		error_response ("Can only POST requests");
 	}
-}
-
-bool rai::rpc_handler::payment_wallets (MDB_txn * transaction_a, rai::uint256_union const & inactive_wallet_a, rai::uint256_union const & active_wallet_a, std::shared_ptr <rai::wallet> & inactive_a, std::shared_ptr <rai::wallet> & active_a)
-{
-	auto inactive_existing (rpc.node.wallets.items.find (inactive_wallet_a));
-	auto active_existing (rpc.node.wallets.items.find (active_wallet_a));
-	auto result (false);
-	if (inactive_existing != rpc.node.wallets.items.end () && active_existing != rpc.node.wallets.items.end ())
-	{
-		inactive_a = inactive_existing->second;
-		active_a = active_existing->second;
-	}
-	else
-	{
-		result = true;
-	}
-	return result;
 }
 
 bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
