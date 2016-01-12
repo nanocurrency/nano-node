@@ -655,9 +655,16 @@ void rai::rpc_handler::payment_end ()
 				auto existing (wallet->store.find (transaction, account));
 				if (existing != wallet->store.end ())
 				{
-					wallet->free_accounts.insert (account);
-					boost::property_tree::ptree response_l;
-					send_response (response_l);
+					if (rpc.node.ledger.account_balance (transaction, account).is_zero ())
+					{
+						wallet->free_accounts.insert (account);
+						boost::property_tree::ptree response_l;
+						send_response (response_l);
+					}
+					else
+					{
+						error_response ("Account has non-zero balance");
+					}
 				}
 				else
 				{

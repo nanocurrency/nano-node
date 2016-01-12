@@ -952,6 +952,28 @@ TEST (rpc, payment_begin_end)
 	thread1.join();
 }
 
+TEST (rpc, payment_end_nonempty)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto node1 (system.nodes [0]);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->init_free_accounts (rai::transaction (node1->store.environment, nullptr, false));
+	auto wallet_id (node1->wallets.items.begin ()->first);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request1;
+	request1.put ("action", "payment_end");
+	request1.put ("wallet", wallet_id.to_string ());
+	request1.put ("account", rai::test_genesis_key.pub.to_base58check ());
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response1.second);
+	rpc.stop();
+	thread1.join();
+}
+
 TEST (rpc, payment_zero_balance)
 {
     rai::system system (24000, 1);
