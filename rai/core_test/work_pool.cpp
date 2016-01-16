@@ -26,7 +26,6 @@ TEST (work, cancel)
 	std::thread thread ([&pool, &key, &exited] ()
 	{
 		auto maybe (pool.generate_maybe (key));
-		std::cerr << maybe.operator bool();
 		exited = true;
 	});
 	auto done (false);
