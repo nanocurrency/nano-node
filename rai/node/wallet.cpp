@@ -138,6 +138,31 @@ void rai::work_pool::generate (rai::block & block_a)
     block_a.block_work_set (generate (block_a.root ()));
 }
 
+void rai::work_pool::cancel (rai::uint256_union const & root_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	if (current == root_a)
+	{
+		++ticket;
+		completed [root_a] = boost::none;
+		current.clear ();
+	}
+	else
+	{
+		auto existing (std::find (pending.begin (), pending.end (), root_a));
+		if (existing != pending.end ())
+		{
+			pending.erase (existing);
+			completed [root_a] = boost::none;
+		}
+		else
+		{
+			// Requested something that we're no longer working on
+		}
+	}
+	consumer_condition.notify_all ();
+}
+
 bool rai::work_pool::work_validate (rai::block_hash const & root_a, uint64_t work_a)
 {
     auto result (work_value (root_a, work_a) < rai::work_pool::publish_threshold);
@@ -162,7 +187,7 @@ boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union co
 	boost::optional <uint64_t> result;
 	std::unique_lock <std::mutex> lock (mutex);
 	pending.push_back (root_a);
-	producer_condition.notify_one ();
+	producer_condition.notify_all ();
 	auto done (false);
 	while (!done)
 	{

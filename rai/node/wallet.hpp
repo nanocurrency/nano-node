@@ -19,6 +19,7 @@ public:
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
+	void cancel (rai::uint256_union const &);
 	uint64_t generate (rai::uint256_union const &);
 	boost::optional <uint64_t> generate_maybe (rai::uint256_union const &);
 	void generate (rai::block &);

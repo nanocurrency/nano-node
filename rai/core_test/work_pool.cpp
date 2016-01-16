@@ -17,3 +17,24 @@ TEST (work, validate)
     pool.generate (send_block);
     ASSERT_FALSE (pool.work_validate (send_block));
 }
+
+TEST (work, cancel)
+{
+	rai::work_pool pool;
+	rai::uint256_union key (1);
+	bool exited (false);
+	std::thread thread ([&pool, &key, &exited] ()
+	{
+		auto maybe (pool.generate_maybe (key));
+		std::cerr << maybe.operator bool();
+		exited = true;
+	});
+	auto done (false);
+	while (!done)
+	{
+		std::lock_guard <std::mutex> lock (pool.mutex);
+		done = exited || !pool.pending.empty () || !pool.current.is_zero ();
+	}
+	pool.cancel (key);
+	thread.join ();
+}
