@@ -133,7 +133,8 @@ add_executable (core_test
 	rai/core_test/uint256_union.cpp
 	rai/core_test/versioning.cpp
 	rai/core_test/wallet.cpp
-	rai/core_test/wallets.cpp)
+	rai/core_test/wallets.cpp
+	rai/core_test/work_pool.cpp)
 
 add_executable (slow_test
 	rai/slow_test/node.cpp)

@@ -111,7 +111,7 @@ void rai::work_pool::loop (uint64_t thread)
 			if (!pending.empty ())
 			{
 				current = pending.front ();
-				pending.pop ();
+				pending.pop_front ();
 				producer_condition.notify_all ();
 			}
 			else
@@ -161,7 +161,7 @@ uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
 	assert (!root_a.is_zero ());
 	uint64_t result;
 	std::unique_lock <std::mutex> lock (mutex);
-	pending.push (root_a);
+	pending.push_back (root_a);
 	producer_condition.notify_one ();
 	auto done (false);
 	while (!done)

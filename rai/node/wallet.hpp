@@ -27,7 +27,7 @@ public:
 	bool done;
 	std::vector <std::thread> threads;
 	std::unordered_map <rai::uint256_union, uint64_t> completed;
-	std::queue <rai::uint256_union> pending;
+	std::deque <rai::uint256_union> pending;
 	std::mutex mutex;
 	std::condition_variable consumer_condition;
 	std::condition_variable producer_condition;

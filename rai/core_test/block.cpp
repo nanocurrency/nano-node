@@ -286,23 +286,6 @@ TEST (frontier_req, serialization)
     ASSERT_EQ (request1, request2);
 }
 
-TEST (work, one)
-{
-	rai::work_pool pool;
-    rai::change_block block (1, 1, rai::keypair ().prv, 3, 4);
-    pool.generate (block);
-    ASSERT_FALSE (pool.work_validate (block));
-}
-
-TEST (work, validate)
-{
-	rai::work_pool pool;
-	rai::send_block send_block (1, 1, 2, rai::keypair ().prv, 4, 6);
-    ASSERT_TRUE (pool.work_validate (send_block));
-    pool.generate (send_block);
-    ASSERT_FALSE (pool.work_validate (send_block));
-}
-
 TEST (block, publish_req_serialization)
 {
     rai::keypair key1;
