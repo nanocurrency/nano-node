@@ -156,10 +156,10 @@ void rai::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
+boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union const & root_a)
 {
 	assert (!root_a.is_zero ());
-	uint64_t result;
+	boost::optional <uint64_t> result;
 	std::unique_lock <std::mutex> lock (mutex);
 	pending.push_back (root_a);
 	producer_condition.notify_one ();
@@ -176,6 +176,11 @@ uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
 		}
 	}
 	return result;
+}
+
+uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
+{
+	return generate_maybe (root_a).value ();
 }
 
 rai::uint256_union rai::wallet_store::check (MDB_txn * transaction_a)

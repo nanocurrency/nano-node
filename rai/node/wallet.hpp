@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/optional.hpp>
+
 #include <rai/secure.hpp>
 
 #include <atomic>
@@ -18,6 +20,7 @@ public:
 	void loop (uint64_t);
 	void stop ();
 	uint64_t generate (rai::uint256_union const &);
+	boost::optional <uint64_t> generate_maybe (rai::uint256_union const &);
 	void generate (rai::block &);
 	uint64_t work_value (rai::block_hash const &, uint64_t);
 	bool work_validate (rai::block &);
@@ -26,7 +29,7 @@ public:
 	std::atomic <int> ticket;
 	bool done;
 	std::vector <std::thread> threads;
-	std::unordered_map <rai::uint256_union, uint64_t> completed;
+	std::unordered_map <rai::uint256_union, boost::optional <uint64_t>> completed;
 	std::deque <rai::uint256_union> pending;
 	std::mutex mutex;
 	std::condition_variable consumer_condition;
