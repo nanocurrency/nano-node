@@ -64,6 +64,17 @@ public:
 };
 }
 
+uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t work_a)
+{
+	uint64_t result;
+    blake2b_state hash;
+	blake2b_init (&hash, sizeof (result));
+    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
+    blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
+    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
+	return result;
+}
+
 void rai::work_pool::loop (uint64_t thread)
 {
     xorshift1024star rng;
@@ -125,17 +136,6 @@ void rai::work_pool::loop (uint64_t thread)
 void rai::work_pool::generate (rai::block & block_a)
 {
     block_a.block_work_set (generate (block_a.root ()));
-}
-
-uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t work_a)
-{
-	uint64_t result;
-    blake2b_state hash;
-	blake2b_init (&hash, sizeof (result));
-    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
-    blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
-	return result;
 }
 
 bool rai::work_pool::work_validate (rai::block_hash const & root_a, uint64_t work_a)
