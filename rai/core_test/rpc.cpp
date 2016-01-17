@@ -83,10 +83,11 @@ TEST (rpc, account_weight)
     rai::keypair key;
     rai::system system (24000, 1);
     rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-    rai::change_block block (latest, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest));
-	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (block).code);
+	auto & node1 (*system.nodes [0]);
+    rai::change_block block (latest, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	ASSERT_EQ (rai::process_result::progress, node1.process (block).code);
 	auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
@@ -640,9 +641,10 @@ TEST (rpc, process_block)
     rai::system system (24000, 1);
 	rai::keypair key;
 	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest));
+	auto & node1 (*system.nodes [0]);
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
@@ -1089,6 +1091,60 @@ TEST (rpc, version)
 	ASSERT_EQ ("1", response1.first.get <std::string> ("rpc_version"));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	ASSERT_EQ ("2", response1.first.get <std::string> ("store_version"));
+	rpc.stop();
+	thread1.join ();
+}
+
+TEST (rpc, work_generate)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto node1 (system.nodes [0]);
+	rai::keypair key;
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert (key.prv);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+	rai::block_hash hash1 (1);
+    boost::property_tree::ptree request1;
+	request1.put ("action", "work_generate");
+	request1.put ("hash", hash1.to_string ());
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
+	auto work1 (response1.first.get <std::string> ("work"));
+	uint64_t work2;
+	ASSERT_FALSE (rai::from_string_hex (work1, work2));
+	ASSERT_FALSE (system.work.work_validate (hash1, work2));
+	rpc.stop();
+	thread1.join ();
+}
+
+TEST (rpc, work_cancel)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto & node1 (*system.nodes [0]);
+	rai::keypair key;
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert (key.prv);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+	rai::block_hash hash1 (1);
+    boost::property_tree::ptree request1;
+	request1.put ("action", "work_cancel");
+	request1.put ("hash", hash1.to_string ());
+	boost::optional <uint64_t> work;
+	std::thread thread ([&] ()
+	{
+		work = system.work.generate_maybe (hash1);
+	});
+	auto response1 (test_response (request1, rpc));
+	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
+	thread.join ();
 	rpc.stop();
 	thread1.join ();
 }

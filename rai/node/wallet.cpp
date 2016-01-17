@@ -133,11 +133,6 @@ void rai::work_pool::loop (uint64_t thread)
 	}
 }
 
-void rai::work_pool::generate (rai::block & block_a)
-{
-    block_a.block_work_set (generate (block_a.root ()));
-}
-
 void rai::work_pool::cancel (rai::uint256_union const & root_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
@@ -916,14 +911,14 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
     auto error (store.work_get (transaction_a, account_a, result));
     if (error)
 	{
-        result = node.work.generate (root_a);
+        result = node.generate_work (root_a);
     }
 	else
 	{
 		if (node.work.work_validate (root_a, result))
 		{
 			BOOST_LOG (node.log) << "Cached work invalid, regenerating";
-			result = node.work.generate (root_a);
+			result = node.generate_work (root_a);
 		}
 	}
     return result;
@@ -1048,7 +1043,7 @@ void rai::wallet::init_free_accounts (MDB_txn * transaction_a)
 void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
 {
 	auto begin (std::chrono::system_clock::now ());
-    auto work (node.work.generate (root_a));
+    auto work (node.generate_work (root_a));
 	if (node.config.logging.work_generation_time ())
 	{
 		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << " us";

@@ -727,6 +727,8 @@ public:
     void ongoing_keepalive ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
+	void generate_work (rai::block &);
+	uint64_t generate_work (rai::uint256_union const &);
 	rai::node_config config;
     rai::processor_service & service;
 	rai::work_pool & work;

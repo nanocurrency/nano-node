@@ -1149,6 +1149,62 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
+void rai::rpc_handler::work_generate ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string hash_text (request.get <std::string> ("hash"));
+		rai::block_hash hash;
+		auto error (hash.decode_hex (hash_text));
+		if (!error)
+		{
+			auto work (rpc.node.work.generate_maybe (hash));
+			if (work)
+			{
+				boost::property_tree::ptree response_l;
+				response_l.put ("work", rai::to_string_hex (work.value ()));
+				send_response (response_l);
+			}
+			else
+			{
+				error_response ("Cancelled");
+			}
+		}
+		else
+		{
+			error_response ("Bad block hash");
+		}
+	}
+	else
+	{
+		error_response ("RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::work_cancel ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string hash_text (request.get <std::string> ("hash"));
+		rai::block_hash hash;
+		auto error (hash.decode_hex (hash_text));
+		if (!error)
+		{
+			rpc.node.work.cancel (hash);
+			boost::property_tree::ptree response_l;
+			send_response (response_l);
+		}
+		else
+		{
+			error_response ("Bad block hash");
+		}
+	}
+	else
+	{
+		error_response ("RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::error_response (std::string const & message_a)
 {
     auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request));
@@ -1358,6 +1414,14 @@ void rai::rpc_handler::process_request ()
 			else if (action == "wallet_key_valid")
 			{
 				wallet_key_valid ();
+			}
+			else if (action == "work_generate")
+			{
+				work_generate ();
+			}
+			else if (action == "work_cancel")
+			{
+				work_cancel ();
 			}
 			else
 			{

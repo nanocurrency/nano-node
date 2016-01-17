@@ -453,7 +453,7 @@ TEST (node, block_replace)
 	auto initial_work (block1->block_work ());
 	while (system.work.work_value (block1->root (), block1->block_work ()) <= system.work.work_value (block1->root (), initial_work))
 	{
-		system.work.generate (*block1);
+		system.nodes [1]->generate_work (*block1);
 	}
 	system.nodes [1]->network.republish_block (block1->clone (), 0);
 	auto iterations1 (0);

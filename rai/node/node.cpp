@@ -1847,6 +1847,16 @@ int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 	return static_cast <int> (result * 100.0);
 }
 
+void rai::node::generate_work (rai::block & block_a)
+{
+    block_a.block_work_set (generate_work (block_a.root ()));
+}
+
+uint64_t rai::node::generate_work (rai::uint256_union const & hash_a)
+{
+    return work.generate (hash_a);
+}
+
 namespace
 {
 class confirmed_visitor : public rai::block_visitor

@@ -22,7 +22,6 @@ public:
 	void cancel (rai::uint256_union const &);
 	uint64_t generate (rai::uint256_union const &);
 	boost::optional <uint64_t> generate_maybe (rai::uint256_union const &);
-	void generate (rai::block &);
 	uint64_t work_value (rai::block_hash const &, uint64_t);
 	bool work_validate (rai::block &);
 	bool work_validate (rai::block_hash const &, uint64_t);

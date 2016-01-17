@@ -99,6 +99,8 @@ public:
 	void wallet_destroy ();
 	void wallet_export ();
 	void wallet_key_valid ();
+	void work_generate ();
+	void work_cancel ();
 	void error_response (std::string const &);
 	void send_response (boost::property_tree::ptree &);
 	size_t length;
