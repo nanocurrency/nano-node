@@ -534,7 +534,6 @@ public:
     uint64_t insufficient_work_count;
     uint64_t error_count;
     static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
-    static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
 };
 class bootstrap_initiator
 {

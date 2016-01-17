@@ -7,7 +7,7 @@
 
 rai::rpc_config::rpc_config () :
 address (boost::asio::ip::address_v6::loopback ()),
-port (rai::network::rpc_port),
+port (rai::rpc::rpc_port),
 enable_control (false),
 frontier_request_limit (16384),
 chain_request_limit (16384)
@@ -16,7 +16,7 @@ chain_request_limit (16384)
 
 rai::rpc_config::rpc_config (bool enable_control_a) :
 address (boost::asio::ip::address_v6::loopback ()),
-port (rai::network::rpc_port),
+port (rai::rpc::rpc_port),
 enable_control (enable_control_a),
 frontier_request_limit (16384),
 chain_request_limit (16384)

@@ -53,6 +53,7 @@ public:
     boost::network::http::async_server <rai::rpc> server;
     rai::node & node;
     bool on;
+    static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
 };
 class payment_observer
 {
