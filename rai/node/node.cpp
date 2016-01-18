@@ -1,20 +1,24 @@
 #include <rai/node/node.hpp>
 
-#include <unordered_set>
+#include <rai/node/rpc.hpp>
+
+#include <future>
 #include <memory>
 #include <sstream>
+#include <thread>
+#include <unordered_set>
 
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
+#undef BOOST_NETWORK_NO_LIB
+#include <boost/network/protocol/http/client.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <ed25519-donna/ed25519.h>
-
-#include <thread>
 
 rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
@@ -870,6 +874,14 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	boost::property_tree::ptree logging_l;
 	logging.serialize_json (logging_l);
 	tree_a.add_child ("logging", logging_l);
+	boost::property_tree::ptree work_peers_l;
+	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
+	{
+		boost::property_tree::ptree entry;
+		entry.put ("", *i);
+		work_peers_l.push_back (std::make_pair ("", entry));
+	}
+	tree_a.add_child ("work_peers", work_peers_l);
 	boost::property_tree::ptree preconfigured_peers_l;
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
@@ -900,6 +912,13 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 		auto rebroadcast_delay_l (tree_a.get <std::string> ("rebroadcast_delay"));
 		auto receive_minimum_l (tree_a.get <std::string> ("receive_minimum"));
 		auto logging_l (tree_a.get_child ("logging"));
+		auto work_peers_l (tree_a.get_child ("work_peers"));
+		work_peers.clear ();
+		for (auto i (work_peers_l.begin ()), n (work_peers_l.end ()); i != n; ++i)
+		{
+			auto work_peer (i->second.get <std::string> (""));
+			work_peers.push_back (work_peer);
+		}
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
 		for (auto i (preconfigured_peers_l.begin ()), n (preconfigured_peers_l.end ()); i != n; ++i)
@@ -1847,6 +1866,174 @@ int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 	return static_cast <int> (result * 100.0);
 }
 
+namespace {
+class distributed_work : public std::enable_shared_from_this <distributed_work>
+{
+public:
+distributed_work (std::shared_ptr <rai::node> const & node_a, rai::block_hash const & root_a) :
+node (node_a),
+root (root_a)
+{
+	outstanding.insert (node_a->config.work_peers.begin (), node_a->config.work_peers.end ());
+}
+void start ()
+{
+	if (!outstanding.empty ())
+	{
+		auto this_l (shared_from_this ());
+		for (auto const & i: outstanding)
+		{
+			node->background ([this_l, i] ()
+			{
+				boost::network::http::client client;
+				auto url ("http://" + i + ":" + std::to_string (rai::rpc::rpc_port));
+				boost::network::http::client::request request (url);
+				std::string request_string;
+				{
+					boost::property_tree::ptree request;
+					request.put ("action", "work_generate");
+					request.put ("hash", this_l->root.to_string ());
+					std::stringstream ostream;
+					boost::property_tree::write_json (ostream, request);
+					request_string = ostream.str ();
+				}
+				request.add_header (std::make_pair ("content-length", std::to_string (request_string.size ())));
+				try
+				{
+					boost::network::http::client::response response = client.post (request, request_string, [this_l, i] (boost::iterator_range <char const *> const & range, boost::system::error_code const & ec)
+					{
+						this_l->callback (range, ec, i);
+					});
+				}
+				catch (...)
+				{
+					this_l->failure (i);
+				}
+			});
+		}
+	}
+	else
+	{
+		handle_failure (true);
+	}
+}
+void stop ()
+{
+	auto this_l (shared_from_this ());
+	for (auto const & i: outstanding)
+	{
+		node->background ([this_l, i] ()
+		{
+			boost::network::http::client client;
+			auto url ("http://" + i + ":" + std::to_string (rai::rpc::rpc_port));
+			boost::network::http::client::request request (url);
+			std::string request_string;
+			{
+				boost::property_tree::ptree request;
+				request.put ("action", "work_cancel");
+				request.put ("hash", this_l->root.to_string ());
+				std::stringstream ostream;
+				boost::property_tree::write_json (ostream, request);
+				request_string = ostream.str ();
+			}
+			request.add_header (std::make_pair ("content-length", std::to_string (request_string.size ())));
+			try
+			{
+				boost::network::http::client::response response = client.post (request, request_string, [this_l, i] (boost::iterator_range <char const *> const & range, boost::system::error_code const & ec)
+				{
+				});
+			}
+			catch (...)
+			{
+			}
+		});
+	}
+}
+void callback (boost::iterator_range <char const *> const & range, boost::system::error_code const & ec, std::string const & address)
+{
+	if (!ec)
+	{
+		success (range, address);
+	}
+	else
+	{
+		failure (address);
+	}
+}
+void success (boost::iterator_range <char const *> const & range, std::string const & address)
+{
+	auto last (remove (address));
+	std::string body;
+	for (auto const & i: range)
+	{
+		body += i;
+	}
+	std::stringstream istream (body);
+	try
+	{
+		boost::property_tree::ptree result;
+		boost::property_tree::read_json (istream, result);
+		auto work_text (result.get <std::string> ("work"));
+		uint64_t work;
+		if (!rai::from_string_hex (work_text, work))
+		{
+			set_once (work);
+			stop ();
+		}
+		else
+		{
+			handle_failure (last);
+		}
+	}
+	catch (...)
+	{
+		handle_failure (last);
+	}
+}
+void set_once (uint64_t work_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	if (!completed)
+	{
+		completed = true;
+		promise.set_value (work_a);
+	}
+}
+void failure (std::string const & address)
+{
+	auto last (remove (address));
+	auto completed_l (false);
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		completed_l = completed;
+	}
+	if (!completed_l)
+	{
+		handle_failure (last);
+	}
+}
+void handle_failure (bool last)
+{
+	if (last)
+	{
+		promise.set_value (node->work.generate (root));
+	}
+}
+bool remove (std::string const & address)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	outstanding.erase (address);
+	return outstanding.empty ();
+}
+std::promise <uint64_t> promise;
+std::shared_ptr <rai::node> node;
+rai::block_hash root;
+std::mutex mutex;
+std::unordered_set <std::string> outstanding;
+bool completed;
+};
+}
+
 void rai::node::generate_work (rai::block & block_a)
 {
     block_a.block_work_set (generate_work (block_a.root ()));
@@ -1854,7 +2041,9 @@ void rai::node::generate_work (rai::block & block_a)
 
 uint64_t rai::node::generate_work (rai::uint256_union const & hash_a)
 {
-    return work.generate (hash_a);
+	auto work_generation (std::make_shared <distributed_work> (shared (), hash_a));
+	work_generation->start ();
+	return work_generation->promise.get_future ().get ();
 }
 
 namespace

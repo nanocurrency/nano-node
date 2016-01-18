@@ -680,6 +680,7 @@ public:
 	rai::account random_representative ();
 	uint16_t peering_port;
 	rai::logging logging;
+	std::vector <std::string> work_peers;
 	std::vector <std::string> preconfigured_peers;
 	std::vector <rai::account> preconfigured_representatives;
 	unsigned packet_delay_microseconds;

@@ -20,11 +20,10 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 		boost::property_tree::write_json (ostream, request_a);
 		request_string = ostream.str ();
 	}
-	request.body (request_string);
 	request.add_header (std::make_pair ("content-length", std::to_string (request_string.size ())));
 	try
 	{
-		boost::network::http::client::response response = client.post (request);
+		boost::network::http::client::response response = client.post (request, request_string);
 		uint16_t status (boost::network::http::status (response));
 		result.second = static_cast <boost::network::http::server <rai::rpc>::response::status_type> (status);
 		std::string body_l (boost::network::http::body (response));
@@ -1146,5 +1145,33 @@ TEST (rpc, work_cancel)
 	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	thread.join ();
 	rpc.stop();
+	thread1.join ();
+}
+
+TEST (rpc, work_peer_one)
+{
+    rai::system system (24000, 2);
+	rai::thread_runner runner (*system.service, system.processor);
+	rai::node_init init1;
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+	rai::keypair key;
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert (key.prv);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+	auto address (node1.network.endpoint ().address ().to_string ());
+	node2.config.work_peers.push_back ("[" + address + "]");
+	rai::block_hash hash1 (1);
+	for (auto i (0); i != 100000; ++i)
+	{
+		auto work (node2.generate_work (hash1));
+		ASSERT_FALSE (system.work.work_validate (hash1, work));
+	}
+	rpc.stop ();
+	system.processor.stop ();
+	runner.join ();
 	thread1.join ();
 }
