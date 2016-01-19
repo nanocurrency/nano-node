@@ -74,12 +74,7 @@ node (node_a)
 {
 	node_a.observers.push_back ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
 	{
-		std::lock_guard <std::mutex> lock (mutex);
-		auto existing (payment_observers.find (account_a));
-		if (existing != payment_observers.end ())
-		{
-			existing->second->observe ();
-		}
+		observer_action (account_a);
 	});
 }
 
@@ -114,6 +109,16 @@ void rai::rpc::send_response (boost::network::http::async_server <rai::rpc>::con
 	connection->write (response->to_buffers (), [response] (boost::system::error_code const & ec)
 	{
 	});
+}
+
+void rai::rpc::observer_action (rai::account const & account_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	auto existing (payment_observers.find (account_a));
+	if (existing != payment_observers.end ())
+	{
+		existing->second->observe ();
+	}
 }
 
 void rai::rpc::error_response (boost::network::http::async_server <rai::rpc>::connection_ptr connection, std::string const & message_a)
@@ -709,46 +714,13 @@ void rai::rpc_handler::payment_wait ()
 			uint64_t timeout;
 			if (!rpc.decode_unsigned (timeout_text, timeout))
 			{
-				std::chrono::system_clock::time_point cutoff (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout));
-				rai::payment_observer observer (rpc, account);
-				rai::payment_status status (rai::payment_status::unknown);
 				{
-					std::unique_lock <std::mutex> lock (observer.mutex);
-					while (rpc.node.balance (account) < amount.number () && std::chrono::system_clock::now () < cutoff)
-					{
-						observer.condition.wait_until (lock, cutoff);
-					}
+					std::unique_ptr <rai::payment_observer> observer (new rai::payment_observer (connection, rpc, account, amount, timeout));
+					std::lock_guard <std::mutex> lock (rpc.mutex);
+					assert (rpc.payment_observers.find (account) == rpc.payment_observers.end ());
+					rpc.payment_observers [account] = std::move (observer);
 				}
-				if (rpc.node.balance (account) < amount.number ())
-				{
-					status = rai::payment_status::nothing;
-				}
-				else
-				{
-					status = rai::payment_status::success;
-				}
-				switch (status)
-				{
-					case rai::payment_status::nothing:
-					{
-						boost::property_tree::ptree response_l;
-						response_l.put ("status", "nothing");
-						rpc.send_response (connection, response_l);
-						break;
-					}
-					case rai::payment_status::success:
-					{
-						boost::property_tree::ptree response_l;
-						response_l.put ("status", "success");
-						rpc.send_response (connection, response_l);
-						break;
-					}
-					default:
-					{
-						rpc.error_response (connection, "Internal payment error");
-						break;
-					}
-				}
+				rpc.observer_action (account);
 			}
 			else
 			{
@@ -1458,24 +1430,60 @@ bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
 	return result;
 }
 
-rai::payment_observer::payment_observer (rai::rpc & rpc_a, rai::account const & account_a) :
+rai::payment_observer::payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr connection_a, rai::rpc & rpc_a, rai::account const & account_a, rai::amount const & amount_a, uint64_t timeout) :
 rpc (rpc_a),
-account (account_a)
+account (account_a),
+amount (amount_a),
+connection (connection_a),
+completed (false)
 {
-	std::lock_guard <std::mutex> lock (rpc.mutex);
-	assert (rpc.payment_observers.find (account_a) == rpc.payment_observers.end ());
-	rpc.payment_observers [account_a] = this;
+	rpc.node.service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout), [this] ()
+	{
+		std::lock_guard <std::mutex> lock (rpc.mutex);
+		complete (rai::payment_status::nothing);
+	});
 }
 
 rai::payment_observer::~payment_observer ()
 {
-	std::lock_guard <std::mutex> lock (rpc.mutex);
-	assert (rpc.payment_observers.find (account) != rpc.payment_observers.end ());
-	rpc.payment_observers.erase (account);
 }
 
 void rai::payment_observer::observe ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	condition.notify_all ();
+	if (rpc.node.balance (account) >= amount.number ())
+	{
+		complete (rai::payment_status::success);
+	}
+}
+
+void rai::payment_observer::complete (rai::payment_status status)
+{
+	auto already (completed.test_and_set ());
+	if (!already)
+	{
+		switch (status)
+		{
+			case rai::payment_status::nothing:
+			{
+				boost::property_tree::ptree response_l;
+				response_l.put ("status", "nothing");
+				rpc.send_response (connection, response_l);
+				break;
+			}
+			case rai::payment_status::success:
+			{
+				boost::property_tree::ptree response_l;
+				response_l.put ("status", "success");
+				rpc.send_response (connection, response_l);
+				break;
+			}
+			default:
+			{
+				rpc.error_response (connection, "Internal payment error");
+				break;
+			}
+		}
+		assert (rpc.payment_observers.find (account) != rpc.payment_observers.end ());
+		rpc.payment_observers.erase (account);
+	}
 }

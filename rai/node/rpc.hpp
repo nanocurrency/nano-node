@@ -49,8 +49,9 @@ public:
 	bool decode_unsigned (std::string const &, uint64_t &);
 	void error_response (boost::network::http::async_server <rai::rpc>::connection_ptr, std::string const &);
 	void send_response (boost::network::http::async_server <rai::rpc>::connection_ptr, boost::property_tree::ptree &);
+	void observer_action (rai::account const &);
 	std::mutex mutex;
-	std::unordered_map <rai::account, rai::payment_observer *> payment_observers;
+	std::unordered_map <rai::account, std::unique_ptr <rai::payment_observer>> payment_observers;
 	rai::rpc_config config;
     boost::network::http::async_server <rai::rpc> server;
     rai::node & node;
@@ -60,13 +61,18 @@ public:
 class payment_observer
 {
 public:
-	payment_observer (rai::rpc &, rai::account const &);
+	payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr, rai::rpc &, rai::account const &, rai::amount const &, uint64_t);
 	~payment_observer ();
 	void observe ();
+	void timeout ();
+	void complete (rai::payment_status);
 	std::mutex mutex;
 	std::condition_variable condition;
 	rai::rpc & rpc;
 	rai::account account;
+	rai::amount amount;
+	boost::network::http::async_server <rai::rpc>::connection_ptr connection;
+	std::atomic_flag completed;
 };
 class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
 {
