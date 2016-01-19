@@ -863,21 +863,20 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 	return result.get_future ().get ();
 }
 
-rai::block_hash rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+void rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void (rai::block_hash const &)> const & action_a)
 {
-	std::promise <rai::block_hash> result;
-	node.background ([this, source_a, account_a, amount_a, &result] ()
+	node.background ([this, source_a, account_a, amount_a, action_a] ()
 	{
-		node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &result] ()
+		node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, action_a] ()
 		{
 			auto block (send_action (source_a, account_a, amount_a));
 			if (block != nullptr)
 			{
-				result.set_value (block->hash ());
+				action_a (block->hash ());
 			}
 			else
 			{
-			    result.set_value (0);
+				action_a (0);
 			}
 			if (block != nullptr)
 			{
@@ -885,7 +884,6 @@ rai::block_hash rai::wallet::send_async (rai::account const & source_a, rai::acc
 			}
 		});
 	});
-	return result.get_future ().get ();
 }
 
 // Update work for account if latest root is root_a

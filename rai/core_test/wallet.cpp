@@ -157,8 +157,10 @@ TEST (wallet, send_async)
 			ASSERT_LT (iterations, 200);
 		}
 	});
-    ASSERT_FALSE (system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()).is_zero ());
+	bool success (false);
+    system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), [&success] (rai::block_hash const & block_a) { ASSERT_FALSE (block_a.is_zero ()); success = true; });
 	thread.join ();
+	ASSERT_TRUE (success);
 }
 
 TEST (wallet, spend)

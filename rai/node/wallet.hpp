@@ -134,7 +134,7 @@ public:
 	bool change_sync (rai::account const &, rai::account const &);
     bool receive_sync (rai::send_block const &, rai::account const &, rai::uint128_t const &);
 	rai::block_hash send_sync (rai::account const &, rai::account const &, rai::uint128_t const &);
-	rai::block_hash send_async (rai::account const &, rai::account const &, rai::uint128_t const &);
+	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function <void (rai::block_hash const &)> const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);

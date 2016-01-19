@@ -883,10 +883,14 @@ void rai::rpc_handler::send ()
 						auto error (amount.decode_dec (amount_text));
 						if (!error)
 						{
-							auto block (existing->second->send_async (source, destination, amount.number ()));
-							boost::property_tree::ptree response_l;
-							response_l.put ("block", block.to_string ());
-							rpc.send_response (connection, response_l);
+							auto connection_l (connection);
+							auto & rpc_l (rpc);
+							existing->second->send_async (source, destination, amount.number (), [connection_l, &rpc_l] (rai::block_hash const & block_a)
+							{
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", block_a.to_string ());
+								rpc_l.send_response (connection_l, response_l);
+							});
 						}
 						else
 						{
