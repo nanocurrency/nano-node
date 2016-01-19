@@ -1066,6 +1066,14 @@ TEST (rpc, payment_wait)
 	auto response2 (test_response (request1, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
 	ASSERT_EQ ("success", response2.first.get <std::string> ("status"));
+	request1.put ("amount", rai::amount (rai::Mrai_ratio * 2).to_string_dec ());
+	system.processor.add(std::chrono::system_clock::now () + std::chrono::milliseconds(500), [&] ()
+	{
+		system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
+	});
+	auto response3 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response3.second);
+	ASSERT_EQ ("success", response2.first.get <std::string> ("status"));
 	node1->stop ();
 	rpc.stop();
 	runner.join ();
