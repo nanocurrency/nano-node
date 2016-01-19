@@ -1061,6 +1061,7 @@ TEST (rpc, payment_wait)
 	auto response1 (test_response (request1, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	ASSERT_EQ ("nothing", response1.first.get <std::string> ("status"));
+	request1.put ("timeout", "100000");
 	system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
 	auto response2 (test_response (request1, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
