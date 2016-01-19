@@ -37,6 +37,7 @@ enum class payment_status
 	success // Amount received
 };
 class wallet;
+class payment_observer;
 class rpc
 {
 public:
@@ -49,7 +50,7 @@ public:
 	void error_response (boost::network::http::async_server <rai::rpc>::connection_ptr, std::string const &);
 	void send_response (boost::network::http::async_server <rai::rpc>::connection_ptr, boost::property_tree::ptree &);
 	std::mutex mutex;
-	std::unordered_map <rai::account, std::function <void ()>> payment_observers;
+	std::unordered_map <rai::account, rai::payment_observer *> payment_observers;
 	rai::rpc_config config;
     boost::network::http::async_server <rai::rpc> server;
     rai::node & node;
@@ -59,8 +60,11 @@ public:
 class payment_observer
 {
 public:
-	payment_observer (rai::rpc &, rai::account const &, std::function <void ()> const &);
+	payment_observer (rai::rpc &, rai::account const &);
 	~payment_observer ();
+	void observe ();
+	std::mutex mutex;
+	std::condition_variable condition;
 	rai::rpc & rpc;
 	rai::account account;
 };

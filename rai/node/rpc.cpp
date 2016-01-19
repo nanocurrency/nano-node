@@ -78,7 +78,7 @@ node (node_a)
 		auto existing (payment_observers.find (account_a));
 		if (existing != payment_observers.end ())
 		{
-			existing->second ();
+			existing->second->observe ();
 		}
 	});
 }
@@ -710,19 +710,13 @@ void rai::rpc_handler::payment_wait ()
 			if (!rpc.decode_unsigned (timeout_text, timeout))
 			{
 				std::chrono::system_clock::time_point cutoff (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout));
-				std::mutex mutex;
-				std::condition_variable condition;
-				rai::payment_observer observer (rpc, account, [&mutex, & condition] ()
-				{
-					std::lock_guard <std::mutex> lock (mutex);
-					condition.notify_all ();
-				});
+				rai::payment_observer observer (rpc, account);
 				rai::payment_status status (rai::payment_status::unknown);
 				{
-					std::unique_lock <std::mutex> lock (mutex);
+					std::unique_lock <std::mutex> lock (observer.mutex);
 					while (rpc.node.balance (account) < amount.number () && std::chrono::system_clock::now () < cutoff)
 					{
-						condition.wait_until (lock, cutoff);
+						observer.condition.wait_until (lock, cutoff);
 					}
 				}
 				if (rpc.node.balance (account) < amount.number ())
@@ -1464,13 +1458,13 @@ bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
 	return result;
 }
 
-rai::payment_observer::payment_observer (rai::rpc & rpc_a, rai::account const & account_a, std::function <void ()> const & action_a) :
+rai::payment_observer::payment_observer (rai::rpc & rpc_a, rai::account const & account_a) :
 rpc (rpc_a),
 account (account_a)
 {
 	std::lock_guard <std::mutex> lock (rpc.mutex);
 	assert (rpc.payment_observers.find (account_a) == rpc.payment_observers.end ());
-	rpc.payment_observers [account_a] = action_a;
+	rpc.payment_observers [account_a] = this;
 }
 
 rai::payment_observer::~payment_observer ()
@@ -1478,4 +1472,10 @@ rai::payment_observer::~payment_observer ()
 	std::lock_guard <std::mutex> lock (rpc.mutex);
 	assert (rpc.payment_observers.find (account) != rpc.payment_observers.end ());
 	rpc.payment_observers.erase (account);
+}
+
+void rai::payment_observer::observe ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	condition.notify_all ();
 }
