@@ -1872,7 +1872,8 @@ class distributed_work : public std::enable_shared_from_this <distributed_work>
 public:
 distributed_work (std::shared_ptr <rai::node> const & node_a, rai::block_hash const & root_a) :
 node (node_a),
-root (root_a)
+root (root_a),
+completed (false)
 {
 	outstanding.insert (node_a->config.work_peers.begin (), node_a->config.work_peers.end ());
 }
@@ -1904,6 +1905,11 @@ void start ()
 					{
 						this_l->callback (range, ec, i);
 					});
+					uint16_t status (boost::network::http::status (response));
+					if (status != 200)
+					{
+						this_l->failure (i);
+					}
 				}
 				catch (...)
 				{
@@ -2002,19 +2008,16 @@ void set_once (uint64_t work_a)
 void failure (std::string const & address)
 {
 	auto last (remove (address));
-	auto completed_l (false);
+	handle_failure (last);
+}
+void handle_failure (bool last)
+{
+	bool completed_l;
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		completed_l = completed;
 	}
-	if (!completed_l)
-	{
-		handle_failure (last);
-	}
-}
-void handle_failure (bool last)
-{
-	if (last)
+	if (!completed_l && last)
 	{
 		promise.set_value (node->work.generate (root));
 	}

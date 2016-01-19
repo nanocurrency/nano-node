@@ -1148,6 +1148,30 @@ TEST (rpc, work_cancel)
 	thread1.join ();
 }
 
+TEST (rpc, work_peer_bad)
+{
+    rai::system system (24000, 2);
+	rai::thread_runner runner (*system.service, system.processor);
+	rai::node_init init1;
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+	rai::keypair key;
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert (key.prv);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+	node2.config.work_peers.push_back ("[" "Junk" "]");
+	rai::block_hash hash1 (1);
+	auto work (node2.generate_work (hash1));
+	ASSERT_FALSE (system.work.work_validate (hash1, work));
+	rpc.stop ();
+	system.processor.stop ();
+	runner.join ();
+	thread1.join ();
+}
+
 TEST (rpc, work_peer_one)
 {
     rai::system system (24000, 2);
@@ -1164,12 +1188,9 @@ TEST (rpc, work_peer_one)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
 	auto address (node1.network.endpoint ().address ().to_string ());
 	node2.config.work_peers.push_back ("[" + address + "]");
-	rai::block_hash hash1 (1);
-	for (auto i (0); i != 100000; ++i)
-	{
-		auto work (node2.generate_work (hash1));
-		ASSERT_FALSE (system.work.work_validate (hash1, work));
-	}
+	rai::keypair key1;
+	auto work (node2.generate_work (key1.pub));
+	ASSERT_FALSE (system.work.work_validate (key1.pub, work));
 	rpc.stop ();
 	system.processor.stop ();
 	runner.join ();
