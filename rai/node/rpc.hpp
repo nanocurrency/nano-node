@@ -44,9 +44,10 @@ public:
     void start ();
     void stop ();
     void operator () (boost::network::http::async_server <rai::rpc>::request const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
-	void error_response (boost::network::http::async_server <rai::rpc>::connection_ptr, std::string const &);
     void log (const char *) {}
 	bool decode_unsigned (std::string const &, uint64_t &);
+	void error_response (boost::network::http::async_server <rai::rpc>::connection_ptr, std::string const &);
+	void send_response (boost::network::http::async_server <rai::rpc>::connection_ptr, boost::property_tree::ptree &);
 	std::mutex mutex;
 	std::unordered_map <rai::account, std::function <void ()>> payment_observers;
 	rai::rpc_config config;
@@ -102,8 +103,6 @@ public:
 	void wallet_key_valid ();
 	void work_generate ();
 	void work_cancel ();
-	void error_response (std::string const &);
-	void send_response (boost::property_tree::ptree &);
 	size_t length;
 	std::string body;
 	rai::rpc & rpc;

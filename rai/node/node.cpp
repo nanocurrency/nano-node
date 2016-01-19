@@ -12,7 +12,6 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
-#undef BOOST_NETWORK_NO_LIB
 #include <boost/network/protocol/http/client.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
