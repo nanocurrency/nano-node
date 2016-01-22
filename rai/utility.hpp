@@ -10,6 +10,7 @@
 #include <boost/iostreams/stream.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <cryptopp/osrng.h>
 
@@ -44,6 +45,24 @@ void write (rai::stream & stream_a, T const & value)
 	static_assert (std::is_pod <T>::value, "Can't stream write non-standard layout types");
 	auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
 	assert (amount_written == sizeof (value));
+}
+// Reads a json object from the stream and if was changed, write the object back to the stream
+template <typename T>
+T fetch_object (std::iostream & stream_a)
+{
+	assert (stream_a.tellg () == 0);
+	assert (stream_a.tellp () == 0);
+    boost::property_tree::ptree tree;
+	boost::property_tree::read_json (stream_a, tree);
+	auto updated (false);
+	T result;
+	result.deserialize_json (updated, tree);
+	if (updated)
+	{
+		stream_a.seekp (0);
+		boost::property_tree::write_json (stream_a, tree);
+	}
+	return result;
 }
 std::string to_string_hex (uint64_t);
 bool from_string_hex (std::string const &, uint64_t &);

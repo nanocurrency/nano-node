@@ -203,3 +203,36 @@ TEST (uint256_union, transcode_test_key_base58check)
     ASSERT_FALSE (value.decode_base58check (rai::test_genesis_key.pub.to_base58check ()));
     ASSERT_EQ (rai::test_genesis_key.pub, value);
 }
+class json_upgrade_test
+{
+public:
+	void deserialize_json (bool & upgraded, boost::property_tree::ptree & tree_a)
+	{
+		auto text_l (tree_a.get <std::string> ("thing"));
+		if (text_l == "junktest")
+		{
+			upgraded = true;
+			text_l = "changed";
+			tree_a.put ("thing", text_l);
+		}
+		text = text_l;
+	}
+	std::string text;
+};
+
+TEST (json, fetch_object)
+{
+	std::string string1 ("{ \"thing\": \"junktest\" }");
+	std::stringstream stream1 (string1);
+	auto test1 (rai::fetch_object <json_upgrade_test> (stream1));
+	ASSERT_EQ ("changed", test1.text);
+	boost::property_tree::ptree tree;
+	stream1.seekg (0);
+	boost::property_tree::read_json (stream1, tree);
+	ASSERT_EQ ("changed", tree.get <std::string> ("thing"));
+	std::string string2 ("{ \"thing\": \"junktest2\" }");
+	std::stringstream stream2 (string2);
+	auto test2 (rai::fetch_object <json_upgrade_test> (stream2));
+	ASSERT_EQ ("junktest2", test2.text);
+	ASSERT_EQ ("{ \"thing\": \"junktest2\" }", string2);
+}
