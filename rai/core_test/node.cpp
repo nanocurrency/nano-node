@@ -413,13 +413,40 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_NE (config2.peering_port, config1.peering_port);
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
-	config2.deserialize_json (tree);
+	bool upgraded (false);
+	config2.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config2.packet_delay_microseconds, config1.packet_delay_microseconds);
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_EQ (config2.creation_rebroadcast, config1.creation_rebroadcast);
 	ASSERT_EQ (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
+}
+
+TEST (node_config, v1_v2_upgrade)
+{
+	rai::logging logging1;
+	boost::property_tree::ptree tree;
+	tree.put ("peering_port", std::to_string (0));
+	tree.put ("packet_delay_microseconds", std::to_string (0));
+	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
+	tree.put ("creation_rebroadcast", std::to_string (0));
+	tree.put ("rebroadcast_delay", std::to_string (0));
+	tree.put ("receive_minimum", rai::amount (0).to_string_dec ());
+	boost::property_tree::ptree logging_l;
+	logging1.serialize_json (logging_l);
+	tree.add_child ("logging", logging_l);
+	boost::property_tree::ptree preconfigured_peers_l;
+	tree.add_child ("preconfigured_peers", preconfigured_peers_l);
+	boost::property_tree::ptree preconfigured_representatives_l;
+	tree.add_child ("preconfigured_representatives", preconfigured_representatives_l);
+	bool upgraded (false);
+	rai::node_config config1;
+	ASSERT_FALSE (tree.get_child_optional ("work_peers"));
+	config1.deserialize_json (upgraded, tree);
+	ASSERT_TRUE (upgraded);
+	ASSERT_TRUE (!!tree.get_child_optional ("work_peers"));
 }
 
 TEST (node, confirm_locked)

@@ -72,7 +72,6 @@ bool fetch_object (T & object, std::iostream & stream_a)
 		error = object.deserialize_json (updated, tree);
 		if (!error && updated)
 		{
-			auto size (tree.size ());
 			stream_a.seekp (0);
 			boost::property_tree::write_json (stream_a, tree);
 		}

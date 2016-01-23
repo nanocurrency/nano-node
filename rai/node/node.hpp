@@ -676,7 +676,7 @@ public:
 	node_config ();
 	node_config (uint16_t, rai::logging const &);
     void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (boost::property_tree::ptree const &);
+	bool deserialize_json (bool &, boost::property_tree::ptree &);
 	rai::account random_representative ();
 	uint16_t peering_port;
 	rai::logging logging;

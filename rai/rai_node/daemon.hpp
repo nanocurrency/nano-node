@@ -12,8 +12,8 @@ namespace rai_daemon
     {
     public:
         daemon_config ();
-        daemon_config (bool &, std::istream &);
-        void serialize (std::ostream &);
+        bool deserialize_json (bool &, boost::property_tree::ptree &);
+        void serialize_json (boost::property_tree::ptree &);
 		bool rpc_enable;
 		rai::rpc_config rpc;
 		rai::node_config node;

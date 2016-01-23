@@ -899,7 +899,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
 }
 
-bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	try
@@ -911,12 +911,20 @@ bool rai::node_config::deserialize_json (boost::property_tree::ptree const & tre
 		auto rebroadcast_delay_l (tree_a.get <std::string> ("rebroadcast_delay"));
 		auto receive_minimum_l (tree_a.get <std::string> ("receive_minimum"));
 		auto logging_l (tree_a.get_child ("logging"));
-		auto work_peers_l (tree_a.get_child ("work_peers"));
+		auto work_peers_l (tree_a.get_child_optional ("work_peers"));
 		work_peers.clear ();
-		for (auto i (work_peers_l.begin ()), n (work_peers_l.end ()); i != n; ++i)
+		if (work_peers_l)
 		{
-			auto work_peer (i->second.get <std::string> (""));
-			work_peers.push_back (work_peer);
+			for (auto i (work_peers_l.get ().begin ()), n (work_peers_l.get ().end ()); i != n; ++i)
+			{
+				auto work_peer (i->second.get <std::string> (""));
+				work_peers.push_back (work_peer);
+			}
+		}
+		else
+		{
+			tree_a.add_child ("work_peers", boost::property_tree::ptree ());
+			upgraded_a = true;
 		}
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
