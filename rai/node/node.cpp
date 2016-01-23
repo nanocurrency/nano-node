@@ -877,7 +877,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
 	{
 		boost::property_tree::ptree entry;
-		entry.put ("", *i);
+		entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 		work_peers_l.push_back (std::make_pair ("", entry));
 	}
 	tree_a.add_child ("work_peers", work_peers_l);
@@ -918,7 +918,10 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			for (auto i (work_peers_l.get ().begin ()), n (work_peers_l.get ().end ()); i != n; ++i)
 			{
 				auto work_peer (i->second.get <std::string> (""));
-				work_peers.push_back (work_peer);
+				boost::asio::ip::address address;
+				uint16_t port;
+				result |= rai::parse_address_port (work_peer, address, port);
+				work_peers.push_back (std::make_pair (address, port));
 			}
 		}
 		else
@@ -1882,7 +1885,10 @@ node (node_a),
 root (root_a),
 completed (false)
 {
-	outstanding.insert (node_a->config.work_peers.begin (), node_a->config.work_peers.end ());
+	for (auto & i : node_a->config.work_peers)
+	{
+		outstanding.insert (boost::str (boost::format ("http://[%1%]:%2%") % i.first.to_string () % std::to_string (i.second)));
+	}
 }
 void start ()
 {
@@ -1894,8 +1900,7 @@ void start ()
 			node->background ([this_l, i] ()
 			{
 				boost::network::http::client client;
-				auto url ("http://" + i + ":" + std::to_string (rai::rpc::rpc_port));
-				boost::network::http::client::request request (url);
+				boost::network::http::client::request request (i);
 				std::string request_string;
 				{
 					boost::property_tree::ptree request;
@@ -1938,8 +1943,7 @@ void stop ()
 		node->background ([this_l, i] ()
 		{
 			boost::network::http::client client;
-			auto url ("http://" + i + ":" + std::to_string (rai::rpc::rpc_port));
-			boost::network::http::client::request request (url);
+			boost::network::http::client::request request (i);
 			std::string request_string;
 			{
 				boost::property_tree::ptree request;
@@ -2005,10 +2009,8 @@ void success (boost::iterator_range <char const *> const & range, std::string co
 }
 void set_once (uint64_t work_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	if (!completed)
+	if (!completed.test_and_set ())
 	{
-		completed = true;
 		promise.set_value (work_a);
 	}
 }
@@ -2019,14 +2021,12 @@ void failure (std::string const & address)
 }
 void handle_failure (bool last)
 {
-	bool completed_l;
+	if (last)
 	{
-		std::lock_guard <std::mutex> lock (mutex);
-		completed_l = completed;
-	}
-	if (!completed_l && last)
-	{
-		promise.set_value (node->work.generate (root));
+		if (!completed.test_and_set ())
+		{
+			promise.set_value (node->work.generate (root));
+		}
 	}
 }
 bool remove (std::string const & address)
@@ -2040,7 +2040,7 @@ std::shared_ptr <rai::node> node;
 rai::block_hash root;
 std::mutex mutex;
 std::unordered_set <std::string> outstanding;
-bool completed;
+std::atomic_flag completed;
 };
 }
 

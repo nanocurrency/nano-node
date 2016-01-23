@@ -1171,7 +1171,7 @@ TEST (rpc, work_peer_bad)
     rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	node2.config.work_peers.push_back ("[junk]");
+	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any (), 0));
 	rai::block_hash hash1 (1);
 	auto work (node2.generate_work (hash1));
 	ASSERT_FALSE (system.work.work_validate (hash1, work));
@@ -1197,7 +1197,7 @@ TEST (rpc, work_peer_one)
     rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	node2.config.work_peers.push_back ("[" + node1.network.endpoint ().address ().to_string () + "]");
+	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address (), rpc.config.port));
 	rai::keypair key1;
 	auto work (node2.generate_work (key1.pub));
 	ASSERT_FALSE (system.work.work_validate (key1.pub, work));
