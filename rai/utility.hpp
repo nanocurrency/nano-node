@@ -52,14 +52,30 @@ bool fetch_object (T & object, std::iostream & stream_a)
 {
 	assert (stream_a.tellg () == 0);
 	assert (stream_a.tellp () == 0);
+	bool error (false);
     boost::property_tree::ptree tree;
-	boost::property_tree::read_json (stream_a, tree);
-	auto updated (false);
-	auto error (object.deserialize_json (updated, tree));
-	if (!error && updated)
+	try
 	{
-		stream_a.seekp (0);
-		boost::property_tree::write_json (stream_a, tree);
+		boost::property_tree::read_json (stream_a, tree);
+	}
+	catch (std::runtime_error const &)
+	{
+		auto pos (stream_a.tellg ());
+		if (pos != 0)
+		{
+			error = true;
+		}
+	}
+	if (!error)
+	{
+		auto updated (false);
+		error = object.deserialize_json (updated, tree);
+		if (!error && updated)
+		{
+			auto size (tree.size ());
+			stream_a.seekp (0);
+			boost::property_tree::write_json (stream_a, tree);
+		}
 	}
 	return error;
 }

@@ -210,18 +210,27 @@ public:
 	bool deserialize_json (bool & upgraded, boost::property_tree::ptree & tree_a)
 	{
 		auto error (false);
-		auto text_l (tree_a.get <std::string> ("thing"));
-		if (text_l == "junktest")
+		if (!tree_a.empty ())
+		{
+			auto text_l (tree_a.get <std::string> ("thing"));
+			if (text_l == "junktest")
+			{
+				upgraded = true;
+				text_l = "changed";
+				tree_a.put ("thing", text_l);
+			}
+			if (text_l == "error")
+			{
+				error = true;
+			}
+			text = text_l;
+		}
+		else
 		{
 			upgraded = true;
-			text_l = "changed";
-			tree_a.put ("thing", text_l);
+			text = "created";
+			tree_a.put ("thing", text);
 		}
-		if (text_l == "error")
-		{
-			error = true;
-		}
-		text = text_l;
 		return error;
 	}
 	std::string text;
@@ -235,10 +244,10 @@ TEST (json, fetch_object)
 	auto error1 (rai::fetch_object (object1, stream1));
 	ASSERT_FALSE (error1);
 	ASSERT_EQ ("changed", object1.text);
-	boost::property_tree::ptree tree;
+	boost::property_tree::ptree tree1;
 	stream1.seekg (0);
-	boost::property_tree::read_json (stream1, tree);
-	ASSERT_EQ ("changed", tree.get <std::string> ("thing"));
+	boost::property_tree::read_json (stream1, tree1);
+	ASSERT_EQ ("changed", tree1.get <std::string> ("thing"));
 	std::string string2 ("{ \"thing\": \"junktest2\" }");
 	std::stringstream stream2 (string2);
 	json_upgrade_test object2;
@@ -251,4 +260,14 @@ TEST (json, fetch_object)
 	json_upgrade_test object3;
 	auto error3 (rai::fetch_object (object3, stream3));
 	ASSERT_TRUE (error3);
+	std::string string4 ("");
+	std::stringstream stream4 (string4);
+	json_upgrade_test object4;
+	auto error4 (rai::fetch_object (object4, stream4));
+	ASSERT_FALSE (error4);
+	ASSERT_EQ ("created", object4.text);
+	boost::property_tree::ptree tree2;
+	stream4.seekg (0);
+	boost::property_tree::read_json (stream4, tree2);
+	ASSERT_EQ ("created", tree2.get <std::string> ("thing"));
 }
