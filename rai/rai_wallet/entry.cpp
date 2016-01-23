@@ -72,9 +72,7 @@ int run_wallet (int argc, char * const * argv)
 	qt_wallet_config config (key.pub);
 	auto config_path ((working / "config.json").string ());
 	std::fstream config_file;
-	config_file.open (config_path, std::ios_base::out);
-	config_file.close ();
-	config_file.open (config_path, std::ios_base::in | std::ios_base::out);
+	rai::open_or_create (config_file, config_path);
     int result (0);
     if (!config_file.fail ())
     {

@@ -46,6 +46,8 @@ void write (rai::stream & stream_a, T const & value)
 	auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
 	assert (amount_written == sizeof (value));
 }
+// C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truntacing it.
+void open_or_create (std::fstream &, std::string const &);
 // Reads a json object from the stream and if was changed, write the object back to the stream
 template <typename T>
 bool fetch_object (T & object, std::iostream & stream_a)

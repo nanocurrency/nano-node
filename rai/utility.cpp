@@ -699,3 +699,14 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
     auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));
     return result;
 }
+
+void rai::open_or_create (std::fstream & stream_a, std::string const & path_a)
+{
+	stream_a.open (path_a, std::ios_base::in);
+	if (stream_a.fail ())
+	{
+		stream_a.open (path_a, std::ios_base::out);
+	}
+	stream_a.close ();
+	stream_a.open (path_a, std::ios_base::in | std::ios_base::out);
+}

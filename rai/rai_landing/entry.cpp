@@ -72,9 +72,7 @@ int main (int argc, char * const * argv)
 	rai::landing_config config;
 	auto config_path ((working / "config.json").string ());
 	std::fstream config_file;
-	config_file.open (config_path, std::ios_base::out);
-	config_file.close ();
-	config_file.open (config_path, std::ios_base::in | std::ios_base::out);
+	rai::open_or_create (config_file, config_path);
     if (!config_file.fail ())
 	{
 		auto error (rai::fetch_object (config, config_file));

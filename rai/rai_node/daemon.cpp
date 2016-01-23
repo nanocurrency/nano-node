@@ -54,9 +54,7 @@ void rai_daemon::daemon::run ()
     rai_daemon::daemon_config config;
     auto config_path ((working / "config.json").string ());
     std::fstream config_file;
-	config_file.open (config_path, std::ios_base::out);
-	config_file.close ();
-	config_file.open (config_path, std::ios_base::in | std::ios_base::out);
+	rai::open_or_create (config_file, config_path);
     std::unique_ptr <rai::thread_runner> runner;
     if (!config_file.fail ())
     {
