@@ -1171,7 +1171,7 @@ TEST (rpc, work_peer_bad)
     rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any (), 0));
+	node2.config.work_peers.push_back ("[junk]");
 	rai::block_hash hash1 (1);
 	auto work (node2.generate_work (hash1));
 	ASSERT_FALSE (system.work.work_validate (hash1, work));
@@ -1197,7 +1197,7 @@ TEST (rpc, work_peer_one)
     rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address (), node1.network.endpoint ().port ()));
+	node2.config.work_peers.push_back ("[" + node1.network.endpoint ().address ().to_string () + "]");
 	rai::keypair key1;
 	auto work (node2.generate_work (key1.pub));
 	ASSERT_FALSE (system.work.work_validate (key1.pub, work));
@@ -1235,9 +1235,9 @@ TEST (rpc, DISABLED_work_peer_many)
     rai::rpc rpc4 (system.service, pool4, node4, config4);
 	rpc4.start ();
 	std::thread thread4 ([&] () {rpc4.server.run();});
-	node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint ().address (), node2.network.endpoint ().port ()));
+	/*node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint ().address (), node2.network.endpoint ().port ()));
 	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address (), node3.network.endpoint ().port ()));
-	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address (), node4.network.endpoint ().port ()));
+	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address (), node4.network.endpoint ().port ()));*/
 	rai::keypair key1;
 	auto work (node1.generate_work (key1.pub));
 	ASSERT_FALSE (system.work.work_validate (key1.pub, work));
