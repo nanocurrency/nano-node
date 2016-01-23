@@ -978,12 +978,12 @@ rai::account rai::node_config::random_representative ()
 	return result;
 }
 
-rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a, rai::work_pool & work_a) :
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a, rai::work_pool & work_a) :
 node (init_a, service_a, application_path_a, processor_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::shared_ptr <boost::asio::io_service> service_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::node_config const & config_a, rai::work_pool & work_a) :
 config (config_a),
 service (processor_a),
 work (work_a),
@@ -992,9 +992,9 @@ gap_cache (*this),
 ledger (store),
 conflicts (*this),
 wallets (init_a.block_store_init, *this),
-network (*service_a, config.peering_port, *this),
+network (service_a, config.peering_port, *this),
 bootstrap_initiator (*this),
-bootstrap (*service_a, config.peering_port, *this),
+bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a)
 {
@@ -4739,6 +4739,6 @@ rai::inactive_node::inactive_node ()
 {
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
-	auto service (boost::make_shared <boost::asio::io_service> ());
-	node = std::make_shared <rai::node> (init, service, 24000,  working, processor, logging, work);
+	service = boost::make_shared <boost::asio::io_service> ();
+	node = std::make_shared <rai::node> (init, *service, 24000,  working, processor, logging, work);
 }

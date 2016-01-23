@@ -11,7 +11,7 @@ service (new boost::asio::io_service)
     {
         rai::node_init init;
 		rai::node_config config (port_a + i, logging);
-        auto node (std::make_shared <rai::node> (init, service, rai::unique_path (), processor, config, work));
+        auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), processor, config, work));
         assert (!init.error ());
         node->start ();
 		rai::uint256_union wallet;

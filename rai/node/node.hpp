@@ -695,8 +695,8 @@ public:
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
-    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &, rai::work_pool &);
-    node (rai::node_init &, boost::shared_ptr <boost::asio::io_service>, boost::filesystem::path const &, rai::processor_service &, rai::node_config const &, rai::work_pool &);
+    node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &, rai::work_pool &);
+    node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::processor_service &, rai::node_config const &, rai::work_pool &);
     ~node ();
 	template <typename T>
 	void background (T action_a)
@@ -767,6 +767,7 @@ class inactive_node
 {
 public:
 	inactive_node ();
+	boost::shared_ptr <boost::asio::io_service> service;
 	rai::processor_service processor;
 	rai::logging logging;
 	rai::node_init init;

@@ -66,7 +66,7 @@ void rai_daemon::daemon::run ()
 			rai::work_pool work;
 			rai::processor_service processor;
 			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, service, working, processor, config.node, work));
+			auto node (std::make_shared <rai::node> (init, *service, working, processor, config.node, work));
 			if (!init.error ())
 			{
 				node->start ();

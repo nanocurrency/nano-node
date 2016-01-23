@@ -85,7 +85,7 @@ int run_wallet (int argc, char * const * argv)
 			rai::work_pool work;
 			rai::processor_service processor;
 			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, service, working, processor, config.node, work));
+			auto node (std::make_shared <rai::node> (init, *service, working, processor, config.node, work));
 			if (!init.error ())
 			{
 				if (config.account == key.pub)

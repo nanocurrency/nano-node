@@ -869,7 +869,7 @@ TEST (rpc, keepalive)
 {
     rai::system system (24000, 1);
 	rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
+    auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
     node1->start ();
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
