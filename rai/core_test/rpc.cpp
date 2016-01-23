@@ -1177,6 +1177,8 @@ TEST (rpc, work_peer_bad)
 	ASSERT_FALSE (system.work.work_validate (hash1, work));
 	rpc.stop ();
 	system.processor.stop ();
+	node1.stop ();
+	node2.stop ();
 	runner.join ();
 	thread1.join ();
 }
