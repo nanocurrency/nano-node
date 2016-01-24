@@ -1921,11 +1921,13 @@ void start ()
 					uint16_t status (boost::network::http::status (response));
 					if (status != 200)
 					{
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer %1% responded with an error %2%") % i % std::to_string (status));
 						this_l->failure (i);
 					}
 				}
 				catch (...)
 				{
+					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to contact work peer %1%") % i);
 					this_l->failure (i);
 				}
 			});
@@ -1997,16 +1999,26 @@ void success (boost::iterator_range <char const *> const & range, std::string co
 		uint64_t work;
 		if (!rai::from_string_hex (work_text, work))
 		{
-			set_once (work);
-			stop ();
+			if (node->work.work_validate (root, work))
+			{
+				set_once (work);
+				stop ();
+			}
+			else
+			{
+				BOOST_LOG (node->log) << boost::str (boost::format ("Incorrect work response from %1% for root %2% value %3%") % address % root.to_string () % work_text);
+				handle_failure (last);
+			}
 		}
 		else
 		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't a number") % address % work_text);
 			handle_failure (last);
 		}
 	}
 	catch (...)
 	{
+		BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable") % address % body);
 		handle_failure (last);
 	}
 }
