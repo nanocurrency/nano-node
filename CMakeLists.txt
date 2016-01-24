@@ -27,7 +27,8 @@ endif (WIN32)
 
 include_directories (${CMAKE_SOURCE_DIR})
 
-find_package (Boost REQUIRED COMPONENTS filesystem system log log_setup thread program_options)
+# Boost 1.59.0 has the json parser written with spirit2 which fixes thread safety issues
+find_package (Boost 1.59.0 REQUIRED COMPONENTS filesystem system log log_setup thread program_options)
 include_directories (${Boost_INCLUDE_DIR})
 
 find_package (GTest REQUIRED)

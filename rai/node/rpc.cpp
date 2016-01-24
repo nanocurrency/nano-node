@@ -1186,7 +1186,7 @@ void rai::rpc::operator () (boost::network::http::async_server <rai::rpc>::reque
 {
 	if (request_a.method == "POST")
 	{
-		auto existing (std::find_if (request_a.headers.begin (), request_a.headers.end (), [] (decltype (*request_a.headers.begin()) const & item_a)
+		auto existing (std::find_if (request_a.headers.begin (), request_a.headers.end (), [] (decltype (request_a.headers)::value_type & item_a)
 		{
 			return boost::to_lower_copy (item_a.name) == "content-length";
 		}));
