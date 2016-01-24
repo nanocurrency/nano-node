@@ -1207,45 +1207,59 @@ TEST (rpc, work_peer_one)
 	thread1.join ();
 }
 
-TEST (rpc, work_peer_many)
+TEST (rpc, DISABLED_work_peer_many)
 {
-    rai::system system (24000, 8);
-	rai::thread_runner runner (*system.service, system.processor);
+    rai::system system1 (24000, 1);
+    rai::system system2 (24001, 1);
+    rai::system system3 (24002, 1);
+    rai::system system4 (24003, 1);
+	rai::thread_runner runner1 (*system1.service, system1.processor);
+	rai::thread_runner runner2 (*system2.service, system2.processor);
+	rai::thread_runner runner3 (*system3.service, system3.processor);
+	rai::thread_runner runner4 (*system4.service, system4.processor);
 	rai::node_init init1;
-    auto & node1 (*system.nodes [0]);
-    auto & node2 (*system.nodes [1]);
-    auto & node3 (*system.nodes [2]);
-    auto & node4 (*system.nodes [3]);
+    auto & node1 (*system1.nodes [0]);
+    auto & node2 (*system2.nodes [0]);
+    auto & node3 (*system3.nodes [0]);
+    auto & node4 (*system4.nodes [0]);
 	rai::keypair key;
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> (16));
 	rai::rpc_config config2 (true);
 	config2.port += 0;
-    rai::rpc rpc2 (system.service, pool, node2, config2);
+    rai::rpc rpc2 (system2.service, pool, node2, config2);
 	rpc2.start ();
 	std::thread thread2 ([&] () {rpc2.server.run();});
 	rai::rpc_config config3 (true);
 	config3.port += 1;
-    rai::rpc rpc3 (system.service, pool, node3, config3);
+    rai::rpc rpc3 (system3.service, pool, node3, config3);
 	rpc3.start ();
 	std::thread thread3 ([&] () {rpc3.server.run();});
 	rai::rpc_config config4 (true);
 	config4.port += 2;
-    rai::rpc rpc4 (system.service, pool, node4, config4);
+    rai::rpc rpc4 (system4.service, pool, node4, config4);
 	rpc4.start ();
 	std::thread thread4 ([&] () {rpc4.server.run();});
 	node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint ().address (), rpc2.config.port));
 	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address (), rpc3.config.port));
 	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address (), rpc4.config.port));
-	rai::keypair key1;
-	auto work (node1.generate_work (key1.pub));
-	ASSERT_FALSE (system.work.work_validate (key1.pub, work));
-	std::this_thread::sleep_for (std::chrono::seconds (5));
+	for (auto i (0); i < 10; ++i)
+	{
+		rai::keypair key1;
+		auto work (node1.generate_work (key1.pub));
+		ASSERT_FALSE (system1.work.work_validate (key1.pub, work));
+	}
 	rpc2.stop ();
 	rpc3.stop ();
 	rpc4.stop ();
-	system.processor.stop ();
-	runner.join ();
 	thread2.join ();
 	thread3.join ();
 	thread4.join ();
+	system1.stop ();
+	system2.stop ();
+	system3.stop ();
+	system4.stop ();
+	runner1.join ();
+	runner2.join ();
+	runner3.join ();
+	runner4.join ();
 }

@@ -78,7 +78,7 @@ uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t wo
 void rai::work_pool::loop (uint64_t thread)
 {
     xorshift1024star rng;
-    rng.s.fill (0x0123456789abcdef + thread);// No seed here, we're not securing anything, s just can't be 0 per the xorshift1024star spec
+	rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rng.s.data ()),  rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
 	uint64_t output;
     blake2b_state hash;
@@ -115,6 +115,9 @@ void rai::work_pool::loop (uint64_t thread)
 				consumer_condition.notify_all ();
 				// Change current so only one work thread publishes their result
 				current.clear ();
+			}
+			else
+			{
 			}
 		}
 		else

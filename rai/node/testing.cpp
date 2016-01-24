@@ -213,6 +213,16 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
     }
 }
 
+void rai::system::stop ()
+{
+	for (auto i : nodes)
+	{
+		i->stop ();
+	}
+	work.stop ();
+	processor.stop ();
+}
+
 rai::landing_store::landing_store ()
 {
 }

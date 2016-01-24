@@ -1895,6 +1895,7 @@ void start ()
 	if (!outstanding.empty ())
 	{
 		auto this_l (shared_from_this ());
+		std::lock_guard <std::mutex> lock (mutex);
 		for (auto const & i: outstanding)
 		{
 			node->background ([this_l, i] ()
@@ -1938,6 +1939,7 @@ void start ()
 void stop ()
 {
 	auto this_l (shared_from_this ());
+	std::lock_guard <std::mutex> lock (mutex);
 	for (auto const & i: outstanding)
 	{
 		node->background ([this_l, i] ()
@@ -1965,6 +1967,7 @@ void stop ()
 			}
 		});
 	}
+	outstanding.clear ();
 }
 void callback (boost::iterator_range <char const *> const & range, boost::system::error_code const & ec, std::string const & address)
 {
