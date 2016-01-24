@@ -1207,7 +1207,7 @@ TEST (rpc, work_peer_one)
 	thread1.join ();
 }
 
-TEST (rpc, DISABLED_work_peer_many)
+TEST (rpc, work_peer_many)
 {
     rai::system system1 (24000, 1);
     rai::system system2 (24001, 1);

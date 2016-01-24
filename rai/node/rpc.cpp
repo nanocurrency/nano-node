@@ -88,10 +88,9 @@ void rai::rpc::stop ()
     server.stop ();
 }
 
-rai::rpc_handler::rpc_handler (rai::rpc & rpc_a, size_t length_a, boost::network::http::async_server <rai::rpc>::request const & headers_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a) :
+rai::rpc_handler::rpc_handler (rai::rpc & rpc_a, size_t length_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a) :
 length (length_a),
 rpc (rpc_a),
-headers (headers_a),
 connection (connection_a)
 {
 }
@@ -1185,35 +1184,41 @@ void rai::rpc_handler::work_cancel ()
 
 void rai::rpc::operator () (boost::network::http::async_server <rai::rpc>::request const & request_a, boost::network::http::async_server <rai::rpc>::connection_ptr connection_a)
 {
-	auto request_l (std::make_shared <boost::network::http::async_server <rai::rpc>::request> (request_a));
-	auto existing (std::find_if (request_a.headers.begin (), request_a.headers.end (), [] (decltype(*request_a.headers.begin()) const & item_a)
+	if (request_a.method == "POST")
 	{
-		return boost::to_lower_copy(item_a.name) == "content-length";
-	}));
-	if (existing != request_a.headers.end ())
-	{
-		uint64_t length;
-		if (!decode_unsigned (existing->value, length))
+		auto existing (std::find_if (request_a.headers.begin (), request_a.headers.end (), [] (decltype (*request_a.headers.begin()) const & item_a)
 		{
-			if (length < 16384)
+			return boost::to_lower_copy (item_a.name) == "content-length";
+		}));
+		if (existing != request_a.headers.end ())
+		{
+			uint64_t length;
+			if (!decode_unsigned (existing->value, length))
 			{
-				auto handler (std::make_shared <rai::rpc_handler> (*this, length, request_a, connection_a));
-				handler->body.reserve (length);
-				handler->read_or_process ();
+				if (length < 16384)
+				{
+					auto handler (std::make_shared <rai::rpc_handler> (*this, length, connection_a));
+					handler->body.reserve (length);
+					handler->read_or_process ();
+				}
+				else
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("content-length is too large %1%") % length);
+				}
 			}
 			else
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("content-length is too large %1%") % length);
+				BOOST_LOG (node.log) << "content-length isn't a number";
 			}
 		}
 		else
 		{
-			BOOST_LOG (node.log) << "content-length isn't a number";
+			BOOST_LOG (node.log) << "RPC request did not contain content-length header";
 		}
 	}
 	else
 	{
-		BOOST_LOG (node.log) << "RPC request did not contain content-length header";
+		error_response (connection_a, "Can only POST requests");
 	}
 }
 
@@ -1248,168 +1253,161 @@ void rai::rpc_handler::part_handler (boost::network::http::async_server <rai::rp
 
 void rai::rpc_handler::process_request ()
 {
-	if (headers.method == "POST")
+	try
 	{
-		try
+		std::stringstream istream (body);
+		boost::property_tree::read_json (istream, request);
+		std::string action (request.get <std::string> ("action"));
+		if (rpc.node.config.logging.log_rpc ())
 		{
-			std::stringstream istream (body);
-			boost::property_tree::read_json (istream, request);
-			std::string action (request.get <std::string> ("action"));
-			if (rpc.node.config.logging.log_rpc ())
-			{
-				BOOST_LOG (rpc.node.log) << body;
-			}
-			if (action == "account_balance")
-			{
-				account_balance ();
-			}
-			else if (action == "account_create")
-			{
-				account_create ();
-			}
-			else if (action == "account_list")
-			{
-				account_list ();
-			}
-			else if (action == "account_move")
-			{
-				account_move ();
-			}
-			else if (action == "account_weight")
-			{
-				account_weight ();
-			}
-			else if (action == "block")
-			{
-				block ();
-			}
-			else if (action == "chain")
-			{
-				chain ();
-			}
-			else if (action == "frontiers")
-			{
-				frontiers ();
-			}
-			else if (action == "keepalive")
-			{
-				keepalive ();
-			}
-			else if (action == "password_change")
-			{
-				password_change ();
-			}
-			else if (action == "password_enter")
-			{
-				password_enter ();
-			}
-			else if (action == "password_valid")
-			{
-				password_valid ();
-			}
-			else if (action == "payment_begin")
-			{
-				payment_begin ();
-			}
-			else if (action == "payment_init")
-			{
-				payment_init ();
-			}
-			else if (action == "payment_end")
-			{
-				payment_end ();
-			}
-            /*else if (action == "payment_shutdown")
-			{
-			}
-            else if (action == "payment_startup")
-			{
-			}*/
-			else if (action == "payment_wait")
-			{
-				payment_wait ();
-			}
-			else if (action == "price")
-			{
-				price ();
-			}
-			else if (action == "process")
-			{
-				process ();
-			}
-			else if (action == "representative")
-			{
-				representative ();
-			}
-			else if (action == "representative_set")
-			{
-				representative_set ();
-			}
-			else if (action == "search_pending")
-			{
-				search_pending ();
-			}
-			else if (action == "send")
-			{
-				send ();
-			}
-			else if (action == "validate_account_number")
-			{
-				validate_account_number ();
-			}
-			else if (action == "version")
-			{
-				version ();
-			}
-			else if (action == "wallet_add")
-			{
-				wallet_add ();
-			}
-			else if (action == "wallet_contains")
-			{
-				wallet_contains ();
-			}
-			else if (action == "wallet_create")
-			{
-				wallet_create ();
-			}
-			else if (action == "wallet_destroy")
-			{
-				wallet_destroy ();
-			}
-			else if (action == "wallet_export")
-			{
-				wallet_export ();
-			}
-			else if (action == "wallet_key_valid")
-			{
-				wallet_key_valid ();
-			}
-			else if (action == "work_generate")
-			{
-				work_generate ();
-			}
-			else if (action == "work_cancel")
-			{
-				work_cancel ();
-			}
-			else
-			{
-				rpc.error_response (connection, "Unknown command");
-			}
+			BOOST_LOG (rpc.node.log) << body;
 		}
-		catch (std::runtime_error const & err)
+		if (action == "account_balance")
 		{
-			rpc.error_response (connection, "Unable to parse JSON");
+			account_balance ();
 		}
-		catch (...)
+		else if (action == "account_create")
 		{
-			rpc.error_response (connection, "Internal server error in RPC");
+			account_create ();
+		}
+		else if (action == "account_list")
+		{
+			account_list ();
+		}
+		else if (action == "account_move")
+		{
+			account_move ();
+		}
+		else if (action == "account_weight")
+		{
+			account_weight ();
+		}
+		else if (action == "block")
+		{
+			block ();
+		}
+		else if (action == "chain")
+		{
+			chain ();
+		}
+		else if (action == "frontiers")
+		{
+			frontiers ();
+		}
+		else if (action == "keepalive")
+		{
+			keepalive ();
+		}
+		else if (action == "password_change")
+		{
+			password_change ();
+		}
+		else if (action == "password_enter")
+		{
+			password_enter ();
+		}
+		else if (action == "password_valid")
+		{
+			password_valid ();
+		}
+		else if (action == "payment_begin")
+		{
+			payment_begin ();
+		}
+		else if (action == "payment_init")
+		{
+			payment_init ();
+		}
+		else if (action == "payment_end")
+		{
+			payment_end ();
+		}
+		/*else if (action == "payment_shutdown")
+		{
+		}
+		else if (action == "payment_startup")
+		{
+		}*/
+		else if (action == "payment_wait")
+		{
+			payment_wait ();
+		}
+		else if (action == "price")
+		{
+			price ();
+		}
+		else if (action == "process")
+		{
+			process ();
+		}
+		else if (action == "representative")
+		{
+			representative ();
+		}
+		else if (action == "representative_set")
+		{
+			representative_set ();
+		}
+		else if (action == "search_pending")
+		{
+			search_pending ();
+		}
+		else if (action == "send")
+		{
+			send ();
+		}
+		else if (action == "validate_account_number")
+		{
+			validate_account_number ();
+		}
+		else if (action == "version")
+		{
+			version ();
+		}
+		else if (action == "wallet_add")
+		{
+			wallet_add ();
+		}
+		else if (action == "wallet_contains")
+		{
+			wallet_contains ();
+		}
+		else if (action == "wallet_create")
+		{
+			wallet_create ();
+		}
+		else if (action == "wallet_destroy")
+		{
+			wallet_destroy ();
+		}
+		else if (action == "wallet_export")
+		{
+			wallet_export ();
+		}
+		else if (action == "wallet_key_valid")
+		{
+			wallet_key_valid ();
+		}
+		else if (action == "work_generate")
+		{
+			work_generate ();
+		}
+		else if (action == "work_cancel")
+		{
+			work_cancel ();
+		}
+		else
+		{
+			rpc.error_response (connection, "Unknown command");
 		}
 	}
-	else
+	catch (std::runtime_error const & err)
 	{
-		rpc.error_response (connection, "Can only POST requests");
+		rpc.error_response (connection, "Unable to parse JSON");
+	}
+	catch (...)
+	{
+		rpc.error_response (connection, "Internal server error in RPC");
 	}
 }
 

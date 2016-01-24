@@ -78,7 +78,7 @@ public:
 class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
 {
 public:
-	rpc_handler (rai::rpc &, size_t, boost::network::http::async_server <rai::rpc>::request const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
+	rpc_handler (rai::rpc &, size_t, boost::network::http::async_server <rai::rpc>::connection_ptr);
     void read_or_process ();
 	void part_handler (boost::network::http::async_server <rai::rpc>::connection::input_range, boost::system::error_code, size_t);
 	void process_request ();
@@ -117,7 +117,6 @@ public:
 	size_t length;
 	std::string body;
 	rai::rpc & rpc;
-	boost::network::http::async_server <rai::rpc>::request const & headers;
 	boost::property_tree::ptree request;
 	boost::network::http::async_server <rai::rpc>::connection_ptr connection;
 };
