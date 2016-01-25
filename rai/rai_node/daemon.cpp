@@ -29,7 +29,7 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 		if (!tree_a.empty ())
 		{
 			rpc_enable = tree_a.get <bool> ("rpc_enable");
-			auto node_l (tree_a.get_child ("node"));
+			auto & node_l (tree_a.get_child ("node"));
 			error |= node.deserialize_json (upgraded_a, node_l);
 			auto rpc_l (tree_a.get_child ("rpc"));
 			error |= rpc.deserialize_json (rpc_l);

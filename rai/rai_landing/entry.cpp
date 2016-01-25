@@ -27,7 +27,7 @@ public:
 			if (!tree_a.empty ())
 			{
 				auto wallet_l (tree_a.get <std::string> ("wallet"));
-				auto node_l (tree_a.get_child ("node"));
+				auto & node_l (tree_a.get_child ("node"));
 				try
 				{
 					error |= wallet.decode_hex (wallet_l);

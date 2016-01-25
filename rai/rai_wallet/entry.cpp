@@ -25,7 +25,7 @@ public:
 		{
 			auto wallet_l (tree_a.get <std::string> ("wallet"));
 			auto account_l (tree_a.get <std::string> ("account"));
-			auto node_l (tree_a.get_child ("node"));
+			auto & node_l (tree_a.get_child ("node"));
 			try
 			{
 				error |= wallet.decode_hex (wallet_l);
