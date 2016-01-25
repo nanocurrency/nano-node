@@ -105,6 +105,10 @@ add_library (secure
 	rai/versioning.cpp)
 
 add_library (node
+	rai/node/bootstrap.cpp
+	rai/node/bootstrap.hpp
+	rai/node/common.cpp
+	rai/node/common.hpp
 	rai/node/node.hpp
 	rai/node/node.cpp
 	rai/node/rpc.hpp

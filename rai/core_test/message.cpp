@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
-#include <rai/node/node.hpp>
+
+#include <rai/node/common.hpp>
 
 TEST (message, keepalive_serialization)
 {

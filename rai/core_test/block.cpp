@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <rai/node/common.hpp>
 #include <rai/node/node.hpp>
 
 TEST (ed25519, signing)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <rai/node/bootstrap.hpp>
 #include <rai/node/wallet.hpp>
 
 #include <unordered_set>
@@ -12,7 +13,6 @@
 #include <boost/asio.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/log/sources/logger.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -20,79 +20,10 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/circular_buffer.hpp>
 
-#include <xxhash/xxhash.h>
-
 std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
-namespace rai
-{
-using endpoint = boost::asio::ip::udp::endpoint;
-bool parse_port (std::string const &, uint16_t &);
-bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16_t &);
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-bool parse_endpoint (std::string const &, rai::endpoint &);
-bool parse_tcp_endpoint (std::string const &, rai::tcp_endpoint &);
-bool reserved_address (rai::endpoint const &);
-}
 
-static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	rai::uint128_union address;
-	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
-	auto port (endpoint_a.port ());
-	XXH64_update (&hash, &port, sizeof (port));
-	auto result (XXH64_digest (&hash));
-	return result;
-}
-
-namespace std
-{
-template <size_t size>
-struct endpoint_hash
-{
-};
-template <>
-struct endpoint_hash <8>
-{
-    size_t operator () (rai::endpoint const & endpoint_a) const
-    {
-		return endpoint_hash_raw (endpoint_a);
-    }
-};
-template <>
-struct endpoint_hash <4>
-{
-    size_t operator () (rai::endpoint const & endpoint_a) const
-    {
-		uint64_t big (endpoint_hash_raw (endpoint_a));
-		uint32_t result (static_cast <uint32_t> (big) ^ static_cast <uint32_t> (big >> 32));
-		return result;
-    }
-};
-template <>
-struct hash <rai::endpoint>
-{
-    size_t operator () (rai::endpoint const & endpoint_a) const
-    {
-        endpoint_hash <sizeof (size_t)> ehash;
-        return ehash (endpoint_a);
-    }
-};
-}
 namespace boost
 {
-template <>
-struct hash <rai::endpoint>
-{
-    size_t operator () (rai::endpoint const & endpoint_a) const
-    {
-        std::hash <rai::endpoint> hash;
-        return hash (endpoint_a);
-    }
-};
 namespace program_options
 {
 class options_description;
@@ -149,129 +80,6 @@ public:
 	static size_t constexpr announcements_per_interval = 32;
 	static size_t constexpr contigious_announcements = 4;
 };
-enum class message_type : uint8_t
-{
-    invalid,
-    not_a_type,
-    keepalive,
-    publish,
-    confirm_req,
-    confirm_ack,
-    bulk_pull,
-    bulk_push,
-    frontier_req
-};
-class message_visitor;
-class message
-{
-public:
-    message (rai::message_type);
-	message (bool &, rai::stream &);
-    virtual ~message () = default;
-    void write_header (rai::stream &);
-    static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &, std::bitset <16> &);
-    virtual void serialize (rai::stream &) = 0;
-    virtual bool deserialize (rai::stream &) = 0;
-    virtual void visit (rai::message_visitor &) const = 0;
-    rai::block_type block_type () const;
-    void block_type_set (rai::block_type);
-    bool ipv4_only ();
-    void ipv4_only_set (bool);
-    static std::array <uint8_t, 2> constexpr magic_number = {{'R', rai::rai_network == rai::rai_networks::rai_test_network ? 'A' : rai::rai_network == rai::rai_networks::rai_beta_network ? 'B' : 'C'}};
-    uint8_t version_max;
-    uint8_t version_using;
-    uint8_t version_min;
-    rai::message_type type;
-    std::bitset <16> extensions;
-    static size_t constexpr ipv4_only_position = 1;
-    static size_t constexpr bootstrap_server_position = 2;
-    static std::bitset <16> constexpr block_type_mask = std::bitset <16> (0x0f00);
-};
-class keepalive : public message
-{
-public:
-    keepalive ();
-    void visit (rai::message_visitor &) const override;
-    bool deserialize (rai::stream &) override;
-    void serialize (rai::stream &) override;
-    bool operator == (rai::keepalive const &) const;
-    std::array <rai::endpoint, 8> peers;
-};
-class publish : public message
-{
-public:
-    publish ();
-    publish (std::unique_ptr <rai::block>);
-    void visit (rai::message_visitor &) const override;
-    bool deserialize (rai::stream &) override;
-    void serialize (rai::stream &) override;
-    bool operator == (rai::publish const &) const;
-    std::unique_ptr <rai::block> block;
-};
-class confirm_req : public message
-{
-public:
-    confirm_req ();
-    confirm_req (std::unique_ptr <rai::block>);
-    bool deserialize (rai::stream &) override;
-    void serialize (rai::stream &) override;
-    void visit (rai::message_visitor &) const override;
-    bool operator == (rai::confirm_req const &) const;
-    std::unique_ptr <rai::block> block;
-};
-class confirm_ack : public message
-{
-public:
-	confirm_ack (bool &, rai::stream &);
-    confirm_ack (rai::account const &, rai::raw_key const &, uint64_t, std::unique_ptr <rai::block>);
-    bool deserialize (rai::stream &) override;
-    void serialize (rai::stream &) override;
-    void visit (rai::message_visitor &) const override;
-    bool operator == (rai::confirm_ack const &) const;
-    rai::vote vote;
-};
-class frontier_req : public message
-{
-public:
-    frontier_req ();
-    bool deserialize (rai::stream &) override;
-    void serialize (rai::stream &) override;
-    void visit (rai::message_visitor &) const override;
-    bool operator == (rai::frontier_req const &) const;
-    rai::account start;
-    uint32_t age;
-    uint32_t count;
-};
-class bulk_pull : public message
-{
-public:
-    bulk_pull ();
-    bool deserialize (rai::stream &) override;
-    void serialize (rai::stream &) override;
-    void visit (rai::message_visitor &) const override;
-    rai::uint256_union start;
-    rai::block_hash end;
-    uint32_t count;
-};
-class bulk_push : public message
-{
-public:
-    bulk_push ();
-    bool deserialize (rai::stream &) override;
-    void serialize (rai::stream &) override;
-    void visit (rai::message_visitor &) const override;
-};
-class message_visitor
-{
-public:
-    virtual void keepalive (rai::keepalive const &) = 0;
-    virtual void publish (rai::publish const &) = 0;
-    virtual void confirm_req (rai::confirm_req const &) = 0;
-    virtual void confirm_ack (rai::confirm_ack const &) = 0;
-    virtual void bulk_pull (rai::bulk_pull const &) = 0;
-    virtual void bulk_push (rai::bulk_push const &) = 0;
-    virtual void frontier_req (rai::frontier_req const &) = 0;
-};
 class operation
 {
 public:
@@ -326,117 +134,7 @@ public:
     std::mutex mutex;
     rai::node & node;
 };
-class block_synchronization
-{
-public:
-    block_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
-    ~block_synchronization ();
-    // Return true if target already has block
-    virtual bool synchronized (rai::transaction &, rai::block_hash const &) = 0;
-    virtual std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) = 0;
-    // return true if all dependencies are synchronized
-    bool add_dependency (rai::transaction &, rai::block const &);
-    bool fill_dependencies (rai::transaction &);
-    bool synchronize_one (rai::transaction &);
-    bool synchronize (rai::transaction &, rai::block_hash const &);
-    std::stack <rai::block_hash> blocks;
-    std::unordered_set <rai::block_hash> sent;
-	boost::log::sources::logger & log;
-    std::function <void (rai::transaction &, rai::block const &)> target;
-    rai::block_store & store;
-};
-class pull_synchronization : public rai::block_synchronization
-{
-public:
-    pull_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
-    bool synchronized (rai::transaction &, rai::block_hash const &) override;
-    std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
-};
-class push_synchronization : public rai::block_synchronization
-{
-public:
-    push_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
-    bool synchronized (rai::transaction &, rai::block_hash const &) override;
-    std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
-};
-class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
-{
-public:
-	bootstrap_client (std::shared_ptr <rai::node>, std::function <void ()> const & = [] () {});
-    ~bootstrap_client ();
-    void run (rai::tcp_endpoint const &);
-    void connect_action ();
-    void sent_request (boost::system::error_code const &, size_t);
-    std::shared_ptr <rai::node> node;
-    boost::asio::ip::tcp::socket socket;
-	std::function <void ()> completion_action;
-};
-class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
-{
-public:
-    frontier_req_client (std::shared_ptr <rai::bootstrap_client> const &);
-    ~frontier_req_client ();
-    void receive_frontier ();
-    void received_frontier (boost::system::error_code const &, size_t);
-    void request_account (rai::account const &);
-	void unsynced (MDB_txn *, rai::account const &, rai::block_hash const &);
-    void completed_requests ();
-    void completed_pulls ();
-    void completed_pushes ();
-	void next ();
-    std::unordered_map <rai::account, rai::block_hash> pulls;
-    std::array <uint8_t, 200> receive_buffer;
-    std::shared_ptr <rai::bootstrap_client> connection;
-	rai::account current;
-	rai::account_info info;
-};
-class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
-{
-public:
-    bulk_pull_client (std::shared_ptr <rai::frontier_req_client> const &);
-    ~bulk_pull_client ();
-    void request ();
-    void receive_block ();
-    void received_type ();
-    void received_block (boost::system::error_code const &, size_t);
-    void process_end ();
-	void block_flush ();
-	rai::block_hash first ();
-    std::array <uint8_t, 200> receive_buffer;
-    std::shared_ptr <rai::frontier_req_client> connection;
-	size_t const block_count = 4096;
-	std::vector <std::unique_ptr <rai::block>> blocks;
-    std::unordered_map <rai::account, rai::block_hash>::iterator current;
-    std::unordered_map <rai::account, rai::block_hash>::iterator end;
-};
-class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>
-{
-public:
-    bulk_push_client (std::shared_ptr <rai::frontier_req_client> const &);
-    ~bulk_push_client ();
-    void start ();
-    void push ();
-    void push_block (rai::block const &);
-    void send_finished ();
-    std::shared_ptr <rai::frontier_req_client> connection;
-    rai::push_synchronization synchronization;
-};
 class work_pool;
-class message_parser
-{
-public:
-    message_parser (rai::message_visitor &, rai::work_pool &);
-    void deserialize_buffer (uint8_t const *, size_t);
-    void deserialize_keepalive (uint8_t const *, size_t);
-    void deserialize_publish (uint8_t const *, size_t);
-    void deserialize_confirm_req (uint8_t const *, size_t);
-    void deserialize_confirm_ack (uint8_t const *, size_t);
-    bool at_end (rai::bufferstream &);
-    rai::message_visitor & visitor;
-	rai::work_pool & pool;
-    bool error;
-    bool insufficient_work;
-};
 class peer_information
 {
 public:
@@ -534,99 +232,6 @@ public:
     uint64_t insufficient_work_count;
     uint64_t error_count;
     static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
-};
-class bootstrap_initiator
-{
-public:
-	bootstrap_initiator (rai::node &);
-	void warmup (rai::endpoint const &);
-	void bootstrap (rai::endpoint const &);
-    void bootstrap_any ();
-	void initiate (rai::endpoint const &);
-	void notify_listeners ();
-	std::vector <std::function <void (bool)>> observers;
-	std::mutex mutex;
-	rai::node & node;
-	bool in_progress;
-	std::unordered_set <rai::endpoint> warmed_up;
-};
-class bootstrap_listener
-{
-public:
-    bootstrap_listener (boost::asio::io_service &, uint16_t, rai::node &);
-    void start ();
-    void stop ();
-    void accept_connection ();
-    void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
-    rai::tcp_endpoint endpoint ();
-    boost::asio::ip::tcp::acceptor acceptor;
-    rai::tcp_endpoint local;
-    boost::asio::io_service & service;
-    rai::node & node;
-    bool on;
-};
-class bootstrap_server : public std::enable_shared_from_this <rai::bootstrap_server>
-{
-public:
-    bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket>, std::shared_ptr <rai::node>);
-    ~bootstrap_server ();
-    void receive ();
-    void receive_header_action (boost::system::error_code const &, size_t);
-    void receive_bulk_pull_action (boost::system::error_code const &, size_t);
-    void receive_frontier_req_action (boost::system::error_code const &, size_t);
-    void receive_bulk_push_action ();
-    void add_request (std::unique_ptr <rai::message>);
-    void finish_request ();
-    void run_next ();
-    std::array <uint8_t, 128> receive_buffer;
-    std::shared_ptr <boost::asio::ip::tcp::socket> socket;
-    std::shared_ptr <rai::node> node;
-    std::mutex mutex;
-    std::queue <std::unique_ptr <rai::message>> requests;
-};
-class bulk_pull_server : public std::enable_shared_from_this <rai::bulk_pull_server>
-{
-public:
-    bulk_pull_server (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::bulk_pull>);
-    void set_current_end ();
-    std::unique_ptr <rai::block> get_next ();
-    void send_next ();
-    void sent_action (boost::system::error_code const &, size_t);
-    void send_finished ();
-    void no_block_sent (boost::system::error_code const &, size_t);
-    std::shared_ptr <rai::bootstrap_server> connection;
-    std::unique_ptr <rai::bulk_pull> request;
-    std::vector <uint8_t> send_buffer;
-    rai::block_hash current;
-};
-class bulk_push_server : public std::enable_shared_from_this <rai::bulk_push_server>
-{
-public:
-    bulk_push_server (std::shared_ptr <rai::bootstrap_server> const &);
-    void receive ();
-    void receive_block ();
-    void received_type ();
-    void received_block (boost::system::error_code const &, size_t);
-    void process_end ();
-    std::array <uint8_t, 256> receive_buffer;
-    std::shared_ptr <rai::bootstrap_server> connection;
-};
-class frontier_req_server : public std::enable_shared_from_this <rai::frontier_req_server>
-{
-public:
-    frontier_req_server (std::shared_ptr <rai::bootstrap_server> const &, std::unique_ptr <rai::frontier_req>);
-    void skip_old ();
-    void send_next ();
-    void sent_action (boost::system::error_code const &, size_t);
-    void send_finished ();
-    void no_block_sent (boost::system::error_code const &, size_t);
-	void next ();
-    std::shared_ptr <rai::bootstrap_server> connection;
-	rai::account current;
-	rai::account_info info;
-    std::unique_ptr <rai::frontier_req> request;
-    std::vector <uint8_t> send_buffer;
-    size_t count;
 };
 class logging
 {
