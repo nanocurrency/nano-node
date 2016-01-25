@@ -6,6 +6,8 @@
 
 #include <xxhash/xxhash.h>
 
+#include <bitset>
+
 namespace rai
 {
 using endpoint = boost::asio::ip::udp::endpoint;
