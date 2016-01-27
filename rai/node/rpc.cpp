@@ -714,7 +714,8 @@ void rai::rpc_handler::payment_wait ()
 			if (!rpc.decode_unsigned (timeout_text, timeout))
 			{
 				{
-					auto observer (std::make_shared <rai::payment_observer> (connection, rpc, account, amount, timeout));
+					auto observer (std::make_shared <rai::payment_observer> (connection, rpc, account, amount));
+					observer->start (timeout);
 					std::lock_guard <std::mutex> lock (rpc.mutex);
 					assert (rpc.payment_observers.find (account) == rpc.payment_observers.end ());
 					rpc.payment_observers [account] = observer;
@@ -1432,12 +1433,16 @@ bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
 	return result;
 }
 
-rai::payment_observer::payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr connection_a, rai::rpc & rpc_a, rai::account const & account_a, rai::amount const & amount_a, uint64_t timeout) :
+rai::payment_observer::payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr connection_a, rai::rpc & rpc_a, rai::account const & account_a, rai::amount const & amount_a) :
 rpc (rpc_a),
 account (account_a),
 amount (amount_a),
 connection (connection_a),
 completed (false)
+{
+}
+
+void rai::payment_observer::start (uint64_t timeout)
 {
 	auto this_l (shared_from_this ());
 	rpc.node.service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout), [this_l] ()

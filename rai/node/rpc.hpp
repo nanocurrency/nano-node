@@ -62,8 +62,9 @@ public:
 class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
 {
 public:
-	payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr, rai::rpc &, rai::account const &, rai::amount const &, uint64_t);
+	payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr, rai::rpc &, rai::account const &, rai::amount const &);
 	~payment_observer ();
+	void start (uint64_t);
 	void observe ();
 	void timeout ();
 	void complete (rai::payment_status);
