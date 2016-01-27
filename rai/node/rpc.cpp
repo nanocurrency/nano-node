@@ -714,10 +714,10 @@ void rai::rpc_handler::payment_wait ()
 			if (!rpc.decode_unsigned (timeout_text, timeout))
 			{
 				{
-					std::unique_ptr <rai::payment_observer> observer (new rai::payment_observer (connection, rpc, account, amount, timeout));
+					auto observer (std::make_shared <rai::payment_observer> (connection, rpc, account, amount, timeout));
 					std::lock_guard <std::mutex> lock (rpc.mutex);
 					assert (rpc.payment_observers.find (account) == rpc.payment_observers.end ());
-					rpc.payment_observers [account] = std::move (observer);
+					rpc.payment_observers [account] = observer;
 				}
 				rpc.observer_action (account);
 			}
@@ -1439,10 +1439,11 @@ amount (amount_a),
 connection (connection_a),
 completed (false)
 {
-	rpc.node.service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout), [this] ()
+	auto this_l (shared_from_this ());
+	rpc.node.service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout), [this_l] ()
 	{
-		std::lock_guard <std::mutex> lock (rpc.mutex);
-		complete (rai::payment_status::nothing);
+		std::lock_guard <std::mutex> lock (this_l->rpc.mutex);
+		this_l->complete (rai::payment_status::nothing);
 	});
 }
 

@@ -52,14 +52,14 @@ public:
 	void send_response (boost::network::http::async_server <rai::rpc>::connection_ptr, boost::property_tree::ptree &);
 	void observer_action (rai::account const &);
 	std::mutex mutex;
-	std::unordered_map <rai::account, std::unique_ptr <rai::payment_observer>> payment_observers;
+	std::unordered_map <rai::account, std::shared_ptr <rai::payment_observer>> payment_observers;
 	rai::rpc_config config;
     boost::network::http::async_server <rai::rpc> server;
     rai::node & node;
     bool on;
     static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
 };
-class payment_observer
+class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
 {
 public:
 	payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr, rai::rpc &, rai::account const &, rai::amount const &, uint64_t);
