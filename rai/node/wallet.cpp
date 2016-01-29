@@ -829,16 +829,17 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 	return result.get_future ().get ();
 }
 
-bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account const & account_a, rai::uint128_t const & amount_a)
+bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account const & representative_a, rai::uint128_t const & amount_a)
 {
 	std::promise <bool> result;
-	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, &block_a, account_a, &result, amount_a] ()
+	auto account (block_a.hashables.destination);
+	node.wallets.queue_wallet_action (account, amount_a, [this, &block_a, account, representative_a, &result, amount_a] ()
 	{
-		auto block (receive_action (block_a, account_a, amount_a));
+		auto block (receive_action (block_a, representative_a, amount_a));
 		result.set_value (block == nullptr);
 		if (block != nullptr)
 		{
-			work_generate (block_a.hashables.destination, block->hash ());
+			work_generate (account, block->hash ());
 		}
 	});
 	return result.get_future ().get ();
