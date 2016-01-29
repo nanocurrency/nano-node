@@ -1725,10 +1725,7 @@ public:
 					auto amount (receivable.amount.number ());
 					node.service.add (std::chrono::system_clock::now (), [block_l, representative, wallet, node_l, amount] ()
 					{
-						node_l->wallets.queue_wallet_action (block_l->hashables.destination, amount, [block_l, representative, wallet, amount] ()
-						{
-							auto block (wallet->receive_action (*block_l, representative, amount));
-						});
+						auto error (wallet->receive_sync (*block_l, representative, amount));
 					});
 				}
 				else

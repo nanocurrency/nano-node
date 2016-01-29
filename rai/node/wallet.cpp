@@ -989,15 +989,12 @@ public:
 						auto amount (receivable.amount.number ());
 						wallet->node.background ([wallet_l, block, representative, amount]
 						{
-							wallet_l->node.wallets.queue_wallet_action (block->hashables.destination, amount, [wallet_l, block, representative, amount] ()
+							BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
+							auto error (wallet_l->receive_sync (*block, representative, amount));
+							if (error)
 							{
-								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-								auto block_l (wallet_l->receive_action (*block, representative, amount));
-								if (block_l == nullptr)
-								{
-									BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
-								}
-							});
+								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
+							}
 						});
 					}
 					else

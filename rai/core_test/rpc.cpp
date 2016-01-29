@@ -1040,7 +1040,7 @@ TEST (rpc, payment_begin_reuse)
 	thread1.join();
 }
 
-TEST (rpc, payment_wait)
+TEST (rpc, DISABLED_payment_wait)
 {
     rai::system system (24000, 1);
 	rai::node_init init1;
