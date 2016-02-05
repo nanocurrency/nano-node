@@ -720,7 +720,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	for (auto i (preconfigured_representatives.begin ()), n (preconfigured_representatives.end ()); i != n; ++i)
 	{
 		boost::property_tree::ptree entry;
-		entry.put ("", i->to_base58check ());
+		entry.put ("", i->to_account ());
 		preconfigured_representatives_l.push_back (std::make_pair ("", entry));
 	}
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
@@ -768,7 +768,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		for (auto i (preconfigured_representatives_l.begin ()), n (preconfigured_representatives_l.end ()); i != n; ++i)
 		{
 			rai::account representative (0);
-			result = result || representative.decode_base58check (i->second.get <std::string> (""));
+			result = result || representative.decode_account (i->second.get <std::string> (""));
 			preconfigured_representatives.push_back (representative);
 		}
 		if (preconfigured_representatives.empty ())
@@ -2380,8 +2380,8 @@ void rai::thread_runner::join ()
 void rai::add_node_options (boost::program_options::options_description & description_a)
 {
 	description_a.add_options ()
-	("account_base58", "Get base58 account number for the <key>")
-	("account_key", "Get the public key for the <account>")
+	("account", "Get account number for the <key>")
+	("account_key", "Get the public key for <account>")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a random keypair")
 	("key_expand", "Derive public key and account number from <key>")
@@ -2394,7 +2394,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
-	("account", boost::program_options::value <std::string> (), "Defines <account> for other commands, base58")
+	("account", boost::program_options::value <std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value <std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value <std::string> (), "Defines the <key> for other commands, hex")
 	("password", boost::program_options::value <std::string> (), "Defines <password> for other commands")
@@ -2404,17 +2404,17 @@ void rai::add_node_options (boost::program_options::options_description & descri
 bool rai::handle_node_options (boost::program_options::variables_map & vm)
 {
 	auto result (false);
-    if (vm.count ("account_base58") > 0)
+    if (vm.count ("account") > 0)
     {
 		if (vm.count ("key") == 1)
 		{
 			rai::uint256_union pub;
 			pub.decode_hex (vm ["key"].as <std::string> ());
-			std::cout << "Account: " << pub.to_base58check () << std::endl;
+			std::cout << "Account: " << pub.to_account () << std::endl;
 		}
 		else
 		{
-			std::cerr << "account_base58 comand requires one <key> option";
+			std::cerr << "account comand requires one <key> option";
 			result = true;
 		}
     }
@@ -2423,7 +2423,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		if (vm.count ("account") == 1)
 		{
 			rai::uint256_union account;
-			account.decode_base58check (vm ["account"].as <std::string> ());
+			account.decode_account (vm ["account"].as <std::string> ());
 			std::cout << "Hex: " << account.to_string () << std::endl;
 		}
 		else
@@ -2449,7 +2449,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
     else if (vm.count ("key_create"))
     {
         rai::keypair pair;
-        std::cout << "Private: " << pair.prv.data.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_base58check () << std::endl;
+        std::cout << "Private: " << pair.prv.data.to_string () << std::endl << "Public: " << pair.pub.to_string () << std::endl << "Account: " << pair.pub.to_account () << std::endl;
     }
 	else if (vm.count ("key_expand"))
 	{
@@ -2459,7 +2459,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			prv.decode_hex (vm ["key"].as <std::string> ());
 			rai::uint256_union pub;
 			ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
-			std::cout << "Private: " << prv.to_string () << std::endl << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_base58check () << std::endl;
+			std::cout << "Private: " << prv.to_string () << std::endl << "Public: " << pub.to_string () << std::endl << "Account: " << pub.to_account () << std::endl;
 		}
 		else
 		{
@@ -2678,7 +2678,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			rai::transaction transaction (i->second->store.environment, nullptr, false);
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
 			{
-				std::cout << rai::uint256_union (j->first).to_base58check () << '\n';
+				std::cout << rai::uint256_union (j->first).to_account () << '\n';
 			}
 		}
 	}
@@ -2694,7 +2694,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				if (wallet != node.node->wallets.items.end ())
 				{
 					rai::account account_id;
-					if (!account_id.decode_base58check (vm ["account"].as <std::string> ()))
+					if (!account_id.decode_account (vm ["account"].as <std::string> ()))
 					{
 						rai::transaction transaction (wallet->second->store.environment, nullptr, true);
 						auto account (wallet->second->store.find (transaction, account_id));
@@ -2745,7 +2745,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				{
 					rai::transaction transaction (wallet->second->store.environment, nullptr, false);
 					auto representative (wallet->second->store.representative (transaction));
-					std::cout << boost::str (boost::format ("Representative: %1%\n") % representative.to_base58check ());
+					std::cout << boost::str (boost::format ("Representative: %1%\n") % representative.to_account ());
 				}
 				else
 				{
@@ -2775,7 +2775,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
 				{
 					rai::account account;
-					if (!account.decode_base58check (vm ["account"].as <std::string> ()))
+					if (!account.decode_account (vm ["account"].as <std::string> ()))
 					{
 						inactive_node node;
 						auto wallet (node.node->wallets.items.find (wallet_id));

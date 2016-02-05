@@ -287,37 +287,37 @@ TEST (wallet, rekey)
     ASSERT_TRUE (wallet.rekey (transaction, "2"));
 }
 
-TEST (base58, encode_zero)
+TEST (account, encode_zero)
 {
     rai::uint256_union number0 (0);
     std::string str0;
-    number0.encode_base58check (str0);
+    number0.encode_account (str0);
     ASSERT_EQ (64, str0.size ());
     rai::uint256_union number1;
-    ASSERT_FALSE (number1.decode_base58check (str0));
+    ASSERT_FALSE (number1.decode_account (str0));
     ASSERT_EQ (number0, number1);
 }
 
-TEST (base58, encode_all)
+TEST (account, encode_all)
 {
     rai::uint256_union number0;
     number0.decode_hex ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
     std::string str0;
-    number0.encode_base58check (str0);
+    number0.encode_account (str0);
     ASSERT_EQ (64, str0.size ());
     rai::uint256_union number1;
-    ASSERT_FALSE (number1.decode_base58check (str0));
+    ASSERT_FALSE (number1.decode_account (str0));
     ASSERT_EQ (number0, number1);
 }
 
-TEST (base58, encode_fail)
+TEST (account, encode_fail)
 {
     rai::uint256_union number0 (0);
     std::string str0;
-    number0.encode_base58check (str0);
+    number0.encode_account (str0);
     str0 [16] ^= 1;
     rai::uint256_union number1;
-    ASSERT_TRUE (number1.decode_base58check (str0));
+    ASSERT_TRUE (number1.decode_account (str0));
 }
 
 TEST (wallet, hash_password)

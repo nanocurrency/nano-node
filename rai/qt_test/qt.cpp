@@ -17,10 +17,10 @@ TEST (wallet, construction)
     rai::keypair key;
 	wallet_l->insert (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
-    ASSERT_EQ (key.pub.to_base58check (), wallet.self.account_button->text ().toStdString ());
+    ASSERT_EQ (key.pub.to_account_split (), wallet.self.account_text->text ().toStdString ());
     ASSERT_EQ (1, wallet.accounts.model->rowCount ());
     auto item1 (wallet.accounts.model->item (0, 1));
-    ASSERT_EQ (key.pub.to_base58check (), item1->text ().toStdString ());
+    ASSERT_EQ (key.pub.to_account (), item1->text ().toStdString ());
 }
 
 TEST (wallet, status)
@@ -220,7 +220,7 @@ TEST (wallet, send)
 	rai::public_key key1 (system.wallet (1)->insert (rai::keypair ().prv));
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
-    QTest::keyClicks (wallet.send_account, key1.to_base58check ().c_str ());
+    QTest::keyClicks (wallet.send_account, key1.to_account ().c_str ());
     QTest::keyClicks (wallet.send_count, "2");
     QTest::mouseClick (wallet.send_blocks_send, Qt::LeftButton);
 	auto iterations1 (0);
@@ -268,7 +268,7 @@ TEST (wallet, process_block)
     send.hashables.balance.encode_hex (balance);
     std::string signature;
     send.signature.encode_hex (signature);
-    auto block_json (boost::str (boost::format ("{\"type\": \"send\", \"previous\": \"%1%\", \"balance\": \"%2%\", \"destination\": \"%3%\", \"work\": \"%4%\", \"signature\": \"%5%\"}") % previous % balance % send.hashables.destination.to_base58check () % rai::to_string_hex (send.work) % signature));
+    auto block_json (boost::str (boost::format ("{\"type\": \"send\", \"previous\": \"%1%\", \"balance\": \"%2%\", \"destination\": \"%3%\", \"work\": \"%4%\", \"signature\": \"%5%\"}") % previous % balance % send.hashables.destination.to_account () % rai::to_string_hex (send.work) % signature));
     QTest::keyClicks (wallet.block_entry.block, block_json.c_str ());
     QTest::mouseClick (wallet.block_entry.process, Qt::LeftButton);
     ASSERT_EQ (send.hash (), system.nodes [0]->latest (rai::genesis_account));
@@ -287,9 +287,9 @@ TEST (wallet, create_send)
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet.block_creation.send, Qt::LeftButton);
-	QTest::keyClicks (wallet.block_creation.account, rai::test_genesis_key.pub.to_base58check ().c_str ());
+	QTest::keyClicks (wallet.block_creation.account, rai::test_genesis_key.pub.to_account ().c_str ());
 	QTest::keyClicks (wallet.block_creation.amount, "100000000000000000000");
-	QTest::keyClicks (wallet.block_creation.destination, key.pub.to_base58check ().c_str ());
+	QTest::keyClicks (wallet.block_creation.destination, key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
 	std::string json (wallet.block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json.empty ());
@@ -320,7 +320,7 @@ TEST (wallet, create_open_receive)
 	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet.block_creation.open, Qt::LeftButton);
 	QTest::keyClicks (wallet.block_creation.source, latest1.to_string ().c_str ());
-	QTest::keyClicks (wallet.block_creation.representative, rai::test_genesis_key.pub.to_base58check ().c_str ());
+	QTest::keyClicks (wallet.block_creation.representative, rai::test_genesis_key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
 	std::string json1 (wallet.block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json1.empty ());
@@ -359,8 +359,8 @@ TEST (wallet, create_change)
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet.advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet.block_creation.change, Qt::LeftButton);
-	QTest::keyClicks (wallet.block_creation.account, rai::test_genesis_key.pub.to_base58check ().c_str ());
-	QTest::keyClicks (wallet.block_creation.representative, key.pub.to_base58check ().c_str ());
+	QTest::keyClicks (wallet.block_creation.account, rai::test_genesis_key.pub.to_account ().c_str ());
+	QTest::keyClicks (wallet.block_creation.representative, key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet.block_creation.create, Qt::LeftButton);
 	std::string json (wallet.block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json.empty ());

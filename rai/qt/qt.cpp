@@ -57,7 +57,7 @@ wallet (wallet_a)
 
 	QObject::connect (account_text, &QPushButton::clicked, [this] ()
 	{
-		wallet.application.clipboard ()->setText (QString (wallet.account.to_base58check ().c_str ()));
+		wallet.application.clipboard ()->setText (QString (wallet.account.to_account ().c_str ()));
 	});
 }
 
@@ -107,7 +107,7 @@ wallet (wallet_a)
 		auto selection (view->selectionModel ()->selection ().indexes ());
 		if (selection.size () == 1)
 		{
-			auto error (wallet.account.decode_base58check (model->item (selection [0].row (), 1)->text ().toStdString ()));
+			auto error (wallet.account.decode_account (model->item (selection [0].row (), 1)->text ().toStdString ()));
 			assert (!error);
 			wallet.refresh ();
 		}
@@ -163,7 +163,7 @@ void rai_qt::accounts::refresh ()
         std::string balance;
 		rai::amount (wallet.node.ledger.account_balance (transaction, key) / wallet.rendering_ratio).encode_dec (balance);
         items.push_back (new QStandardItem (balance.c_str ()));
-        items.push_back (new QStandardItem (QString (key.to_base58check ().c_str ())));
+        items.push_back (new QStandardItem (QString (key.to_account ().c_str ())));
         model->appendRow (items);
     }
 }
@@ -248,7 +248,7 @@ public:
 		auto amount (ledger.amount (transaction, block_a.hash ()));
 		std::string balance;
 		rai::amount (amount / rendering_ratio).encode_dec (balance);
-		text = boost::str (boost::format ("Sent %1% to %2%") % balance % block_a.hashables.destination.to_base58check ().substr (0, 16));
+		text = boost::str (boost::format ("Sent %1% to %2%") % balance % block_a.hashables.destination.to_account ().substr (0, 16));
 	}
 	void receive_block (rai::receive_block const & block_a)
 	{
@@ -256,7 +256,7 @@ public:
 		std::string balance;
 		rai::amount (amount / rendering_ratio).encode_dec (balance);
 		auto account (ledger.account (transaction, block_a.source ()));
-		text = boost::str (boost::format ("Received %1% from %2%") % balance % account.to_base58check ().substr (0, 16));
+		text = boost::str (boost::format ("Received %1% from %2%") % balance % account.to_account ().substr (0, 16));
 	}
 	void open_block (rai::open_block const & block_a)
 	{
@@ -267,7 +267,7 @@ public:
 	}
 	void change_block (rai::change_block const & block_a)
 	{
-		text = boost::str (boost::format ("Changed: %1%") % block_a.representative ().to_base58check ().substr (0, 16));
+		text = boost::str (boost::format ("Changed: %1%") % block_a.representative ().to_account ().substr (0, 16));
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
@@ -351,7 +351,7 @@ wallet (wallet_a)
 	QObject::connect (rebroadcast, &QPushButton::released, [this] ()
 	{
 		rai::block_hash block;
-		auto error (block.decode_base58check (hash->text ().toStdString ()));
+		auto error (block.decode_account (hash->text ().toStdString ()));
 		if (!error)
 		{
 			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
@@ -487,7 +487,7 @@ active_status (*this)
 	update_connected ();
     settings.update_locked (true, true);
     send_blocks_layout->addWidget (send_account_label);
-	send_account->setPlaceholderText (rai::zero_key.pub.to_base58check ().c_str ());
+	send_account->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
     send_blocks_layout->addWidget (send_account);
     send_blocks_layout->addWidget (send_count_label);
 	send_count->setPlaceholderText ("0");
@@ -543,7 +543,7 @@ active_status (*this)
 				QString account_text (send_account->text ());
 				std::string account_text_narrow (account_text.toLocal8Bit ());
 				rai::account account_l;
-				auto parse_error (account_l.decode_base58check (account_text_narrow));
+				auto parse_error (account_l.decode_account (account_text_narrow));
 				if (!parse_error)
 				{
 					send_blocks_send->setEnabled (false);
@@ -665,7 +665,7 @@ void rai_qt::wallet::refresh ()
 		rai::transaction transaction (wallet_m->store.environment, nullptr, false);
 		assert (wallet_m->store.exists (transaction, account));
 	}
-    self.account_text->setText (QString (account.to_base58check_split ().c_str ()));
+    self.account_text->setText (QString (account.to_account_split ().c_str ()));
 	self.refresh_balance ();
     accounts.refresh ();
     history.refresh ();
@@ -734,7 +734,7 @@ wallet (wallet_a)
 	sep2->setFrameShadow (QFrame::Sunken);
 	layout->addWidget (sep2);
 	layout->addWidget (representative);
-	new_representative->setPlaceholderText (rai::zero_key.pub.to_base58check ().c_str ());
+	new_representative->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
 	layout->addWidget (new_representative);
 	layout->addWidget (change_rep);
     layout->addStretch ();
@@ -762,7 +762,7 @@ wallet (wallet_a)
 	QObject::connect (change_rep, &QPushButton::released, [this] ()
 	{
 		rai::account representative_l;
-		if (!representative_l.decode_base58check (new_representative->text ().toStdString ()))
+		if (!representative_l.decode_account (new_representative->text ().toStdString ()))
 		{
 			change_rep->setEnabled (false);
 			{
@@ -982,7 +982,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
     for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
     {
         QList <QStandardItem *> items;
-        items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_base58check ().c_str ())));
+        items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_account ().c_str ())));
 		auto hash (rai::account_info (i->second).head);
 		std::string balance;
 		rai::amount (wallet.node.ledger.balance (transaction, hash) / wallet.rendering_ratio).encode_dec (balance);
@@ -1205,7 +1205,7 @@ void rai_qt::block_creation::activate_change ()
 void rai_qt::block_creation::create_send ()
 {
     rai::account account_l;
-    auto error (account_l.decode_base58check (account->text ().toStdString ()));
+    auto error (account_l.decode_account (account->text ().toStdString ()));
     if (!error)
     {
         rai::amount amount_l;
@@ -1213,7 +1213,7 @@ void rai_qt::block_creation::create_send ()
         if (!error)
         {
             rai::account destination_l;
-            error = destination_l.decode_base58check (destination->text ().toStdString ());
+            error = destination_l.decode_account (destination->text ().toStdString ());
             if (!error)
             {
 				rai::transaction transaction (wallet.node.store.environment, nullptr, false);
@@ -1317,11 +1317,11 @@ void rai_qt::block_creation::create_receive ()
 void rai_qt::block_creation::create_change ()
 {
     rai::account account_l;
-    auto error (account_l.decode_base58check (account->text ().toStdString ()));
+    auto error (account_l.decode_account (account->text ().toStdString ()));
     if (!error)
     {
         rai::account representative_l;
-        error = representative_l.decode_base58check (representative->text ().toStdString ());
+        error = representative_l.decode_account (representative->text ().toStdString ());
         if (!error)
         {
 			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
@@ -1372,7 +1372,7 @@ void rai_qt::block_creation::create_open ()
     if (!error)
     {
         rai::account representative_l;
-        error = representative_l.decode_base58check (representative->text ().toStdString ());
+        error = representative_l.decode_account (representative->text ().toStdString ());
         if (!error)
         {
 			rai::transaction transaction (wallet.node.store.environment, nullptr, false);

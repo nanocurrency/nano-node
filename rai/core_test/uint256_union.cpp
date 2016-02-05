@@ -200,15 +200,15 @@ TEST (uint256_union, big_endian_union_function)
 TEST (uint256_union, decode_account_v1)
 {
 	rai::uint256_union key;
-	ASSERT_FALSE (key.decode_base58check ("TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib"));
+	ASSERT_FALSE (key.decode_account ("TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib"));
 	ASSERT_EQ (rai::rai_test_account, key);
 }
 
 TEST (uint256_union, account_transcode)
 {
     rai::uint256_union value;
-	auto text (rai::test_genesis_key.pub.to_base58check ());
-    ASSERT_FALSE (value.decode_base58check (text));
+	auto text (rai::test_genesis_key.pub.to_account ());
+    ASSERT_FALSE (value.decode_account (text));
     ASSERT_EQ (rai::test_genesis_key.pub, value);
 }
 
@@ -216,17 +216,17 @@ TEST (uint256_union, account_encode_lex)
 {
     rai::uint256_union min ("0000000000000000000000000000000000000000000000000000000000000000");
     rai::uint256_union max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-	auto min_text (min.to_base58check ());
+	auto min_text (min.to_account ());
 	ASSERT_EQ (64, min_text.size ());
-	auto max_text (max.to_base58check ());
+	auto max_text (max.to_account ());
 	ASSERT_EQ (64, max_text.size ());
 	auto previous (min_text);
 	for (auto i (1); i != 1000; ++i)
 	{
 		rai::uint256_union number (min.number () + i);
-		auto text (number.to_base58check ());
+		auto text (number.to_account ());
 		rai::uint256_union output;
-		output.decode_base58check (text);
+		output.decode_account (text);
 		ASSERT_EQ (number, output);
 		ASSERT_GT (text, previous);
 		previous = text;
@@ -234,9 +234,9 @@ TEST (uint256_union, account_encode_lex)
 	for (auto i (1); i != 1000; ++i)
 	{
 		rai::keypair key;
-		auto text (key.pub.to_base58check ());
+		auto text (key.pub.to_account ());
 		rai::uint256_union output;
-		output.decode_base58check (text);
+		output.decode_account (text);
 		ASSERT_EQ (key.pub, output);
 	}
 }
@@ -249,13 +249,13 @@ TEST (uint256_union, bounds)
 	bad1 [1] = 'r';
 	bad1 [2] = 'b';
 	bad1 [3] = '-';
-	ASSERT_TRUE (key.decode_base58check (bad1));
+	ASSERT_TRUE (key.decode_account (bad1));
 	std::string bad2 (64, '\x0ff');
 	bad2 [0] = 'x';
 	bad2 [1] = 'r';
 	bad2 [2] = 'b';
 	bad2 [3] = '-';
-	ASSERT_TRUE (key.decode_base58check (bad2));
+	ASSERT_TRUE (key.decode_account (bad2));
 }
 
 class json_upgrade_test

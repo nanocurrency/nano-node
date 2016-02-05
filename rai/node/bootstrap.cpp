@@ -408,7 +408,7 @@ void rai::bulk_pull_client::request ()
         }
 		if (connection->connection->node->config.logging.network_logging ())
 		{
-			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_base58check () % req.end.to_string ());
+			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_account () % req.end.to_string ());
 		}
         auto this_l (shared_from_this ());
         boost::asio::async_write (connection->connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a)
@@ -1087,7 +1087,7 @@ void rai::bulk_pull_server::set_current_end ()
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_base58check ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_account ());
 		}
 		current = request->end;
 	}
@@ -1331,7 +1331,7 @@ void rai::frontier_req_server::send_next ()
         auto this_l (shared_from_this ());
         if (connection->node->config.logging.network_logging ())
         {
-            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_base58check () % info.head.to_string ());
+            BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % info.head.to_string ());
         }
 		next ();
         async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)

@@ -139,8 +139,8 @@ int main (int argc, char * const * argv)
 							landing.write_store ();
 						}
 						assert (wallet_entry != wallet->store.end ());
-						std::cout << boost::str (boost::format ("Landing account: %1%\n") % store.source.to_base58check ());
-						std::cout << boost::str (boost::format ("Destination account: %1%\n") % store.destination.to_base58check ());
+						std::cout << boost::str (boost::format ("Landing account: %1%\n") % store.source.to_account ());
+						std::cout << boost::str (boost::format ("Destination account: %1%\n") % store.destination.to_account ());
 						++wallet_entry;
 						assert (wallet_entry == wallet->store.end ());
 					}

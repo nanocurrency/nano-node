@@ -172,11 +172,11 @@ union uint256_union
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &);
-	void encode_base58check (std::string &) const;
-	std::string to_base58check () const;
-	std::string to_base58check_split () const;
+	void encode_account (std::string &) const;
+	std::string to_account () const;
+	std::string to_account_split () const;
 	bool decode_account_v1 (std::string const &);
-	bool decode_base58check (std::string const &);
+	bool decode_account (std::string const &);
 	std::array <uint8_t, 32> bytes;
 	std::array <char, 32> chars;
 	std::array <uint64_t, 4> qwords;

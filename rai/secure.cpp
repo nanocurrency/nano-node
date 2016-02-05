@@ -263,7 +263,7 @@ rai::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptree
 		error_a = previous.decode_hex (previous_l);
 		if (!error_a)
 		{
-			error_a = destination.decode_base58check (destination_l);
+			error_a = destination.decode_account (destination_l);
 			if (!error_a)
 			{
 				error_a = balance.decode_hex (balance_l);
@@ -302,7 +302,7 @@ void rai::send_block::serialize_json (std::string & string_a) const
     std::string previous;
     hashables.previous.encode_hex (previous);
     tree.put ("previous", previous);
-    tree.put ("destination", hashables.destination.to_base58check ());
+    tree.put ("destination", hashables.destination.to_account ());
     std::string balance;
     hashables.balance.encode_hex (balance);
     tree.put ("balance", balance);
@@ -352,7 +352,7 @@ bool rai::send_block::deserialize_json (boost::property_tree::ptree const & tree
 		result = hashables.previous.decode_hex (previous_l);
 		if (!result)
 		{
-			result = hashables.destination.decode_base58check (destination_l);
+			result = hashables.destination.decode_account (destination_l);
 			if (!result)
 			{
                 result = hashables.balance.decode_hex (balance_l);
@@ -862,10 +862,10 @@ rai::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptree
 		error_a = source.decode_hex (source_l);
 		if (!error_a)
 		{
-			error_a = representative.decode_base58check (representative_l);
+			error_a = representative.decode_account (representative_l);
 			if (!error_a)
 			{
-				error_a = account.decode_base58check (account_l);
+				error_a = account.decode_account (account_l);
 			}
 		}
     }
@@ -967,8 +967,8 @@ void rai::open_block::serialize_json (std::string & string_a) const
     boost::property_tree::ptree tree;
     tree.put ("type", "open");
     tree.put ("source", hashables.source.to_string ());
-    tree.put ("representative", representative ().to_base58check ());
-    tree.put ("account", hashables.account.to_base58check ());
+    tree.put ("representative", representative ().to_account ());
+    tree.put ("account", hashables.account.to_account ());
     std::string signature_l;
     signature.encode_hex (signature_l);
     tree.put ("work", rai::to_string_hex (work));
@@ -1106,7 +1106,7 @@ rai::change_hashables::change_hashables (bool & error_a, boost::property_tree::p
 		error_a = previous.decode_hex (previous_l);
         if (!error_a)
         {
-			error_a = representative.decode_base58check (representative_l);
+			error_a = representative.decode_account (representative_l);
         }
     }
     catch (std::runtime_error const &)
@@ -1196,7 +1196,7 @@ void rai::change_block::serialize_json (std::string & string_a) const
     boost::property_tree::ptree tree;
     tree.put ("type", "change");
     tree.put ("previous", hashables.previous.to_string ());
-    tree.put ("representative", representative ().to_base58check ());
+    tree.put ("representative", representative ().to_account ());
     tree.put ("work", rai::to_string_hex (work));
     std::string signature_l;
     signature.encode_hex (signature_l);

@@ -975,7 +975,7 @@ public:
 	}
 	void receive_all (rai::account const & account_a)
 	{
-		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_base58check ());
+		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_account ());
 		rai::transaction transaction (wallet->node.store.environment, nullptr, false);
 		auto representative (wallet->store.representative (transaction));
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
@@ -1003,7 +1003,7 @@ public:
 					}
 					else
 					{
-						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % receivable.destination.to_base58check ());
+						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % receivable.destination.to_account ());
 					}
 				}
 			}
@@ -1206,7 +1206,7 @@ void rai::wallets::foreach_representative (std::function <void (rai::public_key 
 				}
 				else
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Skipping locked wallet %1% with account %2%") % i->first.to_string () % account.to_base58check ());
+					BOOST_LOG (node.log) << boost::str (boost::format ("Skipping locked wallet %1% with account %2%") % i->first.to_string () % account.to_account ());
 				}
 			}
         }

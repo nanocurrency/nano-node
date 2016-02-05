@@ -132,7 +132,7 @@ void rai::rpc_handler::account_balance ()
 {
 	std::string account_text (request.get <std::string> ("account"));
 	rai::uint256_union account;
-	auto error (account.decode_base58check (account_text));
+	auto error (account.decode_account (account_text));
 	if (!error)
 	{
 		auto balance (rpc.node.balance (account));
@@ -161,7 +161,7 @@ void rai::rpc_handler::account_create ()
 				rai::keypair new_key;
 				existing->second->insert (new_key.prv);
 				boost::property_tree::ptree response_l;
-				response_l.put ("account", new_key.pub.to_base58check ());
+				response_l.put ("account", new_key.pub.to_account ());
 				rpc.send_response (connection, response_l);
 			}
 			else
@@ -196,7 +196,7 @@ void rai::rpc_handler::account_list ()
 			for (auto i (existing->second->store.begin (transaction)), j (existing->second->store.end ()); i != j; ++i)
 			{
 				boost::property_tree::ptree entry;
-				entry.put ("", rai::uint256_union (i->first).to_base58check ());
+				entry.put ("", rai::uint256_union (i->first).to_account ());
 				accounts.push_back (std::make_pair ("", entry));
 			}
 			response_l.add_child ("accounts", accounts);
@@ -279,7 +279,7 @@ void rai::rpc_handler::account_weight ()
 {
 	std::string account_text (request.get <std::string> ("account"));
 	rai::uint256_union account;
-	auto error (account.decode_base58check (account_text));
+	auto error (account.decode_account (account_text));
 	if (!error)
 	{
 		auto balance (rpc.node.weight (account));
@@ -368,7 +368,7 @@ void rai::rpc_handler::frontiers ()
 	std::string account_text (request.get <std::string> ("account"));
 	std::string count_text (request.get <std::string> ("count"));
 	rai::account start;
-	if (!start.decode_base58check (account_text))
+	if (!start.decode_account (account_text))
 	{
 		uint64_t count;
 		if (!rpc.decode_unsigned (count_text, count))
@@ -378,7 +378,7 @@ void rai::rpc_handler::frontiers ()
 			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
 			for (auto i (rpc.node.store.latest_begin (transaction, start)), n (rpc.node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
 			{
-				frontiers.put (rai::account (i->first).to_base58check (), rai::account_info (i->second).head.to_string ());
+				frontiers.put (rai::account (i->first).to_account (), rai::account_info (i->second).head.to_string ());
 			}
 			response_l.add_child ("frontiers", frontiers);
 			rpc.send_response (connection, response_l);
@@ -510,7 +510,7 @@ void rai::rpc_handler::price ()
 {
 	std::string account_text (request.get <std::string> ("account"));
 	rai::uint256_union account;
-	auto error (account.decode_base58check (account_text));
+	auto error (account.decode_account (account_text));
 	if (!error)
 	{
 		auto amount_text (request.get <std::string> ("amount"));
@@ -571,14 +571,14 @@ void rai::rpc_handler::payment_begin ()
 						wallet->free_accounts.erase (existing);
 						if (wallet->store.find (transaction, account) == wallet->store.end ())
 						{
-							BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Transaction wallet %1% externally modified listing account %1% as free but no longer exists") % id.to_string () % account.to_base58check ());
+							BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Transaction wallet %1% externally modified listing account %1% as free but no longer exists") % id.to_string () % account.to_account ());
 							account.clear ();
 						}
 						else
 						{
 							if (!rpc.node.ledger.account_balance (transaction, account).is_zero ())
 							{
-								BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account since it's balance isn't zero") % account.to_base58check ());
+								BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account since it's balance isn't zero") % account.to_account ());
 								account.clear ();
 							}
 						}
@@ -592,7 +592,7 @@ void rai::rpc_handler::payment_begin ()
 					}
 				} while (account.is_zero ());
 				boost::property_tree::ptree response_l;
-				response_l.put ("account", account.to_base58check ());
+				response_l.put ("account", account.to_account ());
 				rpc.send_response (connection, response_l);
 			}
 			else
@@ -662,7 +662,7 @@ void rai::rpc_handler::payment_end ()
 		{
 			auto wallet (existing->second);
 			rai::account account;
-			if (!account.decode_base58check (account_text))
+			if (!account.decode_account (account_text))
 			{
 				auto existing (wallet->store.find (transaction, account));
 				if (existing != wallet->store.end ())
@@ -705,7 +705,7 @@ void rai::rpc_handler::payment_wait ()
 	std::string amount_text (request.get <std::string> ("amount"));
 	std::string timeout_text (request.get <std::string> ("timeout"));
 	rai::uint256_union account;
-	if (!account.decode_base58check (account_text))
+	if (!account.decode_account (account_text))
 	{
 		rai::uint128_union amount;
 		if (!amount.decode_dec (amount_text))
@@ -769,7 +769,7 @@ void rai::rpc_handler::representative ()
 		{
 			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
 			boost::property_tree::ptree response_l;
-			response_l.put ("representative", existing->second->store.representative (transaction).to_base58check ());
+			response_l.put ("representative", existing->second->store.representative (transaction).to_account ());
 			rpc.send_response (connection, response_l);
 		}
 		else
@@ -797,7 +797,7 @@ void rai::rpc_handler::representative_set ()
 			{
 				std::string representative_text (request.get <std::string> ("representative"));
 				rai::account representative;
-				auto error (representative.decode_base58check (representative_text));
+				auto error (representative.decode_account (representative_text));
 				if (!error)
 				{
 					rai::transaction transaction (rpc.node.store.environment, nullptr, true);
@@ -870,12 +870,12 @@ void rai::rpc_handler::send ()
 			{
 				std::string source_text (request.get <std::string> ("source"));
 				rai::account source;
-				auto error (source.decode_base58check (source_text));
+				auto error (source.decode_account (source_text));
 				if (!error)
 				{
 					std::string destination_text (request.get <std::string> ("destination"));
 					rai::account destination;
-					auto error (destination.decode_base58check (destination_text));
+					auto error (destination.decode_account (destination_text));
 					if (!error)
 					{
 						std::string amount_text (request.get <std::string> ("amount"));
@@ -940,7 +940,7 @@ void rai::rpc_handler::validate_account_number ()
 {
 	std::string account_text (request.get <std::string> ("account"));
 	rai::uint256_union account;
-	auto error (account.decode_base58check (account_text));
+	auto error (account.decode_account (account_text));
 	boost::property_tree::ptree response_l;
 	response_l.put ("valid", error ? "0" : "1");
 	rpc.send_response (connection, response_l);
@@ -968,7 +968,7 @@ void rai::rpc_handler::wallet_add ()
 					rai::public_key pub;
 					ed25519_publickey (key.data.bytes.data (), pub.bytes.data ());
 					boost::property_tree::ptree response_l;
-					response_l.put ("account", pub.to_base58check ());
+					response_l.put ("account", pub.to_account ());
 					rpc.send_response (connection, response_l);
 				}
 				else
@@ -997,7 +997,7 @@ void rai::rpc_handler::wallet_contains ()
 	std::string account_text (request.get <std::string> ("account"));
 	std::string wallet_text (request.get <std::string> ("wallet"));
 	rai::uint256_union account;
-	auto error (account.decode_base58check (account_text));
+	auto error (account.decode_account (account_text));
 	if (!error)
 	{
 		rai::uint256_union wallet;

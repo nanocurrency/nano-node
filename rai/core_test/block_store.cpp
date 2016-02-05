@@ -154,7 +154,7 @@ TEST (block_store, genesis)
     ASSERT_NE (nullptr, receive1);
     ASSERT_LE (info.modified, store.now ());
 	auto test_pub_text (rai::test_genesis_key.pub.to_string ());
-	auto test_pub_account (rai::test_genesis_key.pub.to_base58check ());
+	auto test_pub_account (rai::test_genesis_key.pub.to_account ());
 	auto test_prv_text (rai::test_genesis_key.prv.data.to_string ());
 	ASSERT_EQ (rai::genesis_account, rai::test_genesis_key.pub);
 }

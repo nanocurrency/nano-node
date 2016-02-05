@@ -489,14 +489,7 @@ void rai::raw_key::decrypt (rai::uint256_union const & ciphertext, rai::raw_key 
 
 namespace
 {
-    char const * base58_lookup ("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
     char const * base58_reverse ("~012345678~~~~~~~9:;<=>?@~ABCDE~FGHIJKLMNOP~~~~~~QRSTUVWXYZ[~\\]^_`abcdefghi");
-    char base58_encode (uint8_t value)
-    {
-        assert (value < 58);
-        auto result (base58_lookup [value]);
-        return result;
-    }
     uint8_t base58_decode (char value)
     {
 		assert (value >= '0');
@@ -521,7 +514,7 @@ namespace
     }
 }
 
-void rai::uint256_union::encode_base58check (std::string & destination_a) const
+void rai::uint256_union::encode_account (std::string & destination_a) const
 {
     assert (destination_a.empty ());
     destination_a.reserve (64);
@@ -543,18 +536,18 @@ void rai::uint256_union::encode_base58check (std::string & destination_a) const
     std::reverse (destination_a.begin (), destination_a.end ());
 }
 
-std::string rai::uint256_union::to_base58check_split () const
+std::string rai::uint256_union::to_account_split () const
 {
-	auto result (to_base58check ());
+	auto result (to_account ());
 	assert (result.size () == 64);
 	result.insert (32, "\n");
 	return result;
 }
 
-std::string rai::uint256_union::to_base58check () const
+std::string rai::uint256_union::to_account () const
 {
 	std::string result;
-	encode_base58check (result);
+	encode_account (result);
 	return result;
 }
 
@@ -566,13 +559,18 @@ bool rai::uint256_union::decode_account_v1 (std::string const & source_a)
         rai::uint512_t number_l;
         for (auto i (source_a.begin ()), j (source_a.end ()); !result && i != j; ++i)
         {
-            uint8_t byte (base58_decode (*i));
-            result = byte == '~';
-            if (!result)
-            {
-                number_l *= 58;
-                number_l += byte;
-            }
+			uint8_t character (*i);
+			result = character < 0x30 || character >= 0x80;
+			if (!result)
+			{
+				uint8_t byte (base58_decode (character));
+				result = byte == '~';
+				if (!result)
+				{
+					number_l *= 58;
+					number_l += byte;
+				}
+			}
         }
         if (!result)
         {
@@ -593,7 +591,7 @@ bool rai::uint256_union::decode_account_v1 (std::string const & source_a)
     return result;
 }
 
-bool rai::uint256_union::decode_base58check (std::string const & source_a)
+bool rai::uint256_union::decode_account (std::string const & source_a)
 {
     auto result (source_a.size () != 64);
     if (!result)
@@ -607,7 +605,7 @@ bool rai::uint256_union::decode_base58check (std::string const & source_a)
 				result = character < 0x30 || character >= 0x80;
 				if (!result)
 				{
-					uint8_t byte (account_decode (*i));
+					uint8_t byte (account_decode (character));
 					result = byte == '~';
 					if (!result)
 					{

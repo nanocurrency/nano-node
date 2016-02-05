@@ -29,7 +29,7 @@ public:
 			try
 			{
 				error |= wallet.decode_hex (wallet_l);
-				error |= account.decode_base58check (account_l);
+				error |= account.decode_account (account_l);
 				error |= node.deserialize_json (upgraded_a, node_l);
 				if (wallet.is_zero ())
 				{
@@ -54,7 +54,7 @@ public:
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
 		tree_a.put ("wallet", wallet_string);
-		tree_a.put ("account", account.to_base58check ());
+		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;
 		node.serialize_json (node_l);
 		tree_a.add_child ("node", node_l);

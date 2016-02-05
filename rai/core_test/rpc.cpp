@@ -48,7 +48,7 @@ TEST (rpc, account_balance)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "account_balance");
-    request.put ("account", rai::test_genesis_key.pub.to_base58check ());
+    request.put ("account", rai::test_genesis_key.pub.to_account ());
     auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string balance_text (response.first.get <std::string> ("balance"));
@@ -71,7 +71,7 @@ TEST (rpc, account_create)
 	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	auto account_text (response.first.get <std::string> ("account"));
 	rai::uint256_union account;
-	ASSERT_FALSE (account.decode_base58check (account_text));
+	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (system.wallet (0)->exists (account));
 	rpc.stop();
 	thread1.join();
@@ -91,7 +91,7 @@ TEST (rpc, account_weight)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "account_weight");
-    request.put ("account", key.pub.to_base58check ());
+    request.put ("account", key.pub.to_account ());
 	auto response (test_response (request, rpc));
 	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string balance_text (response.first.get <std::string> ("weight"));
@@ -113,7 +113,7 @@ TEST (rpc, wallet_contains)
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
     request.put ("action", "wallet_contains");
-    request.put ("account", rai::test_genesis_key.pub.to_base58check ());
+    request.put ("account", rai::test_genesis_key.pub.to_account ());
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("exists"));
@@ -134,7 +134,7 @@ TEST (rpc, wallet_doesnt_contain)
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
     request.put ("action", "wallet_contains");
-    request.put ("account", rai::test_genesis_key.pub.to_base58check ());
+    request.put ("account", rai::test_genesis_key.pub.to_account ());
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string exists_text (response.first.get <std::string> ("exists"));
@@ -153,7 +153,7 @@ TEST (rpc, validate_account_number)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "validate_account_number");
-    request.put ("account", rai::test_genesis_key.pub.to_base58check ());
+    request.put ("account", rai::test_genesis_key.pub.to_account ());
 	auto response (test_response (request, rpc));
     std::string exists_text (response.first.get <std::string> ("valid"));
     ASSERT_EQ ("1", exists_text);
@@ -169,7 +169,7 @@ TEST (rpc, validate_account_invalid)
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     std::string account;
-    rai::test_genesis_key.pub.encode_base58check (account);
+    rai::test_genesis_key.pub.encode_account (account);
     account [0] ^= 0x1;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
@@ -196,8 +196,8 @@ TEST (rpc, send)
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
     request.put ("action", "send");
-	request.put ("source", rai::test_genesis_key.pub.to_base58check ());
-    request.put ("destination", rai::test_genesis_key.pub.to_base58check ());
+	request.put ("source", rai::test_genesis_key.pub.to_account ());
+    request.put ("destination", rai::test_genesis_key.pub.to_account ());
     request.put ("amount", "100");
 	std::thread thread2 ([&system] ()
 	{
@@ -232,8 +232,8 @@ TEST (rpc, send_fail)
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
     request.put ("action", "send");
-	request.put ("source", rai::test_genesis_key.pub.to_base58check ());
-    request.put ("destination", rai::test_genesis_key.pub.to_base58check ());
+	request.put ("source", rai::test_genesis_key.pub.to_account ());
+    request.put ("destination", rai::test_genesis_key.pub.to_account ());
     request.put ("amount", "100");
 	auto done (false);
 	std::thread thread2 ([&system, &done] ()
@@ -278,7 +278,7 @@ TEST (rpc, wallet_add)
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("account"));
-    ASSERT_EQ (account_text1, key1.pub.to_base58check ());
+    ASSERT_EQ (account_text1, key1.pub.to_account ());
 	rpc.stop();
 	thread1.join();
 }
@@ -375,7 +375,7 @@ TEST (rpc, representative)
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("representative"));
-    ASSERT_EQ (account_text1, rai::genesis_account.to_base58check ());
+    ASSERT_EQ (account_text1, rai::genesis_account.to_account ());
 	rpc.stop();
 	thread1.join();
 }
@@ -393,7 +393,7 @@ TEST (rpc, representative_set)
     request.put ("wallet", wallet);
     rai::keypair key;
     request.put ("action", "representative_set");
-    request.put ("representative", key.pub.to_base58check ());
+    request.put ("representative", key.pub.to_account ());
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
@@ -425,7 +425,7 @@ TEST (rpc, account_list)
     {
         auto account (i->second.get <std::string> (""));
         rai::uint256_union number;
-        ASSERT_FALSE (number.decode_base58check (account));
+        ASSERT_FALSE (number.decode_account (account));
         accounts.push_back (number);
     }
     ASSERT_EQ (2, accounts.size ());
@@ -667,7 +667,7 @@ TEST (rpc, price_free)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "price");
-	request.put ("account", rai::test_genesis_key.pub.to_base58check ());
+	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	request.put ("amount", "1");
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
@@ -688,7 +688,7 @@ TEST (rpc, price_amount_high)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "price");
-	request.put ("account", key.pub.to_base58check ());
+	request.put ("account", key.pub.to_account ());
 	request.put ("amount", "1");
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
@@ -705,7 +705,7 @@ TEST (rpc, price_bad)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "price");
-	request.put ("account", rai::test_genesis_key.pub.to_base58check ());
+	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	request.put ("amount", "1a");
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
@@ -733,7 +733,7 @@ TEST (rpc, frontier)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "frontiers");
-	request.put ("account", rai::account (0).to_base58check ());
+	request.put ("account", rai::account (0).to_account ());
 	request.put ("count", std::to_string (std::numeric_limits <uint64_t>::max ()));
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
@@ -742,7 +742,7 @@ TEST (rpc, frontier)
     for (auto i (frontiers_node.begin ()), j (frontiers_node.end ()); i != j; ++i)
     {
         rai::account account;
-		account.decode_base58check (i->first);
+		account.decode_account (i->first);
 		rai::block_hash frontier;
 		frontier.decode_hex (i->second.get <std::string> (""));
         frontiers [account] = frontier;
@@ -773,7 +773,7 @@ TEST (rpc, frontier_limited)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "frontiers");
-	request.put ("account", rai::account (0).to_base58check ());
+	request.put ("account", rai::account (0).to_account ());
 	request.put ("count", std::to_string (100));
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
@@ -803,13 +803,13 @@ TEST (rpc, frontier_startpoint)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "frontiers");
-	request.put ("account", source.begin ()->first.to_base58check ());
+	request.put ("account", source.begin ()->first.to_account ());
 	request.put ("count", std::to_string (1));
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     auto & frontiers_node (response.first.get_child ("frontiers"));
 	ASSERT_EQ (1, frontiers_node.size ());
-	ASSERT_EQ (source.begin ()->first.to_base58check (), frontiers_node.begin ()->first);
+	ASSERT_EQ (source.begin ()->first.to_account (), frontiers_node.begin ()->first);
 	rpc.stop();
 	thread1.join();
 }
@@ -938,13 +938,13 @@ TEST (rpc, payment_begin_end)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	auto account_text (response1.first.get <std::string> ("account"));
 	rai::uint256_union account;
-	ASSERT_FALSE (account.decode_base58check (account_text));
+	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (wallet->exists (account));
 	ASSERT_EQ (wallet->free_accounts.end (), wallet->free_accounts.find (account));
     boost::property_tree::ptree request2;
 	request2.put ("action", "payment_end");
 	request2.put ("wallet", wallet_id.pub.to_string ());
-	request2.put ("account", account.to_base58check ());
+	request2.put ("account", account.to_account ());
 	auto response2 (test_response (request2, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
 	ASSERT_TRUE (wallet->exists (account));
@@ -968,7 +968,7 @@ TEST (rpc, payment_end_nonempty)
     boost::property_tree::ptree request1;
 	request1.put ("action", "payment_end");
 	request1.put ("wallet", wallet_id.to_string ());
-	request1.put ("account", rai::test_genesis_key.pub.to_base58check ());
+	request1.put ("account", rai::test_genesis_key.pub.to_account ());
 	auto response1 (test_response (request1, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response1.second);
 	rpc.stop();
@@ -994,7 +994,7 @@ TEST (rpc, payment_zero_balance)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	auto account_text (response1.first.get <std::string> ("account"));
 	rai::uint256_union account;
-	ASSERT_FALSE (account.decode_base58check (account_text));
+	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_NE (rai::test_genesis_key.pub, account);
 	rpc.stop();
 	thread1.join();
@@ -1019,13 +1019,13 @@ TEST (rpc, payment_begin_reuse)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	auto account_text (response1.first.get <std::string> ("account"));
 	rai::uint256_union account;
-	ASSERT_FALSE (account.decode_base58check (account_text));
+	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (wallet->exists (account));
 	ASSERT_EQ (wallet->free_accounts.end (), wallet->free_accounts.find (account));
     boost::property_tree::ptree request2;
 	request2.put ("action", "payment_end");
 	request2.put ("wallet", wallet_id.pub.to_string ());
-	request2.put ("account", account.to_base58check ());
+	request2.put ("account", account.to_account ());
 	auto response2 (test_response (request2, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
 	ASSERT_TRUE (wallet->exists (account));
@@ -1034,7 +1034,7 @@ TEST (rpc, payment_begin_reuse)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response3.second);
 	auto account2_text (response1.first.get <std::string> ("account"));
 	rai::uint256_union account2;
-	ASSERT_FALSE (account2.decode_base58check (account2_text));
+	ASSERT_FALSE (account2.decode_account (account2_text));
 	ASSERT_EQ (account, account2);
 	rpc.stop();
 	thread1.join();
@@ -1055,7 +1055,7 @@ TEST (rpc, DISABLED_payment_wait)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request1;
 	request1.put ("action", "payment_wait");
-	request1.put ("account", key.pub.to_base58check ());
+	request1.put ("account", key.pub.to_account ());
 	request1.put ("amount", rai::amount (rai::Mrai_ratio).to_string_dec ());
 	request1.put ("timeout", "100");
 	auto response1 (test_response (request1, rpc));

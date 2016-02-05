@@ -141,13 +141,13 @@ int main (int argc, char * const * argv)
 			{
 				rai::keypair genesis (key.to_string ());
 				rai::work_pool work;
-				std::cout << "Genesis: " << genesis.prv.data.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_base58check () << std::endl;
+				std::cout << "Genesis: " << genesis.prv.data.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_account () << std::endl;
 				rai::keypair landing;
-				std::cout << "Landing: " << landing.prv.data.to_string () << std::endl << "Public: " << landing.pub.to_string () << std::endl << "Account: " << landing.pub.to_base58check () << std::endl;
+				std::cout << "Landing: " << landing.prv.data.to_string () << std::endl << "Public: " << landing.pub.to_string () << std::endl << "Account: " << landing.pub.to_account () << std::endl;
 				for (auto i (0); i != 32; ++i)
 				{
 					rai::keypair rep;
-					std::cout << "Rep" << i << ": " << rep.prv.data.to_string () << std::endl << "Public: " << rep.pub.to_string () << std::endl << "Account: " << rep.pub.to_base58check () << std::endl;
+					std::cout << "Rep" << i << ": " << rep.prv.data.to_string () << std::endl << "Public: " << rep.pub.to_string () << std::endl << "Account: " << rep.pub.to_account () << std::endl;
 				}
 				rai::uint128_t balance (std::numeric_limits <rai::uint128_t>::max ());
 				rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
