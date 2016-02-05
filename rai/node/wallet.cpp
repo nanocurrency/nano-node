@@ -817,7 +817,7 @@ std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
 {
 	std::promise <bool> result;
-	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, representative_a, &result] ()
+	node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, representative_a, &result] ()
 	{
 		auto block (change_action (source_a, representative_a));
 		result.set_value (block == nullptr);
@@ -848,7 +848,7 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account co
 rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::promise <rai::block_hash> result;
-	node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, &result] ()
+	node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, account_a, amount_a, &result] ()
 	{
 		auto block (send_action (source_a, account_a, amount_a));
 		if (block != nullptr)
@@ -871,7 +871,7 @@ void rai::wallet::send_async (rai::account const & source_a, rai::account const 
 {
 	node.background ([this, source_a, account_a, amount_a, action_a] ()
 	{
-		node.wallets.queue_wallet_action (source_a, std::numeric_limits <rai::uint128_t>::max (), [this, source_a, account_a, amount_a, action_a] ()
+		node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, account_a, amount_a, action_a] ()
 		{
 			auto block (send_action (source_a, account_a, amount_a));
 			if (block != nullptr)
@@ -1203,6 +1203,8 @@ void rai::wallets::foreach_representative (std::function <void (rai::public_key 
         }
     }
 }
+
+rai::uint128_t const rai::wallets::high_priority = std::numeric_limits <rai::uint128_t>::max ();
 
 rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a)
 {
