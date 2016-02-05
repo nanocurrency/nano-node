@@ -742,6 +742,13 @@ std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		auto hash (block->hash ());
+		auto this_l (shared_from_this ());
+		auto source (send_a.hashables.destination);
+		node.wallets.queue_wallet_action (source, rai::wallets::generate_priority, [this_l, source, hash]
+		{
+			this_l->work_generate (source, hash);
+		});
 	}
     return block;
 }
@@ -774,6 +781,12 @@ std::unique_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		auto hash (block->hash ());
+		auto this_l (shared_from_this ());
+		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
+		{
+			this_l->work_generate (source_a, hash);
+		});
 	}
 	return block;
 }
@@ -810,6 +823,12 @@ std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	{
 		assert (block != nullptr);
 		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		auto hash (block->hash ());
+		auto this_l (shared_from_this ());
+		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
+		{
+			this_l->work_generate (source_a, hash);
+		});
 	}
 	return block;
 }
@@ -821,10 +840,6 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 	{
 		auto block (change_action (source_a, representative_a));
 		result.set_value (block == nullptr);
-		if (block != nullptr)
-		{
-			work_generate (source_a, block->hash ());
-		}
 	});
 	return result.get_future ().get ();
 }
@@ -837,10 +852,6 @@ bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account co
 	{
 		auto block (receive_action (block_a, representative_a, amount_a));
 		result.set_value (block == nullptr);
-		if (block != nullptr)
-		{
-			work_generate (account, block->hash ());
-		}
 	});
 	return result.get_future ().get ();
 }
@@ -858,10 +869,6 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 		else
 		{
 		  result.set_value (0);
-		}
-		if (block != nullptr)
-		{
-			work_generate (source_a, block->hash ());
 		}
 	});
 	return result.get_future ().get ();
@@ -881,10 +888,6 @@ void rai::wallet::send_async (rai::account const & source_a, rai::account const 
 			else
 			{
 				action_a (0);
-			}
-			if (block != nullptr)
-			{
-				work_generate (source_a, block->hash ());
 			}
 		});
 	});
@@ -1208,7 +1211,8 @@ void rai::wallets::foreach_representative (std::function <void (rai::public_key 
     }
 }
 
-rai::uint128_t const rai::wallets::high_priority = std::numeric_limits <rai::uint128_t>::max ();
+rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits <rai::uint128_t>::max ();
+rai::uint128_t const rai::wallets::high_priority = std::numeric_limits <rai::uint128_t>::max () - 1;
 
 rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a)
 {
