@@ -487,8 +487,6 @@ void rai::raw_key::decrypt (rai::uint256_union const & ciphertext, rai::raw_key 
 	dec.ProcessData (data.bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
 }
 
-// Base58check is an encoding using [0-9][a-z][A-Z] excluding characters that can be confused
-// Base58check also has a 32bit error correction code.
 namespace
 {
     char const * base58_lookup ("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
@@ -501,7 +499,24 @@ namespace
     }
     uint8_t base58_decode (char value)
     {
+		assert (value >= '0');
+		assert (value <= '~');
         auto result (base58_reverse [value - 0x30] - 0x30);
+        return result;
+    }
+    char const * account_lookup ("13456789abcdefghijkmnopqrstuwxyz");
+    char const * account_reverse ("~0~1234567~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~89:;<=>?@AB~CDEFGHIJK~LMNO~~~~~");
+    char account_encode (uint8_t value)
+    {
+        assert (value < 32);
+        auto result (account_lookup [value]);
+        return result;
+    }
+    uint8_t account_decode (char value)
+    {
+		assert (value >= '0');
+		assert (value <= '~');
+        auto result (account_reverse [value - 0x30] - 0x30);
         return result;
     }
 }
@@ -509,22 +524,31 @@ namespace
 void rai::uint256_union::encode_base58check (std::string & destination_a) const
 {
     assert (destination_a.empty ());
-    destination_a.reserve (50);
-    uint32_t check;
+    destination_a.reserve (64);
+    uint64_t check (0);
     blake2b_state hash;
-	blake2b_init (&hash, sizeof (check));
-    blake2b_update (&hash, bytes.data (), sizeof (bytes));
-    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&check), sizeof (check));
+	blake2b_init (&hash, 5);
+    blake2b_update (&hash, bytes.data (), bytes.size ());
+    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&check), 5);
     rai::uint512_t number_l (number ());
-    number_l |= rai::uint512_t (check) << 256;
-    number_l |= rai::uint512_t (13) << (256 + 32);
-    while (!number_l.is_zero ())
+	number_l <<= 40;
+    number_l |= rai::uint512_t (check);
+    for (auto i (0); i < 60; ++i)
     {
-        auto r ((number_l % 58).convert_to <uint8_t> ());
-        number_l /= 58;
-        destination_a.push_back (base58_encode (r));
+        auto r (number_l.convert_to <uint8_t> () & 0x1f);
+        number_l >>= 5;
+        destination_a.push_back (account_encode (r));
     }
+	destination_a.append ("-brx"); // xrb-
     std::reverse (destination_a.begin (), destination_a.end ());
+}
+
+std::string rai::uint256_union::to_base58check_split () const
+{
+	auto result (to_base58check ());
+	assert (result.size () == 64);
+	result.insert (32, "\n");
+	return result;
 }
 
 std::string rai::uint256_union::to_base58check () const
@@ -534,7 +558,7 @@ std::string rai::uint256_union::to_base58check () const
 	return result;
 }
 
-bool rai::uint256_union::decode_base58check (std::string const & source_a)
+bool rai::uint256_union::decode_account_v1 (std::string const & source_a)
 {
     auto result (source_a.size () != 50);
     if (!result)
@@ -566,6 +590,54 @@ bool rai::uint256_union::decode_base58check (std::string const & source_a)
             }
         }
     }
+    return result;
+}
+
+bool rai::uint256_union::decode_base58check (std::string const & source_a)
+{
+    auto result (source_a.size () != 64);
+    if (!result)
+    {
+		if (source_a [0] == 'x' && source_a [1] == 'r' && source_a [2] == 'b' && source_a [3] == '-')
+		{
+			rai::uint512_t number_l;
+			for (auto i (source_a.begin () + 4), j (source_a.end ()); !result && i != j; ++i)
+			{
+				uint8_t character (*i);
+				result = character < 0x30 || character >= 0x80;
+				if (!result)
+				{
+					uint8_t byte (account_decode (*i));
+					result = byte == '~';
+					if (!result)
+					{
+						number_l <<= 5;
+						number_l += byte;
+					}
+				}
+			}
+			if (!result)
+			{
+				*this = (number_l >> 40).convert_to <rai::uint256_t> ();
+				uint64_t check (number_l.convert_to <uint64_t> ());
+				check &=  0xffffffffff;
+				uint64_t validation (0);
+				blake2b_state hash;
+				blake2b_init (&hash, 5);
+				blake2b_update (&hash, bytes.data (), bytes.size ());
+				blake2b_final (&hash, reinterpret_cast <uint8_t *> (&validation), 5);
+				result = check != validation;
+			}
+		}
+		else
+		{
+			result = true;
+		}
+    }
+	else
+	{
+		result = decode_account_v1 (source_a);
+	}
     return result;
 }
 

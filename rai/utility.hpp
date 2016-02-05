@@ -174,6 +174,8 @@ union uint256_union
 	bool decode_dec (std::string const &);
 	void encode_base58check (std::string &) const;
 	std::string to_base58check () const;
+	std::string to_base58check_split () const;
+	bool decode_account_v1 (std::string const &);
 	bool decode_base58check (std::string const &);
 	std::array <uint8_t, 32> bytes;
 	std::array <char, 32> chars;

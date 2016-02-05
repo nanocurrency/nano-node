@@ -292,7 +292,7 @@ TEST (base58, encode_zero)
     rai::uint256_union number0 (0);
     std::string str0;
     number0.encode_base58check (str0);
-    ASSERT_EQ (50, str0.size ());
+    ASSERT_EQ (64, str0.size ());
     rai::uint256_union number1;
     ASSERT_FALSE (number1.decode_base58check (str0));
     ASSERT_EQ (number0, number1);
@@ -304,7 +304,7 @@ TEST (base58, encode_all)
     number0.decode_hex ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
     std::string str0;
     number0.encode_base58check (str0);
-    ASSERT_EQ (50, str0.size ());
+    ASSERT_EQ (64, str0.size ());
     rai::uint256_union number1;
     ASSERT_FALSE (number1.decode_base58check (str0));
     ASSERT_EQ (number0, number1);

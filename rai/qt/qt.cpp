@@ -41,20 +41,23 @@ rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & ac
 window (new QWidget),
 layout (new QVBoxLayout),
 your_account_label (new QLabel ("Your RaiBlocks account:")),
-account_button (new QPushButton),
+account_text (new QPushButton),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
-	account_button->setFlat (true);
+	account_text->setFlat (true);
+	auto font (QFontDatabase::systemFont (QFontDatabase::FixedFont));
+	font.setPointSize (account_text->font().pointSize());
+	account_text->setFont (font);
 	layout->addWidget (your_account_label);
-	layout->addWidget (account_button);
+	layout->addWidget (account_text);
 	layout->addWidget (balance_label);
 	layout->setContentsMargins (5, 5, 5, 5);
 	window->setLayout (layout);
 
-	QObject::connect (account_button, &QPushButton::clicked, [this] ()
+	QObject::connect (account_text, &QPushButton::clicked, [this] ()
 	{
-		wallet.application.clipboard ()->setText (account_button->text ());
+		wallet.application.clipboard ()->setText (QString (wallet.account.to_base58check ().c_str ()));
 	});
 }
 
@@ -546,21 +549,24 @@ active_status (*this)
 					send_blocks_send->setEnabled (false);
 					node.background ([this, account_l, actual] ()
 					{
-						auto block (wallet_m->send_sync (account, account_l, actual));
-						application.postEvent (&processor, new eventloop_event ([this, block] ()
+						wallet_m->send_async (account, account_l, actual, [this] (std::unique_ptr <rai::block> block_a)
 						{
-							send_blocks_send->setEnabled (true);
-							if (!block.is_zero ())
+							auto hash (block_a->hash ());
+							application.postEvent (&processor, new eventloop_event ([this, hash] ()
 							{
-								send_count->clear ();
-								send_account->clear ();
-								accounts.refresh ();
-							}
-							else
-							{
-								show_line_error (*send_count);
-							}
-						}));
+								send_blocks_send->setEnabled (true);
+								if (!hash.is_zero ())
+								{
+									send_count->clear ();
+									send_account->clear ();
+									accounts.refresh ();
+								}
+								else
+								{
+									show_line_error (*send_count);
+								}
+							}));
+						});
 					});
 				}
 				else
@@ -659,7 +665,7 @@ void rai_qt::wallet::refresh ()
 		rai::transaction transaction (wallet_m->store.environment, nullptr, false);
 		assert (wallet_m->store.exists (transaction, account));
 	}
-    self.account_button->setText (QString (account.to_base58check ().c_str ()));
+    self.account_text->setText (QString (account.to_base58check_split ().c_str ()));
 	self.refresh_balance ();
     accounts.refresh ();
     history.refresh ();
