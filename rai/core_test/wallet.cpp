@@ -116,10 +116,9 @@ TEST (wallet, insufficient_spend_one)
     rai::system system (24000, 1);
     rai::keypair key1;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	auto block (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key1.pub, 500));
-    ASSERT_FALSE (block.is_zero ());
-	ASSERT_TRUE (system.nodes [0]->ledger.block_exists (block));
-    ASSERT_TRUE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key1.pub, rai::genesis_amount).is_zero ());
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 500));
+    ASSERT_NE (nullptr, block);
+    ASSERT_EQ (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, rai::genesis_amount));
 }
 
 TEST (wallet, spend_all_one)
@@ -128,7 +127,7 @@ TEST (wallet, spend_all_one)
     rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key2;
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()).is_zero ());
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
     rai::account_info info2;
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
@@ -158,7 +157,7 @@ TEST (wallet, send_async)
 		}
 	});
 	bool success (false);
-    system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), [&success] (rai::block_hash const & block_a) { ASSERT_FALSE (block_a.is_zero ()); success = true; });
+    system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), [&success] (std::unique_ptr <rai::block> block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
 	ASSERT_TRUE (success);
 }
@@ -170,8 +169,8 @@ TEST (wallet, spend)
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key2;
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
-	ASSERT_TRUE (system.wallet (0)->send_sync (0, key2.pub, 0).is_zero ());
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()).is_zero ());
+	ASSERT_EQ (nullptr, system.wallet (0)->send_action (0, key2.pub, 0));
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max ()));
     rai::account_info info2;
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
@@ -203,7 +202,7 @@ TEST (wallet, partial_spend)
     rai::system system (24000, 1);
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     rai::keypair key2;
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 500).is_zero ());
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, 500));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
@@ -222,7 +221,7 @@ TEST (wallet, spend_no_previous)
 		}
 	}
     rai::keypair key2;
-    ASSERT_FALSE (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key2.pub, 500).is_zero ());
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, 500));
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - 500, system.nodes [0]->balance (rai::test_genesis_key.pub));
 }
 
@@ -617,7 +616,7 @@ TEST (wallet, work_generate)
 		account1 = system.account (transaction, 0);
 	}
 	rai::keypair key;
-    wallet->send_sync (rai::test_genesis_key.pub, key.pub, 100);
+    wallet->send_action (rai::test_genesis_key.pub, key.pub, 100);
     auto iterations1 (0);
     while (system.nodes [0]->ledger.account_balance (rai::transaction (system.nodes [0]->store.environment, nullptr, false), rai::test_genesis_key.pub) == amount1)
     {

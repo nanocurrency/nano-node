@@ -885,10 +885,15 @@ void rai::rpc_handler::send ()
 						{
 							auto connection_l (connection);
 							auto & rpc_l (rpc);
-							existing->second->send_async (source, destination, amount.number (), [connection_l, &rpc_l] (rai::block_hash const & block_a)
+							existing->second->send_async (source, destination, amount.number (), [connection_l, &rpc_l] (std::unique_ptr <rai::block> block_a)
 							{
+								rai::uint256_union hash (0);
+								if (block_a != nullptr)
+								{
+									hash = block_a->hash ();
+								}
 								boost::property_tree::ptree response_l;
-								response_l.put ("block", block_a.to_string ());
+								response_l.put ("block", hash.to_string ());
 								rpc_l.send_response (connection_l, response_l);
 							});
 						}

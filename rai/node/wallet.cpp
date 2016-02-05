@@ -700,7 +700,6 @@ bool check_ownership (rai::wallets & wallets_a, rai::account const & account_a) 
 
 std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const & send_a, rai::account const & representative_a, rai::uint128_union const & amount_a)
 {
-	assert (!check_ownership (node.wallets, send_a.hashables.destination));
     auto hash (send_a.hash ());
 	std::unique_ptr <rai::block> block;
 	if (node.config.receive_minimum.number () <= amount_a.number ())
@@ -755,7 +754,6 @@ std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 
 std::unique_ptr <rai::block> rai::wallet::change_action (rai::account const & source_a, rai::account const & representative_a)
 {
-	assert (!check_ownership (node.wallets, source_a));
 	std::unique_ptr <rai::block> block;
 	{
 		rai::transaction transaction (store.environment, nullptr, false);
@@ -793,7 +791,6 @@ std::unique_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 
 std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
-	assert (!check_ownership (node.wallets, source_a));
 	std::unique_ptr <rai::block> block;
 	{
 		rai::transaction transaction (store.environment, nullptr, false);
@@ -836,59 +833,63 @@ std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
 {
 	std::promise <bool> result;
-	node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, representative_a, &result] ()
+	change_async (source_a, representative_a, [this, source_a, representative_a, &result] (std::unique_ptr <rai::block> block_a)
 	{
-		auto block (change_action (source_a, representative_a));
-		result.set_value (block == nullptr);
+		result.set_value (block_a == nullptr);
 	});
 	return result.get_future ().get ();
+}
+
+void rai::wallet::change_async (rai::account const & source_a, rai::account const & representative_a, std::function <void (std::unique_ptr <rai::block>)> const & action_a)
+{
+	node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, representative_a, action_a] ()
+	{
+		assert (!check_ownership (node.wallets, source_a));
+		auto block (change_action (source_a, representative_a));
+		action_a (std::move (block));
+	});
 }
 
 bool rai::wallet::receive_sync (rai::send_block const & block_a, rai::account const & representative_a, rai::uint128_t const & amount_a)
 {
 	std::promise <bool> result;
-	auto account (block_a.hashables.destination);
-	node.wallets.queue_wallet_action (account, amount_a, [this, &block_a, account, representative_a, &result, amount_a] ()
+	receive_async (block_a, representative_a, amount_a, [&result] (std::unique_ptr <rai::block> block_a)
 	{
-		auto block (receive_action (block_a, representative_a, amount_a));
-		result.set_value (block == nullptr);
+		result.set_value (block_a == nullptr);
 	});
 	return result.get_future ().get ();
+}
+
+void rai::wallet::receive_async (rai::send_block const & block_a, rai::account const & representative_a, rai::uint128_t const & amount_a, std::function <void (std::unique_ptr <rai::block>)> const & action_a)
+{
+	std::shared_ptr <rai::send_block> block_l (static_cast <rai::send_block *> (block_a.clone ().release ()));
+	node.wallets.queue_wallet_action (block_a.hashables.destination, amount_a, [this, block_l, representative_a, amount_a, action_a] ()
+	{
+		assert (!check_ownership (node.wallets, block_l->hashables.destination));
+		auto block (receive_action (*block_l, representative_a, amount_a));
+		action_a (std::move (block));
+	});
 }
 
 rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a)
 {
 	std::promise <rai::block_hash> result;
-	node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, account_a, amount_a, &result] ()
+	send_async (source_a, account_a, amount_a, [&result] (std::unique_ptr <rai::block> block_a)
 	{
-		auto block (send_action (source_a, account_a, amount_a));
-		if (block != nullptr)
-		{
-			result.set_value (block->hash ());
-		}
-		else
-		{
-		  result.set_value (0);
-		}
+		result.set_value (block_a->hash ());
 	});
 	return result.get_future ().get ();
 }
 
-void rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void (rai::block_hash const &)> const & action_a)
+void rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void (std::unique_ptr <rai::block>)> const & action_a)
 {
 	node.background ([this, source_a, account_a, amount_a, action_a] ()
 	{
 		node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, account_a, amount_a, action_a] ()
 		{
+			assert (!check_ownership (node.wallets, source_a));
 			auto block (send_action (source_a, account_a, amount_a));
-			if (block != nullptr)
-			{
-				action_a (block->hash ());
-			}
-			else
-			{
-				action_a (0);
-			}
+			action_a (std::move (block));
 		});
 	});
 }

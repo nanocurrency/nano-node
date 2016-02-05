@@ -175,7 +175,7 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector <rai::
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
-    wallet (0)->send_sync (source, destination, amount);
+    wallet (0)->send_action (source, destination, amount);
 }
 
 void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::account> & accounts_a)
@@ -191,7 +191,7 @@ void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::accou
 	}
 	accounts_a.push_back (key.pub);
 	node_a.wallets.items.begin ()->second->insert (key.prv);
-    node_a.wallets.items.begin ()->second->send_sync (source, key.pub, amount);
+    node_a.wallets.items.begin ()->second->send_action (source, key.pub, amount);
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)

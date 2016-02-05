@@ -103,7 +103,7 @@ TEST (wallet, multithreaded_send)
 			{
 				for (auto i (0); i < 1000; ++i)
 				{
-					wallet_l->send_sync (rai::test_genesis_key.pub, key.pub, 1000);
+					wallet_l->send_action (rai::test_genesis_key.pub, key.pub, 1000);
 				}
 			}));
 		}

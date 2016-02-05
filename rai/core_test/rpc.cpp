@@ -579,15 +579,15 @@ TEST (rpc, chain)
 	rai::keypair key;
 	auto genesis (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	ASSERT_FALSE (genesis.is_zero ());
-	auto block (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, 1));
-	ASSERT_FALSE (block.is_zero ());
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	ASSERT_NE (nullptr, block);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "chain");
-	request.put ("block", block.to_string ());
+	request.put ("block", block->hash().to_string ());
 	request.put ("count", std::to_string (std::numeric_limits <uint64_t>::max ()));
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
@@ -598,7 +598,7 @@ TEST (rpc, chain)
 		blocks.push_back (rai::block_hash (i->second.get <std::string> ("")));
 	}
 	ASSERT_EQ (2, blocks.size ());
-	ASSERT_EQ (block, blocks [0]);
+	ASSERT_EQ (block->hash(), blocks [0]);
 	ASSERT_EQ (genesis, blocks [1]);
 	rpc.stop();
 	thread1.join();
@@ -611,15 +611,15 @@ TEST (rpc, chain_limit)
 	rai::keypair key;
 	auto genesis (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	ASSERT_FALSE (genesis.is_zero ());
-	auto block (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, 1));
-	ASSERT_FALSE (block.is_zero ());
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	ASSERT_NE (nullptr, block);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
     request.put ("action", "chain");
-	request.put ("block", block.to_string ());
+	request.put ("block", block->hash().to_string ());
 	request.put ("count", 1);
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
@@ -630,7 +630,7 @@ TEST (rpc, chain_limit)
 		blocks.push_back (rai::block_hash (i->second.get <std::string> ("")));
 	}
 	ASSERT_EQ (1, blocks.size ());
-	ASSERT_EQ (block, blocks [0]);
+	ASSERT_EQ (block->hash(), blocks [0]);
 	rpc.stop();
 	thread1.join();
 }
@@ -1062,10 +1062,10 @@ TEST (rpc, DISABLED_payment_wait)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	ASSERT_EQ ("nothing", response1.first.get <std::string> ("status"));
 	request1.put ("timeout", "100000");
-	system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
 	system.processor.add(std::chrono::system_clock::now () + std::chrono::milliseconds(500), [&] ()
 	{
-		system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
+		system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
 	});
 	auto response2 (test_response (request1, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);

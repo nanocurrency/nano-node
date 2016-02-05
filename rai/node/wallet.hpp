@@ -118,10 +118,10 @@ class node;
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet : public std::enable_shared_from_this <rai::wallet>
 {
+public:
 	std::unique_ptr <rai::block> change_action (rai::account const &, rai::account const &);
     std::unique_ptr <rai::block> receive_action (rai::send_block const &, rai::account const &, rai::uint128_union const &);
 	std::unique_ptr <rai::block> send_action (rai::account const &, rai::account const &, rai::uint128_t const &);
-public:
     wallet (bool &, rai::transaction &, rai::node &, std::string const &);
     wallet (bool &, rai::transaction &, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password ();
@@ -132,9 +132,11 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_sync (rai::account const &, rai::account const &);
+	void change_async (rai::account const &, rai::account const &, std::function <void (std::unique_ptr <rai::block>)> const &);
     bool receive_sync (rai::send_block const &, rai::account const &, rai::uint128_t const &);
+	void receive_async (rai::send_block const &, rai::account const &, rai::uint128_t const &, std::function <void (std::unique_ptr <rai::block>)> const &);
 	rai::block_hash send_sync (rai::account const &, rai::account const &, rai::uint128_t const &);
-	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function <void (rai::block_hash const &)> const &);
+	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function <void (std::unique_ptr <rai::block>)> const &);
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
