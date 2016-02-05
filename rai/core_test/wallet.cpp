@@ -191,7 +191,7 @@ TEST (wallet, change)
     rai::keypair key2;
 	auto block1 (system.nodes [0]->representative (rai::test_genesis_key.pub));
 	ASSERT_FALSE (block1.is_zero ());
-	ASSERT_FALSE (system.wallet (0)->change_sync (rai::test_genesis_key.pub, key2.pub));
+	ASSERT_NE (nullptr, system.wallet (0)->change_action (rai::test_genesis_key.pub, key2.pub));
 	auto block2 (system.nodes [0]->representative (rai::test_genesis_key.pub));
 	ASSERT_FALSE (block2.is_zero ());
 	ASSERT_NE (block1, block2);

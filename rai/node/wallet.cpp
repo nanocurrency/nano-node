@@ -992,11 +992,10 @@ public:
 						std::shared_ptr <rai::send_block> block (static_cast <rai::send_block *> (block_l.release ()));
 						auto wallet_l (wallet);
 						auto amount (receivable.amount.number ());
-						wallet->node.background ([wallet_l, block, representative, amount]
+						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
+						wallet_l->receive_async (*block, representative, amount, [wallet_l, block] (std::unique_ptr <rai::block> block_a)
 						{
-							BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-							auto error (wallet_l->receive_sync (*block, representative, amount));
-							if (error)
+							if (block_a == nullptr)
 							{
 								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
 							}
@@ -1145,43 +1144,45 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
 	wallet->store.destroy (transaction);
 }
 
-void rai::wallets::queue_wallet_action (rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void ()> const & action_a)
+void rai::wallets::do_wallet_actions (rai::account const & account_a)
 {
-	auto current (std::move (action_a));
-	auto perform (false);
+	observer (account_a, true);
+	std::unique_lock <std::mutex> lock (node.wallets.action_mutex);
+	auto existing (node.wallets.pending_actions.find (account_a));
+	while (existing != node.wallets.pending_actions.end ())
 	{
-		std::lock_guard <std::mutex> lock (action_mutex);
-		perform = current_actions.insert (account_a).second;
-		if (!perform)
+		auto & entries (existing->second);
+		if (entries.empty ())
 		{
-			pending_actions [account_a].insert (decltype (pending_actions)::mapped_type::value_type (amount_a, std::move (current)));
-		}
-	}
-	while (perform)
-	{
-		observer (account_a, true);
-		current ();
-		std::lock_guard <std::mutex> lock (node.wallets.action_mutex);
-		auto existing (node.wallets.pending_actions.find (account_a));
-		if (existing != node.wallets.pending_actions.end ())
-		{
-			auto & entries (existing->second);
-			auto first (entries.begin ());
-			assert (first != entries.end ());
-			current = std::move (first->second);
-			entries.erase (first);
-			if (entries.empty ())
-			{
-				node.wallets.pending_actions.erase (existing);
-			}
+			node.wallets.pending_actions.erase (existing);
+			auto erased (node.wallets.current_actions.erase (account_a));
+			assert (erased == 1); (void) erased;
 		}
 		else
 		{
-			auto erased (node.wallets.current_actions.erase (account_a));
-			assert (erased == 1); (void) erased;
-			perform = false;
+			auto first (entries.begin ());
+			auto current (std::move (first->second));
+			entries.erase (first);
+			lock.unlock ();
+			current ();
+			lock.lock ();
 		}
-		observer (account_a, false);
+		existing = node.wallets.pending_actions.find (account_a);
+	}
+	observer (account_a, false);
+}
+
+void rai::wallets::queue_wallet_action (rai::account const & account_a, rai::uint128_t const & amount_a, std::function <void ()> const & action_a)
+{
+	std::lock_guard <std::mutex> lock (action_mutex);
+	pending_actions [account_a].insert (decltype (pending_actions)::mapped_type::value_type (amount_a, std::move (action_a)));
+	if (current_actions.insert (account_a).second)
+	{
+		auto node_l (node.shared ());
+		node.background ([node_l, account_a] ()
+		{
+			node_l->wallets.do_wallet_actions (account_a);
+		});
 	}
 }
 

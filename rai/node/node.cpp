@@ -1723,10 +1723,7 @@ public:
 					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));
 					auto node_l (node.shared ());
 					auto amount (receivable.amount.number ());
-					node.service.add (std::chrono::system_clock::now (), [block_l, representative, wallet, node_l, amount] ()
-					{
-						auto error (wallet->receive_sync (*block_l, representative, amount));
-					});
+					wallet->receive_async (*block_l, representative, amount, [] (std::unique_ptr <rai::block> block_a) {});
 				}
 				else
 				{
