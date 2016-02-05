@@ -986,13 +986,17 @@ public:
 						auto block_l (wallet->node.store.block_get (transaction, i->first));
 						assert (dynamic_cast <rai::send_block *> (block_l.get ()) != nullptr);
 						std::shared_ptr <rai::send_block> block (static_cast <rai::send_block *> (block_l.release ()));
+						auto wallet_l (wallet);
 						auto amount (receivable.amount.number ());
-						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-						auto error (wallet->receive_sync (*block, representative, amount));
-						if (error)
+						wallet->node.background ([wallet_l, block, representative, amount]
 						{
-							BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
-						}
+							BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
+							auto error (wallet_l->receive_sync (*block, representative, amount));
+							if (error)
+							{
+								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
+							}
+						});
 					}
 					else
 					{
