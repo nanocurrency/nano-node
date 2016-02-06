@@ -112,11 +112,18 @@ void rai::rpc::send_response (boost::network::http::async_server <rai::rpc>::con
 
 void rai::rpc::observer_action (rai::account const & account_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	auto existing (payment_observers.find (account_a));
-	if (existing != payment_observers.end ())
+	std::shared_ptr <rai::payment_observer> observer;
 	{
-		existing->second->observe ();
+		std::lock_guard <std::mutex> lock (mutex);
+		auto existing (payment_observers.find (account_a));
+		if (existing != payment_observers.end ())
+		{
+			observer = existing->second;
+		}
+	}
+	if (observer != nullptr)
+	{
+		observer->observe ();
 	}
 }
 
