@@ -18,11 +18,41 @@ public:
 		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
 	}
+	bool upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+	{
+		auto result (false);
+		switch (version_a)
+		{
+		case 1:
+		{
+			rai::account account;
+			account.decode_account (tree_a.get <std::string> ("account"));
+			tree_a.erase ("account");
+			tree_a.put ("account", account.to_account ());
+			tree_a.erase ("version");
+			tree_a.put ("version", "2");
+			result = true;
+		}
+		case 2:
+		break;
+		default:
+		throw std::runtime_error ("Unknown qt_wallet_config version");
+		}
+		return result;
+	}
 	bool deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 	{
 		auto error (false);
 		if (!tree_a.empty ())
 		{
+			auto version_l (tree_a.get_optional <std::string> ("version"));
+			if (!version_l)
+			{
+				tree_a.put ("version", "1");
+				version_l = "1";
+				upgraded_a = true;
+			}
+			upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
 			auto wallet_l (tree_a.get <std::string> ("wallet"));
 			auto account_l (tree_a.get <std::string> ("account"));
 			auto & node_l (tree_a.get_child ("node"));

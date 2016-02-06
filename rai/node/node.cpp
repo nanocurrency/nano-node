@@ -726,11 +726,55 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
 }
 
+bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
+{
+	auto result (false);
+	switch (version)
+	{
+	case 1:
+	{
+		auto reps_l (tree_a.get_child ("preconfigured_representatives"));
+		boost::property_tree::ptree reps;
+		for (auto i (reps_l.begin ()), n (reps_l.end ()); i != n; ++i)
+		{
+			rai::uint256_union account;
+			account.decode_account (i->second.get <std::string> (""));
+			boost::property_tree::ptree entry;
+			entry.put ("", account.to_account ());
+			reps.push_back (std::make_pair ("", entry));
+		}
+		tree_a.erase ("preconfigured_representatives");
+		tree_a.add_child ("preconfigured_representatives", reps);
+		tree_a.erase ("version");
+		tree_a.put ("version", "2");
+		result = true;
+	}
+	case 2:
+	break;
+	default:
+		throw std::runtime_error ("Unknown node_config version");
+	}
+	return result;
+}
+
 bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	try
 	{
+		auto version_l (tree_a.get_optional <std::string> ("version"));
+		if (!version_l)
+		{
+			tree_a.put ("version", "1");
+			version_l = "1";
+			auto work_peers_l (tree_a.get_child_optional ("work_peers"));
+			if (!work_peers_l)
+			{
+				tree_a.add_child ("work_peers", boost::property_tree::ptree ());
+			}
+			upgraded_a = true;
+		}
+		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
 		auto peering_port_l (tree_a.get <std::string> ("peering_port"));
 		auto packet_delay_microseconds_l (tree_a.get <std::string> ("packet_delay_microseconds"));
 		auto bootstrap_fraction_numerator_l (tree_a.get <std::string> ("bootstrap_fraction_numerator"));
@@ -738,23 +782,15 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto rebroadcast_delay_l (tree_a.get <std::string> ("rebroadcast_delay"));
 		auto receive_minimum_l (tree_a.get <std::string> ("receive_minimum"));
 		auto logging_l (tree_a.get_child ("logging"));
-		auto work_peers_l (tree_a.get_child_optional ("work_peers"));
 		work_peers.clear ();
-		if (work_peers_l)
+		auto work_peers_l (tree_a.get_child ("work_peers"));
+		for (auto i (work_peers_l.begin ()), n (work_peers_l.end ()); i != n; ++i)
 		{
-			for (auto i (work_peers_l.get ().begin ()), n (work_peers_l.get ().end ()); i != n; ++i)
-			{
-				auto work_peer (i->second.get <std::string> (""));
-				boost::asio::ip::address address;
-				uint16_t port;
-				result |= rai::parse_address_port (work_peer, address, port);
-				work_peers.push_back (std::make_pair (address, port));
-			}
-		}
-		else
-		{
-			tree_a.add_child ("work_peers", boost::property_tree::ptree ());
-			upgraded_a = true;
+			auto work_peer (i->second.get <std::string> (""));
+			boost::asio::ip::address address;
+			uint16_t port;
+			result |= rai::parse_address_port (work_peer, address, port);
+			work_peers.push_back (std::make_pair (address, port));
 		}
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
