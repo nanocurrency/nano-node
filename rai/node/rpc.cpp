@@ -1264,6 +1264,16 @@ void rai::rpc_handler::process_request ()
 		std::stringstream istream (body);
 		boost::property_tree::read_json (istream, request);
 		std::string action (request.get <std::string> ("action"));
+		if (action == "password_enter")
+		{
+			password_enter ();
+			request.erase ("password");
+		}
+		else if (action == "password_change")
+		{
+			password_change ();
+			request.erase ("password");
+		}
 		if (rpc.node.config.logging.log_rpc ())
 		{
 			BOOST_LOG (rpc.node.log) << body;
@@ -1306,11 +1316,11 @@ void rai::rpc_handler::process_request ()
 		}
 		else if (action == "password_change")
 		{
-			password_change ();
+			// Processed before logging
 		}
 		else if (action == "password_enter")
 		{
-			password_enter ();
+			// Processed before logging
 		}
 		else if (action == "password_valid")
 		{
@@ -1328,12 +1338,6 @@ void rai::rpc_handler::process_request ()
 		{
 			payment_end ();
 		}
-		/*else if (action == "payment_shutdown")
-		{
-		}
-		else if (action == "payment_startup")
-		{
-		}*/
 		else if (action == "payment_wait")
 		{
 			payment_wait ();
