@@ -671,6 +671,7 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai
             break;
         }
         default:
+			assert (false);
             break;
     }
     return result;

@@ -791,7 +791,10 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			boost::asio::ip::address address;
 			uint16_t port;
 			result |= rai::parse_address_port (work_peer, address, port);
-			work_peers.push_back (std::make_pair (address, port));
+			if (!result)
+			{
+				work_peers.push_back (std::make_pair (address, port));
+			}
 		}
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
