@@ -1452,7 +1452,6 @@ void rai::payment_observer::start (uint64_t timeout)
 	auto this_l (shared_from_this ());
 	rpc.node.service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout), [this_l] ()
 	{
-		std::lock_guard <std::mutex> lock (this_l->rpc.mutex);
 		this_l->complete (rai::payment_status::nothing);
 	});
 }
@@ -1496,6 +1495,7 @@ void rai::payment_observer::complete (rai::payment_status status)
 				break;
 			}
 		}
+		std::lock_guard <std::mutex> lock (rpc.mutex);
 		assert (rpc.payment_observers.find (account) != rpc.payment_observers.end ());
 		rpc.payment_observers.erase (account);
 	}

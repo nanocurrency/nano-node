@@ -592,7 +592,7 @@ TEST (wallet, work)
 	ASSERT_FALSE (system.work.work_validate (root1, work4));
     uint64_t work3 (0);
 	auto iteration (0);
-	while (work3 != work4)
+	while (system.work.work_validate (root1, work3))
 	{
 		system.poll ();
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
