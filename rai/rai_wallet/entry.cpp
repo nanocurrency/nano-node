@@ -83,6 +83,7 @@ public:
 	{
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
+		tree_a.put ("version", "2");
 		tree_a.put ("wallet", wallet_string);
 		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;

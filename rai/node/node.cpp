@@ -691,6 +691,7 @@ receive_minimum (rai::Mrai_ratio)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
+	tree_a.put ("version", "2");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("packet_delay_microseconds", std::to_string (packet_delay_microseconds));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
