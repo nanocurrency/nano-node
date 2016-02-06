@@ -2380,7 +2380,7 @@ void rai::thread_runner::join ()
 void rai::add_node_options (boost::program_options::options_description & description_a)
 {
 	description_a.add_options ()
-	("account", "Get account number for the <key>")
+	("account_get", "Get account number for the <key>")
 	("account_key", "Get the public key for <account>")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a random keypair")
@@ -2404,7 +2404,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 bool rai::handle_node_options (boost::program_options::variables_map & vm)
 {
 	auto result (false);
-    if (vm.count ("account") > 0)
+    if (vm.count ("account_get") > 0)
     {
 		if (vm.count ("key") == 1)
 		{

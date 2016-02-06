@@ -210,6 +210,11 @@ TEST (uint256_union, account_transcode)
 	auto text (rai::test_genesis_key.pub.to_account ());
     ASSERT_FALSE (value.decode_account (text));
     ASSERT_EQ (rai::test_genesis_key.pub, value);
+	ASSERT_EQ ('_', text [3]);
+	text [3] = '-';
+	rai::uint256_union value2;
+	ASSERT_FALSE (value2.decode_account (text));
+	ASSERT_EQ (value, value2);
 }
 
 TEST (uint256_union, account_encode_lex)
