@@ -1257,6 +1257,16 @@ void rai::rpc_handler::part_handler (boost::network::http::async_server <rai::rp
 	}
 }
 
+namespace
+{
+void reprocess_body (std::string & body, boost::property_tree::ptree & tree_a)
+{
+	std::stringstream stream;
+	boost::property_tree::write_json (stream, tree_a);
+	body = stream.str ();
+}
+}
+
 void rai::rpc_handler::process_request ()
 {
 	try
@@ -1268,11 +1278,13 @@ void rai::rpc_handler::process_request ()
 		{
 			password_enter ();
 			request.erase ("password");
+			reprocess_body (body, request);
 		}
 		else if (action == "password_change")
 		{
 			password_change ();
 			request.erase ("password");
+			reprocess_body (body, request);
 		}
 		if (rpc.node.config.logging.log_rpc ())
 		{
