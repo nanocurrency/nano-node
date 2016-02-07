@@ -611,7 +611,7 @@ public:
 				BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
 			}
 			auto node_l (node.shared ());
-			node.conflicts.start (block_a, [node_l] (rai::block & block_a)
+			node.active.start (block_a, [node_l] (rai::block & block_a)
 			{
 				node_l->process_confirmed (block_a);
 			}, false);
@@ -619,7 +619,7 @@ public:
 			std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
 			node.service.add (std::chrono::system_clock::now () + rai::confirm_wait, [node_l, root, block_l] ()
 			{
-				if (node_l->conflicts.no_conflict (root))
+				if (node_l->active.no_conflict (root))
 				{
 					node_l->process_confirmed (*block_l);
 				}
@@ -860,7 +860,7 @@ work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb"),
 gap_cache (*this),
 ledger (store),
-conflicts (*this),
+active (*this),
 wallets (init_a.block_store_init, *this),
 network (service_a, config.peering_port, *this),
 bootstrap_initiator (*this),
@@ -896,7 +896,7 @@ application_path (application_path_a)
 	});
     vote_observers.push_back ([this] (rai::vote const & vote_a)
     {
-        conflicts.update (vote_a);
+        active.update (vote_a);
     });
     vote_observers.push_back ([this] (rai::vote const & vote_a)
     {
@@ -1229,7 +1229,7 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
 			std::unique_ptr <rai::block> root;
 			root = ledger.successor (transaction_a, block_a.root ());
 			auto node_l (shared_from_this ());
-			conflicts.start (*root, [node_l] (rai::block & block_a)
+			active.start (*root, [node_l] (rai::block & block_a)
 			{
 				node_l->process_confirmed (block_a);
 			}, false);
@@ -1446,7 +1446,7 @@ void rai::node::start ()
 void rai::node::stop ()
 {
     BOOST_LOG (log) << "Node stopping";
-	conflicts.roots.clear ();
+	active.roots.clear ();
     network.stop ();
     bootstrap.stop ();
     service.stop ();
@@ -2204,7 +2204,7 @@ void rai::election::start_request (rai::block const & block_a)
 	}
 }
 
-void rai::conflicts::announce_votes ()
+void rai::active_transactions::announce_votes ()
 {
 	std::vector <rai::block_hash> inactive;
 	auto now (std::chrono::system_clock::now ());
@@ -2247,11 +2247,11 @@ void rai::conflicts::announce_votes ()
 	if (!roots.empty ())
 	{
 		auto node_l (node.shared ());
-		node.service.add (now + std::chrono::seconds (16), [node_l] () {node_l->conflicts.announce_votes ();});
+		node.service.add (now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
 	}
 }
 
-void rai::conflicts::start (rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a, bool request_a)
+void rai::active_transactions::start (rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a, bool request_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
 	auto start_announce (roots.empty ());
@@ -2271,12 +2271,12 @@ void rai::conflicts::start (rai::block const & block_a, std::function <void (rai
 		auto node_l (node.shared ());
 		node.background ([node_l] ()
 		{
-			node_l->conflicts.announce_votes ();
+			node_l->active.announce_votes ();
 		});
 	}
 }
 
-bool rai::conflicts::no_conflict (rai::block_hash const & hash_a)
+bool rai::active_transactions::no_conflict (rai::block_hash const & hash_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto result (true);
@@ -2297,7 +2297,7 @@ bool rai::conflicts::no_conflict (rai::block_hash const & hash_a)
 }
 
 // Validate a vote and apply it to the current election or start a new election if it doesn't exist
-void rai::conflicts::update (rai::vote const & vote_a)
+void rai::active_transactions::update (rai::vote const & vote_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto existing (roots.find (vote_a.block->root ()));
@@ -2307,7 +2307,7 @@ void rai::conflicts::update (rai::vote const & vote_a)
     }
 }
 
-rai::conflicts::conflicts (rai::node & node_a) :
+rai::active_transactions::active_transactions (rai::node & node_a) :
 node (node_a)
 {
 }

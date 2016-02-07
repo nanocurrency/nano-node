@@ -691,11 +691,11 @@ TEST (votes, add_unsigned)
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
 	auto node_l (system.nodes [0]);
-	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
+	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	ASSERT_NE (nullptr, votes1);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	rai::keypair key2;
@@ -716,11 +716,11 @@ TEST (votes, add_one)
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
 	auto node_l (system.nodes [0]);
-	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
+	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
@@ -746,11 +746,11 @@ TEST (votes, add_two)
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
 	auto node_l (system.nodes [0]);
-	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
+	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
 	rai::keypair key2;
@@ -780,11 +780,11 @@ TEST (votes, add_existing)
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
 	auto node_l (system.nodes [0]);
-	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
+	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
 	rai::keypair key2;
@@ -812,11 +812,11 @@ TEST (votes, add_old)
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
 	}
 	auto node_l (system.nodes [0]);
-	node1.conflicts.start (send1, [node_l] (rai::block & block_a)
+	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
 	}, false);
-	auto votes1 (node1.conflicts.roots.find (send1.root ())->election);
+	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1.clone ());
 	votes1->vote (vote1);
 	rai::keypair key2;

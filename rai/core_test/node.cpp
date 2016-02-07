@@ -556,18 +556,18 @@ TEST (node, fork_publish)
         rai::publish publish2;
         publish2.block = std::move (send2);
         node1.process_message (publish1, node1.network.endpoint ());
-        ASSERT_EQ (0, node1.conflicts.roots.size ());
+        ASSERT_EQ (0, node1.active.roots.size ());
         node1.process_message (publish2, node1.network.endpoint ());
 		auto iterations2 (0);
-		while (node1.conflicts.roots.size () == 0)
+		while (node1.active.roots.size () == 0)
 		{
             system.poll ();
 			++iterations2;
 			ASSERT_LT (iterations2, 200);
 		}
-        ASSERT_EQ (1, node1.conflicts.roots.size ());
-        auto conflict1 (node1.conflicts.roots.find (publish1.block->root ()));
-        ASSERT_NE (node1.conflicts.roots.end (), conflict1);
+        ASSERT_EQ (1, node1.active.roots.size ());
+        auto conflict1 (node1.active.roots.find (publish1.block->root ()));
+        ASSERT_NE (node1.active.roots.end (), conflict1);
         auto votes1 (conflict1->election);
         ASSERT_NE (nullptr, votes1);
         ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -608,19 +608,19 @@ TEST (node, fork_keep)
     publish2.block = std::move (send2);
     node1.process_message (publish1, node1.network.endpoint ());
 	node2.process_message (publish1, node2.network.endpoint ());
-    ASSERT_EQ (0, node1.conflicts.roots.size ());
-    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    ASSERT_EQ (0, node1.active.roots.size ());
+    ASSERT_EQ (0, node2.active.roots.size ());
     node1.process_message (publish2, node1.network.endpoint ());
 	node2.process_message (publish2, node2.network.endpoint ());
 	auto iterations2 (0);
-    while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+    while (node1.active.roots.size () == 0 || node2.active.roots.size () == 0)
 	{
 		system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 	}
-    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
-    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto conflict (node2.active.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.active.roots.end (), conflict);
     auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -662,19 +662,19 @@ TEST (node, fork_flip)
     publish2.block = std::move (send2);
     node1.process_message (publish1, node1.network.endpoint ());
     node2.process_message (publish2, node1.network.endpoint ());
-    ASSERT_EQ (0, node1.conflicts.roots.size ());
-    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    ASSERT_EQ (0, node1.active.roots.size ());
+    ASSERT_EQ (0, node2.active.roots.size ());
     node1.process_message (publish2, node1.network.endpoint ());
     node2.process_message (publish1, node2.network.endpoint ());
 	auto iterations2 (0);
-	while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	while (node1.active.roots.size () == 0 || node2.active.roots.size () == 0)
 	{
         system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 	}
-    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
-    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto conflict (node2.active.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.active.roots.end (), conflict);
     auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -724,20 +724,20 @@ TEST (node, fork_multi_flip)
     node1.process_message (publish1, node1.network.endpoint ());
 	node2.process_message (publish2, node2.network.endpoint ());
     node2.process_message (publish3, node2.network.endpoint ());
-    ASSERT_EQ (0, node1.conflicts.roots.size ());
-    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    ASSERT_EQ (0, node1.active.roots.size ());
+    ASSERT_EQ (0, node2.active.roots.size ());
     node1.process_message (publish2, node1.network.endpoint ());
     node1.process_message (publish3, node1.network.endpoint ());
 	node2.process_message (publish1, node2.network.endpoint ());
 	auto iterations2 (0);
-    while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+    while (node1.active.roots.size () == 0 || node2.active.roots.size () == 0)
 	{
 		system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 	}
-    auto conflict (node2.conflicts.roots.find (genesis.hash ()));
-    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto conflict (node2.active.roots.find (genesis.hash ()));
+    ASSERT_NE (node2.active.roots.end (), conflict);
     auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -818,7 +818,7 @@ TEST (node, fork_open)
     std::unique_ptr <rai::open_block> open2 (new rai::open_block (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
     rai::publish publish3;
     publish3.block = std::move (open2);
-    ASSERT_EQ (0, node1.conflicts.roots.size ());
+    ASSERT_EQ (0, node1.active.roots.size ());
 	node1.process_message (publish3, node1.network.endpoint ());
 }
 
@@ -844,19 +844,19 @@ TEST (node, fork_open_flip)
     publish3.block = std::move (open2);
     node1.process_message (publish2, node1.network.endpoint ());
     node2.process_message (publish3, node2.network.endpoint ());
-    ASSERT_EQ (0, node1.conflicts.roots.size ());
-    ASSERT_EQ (0, node2.conflicts.roots.size ());
+    ASSERT_EQ (0, node1.active.roots.size ());
+    ASSERT_EQ (0, node2.active.roots.size ());
     node1.process_message (publish3, node1.network.endpoint ());
     node2.process_message (publish2, node2.network.endpoint ());
 	auto iterations2 (0);
-	while (node1.conflicts.roots.size () == 0 || node2.conflicts.roots.size () == 0)
+	while (node1.active.roots.size () == 0 || node2.active.roots.size () == 0)
 	{
         system.poll ();
         ++iterations2;
         ASSERT_LT (iterations2, 200);
 	}
-    auto conflict (node2.conflicts.roots.find (publish2.block->root ()));
-    ASSERT_NE (node2.conflicts.roots.end (), conflict);
+    auto conflict (node2.active.roots.find (publish2.block->root ()));
+    ASSERT_NE (node2.active.roots.end (), conflict);
     auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());

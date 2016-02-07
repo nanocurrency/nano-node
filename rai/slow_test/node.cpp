@@ -179,13 +179,13 @@ TEST (node, fork_storm)
 		single = 0;
 		std::for_each (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a)
 		{
-			if (node_a->conflicts.roots.empty ())
+			if (node_a->active.roots.empty ())
 			{
 				++empty;
 			}
 			else
 			{
-				if (node_a->conflicts.roots.begin ()->election->votes.rep_votes.size () == 1)
+				if (node_a->active.roots.begin ()->election->votes.rep_votes.size () == 1)
 				{
 					++single;
 				}

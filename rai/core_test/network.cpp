@@ -262,7 +262,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
     rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
 	auto node_l (system.nodes [0]);
-    node1.conflicts.start (block1, [node_l] (rai::block & block_a)
+    node1.active.start (block1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
 	}, true);
@@ -279,7 +279,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
     rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
 	auto node_l (system.nodes [0]);
-    node1.conflicts.start (block1, [node_l] (rai::block & block_a)
+    node1.active.start (block1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
 	}, true);

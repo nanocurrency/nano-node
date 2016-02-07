@@ -59,10 +59,11 @@ public:
 	// Number of announcements in a row for this fork
 	int announcements;
 };
-class conflicts
+// Core class for determining concensus
+class active_transactions
 {
 public:
-    conflicts (rai::node &);
+    active_transactions (rai::node &);
     void start (rai::block const &, std::function <void (rai::block &)> const &, bool);
     bool no_conflict (rai::block_hash const &);
     void update (rai::vote const &);
@@ -77,7 +78,9 @@ public:
 	> roots;
     rai::node & node;
     std::mutex mutex;
+	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static size_t constexpr announcements_per_interval = 32;
+	// After this many successive vote announcements, block is confirmed
 	static size_t constexpr contigious_announcements = 4;
 };
 class operation
@@ -342,7 +345,7 @@ public:
     rai::block_store store;
     rai::gap_cache gap_cache;
     rai::ledger ledger;
-    rai::conflicts conflicts;
+    rai::active_transactions active;
     rai::wallets wallets;
     rai::network network;
 	rai::bootstrap_initiator bootstrap_initiator;
