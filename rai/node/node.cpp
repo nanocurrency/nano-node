@@ -2101,33 +2101,29 @@ std::shared_ptr <rai::node> rai::node::shared ()
     return shared_from_this ();
 }
 
-rai::election::election (std::shared_ptr <rai::node> node_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a) :
+rai::election::election (rai::node & node_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a) :
+confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
 last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ()),
-confirmed (false),
-confirmation_action (confirmation_action_a)
+confirmed (false)
 {
 }
 
 void rai::election::interval_action ()
 {
-	auto node_l (node.lock ());
-	if (node_l != nullptr)
+	auto have_representative (node.representative_vote (*this, *last_winner));
+	if (have_representative)
 	{
-		auto have_representative (node_l->representative_vote (*this, *last_winner));
-		if (have_representative)
+		std::unique_ptr <rai::block> winner_l;
 		{
-			std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner_l;
-			{
-				rai::transaction transaction (node_l->store.environment, nullptr, false);
-				winner_l = node_l->ledger.winner (transaction, votes);
-			}
-			assert (winner_l.second != nullptr);
-			auto list (node_l->peers.list ());
-			node_l->network.confirm_broadcast (list, std::move (winner_l.second), votes.sequence, 0);
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			winner_l = node.ledger.winner (transaction, votes).second;
 		}
+		assert (winner_l != nullptr);
+		auto list (node.peers.list ());
+		node.network.confirm_broadcast (list, std::move (winner_l), votes.sequence, 0);
 	}
 }
 
@@ -2146,53 +2142,41 @@ void rai::election::confirm_once ()
 	auto confirmed_l (confirmed.test_and_set ());
 	if (!confirmed_l)
 	{
-		auto node_l (node.lock ());
-		if (node_l != nullptr)
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto tally_l (node.ledger.tally (transaction, votes));
+		assert (tally_l.size () > 0);
+		std::shared_ptr <rai::block> winner_l (tally_l.begin ()->second.release ());
+		auto confirmation_action_l (confirmation_action);
+		node.background ([winner_l, confirmation_action_l] ()
 		{
-			rai::transaction transaction (node_l->store.environment, nullptr, false);
-			auto tally_l (node_l->ledger.tally (transaction, votes));
-			assert (tally_l.size () > 0);
-			std::shared_ptr <rai::block> winner_l (tally_l.begin ()->second.release ());
-			auto confirmation_action_l (confirmation_action);
-			node_l->background ([winner_l, confirmation_action_l] ()
-			{
-				confirmation_action_l (*winner_l);
-			});
-		}
+			confirmation_action_l (*winner_l);
+		});
 	}
 }
 
 void rai::election::process_tally ()
 {
-	auto node_l (node.lock ());
-	if (node_l != nullptr)
+	std::unique_ptr <rai::block> winner;
+	rai::transaction transaction (node.store.environment, nullptr, true);
+	auto tally_l (node.ledger.tally (transaction, votes));
+	assert (tally_l.size () > 0);
+	winner = tally_l.begin ()->second->clone ();
+	if (!(*winner == *last_winner))
 	{
-		std::unique_ptr <rai::block> winner;
-		rai::transaction transaction (node_l->store.environment, nullptr, true);
-		auto tally_l (node_l->ledger.tally (transaction, votes));
-		assert (tally_l.size () > 0);
-		winner = tally_l.begin ()->second->clone ();
-		if (!(*winner == *last_winner))
-		{
-			// Replace our block with the winner and roll back any dependent blocks
-			node_l->ledger.rollback (transaction, last_winner->hash ());
-			node_l->ledger.process (transaction, *winner);
-			last_winner = winner->clone ();
-		}
-		// Check if we can do a fast confirm for the usual case of good actors
-		if (tally_l.size () == 1)
-		{
-			// No forks detected
-			if (tally_l.begin ()->first > uncontested_threshold (transaction, node_l->ledger))
-			{
-				// We have vote quarum
-				confirm_once ();
-			}
-		}
+		// Replace our block with the winner and roll back any dependent blocks
+		node.ledger.rollback (transaction, last_winner->hash ());
+		node.ledger.process (transaction, *winner);
+		last_winner = winner->clone ();
 	}
-	else
+	// Check if we can do a fast confirm for the usual case of good actors
+	if (tally_l.size () == 1)
 	{
-		// Node weak pointer is inactive, node is shutting down
+		// No forks detected
+		if (tally_l.begin ()->first > uncontested_threshold (transaction, node.ledger))
+		{
+			// We have vote quarum
+			confirm_once ();
+		}
 	}
 }
 
@@ -2261,7 +2245,7 @@ void rai::active_transactions::start (rai::block const & block_a, std::function 
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
-        auto election (std::make_shared <rai::election> (node.shared (), block_a, confirmation_action_a));
+        auto election (std::make_shared <rai::election> (node, block_a, confirmation_action_a));
         roots.insert (rai::conflict_info {root, election, 0});
     }
 }

@@ -39,7 +39,7 @@ class election : public std::enable_shared_from_this <rai::election>
 	std::function <void (rai::block &)> confirmation_action;
 	void confirm_once ();
 public:
-    election (std::shared_ptr <rai::node>, rai::block const &, std::function <void (rai::block &)> const &);
+    election (rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
 	void interval_action ();
 	// Confirmation method 1, uncontested quarum
@@ -49,7 +49,7 @@ public:
     rai::uint128_t uncontested_threshold (MDB_txn *, rai::ledger &);
     rai::uint128_t contested_threshold (MDB_txn *, rai::ledger &);
     rai::votes votes;
-    std::weak_ptr <rai::node> node;
+    rai::node & node;
     std::chrono::system_clock::time_point last_vote;
 	std::unique_ptr <rai::block> last_winner;
     std::atomic_flag confirmed;
