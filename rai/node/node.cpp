@@ -2141,59 +2141,72 @@ rai::uint128_t rai::election::contested_threshold (MDB_txn * transaction_a, rai:
     return (ledger_a.supply (transaction_a) / 16) * 15;
 }
 
-void rai::election::confirm (bool forced_a)
+void rai::election::confirm_once ()
 {
-	if (!confirmed)
+	auto confirmed_l (confirmed.test_and_set ());
+	if (!confirmed_l)
 	{
 		auto node_l (node.lock ());
 		if (node_l != nullptr)
 		{
-			std::unique_ptr <rai::block> winner;
-			rai::transaction transaction (node_l->store.environment, nullptr, true);
+			rai::transaction transaction (node_l->store.environment, nullptr, false);
 			auto tally_l (node_l->ledger.tally (transaction, votes));
 			assert (tally_l.size () > 0);
-			winner = tally_l.begin ()->second->clone ();
-			if (!(*winner == *last_winner))
+			std::shared_ptr <rai::block> winner_l (tally_l.begin ()->second.release ());
+			auto confirmation_action_l (confirmation_action);
+			node_l->background ([winner_l, confirmation_action_l] ()
 			{
-				// Replace our block with the winner and roll back any dependent blocks
-				node_l->ledger.rollback (transaction, last_winner->hash ());
-				node_l->ledger.process (transaction, *winner);
-				last_winner = winner->clone ();
-			}
-			auto do_confirm (forced_a);
-			// Check if we can do a fast confirm for the usual case of good actors
-			if (tally_l.size () == 1)
-			{
-				// No forks detected
-				if (tally_l.begin ()->first > uncontested_threshold (transaction, node_l->ledger))
-				{
-					// We have vote quarum
-					do_confirm = true;
-				}
-			}
-			if (do_confirm)
-			{
-				confirmed = true;
-				std::shared_ptr <rai::block> winner_l (winner.release ());
-				auto confirmation_action_l (confirmation_action);
-				node_l->background ([winner_l, confirmation_action_l] ()
-				{
-					confirmation_action_l (*winner_l);
-				});
-			}
-		}
-		else
-		{
-			// Node weak pointer is inactive, node is shutting down
+				confirmation_action_l (*winner_l);
+			});
 		}
 	}
 }
 
+void rai::election::process_tally ()
+{
+	auto node_l (node.lock ());
+	if (node_l != nullptr)
+	{
+		std::unique_ptr <rai::block> winner;
+		rai::transaction transaction (node_l->store.environment, nullptr, true);
+		auto tally_l (node_l->ledger.tally (transaction, votes));
+		assert (tally_l.size () > 0);
+		winner = tally_l.begin ()->second->clone ();
+		if (!(*winner == *last_winner))
+		{
+			// Replace our block with the winner and roll back any dependent blocks
+			node_l->ledger.rollback (transaction, last_winner->hash ());
+			node_l->ledger.process (transaction, *winner);
+			last_winner = winner->clone ();
+		}
+		// Check if we can do a fast confirm for the usual case of good actors
+		if (tally_l.size () == 1)
+		{
+			// No forks detected
+			if (tally_l.begin ()->first > uncontested_threshold (transaction, node_l->ledger))
+			{
+				// We have vote quarum
+				confirm_once ();
+			}
+		}
+	}
+	else
+	{
+		// Node weak pointer is inactive, node is shutting down
+	}
+}
+
+void rai::election::cutoff ()
+{
+	confirm_once ();
+}
+
 void rai::election::vote (rai::vote const & vote_a)
 {
-	if (votes.vote (vote_a))
+	auto tally_changed (votes.vote (vote_a));
+	if (tally_changed)
 	{
-		confirm (false);
+		process_tally ();
 	}
 }
 
@@ -2211,7 +2224,7 @@ void rai::active_transactions::announce_votes ()
 			i->election->interval_action ();
 			if (i->announcements >= contigious_announcements - 1)
 			{
-				i->election->confirm (true);
+				i->election->cutoff ();
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
 			}

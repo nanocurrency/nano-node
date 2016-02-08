@@ -173,6 +173,7 @@ TEST (node, fork_storm)
 	
 	int empty (0);
 	int single (0);
+	int iteration (0);
 	while (again)
 	{
 		empty = 0;
@@ -192,8 +193,12 @@ TEST (node, fork_storm)
 			}
 		});
 		system.poll ();
-		std::cerr << "Empty: " << empty << " single: " << single << std::endl;
+		if ((iteration & 0xff) == 0)
+		{
+			std::cerr << "Empty: " << empty << " single: " << single << std::endl;
+		}
 		again = empty != 0 || single != 0;
+		++iteration;
 	}
 	ASSERT_TRUE (true);
 }
