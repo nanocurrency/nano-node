@@ -41,7 +41,10 @@ class election : public std::enable_shared_from_this <rai::election>
 public:
     election (rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
-	void interval_action ();
+	// Tell the network our view of the winner
+	void broadcast_winner ();
+	// Change our winner to agree with the network
+	void recompute_winner ();
 	// Confirmation method 1, uncontested quarum
 	void process_tally ();
 	// Confirmation method 2, settling time
@@ -322,7 +325,6 @@ public:
     void start ();
     void stop ();
     std::shared_ptr <rai::node> shared ();
-    bool representative_vote (rai::election &, rai::block const &);
 	int store_version ();
     void vote (rai::vote const &);
     void process_confirmed (rai::block const &);

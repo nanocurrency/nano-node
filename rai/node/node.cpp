@@ -2111,20 +2111,48 @@ confirmed (false)
 {
 }
 
-void rai::election::interval_action ()
+void rai::election::recompute_winner ()
 {
-	auto have_representative (node.representative_vote (*this, *last_winner));
-	if (have_representative)
+	for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 	{
-		std::unique_ptr <rai::block> winner_l;
+		auto is_representative (false);
+		rai::vote vote_l;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, false);
-			winner_l = node.ledger.winner (transaction, votes).second;
+			is_representative = i->second->store.is_representative (transaction);
+			if (is_representative)
+			{
+				auto representative (i->second->store.representative (transaction));
+				rai::raw_key prv;
+				is_representative = !i->second->store.fetch (transaction, representative, prv);
+				if (is_representative)
+				{
+					vote_l = rai::vote (representative, prv, 0, last_winner->clone ());
+				}
+				else
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("Unable to vote on block due to locked wallet %1%") % i->first.to_string ());
+				}
+			}
 		}
-		assert (winner_l != nullptr);
-		auto list (node.peers.list ());
-		node.network.confirm_broadcast (list, std::move (winner_l), votes.sequence, 0);
+		if (is_representative)
+		{
+			vote (vote_l);
+		}
 	}
+}
+
+void rai::election::broadcast_winner ()
+{
+	recompute_winner ();
+	std::unique_ptr <rai::block> winner_l;
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		winner_l = node.ledger.winner (transaction, votes).second;
+	}
+	assert (winner_l != nullptr);
+	auto list (node.peers.list ());
+	node.network.confirm_broadcast (list, std::move (winner_l), votes.sequence, 0);
 }
 
 rai::uint128_t rai::election::uncontested_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
@@ -2200,7 +2228,7 @@ void rai::active_transactions::announce_votes ()
 		auto n (roots.end ());
 		for (; i != n && announcements < announcements_per_interval; ++i)
 		{
-			i->election->interval_action ();
+			i->election->broadcast_winner ();
 			if (i->announcements >= contigious_announcements - 1)
 			{
 				i->election->cutoff ();
@@ -2286,34 +2314,6 @@ void rai::active_transactions::vote (rai::vote const & vote_a)
 rai::active_transactions::active_transactions (rai::node & node_a) :
 node (node_a)
 {
-}
-
-bool rai::node::representative_vote (rai::election & election_a, rai::block const & block_a)
-{
-    bool result (false);
-	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
-	{
-		auto is_representative (false);
-		rai::vote vote_l;
-		{
-			rai::transaction transaction (store.environment, nullptr, false);
-			is_representative = i->second->store.is_representative (transaction);
-			if (is_representative)
-			{
-				auto representative (i->second->store.representative (transaction));
-				rai::raw_key prv;
-				auto error (i->second->store.fetch (transaction, representative, prv));
-				(void)error;
-				vote_l = rai::vote (representative, prv, 0, block_a.clone ());
-				result = true;
-			}
-		}
-		if (is_representative)
-		{
-			election_a.vote (vote_l);
-		}
-	}
-    return result;
 }
 
 int rai::node::store_version ()
