@@ -48,7 +48,7 @@ TEST (conflicts, add_existing)
     ASSERT_EQ (1, node1.active.roots.size ());
     rai::vote vote1 (key2.pub, key2.prv, 0, send2.clone ());
     ASSERT_TRUE (node1.active.no_conflict (send1.hashables.previous));
-    node1.active.update (vote1);
+    node1.active.vote (vote1);
     ASSERT_FALSE (node1.active.no_conflict (send1.hashables.previous));
     ASSERT_EQ (1, node1.active.roots.size ());
     auto votes1 (node1.active.roots.find (send2.root ())->election);

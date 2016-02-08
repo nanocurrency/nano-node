@@ -896,7 +896,7 @@ application_path (application_path_a)
 	});
     vote_observers.push_back ([this] (rai::vote const & vote_a)
     {
-        active.update (vote_a);
+        active.vote (vote_a);
     });
     vote_observers.push_back ([this] (rai::vote const & vote_a)
     {
@@ -2274,14 +2274,21 @@ bool rai::active_transactions::no_conflict (rai::block_hash const & hash_a)
 }
 
 // Validate a vote and apply it to the current election or start a new election if it doesn't exist
-void rai::active_transactions::update (rai::vote const & vote_a)
+void rai::active_transactions::vote (rai::vote const & vote_a)
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    auto existing (roots.find (vote_a.block->root ()));
-    if (existing != roots.end ())
-    {
-        existing->election->vote (vote_a);
-    }
+	std::shared_ptr <rai::election> election;
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		auto existing (roots.find (vote_a.block->root ()));
+		if (existing != roots.end ())
+		{
+			election = existing->election;
+		}
+	}
+	if (election)
+	{
+        election->vote (vote_a);
+	}
 }
 
 rai::active_transactions::active_transactions (rai::node & node_a) :

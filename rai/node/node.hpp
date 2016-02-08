@@ -68,7 +68,7 @@ public:
 	// Call action with confirmed block, may be different than what we started with
     void start (rai::block const &, std::function <void (rai::block &)> const &);
     bool no_conflict (rai::block_hash const &);
-    void update (rai::vote const &);
+    void vote (rai::vote const &);
 	void announce_votes ();
     boost::multi_index_container
 	<
