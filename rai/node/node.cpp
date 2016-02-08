@@ -2132,11 +2132,6 @@ rai::uint128_t rai::election::uncontested_threshold (MDB_txn * transaction_a, ra
     return ledger_a.supply (transaction_a) / 2;
 }
 
-rai::uint128_t rai::election::contested_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
-{
-    return (ledger_a.supply (transaction_a) / 16) * 15;
-}
-
 void rai::election::confirm_once ()
 {
 	auto confirmed_l (confirmed.test_and_set ());
