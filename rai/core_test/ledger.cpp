@@ -694,7 +694,7 @@ TEST (votes, add_unsigned)
 	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	ASSERT_NE (nullptr, votes1);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -719,7 +719,7 @@ TEST (votes, add_one)
 	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
@@ -749,7 +749,7 @@ TEST (votes, add_two)
 	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
@@ -783,7 +783,7 @@ TEST (votes, add_existing)
 	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
 	votes1->vote (vote1);
@@ -815,7 +815,7 @@ TEST (votes, add_old)
 	node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1.clone ());
 	votes1->vote (vote1);

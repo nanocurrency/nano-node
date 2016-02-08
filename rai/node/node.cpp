@@ -614,7 +614,7 @@ public:
 			node.active.start (block_a, [node_l] (rai::block & block_a)
 			{
 				node_l->process_confirmed (block_a);
-			}, false);
+			});
 			auto root (block_a.root ());
 			std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
 			node.service.add (std::chrono::system_clock::now () + rai::confirm_wait, [node_l, root, block_l] ()
@@ -1014,7 +1014,8 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
             if (winner.first > bootstrap_threshold (transaction_a))
             {
 				auto node_l (node.shared ());
-				node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_l, hash] ()
+				auto now (std::chrono::system_clock::now ());
+				node.service.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (5), [node_l, hash] ()
 				{
 					rai::transaction transaction (node_l->store.environment, nullptr, false);
 					if (!node_l->store.block_exists (transaction, hash))
@@ -1232,7 +1233,7 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
 			active.start (*root, [node_l] (rai::block & block_a)
 			{
 				node_l->process_confirmed (block_a);
-			}, false);
+			});
             break;
         }
         case rai::process_result::account_mismatch:
@@ -1441,6 +1442,7 @@ void rai::node::start ()
     ongoing_keepalive ();
     bootstrap.start ();
 	backup_wallet ();
+	active.announce_votes ();
 }
 
 void rai::node::stop ()
@@ -2195,15 +2197,6 @@ void rai::election::vote (rai::vote const & vote_a)
 	}
 }
 
-void rai::election::start_request (rai::block const & block_a)
-{
-	auto node_l (node.lock ());
-	if (node_l != nullptr)
-	{
-		node_l->network.broadcast_confirm_req (block_a);
-	}
-}
-
 void rai::active_transactions::announce_votes ()
 {
 	std::vector <rai::block_hash> inactive;
@@ -2244,36 +2237,20 @@ void rai::active_transactions::announce_votes ()
 		assert (roots.find (*i) != roots.end ());
 		roots.erase (*i);
 	}
-	if (!roots.empty ())
-	{
-		auto node_l (node.shared ());
-		node.service.add (now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
-	}
+	auto node_l (node.shared ());
+	node.service.add ((rai::rai_network == rai::rai_networks::rai_test_network) ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
 }
 
-void rai::active_transactions::start (rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a, bool request_a)
+void rai::active_transactions::start (rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-	auto start_announce (roots.empty ());
     auto root (block_a.root ());
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
         auto election (std::make_shared <rai::election> (node.shared (), block_a, confirmation_action_a));
         roots.insert (rai::conflict_info {root, election, 0});
-        if (request_a)
-        {
-            election->start_request (block_a);
-        }
     }
-	if (start_announce)
-	{
-		auto node_l (node.shared ());
-		node.background ([node_l] ()
-		{
-			node_l->active.announce_votes ();
-		});
-	}
 }
 
 bool rai::active_transactions::no_conflict (rai::block_hash const & hash_a)

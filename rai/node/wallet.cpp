@@ -958,15 +958,15 @@ public:
 				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % receivable.source.to_string () % receivable.source.to_string () % info.head.to_string ());
 				auto this_l (shared_from_this ());
 				auto account (receivable.source);
-				auto wallet_l (wallet);
 				std::shared_ptr <rai::block> block_l (wallet->node.store.block_get (transaction, info.head).release ());
-				wallet->node.background ([this_l, account, block_l, wallet_l]
+				wallet->node.background ([this_l, account, block_l]
 				{
-					wallet_l->node.active.start (*block_l, [this_l, account] (rai::block &)
+					this_l->wallet->node.active.start (*block_l, [this_l, account] (rai::block &)
 					{
 						// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
 						this_l->receive_all (account);
-					}, true);
+					});
+					this_l->wallet->node.network.broadcast_confirm_req (*block_l);
 				});
 				keys.erase (existing);
 			}

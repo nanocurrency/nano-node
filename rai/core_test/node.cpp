@@ -790,6 +790,10 @@ TEST (node, fork_bootstrap_flip)
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100);
 	auto iterations2 (0);
 	auto again (true);
+	{
+		rai::transaction transaction (node2.store.environment, nullptr, false);
+		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
+	}
 	while (again)
 	{
 		system.poll ();

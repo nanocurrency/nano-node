@@ -15,7 +15,7 @@ TEST (conflicts, start_stop)
     node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
     ASSERT_TRUE (node1.active.no_conflict (send1.hashables.previous));
     ASSERT_EQ (1, node1.active.roots.size ());
     auto root1 (send1.root ());
@@ -38,13 +38,13 @@ TEST (conflicts, add_existing)
     node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
     rai::keypair key2;
     rai::send_block send2 (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
     node1.active.start (send2, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
     ASSERT_EQ (1, node1.active.roots.size ());
     rai::vote vote1 (key2.pub, key2.prv, 0, send2.clone ());
     ASSERT_TRUE (node1.active.no_conflict (send1.hashables.previous));
@@ -69,13 +69,13 @@ TEST (conflicts, add_two)
     node1.active.start (send1, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
     rai::keypair key2;
     rai::send_block send2 (send1.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node1.process (send2).code);
     node1.active.start (send2, [node_l] (rai::block & block_a)
 	{
 		node_l->process_confirmed (block_a);
-	}, false);
+	});
     ASSERT_EQ (2, node1.active.roots.size ());
 }

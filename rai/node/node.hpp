@@ -40,7 +40,6 @@ public:
     election (std::shared_ptr <rai::node>, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
 	void interval_action ();
-    void start_request (rai::block const &);
 	void confirm (bool);
     rai::uint128_t uncontested_threshold (MDB_txn *, rai::ledger &);
     rai::uint128_t contested_threshold (MDB_txn *, rai::ledger &);
@@ -60,11 +59,14 @@ public:
 	int announcements;
 };
 // Core class for determining concensus
+// Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions
 {
 public:
     active_transactions (rai::node &);
-    void start (rai::block const &, std::function <void (rai::block &)> const &, bool);
+	// Start an election for a block
+	// Call action with confirmed block, may be different than what we started with
+    void start (rai::block const &, std::function <void (rai::block &)> const &);
     bool no_conflict (rai::block_hash const &);
     void update (rai::vote const &);
 	void announce_votes ();
