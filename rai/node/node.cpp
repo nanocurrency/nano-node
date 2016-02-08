@@ -615,22 +615,6 @@ public:
 			{
 				node_l->process_confirmed (block_a);
 			});
-			auto root (block_a.root ());
-			std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
-			node.service.add (std::chrono::system_clock::now () + rai::confirm_wait, [node_l, root, block_l] ()
-			{
-				if (node_l->active.no_conflict (root))
-				{
-					node_l->process_confirmed (*block_l);
-				}
-				else
-				{
-					if (node_l->config.logging.ledger_logging ())
-					{
-						BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to fast-confirm block: %1% because root: %2% is in conflict") % block_l->hash ().to_string () % root.to_string ());
-					}
-				}
-			});
         }
 	}
 	void receive_block (rai::receive_block const &)
@@ -2271,26 +2255,6 @@ void rai::active_transactions::start (rai::block const & block_a, std::function 
         auto election (std::make_shared <rai::election> (node, block_a, confirmation_action_a));
         roots.insert (rai::conflict_info {root, election, 0});
     }
-}
-
-bool rai::active_transactions::no_conflict (rai::block_hash const & hash_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    auto result (true);
-    auto existing (roots.find (hash_a));
-    if (existing != roots.end ())
-    {
-        auto size (existing->election->votes.rep_votes.size ());
-		if (size > 1)
-		{
-			auto & block (existing->election->votes.rep_votes.begin ()->second.second);
-			for (auto i (existing->election->votes.rep_votes.begin ()), n (existing->election->votes.rep_votes.end ()); i != n && result; ++i)
-			{
-				result = *block == *i->second.second;
-			}
-		}
-    }
-    return result;
 }
 
 // Validate a vote and apply it to the current election or start a new election if it doesn't exist
