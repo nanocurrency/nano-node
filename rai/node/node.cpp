@@ -2113,6 +2113,7 @@ confirmed (false)
 
 void rai::election::recompute_winner ()
 {
+	auto last_winner_l (last_winner);
 	for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 	{
 		auto is_representative (false);
@@ -2127,7 +2128,7 @@ void rai::election::recompute_winner ()
 				is_representative = !i->second->store.fetch (transaction, representative, prv);
 				if (is_representative)
 				{
-					vote_l = rai::vote (representative, prv, 0, last_winner->clone ());
+					vote_l = rai::vote (representative, prv, 0, last_winner_l->clone ());
 				}
 				else
 				{
@@ -2168,7 +2169,7 @@ void rai::election::confirm_once ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		auto tally_l (node.ledger.tally (transaction, votes));
 		assert (tally_l.size () > 0);
-		std::shared_ptr <rai::block> winner_l (tally_l.begin ()->second.release ());
+		std::shared_ptr <rai::block> winner_l (std::move (tally_l.begin ()->second));
 		auto confirmation_action_l (confirmation_action);
 		node.background ([winner_l, confirmation_action_l] ()
 		{
@@ -2179,17 +2180,16 @@ void rai::election::confirm_once ()
 
 void rai::election::process_tally ()
 {
-	std::unique_ptr <rai::block> winner;
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	auto tally_l (node.ledger.tally (transaction, votes));
 	assert (tally_l.size () > 0);
-	winner = tally_l.begin ()->second->clone ();
+	auto winner (std::move (tally_l.begin ()->second));
 	if (!(*winner == *last_winner))
 	{
 		// Replace our block with the winner and roll back any dependent blocks
 		node.ledger.rollback (transaction, last_winner->hash ());
 		node.ledger.process (transaction, *winner);
-		last_winner = winner->clone ();
+		last_winner = std::move (winner);
 	}
 	// Check if we can do a fast confirm for the usual case of good actors
 	if (tally_l.size () == 1)

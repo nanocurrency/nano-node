@@ -53,7 +53,7 @@ public:
     rai::votes votes;
     rai::node & node;
     std::chrono::system_clock::time_point last_vote;
-	std::unique_ptr <rai::block> last_winner;
+	std::shared_ptr <rai::block> last_winner;
     std::atomic_flag confirmed;
 };
 class conflict_info
