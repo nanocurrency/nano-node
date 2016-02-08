@@ -2257,7 +2257,7 @@ void rai::active_transactions::start (rai::block const & block_a, std::function 
     }
 }
 
-// Validate a vote and apply it to the current election or start a new election if it doesn't exist
+// Validate a vote and apply it to the current election if one exists
 void rai::active_transactions::vote (rai::vote const & vote_a)
 {
 	std::shared_ptr <rai::election> election;
