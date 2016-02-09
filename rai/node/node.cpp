@@ -2150,10 +2150,7 @@ void rai::election::confirm_once ()
 	auto confirmed_l (confirmed.test_and_set ());
 	if (!confirmed_l)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
-		auto tally_l (node.ledger.tally (transaction, votes));
-		assert (tally_l.size () > 0);
-		std::shared_ptr <rai::block> winner_l (std::move (tally_l.begin ()->second));
+		auto winner_l (last_winner);
 		auto confirmation_action_l (confirmation_action);
 		node.background ([winner_l, confirmation_action_l] ()
 		{
@@ -2162,8 +2159,9 @@ void rai::election::confirm_once ()
 	}
 }
 
-void rai::election::process_tally ()
+bool rai::election::recalculate_winner ()
 {
+	auto result (false);
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	auto tally_l (node.ledger.tally (transaction, votes));
 	assert (tally_l.size () > 0);
@@ -2182,12 +2180,22 @@ void rai::election::process_tally ()
 		if (tally_l.begin ()->first > uncontested_threshold (transaction, node.ledger))
 		{
 			// We have vote quarum
-			confirm_once ();
+			result = true;
 		}
+	}
+	return result;
+}
+
+void rai::election::confirm_if_quarum ()
+{
+	auto quarum (recalculate_winner ());
+	if (quarum)
+	{
+		confirm_once ();
 	}
 }
 
-void rai::election::cutoff ()
+void rai::election::confirm_cutoff ()
 {
 	confirm_once ();
 }
@@ -2197,25 +2205,26 @@ void rai::election::vote (rai::vote const & vote_a)
 	auto tally_changed (votes.vote (vote_a));
 	if (tally_changed)
 	{
-		process_tally ();
+		confirm_if_quarum ();
 	}
 }
 
 void rai::active_transactions::announce_votes ()
 {
 	std::vector <rai::block_hash> inactive;
-	auto now (std::chrono::system_clock::now ());
 	std::lock_guard <std::mutex> lock (mutex);
 	size_t announcements (0);
 	{
 		auto i (roots.begin ());
 		auto n (roots.end ());
+		// Announce our decision for up to `announcements_per_interval' conflicts
 		for (; i != n && announcements < announcements_per_interval; ++i)
 		{
 			i->election->broadcast_winner ();
 			if (i->announcements >= contigious_announcements - 1)
 			{
-				i->election->cutoff ();
+				// These blocks have reached the confirmation interval for forks
+				i->election->confirm_cutoff ();
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
 			}
@@ -2227,6 +2236,9 @@ void rai::active_transactions::announce_votes ()
 				});
 			}
 		}
+		// Mark remainder as 0 announcements sent
+		// This could happen if there's a flood of forks, the network will resolve them in increasing root hash order
+		// This is a DoS protection mechanism to rate-limit the amount of traffic for solving forks.
 		for (; i != n; ++i)
 		{
 			// Reset announcement count for conflicts above announcement cutoff
@@ -2241,6 +2253,7 @@ void rai::active_transactions::announce_votes ()
 		assert (roots.find (*i) != roots.end ());
 		roots.erase (*i);
 	}
+	auto now (std::chrono::system_clock::now ());
 	auto node_l (node.shared ());
 	node.service.add ((rai::rai_network == rai::rai_networks::rai_test_network) ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
 }
@@ -2415,7 +2428,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	else if (vm.count ("diagnostics"))
 	{
 		std::cout << "Testing hash function" << std::endl;
-		rai:raw_key key;
+		rai::raw_key key;
 		key.data.clear ();
 		rai::send_block send (0, 0, 0, key, 0, 0);
 		auto hash (send.hash ());

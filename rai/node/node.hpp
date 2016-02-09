@@ -41,14 +41,16 @@ class election : public std::enable_shared_from_this <rai::election>
 public:
     election (rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
+	// Set last_winner based on our current state of the ledger
+	bool recalculate_winner ();
 	// Tell the network our view of the winner
 	void broadcast_winner ();
 	// Change our winner to agree with the network
 	void recompute_winner ();
 	// Confirmation method 1, uncontested quarum
-	void process_tally ();
+	void confirm_if_quarum ();
 	// Confirmation method 2, settling time
-	void cutoff ();
+	void confirm_cutoff ();
     rai::uint128_t uncontested_threshold (MDB_txn *, rai::ledger &);
     rai::votes votes;
     rai::node & node;
