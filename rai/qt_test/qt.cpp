@@ -242,6 +242,26 @@ TEST (wallet, send)
 	ASSERT_EQ ("2", item->text ().toStdString ());
 }
 
+TEST (wallet, send_locked)
+{
+    rai::system system (24000, 1);
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	rai::keypair key1;
+	system.wallet (0)->enter_password ("0");
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
+    QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
+    QTest::keyClicks (wallet.send_account, key1.pub.to_account ().c_str ());
+    QTest::keyClicks (wallet.send_count, "2");
+    QTest::mouseClick (wallet.send_blocks_send, Qt::LeftButton);
+	auto iterations1 (0);
+    while (!wallet.send_blocks_send->isEnabled ())
+    {
+		test_application->processEvents ();
+        system.poll ();
+		++iterations1;
+		ASSERT_LT (iterations1, 200);
+    }
+}
 
 TEST (wallet, process_block)
 {

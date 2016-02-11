@@ -551,11 +551,11 @@ active_status (*this)
 					{
 						wallet_m->send_async (account, account_l, actual, [this] (std::unique_ptr <rai::block> block_a)
 						{
-							auto hash (block_a->hash ());
-							application.postEvent (&processor, new eventloop_event ([this, hash] ()
+							auto succeeded (block_a != nullptr);
+							application.postEvent (&processor, new eventloop_event ([this, succeeded] ()
 							{
 								send_blocks_send->setEnabled (true);
-								if (!hash.is_zero ())
+								if (succeeded)
 								{
 									send_count->clear ();
 									send_account->clear ();
