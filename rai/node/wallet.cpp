@@ -947,6 +947,7 @@ public:
 	{
 		BOOST_LOG (wallet->node.log) << "Beginning pending block search";
 		rai::transaction transaction (wallet->node.store.environment, nullptr, false);
+		std::unordered_set <rai::account> already_searched;
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
 			rai::receivable receivable (i->second);
@@ -956,19 +957,22 @@ public:
 				rai::account_info info;
 				wallet->node.store.account_get (transaction, receivable.source, info);
 				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % receivable.source.to_string () % receivable.source.to_string () % info.head.to_string ());
-				auto this_l (shared_from_this ());
 				auto account (receivable.source);
-				std::shared_ptr <rai::block> block_l (wallet->node.store.block_get (transaction, info.head).release ());
-				wallet->node.background ([this_l, account, block_l]
+				if (already_searched.find (account) == already_searched.end ())
 				{
-					this_l->wallet->node.active.start (*block_l, [this_l, account] (rai::block &)
+					auto this_l (shared_from_this ());
+					std::shared_ptr <rai::block> block_l (wallet->node.store.block_get (transaction, info.head).release ());
+					wallet->node.background ([this_l, account, block_l]
 					{
-						// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
-						this_l->receive_all (account);
+						this_l->wallet->node.active.start (*block_l, [this_l, account] (rai::block &)
+						{
+							// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
+							this_l->receive_all (account);
+						});
+						this_l->wallet->node.network.broadcast_confirm_req (*block_l);
 					});
-					this_l->wallet->node.network.broadcast_confirm_req (*block_l);
-				});
-				keys.erase (existing);
+					already_searched.insert (account);
+				}
 			}
 		}
 		BOOST_LOG (wallet->node.log) << "Pending block search phase complete";

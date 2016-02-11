@@ -258,21 +258,61 @@ TEST (node, search_pending)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-	rai::uint128_t balance (system.nodes [0]->balance (rai::test_genesis_key.pub));
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
-    auto iterations1 (0);
-    while (system.nodes [0]->balance (rai::test_genesis_key.pub) == balance)
+    system.wallet (0)->insert (key2.prv);
+	auto node (system.nodes [0]);
+	ASSERT_FALSE (system.wallet (0)->search_pending ());
+    auto iterations2 (0);
+    while (system.nodes [0]->balance (key2.pub).is_zero ())
+    {
+        system.poll ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}
+
+TEST (node, search_pending_same)
+{
+    rai::system system (24000, 1);
+    rai::keypair key2;
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+    system.wallet (0)->insert (key2.prv);
+	auto node (system.nodes [0]);
+	ASSERT_FALSE (system.wallet (0)->search_pending ());
+    auto iterations2 (0);
+    while (system.nodes [0]->balance (key2.pub) != 2 * system.nodes [0]->config.receive_minimum.number ())
+    {
+        system.poll ();
+        ++iterations2;
+        ASSERT_LT (iterations2, 200);
+    }
+}
+
+TEST (node, search_pending_multiple)
+{
+    rai::system system (24000, 1);
+    rai::keypair key2;
+	rai::keypair key3;
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert (key3.prv);
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key3.pub, system.nodes [0]->config.receive_minimum.number ()));
+	auto iterations1 (0);
+    while (system.nodes [0]->balance (key3.pub).is_zero ())
     {
         system.poll ();
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
-	system.wallet (0)->insert (key2.prv);
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (key3.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+    system.wallet (0)->insert (key2.prv);
 	auto node (system.nodes [0]);
 	ASSERT_FALSE (system.wallet (0)->search_pending ());
     auto iterations2 (0);
-    while (system.nodes [0]->balance (key2.pub).is_zero ())
+    while (system.nodes [0]->balance (key2.pub) != 2 * system.nodes [0]->config.receive_minimum.number ())
     {
         system.poll ();
         ++iterations2;
