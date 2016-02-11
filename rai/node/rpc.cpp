@@ -513,6 +513,23 @@ void rai::rpc_handler::password_valid ()
 	}
 }
 
+void rai::rpc_handler::peers ()
+{
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree peers_l;
+	auto peers_list (rpc.node.peers.list());
+	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
+	{
+		boost::property_tree::ptree entry;
+		std::stringstream text;
+		text << i->endpoint;
+		entry.put ("", text.str ());
+		peers_l.push_back (std::make_pair ("", entry));
+	}
+	response_l.add_child ("peers", peers_l);
+	rpc.send_response (connection, response_l);
+}
+
 void rai::rpc_handler::price ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -1360,6 +1377,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "payment_wait")
 		{
 			payment_wait ();
+		}
+		else if (action == "peers")
+		{
+			peers ();
 		}
 		else if (action == "price")
 		{

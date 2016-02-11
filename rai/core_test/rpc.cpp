@@ -814,6 +814,23 @@ TEST (rpc, frontier_startpoint)
 	thread1.join();
 }
 
+TEST (rpc, peers)
+{
+    rai::system system (24000, 2);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request;
+    request.put ("action", "peers");
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    auto & frontiers_node (response.first.get_child ("peers"));
+	ASSERT_EQ (1, frontiers_node.size ());
+	rpc.stop();
+	thread1.join();
+}
+
 TEST (rpc_config, serialization)
 {
 	rai::rpc_config config1;
