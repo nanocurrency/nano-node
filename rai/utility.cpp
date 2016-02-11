@@ -190,6 +190,11 @@ bool rai::uint128_union::operator == (rai::uint128_union const & other_a) const
     return qwords [0] == other_a.qwords [0] && qwords [1] == other_a.qwords [1];
 }
 
+bool rai::uint128_union::operator != (rai::uint128_union const & other_a) const
+{
+	return !(*this == other_a);
+}
+
 bool rai::uint128_union::operator < (rai::uint128_union const & other_a) const
 {
 	return number () < other_a.number ();

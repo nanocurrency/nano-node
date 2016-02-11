@@ -439,7 +439,7 @@ public:
 class ledger
 {
 public:
-	ledger (rai::block_store &);
+	ledger (rai::block_store &, rai::uint128_t const & = 0);
 	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
@@ -463,6 +463,7 @@ public:
 	void dump_account_chain (rai::account const &);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
+	rai::uint128_t inactive_supply;
 };
 extern rai::keypair const & zero_key;
 extern rai::keypair const & test_genesis_key;

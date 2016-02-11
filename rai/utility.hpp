@@ -135,6 +135,7 @@ public:
 	uint128_union (rai::uint128_union const &) = default;
 	uint128_union (rai::uint128_t const &);
 	bool operator == (rai::uint128_union const &) const;
+	bool operator != (rai::uint128_union const &) const;
 	bool operator < (rai::uint128_union const &) const;
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);

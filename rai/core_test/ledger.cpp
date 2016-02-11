@@ -1268,3 +1268,25 @@ TEST (ledger, latest_root)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
 	ASSERT_EQ (send.hash (), ledger.latest_root (transaction, rai::test_genesis_key.pub));
 }
+
+TEST (ledger, inactive_supply)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::ledger ledger (store, 40);
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		rai::genesis genesis;
+		genesis.initialize (transaction, store);
+		rai::keypair key2;
+		rai::account_info info1;
+		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
+		rai::send_block send (info1.head, key2.pub, std::numeric_limits<rai::uint128_t>::max () - 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		ledger.process (transaction, send);
+	}
+	rai::transaction transaction (store.environment, nullptr, false);
+	ASSERT_EQ (10, ledger.supply (transaction));
+	ledger.inactive_supply = 60;
+	ASSERT_EQ (0, ledger.supply (transaction));
+}

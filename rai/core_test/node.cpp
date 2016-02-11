@@ -26,6 +26,18 @@ TEST (node, block_store_path_failure)
     node->stop ();
 }
 
+TEST (node, inactive_supply)
+{
+    rai::node_init init;
+    rai::processor_service processor;
+    auto service (boost::make_shared <boost::asio::io_service> ());
+	rai::node_config config;
+	rai::work_pool work;
+	config.inactive_supply = 10;
+    auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), processor, config, work));
+	ASSERT_EQ (10, node->ledger.inactive_supply);
+}
+
 TEST (node, balance)
 {
     rai::system system (24000, 1);
@@ -442,6 +454,7 @@ TEST (node_config, serialization)
 	config1.creation_rebroadcast = 10;
 	config1.rebroadcast_delay = 10;
 	config1.receive_minimum = 10;
+	config1.inactive_supply = 10;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -453,6 +466,7 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_NE (config2.peering_port, config1.peering_port);
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
+	ASSERT_NE (config2.inactive_supply, config1.inactive_supply);
 	bool upgraded (false);
 	config2.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
@@ -462,6 +476,7 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
+	ASSERT_EQ (config2.inactive_supply, config1.inactive_supply);
 }
 
 TEST (node_config, v1_v2_upgrade)
@@ -523,6 +538,38 @@ TEST (node_config, unversioned_v2_upgrade)
 	ASSERT_EQ ("xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo", reps.begin ()->second.get <std::string> (""));
 	auto version (tree.get <std::string> ("version"));
 	ASSERT_GT (std::stoull (version), 1);
+}
+
+TEST (node_config, v2_v3_upgrade)
+{
+	rai::logging logging1;
+	boost::property_tree::ptree tree;
+	tree.put ("peering_port", std::to_string (0));
+	tree.put ("packet_delay_microseconds", std::to_string (0));
+	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
+	tree.put ("creation_rebroadcast", std::to_string (0));
+	tree.put ("rebroadcast_delay", std::to_string (0));
+	tree.put ("receive_minimum", rai::amount (0).to_string_dec ());
+	tree.put ("version", "2");
+	boost::property_tree::ptree logging_l;
+	logging1.serialize_json (logging_l);
+	tree.add_child ("logging", logging_l);
+	boost::property_tree::ptree preconfigured_peers_l;
+	tree.add_child ("preconfigured_peers", preconfigured_peers_l);
+	boost::property_tree::ptree preconfigured_representatives_l;
+	boost::property_tree::ptree entry;
+	entry.put ("", "TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib");
+	preconfigured_representatives_l.push_back (std::make_pair ("", entry));
+	tree.add_child ("preconfigured_representatives", preconfigured_representatives_l);
+	boost::property_tree::ptree work_peers_l;
+	tree.add_child ("work_peers", work_peers_l);
+	bool upgraded (false);
+	rai::node_config config1;
+	ASSERT_FALSE (tree.get_optional <std::string> ("inactive_supply"));
+	config1.deserialize_json (upgraded, tree);
+	ASSERT_TRUE (upgraded);
+	auto version (tree.get <std::string> ("version"));
+	ASSERT_GT (std::stoull (version), 2);
 }
 
 TEST (node, confirm_locked)

@@ -707,6 +707,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 		preconfigured_representatives_l.push_back (std::make_pair ("", entry));
 	}
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
+	tree_a.put ("inactive_supply", inactive_supply.to_string_dec ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -733,6 +734,14 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		result = true;
 	}
 	case 2:
+	{
+		tree_a.put ("inactive_supply", rai::uint128_union (0).to_string_dec ());
+		tree_a.erase ("version");
+		tree_a.put ("version", "3");
+		result = true;
+	}
+	case 3:
+		break;
 	break;
 	default:
 		throw std::runtime_error ("Unknown node_config version");
@@ -797,6 +806,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		{
 			result = true;
 		}
+		auto inactive_supply_l (tree_a.get <std::string> ("inactive_supply"));
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -804,11 +814,12 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
 			creation_rebroadcast = std::stoul (creation_rebroadcast_l);
 			rebroadcast_delay = std::stoul (rebroadcast_delay_l);
-			result = result || creation_rebroadcast > 10;
-			result = result || rebroadcast_delay > 300;
-			result = result || peering_port > std::numeric_limits <uint16_t>::max ();
-			result = result || logging.deserialize_json (logging_l);
-			result = result || receive_minimum.decode_dec (receive_minimum_l);
+			result |= creation_rebroadcast > 10;
+			result |= rebroadcast_delay > 300;
+			result |= peering_port > std::numeric_limits <uint16_t>::max ();
+			result |= logging.deserialize_json (logging_l);
+			result |= receive_minimum.decode_dec (receive_minimum_l);
+			result |= inactive_supply.decode_dec (inactive_supply_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -841,7 +852,7 @@ service (processor_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb"),
 gap_cache (*this),
-ledger (store),
+ledger (store, config_a.inactive_supply.number ()),
 active (*this),
 wallets (init_a.block_store_init, *this),
 network (service_a, config.peering_port, *this),

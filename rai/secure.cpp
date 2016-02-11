@@ -208,8 +208,9 @@ rai::keypair::keypair (std::string const & prv_a)
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
-rai::ledger::ledger (rai::block_store & store_a) :
-store (store_a)
+rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a) :
+store (store_a),
+inactive_supply (inactive_supply_a)
 {
 }
 
@@ -2575,7 +2576,9 @@ rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block co
 rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 {
 	auto unallocated (account_balance (transaction_a, rai::genesis_account));
-    return rai::genesis_amount - unallocated;
+    auto absolute_supply (rai::genesis_amount - unallocated);
+	auto adjusted_supply (absolute_supply - inactive_supply);
+	return adjusted_supply < absolute_supply ? adjusted_supply : 0;
 }
 
 rai::account rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
