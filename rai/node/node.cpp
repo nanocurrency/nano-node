@@ -25,8 +25,6 @@ double constexpr rai::node::free_cutoff;
 std::chrono::seconds constexpr rai::node::period;
 std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
-// Cutoff for receiving a block if no forks are observed.
-std::chrono::milliseconds const rai::confirm_wait = rai_network == rai_networks::rai_test_network ? std::chrono::milliseconds (0) : std::chrono::milliseconds (5000);
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),

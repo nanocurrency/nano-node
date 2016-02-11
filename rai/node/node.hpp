@@ -391,5 +391,4 @@ public:
 	rai::work_pool work;
 	std::shared_ptr <rai::node> node;
 };
-extern std::chrono::milliseconds const confirm_wait;
 }
