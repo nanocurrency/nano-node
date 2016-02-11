@@ -1025,7 +1025,7 @@ bool rai::wallet::search_pending ()
 	if (!result)
 	{
 		auto search (std::make_shared <search_action> (shared_from_this (), transaction));
-		node.service.add (std::chrono::system_clock::now (), [search] ()
+		node.background ([search] ()
 		{
 			search->run ();
 		});

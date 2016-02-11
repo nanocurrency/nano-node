@@ -358,7 +358,7 @@ wallet (wallet_a)
 			if (wallet.node.store.block_exists (transaction, block))
 			{
 				rebroadcast->setEnabled (false);
-				wallet.node.service.add (std::chrono::system_clock::now (), [this, block] ()
+				wallet.node.background ([this, block] ()
 				{
 					rebroadcast_action (block);
 				});
