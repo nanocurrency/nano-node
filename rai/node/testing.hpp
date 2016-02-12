@@ -22,7 +22,7 @@ public:
 	void poll ();
 	void stop ();
     boost::shared_ptr <boost::asio::io_service> service;
-    rai::processor_service processor;
+    rai::alarm alarm;
     std::vector <std::shared_ptr <rai::node>> nodes;
 	rai::logging logging;
 	rai::work_pool work;

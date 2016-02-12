@@ -64,9 +64,9 @@ void rai_daemon::daemon::run ()
 			auto service (boost::make_shared <boost::asio::io_service> ());
 			auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
 			rai::work_pool work;
-			rai::processor_service processor;
+			rai::alarm alarm (*service);
 			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, *service, working, processor, config.node, work));
+			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
 			if (!init.error ())
 			{
 				node->start ();
@@ -75,7 +75,7 @@ void rai_daemon::daemon::run ()
 				{
 					rpc.start ();
 				}
-				runner.reset (new rai::thread_runner (*service, processor));
+				runner.reset (new rai::thread_runner (*service));
 				runner->join ();
 			}
 			else

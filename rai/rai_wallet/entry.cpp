@@ -114,9 +114,9 @@ int run_wallet (int argc, char * const * argv)
 			rai::set_application_icon (application);
 			auto service (boost::make_shared <boost::asio::io_service> ());
 			rai::work_pool work;
-			rai::processor_service processor;
+			rai::alarm alarm (*service);
 			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, *service, working, processor, config.node, work));
+			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
 			if (!init.error ())
 			{
 				if (config.account == key.pub)
@@ -138,7 +138,7 @@ int run_wallet (int argc, char * const * argv)
 						node->start ();
 						std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
 						gui->client_window->show ();
-						rai::thread_runner runner (*service, processor);
+						rai::thread_runner runner (*service);
 						try
 						{
 							result = application.exec ();

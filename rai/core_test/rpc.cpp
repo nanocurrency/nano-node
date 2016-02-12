@@ -886,7 +886,7 @@ TEST (rpc, keepalive)
 {
     rai::system system (24000, 1);
 	rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.processor, system.logging, system.work));
+    auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
     node1->start ();
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
@@ -1065,7 +1065,7 @@ TEST (rpc, DISABLED_payment_wait)
 	rai::keypair key;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key.prv);
-	rai::thread_runner runner (*system.service, system.processor);
+	rai::thread_runner runner (*system.service);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
@@ -1080,7 +1080,7 @@ TEST (rpc, DISABLED_payment_wait)
 	ASSERT_EQ ("nothing", response1.first.get <std::string> ("status"));
 	request1.put ("timeout", "100000");
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
-	system.processor.add(std::chrono::system_clock::now () + std::chrono::milliseconds(500), [&] ()
+	system.alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds(500), [&] ()
 	{
 		system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
 	});
@@ -1177,7 +1177,7 @@ TEST (rpc, work_cancel)
 TEST (rpc, work_peer_bad)
 {
     rai::system system (24000, 2);
-	rai::thread_runner runner (*system.service, system.processor);
+	rai::thread_runner runner (*system.service);
 	rai::node_init init1;
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
@@ -1193,7 +1193,6 @@ TEST (rpc, work_peer_bad)
 	auto work (node2.generate_work (hash1));
 	ASSERT_FALSE (system.work.work_validate (hash1, work));
 	rpc.stop ();
-	system.processor.stop ();
 	node1.stop ();
 	node2.stop ();
 	runner.join ();
@@ -1203,7 +1202,7 @@ TEST (rpc, work_peer_bad)
 TEST (rpc, work_peer_one)
 {
     rai::system system (24000, 2);
-	rai::thread_runner runner (*system.service, system.processor);
+	rai::thread_runner runner (*system.service);
 	rai::node_init init1;
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
@@ -1219,7 +1218,6 @@ TEST (rpc, work_peer_one)
 	auto work (node2.generate_work (key1.pub));
 	ASSERT_FALSE (system.work.work_validate (key1.pub, work));
 	rpc.stop ();
-	system.processor.stop ();
 	runner.join ();
 	thread1.join ();
 }
@@ -1230,10 +1228,10 @@ TEST (rpc, work_peer_many)
     rai::system system2 (24001, 1);
     rai::system system3 (24002, 1);
     rai::system system4 (24003, 1);
-	rai::thread_runner runner1 (*system1.service, system1.processor);
-	rai::thread_runner runner2 (*system2.service, system2.processor);
-	rai::thread_runner runner3 (*system3.service, system3.processor);
-	rai::thread_runner runner4 (*system4.service, system4.processor);
+	rai::thread_runner runner1 (*system1.service);
+	rai::thread_runner runner2 (*system2.service);
+	rai::thread_runner runner3 (*system3.service);
+	rai::thread_runner runner4 (*system4.service);
 	rai::node_init init1;
     auto & node1 (*system1.nodes [0]);
     auto & node2 (*system2.nodes [0]);

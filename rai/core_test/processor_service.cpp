@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
 #include <rai/node/node.hpp>
 
-#include <thread>
 #include <atomic>
 #include <condition_variable>
+#include <future>
+#include <thread>
 
 TEST (processor_service, bad_send_signature)
 {
@@ -45,26 +46,19 @@ TEST (processor_service, bad_receive_signature)
 	ASSERT_EQ (rai::process_result::bad_signature, ledger.process (transaction, receive).code);
 }
 
-TEST (processor_service, empty)
+TEST (alarm, one)
 {
-	rai::processor_service service;
-	std::thread thread ([&service] () {service.run ();});
-	service.stop ();
-	thread.join ();
-}
-
-TEST (processor_service, one)
-{
-	rai::processor_service service;
+	boost::asio::io_service service;
+	rai::alarm alarm (service);
 	std::atomic <bool> done (false);
 	std::mutex mutex;
 	std::condition_variable condition;
-	service.add (std::chrono::system_clock::now (), [&] ()
-				 {
-					 std::lock_guard <std::mutex> lock (mutex);
-					 done = true;
-					 condition.notify_one ();
-				 });
+	alarm.add (std::chrono::system_clock::now (), [&] ()
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		done = true;
+		condition.notify_one ();
+	 });
 	std::thread thread ([&service] () {service.run ();});
 	std::unique_lock <std::mutex> unique (mutex);
 	condition.wait (unique, [&] () {return !!done;});
@@ -72,20 +66,21 @@ TEST (processor_service, one)
 	thread.join ();
 }
 
-TEST (processor_service, many)
+TEST (alarm, many)
 {
-	rai::processor_service service;
+	boost::asio::io_service service;
+	rai::alarm alarm (service);
 	std::atomic <int> count (0);
 	std::mutex mutex;
 	std::condition_variable condition;
 	for (auto i (0); i < 50; ++i)
 	{
-		service.add (std::chrono::system_clock::now (), [&] ()
-					 {
-						 std::lock_guard <std::mutex> lock (mutex);
-						 count += 1;
-						 condition.notify_one ();
-					 });
+		alarm.add (std::chrono::system_clock::now (), [&] ()
+		{
+			std::lock_guard <std::mutex> lock (mutex);
+			count += 1;
+			condition.notify_one ();
+		});
 	}
 	std::vector <std::thread> threads;
 	for (auto i (0); i < 50; ++i)
@@ -93,7 +88,7 @@ TEST (processor_service, many)
 		threads.push_back (std::thread ([&service] () {service.run ();}));
 	}
 	std::unique_lock <std::mutex> unique (mutex);
-	condition.wait (unique, [&] () {return count == 50;});
+	condition.wait (unique, [&] () { return count == 50;});
 	service.stop ();
 	for (auto i (threads.begin ()), j (threads.end ()); i != j; ++i)
 	{
@@ -101,27 +96,35 @@ TEST (processor_service, many)
 	}
 }
 
-TEST (processor_service, top_execution)
+TEST (alarm, top_execution)
 {
-	rai::processor_service service;
-	int value (0);
+	boost::asio::io_service service;
+	rai::alarm alarm (service);
+	int value1 (0);
+	int value2 (0);
 	std::mutex mutex;
-	std::unique_lock <std::mutex> lock1 (mutex);
-	service.add (std::chrono::system_clock::now (), [&] () {value = 1; service.stop (); lock1.unlock ();});
-	service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (1), [&] () {value = 2; service.stop (); lock1.unlock ();});
-	service.run ();
-	std::unique_lock <std::mutex> lock2 (mutex);
-	ASSERT_EQ (1, value);
-}
-
-TEST (processor_service, stopping)
-{
-	rai::processor_service service;
-	ASSERT_EQ (0, service.operations.size ());
-	service.add (std::chrono::system_clock::now (), [] () {});
-	ASSERT_EQ (1, service.operations.size ());
+	std::promise <bool> promise;
+	alarm.add (std::chrono::system_clock::now (), [&] ()
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		value1 = 1;
+		value2 = 1;
+	});
+	alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (1), [&] ()
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		value2 = 2;
+		promise.set_value (false);
+	});
+	boost::asio::io_service::work work (service);
+	std::thread thread ([&service] ()
+	{
+		service.run ();
+	});
+	promise.get_future ().get ();
+	std::lock_guard <std::mutex> lock (mutex);
+	ASSERT_EQ (1, value1);
+	ASSERT_EQ (2, value2);
 	service.stop ();
-	ASSERT_EQ (0, service.operations.size ());
-	service.add (std::chrono::system_clock::now (), [] () {});
-	ASSERT_EQ (0, service.operations.size ());
+	thread.join ();
 }

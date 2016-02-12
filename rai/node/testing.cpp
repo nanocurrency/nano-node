@@ -4,14 +4,15 @@
 #include <boost/property_tree/json_parser.hpp>
 
 rai::system::system (uint16_t port_a, size_t count_a) :
-service (new boost::asio::io_service)
+service (new boost::asio::io_service),
+alarm (*service)
 {
     nodes.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
         rai::node_init init;
 		rai::node_config config (port_a + i, logging);
-        auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), processor, config, work));
+        auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), alarm, config, work));
         assert (!init.error ());
         node->start ();
 		rai::uint256_union wallet;
@@ -70,8 +71,7 @@ rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
 void rai::system::poll ()
 {
 	auto polled1 (service->poll_one ());
-	auto polled2 (processor.poll_one ());
-	if (polled1 == 0 && polled2 == 0)
+	if (polled1 == 0)
 	{
 		std::this_thread::sleep_for (std::chrono::milliseconds (50));
 	}
@@ -98,7 +98,7 @@ public:
         if (count_l > 0)
         {
             auto this_l (shared_from_this ());
-            node->service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
+            node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
         }
     }
 	std::vector <rai::account> accounts;
@@ -220,7 +220,6 @@ void rai::system::stop ()
 		i->stop ();
 	}
 	work.stop ();
-	processor.stop ();
 }
 
 rai::landing_store::landing_store ()
@@ -389,7 +388,7 @@ void rai::landing::distribute_ongoing ()
 {
 	distribute_one ();
 	BOOST_LOG (node.log) << "Waiting for next distribution cycle";
-	node.service.add (std::chrono::system_clock::now () + sleep_seconds, [this] () {distribute_ongoing ();});
+	node.alarm.add (std::chrono::system_clock::now () + sleep_seconds, [this] () {distribute_ongoing ();});
 }
 
 

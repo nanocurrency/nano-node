@@ -1494,7 +1494,7 @@ completed (false)
 void rai::payment_observer::start (uint64_t timeout)
 {
 	auto this_l (shared_from_this ());
-	rpc.node.service.add (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout), [this_l] ()
+	rpc.node.alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (timeout), [this_l] ()
 	{
 		this_l->complete (rai::payment_status::nothing);
 	});

@@ -21,14 +21,10 @@ int main (int argc, char ** argv)
         client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
     }
     client_tabs->show ();
-	rai::thread_runner runner (*system.service, system.processor);
+	rai::thread_runner runner (*system.service);
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {
-        for (auto & i: system.nodes)
-        {
-            i->stop ();
-        }
-        system.processor.stop ();
+		system.stop ();
     });
     int result;
     try

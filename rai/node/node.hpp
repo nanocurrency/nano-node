@@ -99,21 +99,18 @@ public:
     std::chrono::system_clock::time_point wakeup;
     std::function <void ()> function;
 };
-class processor_service
+class alarm
 {
 public:
-    processor_service ();
-    void run ();
-    size_t poll ();
-    size_t poll_one ();
+    alarm (boost::asio::io_service &);
+	~alarm ();
     void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
-    void stop ();
-    bool stopped ();
-    size_t size ();
-    bool done;
+	void run ();
+	boost::asio::io_service & service;
     std::mutex mutex;
     std::condition_variable condition;
     std::priority_queue <operation, std::vector <operation>, std::greater <operation>> operations;
+	std::thread thread;
 };
 class gap_information
 {
@@ -315,13 +312,13 @@ public:
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
-    node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::processor_service &, rai::logging const &, rai::work_pool &);
-    node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::processor_service &, rai::node_config const &, rai::work_pool &);
+    node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
+    node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
     ~node ();
 	template <typename T>
 	void background (T action_a)
 	{
-		service.add (std::chrono::system_clock::now (), action_a);
+		alarm.service.post (action_a);
 	}
     void send_keepalive (rai::endpoint const &);
 	void keepalive (std::string const &, uint16_t);
@@ -349,7 +346,7 @@ public:
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
 	rai::node_config config;
-    rai::processor_service & service;
+    rai::alarm & alarm;
 	rai::work_pool & work;
     boost::log::sources::logger log;
     rai::block_store store;
@@ -376,7 +373,7 @@ public:
 class thread_runner
 {
 public:
-	thread_runner (boost::asio::io_service &, rai::processor_service &);
+	thread_runner (boost::asio::io_service &);
 	void join ();
 	std::vector <std::thread> threads;
 };
@@ -387,7 +384,7 @@ class inactive_node
 public:
 	inactive_node ();
 	boost::shared_ptr <boost::asio::io_service> service;
-	rai::processor_service processor;
+	rai::alarm alarm;
 	rai::logging logging;
 	rai::node_init init;
 	rai::work_pool work;

@@ -379,7 +379,7 @@ void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a
 		if (!successor.is_zero ())
 		{
 			done = false;
-			wallet.node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (1), [this, successor] ()
+			wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (1), [this, successor] ()
 			{
 				rebroadcast_action (successor);
 			});

@@ -314,7 +314,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Receive error: %1%") % error.message ());
         }
-        node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
+        node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
     }
 }
 
@@ -330,27 +330,49 @@ void rai::network::merge_peers (std::array <rai::endpoint, 8> const & peers_a)
     }
 }
 
-void rai::processor_service::run ()
+bool rai::operation::operator > (rai::operation const & other_a) const
+{
+    return wakeup > other_a.wakeup;
+}
+
+rai::alarm::alarm (boost::asio::io_service & service_a) :
+service (service_a),
+thread ([this] () { run (); })
+{
+}
+
+rai::alarm::~alarm ()
+{
+	add (std::chrono::system_clock::now (), nullptr);
+	thread.join ();
+}
+
+void rai::alarm::run ()
 {
     std::unique_lock <std::mutex> lock (mutex);
+	auto done (false);
     while (!done)
     {
         if (!operations.empty ())
         {
-            auto & operation_l (operations.top ());
-            if (operation_l.wakeup < std::chrono::system_clock::now ())
-            {
-                auto operation (operation_l);
-                operations.pop ();
-                lock.unlock ();
-                operation.function ();
-                lock.lock ();
-            }
-            else
-            {
-				auto wakeup (operation_l.wakeup);
-                condition.wait_until (lock, wakeup);
-            }
+            auto & operation (operations.top ());
+			if (operation.function)
+			{
+				if (operation.wakeup <= std::chrono::system_clock::now ())
+				{
+					service.post (operation.function);
+					operations.pop ();
+				}
+				else
+				{
+					auto wakeup (operation.wakeup);
+					condition.wait_until (lock, wakeup);
+				}
+			}
+			else
+			{
+				done = true;
+			}
         }
         else
         {
@@ -359,86 +381,11 @@ void rai::processor_service::run ()
     }
 }
 
-size_t rai::processor_service::poll_one ()
-{
-    std::unique_lock <std::mutex> lock (mutex);
-    size_t result (0);
-    if (!operations.empty ())
-    {
-        auto & operation_l (operations.top ());
-        if (operation_l.wakeup < std::chrono::system_clock::now ())
-        {
-            auto operation (operation_l);
-            operations.pop ();
-            lock.unlock ();
-            operation.function ();
-            result = 1;
-        }
-    }
-    return result;
-}
-
-size_t rai::processor_service::poll ()
-{
-    std::unique_lock <std::mutex> lock (mutex);
-    size_t result (0);
-    auto done_l (false);
-    while (!done_l)
-    {
-        if (!operations.empty ())
-        {
-            auto & operation_l (operations.top ());
-            if (operation_l.wakeup < std::chrono::system_clock::now ())
-            {
-                auto operation (operation_l);
-                operations.pop ();
-                lock.unlock ();
-                operation.function ();
-                ++result;
-                lock.lock ();
-            }
-            else
-            {
-                done_l = true;
-            }
-        }
-        else
-        {
-            done_l = true;
-        }
-    }
-    return result;
-}
-
-void rai::processor_service::add (std::chrono::system_clock::time_point const & wakeup_a, std::function <void ()> const & operation)
+void rai::alarm::add (std::chrono::system_clock::time_point const & wakeup_a, std::function <void ()> const & operation)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    if (!done)
-    {
-        operations.push (rai::operation ({wakeup_a, operation}));
-        condition.notify_all ();
-    }
-}
-
-rai::processor_service::processor_service () :
-done (false)
-{
-}
-
-void rai::processor_service::stop ()
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    done = true;
-    while (!operations.empty ())
-    {
-        operations.pop ();
-    }
-    condition.notify_all ();
-}
-
-bool rai::operation::operator > (rai::operation const & other_a) const
-{
-    return wakeup > other_a.wakeup;
+	operations.push (rai::operation ({wakeup_a, operation}));
+	condition.notify_all ();
 }
 
 rai::logging::logging () :
@@ -848,14 +795,14 @@ rai::account rai::node_config::random_representative ()
 	return result;
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::logging const & logging_a, rai::work_pool & work_a) :
-node (init_a, service_a, application_path_a, processor_a, rai::node_config (peering_port_a, logging_a), work_a)
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
+node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::processor_service & processor_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
 config (config_a),
-service (processor_a),
+alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb"),
 gap_cache (*this),
@@ -1015,7 +962,7 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
             {
 				auto node_l (node.shared ());
 				auto now (std::chrono::system_clock::now ());
-				node.service.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (5), [node_l, hash] ()
+				node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (5), [node_l, hash] ()
 				{
 					rai::transaction transaction (node_l->store.environment, nullptr, false);
 					if (!node_l->store.block_exists (transaction, hash))
@@ -1280,13 +1227,6 @@ std::vector <rai::peer_information> rai::peer_container::bootstrap_candidates ()
     }
     return result;
 }
-
-size_t rai::processor_service::size ()
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    return operations.size ();
-}
-
 void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
 	wallets.foreach_representative ([this, &block_a, &sender] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
@@ -1451,7 +1391,6 @@ void rai::node::stop ()
 	active.roots.clear ();
     network.stop ();
     bootstrap.stop ();
-    service.stop ();
 }
 
 void rai::node::keepalive_preconfigured (std::vector <std::string> const & peers_a)
@@ -1509,7 +1448,7 @@ void rai::node::ongoing_keepalive ()
         network.send_keepalive (i->endpoint);
     }
 	auto node_l (shared_from_this ());
-    service.add (std::chrono::system_clock::now () + period, [node_l] () { node_l->ongoing_keepalive ();});
+    alarm.add (std::chrono::system_clock::now () + period, [node_l] () { node_l->ongoing_keepalive ();});
 }
 
 void rai::node::backup_wallet ()
@@ -1522,7 +1461,7 @@ void rai::node::backup_wallet ()
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
-	service.add (std::chrono::system_clock::now () + backup_interval, [this_l] ()
+	alarm.add (std::chrono::system_clock::now () + backup_interval, [this_l] ()
 	{
 		this_l->backup_wallet ();
 	});
@@ -2028,7 +1967,7 @@ void rai::network::initiate_send ()
 	{
 		if (front.rebroadcast > 0)
 		{
-			node.service.add (std::chrono::system_clock::now () + std::chrono::seconds (node.config.rebroadcast_delay), [this, front]
+			node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (node.config.rebroadcast_delay), [this, front]
 			{
 				send_buffer (front.data, front.size, front.endpoint, front.rebroadcast - 1, front.callback);
 			});
@@ -2073,7 +2012,7 @@ void rai::network::send_complete (boost::system::error_code const & ec, size_t s
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.config.packet_delay_microseconds);
 		}
-		node.service.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.config.packet_delay_microseconds), [this] ()
+		node.alarm.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.config.packet_delay_microseconds), [this] ()
 		{
 			std::unique_lock <std::mutex> lock (socket_mutex);
 			initiate_send ();
@@ -2271,7 +2210,7 @@ void rai::active_transactions::announce_votes ()
 	}
 	auto now (std::chrono::system_clock::now ());
 	auto node_l (node.shared ());
-	node.service.add ((rai::rai_network == rai::rai_networks::rai_test_network) ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
+	node.alarm.add ((rai::rai_network == rai::rai_networks::rai_test_network) ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
 }
 
 void rai::active_transactions::start (rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a)
@@ -2345,7 +2284,7 @@ void rai::fan::value_set (rai::raw_key const & value_a)
     *(values [0]) ^= value_a.data;
 }
 
-rai::thread_runner::thread_runner (boost::asio::io_service & service_a, rai::processor_service & processor_a)
+rai::thread_runner::thread_runner (boost::asio::io_service & service_a)
 {
 	auto count (std::max <unsigned> (4, std::thread::hardware_concurrency ()));
 	for (auto i (0); i < count; ++i)
@@ -2359,20 +2298,6 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, rai::pro
 			catch (...)
 			{
 				assert (false && "Unhandled service exception");
-			}
-		}));
-	}
-	for (auto i (0); i < count; ++i)
-	{
-		threads.push_back (std::thread ([&processor_a] ()
-		{
-			try
-			{
-				processor_a.run ();
-			}
-			catch (...)
-			{
-				assert (false && "Unhandled processor exception");
 			}
 		}));
 	}
@@ -2830,10 +2755,11 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	return result;
 }
 
-rai::inactive_node::inactive_node ()
+rai::inactive_node::inactive_node () :
+service (boost::make_shared <boost::asio::io_service> ()),
+alarm (*service)
 {
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
-	service = boost::make_shared <boost::asio::io_service> ();
-	node = std::make_shared <rai::node> (init, *service, 24000,  working, processor, logging, work);
+	node = std::make_shared <rai::node> (init, *service, 24000,  working, alarm, logging, work);
 }
