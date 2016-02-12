@@ -640,7 +640,8 @@ packet_delay_microseconds (5000),
 bootstrap_fraction_numerator (1),
 creation_rebroadcast (2),
 rebroadcast_delay (15),
-receive_minimum (rai::Mrai_ratio)
+receive_minimum (rai::Mrai_ratio),
+password_fanout (1024)
 {
 	switch (rai::rai_network)
 	{
@@ -673,7 +674,7 @@ receive_minimum (rai::Mrai_ratio)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "2");
+	tree_a.put ("version", "3");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("packet_delay_microseconds", std::to_string (packet_delay_microseconds));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
@@ -708,6 +709,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	}
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
 	tree_a.put ("inactive_supply", inactive_supply.to_string_dec ());
+	tree_a.put ("password_fanout", std::to_string (password_fanout));
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -736,6 +738,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 	case 2:
 	{
 		tree_a.put ("inactive_supply", rai::uint128_union (0).to_string_dec ());
+		tree_a.put ("password_fanout", std::to_string (1024));
 		tree_a.erase ("version");
 		tree_a.put ("version", "3");
 		result = true;
@@ -807,6 +810,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result = true;
 		}
 		auto inactive_supply_l (tree_a.get <std::string> ("inactive_supply"));
+		auto password_fanout_l (tree_a.get <std::string> ("password_fanout"));
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -814,12 +818,15 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
 			creation_rebroadcast = std::stoul (creation_rebroadcast_l);
 			rebroadcast_delay = std::stoul (rebroadcast_delay_l);
+			password_fanout = std::stoul (password_fanout_l);
 			result |= creation_rebroadcast > 10;
 			result |= rebroadcast_delay > 300;
 			result |= peering_port > std::numeric_limits <uint16_t>::max ();
 			result |= logging.deserialize_json (logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
 			result |= inactive_supply.decode_dec (inactive_supply_l);
+			result |= password_fanout < 16;
+			result |= password_fanout > 1024 * 1024;
 		}
 		catch (std::logic_error const &)
 		{
@@ -2311,7 +2318,7 @@ int rai::node::store_version ()
 rai::fan::fan (rai::uint256_union const & key, size_t count_a)
 {
     std::unique_ptr <rai::uint256_union> first (new rai::uint256_union (key));
-    for (auto i (0); i != count_a; ++i)
+    for (auto i (1); i < count_a; ++i)
     {
         std::unique_ptr <rai::uint256_union> entry (new rai::uint256_union);
         random_pool.GenerateBlock (entry->bytes.data (), entry->bytes.size ());

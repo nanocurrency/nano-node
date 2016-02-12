@@ -38,6 +38,19 @@ TEST (node, inactive_supply)
 	ASSERT_EQ (10, node->ledger.inactive_supply);
 }
 
+TEST (node, password_fanout)
+{
+    rai::node_init init;
+    rai::processor_service processor;
+    auto service (boost::make_shared <boost::asio::io_service> ());
+	rai::node_config config;
+	rai::work_pool work;
+	config.password_fanout = 10;
+    auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), processor, config, work));
+	auto wallet (node->wallets.create (100));
+	ASSERT_EQ (10, wallet->store.password.values.size ());
+}
+
 TEST (node, balance)
 {
     rai::system system (24000, 1);
@@ -455,6 +468,7 @@ TEST (node_config, serialization)
 	config1.rebroadcast_delay = 10;
 	config1.receive_minimum = 10;
 	config1.inactive_supply = 10;
+	config1.password_fanout = 10;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -467,6 +481,7 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.peering_port, config1.peering_port);
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_NE (config2.inactive_supply, config1.inactive_supply);
+	ASSERT_NE (config2.password_fanout, config1.password_fanout);
 	bool upgraded (false);
 	config2.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
@@ -477,6 +492,7 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_EQ (config2.inactive_supply, config1.inactive_supply);
+	ASSERT_EQ (config2.password_fanout, config1.password_fanout);
 }
 
 TEST (node_config, v1_v2_upgrade)
@@ -566,7 +582,10 @@ TEST (node_config, v2_v3_upgrade)
 	bool upgraded (false);
 	rai::node_config config1;
 	ASSERT_FALSE (tree.get_optional <std::string> ("inactive_supply"));
+	ASSERT_FALSE (tree.get_optional <std::string> ("password_fanout"));
 	config1.deserialize_json (upgraded, tree);
+	ASSERT_EQ (rai::uint128_union (0).to_string_dec (), tree.get <std::string> ("inactive_supply"));
+	ASSERT_EQ ("1024", tree.get <std::string> ("password_fanout"));
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get <std::string> ("version"));
 	ASSERT_GT (std::stoull (version), 2);

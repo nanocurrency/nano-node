@@ -68,8 +68,8 @@ public:
 class wallet_store
 {
 public:
-    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, std::string const &);
-    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, std::string const &, std::string const &);
+    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &);
+    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &, std::string const &);
 	std::vector <rai::account> accounts (MDB_txn *);
     void initialize (MDB_txn *, bool &, std::string const &);
     rai::uint256_union check (MDB_txn *);

@@ -494,7 +494,7 @@ TEST (rpc, wallet_export)
     bool error (false);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 	rai::kdf kdf;
-    rai::wallet_store store (error, kdf, transaction, rai::genesis_account, "0", wallet_json);
+    rai::wallet_store store (error, kdf, transaction, rai::genesis_account, 1, "0", wallet_json);
     ASSERT_FALSE (error);
     ASSERT_TRUE (store.exists (transaction, rai::test_genesis_key.pub));
 	rpc.stop();
