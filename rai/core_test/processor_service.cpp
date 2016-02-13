@@ -58,7 +58,8 @@ TEST (alarm, one)
 		std::lock_guard <std::mutex> lock (mutex);
 		done = true;
 		condition.notify_one ();
-	 });
+	});
+	boost::asio::io_service::work work (service);
 	std::thread thread ([&service] () {service.run ();});
 	std::unique_lock <std::mutex> unique (mutex);
 	condition.wait (unique, [&] () {return !!done;});
