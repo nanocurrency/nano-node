@@ -588,6 +588,7 @@ bootstrap_fraction_numerator (1),
 creation_rebroadcast (2),
 rebroadcast_delay (15),
 receive_minimum (rai::Mrai_ratio),
+inactive_supply (0),
 password_fanout (1024),
 io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ()))
