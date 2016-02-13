@@ -1001,7 +1001,7 @@ TEST (node, coherent_observer)
 {
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
-	node1.observers.push_back ([&node1] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
+	node1.observers.add_blocks ([&node1] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, block_a.hash ()));

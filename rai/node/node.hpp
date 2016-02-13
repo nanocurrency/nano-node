@@ -311,6 +311,26 @@ public:
     static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 };
+class node_observers
+{
+public:
+	void add_blocks (std::function <void (rai::block const &, rai::account const &, rai::amount const &)> const &);
+	void add_wallet (std::function <void (rai::account const &, bool)> const &);
+    void add_vote (std::function <void (rai::vote const &)> const &);
+	void add_endpoint (std::function <void (rai::endpoint const &)> const &);
+	void add_disconnect (std::function <void ()> const &);
+	void call_blocks (rai::block const &, rai::account const &, rai::amount const &);
+	void call_wallet (rai::account const &, bool);
+	void call_vote (rai::vote const &);
+	void call_endpoint (rai::endpoint const &);
+	void call_disconnect ();
+	std::mutex mutex;
+    std::vector <std::function <void (rai::block const &, rai::account const &, rai::amount const &)>> blocks;
+	std::vector <std::function <void (rai::account const &, bool)>> wallet;
+    std::vector <std::function <void (rai::vote const &)>> vote;
+	std::vector <std::function <void (rai::endpoint const &)>> endpoint;
+	std::vector <std::function <void ()>> disconnect;
+};
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
@@ -341,7 +361,6 @@ public:
 	rai::uint128_t balance (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
-	void call_observers (rai::block const & block_a, rai::account const & account_a, rai::amount const &);
     void ongoing_keepalive ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
@@ -361,11 +380,7 @@ public:
     rai::bootstrap_listener bootstrap;
     rai::peer_container peers;
 	boost::filesystem::path application_path;
-    std::vector <std::function <void (rai::block const &, rai::account const &, rai::amount const &)>> observers;
-	std::vector <std::function <void (rai::account const &, bool)>> wallet_observers;
-    std::vector <std::function <void (rai::vote const &)>> vote_observers;
-	std::vector <std::function <void (rai::endpoint const &)>> endpoint_observers;
-	std::vector <std::function <void ()>> disconnect_observers;
+	rai::node_observers observers;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
