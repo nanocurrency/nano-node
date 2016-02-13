@@ -582,9 +582,13 @@ TEST (node_config, v2_v3_upgrade)
 	rai::node_config config1;
 	ASSERT_FALSE (tree.get_optional <std::string> ("inactive_supply"));
 	ASSERT_FALSE (tree.get_optional <std::string> ("password_fanout"));
+	ASSERT_FALSE (tree.get_optional <std::string> ("io_threads"));
+	ASSERT_FALSE (tree.get_optional <std::string> ("work_threads"));
 	config1.deserialize_json (upgraded, tree);
 	ASSERT_EQ (rai::uint128_union (0).to_string_dec (), tree.get <std::string> ("inactive_supply"));
 	ASSERT_EQ ("1024", tree.get <std::string> ("password_fanout"));
+	ASSERT_NE (0, std::stoul (tree.get <std::string> ("password_fanout")));
+	ASSERT_NE (0, std::stoul (tree.get <std::string> ("password_fanout")));
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get <std::string> ("version"));
 	ASSERT_GT (std::stoull (version), 2);

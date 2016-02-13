@@ -1065,7 +1065,7 @@ TEST (rpc, DISABLED_payment_wait)
 	rai::keypair key;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key.prv);
-	rai::thread_runner runner (*system.service);
+	rai::thread_runner runner (*system.service, node1->config.io_threads);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
@@ -1177,10 +1177,10 @@ TEST (rpc, work_cancel)
 TEST (rpc, work_peer_bad)
 {
     rai::system system (24000, 2);
-	rai::thread_runner runner (*system.service);
 	rai::node_init init1;
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
+	rai::thread_runner runner (*system.service, node1.config.io_threads);
 	rai::keypair key;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key.prv);
@@ -1202,10 +1202,10 @@ TEST (rpc, work_peer_bad)
 TEST (rpc, work_peer_one)
 {
     rai::system system (24000, 2);
-	rai::thread_runner runner (*system.service);
 	rai::node_init init1;
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
+	rai::thread_runner runner (*system.service, node1.config.io_threads);
 	rai::keypair key;
 	system.wallet (0)->insert (rai::test_genesis_key.prv);
 	system.wallet (0)->insert (key.prv);
@@ -1228,15 +1228,15 @@ TEST (rpc, work_peer_many)
     rai::system system2 (24001, 1);
     rai::system system3 (24002, 1);
     rai::system system4 (24003, 1);
-	rai::thread_runner runner1 (*system1.service);
-	rai::thread_runner runner2 (*system2.service);
-	rai::thread_runner runner3 (*system3.service);
-	rai::thread_runner runner4 (*system4.service);
 	rai::node_init init1;
     auto & node1 (*system1.nodes [0]);
     auto & node2 (*system2.nodes [0]);
     auto & node3 (*system3.nodes [0]);
     auto & node4 (*system4.nodes [0]);
+	rai::thread_runner runner1 (*system1.service, node1.config.io_threads);
+	rai::thread_runner runner2 (*system2.service, node2.config.io_threads);
+	rai::thread_runner runner3 (*system3.service, node3.config.io_threads);
+	rai::thread_runner runner4 (*system4.service, node4.config.io_threads);
 	rai::keypair key;
     auto pool (boost::make_shared <boost::network::utils::thread_pool> (16));
 	rai::rpc_config config2 (true);

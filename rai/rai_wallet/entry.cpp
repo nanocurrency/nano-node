@@ -138,7 +138,7 @@ int run_wallet (int argc, char * const * argv)
 						node->start ();
 						std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
 						gui->client_window->show ();
-						rai::thread_runner runner (*service);
+						rai::thread_runner runner (*service, node->config.io_threads);
 						try
 						{
 							result = application.exec ();

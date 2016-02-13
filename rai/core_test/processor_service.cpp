@@ -82,6 +82,7 @@ TEST (alarm, many)
 			condition.notify_one ();
 		});
 	}
+	boost::asio::io_service::work work (service);
 	std::vector <std::thread> threads;
 	for (auto i (0); i < 50; ++i)
 	{

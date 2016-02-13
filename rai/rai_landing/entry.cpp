@@ -107,7 +107,7 @@ int main (int argc, char * const * argv)
 				if (!init.error ())
 				{
 					node->start ();
-					rai::thread_runner runner (*service);
+					rai::thread_runner runner (*service, node->config.io_threads);
 					auto wallet (node->wallets.open (config.wallet));
 					if (wallet == nullptr)
 					{

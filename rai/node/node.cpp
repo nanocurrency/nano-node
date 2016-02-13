@@ -588,7 +588,9 @@ bootstrap_fraction_numerator (1),
 creation_rebroadcast (2),
 rebroadcast_delay (15),
 receive_minimum (rai::Mrai_ratio),
-password_fanout (1024)
+password_fanout (1024),
+io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
+work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ()))
 {
 	switch (rai::rai_network)
 	{
@@ -657,6 +659,8 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
 	tree_a.put ("inactive_supply", inactive_supply.to_string_dec ());
 	tree_a.put ("password_fanout", std::to_string (password_fanout));
+	tree_a.put ("io_threads", std::to_string (io_threads));
+	tree_a.put ("work_threads", std::to_string (work_threads));
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -686,6 +690,8 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 	{
 		tree_a.put ("inactive_supply", rai::uint128_union (0).to_string_dec ());
 		tree_a.put ("password_fanout", std::to_string (1024));
+		tree_a.put ("io_threads", std::to_string (io_threads));
+		tree_a.put ("work_threads", std::to_string (work_threads));
 		tree_a.erase ("version");
 		tree_a.put ("version", "3");
 		result = true;
@@ -758,6 +764,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		}
 		auto inactive_supply_l (tree_a.get <std::string> ("inactive_supply"));
 		auto password_fanout_l (tree_a.get <std::string> ("password_fanout"));
+		auto io_threads_l (tree_a.get <std::string> ("io_threads"));
+		auto work_threads_l (tree_a.get <std::string> ("work_threads"));
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -766,6 +774,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			creation_rebroadcast = std::stoul (creation_rebroadcast_l);
 			rebroadcast_delay = std::stoul (rebroadcast_delay_l);
 			password_fanout = std::stoul (password_fanout_l);
+			io_threads = std::stoul (io_threads_l);
+			work_threads = std::stoul (work_threads_l);
 			result |= creation_rebroadcast > 10;
 			result |= rebroadcast_delay > 300;
 			result |= peering_port > std::numeric_limits <uint16_t>::max ();
@@ -774,6 +784,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= inactive_supply.decode_dec (inactive_supply_l);
 			result |= password_fanout < 16;
 			result |= password_fanout > 1024 * 1024;
+			result |= io_threads == 0;
+			result |= work_threads == 0;
 		}
 		catch (std::logic_error const &)
 		{
@@ -2284,10 +2296,9 @@ void rai::fan::value_set (rai::raw_key const & value_a)
     *(values [0]) ^= value_a.data;
 }
 
-rai::thread_runner::thread_runner (boost::asio::io_service & service_a)
+rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
 {
-	auto count (std::max <unsigned> (4, std::thread::hardware_concurrency ()));
-	for (auto i (0); i < count; ++i)
+	for (auto i (0); i < service_threads_a; ++i)
 	{
 		threads.push_back (std::thread ([&service_a] ()
 		{

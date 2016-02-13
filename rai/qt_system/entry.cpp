@@ -21,7 +21,7 @@ int main (int argc, char ** argv)
         client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
     }
     client_tabs->show ();
-	rai::thread_runner runner (*system.service);
+	rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
     QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
     {
 		system.stop ();
