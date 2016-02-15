@@ -52,8 +52,8 @@ void open_or_create (std::fstream &, std::string const &);
 template <typename T>
 bool fetch_object (T & object, std::iostream & stream_a)
 {
-	assert (stream_a.tellg () == 0);
-	assert (stream_a.tellp () == 0);
+	assert (stream_a.tellg () == std::streampos(0));
+	assert (stream_a.tellp () == std::streampos(0));
 	bool error (false);
     boost::property_tree::ptree tree;
 	try
@@ -63,7 +63,7 @@ bool fetch_object (T & object, std::iostream & stream_a)
 	catch (std::runtime_error const &)
 	{
 		auto pos (stream_a.tellg ());
-		if (pos != 0)
+		if (pos != std::streampos(0))
 		{
 			error = true;
 		}
