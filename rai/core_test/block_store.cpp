@@ -491,7 +491,7 @@ TEST (block_store, large_iteration)
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	std::unordered_set <rai::account> accounts1;
-	for (auto i (0); i < 10000; ++i)
+	for (auto i (0); i < 1000; ++i)
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::account account;
