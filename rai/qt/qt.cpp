@@ -57,7 +57,7 @@ wallet (wallet_a)
 
 	QObject::connect (account_text, &QPushButton::clicked, [this] ()
 	{
-		wallet.application.clipboard ()->setText (QString (wallet.account.to_account ().c_str ()));
+		this->wallet.application.clipboard ()->setText (QString (this->wallet.account.to_account ().c_str ()));
 	});
 }
 
@@ -107,9 +107,9 @@ wallet (wallet_a)
 		auto selection (view->selectionModel ()->selection ().indexes ());
 		if (selection.size () == 1)
 		{
-			auto error (wallet.account.decode_account (model->item (selection [0].row (), 1)->text ().toStdString ()));
+			auto error (this->wallet.account.decode_account (model->item (selection [0].row (), 1)->text ().toStdString ()));
 			assert (!error);
-			wallet.refresh ();
+			this->wallet.refresh ();
 		}
 	});
 	QObject::connect (account_key_button, &QPushButton::released, [this] ()
@@ -121,9 +121,9 @@ wallet (wallet_a)
 		{
 			show_line_ok (*account_key_line);
 			account_key_line->clear ();
-			wallet.wallet_m->insert (key);
-			wallet.accounts.refresh ();
-			wallet.history.refresh ();
+			this->wallet.wallet_m->insert (key);
+			this->wallet.accounts.refresh ();
+			this->wallet.history.refresh ();
 		}
 		else
 		{
@@ -132,23 +132,23 @@ wallet (wallet_a)
 	});
     QObject::connect (back, &QPushButton::clicked, [this] ()
     {
-        wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] ()
 	{
         rai::keypair key;
-        wallet.wallet_m->insert (key.prv);
+		this->wallet.wallet_m->insert (key.prv);
         refresh ();
 	});
     QObject::connect (view, &QTableView::clicked, [this] (QModelIndex const & index_a)
     {
         auto item (model->item (index_a.row (), 1));
         assert (item != nullptr);
-        wallet.application.clipboard ()->setText (item->text ());
+		this->wallet.application.clipboard ()->setText (item->text ());
     });
 	QObject::connect (import_wallet, &QPushButton::released, [this] ()
 	{
-		wallet.push_main_stack (wallet.import.window);
+		this->wallet.push_main_stack (this->wallet.import.window);
 	});
 }
 
@@ -196,10 +196,10 @@ wallet (wallet_a)
 			show_line_ok (*filename);
 			std::stringstream contents;
 			contents << stream.rdbuf ();
-			if (!wallet.wallet_m->import (contents.str (), password->text ().toStdString ().c_str ()))
+			if (!this->wallet.wallet_m->import (contents.str (), password->text ().toStdString ().c_str ()))
 			{
 				show_line_ok (*password);
-				wallet.accounts.refresh ();
+				this->wallet.accounts.refresh ();
 				password->clear ();
 				filename->clear ();
 			}
@@ -215,7 +215,7 @@ wallet (wallet_a)
 	});
 	QObject::connect (back, &QPushButton::released, [this] ()
 	{
-		wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
 	});
 }
 
@@ -321,21 +321,21 @@ wallet (wallet_a)
 	window->setLayout (layout);
 	QObject::connect (back, &QPushButton::released, [this] ()
 	{
-		wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (retrieve, &QPushButton::released, [this] ()
 	{
 		rai::block_hash hash_l;
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
-			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-			auto block_l (wallet.node.store.block_get (transaction, hash_l));
+			rai::transaction transaction (this->wallet.node.store.environment, nullptr, false);
+			auto block_l (this->wallet.node.store.block_get (transaction, hash_l));
 			if (block_l != nullptr)
 			{
 				std::string contents;
 				block_l->serialize_json (contents);
 				block->setPlainText (contents.c_str ());
-				auto successor_l (wallet.node.store.block_successor (transaction, hash_l));
+				auto successor_l (this->wallet.node.store.block_successor (transaction, hash_l));
 				successor->setText (successor_l.to_string ().c_str ());
 			}
 			else
@@ -354,11 +354,11 @@ wallet (wallet_a)
 		auto error (block.decode_account (hash->text ().toStdString ()));
 		if (!error)
 		{
-			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-			if (wallet.node.store.block_exists (transaction, block))
+			rai::transaction transaction (this->wallet.node.store.environment, nullptr, false);
+			if (this->wallet.node.store.block_exists (transaction, block))
 			{
 				rebroadcast->setEnabled (false);
-				wallet.node.background ([this, block] ()
+				this->wallet.node.background ([this, block] ()
 				{
 					rebroadcast_action (block);
 				});
@@ -524,7 +524,7 @@ active_status (*this)
 
     QObject::connect (settings_button, &QPushButton::released, [this] ()
     {
-        settings.activate ();
+		this->settings.activate ();
     });
     QObject::connect (show_advanced, &QPushButton::released, [this] ()
     {
@@ -559,7 +559,7 @@ active_status (*this)
 								{
 									send_count->clear ();
 									send_account->clear ();
-									accounts.refresh ();
+									this->accounts.refresh ();
 								}
 								else
 								{
@@ -598,11 +598,11 @@ active_status (*this)
 		{
 			if (wallet_m->exists (account_a))
 			{
-				accounts.refresh ();
+				this->accounts.refresh ();
 			}
 			if (account_a == account)
 			{
-				history.refresh ();
+				this->history.refresh ();
 				self.refresh_balance ();
 			}
 		}));
@@ -654,7 +654,7 @@ active_status (*this)
 	});
 	wallet_m->lock_observer = [this] (bool invalid, bool vulnerable)
 	{
-		settings.update_locked (invalid, vulnerable);
+		this->settings.update_locked (invalid, vulnerable);
 	};
 	refresh ();
 }
@@ -742,12 +742,12 @@ wallet (wallet_a)
     window->setLayout (layout);
     QObject::connect (change, &QPushButton::released, [this] ()
     {
-		rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, true);
-        if (wallet.wallet_m->store.valid_password (transaction))
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+        if (this->wallet.wallet_m->store.valid_password (transaction))
         {
             if (new_password->text () == retype_password->text ())
             {
-                wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
+				this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
                 new_password->clear ();
 				retype_password->clear ();
 				retype_password->setPlaceholderText ("Retype password");
@@ -766,21 +766,21 @@ wallet (wallet_a)
 		{
 			change_rep->setEnabled (false);
 			{
-				rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, true);
-				wallet.wallet_m->store.representative_set (transaction, representative_l);
+				rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+				this->wallet.wallet_m->store.representative_set (transaction, representative_l);
 			}
-			auto block (wallet.wallet_m->change_sync (wallet.account, representative_l));
+			auto block (this->wallet.wallet_m->change_sync (this->wallet.account, representative_l));
 			change_rep->setEnabled (true);
 		}
 	});
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        assert (wallet.main_stack->currentWidget () == window);
-        wallet.pop_main_stack ();
+        assert (this->wallet.main_stack->currentWidget () == window);
+		this->wallet.pop_main_stack ();
     });
     QObject::connect (unlock, &QPushButton::released, [this] ()
     {
-		if (!wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
+		if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
 		{
 			password->clear ();
 		}
@@ -789,33 +789,33 @@ wallet (wallet_a)
     {
         rai::raw_key empty;
         empty.data.clear ();
-        wallet.wallet_m->store.password.value_set (empty);
+		this->wallet.wallet_m->store.password.value_set (empty);
         update_locked (true, true);
     });
 }
 
 void rai_qt::settings::activate ()
 {
-    wallet.push_main_stack (window);
+	this->wallet.push_main_stack (window);
 }
 
 void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
 {
 	if (invalid)
 	{
-		wallet.active_status.insert (rai_qt::status_types::locked);
+		this->wallet.active_status.insert (rai_qt::status_types::locked);
 	}
 	else
 	{
-		wallet.active_status.erase (rai_qt::status_types::locked);
+		this->wallet.active_status.erase (rai_qt::status_types::locked);
 	}
 	if (vulnerable)
 	{
-		wallet.active_status.insert (rai_qt::status_types::vulnerable);
+		this->wallet.active_status.insert (rai_qt::status_types::vulnerable);
 	}
 	else
 	{
-		wallet.active_status.erase (rai_qt::status_types::vulnerable);
+		this->wallet.active_status.erase (rai_qt::status_types::vulnerable);
 	}
 }
 
@@ -888,27 +888,27 @@ wallet (wallet_a)
 
     QObject::connect (accounts, &QPushButton::released, [this] ()
     {
-        wallet.push_main_stack (wallet.accounts.window);
+		this->wallet.push_main_stack (wallet.accounts.window);
     });
     QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
     {
-        wallet.accounts.refresh ();
+		this->wallet.accounts.refresh ();
     });
     QObject::connect (show_peers, &QPushButton::released, [this] ()
     {
-        wallet.push_main_stack (peers_window);
+		this->wallet.push_main_stack (peers_window);
     });
     QObject::connect (show_ledger, &QPushButton::released, [this] ()
     {
-        wallet.push_main_stack (ledger_window);
+		this->wallet.push_main_stack (ledger_window);
     });
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
     });
     QObject::connect (peers_back, &QPushButton::released, [this] ()
     {
-        wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
     });
 	QObject::connect (peers_bootstrap, &QPushButton::released, [this] ()
 	{
@@ -918,7 +918,7 @@ wallet (wallet_a)
 		{
 			show_line_ok (*bootstrap_line);
 			bootstrap_line->clear ();
-			wallet.node.bootstrap_initiator.bootstrap (endpoint);
+			this->wallet.node.bootstrap_initiator.bootstrap (endpoint);
 		}
 		else
 		{
@@ -935,23 +935,23 @@ wallet (wallet_a)
     });
     QObject::connect (ledger_back, &QPushButton::released, [this] ()
     {
-        wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
     });
     QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
     {
-		wallet.wallet_m->search_pending ();
+		this->wallet.wallet_m->search_pending ();
     });
     QObject::connect (create_block, &QPushButton::released, [this] ()
     {
-        wallet.push_main_stack (wallet.block_creation.window);
+		this->wallet.push_main_stack (this->wallet.block_creation.window);
     });
     QObject::connect (enter_block, &QPushButton::released, [this] ()
     {
-        wallet.push_main_stack (wallet.block_entry.window);
+		this->wallet.push_main_stack (this->wallet.block_entry.window);
     });
 	QObject::connect (block_viewer, &QPushButton::released, [this] ()
 	{
-		wallet.push_main_stack (wallet.block_viewer.window);
+		this->wallet.push_main_stack (this->wallet.block_viewer.window);
 	});
     refresh_ledger ();
 }
@@ -1020,24 +1020,24 @@ wallet (wallet_a)
             if (block_l != nullptr)
             {
 				show_label_ok (*status);
-				status->setText ("");
-                wallet.node.process_receive_republish (std::move (block_l), 0);
+				this->status->setText ("");
+				this->wallet.node.process_receive_republish (std::move (block_l), 0);
             }
             else
             {
 				show_label_error (*status);
-				status->setText ("Unable to parse block");
+				this->status->setText ("Unable to parse block");
             }
         }
         catch (std::runtime_error const &)
         {
 			show_label_error (*status);
-            status->setText ("Unable to parse block");
+			this->status->setText ("Unable to parse block");
         }
     });
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
     });
 }
 
@@ -1151,7 +1151,7 @@ wallet (wallet_a)
     });
     QObject::connect (back, &QPushButton::released, [this] ()
     {
-        wallet.pop_main_stack ();
+		this->wallet.pop_main_stack ();
     });
     send->click ();
 }

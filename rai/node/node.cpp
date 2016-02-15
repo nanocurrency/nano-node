@@ -917,8 +917,8 @@ application_path (application_path_a)
 	};
 	observers.add_endpoint ([this] (rai::endpoint const & endpoint_a)
 	{
-		network.send_keepalive (endpoint_a);
-		bootstrap_initiator.warmup (endpoint_a);
+		this->network.send_keepalive (endpoint_a);
+		this->bootstrap_initiator.warmup (endpoint_a);
 	});
     observers.add_vote ([this] (rai::vote const & vote_a)
     {
@@ -927,7 +927,7 @@ application_path (application_path_a)
     observers.add_vote ([this] (rai::vote const & vote_a)
     {
 		rai::transaction transaction (store.environment, nullptr, false);
-        gap_cache.vote (transaction, vote_a);
+		this->gap_cache.vote (transaction, vote_a);
     });
     if (config.logging.log_to_cerr ())
     {
@@ -1118,7 +1118,7 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 				case rai::process_result::progress:
 				{
 					completed.push_back (std::make_tuple (result_a, block_a.clone ()));
-					network.republish_block (block_a.clone (), rebroadcast_a);
+					this->network.republish_block (block_a.clone (), rebroadcast_a);
 					break;
 				}
 				default:
@@ -1311,7 +1311,7 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
 		{
 			BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
 		}
-		network.confirm_block (prv_a, pub_a, block_a.clone (), 0, sender, 0);
+		this->network.confirm_block (prv_a, pub_a, block_a.clone (), 0, sender, 0);
 	});
 }
 
@@ -1557,9 +1557,9 @@ class distributed_work : public std::enable_shared_from_this <distributed_work>
 public:
 distributed_work (std::shared_ptr <rai::node> const & node_a, rai::block_hash const & root_a) :
 node (node_a),
-root (root_a),
-completed (false)
+root (root_a)
 {
+	completed.clear ();
 	for (auto & i : node_a->config.work_peers)
 	{
 		outstanding.insert (boost::str (boost::format ("http://[%1%]:%2%") % i.first.to_string () % std::to_string (i.second)));
@@ -2035,7 +2035,7 @@ void rai::network::initiate_send ()
 	{
 		if (front.rebroadcast > 0)
 		{
-			node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (node.config.rebroadcast_delay), [this, front]
+			this->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (this->node.config.rebroadcast_delay), [this, front]
 			{
 				send_buffer (front.data, front.size, front.endpoint, front.rebroadcast - 1, front.callback);
 			});
@@ -2113,9 +2113,9 @@ confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
 last_vote (std::chrono::system_clock::now ()),
-last_winner (block_a.clone ()),
-confirmed (false)
+last_winner (block_a.clone ())
 {
+	confirmed.clear ();
 }
 
 void rai::election::recompute_winner ()

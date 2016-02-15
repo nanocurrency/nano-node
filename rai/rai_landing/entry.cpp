@@ -16,7 +16,7 @@ public:
 	landing_config () :
 	landing_file ("landing.json")
 	{
-		rai::random_pool.GenerateBlock (wallet.bytes.begin (), wallet.bytes.size ());
+		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
 	}
 	bool deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)

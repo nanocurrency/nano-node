@@ -4,6 +4,8 @@
 
 #include <boost/thread.hpp>
 
+#include <set>
+
 #include <QtGui>
 #include <QtWidgets>
 

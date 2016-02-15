@@ -1486,9 +1486,9 @@ rai::payment_observer::payment_observer (boost::network::http::async_server <rai
 rpc (rpc_a),
 account (account_a),
 amount (amount_a),
-connection (connection_a),
-completed (false)
+connection (connection_a)
 {
+	completed.clear ();
 }
 
 void rai::payment_observer::start (uint64_t timeout)

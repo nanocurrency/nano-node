@@ -886,7 +886,7 @@ void rai::wallet::send_async (rai::account const & source_a, rai::account const 
 {
 	node.background ([this, source_a, account_a, amount_a, action_a] ()
 	{
-		node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, account_a, amount_a, action_a] ()
+		this->node.wallets.queue_wallet_action (source_a, rai::wallets::high_priority, [this, source_a, account_a, amount_a, action_a] ()
 		{
 			assert (!check_ownership (node.wallets, source_a));
 			auto block (send_action (source_a, account_a, amount_a));
