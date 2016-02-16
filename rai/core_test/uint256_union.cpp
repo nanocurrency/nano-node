@@ -319,8 +319,8 @@ TEST (json, fetch_object)
 	json_upgrade_test object3;
 	auto error3 (rai::fetch_object (object3, stream3));
 	ASSERT_TRUE (error3);
-	std::string string4 ("");
-	std::stringstream stream4 (string4);
+	std::fstream stream4;
+	rai::open_or_create (stream4, rai::unique_path().string());
 	json_upgrade_test object4;
 	auto error4 (rai::fetch_object (object4, stream4));
 	ASSERT_FALSE (error4);
@@ -329,4 +329,13 @@ TEST (json, fetch_object)
 	stream4.seekg (0);
 	boost::property_tree::read_json (stream4, tree2);
 	ASSERT_EQ ("created", tree2.get <std::string> ("thing"));
+}
+
+TEST(json, fetch_write_fail)
+{
+	std::string string4("");
+	std::stringstream stream4(string4, std::ios_base::in);
+	json_upgrade_test object4;
+	auto error4(rai::fetch_object(object4, stream4));
+	ASSERT_TRUE(error4);
 }
