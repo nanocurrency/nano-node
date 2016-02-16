@@ -1517,6 +1517,10 @@ void rai::payment_observer::complete (rai::payment_status status)
 	auto already (completed.test_and_set ());
 	if (!already)
 	{
+		if (rpc.node.config.logging.log_rpc ())
+		{
+			BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Exiting payment_observer for account %1% status %2%") % account.to_account () % static_cast <unsigned> (status));
+		}
 		switch (status)
 		{
 			case rai::payment_status::nothing:
