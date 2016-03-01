@@ -113,8 +113,9 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("daemon", "Start node daemon")
-		("debug_block_count", "Count the number of block in the local node")
+		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_frontier_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
 		("debug_profile_verify", "Profile work verification")
@@ -186,6 +187,12 @@ int main (int argc, char * const * argv)
 			std::cerr << "Bootstrapping requires one <key> option\n";
 			result = -1;
 		}
+	}
+	else if (vm.count ("debug_frontier_count"))
+	{
+		rai::inactive_node node;
+		rai::transaction transaction (node.node->store.environment, nullptr, false);
+		std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.frontier_count (transaction));
 	}
     else if (vm.count ("debug_mass_activity"))
     {

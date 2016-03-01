@@ -314,6 +314,7 @@ public:
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);
 	void frontier_del (MDB_txn *, rai::block_hash const &);
+	size_t frontier_count (MDB_txn *);
 	
 	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
 	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);

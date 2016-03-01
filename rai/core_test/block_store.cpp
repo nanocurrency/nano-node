@@ -553,3 +553,15 @@ TEST (block_store, block_count)
     store.block_put (rai::transaction (store.environment, nullptr, true), hash1, block);
 	ASSERT_EQ (1, store.block_count (rai::transaction (store.environment, nullptr, false)));
 }
+
+TEST (block_store, frontier_count)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	ASSERT_EQ (0, store.frontier_count (rai::transaction (store.environment, nullptr, false)));
+	rai::block_hash hash (100);
+	rai::account account (200);
+	store.frontier_put (rai::transaction (store.environment, nullptr, true), hash, account);
+	ASSERT_EQ (1, store.frontier_count (rai::transaction (store.environment, nullptr, false)));
+}

@@ -1894,6 +1894,15 @@ void rai::block_store::frontier_del (MDB_txn * transaction_a, rai::block_hash co
 	assert (status == 0);
 }
 
+size_t rai::block_store::frontier_count (MDB_txn * transaction_a)
+{
+	MDB_stat frontier_stats;
+	auto status (mdb_stat (transaction_a, frontiers, &frontier_stats));
+	assert (status == 0);
+	auto result (frontier_stats.ms_entries);
+	return result;
+}
+
 void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const & account_a, rai::account_info const & info_a)
 {
     std::vector <uint8_t> vector;
