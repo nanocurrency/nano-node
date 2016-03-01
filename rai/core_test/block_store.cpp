@@ -541,3 +541,15 @@ TEST (block_store, block_replace)
 	ASSERT_NE (nullptr, block3);
 	ASSERT_EQ (2, block3->block_work ());
 }
+
+TEST (block_store, block_count)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	ASSERT_EQ (0, store.block_count (rai::transaction (store.environment, nullptr, false)));
+    rai::open_block block (0, 1, 0, rai::keypair ().prv, 0, 0);
+    rai::uint256_union hash1 (block.hash ());
+    store.block_put (rai::transaction (store.environment, nullptr, true), hash1, block);
+	ASSERT_EQ (1, store.block_count (rai::transaction (store.environment, nullptr, false)));
+}

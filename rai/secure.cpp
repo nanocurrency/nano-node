@@ -1819,6 +1819,24 @@ bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash co
 	return result;
 }
 
+size_t rai::block_store::block_count (MDB_txn * transaction_a)
+{
+	MDB_stat send_stats;
+	auto status1 (mdb_stat (transaction_a, send_blocks, &send_stats));
+	assert (status1 == 0);
+	MDB_stat receive_stats;
+	auto status2 (mdb_stat (transaction_a, receive_blocks, &receive_stats));
+	assert (status2 == 0);
+	MDB_stat open_stats;
+	auto status3 (mdb_stat (transaction_a, open_blocks, &open_stats));
+	assert (status3 == 0);
+	MDB_stat change_stats;
+	auto status4 (mdb_stat (transaction_a, change_blocks, &change_stats));
+	assert (status4 == 0);
+	auto result (send_stats.ms_entries + receive_stats.ms_entries + open_stats.ms_entries + change_stats.ms_entries);
+	return result;
+}
+
 void rai::block_store::account_del (MDB_txn * transaction_a, rai::account const & account_a)
 {
 	auto status (mdb_del (transaction_a, accounts, account_a.val (), nullptr));

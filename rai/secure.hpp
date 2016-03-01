@@ -309,6 +309,7 @@ public:
 	std::unique_ptr <rai::block> block_get (MDB_txn *, rai::block_hash const &);
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
+	size_t block_count (MDB_txn *);
 	
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);

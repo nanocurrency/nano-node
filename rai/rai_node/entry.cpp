@@ -113,6 +113,7 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("daemon", "Start node daemon")
+		("debug_block_count", "Count the number of block in the local node")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
@@ -131,6 +132,12 @@ int main (int argc, char * const * argv)
 	{
         rai_daemon::daemon daemon;
         daemon.run ();
+	}
+	else if (vm.count ("debug_block_count"))
+	{
+		rai::inactive_node node;
+		rai::transaction transaction (node.node->store.environment, nullptr, false);
+		std::cout << boost::str (boost::format ("Block count: %1%\n") % node.node->store.block_count (transaction));
 	}
 	else if (vm.count ("debug_bootstrap_generate"))
 	{
