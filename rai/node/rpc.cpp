@@ -410,6 +410,15 @@ void rai::rpc_handler::frontiers ()
 	}
 }
 
+void rai::rpc_handler::frontier_count ()
+{
+	rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+	auto size (rpc.node.store.frontier_count (transaction));
+	boost::property_tree::ptree response_l;
+	response_l.put ("count", std::to_string (size));
+	rpc.send_response (connection, response_l);
+}
+
 void rai::rpc_handler::keepalive ()
 {
 	if (rpc.config.enable_control)
@@ -1358,6 +1367,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "frontiers")
 		{
 			frontiers ();
+		}
+		else if (action == "frontier_count")
+		{
+			frontier_count ();
 		}
 		else if (action == "keepalive")
 		{

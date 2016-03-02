@@ -92,6 +92,7 @@ public:
 	void block_count ();
 	void chain ();
 	void frontiers ();
+	void frontier_count ();
 	void keepalive ();
 	void password_change ();
 	void password_enter ();
