@@ -141,7 +141,10 @@ namespace rai_qt {
         QWidget * window;
         QVBoxLayout * layout;
         QLabel * your_account_label;
-        QPushButton * account_text;
+		QWidget * account_window;
+		QHBoxLayout * account_layout;
+        QLabel * account_text;
+		QPushButton * copy_button;
         QLabel * balance_label;
         rai_qt::wallet & wallet;
     };

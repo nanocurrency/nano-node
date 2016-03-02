@@ -41,21 +41,26 @@ rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & ac
 window (new QWidget),
 layout (new QVBoxLayout),
 your_account_label (new QLabel ("Your RaiBlocks account:")),
-account_text (new QPushButton),
+account_window (new QWidget),
+account_layout (new QHBoxLayout),
+account_text (new QLabel),
+copy_button (new QPushButton ("Copy")),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
-	account_text->setFlat (true);
 	auto font (QFontDatabase::systemFont (QFontDatabase::FixedFont));
 	font.setPointSize (account_text->font().pointSize());
 	account_text->setFont (font);
+	account_layout->addWidget (account_text);
+	account_layout->addWidget (copy_button);
+	account_window->setLayout (account_layout);
 	layout->addWidget (your_account_label);
-	layout->addWidget (account_text);
+	layout->addWidget (account_window);
 	layout->addWidget (balance_label);
 	layout->setContentsMargins (5, 5, 5, 5);
 	window->setLayout (layout);
 
-	QObject::connect (account_text, &QPushButton::clicked, [this] ()
+	QObject::connect (copy_button, &QPushButton::clicked, [this] ()
 	{
 		this->wallet.application.clipboard ()->setText (QString (this->wallet.account.to_account ().c_str ()));
 	});
