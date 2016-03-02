@@ -89,6 +89,7 @@ public:
 	void account_move ();
 	void account_weight ();
 	void block ();
+	void block_count ();
 	void chain ();
 	void frontiers ();
 	void keepalive ();

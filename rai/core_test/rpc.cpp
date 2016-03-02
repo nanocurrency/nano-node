@@ -1278,3 +1278,22 @@ TEST (rpc, work_peer_many)
 	runner3.join ();
 	runner4.join ();
 }
+
+TEST (rpc, block_count)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto & node1 (*system.nodes [0]);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request1;
+	request1.put ("action", "block_count");
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
+	ASSERT_EQ ("1", response1.first.get <std::string> ("count"));
+	rpc.stop ();
+	node1.stop ();
+	thread1.join ();
+}

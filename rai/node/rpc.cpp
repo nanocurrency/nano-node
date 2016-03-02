@@ -328,6 +328,15 @@ void rai::rpc_handler::block ()
 	}
 }
 
+void rai::rpc_handler::block_count ()
+{
+	rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+	auto size (rpc.node.store.block_count (transaction));
+	boost::property_tree::ptree response_l;
+	response_l.put ("count", std::to_string (size));
+	rpc.send_response (connection, response_l);
+}
+
 void rai::rpc_handler::chain ()
 {
 	std::string block_text (request.get <std::string> ("block"));
@@ -1337,6 +1346,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block")
 		{
 			block ();
+		}
+		else if (action == "block_count")
+		{
+			block_count ();
 		}
 		else if (action == "chain")
 		{
