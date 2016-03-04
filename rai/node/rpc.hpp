@@ -95,6 +95,8 @@ public:
 	void frontiers ();
 	void frontier_count ();
 	void keepalive ();
+	void mrai_to_raw ();
+	void mrai_from_raw ();
 	void password_change ();
 	void password_enter ();
 	void password_valid ();
