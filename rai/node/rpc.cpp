@@ -1390,13 +1390,13 @@ void rai::rpc_handler::process_request ()
 		{
 			keepalive ();
 		}
-		else if (action == "mrai_to_raw")
-		{
-			mrai_to_raw ();
-		}
 		else if (action == "mrai_from_raw")
 		{
 			mrai_from_raw ();
+		}
+		else if (action == "mrai_to_raw")
+		{
+			mrai_to_raw ();
 		}
 		else if (action == "password_change")
 		{
