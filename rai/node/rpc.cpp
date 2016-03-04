@@ -548,48 +548,6 @@ void rai::rpc_handler::peers ()
 	rpc.send_response (connection, response_l);
 }
 
-void rai::rpc_handler::price ()
-{
-	std::string account_text (request.get <std::string> ("account"));
-	rai::uint256_union account;
-	auto error (account.decode_account (account_text));
-	if (!error)
-	{
-		auto amount_text (request.get <std::string> ("amount"));
-		uint64_t amount;
-		if (!rpc.decode_unsigned (amount_text, amount))
-		{
-			if (amount <= 1000)
-			{
-				auto balance (rpc.node.balance (account));
-				if (balance >= amount * rai::Grai_ratio)
-				{
-					auto price (rpc.node.price (balance, amount));
-					boost::property_tree::ptree response_l;
-					response_l.put ("price", std::to_string (price));
-					rpc.send_response (connection, response_l);
-				}
-				else
-				{
-					rpc.error_response (connection, "Requesting more blocks than are available");
-				}
-			}
-			else
-			{
-				rpc.error_response (connection, "Cannot purchase more than 1000");
-			}
-		}
-		else
-		{
-			rpc.error_response (connection, "Invalid amount");
-		}
-	}
-	else
-	{
-		rpc.error_response (connection, "Bad account number");
-	}
-}
-
 void rai::rpc_handler::payment_begin ()
 {
 	std::string id_text (request.get <std::string> ("wallet"));
@@ -1407,10 +1365,6 @@ void rai::rpc_handler::process_request ()
 		else if (action == "peers")
 		{
 			peers ();
-		}
-		else if (action == "price")
-		{
-			price ();
 		}
 		else if (action == "process")
 		{

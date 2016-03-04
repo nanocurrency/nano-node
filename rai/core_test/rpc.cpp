@@ -658,61 +658,6 @@ TEST (rpc, process_block)
 	thread1.join();
 }
 
-TEST (rpc, price_free)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
-	rpc.start ();
-	std::thread thread1 ([&rpc] () {rpc.server.run();});
-    boost::property_tree::ptree request;
-    request.put ("action", "price");
-	request.put ("account", rai::test_genesis_key.pub.to_account ());
-	request.put ("amount", "1");
-	auto response (test_response (request, rpc));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
-	auto price (response.first.get <std::string> ("price"));
-	auto value (std::stoi (price));
-	ASSERT_EQ (0, value);
-	rpc.stop();
-	thread1.join();
-}
-
-TEST (rpc, price_amount_high)
-{
-    rai::system system (24000, 1);
-	rai::keypair key;
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
-	rpc.start ();
-	std::thread thread1 ([&rpc] () {rpc.server.run();});
-    boost::property_tree::ptree request;
-    request.put ("action", "price");
-	request.put ("account", key.pub.to_account ());
-	request.put ("amount", "1");
-	auto response (test_response (request, rpc));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
-	rpc.stop();
-	thread1.join();
-}
-
-TEST (rpc, price_bad)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
-	rpc.start ();
-	std::thread thread1 ([&rpc] () {rpc.server.run();});
-    boost::property_tree::ptree request;
-    request.put ("action", "price");
-	request.put ("account", rai::test_genesis_key.pub.to_account ());
-	request.put ("amount", "1a");
-	auto response (test_response (request, rpc));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
-	rpc.stop();
-	thread1.join();
-}
-
 TEST (rpc, frontier)
 {
     rai::system system (24000, 1);

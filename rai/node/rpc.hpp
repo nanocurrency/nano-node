@@ -102,7 +102,6 @@ public:
 	void payment_end ();
 	void payment_wait ();
 	void peers ();
-	void price ();
 	void process ();
 	void representative ();
 	void representative_set ();
