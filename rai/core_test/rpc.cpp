@@ -1261,3 +1261,28 @@ TEST (rpc, frontier_count)
 	node1.stop ();
 	thread1.join ();
 }
+
+TEST (rpc, available_supply)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto & node1 (*system.nodes [0]);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request1;
+	request1.put ("action", "available_supply");
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
+	ASSERT_EQ ("0", response1.first.get <std::string> ("available"));
+	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	rai::keypair key;
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	auto response2 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.second);
+	ASSERT_EQ ("1", response2.first.get <std::string> ("available"));
+	rpc.stop ();
+	node1.stop ();
+	thread1.join ();
+}

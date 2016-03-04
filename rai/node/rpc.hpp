@@ -88,6 +88,7 @@ public:
 	void account_list ();
 	void account_move ();
 	void account_weight ();
+	void available_supply ();
 	void block ();
 	void block_count ();
 	void chain ();
