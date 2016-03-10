@@ -964,7 +964,7 @@ public:
 			{
 				rai::account_info info;
 				wallet->node.store.account_get (transaction, receivable.source, info);
-				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % receivable.source.to_string () % receivable.source.to_string () % info.head.to_string ());
+				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % receivable.source.to_string () % receivable.source.to_account () % info.head.to_string ());
 				auto account (receivable.source);
 				if (already_searched.find (account) == already_searched.end ())
 				{
