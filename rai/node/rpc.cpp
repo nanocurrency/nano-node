@@ -166,10 +166,16 @@ void rai::rpc_handler::account_create ()
 			if (existing != rpc.node.wallets.items.end ())
 			{
 				rai::keypair new_key;
-				existing->second->insert (new_key.prv);
-				boost::property_tree::ptree response_l;
-				response_l.put ("account", new_key.pub.to_account ());
-				rpc.send_response (connection, response_l);
+				if (!existing->second->insert (new_key.prv).is_zero ())
+				{
+					boost::property_tree::ptree response_l;
+					response_l.put ("account", new_key.pub.to_account ());
+					rpc.send_response (connection, response_l);
+				}
+				else
+				{
+					rpc.error_response (connection, "Wallet is locked");
+				}
 			}
 			else
 			{
