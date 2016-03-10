@@ -98,9 +98,13 @@ public:
 	bool import (MDB_txn *, rai::wallet_store &);
 	bool work_get (MDB_txn *, rai::public_key const &, uint64_t &);
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
+	unsigned version (MDB_txn *);
+	void version_put (MDB_txn *, unsigned);
+	void upgrade_v1_v2 ();
     rai::fan password;
-    static rai::uint256_union const version_1;
-    static rai::uint256_union const version_current;
+    static unsigned const version_1;
+    static unsigned const version_2;
+    static unsigned const version_current;
     static rai::uint256_union const version_special;
     static rai::uint256_union const wallet_key_special;
     static rai::uint256_union const salt_special;

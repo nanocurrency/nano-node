@@ -657,3 +657,34 @@ TEST (wallet, insert_locked)
 	ASSERT_EQ (false, wallet->valid_password ());
 	ASSERT_TRUE (wallet->insert (rai::keypair ().prv).is_zero ());
 }
+
+TEST (wallet, version_1_2_upgrade)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+	wallet->enter_initial_password ();
+	ASSERT_EQ (true, wallet->valid_password ());
+	rai::keypair key;
+	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
+	wallet->enter_password ("");
+	ASSERT_EQ (false, wallet->valid_password ());
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, true);
+		rai::raw_key password_l;
+		rai::wallet_value value (wallet->store.entry_get_raw (transaction, rai::wallet_store::wallet_key_special));
+		rai::raw_key kdf;
+		kdf.data.clear ();
+		password_l.decrypt (value.key, kdf, wallet->store.salt (transaction).owords [0]);
+		rai::uint256_union ciphertext;
+		ciphertext.encrypt (key.prv, password_l, wallet->store.salt (transaction).owords [0]);
+		wallet->store.entry_put_raw (transaction, key.pub, rai::wallet_value (ciphertext));
+		wallet->store.version_put (transaction, 1);
+	}
+	
+	wallet->enter_password ("1");
+	ASSERT_EQ (true, wallet->valid_password ());
+	ASSERT_EQ (2, wallet->store.version (rai::transaction (wallet->store.environment, nullptr, false)));
+	rai::raw_key prv;
+	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, nullptr, false), key.pub, prv));
+	ASSERT_EQ (key.prv, prv);
+}
