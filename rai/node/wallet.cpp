@@ -604,11 +604,14 @@ void rai::wallet_store::upgrade_v1_v2 ()
 {
 	rai::transaction transaction (environment, nullptr, true);
 	assert (version (transaction) == 1);
-	rai::raw_key password_l;
+	rai::raw_key zero_password;
 	rai::wallet_value value (entry_get_raw (transaction, rai::wallet_store::wallet_key_special));
     rai::raw_key kdf;
 	kdf.data.clear ();
-    password_l.decrypt (value.key, kdf, salt (transaction).owords [0]);
+    zero_password.decrypt (value.key, kdf, salt (transaction).owords [0]);
+	derive_key (kdf, transaction, "");
+	rai::raw_key empty_password;
+	empty_password.decrypt (value.key, kdf, salt (transaction).owords [0]);
 	for (auto i (begin (transaction)), n (end ()); i != n; ++i)
 	{
 		rai::public_key key (i->first);
@@ -617,13 +620,26 @@ void rai::wallet_store::upgrade_v1_v2 ()
 		{
 			// Key failed to decrypt despite valid password
 			rai::wallet_value data (entry_get_raw (transaction, key));
-			prv.decrypt (data.key, password_l, salt (transaction).owords [0]);
+			prv.decrypt (data.key, zero_password, salt (transaction).owords [0]);
 			rai::public_key compare;
 			ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
 			if (compare == key)
 			{
 				// If we successfully decrypted it, rewrite the key back with the correct wallet key
 				insert (transaction, prv);
+			}
+			else
+			{
+				// Also try the empty password
+				rai::wallet_value data (entry_get_raw (transaction, key));
+				prv.decrypt (data.key, empty_password, salt (transaction).owords [0]);
+				rai::public_key compare;
+				ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
+				if (compare == key)
+				{
+					// If we successfully decrypted it, rewrite the key back with the correct wallet key
+					insert (transaction, prv);
+				}
 			}
 		}
 	}
