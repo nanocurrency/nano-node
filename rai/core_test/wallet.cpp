@@ -646,3 +646,14 @@ TEST (wallet, unsynced_work)
 	auto work1 (wallet->work_fetch (transaction, 0, 1));
 	ASSERT_FALSE (system.work.work_validate (1, work1));
 }
+
+TEST (wallet, insert_locked)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
+	ASSERT_EQ (true, wallet->valid_password ());
+	wallet->enter_password ("");
+	ASSERT_EQ (false, wallet->valid_password ());
+	ASSERT_TRUE (wallet->insert (rai::keypair ().prv).is_zero ());
+}

@@ -425,6 +425,7 @@ rai::account rai::wallet_store::representative (MDB_txn * transaction_a)
 
 rai::public_key rai::wallet_store::insert (MDB_txn * transaction_a, rai::raw_key const & prv)
 {
+	assert (valid_password (transaction_a));
     rai::public_key pub;
     ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 	rai::raw_key password_l;
@@ -640,17 +641,23 @@ bool rai::wallet::enter_password (std::string const & password_a)
 rai::public_key rai::wallet::insert (rai::raw_key const & key_a)
 {
 	rai::block_hash root;
-	rai::public_key key;
+	rai::public_key key (0);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		key = store.insert (transaction, key_a);
-		auto this_l (shared_from_this ());
-		root = node.ledger.latest_root (transaction, key);
+		if (store.valid_password (transaction))
+		{
+			key = store.insert (transaction, key_a);
+			auto this_l (shared_from_this ());
+			root = node.ledger.latest_root (transaction, key);
+		}
 	}
-	auto this_l (shared_from_this ());
-	node.background ([this_l, key, root] () {
-		this_l->work_generate (key, root);
-	});
+	if (!key.is_zero ())
+	{
+		auto this_l (shared_from_this ());
+		node.background ([this_l, key, root] () {
+			this_l->work_generate (key, root);
+		});
+	}
 	return key;
 }
 
