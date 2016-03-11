@@ -302,7 +302,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         {
             if (node.config.logging.network_logging ())
             {
-                BOOST_LOG (node.log) << "Reserved sender";
+                BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
             }
             ++bad_sender_count;
         }
