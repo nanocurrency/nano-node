@@ -159,6 +159,7 @@ public:
 	std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
 	std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
     bool search_pending (rai::uint256_union const &);
+    void search_pending_all ();
 	void destroy (rai::uint256_union const &);
 	void do_wallet_actions (rai::account const &);
 	void queue_wallet_action (rai::account const &, rai::uint128_t const &, std::function <void ()> const &);

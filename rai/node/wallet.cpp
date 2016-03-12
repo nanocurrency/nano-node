@@ -1214,6 +1214,14 @@ bool rai::wallets::search_pending (rai::uint256_union const & wallet_a)
 	return result;
 }
 
+void rai::wallets::search_pending_all ()
+{
+	for (auto i: items)
+	{
+		i.second->search_pending ();
+	}
+}
+
 void rai::wallets::destroy (rai::uint256_union const & id_a)
 {
 	rai::transaction transaction (node.store.environment, nullptr, true);

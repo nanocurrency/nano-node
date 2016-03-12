@@ -586,6 +586,7 @@ void rai::bulk_pull_client::process_end ()
 		}
 		block = first ();
     }
+	connection->connection->node->wallets.search_pending_all ();
 }
 
 void rai::bulk_pull_client::block_flush ()

@@ -191,7 +191,7 @@ void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::accou
 	}
 	accounts_a.push_back (key.pub);
 	node_a.wallets.items.begin ()->second->insert (key.prv);
-    node_a.wallets.items.begin ()->second->send_action (source, key.pub, amount);
+    node_a.wallets.items.begin ()->second->send_async (source, key.pub, amount, [] (std::unique_ptr <rai::block>) {});
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)

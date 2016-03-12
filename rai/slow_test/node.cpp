@@ -34,6 +34,46 @@ TEST (system, generate_mass_activity_long)
 			++accounts;
 		}
 		ASSERT_GT (accounts, count / 10);
+		system.stop ();
+		runner.join ();
+	}
+	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
+	{
+		i->join ();
+	}
+}
+
+TEST (system, receive_while_synchronizing)
+{
+	std::vector <std::thread> threads;
+	{
+		rai::system system (24000, 1);
+		rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
+		system.wallet (0)->insert (rai::test_genesis_key.prv);
+		size_t count (1000);
+		system.generate_mass_activity (count, *system.nodes [0]);
+		rai::keypair key;
+		rai::node_init init1;
+		auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+		ASSERT_FALSE (init1.error ());
+		node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
+		auto wallet (node1->wallets.create (1));
+		ASSERT_EQ (key.pub, wallet->insert (key.prv));
+		node1->start ();
+		system.alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds(200), ([&system, &key] ()
+		{
+			auto hash (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, system.nodes [0]->config.receive_minimum.number ()));
+			auto block (system.nodes [0]->store.block_get (rai::transaction (system.nodes [0]->store.environment, nullptr, false), hash));
+			std::string block_text;
+			block->serialize_json (block_text);
+		}));
+		while (node1->balance (key.pub).is_zero ())
+		{
+			system.poll ();
+		}
+		node1->stop ();
+		system.stop ();
+		runner.join ();
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
 	{
