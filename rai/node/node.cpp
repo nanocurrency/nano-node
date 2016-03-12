@@ -936,6 +936,7 @@ application_path (application_path_a)
     boost::log::add_common_attributes ();
 	boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = config.logging.max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
+	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
 	observers.add_blocks ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
     {
 		send_visitor visitor (*this);
