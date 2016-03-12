@@ -2244,7 +2244,8 @@ void rai::active_transactions::announce_votes ()
 		// Announce our decision for up to `announcements_per_interval' conflicts
 		for (; i != n && announcements < announcements_per_interval; ++i)
 		{
-			i->election->broadcast_winner ();
+			auto election_l (i->election);
+			node.background ([election_l] () { election_l->broadcast_winner (); } );
 			if (i->announcements >= contigious_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
@@ -2300,7 +2301,8 @@ void rai::active_transactions::vote (rai::vote const & vote_a)
 	std::shared_ptr <rai::election> election;
 	{
 		std::lock_guard <std::mutex> lock (mutex);
-		auto existing (roots.find (vote_a.block->root ()));
+		auto root (vote_a.block->root ());
+		auto existing (roots.find (root));
 		if (existing != roots.end ())
 		{
 			election = existing->election;

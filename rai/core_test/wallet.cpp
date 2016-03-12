@@ -706,5 +706,4 @@ TEST (wallet, version_1_2_upgrade)
 	rai::raw_key prv2;
 	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, nullptr, false), key.pub, prv2));
 	ASSERT_EQ (key.prv, prv2);
-	
 }

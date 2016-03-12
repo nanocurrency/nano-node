@@ -210,6 +210,7 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
             previous = now;
         }
         generate_activity (node_a, accounts);
+		poll ();
     }
 }
 
