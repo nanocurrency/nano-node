@@ -420,6 +420,7 @@ void rai_qt::status::insert (rai_qt::status_types status_a)
 void rai_qt::status::set_text ()
 {
 	wallet.status->setText (text ().c_str ());
+	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
 }
 
 std::string rai_qt::status::text ()
@@ -445,6 +446,37 @@ std::string rai_qt::status::text ()
 			break;
 		case rai_qt::status_types::nominal:
 			result = "Status: Running";
+			break;
+		default:
+			assert (false);
+			break;
+	}
+	return result;
+}
+
+std::string rai_qt::status::color ()
+{
+	assert (!active.empty ());
+	std::string result;
+	switch (*active.begin ())
+	{
+		case rai_qt::status_types::disconnected:
+			result = "color: red";
+			break;
+		case rai_qt::status_types::synchronizing:
+			result = "color: red";
+			break;
+		case rai_qt::status_types::locked:
+			result = "color: orange";
+			break;
+		case rai_qt::status_types::vulnerable:
+			result = "color: blue";
+			break;
+		case rai_qt::status_types::active:
+			result = "color: black";
+			break;
+		case rai_qt::status_types::nominal:
+			result = "color: black";
 			break;
 		default:
 			assert (false);

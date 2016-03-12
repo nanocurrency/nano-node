@@ -227,6 +227,7 @@ namespace rai_qt {
 		void insert (rai_qt::status_types);
 		void set_text ();
 		std::string text ();
+		std::string color ();
 		std::set <rai_qt::status_types> active;
 		rai_qt::wallet & wallet;
 	};
