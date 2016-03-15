@@ -84,7 +84,8 @@ public:
     bool valid_password (MDB_txn *);
     bool attempt_password (MDB_txn *, std::string const &);
     void wallet_key (rai::raw_key &, MDB_txn *);
-	bool seed (rai::raw_key &, MDB_txn *);
+	void seed (rai::raw_key &, MDB_txn *);
+	void seed_set (MDB_txn *, rai::raw_key const &);
 	rai::key_type key_type (rai::wallet_value const &);
 	rai::public_key deterministic_insert (MDB_txn *);
 	void deterministic_key (rai::raw_key &, MDB_txn *, uint32_t);

@@ -226,21 +226,22 @@ void rai::wallet_store::wallet_key (rai::raw_key & prv_a, MDB_txn * transaction_
     prv_a.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
 }
 
-bool rai::wallet_store::seed (rai::raw_key & prv_a, MDB_txn * transaction_a)
+void rai::wallet_store::seed (rai::raw_key & prv_a, MDB_txn * transaction_a)
 {
-    auto result (false);
 	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::seed_special));
-    if (!value.key.is_zero ())
-    {
-		rai::raw_key password_l;
-		wallet_key (password_l, transaction_a);
-        prv_a.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
-    }
-    else
-    {
-        result = true;
-    }
-    return result;
+	rai::raw_key password_l;
+	wallet_key (password_l, transaction_a);
+	prv_a.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
+}
+
+void rai::wallet_store::seed_set (MDB_txn * transaction_a, rai::raw_key const & prv_a)
+{
+	rai::raw_key password_l;
+	wallet_key (password_l, transaction_a);
+	rai::uint256_union ciphertext;
+	ciphertext.encrypt (prv_a, password_l, salt (transaction_a).owords [0]);
+	entry_put_raw (transaction_a, rai::wallet_store::seed_special, rai::wallet_value (ciphertext));
+	deterministic_clear (transaction_a);
 }
 
 rai::public_key rai::wallet_store::deterministic_insert (MDB_txn * transaction_a)
@@ -486,9 +487,7 @@ environment (transaction_a.environment)
 			entry_put_raw (transaction_a, rai::wallet_store::representative_special, rai::wallet_value (representative_a));
 			rai::raw_key seed;
 			random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
-            rai::uint256_union seed_encrypted;
-			seed_encrypted.encrypt (wallet_key, zero, salt_l.owords [0]);
-			entry_put_raw (transaction_a, rai::wallet_store::seed_special, rai::wallet_value (seed_encrypted));
+			seed_set (transaction_a, seed);
         }
     }
 }
