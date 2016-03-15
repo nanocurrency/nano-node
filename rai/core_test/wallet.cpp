@@ -734,6 +734,10 @@ TEST (wallet, deterministic_keys)
 	ASSERT_EQ (2, wallet.deterministic_index_get (transaction));
 	wallet.deterministic_index_set (transaction, 1);
 	ASSERT_EQ (1, wallet.deterministic_index_get (transaction));
+	wallet.erase (transaction, key4);
+	ASSERT_FALSE (wallet.exists (transaction, key4));
+	auto key8 (wallet.deterministic_insert (transaction));
+	ASSERT_EQ (key4, key8);
 	auto key6 (wallet.deterministic_insert (transaction));
 	rai::raw_key key7;
 	ASSERT_FALSE (wallet.fetch (transaction, key6, key7));

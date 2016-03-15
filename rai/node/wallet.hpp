@@ -65,6 +65,13 @@ public:
 	void phs (rai::raw_key &, std::string const &, rai::uint256_union const &);
 	std::mutex mutex;
 };
+enum class key_type
+{
+	not_a_type,
+	unknown,
+	adhoc,
+	deterministic
+};
 class wallet_store
 {
 public:
@@ -78,6 +85,7 @@ public:
     bool attempt_password (MDB_txn *, std::string const &);
     void wallet_key (rai::raw_key &, MDB_txn *);
 	bool seed (rai::raw_key &, MDB_txn *);
+	rai::key_type key_type (rai::wallet_value &);
 	rai::public_key deterministic_insert (MDB_txn *);
 	void deterministic_key (rai::raw_key &, MDB_txn *, uint32_t);
 	uint32_t deterministic_index_get (MDB_txn *);

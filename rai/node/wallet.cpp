@@ -256,7 +256,10 @@ rai::public_key rai::wallet_store::deterministic_insert (MDB_txn * transaction_a
 		deterministic_key (prv, transaction_a, index);
 		ed25519_publickey (prv.data.bytes.data (), result.bytes.data ());
 	}
-	entry_put_raw (transaction_a, result, rai::uint256_union (index));
+	uint64_t marker (1);
+	marker <<= 32;
+	marker |= index;
+	entry_put_raw (transaction_a, result, rai::uint256_union (marker));
 	++index;
 	deterministic_index_set (transaction_a, index);
 	return result;
@@ -542,26 +545,57 @@ void rai::wallet_store::entry_put_raw (MDB_txn * transaction_a, rai::public_key 
 	assert (status == 0);
 }
 
+rai::key_type rai::wallet_store::key_type (rai::wallet_value & value_a)
+{
+	auto number (value_a.key.number ());
+	rai::key_type result;
+	if (number > std::numeric_limits <uint64_t>::max ())
+	{
+		result = rai::key_type::adhoc;
+	}
+	else
+	{
+		if ((number >> 32).convert_to <uint32_t> () == 1)
+		{
+			result = rai::key_type::deterministic;
+		}
+		else
+		{
+			result = rai::key_type::unknown;
+		}
+	}
+	return result;
+}
+
 bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & pub, rai::raw_key & prv)
 {
     auto result (false);
 	rai::wallet_value value (entry_get_raw (transaction_a, pub));
     if (!value.key.is_zero ())
     {
-		if (value.key.number () < std::numeric_limits <uint32_t>::max ())
+		switch (key_type (value))
 		{
-			// Deterministic key
+		case rai::key_type::deterministic:
+		{
 			rai::raw_key seed_l;
 			seed (seed_l, transaction_a);
 			uint32_t index (value.key.number ().convert_to <uint32_t> ());
 			deterministic_key (prv, transaction_a, index);
+			break;
 		}
-		else
+		case rai::key_type::adhoc:
 		{
 			// Ad-hoc keys
 			rai::raw_key password_l;
 			wallet_key (password_l, transaction_a);
 			prv.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
+			break;
+		}
+		default:
+		{
+			result = true;
+			break;
+		}
 		}
     }
     else
