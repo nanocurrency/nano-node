@@ -291,6 +291,30 @@ void rai::wallet_store::deterministic_index_set (MDB_txn * transaction_a, uint32
 	entry_put_raw (transaction_a, rai::wallet_store::deterministic_index_special, value);
 }
 
+void rai::wallet_store::deterministic_clear (MDB_txn * transaction_a)
+{
+	rai::uint256_union key (0);
+	for (auto i (begin (transaction_a)), n (end ()); i != n;)
+	{
+		switch (key_type (rai::wallet_value (i->second)))
+		{
+		case rai::key_type::deterministic:
+		{
+			rai::uint256_union key (i->first);
+			erase (transaction_a, key);
+			i = begin (transaction_a, key);
+			break;
+		}
+		default:
+		{
+			++i;
+			break;
+		}
+		}
+	}
+	deterministic_index_set (transaction_a, 0);
+}
+
 bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
 {
     rai::raw_key zero;
@@ -545,7 +569,7 @@ void rai::wallet_store::entry_put_raw (MDB_txn * transaction_a, rai::public_key 
 	assert (status == 0);
 }
 
-rai::key_type rai::wallet_store::key_type (rai::wallet_value & value_a)
+rai::key_type rai::wallet_store::key_type (rai::wallet_value const & value_a)
 {
 	auto number (value_a.key.number ());
 	rai::key_type result;
@@ -1428,9 +1452,15 @@ rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a)
     return result;
 }
 
-rai::store_iterator rai::wallet_store::find (MDB_txn * transaction_a, rai::uint256_union const & key)
+rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a, rai::uint256_union const & key)
 {
     rai::store_iterator result (transaction_a, handle, key.val ());
+	return result;
+}
+
+rai::store_iterator rai::wallet_store::find (MDB_txn * transaction_a, rai::uint256_union const & key)
+{
+	auto result (begin (transaction_a, key));
     rai::store_iterator end (nullptr);
     if (result != end)
     {
@@ -1447,6 +1477,7 @@ rai::store_iterator rai::wallet_store::find (MDB_txn * transaction_a, rai::uint2
     {
         return end;
     }
+	return result;
 }
 
 rai::store_iterator rai::wallet_store::end ()

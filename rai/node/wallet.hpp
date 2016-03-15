@@ -85,11 +85,12 @@ public:
     bool attempt_password (MDB_txn *, std::string const &);
     void wallet_key (rai::raw_key &, MDB_txn *);
 	bool seed (rai::raw_key &, MDB_txn *);
-	rai::key_type key_type (rai::wallet_value &);
+	rai::key_type key_type (rai::wallet_value const &);
 	rai::public_key deterministic_insert (MDB_txn *);
 	void deterministic_key (rai::raw_key &, MDB_txn *, uint32_t);
 	uint32_t deterministic_index_get (MDB_txn *);
 	void deterministic_index_set (MDB_txn *, uint32_t);
+	void deterministic_clear (MDB_txn *);
     rai::uint256_union salt (MDB_txn *);
     bool is_representative (MDB_txn *);
     rai::account representative (MDB_txn *);
@@ -102,6 +103,7 @@ public:
     bool exists (MDB_txn *, rai::public_key const &);
 	void destroy (MDB_txn *);
     rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
+    rai::store_iterator begin (MDB_txn *, rai::uint256_union const &);
     rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
     void derive_key (rai::raw_key &, MDB_txn *, std::string const &);

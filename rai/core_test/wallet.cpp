@@ -743,4 +743,9 @@ TEST (wallet, deterministic_keys)
 	ASSERT_FALSE (wallet.fetch (transaction, key6, key7));
 	ASSERT_NE (key5, key7);
 	ASSERT_EQ (3, wallet.deterministic_index_get (transaction));
+	wallet.deterministic_clear (transaction);
+	ASSERT_EQ (0, wallet.deterministic_index_get (transaction));
+	ASSERT_FALSE (wallet.exists (transaction, key4));
+	ASSERT_FALSE (wallet.exists (transaction, key6));
+	ASSERT_FALSE (wallet.exists (transaction, key8));
 }
