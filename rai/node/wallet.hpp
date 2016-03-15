@@ -88,6 +88,7 @@ public:
     bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
     bool exists (MDB_txn *, rai::public_key const &);
 	void destroy (MDB_txn *);
+	size_t adhoc_count (MDB_txn *);
     rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
     rai::store_iterator begin (MDB_txn *);
     rai::store_iterator end ();
