@@ -77,6 +77,11 @@ public:
     bool valid_password (MDB_txn *);
     bool attempt_password (MDB_txn *, std::string const &);
     void wallet_key (rai::raw_key &, MDB_txn *);
+	bool seed (rai::raw_key &, MDB_txn *);
+	rai::public_key deterministic_insert (MDB_txn *);
+	void deterministic_key (rai::raw_key &, MDB_txn *, uint32_t);
+	uint32_t deterministic_index_get (MDB_txn *);
+	void deterministic_index_set (MDB_txn *, uint32_t);
     rai::uint256_union salt (MDB_txn *);
     bool is_representative (MDB_txn *);
     rai::account representative (MDB_txn *);
@@ -110,6 +115,8 @@ public:
     static rai::uint256_union const salt_special;
     static rai::uint256_union const check_special;
     static rai::uint256_union const representative_special;
+	static rai::uint256_union const seed_special;
+	static rai::uint256_union const deterministic_index_special;
     static int const special_count;
     static unsigned const kdf_full_work = 64 * 1024;
     static unsigned const kdf_test_work = 8;

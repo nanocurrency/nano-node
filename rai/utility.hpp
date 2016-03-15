@@ -187,6 +187,7 @@ union uint256_union
 	bool decode_account (std::string const &);
 	std::array <uint8_t, 32> bytes;
 	std::array <char, 32> chars;
+	std::array <uint32_t, 8> dwords;
 	std::array <uint64_t, 4> qwords;
 	std::array <uint128_union, 2> owords;
 	void clear ();

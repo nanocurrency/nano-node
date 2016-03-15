@@ -226,6 +226,68 @@ void rai::wallet_store::wallet_key (rai::raw_key & prv_a, MDB_txn * transaction_
     prv_a.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
 }
 
+bool rai::wallet_store::seed (rai::raw_key & prv_a, MDB_txn * transaction_a)
+{
+    auto result (false);
+	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::seed_special));
+    if (!value.key.is_zero ())
+    {
+		rai::raw_key password_l;
+		wallet_key (password_l, transaction_a);
+        prv_a.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
+    }
+    else
+    {
+        result = true;
+    }
+    return result;
+}
+
+rai::public_key rai::wallet_store::deterministic_insert (MDB_txn * transaction_a)
+{
+	auto index (deterministic_index_get (transaction_a));
+	rai::raw_key prv;
+	deterministic_key (prv, transaction_a, index);
+    rai::public_key result;
+    ed25519_publickey (prv.data.bytes.data (), result.bytes.data ());
+	while (exists (transaction_a, result))
+	{
+		++index;
+		deterministic_key (prv, transaction_a, index);
+		ed25519_publickey (prv.data.bytes.data (), result.bytes.data ());
+	}
+	entry_put_raw (transaction_a, result, rai::uint256_union (index));
+	++index;
+	deterministic_index_set (transaction_a, index);
+	return result;
+}
+
+void rai::wallet_store::deterministic_key (rai::raw_key & prv_a, MDB_txn * transaction_a, uint32_t index_a)
+{
+	assert (valid_password (transaction_a));
+	rai::raw_key seed_l;
+	seed (seed_l, transaction_a);
+    blake2b_state hash;
+	blake2b_init (&hash, prv_a.data.bytes.size ());
+    blake2b_update (&hash, seed_l.data.bytes.data (), seed_l.data.bytes.size ());
+	rai::uint256_union index (index_a);
+    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&index.dwords [7]), sizeof (uint32_t));
+    blake2b_final (&hash, prv_a.data.bytes.data (), prv_a.data.bytes.size ());
+}
+
+uint32_t rai::wallet_store::deterministic_index_get (MDB_txn * transaction_a)
+{
+	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::deterministic_index_special));
+	return value.key.number ().convert_to <uint32_t> ();
+}
+
+void rai::wallet_store::deterministic_index_set (MDB_txn * transaction_a, uint32_t index_a)
+{
+	rai::wallet_value value;
+	value.key = index_a;
+	entry_put_raw (transaction_a, rai::wallet_store::deterministic_index_special, value);
+}
+
 bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
 {
     rai::raw_key zero;
@@ -310,7 +372,9 @@ rai::uint256_union const rai::wallet_store::salt_special (1);
 rai::uint256_union const rai::wallet_store::wallet_key_special (2);
 rai::uint256_union const rai::wallet_store::check_special (3);
 rai::uint256_union const rai::wallet_store::representative_special (4);
-int const rai::wallet_store::special_count (5);
+rai::uint256_union const rai::wallet_store::seed_special (5);
+rai::uint256_union const rai::wallet_store::deterministic_index_special (6);
+int const rai::wallet_store::special_count (7);
 
 rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::transaction & transaction_a, rai::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
 password (0, fanout_a),
@@ -393,6 +457,11 @@ environment (transaction_a.environment)
 			check.encrypt (zero, wallet_key, salt_l.owords [0]);
 			entry_put_raw (transaction_a, rai::wallet_store::check_special, rai::wallet_value (check));
 			entry_put_raw (transaction_a, rai::wallet_store::representative_special, rai::wallet_value (representative_a));
+			rai::raw_key seed;
+			random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
+            rai::uint256_union seed_encrypted;
+			seed_encrypted.encrypt (wallet_key, zero, salt_l.owords [0]);
+			entry_put_raw (transaction_a, rai::wallet_store::seed_special, rai::wallet_value (seed_encrypted));
         }
     }
 }
@@ -479,20 +548,35 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 	rai::wallet_value value (entry_get_raw (transaction_a, pub));
     if (!value.key.is_zero ())
     {
-		rai::raw_key password_l;
-		wallet_key (password_l, transaction_a);
-        prv.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
-        rai::public_key compare;
-        ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
-        if (!(pub == compare))
-        {
-            result = true;
-        }
+		if (value.key.number () < std::numeric_limits <uint32_t>::max ())
+		{
+			// Deterministic key
+			rai::raw_key seed_l;
+			seed (seed_l, transaction_a);
+			uint32_t index (value.key.number ().convert_to <uint32_t> ());
+			deterministic_key (prv, transaction_a, index);
+		}
+		else
+		{
+			// Ad-hoc keys
+			rai::raw_key password_l;
+			wallet_key (password_l, transaction_a);
+			prv.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
+		}
     }
     else
     {
         result = true;
     }
+	if (!result)
+	{
+		rai::public_key compare;
+		ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
+		if (!(pub == compare))
+		{
+			result = true;
+		}
+	}
     return result;
 }
 
