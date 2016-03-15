@@ -64,9 +64,7 @@ TEST (wallet, one_item_iteration)
     rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
     ASSERT_FALSE (init);
     rai::keypair key1;
-	ASSERT_EQ (0, wallet.adhoc_count (transaction));
     wallet.insert (transaction, key1.prv);
-	ASSERT_EQ (1, wallet.adhoc_count (transaction));
     for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
     {
         ASSERT_EQ (key1.pub, i->first);

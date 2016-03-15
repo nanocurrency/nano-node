@@ -766,14 +766,6 @@ void rai::wallet_store::destroy (MDB_txn * transaction_a)
 	assert (status == 0);
 }
 
-size_t rai::wallet_store::adhoc_count (MDB_txn * transaction_a)
-{
-	MDB_stat stats;
-	auto status (mdb_stat (transaction_a, handle, &stats));
-	assert (status == 0);
-	return stats.ms_entries - special_count;
-}
-
 namespace
 {
 bool check_ownership (rai::wallets & wallets_a, rai::account const & account_a) {
