@@ -160,6 +160,7 @@ namespace rai_qt {
 		QPushButton * use_account;
 		QPushButton * create_account;
 		QPushButton * import_wallet;
+		QPushButton * backup_seed;
 		QFrame * separator;
         QLineEdit * account_key_line;
         QPushButton * account_key_button;

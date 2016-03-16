@@ -593,3 +593,18 @@ TEST (wallet, change_seed)
 	ASSERT_FALSE (system.wallet (0)->exists (key2));
 	ASSERT_TRUE (system.wallet (0)->exists (key1));
 }
+
+TEST (wallet, backup_seed)
+{
+    rai::system system (24000, 1);
+	auto key1 (system.wallet (0)->deterministic_insert ());
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), key1);
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
+	ASSERT_EQ (wallet.accounts.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.accounts.backup_seed, Qt::LeftButton);
+	rai::raw_key seed;
+	system.wallet (0)->store.seed (seed, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
+	ASSERT_EQ (seed.data.to_string (), test_application->clipboard ()->text ().toStdString ());
+}

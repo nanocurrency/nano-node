@@ -82,6 +82,7 @@ view (new QTableView),
 use_account (new QPushButton ("Use account")),
 create_account (new QPushButton ("Create account")),
 import_wallet (new QPushButton ("Import wallet")),
+backup_seed (new QPushButton ("Backup/Clipboard wallet seed")),
 separator (new QFrame),
 account_key_line (new QLineEdit),
 account_key_button (new QPushButton ("Import adhoc key")),
@@ -102,6 +103,7 @@ wallet (wallet_a)
 	layout->addWidget (use_account);
 	layout->addWidget (create_account);
 	layout->addWidget (import_wallet);
+	layout->addWidget (backup_seed);
 	layout->addWidget (separator);
 	layout->addWidget (account_key_line);
 	layout->addWidget (account_key_button);
@@ -153,6 +155,20 @@ wallet (wallet_a)
 	QObject::connect (import_wallet, &QPushButton::released, [this] ()
 	{
 		this->wallet.push_main_stack (this->wallet.import.window);
+	});
+	QObject::connect (backup_seed, &QPushButton::released, [this] ()
+	{
+		rai::raw_key seed;
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+		if (this->wallet.wallet_m->store.valid_password (transaction))
+		{
+			this->wallet.wallet_m->store.seed (seed, transaction);
+			this->wallet.application.clipboard ()->setText (QString (seed.data.to_string ().c_str ()));
+		}
+		else
+		{
+			this->wallet.application.clipboard ()->setText ("");
+		}
 	});
 }
 
