@@ -84,7 +84,7 @@ create_account (new QPushButton ("Create account")),
 import_wallet (new QPushButton ("Import wallet")),
 separator (new QFrame),
 account_key_line (new QLineEdit),
-account_key_button (new QPushButton ("Create custom account")),
+account_key_button (new QPushButton ("Import adhoc key")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
@@ -141,8 +141,7 @@ wallet (wallet_a)
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] ()
 	{
-        rai::keypair key;
-		this->wallet.wallet_m->insert (key.prv);
+		this->wallet.wallet_m->deterministic_insert ();
         refresh ();
 	});
     QObject::connect (view, &QTableView::clicked, [this] (QModelIndex const & index_a)
@@ -161,15 +160,37 @@ void rai_qt::accounts::refresh ()
 {
     model->removeRows (0, model->rowCount ());
 	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+	QBrush brush;
     for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
     {
-        QList <QStandardItem *> items;
         rai::public_key key (i->first);
-        std::string balance;
-		rai::amount (wallet.node.ledger.account_balance (transaction, key) / wallet.rendering_ratio).encode_dec (balance);
-        items.push_back (new QStandardItem (balance.c_str ()));
-        items.push_back (new QStandardItem (QString (key.to_account ().c_str ())));
-        model->appendRow (items);
+		auto balance_amount (wallet.node.ledger.account_balance (transaction, key));
+		bool display (true);
+		switch (wallet.wallet_m->store.key_type (i->second))
+		{
+		case rai::key_type::adhoc:
+		{
+			brush.setColor ("red");
+			display = !balance_amount.is_zero ();
+			break;
+		}
+		default:
+		{
+			brush.setColor ("black");
+			break;
+		}
+		}
+		if (display)
+		{
+			QList <QStandardItem *> items;
+			std::string balance;
+			rai::amount (balance_amount / wallet.rendering_ratio).encode_dec (balance);
+			items.push_back (new QStandardItem (balance.c_str ()));
+			auto account (new QStandardItem (QString (key.to_account ().c_str ())));
+			account->setForeground (brush);
+			items.push_back (account);
+			model->appendRow (items);
+		}
     }
 }
 

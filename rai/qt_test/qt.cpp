@@ -532,3 +532,26 @@ TEST (wallet, republish)
 		system.poll ();
 	}
 }
+
+TEST (wallet, ignore_empty_adhoc)
+{
+    rai::system system (24000, 1);
+	rai::keypair key1;
+	system.wallet (0)->insert (key1.prv);
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), key1.pub);
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
+	ASSERT_EQ (wallet.accounts.window, wallet.main_stack->currentWidget ());
+	QTest::keyClicks (wallet.accounts.account_key_line, rai::test_genesis_key.prv.data.to_string ().c_str ());
+	QTest::mouseClick (wallet.accounts.account_key_button, Qt::LeftButton);
+	ASSERT_EQ (1, wallet.accounts.model->rowCount ());
+	ASSERT_EQ (0, wallet.accounts.account_key_line->text ().length ());
+	rai::keypair key;
+	QTest::keyClicks (wallet.accounts.account_key_line, key.prv.data.to_string ().c_str ());
+	QTest::mouseClick (wallet.accounts.account_key_button, Qt::LeftButton);
+	ASSERT_EQ (1, wallet.accounts.model->rowCount ());
+	ASSERT_EQ (0, wallet.accounts.account_key_line->text ().length ());
+	QTest::mouseClick (wallet.accounts.create_account, Qt::LeftButton);
+	ASSERT_EQ (2, wallet.accounts.model->rowCount ());
+}

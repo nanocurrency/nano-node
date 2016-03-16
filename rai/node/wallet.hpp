@@ -150,6 +150,7 @@ public:
     bool valid_password ();
     bool enter_password (std::string const &);
 	rai::public_key insert (rai::raw_key const &);
+	rai::public_key deterministic_insert ();
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);

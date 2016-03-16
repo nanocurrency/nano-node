@@ -539,6 +539,13 @@ rai::public_key rai::wallet_store::insert (MDB_txn * transaction_a, rai::raw_key
 	return pub;
 }
 
+rai::public_key rai::wallet::deterministic_insert ()
+{
+	rai::transaction transaction (store.environment, nullptr, true);
+	auto result (store.deterministic_insert (transaction));
+	return result;
+}
+
 void rai::wallet_store::erase (MDB_txn * transaction_a, rai::public_key const & pub)
 {
 	auto status (mdb_del (transaction_a, handle, pub.val (), nullptr));
