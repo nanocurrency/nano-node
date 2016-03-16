@@ -197,6 +197,10 @@ void rai_qt::accounts::refresh ()
 rai_qt::import::import (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
+seed_label (new QLabel ("Seed:")),
+seed (new QLineEdit),
+change_seed (new QPushButton ("Change seed")),
+separator (new QFrame),
 filename_label (new QLabel ("Filename:")),
 filename (new QLineEdit),
 password_label (new QLabel ("Password:")),
@@ -205,6 +209,10 @@ perform (new QPushButton ("Import")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
+	layout->addWidget (seed_label);
+	layout->addWidget (seed);
+	layout->addWidget (change_seed);
+	layout->addWidget (separator);
 	layout->addWidget (filename_label);
 	layout->addWidget (filename);
 	layout->addWidget (password_label);
@@ -242,6 +250,32 @@ wallet (wallet_a)
 	QObject::connect (back, &QPushButton::released, [this] ()
 	{
 		this->wallet.pop_main_stack ();
+	});
+	QObject::connect (change_seed, &QPushButton::released, [this] ()
+	{
+		rai::raw_key seed_l;
+		if (!seed_l.data.decode_hex (seed->text ().toStdString ()))
+		{
+			{
+				rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+				if (this->wallet.wallet_m->store.valid_password (transaction))
+				{
+					this->wallet.wallet_m->store.seed_set (transaction, seed_l);
+					this->wallet.account = this->wallet.wallet_m->store.deterministic_insert (transaction);
+					seed->clear ();
+					show_line_ok (*seed);
+				}
+				else
+				{
+					show_line_error (*seed);
+				}
+			}
+			this->wallet.accounts.refresh ();
+		}
+		else
+		{
+			show_line_error (*seed);
+		}
 	});
 }
 

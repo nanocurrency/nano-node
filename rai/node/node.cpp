@@ -2545,6 +2545,9 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 					if (!existing->second->enter_password (password))
 					{
 						rai::transaction transaction (existing->second->store.environment, nullptr, false);
+						rai::raw_key seed;
+						existing->second->store.seed (seed, transaction);
+						std::cerr << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
 						{
 							rai::account account (i->first);

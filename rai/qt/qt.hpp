@@ -172,6 +172,10 @@ namespace rai_qt {
 		import (rai_qt::wallet &);
 		QWidget * window;
 		QVBoxLayout * layout;
+		QLabel * seed_label;
+		QLineEdit * seed;
+		QPushButton * change_seed;
+		QFrame * separator;
 		QLabel * filename_label;
 		QLineEdit * filename;
 		QLabel * password_label;
