@@ -229,6 +229,8 @@ wallet (wallet_a)
 {
 	layout->addWidget (seed_label);
 	layout->addWidget (seed);
+	layout->addWidget (clear_label);
+	layout->addWidget (clear_line);
 	layout->addWidget (import_seed);
 	layout->addWidget (separator);
 	layout->addWidget (filename_label);
@@ -292,7 +294,7 @@ wallet (wallet_a)
 						show_line_error (*seed);
 					}
 				}
-				this->wallet.accounts.refresh ();
+				this->wallet.refresh ();
 			}
 			else
 			{
