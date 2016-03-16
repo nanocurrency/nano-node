@@ -539,13 +539,6 @@ rai::public_key rai::wallet_store::insert (MDB_txn * transaction_a, rai::raw_key
 	return pub;
 }
 
-rai::public_key rai::wallet::deterministic_insert ()
-{
-	rai::transaction transaction (store.environment, nullptr, true);
-	auto result (store.deterministic_insert (transaction));
-	return result;
-}
-
 void rai::wallet_store::erase (MDB_txn * transaction_a, rai::public_key const & pub)
 {
 	auto status (mdb_del (transaction_a, handle, pub.val (), nullptr));
@@ -852,6 +845,29 @@ bool rai::wallet::enter_password (std::string const & password_a)
 	}
 	lock_observer (result, password_a.empty());
 	return result;
+}
+
+rai::public_key rai::wallet::deterministic_insert ()
+{
+	rai::block_hash root;
+	rai::public_key key (0);
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		if (store.valid_password (transaction))
+		{
+			key = store.deterministic_insert (transaction);
+			auto this_l (shared_from_this ());
+			root = node.ledger.latest_root (transaction, key);
+		}
+	}
+	if (!key.is_zero ())
+	{
+		auto this_l (shared_from_this ());
+		node.background ([this_l, key, root] () {
+			this_l->work_generate (key, root);
+		});
+	}
+	return key;
 }
 
 rai::public_key rai::wallet::insert (rai::raw_key const & key_a)

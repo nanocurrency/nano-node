@@ -786,3 +786,14 @@ TEST (wallet, reseed)
 	auto key3 (wallet.deterministic_insert (transaction));
 	ASSERT_EQ (key1, key3);
 }
+
+TEST (wallet, insert_deterministic_locked)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
+	ASSERT_EQ (true, wallet->valid_password ());
+	wallet->enter_password ("");
+	ASSERT_EQ (false, wallet->valid_password ());
+	ASSERT_TRUE (wallet->deterministic_insert ().is_zero ());
+}
