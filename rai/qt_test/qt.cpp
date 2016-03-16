@@ -578,8 +578,12 @@ TEST (wallet, change_seed)
 	ASSERT_NE (seed, seed1);
 	ASSERT_TRUE (system.wallet (0)->exists (key1));
 	ASSERT_EQ (2, wallet.accounts.model->rowCount ());
-	QTest::mouseClick (wallet.import.change_seed, Qt::LeftButton);
+	QTest::mouseClick (wallet.import.import_seed, Qt::LeftButton);
+	ASSERT_EQ (2, wallet.accounts.model->rowCount ());
+	QTest::keyClicks (wallet.import.clear_line, "clear keys");
+	QTest::mouseClick (wallet.import.import_seed, Qt::LeftButton);
 	ASSERT_EQ (1, wallet.accounts.model->rowCount ());
+	ASSERT_TRUE (wallet.import.clear_line->text ().toStdString ().empty ());
 	rai::raw_key seed2;
 	system.wallet (0)->store.seed (seed2, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
 	ASSERT_EQ (seed, seed2);
@@ -588,7 +592,8 @@ TEST (wallet, change_seed)
 	auto key2 (wallet.account);
 	ASSERT_TRUE (system.wallet (0)->exists (key2));
 	QTest::keyClicks (wallet.import.seed, seed3.data.to_string ().c_str ());
-	QTest::mouseClick (wallet.import.change_seed, Qt::LeftButton);
+	QTest::keyClicks (wallet.import.clear_line, "clear keys");
+	QTest::mouseClick (wallet.import.import_seed, Qt::LeftButton);
 	ASSERT_EQ (key1, wallet.account);
 	ASSERT_FALSE (system.wallet (0)->exists (key2));
 	ASSERT_TRUE (system.wallet (0)->exists (key1));
@@ -607,4 +612,30 @@ TEST (wallet, backup_seed)
 	rai::raw_key seed;
 	system.wallet (0)->store.seed (seed, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
 	ASSERT_EQ (seed.data.to_string (), test_application->clipboard ()->text ().toStdString ());
+}
+
+TEST (wallet, import_locked)
+{
+    rai::system system (24000, 1);
+	auto key1 (system.wallet (0)->deterministic_insert ());
+	system.wallet (0)->store.rekey (rai::transaction (system.wallet (0)->store.environment, nullptr, true), "1");
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), key1);
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
+	ASSERT_EQ (wallet.accounts.window, wallet.main_stack->currentWidget ());
+	rai::raw_key seed1;
+	seed1.data.clear ();
+	QTest::keyClicks (wallet.import.seed, seed1.data.to_string ().c_str ());
+	QTest::keyClicks (wallet.import.clear_line, "clear keys");
+	system.wallet (0)->enter_password ("");
+	QTest::mouseClick (wallet.import.import_seed, Qt::LeftButton);
+	rai::raw_key seed2;
+	system.wallet (0)->store.seed (seed2, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
+	ASSERT_NE (seed1, seed2);
+	system.wallet (0)->enter_password ("1");
+	QTest::mouseClick (wallet.import.import_seed, Qt::LeftButton);
+	rai::raw_key seed3;
+	system.wallet (0)->store.seed (seed3, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
+	ASSERT_EQ (seed1, seed3);
 }

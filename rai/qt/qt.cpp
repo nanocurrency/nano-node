@@ -215,6 +215,8 @@ window (new QWidget),
 layout (new QVBoxLayout),
 seed_label (new QLabel ("Seed:")),
 seed (new QLineEdit),
+clear_label (new QLabel ("Modifying seed clears existing keys\nType 'clear keys' below to confirm:")),
+clear_line (new QLineEdit),
 import_seed (new QPushButton ("Import seed")),
 separator (new QFrame),
 filename_label (new QLabel ("Filename:")),
@@ -267,30 +269,39 @@ wallet (wallet_a)
 	{
 		this->wallet.pop_main_stack ();
 	});
-	QObject::connect (change_seed, &QPushButton::released, [this] ()
+	QObject::connect (import_seed, &QPushButton::released, [this] ()
 	{
-		rai::raw_key seed_l;
-		if (!seed_l.data.decode_hex (seed->text ().toStdString ()))
+		if (clear_line->text ().toStdString () == "clear keys")
 		{
+			show_line_ok (*clear_line);
+			rai::raw_key seed_l;
+			if (!seed_l.data.decode_hex (seed->text ().toStdString ()))
 			{
-				rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-				if (this->wallet.wallet_m->store.valid_password (transaction))
 				{
-					this->wallet.wallet_m->store.seed_set (transaction, seed_l);
-					this->wallet.account = this->wallet.wallet_m->store.deterministic_insert (transaction);
-					seed->clear ();
-					show_line_ok (*seed);
+					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+					if (this->wallet.wallet_m->store.valid_password (transaction))
+					{
+						this->wallet.wallet_m->store.seed_set (transaction, seed_l);
+						this->wallet.account = this->wallet.wallet_m->store.deterministic_insert (transaction);
+						seed->clear ();
+						clear_line->clear ();
+						show_line_ok (*seed);
+					}
+					else
+					{
+						show_line_error (*seed);
+					}
 				}
-				else
-				{
-					show_line_error (*seed);
-				}
+				this->wallet.accounts.refresh ();
 			}
-			this->wallet.accounts.refresh ();
+			else
+			{
+				show_line_error (*seed);
+			}
 		}
 		else
 		{
-			show_line_error (*seed);
+			show_line_error (*clear_line);
 		}
 	});
 }
