@@ -258,7 +258,7 @@ TEST (rpc, send_fail)
 	thread2.join ();
 }
 
-TEST (rpc, wallet_add)
+TEST (rpc, wallet_add_adhoc)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -273,12 +273,36 @@ TEST (rpc, wallet_add)
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
-    request.put ("action", "wallet_add");
+    request.put ("action", "wallet_add_adhoc");
     request.put ("key", key_text);
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("account"));
     ASSERT_EQ (account_text1, key1.pub.to_account ());
+	rpc.stop();
+	thread1.join();
+}
+
+TEST (rpc, wallet_add_next)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request;
+    std::string wallet;
+    system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
+    request.put ("wallet", wallet);
+    request.put ("action", "wallet_add_next");
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    std::string account_text1 (response.first.get <std::string> ("account"));
+	rai::account account;
+	ASSERT_FALSE (account.decode_account (account_text1));
+	ASSERT_TRUE (system.wallet (0)->exists (account));
+	rai::raw_key key;
+	system.wallet (0)->store.fetch (rai::transaction (system.wallet (0)->store.environment, nullptr, false), account, key);
 	rpc.stop();
 	thread1.join();
 }

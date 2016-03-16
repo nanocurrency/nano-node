@@ -1004,7 +1004,7 @@ void rai::rpc_handler::validate_account_number ()
 	rpc.send_response (connection, response_l);
 }
 
-void rai::rpc_handler::wallet_add ()
+void rai::rpc_handler::wallet_add_adhoc ()
 {
 	if (rpc.config.enable_control)
 	{
@@ -1021,13 +1021,17 @@ void rai::rpc_handler::wallet_add ()
 				auto existing (rpc.node.wallets.items.find (wallet));
 				if (existing != rpc.node.wallets.items.end ())
 				{
-					rai::transaction transaction (rpc.node.store.environment, nullptr, true);
-					existing->second->store.insert (transaction, key);
-					rai::public_key pub;
-					ed25519_publickey (key.data.bytes.data (), pub.bytes.data ());
-					boost::property_tree::ptree response_l;
-					response_l.put ("account", pub.to_account ());
-					rpc.send_response (connection, response_l);
+					auto pub (existing->second->insert (key));
+					if (!pub.is_zero ())
+					{
+						boost::property_tree::ptree response_l;
+						response_l.put ("account", pub.to_account ());
+						rpc.send_response (connection, response_l);
+					}
+					else
+					{
+						rpc.error_response (connection, "Wallet locked");
+					}
 				}
 				else
 				{
@@ -1042,6 +1046,46 @@ void rai::rpc_handler::wallet_add ()
 		else
 		{
 			rpc.error_response (connection, "Bad private key");
+		}
+	}
+	else
+	{
+		rpc.error_response (connection, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::wallet_add_next ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (rpc.node.wallets.items.find (wallet));
+			if (existing != rpc.node.wallets.items.end ())
+			{
+				auto pub (existing->second->deterministic_insert ());
+				if (!pub.is_zero ())
+				{
+					boost::property_tree::ptree response_l;
+					response_l.put ("account", pub.to_account ());
+					rpc.send_response (connection, response_l);
+				}
+				else
+				{
+					rpc.error_response (connection, "Wallet locked");
+				}
+			}
+			else
+			{
+				rpc.error_response (connection, "Wallet not found");
+			}
+		}
+		else
+		{
+			rpc.error_response (connection, "Bad wallet number");
 		}
 	}
 	else
@@ -1464,9 +1508,13 @@ void rai::rpc_handler::process_request ()
 		{
 			version ();
 		}
-		else if (action == "wallet_add")
+		else if (action == "wallet_add_adhoc")
 		{
-			wallet_add ();
+			wallet_add_adhoc ();
+		}
+		else if (action == "wallet_add_next")
+		{
+			wallet_add_next ();
 		}
 		else if (action == "wallet_contains")
 		{

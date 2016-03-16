@@ -572,6 +572,7 @@ rai::key_type rai::wallet_store::key_type (rai::wallet_value const & value_a)
 {
 	auto number (value_a.key.number ());
 	rai::key_type result;
+	auto text (number.convert_to <std::string> ());
 	if (number > std::numeric_limits <uint64_t>::max ())
 	{
 		result = rai::key_type::adhoc;
