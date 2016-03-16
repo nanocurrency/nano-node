@@ -215,7 +215,7 @@ window (new QWidget),
 layout (new QVBoxLayout),
 seed_label (new QLabel ("Seed:")),
 seed (new QLineEdit),
-change_seed (new QPushButton ("Change seed")),
+import_seed (new QPushButton ("Import seed")),
 separator (new QFrame),
 filename_label (new QLabel ("Filename:")),
 filename (new QLineEdit),
@@ -227,7 +227,7 @@ wallet (wallet_a)
 {
 	layout->addWidget (seed_label);
 	layout->addWidget (seed);
-	layout->addWidget (change_seed);
+	layout->addWidget (import_seed);
 	layout->addWidget (separator);
 	layout->addWidget (filename_label);
 	layout->addWidget (filename);

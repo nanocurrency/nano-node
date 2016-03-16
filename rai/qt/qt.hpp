@@ -175,7 +175,7 @@ namespace rai_qt {
 		QVBoxLayout * layout;
 		QLabel * seed_label;
 		QLineEdit * seed;
-		QPushButton * change_seed;
+		QPushButton * import_seed;
 		QFrame * separator;
 		QLabel * filename_label;
 		QLineEdit * filename;
