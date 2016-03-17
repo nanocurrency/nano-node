@@ -339,6 +339,10 @@ bool rai::wallet_store::attempt_password (MDB_txn * transaction_a, std::string c
 		{
 			upgrade_v1_v2 ();
 		}
+		if (version (transaction_a) == version_2)
+		{
+			upgrade_v2_v3 ();
+		}
 	}
 	return result;
 }
@@ -394,7 +398,8 @@ rai::mdb_val rai::wallet_value::val () const
 
 unsigned const rai::wallet_store::version_1 (1);
 unsigned const rai::wallet_store::version_2 (2);
-unsigned const rai::wallet_store::version_current (version_2);
+unsigned const rai::wallet_store::version_3 (3);
+unsigned const rai::wallet_store::version_current (version_3);
 rai::uint256_union const rai::wallet_store::version_special (0);
 rai::uint256_union const rai::wallet_store::salt_special (1);
 rai::uint256_union const rai::wallet_store::wallet_key_special (2);
@@ -440,11 +445,11 @@ environment (transaction_a.environment)
                 init_a = true;
             }
         }
-		init_a = init_a || mdb_get (transaction_a, handle, version_special.val (), &junk) != 0;
-		init_a = init_a || mdb_get (transaction_a, handle, wallet_key_special.val (), & junk) != 0;
-		init_a = init_a || mdb_get (transaction_a, handle, salt_special.val (), &junk) != 0;
-		init_a = init_a || mdb_get (transaction_a, handle, check_special.val (), &junk) != 0;
-		init_a = init_a || mdb_get (transaction_a, handle, representative_special.val (), &junk) != 0;
+		init_a |= mdb_get (transaction_a, handle, version_special.val (), &junk) != 0;
+		init_a |= mdb_get (transaction_a, handle, wallet_key_special.val (), & junk) != 0;
+		init_a |= mdb_get (transaction_a, handle, salt_special.val (), &junk) != 0;
+		init_a |= mdb_get (transaction_a, handle, check_special.val (), &junk) != 0;
+		init_a |= mdb_get (transaction_a, handle, representative_special.val (), &junk) != 0;
 		rai::raw_key key;
 		key.data.clear();
 		password.value_set (key);
@@ -488,6 +493,7 @@ environment (transaction_a.environment)
 			rai::raw_key seed;
 			random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
 			seed_set (transaction_a, seed);
+			entry_put_raw (transaction_a, rai::wallet_store::deterministic_index_special, rai::wallet_value (0));
         }
     }
 }
@@ -786,6 +792,17 @@ void rai::wallet_store::upgrade_v1_v2 ()
 		}
 	}
 	version_put (transaction, 2);
+}
+
+void rai::wallet_store::upgrade_v2_v3 ()
+{
+	rai::transaction transaction (environment, nullptr, true);
+	assert (version (transaction) == 2);
+	rai::raw_key seed;
+	random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
+	seed_set (transaction, seed);
+	entry_put_raw (transaction, rai::wallet_store::deterministic_index_special, rai::wallet_value (0));
+	version_put (transaction, 3);
 }
 
 void rai::kdf::phs (rai::raw_key & result_a, std::string const & password_a, rai::uint256_union const & salt_a)

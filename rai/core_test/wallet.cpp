@@ -797,3 +797,29 @@ TEST (wallet, insert_deterministic_locked)
 	ASSERT_EQ (false, wallet->valid_password ());
 	ASSERT_TRUE (wallet->deterministic_insert ().is_zero ());
 }
+
+TEST (wallet, version_2_3_upgrade)
+{
+    rai::system system (24000, 1);
+    auto wallet (system.wallet (0));
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, true);
+		wallet->store.rekey (transaction, "1");
+		ASSERT_TRUE (wallet->store.attempt_password (transaction, ""));
+		wallet->store.erase (transaction, rai::wallet_store::deterministic_index_special);
+		wallet->store.erase (transaction, rai::wallet_store::seed_special);
+		wallet->store.version_put (transaction, 2);
+	}
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, false);
+		ASSERT_EQ (2, wallet->store.version (transaction));
+		ASSERT_FALSE (wallet->store.exists (transaction, rai::wallet_store::deterministic_index_special));
+		ASSERT_FALSE (wallet->store.exists (transaction, rai::wallet_store::seed_special));
+		wallet->store.attempt_password (transaction, "1");
+	}
+	rai::transaction transaction (wallet->store.environment, nullptr, false);
+	ASSERT_EQ (3, wallet->store.version (transaction));
+	ASSERT_TRUE (wallet->store.exists (transaction, rai::wallet_store::deterministic_index_special));
+	ASSERT_TRUE (wallet->store.exists (transaction, rai::wallet_store::seed_special));
+	ASSERT_FALSE (wallet->deterministic_insert ().is_zero ());
+}

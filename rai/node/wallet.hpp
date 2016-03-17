@@ -117,9 +117,11 @@ public:
 	unsigned version (MDB_txn *);
 	void version_put (MDB_txn *, unsigned);
 	void upgrade_v1_v2 ();
+	void upgrade_v2_v3 ();
     rai::fan password;
     static unsigned const version_1;
     static unsigned const version_2;
+    static unsigned const version_3;
     static unsigned const version_current;
     static rai::uint256_union const version_special;
     static rai::uint256_union const wallet_key_special;
