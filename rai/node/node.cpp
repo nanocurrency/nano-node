@@ -2389,7 +2389,8 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a random keypair")
 	("key_expand", "Derive public key and account number from <key>")
-	("wallet_add", "Insert <key> in to <wallet>")
+	("wallet_add_adhoc", "Insert <key> in to <wallet>")
+	("wallet_add_next", "Insert next deterministic key in to <wallet>")
 	("wallet_create", "Creates a new wallet and prints the ID")
 	("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!")
 	("wallet_destroy", "Destroys <wallet> and all keys it contains")
@@ -2471,7 +2472,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			result = true;
 		}
 	}
-	else if (vm.count ("wallet_add"))
+	else if (vm.count ("wallet_add_adhoc"))
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
 		{
@@ -2492,7 +2493,53 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 						rai::transaction transaction (wallet->store.environment, nullptr, true);
 						rai::raw_key key;
 						key.data.decode_hex (vm ["key"].as <std::string> ());
-						wallet->store.insert (transaction, key);
+						wallet->store.insert_adhoc (transaction, key);
+					}
+					else
+					{
+						std::cerr << "Invalid password\n";
+						result = true;
+					}
+				}
+				else
+				{
+					std::cerr << "Wallet doesn't exist\n";
+					result = true;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id\n";
+				result = true;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option";
+			result = true;
+		}
+	}
+	else if (vm.count ("wallet_add_next"))
+	{
+		if (vm.count ("wallet") == 1)
+		{
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
+			{
+				std::string password;
+				if (vm.count ("password") > 0)
+				{
+					password = vm ["password"].as <std::string> ();
+				}
+				inactive_node node;
+				auto wallet (node.node->wallets.open (wallet_id));
+				if (wallet != nullptr)
+				{
+					if (!wallet->enter_password (password))
+					{
+						rai::transaction transaction (wallet->store.environment, nullptr, true);
+						auto pub (wallet->store.deterministic_insert (transaction));
+						std::cout << boost::str (boost::format ("Account: %1%\n") % pub.to_account ());
 					}
 					else
 					{

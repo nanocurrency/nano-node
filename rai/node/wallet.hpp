@@ -96,7 +96,7 @@ public:
     bool is_representative (MDB_txn *);
     rai::account representative (MDB_txn *);
     void representative_set (MDB_txn *, rai::account const &);
-    rai::public_key insert (MDB_txn *, rai::raw_key const &);
+    rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &);
     void erase (MDB_txn *, rai::public_key const &);
 	rai::wallet_value entry_get_raw (MDB_txn *, rai::public_key const &);
 	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
@@ -151,7 +151,7 @@ public:
 	void enter_initial_password ();
     bool valid_password ();
     bool enter_password (std::string const &);
-	rai::public_key insert (rai::raw_key const &);
+	rai::public_key insert_adhoc (rai::raw_key const &);
 	rai::public_key deterministic_insert ();
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);

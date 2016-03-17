@@ -113,8 +113,7 @@ public:
 	void stop ();
 	void validate_account_number ();
 	void version ();
-	void wallet_add_adhoc ();
-	void wallet_add_next ();
+	void wallet_add ();
 	void wallet_contains ();
 	void wallet_create ();
 	void wallet_destroy ();

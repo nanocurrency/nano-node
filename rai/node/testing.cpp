@@ -181,7 +181,6 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector <rai::
 void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::account> & accounts_a)
 {
     assert (node_a.wallets.items.size () == 1);
-    rai::keypair key;
 	rai::uint128_t amount;
 	rai::account source;
 	{
@@ -189,15 +188,15 @@ void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::accou
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
-	accounts_a.push_back (key.pub);
-	node_a.wallets.items.begin ()->second->insert (key.prv);
-    node_a.wallets.items.begin ()->second->send_async (source, key.pub, amount, [] (std::unique_ptr <rai::block>) {});
+	auto pub (node_a.wallets.items.begin ()->second->deterministic_insert ());
+	accounts_a.push_back (pub);
+    node_a.wallets.items.begin ()->second->send_async (source, pub, amount, [] (std::unique_ptr <rai::block>) {});
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 {
 	std::vector <rai::account> accounts;
-    wallet (0)->insert (rai::test_genesis_key.prv);
+    wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	accounts.push_back (rai::test_genesis_key.pub);
     auto previous (std::chrono::system_clock::now ());
     for (uint32_t i (0); i < count_a; ++i)

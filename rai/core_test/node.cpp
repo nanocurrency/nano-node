@@ -53,7 +53,7 @@ TEST (node, password_fanout)
 TEST (node, balance)
 {
     rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max (), system.nodes [0]->ledger.account_balance (transaction, rai::test_genesis_key.pub));
 }
@@ -74,7 +74,7 @@ TEST (node, send_unkeyed)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->store.password.value_set (rai::keypair ().prv);
     ASSERT_EQ (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 }
@@ -83,8 +83,8 @@ TEST (node, send_self)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     auto iterations (0);
     while (system.nodes [0]->balance (key2.pub).is_zero ())
@@ -100,8 +100,8 @@ TEST (node, send_single)
 {
     rai::system system (24000, 2);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (1)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (1)->insert_adhoc (key2.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_TRUE (system.nodes [0]->balance (key2.pub).is_zero ());
@@ -118,8 +118,8 @@ TEST (node, send_single_observing_peer)
 {
     rai::system system (24000, 3);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (1)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (1)->insert_adhoc (key2.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_TRUE (system.nodes [0]->balance (key2.pub).is_zero ());
@@ -136,8 +136,8 @@ TEST (node, send_single_many_peers)
 {
     rai::system system (24000, 10);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (1)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (1)->insert_adhoc (key2.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_TRUE (system.nodes [0]->balance (key2.pub).is_zero ());
@@ -173,7 +173,7 @@ TEST (node, quick_confirm)
     rai::system system (24000, 1);
     rai::keypair key;
 	rai::block_hash previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     rai::send_block send (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous));
 	system.nodes [0]->process_receive_republish (send.clone (), 0);
     auto iterations (0);
@@ -189,8 +189,8 @@ TEST (node, auto_bootstrap)
 {
 	rai::system system (24000, 1);
 	rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
 	auto iterations1 (0);
 	while (system.nodes [0]->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
@@ -238,8 +238,8 @@ TEST (node, auto_bootstrap_reverse)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
     rai::node_init init1;
     auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
     ASSERT_FALSE (init1.error ());
@@ -282,9 +282,9 @@ TEST (node, search_pending)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
-    system.wallet (0)->insert (key2.prv);
+    system.wallet (0)->insert_adhoc (key2.prv);
 	auto node (system.nodes [0]);
 	ASSERT_FALSE (system.wallet (0)->search_pending ());
     auto iterations2 (0);
@@ -300,10 +300,10 @@ TEST (node, search_pending_same)
 {
     rai::system system (24000, 1);
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
-    system.wallet (0)->insert (key2.prv);
+    system.wallet (0)->insert_adhoc (key2.prv);
 	auto node (system.nodes [0]);
 	ASSERT_FALSE (system.wallet (0)->search_pending ());
     auto iterations2 (0);
@@ -320,8 +320,8 @@ TEST (node, search_pending_multiple)
     rai::system system (24000, 1);
     rai::keypair key2;
 	rai::keypair key3;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key3.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key3.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key3.pub, system.nodes [0]->config.receive_minimum.number ()));
 	auto iterations1 (0);
     while (system.nodes [0]->balance (key3.pub).is_zero ())
@@ -332,7 +332,7 @@ TEST (node, search_pending_multiple)
     }
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     ASSERT_NE (nullptr, system.wallet (0)->send_action (key3.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
-    system.wallet (0)->insert (key2.prv);
+    system.wallet (0)->insert_adhoc (key2.prv);
 	auto node (system.nodes [0]);
 	ASSERT_FALSE (system.wallet (0)->search_pending ());
     auto iterations2 (0);
@@ -353,7 +353,7 @@ TEST (node, unlock_search)
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, true);
 		system.wallet (0)->store.rekey (transaction, "");
 	}
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     auto iterations1 (0);
     while (system.nodes [0]->balance (rai::test_genesis_key.pub) == balance)
@@ -362,7 +362,7 @@ TEST (node, unlock_search)
         ++iterations1;
         ASSERT_LT (iterations1, 200);
     }
-	system.wallet (0)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
 	system.wallet (0)->store.password.value_set (rai::keypair ().prv);
 	auto node (system.nodes [0]);
 	ASSERT_FALSE (system.wallet (0)->enter_password (""));
@@ -597,7 +597,7 @@ TEST (node_config, v2_v3_upgrade)
 TEST (node, confirm_locked)
 {
 	rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->enter_password ("1");
 	rai::send_block block (0, 0, 0, rai::keypair ().prv, 0, 0);
 	system.nodes [0]->process_confirmation (block, rai::endpoint ());
@@ -614,7 +614,7 @@ TEST (node_config, random_rep)
 TEST (node, block_replace)
 {
 	rai::system system (24000, 2);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, 1000));
 	std::unique_ptr <rai::block> block1;
 	{
@@ -654,7 +654,7 @@ TEST (node, fork_publish)
         rai::system system (24000, 1);
         node0 = system.nodes [0];
         auto & node1 (*system.nodes [0]);
-		system.wallet (0)->insert (rai::test_genesis_key.prv);
+		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
         rai::keypair key1;
 		rai::genesis genesis;
         std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
@@ -705,7 +705,7 @@ TEST (node, fork_keep)
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert ( rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc ( rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -759,7 +759,7 @@ TEST (node, fork_flip)
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
     ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -817,7 +817,7 @@ TEST (node, fork_multi_flip)
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -882,7 +882,7 @@ TEST (node, fork_bootstrap_flip)
 	rai::system system (24000, 2);
 	auto & node1 (*system.nodes [0]);
 	auto & node2 (*system.nodes [1]);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	rai::keypair key1;
 	std::unique_ptr <rai::send_block> send1 (new rai::send_block (latest, key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
@@ -917,7 +917,7 @@ TEST (node, fork_open)
 {
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
-	system.wallet (0)->insert ( rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc ( rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -941,7 +941,7 @@ TEST (node, fork_open_flip)
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
     ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, rai::genesis_amount - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -1006,7 +1006,7 @@ TEST (node, coherent_observer)
 		rai::transaction transaction (node1.store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, block_a.hash ()));
 	});
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1);
 }

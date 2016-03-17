@@ -107,7 +107,7 @@ TEST (rpc, wallet_contains)
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -150,7 +150,7 @@ TEST (rpc, validate_account_number)
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "validate_account_number");
     request.put ("account", rai::test_genesis_key.pub.to_account ());
@@ -171,7 +171,7 @@ TEST (rpc, validate_account_invalid)
     std::string account;
     rai::test_genesis_key.pub.encode_account (account);
     account [0] ^= 0x1;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "validate_account_number");
     request.put ("account", account);
@@ -190,7 +190,7 @@ TEST (rpc, send)
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-    system.wallet (0)->insert (rai::test_genesis_key.prv);
+    system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -273,7 +273,7 @@ TEST (rpc, stop)
 	thread1.join ();
 }
 
-TEST (rpc, wallet_add_adhoc)
+TEST (rpc, wallet_add)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -283,41 +283,17 @@ TEST (rpc, wallet_add_adhoc)
     rai::keypair key1;
     std::string key_text;
     key1.prv.data.encode_hex (key_text);
-	system.wallet (0)->insert (key1.prv);
+	system.wallet (0)->insert_adhoc (key1.prv);
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
-    request.put ("action", "wallet_add_adhoc");
+    request.put ("action", "wallet_add");
     request.put ("key", key_text);
 	auto response (test_response (request, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
     std::string account_text1 (response.first.get <std::string> ("account"));
     ASSERT_EQ (account_text1, key1.pub.to_account ());
-	rpc.stop();
-	thread1.join();
-}
-
-TEST (rpc, wallet_add_next)
-{
-    rai::system system (24000, 1);
-    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
-    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
-	rpc.start ();
-	std::thread thread1 ([&rpc] () {rpc.server.run();});
-    boost::property_tree::ptree request;
-    std::string wallet;
-    system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
-    request.put ("wallet", wallet);
-    request.put ("action", "wallet_add_next");
-	auto response (test_response (request, rpc));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
-    std::string account_text1 (response.first.get <std::string> ("account"));
-	rai::account account;
-	ASSERT_FALSE (account.decode_account (account_text1));
-	ASSERT_TRUE (system.wallet (0)->exists (account));
-	rai::raw_key key;
-	system.wallet (0)->store.fetch (rai::transaction (system.wallet (0)->store.environment, nullptr, false), account, key);
 	rpc.stop();
 	thread1.join();
 }
@@ -449,8 +425,8 @@ TEST (rpc, account_list)
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     rai::keypair key2;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key2.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -483,7 +459,7 @@ TEST (rpc, wallet_key_valid)
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-    system.wallet (0)->insert (rai::test_genesis_key.prv);
+    system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -523,7 +499,7 @@ TEST (rpc, wallet_export)
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "wallet_export");
     request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
@@ -548,7 +524,7 @@ TEST (rpc, wallet_destroy)
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "wallet_destroy");
     request.put ("wallet", wallet_id.to_string ());
@@ -569,10 +545,10 @@ TEST (rpc, account_move)
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     auto destination (system.wallet (0));
     rai::keypair key;
-	destination->insert (rai::test_genesis_key.prv);
+	destination->insert_adhoc (rai::test_genesis_key.prv);
     rai::keypair source_id;
     auto source (system.nodes [0]->wallets.create (source_id.pub));
-	source->insert (key.prv);
+	source->insert_adhoc (key.prv);
     boost::property_tree::ptree request;
     request.put ("action", "account_move");
     request.put ("wallet", wallet_id.to_string ());
@@ -614,7 +590,7 @@ TEST (rpc, block)
 TEST (rpc, chain)
 {
     rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
 	auto genesis (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	ASSERT_FALSE (genesis.is_zero ());
@@ -646,7 +622,7 @@ TEST (rpc, chain)
 TEST (rpc, chain_limit)
 {
     rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
 	auto genesis (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	ASSERT_FALSE (genesis.is_zero ());
@@ -842,7 +818,7 @@ TEST (rpc_config, serialization)
 TEST (rpc, search_pending)
 {
     rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto wallet (system.nodes [0]->wallets.items.begin ()->first.to_string ());
 	rai::send_block block (system.nodes [0]->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (rai::transaction (system.nodes [0]->store.environment, nullptr, true), block).code);
@@ -959,7 +935,7 @@ TEST (rpc, payment_end_nonempty)
     rai::system system (24000, 1);
 	rai::node_init init1;
     auto node1 (system.nodes [0]);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->init_free_accounts (rai::transaction (node1->store.environment, nullptr, false));
 	auto wallet_id (node1->wallets.items.begin ()->first);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -981,7 +957,7 @@ TEST (rpc, payment_zero_balance)
     rai::system system (24000, 1);
 	rai::node_init init1;
     auto node1 (system.nodes [0]);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->init_free_accounts (rai::transaction (node1->store.environment, nullptr, false));
 	auto wallet_id (node1->wallets.items.begin ()->first);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -1073,8 +1049,8 @@ TEST (rpc, DISABLED_payment_wait)
 	rai::node_init init1;
     auto node1 (system.nodes [0]);
 	rai::keypair key;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
 	rai::thread_runner runner (*system.service, node1->config.io_threads);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
@@ -1113,8 +1089,8 @@ TEST (rpc, version)
 	rai::node_init init1;
     auto node1 (system.nodes [0]);
 	rai::keypair key;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
@@ -1136,8 +1112,8 @@ TEST (rpc, work_generate)
 	rai::node_init init1;
     auto node1 (system.nodes [0]);
 	rai::keypair key;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
@@ -1162,8 +1138,8 @@ TEST (rpc, work_cancel)
 	rai::node_init init1;
     auto & node1 (*system.nodes [0]);
 	rai::keypair key;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
@@ -1192,8 +1168,8 @@ TEST (rpc, work_peer_bad)
     auto & node2 (*system.nodes [1]);
 	rai::thread_runner runner (*system.service, node1.config.io_threads);
 	rai::keypair key;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
@@ -1217,8 +1193,8 @@ TEST (rpc, work_peer_one)
     auto & node2 (*system.nodes [1]);
 	rai::thread_runner runner (*system.service, node1.config.io_threads);
 	rai::keypair key;
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
 	rpc.start ();
@@ -1341,7 +1317,7 @@ TEST (rpc, available_supply)
 	auto response1 (test_response (request1, rpc));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
 	ASSERT_EQ ("0", response1.first.get <std::string> ("available"));
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
 	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
 	auto response2 (test_response (request1, rpc));

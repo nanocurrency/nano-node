@@ -499,7 +499,7 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (system, generate_send_existing)
 {
     rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::account_info info1;
 	{
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
@@ -533,7 +533,7 @@ TEST (system, generate_send_existing)
 TEST (system, generate_send_new)
 {
     rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		auto iterator1 (system.nodes [0]->store.latest_begin (transaction));

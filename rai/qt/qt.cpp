@@ -128,7 +128,7 @@ wallet (wallet_a)
 		{
 			show_line_ok (*account_key_line);
 			account_key_line->clear ();
-			this->wallet.wallet_m->insert (key);
+			this->wallet.wallet_m->insert_adhoc (key);
 			this->wallet.accounts.refresh ();
 			this->wallet.history.refresh ();
 		}

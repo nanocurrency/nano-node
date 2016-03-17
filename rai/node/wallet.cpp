@@ -532,7 +532,7 @@ rai::account rai::wallet_store::representative (MDB_txn * transaction_a)
     return value.key;
 }
 
-rai::public_key rai::wallet_store::insert (MDB_txn * transaction_a, rai::raw_key const & prv)
+rai::public_key rai::wallet_store::insert_adhoc (MDB_txn * transaction_a, rai::raw_key const & prv)
 {
 	assert (valid_password (transaction_a));
     rai::public_key pub;
@@ -685,7 +685,7 @@ bool rai::wallet_store::move (MDB_txn * transaction_a, rai::wallet_store & other
         result = result | error;
         if (!result)
         {
-            insert (transaction_a, prv);
+            insert_adhoc (transaction_a, prv);
             other_a.erase (transaction_a, *i);
         }
     }
@@ -704,7 +704,7 @@ bool rai::wallet_store::import (MDB_txn * transaction_a, rai::wallet_store & oth
         result = result | error;
         if (!result)
         {
-            insert (transaction_a, prv);
+            insert_adhoc (transaction_a, prv);
             other_a.erase (transaction_a, i->first);
         }
     }
@@ -774,7 +774,7 @@ void rai::wallet_store::upgrade_v1_v2 ()
 			if (compare == key)
 			{
 				// If we successfully decrypted it, rewrite the key back with the correct wallet key
-				insert (transaction, prv);
+				insert_adhoc (transaction, prv);
 			}
 			else
 			{
@@ -786,7 +786,7 @@ void rai::wallet_store::upgrade_v1_v2 ()
 				if (compare == key)
 				{
 					// If we successfully decrypted it, rewrite the key back with the correct wallet key
-					insert (transaction, prv);
+					insert_adhoc (transaction, prv);
 				}
 			}
 		}
@@ -888,7 +888,7 @@ rai::public_key rai::wallet::deterministic_insert ()
 	return key;
 }
 
-rai::public_key rai::wallet::insert (rai::raw_key const & key_a)
+rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & key_a)
 {
 	rai::block_hash root;
 	rai::public_key key (0);
@@ -896,7 +896,7 @@ rai::public_key rai::wallet::insert (rai::raw_key const & key_a)
 		rai::transaction transaction (store.environment, nullptr, true);
 		if (store.valid_password (transaction))
 		{
-			key = store.insert (transaction, key_a);
+			key = store.insert_adhoc (transaction, key_a);
 			auto this_l (shared_from_this ());
 			root = node.ledger.latest_root (transaction, key);
 		}

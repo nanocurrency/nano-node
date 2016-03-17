@@ -129,11 +129,10 @@ int main (int argc, char * const * argv)
 						auto wallet_entry (wallet->store.begin (transaction));
 						if (wallet_entry == wallet->store.end ())
 						{
-							rai::keypair key;
-							wallet->store.insert (transaction, key.prv);
+							auto pub (wallet->store.deterministic_insert (transaction));
 							wallet_entry = wallet->store.begin (transaction);
-							store.destination = key.pub;
-							store.source = key.pub;
+							store.destination = pub;
+							store.source = pub;
 							store.start = now;
 							store.last = now;
 							landing.write_store ();

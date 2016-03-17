@@ -15,7 +15,7 @@ TEST (wallet, construction)
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
     rai::keypair key;
-	wallet_l->insert (key.prv);
+	wallet_l->insert_adhoc (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
     ASSERT_EQ (key.pub.to_account_split (), wallet.self.account_text->text ().toStdString ());
     ASSERT_EQ (1, wallet.accounts.model->rowCount ());
@@ -28,7 +28,7 @@ TEST (wallet, status)
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
     rai::keypair key;
-	wallet_l->insert (key.prv);
+	wallet_l->insert_adhoc (key.prv);
 	rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
 	ASSERT_EQ ("Status: Disconnected", wallet.status->text ().toStdString ());
 	system.nodes [0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
@@ -50,7 +50,7 @@ TEST (wallet, startup_balance)
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
     rai::keypair key;
-	wallet_l->insert (key.prv);
+	wallet_l->insert_adhoc (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
 	ASSERT_EQ ("Balance: 0 Mrai", wallet.self.balance_label->text().toStdString ());
 }
@@ -59,8 +59,8 @@ TEST (wallet, select_account)
 {
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
-	rai::public_key key1 (wallet_l->insert (rai::keypair ().prv));
-	rai::public_key key2 (wallet_l->insert (rai::keypair ().prv));
+	rai::public_key key1 (wallet_l->insert_adhoc (rai::keypair ().prv));
+	rai::public_key key2 (wallet_l->insert_adhoc (rai::keypair ().prv));
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key1);
 	ASSERT_EQ (key1, wallet.account);
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
@@ -79,7 +79,7 @@ TEST (wallet, main)
     rai::system system (24000, 1);
     auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
     rai::keypair key;
-	wallet_l->insert (key.prv);
+	wallet_l->insert_adhoc (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
     ASSERT_EQ (wallet.entry_window, wallet.main_stack->currentWidget ());
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
@@ -107,7 +107,7 @@ TEST (wallet, password_change)
 {
     rai::system system (24000, 1);
 	rai::account account;
-	system.wallet (0)->insert (rai::keypair ().prv);
+	system.wallet (0)->insert_adhoc (rai::keypair ().prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		account = system.account (transaction, 0);
@@ -141,7 +141,7 @@ TEST (client, password_nochange)
 {
     rai::system system (24000, 1);
 	rai::account account;
-	system.wallet (0)->insert (rai::keypair ().prv);
+	system.wallet (0)->insert_adhoc (rai::keypair ().prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		account = system.account (transaction, 0);
@@ -185,7 +185,7 @@ TEST (wallet, enter_password)
 {
     rai::system system (24000, 2);
 	rai::account account;
-	system.wallet (0)->insert (rai::keypair ().prv);
+	system.wallet (0)->insert_adhoc (rai::keypair ().prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		account = system.account (transaction, 0);
@@ -216,8 +216,8 @@ TEST (wallet, enter_password)
 TEST (wallet, send)
 {
     rai::system system (24000, 2);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	rai::public_key key1 (system.wallet (1)->insert (rai::keypair ().prv));
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::public_key key1 (system.wallet (1)->insert_adhoc (rai::keypair ().prv));
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
     QTest::mouseClick (wallet.send_blocks, Qt::LeftButton);
     QTest::keyClicks (wallet.send_account, key1.to_account ().c_str ());
@@ -245,7 +245,7 @@ TEST (wallet, send)
 TEST (wallet, send_locked)
 {
     rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	system.wallet (0)->enter_password ("0");
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
@@ -268,7 +268,7 @@ TEST (wallet, process_block)
     rai::system system (24000, 1);
 	rai::account account;
 	rai::block_hash latest (system.nodes [0]->latest (rai::genesis_account));
-	system.wallet (0)->insert (rai::keypair ().prv);
+	system.wallet (0)->insert_adhoc (rai::keypair ().prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		account = system.account (transaction, 0);
@@ -300,8 +300,8 @@ TEST (wallet, create_send)
 {
 	rai::keypair key;
 	rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
 	wallet.client_window->show ();
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
@@ -327,13 +327,13 @@ TEST (wallet, create_open_receive)
 {
 	rai::keypair key;
 	rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100);
 	rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100);
 	rai::block_hash latest2 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	ASSERT_NE (latest1, latest2);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
 	wallet.client_window->show ();
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
@@ -373,7 +373,7 @@ TEST (wallet, create_change)
 {
 	rai::keypair key;
 	rai::system system (24000, 1);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), rai::test_genesis_key.pub);
 	wallet.client_window->show ();
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
@@ -421,7 +421,7 @@ TEST (wallet, startup_work)
 {
 	rai::keypair key;
     rai::system system (24000, 1);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
 	rai::account account;
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
@@ -453,7 +453,7 @@ TEST (wallet, block_viewer)
 {
 	rai::keypair key;
     rai::system system (24000, 1);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
 	rai::account account;
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
@@ -478,12 +478,12 @@ TEST (wallet, import)
 	std::string json;
 	rai::keypair key1;
 	rai::keypair key2;
-	system.wallet (0)->insert (key1.prv);
+	system.wallet (0)->insert_adhoc (key1.prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		system.wallet (0)->store.serialize_json (transaction, json);
 	}
-	system.wallet (1)->insert (key2.prv);
+	system.wallet (1)->insert_adhoc (key2.prv);
 	auto path (rai::unique_path ());
 	{
 		std::ofstream stream;
@@ -507,7 +507,7 @@ TEST (wallet, import)
 TEST (wallet, republish)
 {
     rai::system system (24000, 2);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
 	rai::block_hash hash;
 	{
@@ -537,7 +537,7 @@ TEST (wallet, ignore_empty_adhoc)
 {
     rai::system system (24000, 1);
 	rai::keypair key1;
-	system.wallet (0)->insert (key1.prv);
+	system.wallet (0)->insert_adhoc (key1.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), key1.pub);
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());

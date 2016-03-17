@@ -61,8 +61,8 @@ TEST (gap_cache, gap_bootstrap)
 	}
 	ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes [1]->balance (rai::genesis_account));
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
-	system.wallet (0)->insert (key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100);
 	ASSERT_EQ (rai::genesis_amount - 200, system.nodes [0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes [1]->balance (rai::genesis_account));

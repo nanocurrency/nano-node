@@ -6,7 +6,7 @@
 TEST (system, generate_mass_activity)
 {
     rai::system system (24000, 1);
-    system.wallet (0)->insert (rai::test_genesis_key.prv);
+    system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     size_t count (20);
     system.generate_mass_activity (count, *system.nodes [0]);
     size_t accounts (0);
@@ -24,7 +24,7 @@ TEST (system, generate_mass_activity_long)
 	{
 		rai::system system (24000, 1);
 		rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
-		system.wallet (0)->insert (rai::test_genesis_key.prv);
+		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 		size_t count (10000);
 		system.generate_mass_activity (count, *system.nodes [0]);
 		size_t accounts (0);
@@ -49,7 +49,7 @@ TEST (system, receive_while_synchronizing)
 	{
 		rai::system system (24000, 1);
 		rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
-		system.wallet (0)->insert (rai::test_genesis_key.prv);
+		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 		size_t count (1000);
 		system.generate_mass_activity (count, *system.nodes [0]);
 		rai::keypair key;
@@ -58,7 +58,7 @@ TEST (system, receive_while_synchronizing)
 		ASSERT_FALSE (init1.error ());
 		node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 		auto wallet (node1->wallets.create (1));
-		ASSERT_EQ (key.pub, wallet->insert (key.prv));
+		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
 		system.alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds(200), ([&system, &key] ()
 		{
@@ -123,7 +123,7 @@ TEST (wallet, multithreaded_send)
 		rai::system system (24000, 1);
 		rai::keypair key;
 		auto wallet_l (system.wallet (0));
-		wallet_l->insert (rai::test_genesis_key.prv);
+		wallet_l->insert_adhoc (rai::test_genesis_key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
 			threads.push_back (std::thread ([wallet_l, &key] ()
@@ -174,7 +174,7 @@ TEST (store, load)
 TEST (node, fork_storm)
 {
 	rai::system system (24000, 64);
-	system.wallet (0)->insert (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	auto balance (system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_FALSE (previous.is_zero ());

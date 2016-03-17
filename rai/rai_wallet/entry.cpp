@@ -12,8 +12,8 @@
 class qt_wallet_config
 {
 public:
-	qt_wallet_config (rai::account & account_a) :
-	account (account_a)
+	qt_wallet_config () :
+	account (0)
 	{
 		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
@@ -99,8 +99,7 @@ int run_wallet (int argc, char * const * argv)
 {
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
-    rai::keypair key;
-	qt_wallet_config config (key.pub);
+	qt_wallet_config config;
 	auto config_path ((working / "config.json").string ());
 	std::fstream config_file;
 	rai::open_or_create (config_file, config_path);
@@ -119,13 +118,12 @@ int run_wallet (int argc, char * const * argv)
 			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
 			if (!init.error ())
 			{
-				if (config.account == key.pub)
+				if (config.account.is_zero ())
 				{
 					auto wallet (node->wallets.create (config.wallet));
-					wallet->insert (key.prv);
+					auto pub (wallet->deterministic_insert ());
 					assert (wallet->exists (config.account));
 				}
-				key.prv.data.clear ();
 				auto wallet (node->wallets.open (config.wallet));
 				if (wallet != nullptr)
 				{
