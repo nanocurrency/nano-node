@@ -287,8 +287,8 @@ uint32_t rai::wallet_store::deterministic_index_get (MDB_txn * transaction_a)
 
 void rai::wallet_store::deterministic_index_set (MDB_txn * transaction_a, uint32_t index_a)
 {
-	rai::wallet_value value;
-	value.key = index_a;
+	rai::uint256_union index_l (index_a);
+	rai::wallet_value value (index_l);
 	entry_put_raw (transaction_a, rai::wallet_store::deterministic_index_special, value);
 }
 
