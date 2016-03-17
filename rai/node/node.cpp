@@ -2554,7 +2554,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 							rai::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
 							assert (!error);
-							std::cerr << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_string () % key.data.to_string ());
+							std::cerr << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
 						}
 					}
 					else
