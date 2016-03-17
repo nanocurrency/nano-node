@@ -643,15 +643,20 @@ void rai::rpc_handler::payment_begin ()
 					}
 					else
 					{
-						rai::keypair key;
-						account = key.pub;
-						auto error (wallet->store.insert (transaction, key.prv));
-						assert (!error.is_zero ());
+						account = wallet->store.deterministic_insert (transaction);
+						break;
 					}
 				} while (account.is_zero ());
-				boost::property_tree::ptree response_l;
-				response_l.put ("account", account.to_account ());
-				rpc.send_response (connection, response_l);
+				if (!account.is_zero ())
+				{
+					boost::property_tree::ptree response_l;
+					response_l.put ("account", account.to_account ());
+					rpc.send_response (connection, response_l);
+				}
+				else
+				{
+					rpc.error_response (connection, "Unable to create transaction account");
+				}
 			}
 			else
 			{

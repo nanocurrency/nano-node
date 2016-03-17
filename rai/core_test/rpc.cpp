@@ -1041,6 +1041,32 @@ TEST (rpc, payment_begin_reuse)
 	thread1.join();
 }
 
+TEST (rpc, payment_begin_locked)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto node1 (system.nodes [0]);
+	rai::keypair wallet_id;
+	auto wallet (node1->wallets.create (wallet_id.pub));
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, true);
+		wallet->store.rekey(transaction, "1");
+		ASSERT_TRUE (wallet->store.attempt_password(transaction, ""));
+	}
+	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request1;
+	request1.put ("action", "payment_begin");
+	request1.put ("wallet", wallet_id.pub.to_string ());
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response1.second);
+	rpc.stop();
+	thread1.join();
+}
+
 TEST (rpc, DISABLED_payment_wait)
 {
     rai::system system (24000, 1);
