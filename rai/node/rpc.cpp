@@ -986,6 +986,18 @@ void rai::rpc_handler::send ()
 	}
 }
 
+void rai::rpc_handler::stop ()
+{
+	if (rpc.config.enable_control)
+	{
+		rpc.node.stop ();
+	}
+	else
+	{
+		rpc.error_response (connection, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::version ()
 {
 	boost::property_tree::ptree response_l;
@@ -1499,6 +1511,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "send")
 		{
 			send ();
+		}
+		else if (action == "stop")
+		{
+			stop ();
 		}
 		else if (action == "validate_account_number")
 		{

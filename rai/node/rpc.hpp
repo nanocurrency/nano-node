@@ -110,6 +110,7 @@ public:
 	void representative_set ();
 	void search_pending ();
 	void send ();
+	void stop ();
 	void validate_account_number ();
 	void version ();
 	void wallet_add_adhoc ();

@@ -33,7 +33,7 @@ std::pair <boost::property_tree::ptree, boost::network::http::server <rai::rpc>:
 			boost::property_tree::read_json (istream, result.first);
 		}
 	}
-	catch (std::runtime_error const & error)
+	catch (...)
 	{
 	}
 	return result;
@@ -256,6 +256,21 @@ TEST (rpc, send_fail)
 	rpc.stop ();
 	thread1.join ();
 	thread2.join ();
+}
+
+TEST (rpc, stop)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request;
+    request.put ("action", "stop");
+	auto response (test_response (request, rpc));
+	ASSERT_FALSE (system.nodes [0]->network.on);
+	rpc.stop ();
+	thread1.join ();
 }
 
 TEST (rpc, wallet_add_adhoc)
