@@ -90,6 +90,22 @@ public:
 		node.serialize_json (node_l);
 		tree_a.add_child ("node", node_l);
 	}
+	bool serialize_json_stream (std::ostream & stream_a)
+	{
+		auto result (false);
+		stream_a.seekp (0);
+		try
+		{
+			boost::property_tree::ptree tree;
+			serialize_json (tree);
+			boost::property_tree::write_json (stream_a, tree);
+		}
+		catch (std::runtime_error const &)
+		{
+			result = true;
+		}
+		return result;
+	}
 	rai::uint256_union wallet;
 	rai::account account;
 	rai::node_config node;
@@ -121,41 +137,50 @@ int run_wallet (int argc, char * const * argv)
 				if (config.account.is_zero ())
 				{
 					auto wallet (node->wallets.create (config.wallet));
-					auto pub (wallet->deterministic_insert ());
+					config.account = wallet->deterministic_insert ();
 					assert (wallet->exists (config.account));
+					error = config.serialize_json_stream (config_file);
 				}
-				auto wallet (node->wallets.open (config.wallet));
-				if (wallet != nullptr)
+				if (!error)
 				{
-					if (wallet->exists (config.account))
+					auto wallet (node->wallets.open (config.wallet));
+					if (wallet != nullptr)
 					{
-						QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+						if (wallet->exists (config.account))
 						{
-							node->stop ();
-						});
-						node->start ();
-						std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
-						gui->client_window->show ();
-						rai::thread_runner runner (*service, node->config.io_threads);
-						try
-						{
-							result = application.exec ();
+							QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+							{
+								node->stop ();
+							});
+							node->start ();
+							std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
+							gui->client_window->show ();
+							rai::thread_runner runner (*service, node->config.io_threads);
+							try
+							{
+								result = application.exec ();
+							}
+							catch (...)
+							{
+								result = -1;
+								assert (false);
+							}
+							runner.join ();
+							error = config.serialize_json_stream (config_file);
 						}
-						catch (...)
+						else
 						{
-							result = -1;
-							assert (false);
+							std::cerr << "Wallet account doesn't exist\n";
 						}
-						runner.join ();
 					}
 					else
 					{
-						std::cerr << "Wallet account doesn't exist\n";
+						std::cerr << "Wallet id doesn't exist\n";
 					}
 				}
 				else
 				{
-					std::cerr << "Wallet id doesn't exist\n";
+					std::cerr << "Error writing config file\n";
 				}
 			}
 			else

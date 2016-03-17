@@ -241,13 +241,13 @@ namespace rai_qt {
     class wallet
     {
     public:
-        wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account const &);
+        wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account &);
         void refresh ();
 		void update_connected ();
 		rai::uint128_t rendering_ratio;
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;
-		rai::account account;
+		rai::account & account;
 		rai_qt::eventloop_processor processor;
 		rai_qt::history history;
         rai_qt::accounts accounts;

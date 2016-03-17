@@ -77,7 +77,7 @@ bool fetch_object (T & object, std::iostream & stream_a)
 			stream_a.seekp (0);
 			try
 			{
-				boost::property_tree::write_json(stream_a, tree);
+				boost::property_tree::write_json (stream_a, tree);
 			}
 			catch (std::runtime_error const &)
 			{
