@@ -917,6 +917,17 @@ TEST (rpc, payment_begin_end)
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (wallet->exists (account));
+	auto root1 (system.nodes [0]->ledger.latest_root (rai::transaction (wallet->store.environment, nullptr, false), account));
+	uint64_t work (0);
+	auto iteration (0);
+	ASSERT_TRUE (system.work.work_validate (root1, work));
+	while (system.work.work_validate (root1, work))
+	{
+		system.poll ();
+		ASSERT_FALSE (wallet->store.work_get (rai::transaction (wallet->store.environment, nullptr, false), account, work));
+		++iteration;
+		ASSERT_LT (iteration, 200);
+	}
 	ASSERT_EQ (wallet->free_accounts.end (), wallet->free_accounts.find (account));
     boost::property_tree::ptree request2;
 	request2.put ("action", "payment_end");

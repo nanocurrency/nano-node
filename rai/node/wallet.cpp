@@ -872,50 +872,40 @@ bool rai::wallet::enter_password (std::string const & password_a)
 	return result;
 }
 
-rai::public_key rai::wallet::deterministic_insert ()
+rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a)
 {
-	rai::block_hash root;
 	rai::public_key key (0);
+	if (store.valid_password (transaction_a))
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		if (store.valid_password (transaction))
-		{
-			key = store.deterministic_insert (transaction);
-			auto this_l (shared_from_this ());
-			root = node.ledger.latest_root (transaction, key);
-		}
-	}
-	if (!key.is_zero ())
-	{
-		auto this_l (shared_from_this ());
-		node.background ([this_l, key, root] () {
-			this_l->work_generate (key, root);
-		});
+		key = store.deterministic_insert (transaction_a);
+		work_ensure (transaction_a, key);
 	}
 	return key;
 }
 
-rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & key_a)
+rai::public_key rai::wallet::deterministic_insert ()
 {
-	rai::block_hash root;
+	rai::transaction transaction (store.environment, nullptr, true);
+	auto result (deterministic_insert (transaction));
+	return result;
+}
+
+rai::public_key rai::wallet::insert_adhoc (MDB_txn * transaction_a, rai::raw_key const & key_a)
+{
 	rai::public_key key (0);
+	if (store.valid_password (transaction_a))
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		if (store.valid_password (transaction))
-		{
-			key = store.insert_adhoc (transaction, key_a);
-			auto this_l (shared_from_this ());
-			root = node.ledger.latest_root (transaction, key);
-		}
-	}
-	if (!key.is_zero ())
-	{
-		auto this_l (shared_from_this ());
-		node.background ([this_l, key, root] () {
-			this_l->work_generate (key, root);
-		});
+		key = store.insert_adhoc (transaction_a, key_a);
+		work_ensure (transaction_a, key);
 	}
 	return key;
+}
+
+rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & account_a)
+{
+	rai::transaction transaction (store.environment, nullptr, true);
+	auto result (insert_adhoc (transaction, account_a));
+	return result;
 }
 
 bool rai::wallet::exists (rai::public_key const & account_a)
@@ -1193,6 +1183,22 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
 		}
 	}
     return result;
+}
+
+void rai::wallet::work_ensure (MDB_txn * transaction_a, rai::account const & account_a)
+{
+	assert (store.exists (transaction_a, account_a));
+	auto root (node.ledger.latest_root (transaction_a, account_a));
+	uint64_t work;
+	auto error (store.work_get (transaction_a, account_a, work));
+	assert (!error);
+	if (node.work.work_validate (root, work))
+	{
+		auto this_l (shared_from_this ());
+		node.background ([this_l, account_a, root] () {
+			this_l->work_generate (account_a, root);
+		});
+	}
 }
 
 namespace

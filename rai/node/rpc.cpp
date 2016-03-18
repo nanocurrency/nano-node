@@ -643,7 +643,7 @@ void rai::rpc_handler::payment_begin ()
 					}
 					else
 					{
-						account = wallet->store.deterministic_insert (transaction);
+						account = wallet->deterministic_insert (transaction);
 						break;
 					}
 				} while (account.is_zero ());

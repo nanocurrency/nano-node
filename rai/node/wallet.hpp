@@ -152,6 +152,8 @@ public:
     bool valid_password ();
     bool enter_password (std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &);
+	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &);
+	rai::public_key deterministic_insert (MDB_txn *);
 	rai::public_key deterministic_insert ();
     bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
@@ -165,6 +167,7 @@ public:
     void work_generate (rai::account const &, rai::block_hash const &);
     void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
     uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
+	void work_ensure (MDB_txn *, rai::account const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
 	std::unordered_set <rai::account> free_accounts;
