@@ -1313,7 +1313,10 @@ void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash
 		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << " us";
 	}
 	rai::transaction transaction (store.environment, nullptr, true);
-    work_update (transaction, account_a, root_a, work);
+	if (store.exists (transaction, account_a))
+	{
+		work_update (transaction, account_a, root_a, work);
+	}
 }
 
 rai::wallets::wallets (bool & error_a, rai::node & node_a) :

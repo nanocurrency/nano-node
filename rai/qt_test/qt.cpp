@@ -569,7 +569,8 @@ TEST (wallet, change_seed)
 	auto key3 (system.wallet (0)->deterministic_insert ());
 	rai::raw_key seed3;
 	system.wallet (0)->store.seed (seed3, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
-    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), key1);
+	auto wallet_key (key1);
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), wallet_key);
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
 	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
@@ -603,6 +604,36 @@ TEST (wallet, change_seed)
 	ASSERT_EQ (key1, wallet.account);
 	ASSERT_FALSE (system.wallet (0)->exists (key2));
 	ASSERT_TRUE (system.wallet (0)->exists (key1));
+}
+
+TEST (wallet, seed_work_generation)
+{
+    rai::system system (24000, 1);
+	auto key1 (system.wallet (0)->deterministic_insert ());
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], system.wallet (0), key1);
+	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
+	ASSERT_EQ (wallet.advanced.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.advanced.accounts, Qt::LeftButton);
+	ASSERT_EQ (wallet.accounts.window, wallet.main_stack->currentWidget ());
+	QTest::mouseClick (wallet.accounts.import_wallet, Qt::LeftButton);
+	ASSERT_EQ (wallet.import.window, wallet.main_stack->currentWidget ());
+	rai::raw_key seed;
+	seed.data.clear ();
+	QTest::keyClicks (wallet.import.seed, seed.data.to_string ().c_str ());
+	QTest::keyClicks (wallet.import.clear_line, "clear keys");
+	QTest::mouseClick (wallet.import.import_seed, Qt::LeftButton);
+	auto iterations (0);
+	uint64_t work_start;
+	system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->store.environment, nullptr, false), key1, work_start);
+	uint64_t work (work_start);
+	while (work == work_start)
+	{
+		system.poll ();
+		system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->store.environment, nullptr, false), key1, work);
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_FALSE (system.work.work_validate (system.nodes [0]->ledger.latest_root (rai::transaction (system.wallet (0)->store.environment, nullptr, false), key1), work));
 }
 
 TEST (wallet, backup_seed)

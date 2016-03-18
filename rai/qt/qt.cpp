@@ -279,22 +279,27 @@ wallet (wallet_a)
 			rai::raw_key seed_l;
 			if (!seed_l.data.decode_hex (seed->text ().toStdString ()))
 			{
+				bool successful (false);
 				{
 					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
 					if (this->wallet.wallet_m->store.valid_password (transaction))
 					{
 						this->wallet.wallet_m->store.seed_set (transaction, seed_l);
-						this->wallet.account = this->wallet.wallet_m->store.deterministic_insert (transaction);
-						seed->clear ();
-						clear_line->clear ();
-						show_line_ok (*seed);
+						successful = true;
 					}
 					else
 					{
 						show_line_error (*seed);
 					}
 				}
-				this->wallet.refresh ();
+				if (successful)
+				{
+					this->wallet.account = this->wallet.wallet_m->deterministic_insert ();
+					seed->clear ();
+					clear_line->clear ();
+					show_line_ok (*seed);
+					this->wallet.refresh ();
+				}
 			}
 			else
 			{
