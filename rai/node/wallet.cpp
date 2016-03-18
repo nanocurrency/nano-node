@@ -600,38 +600,45 @@ rai::key_type rai::wallet_store::key_type (rai::wallet_value const & value_a)
 bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & pub, rai::raw_key & prv)
 {
     auto result (false);
-	rai::wallet_value value (entry_get_raw (transaction_a, pub));
-    if (!value.key.is_zero ())
-    {
-		switch (key_type (value))
+	if (valid_password (transaction_a))
+	{
+		rai::wallet_value value (entry_get_raw (transaction_a, pub));
+		if (!value.key.is_zero ())
 		{
-		case rai::key_type::deterministic:
-		{
-			rai::raw_key seed_l;
-			seed (seed_l, transaction_a);
-			uint32_t index (value.key.number ().convert_to <uint32_t> ());
-			deterministic_key (prv, transaction_a, index);
-			break;
+			switch (key_type (value))
+			{
+			case rai::key_type::deterministic:
+			{
+				rai::raw_key seed_l;
+				seed (seed_l, transaction_a);
+				uint32_t index (value.key.number ().convert_to <uint32_t> ());
+				deterministic_key (prv, transaction_a, index);
+				break;
+			}
+			case rai::key_type::adhoc:
+			{
+				// Ad-hoc keys
+				rai::raw_key password_l;
+				wallet_key (password_l, transaction_a);
+				prv.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
+				break;
+			}
+			default:
+			{
+				result = true;
+				break;
+			}
+			}
 		}
-		case rai::key_type::adhoc:
-		{
-			// Ad-hoc keys
-			rai::raw_key password_l;
-			wallet_key (password_l, transaction_a);
-			prv.decrypt (value.key, password_l, salt (transaction_a).owords [0]);
-			break;
-		}
-		default:
+		else
 		{
 			result = true;
-			break;
 		}
-		}
-    }
-    else
-    {
-        result = true;
-    }
+	}
+	else
+	{
+		result = true;
+	}
 	if (!result)
 	{
 		rai::public_key compare;

@@ -18,6 +18,28 @@ TEST (wallet, no_key)
     ASSERT_TRUE (wallet.valid_password (transaction));
 }
 
+TEST (wallet, fetch_locked)
+{
+    bool init;
+	rai::mdb_env environment (init, rai::unique_path ());
+	ASSERT_FALSE (init);
+	rai::transaction transaction (environment, nullptr, true);
+	rai::kdf kdf;
+    rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
+    ASSERT_TRUE (wallet.valid_password (transaction));
+	rai::keypair key1;
+	ASSERT_EQ (key1.pub, wallet.insert_adhoc (transaction, key1.prv));
+	auto key2 (wallet.deterministic_insert (transaction));
+	ASSERT_FALSE (key2.is_zero ());
+	rai::raw_key key3;
+	key3.data = 1;
+	wallet.password.value_set (key3);
+	ASSERT_FALSE (wallet.valid_password (transaction));
+	rai::raw_key key4;
+	ASSERT_TRUE (wallet.fetch (transaction, key1.pub, key4));
+	ASSERT_TRUE (wallet.fetch (transaction, key2, key4));
+}
+
 TEST (wallet, retrieval)
 {
     bool init;
