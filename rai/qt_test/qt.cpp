@@ -14,13 +14,12 @@ TEST (wallet, construction)
 {
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
-    rai::keypair key;
-	wallet_l->insert_adhoc (key.prv);
-    rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
-    ASSERT_EQ (key.pub.to_account_split (), wallet.self.account_text->text ().toStdString ());
+	auto key (wallet_l->deterministic_insert ());
+    rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key);
+    ASSERT_EQ (key.to_account_split (), wallet.self.account_text->text ().toStdString ());
     ASSERT_EQ (1, wallet.accounts.model->rowCount ());
     auto item1 (wallet.accounts.model->item (0, 1));
-    ASSERT_EQ (key.pub.to_account (), item1->text ().toStdString ());
+    ASSERT_EQ (key.to_account (), item1->text ().toStdString ());
 }
 
 TEST (wallet, status)
