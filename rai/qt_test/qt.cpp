@@ -58,8 +58,8 @@ TEST (wallet, select_account)
 {
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
-	rai::public_key key1 (wallet_l->insert_adhoc (rai::keypair ().prv));
-	rai::public_key key2 (wallet_l->insert_adhoc (rai::keypair ().prv));
+	rai::public_key key1 (wallet_l->deterministic_insert ());
+	rai::public_key key2 (wallet_l->deterministic_insert ());
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key1);
 	ASSERT_EQ (key1, wallet.account);
 	QTest::mouseClick (wallet.show_advanced, Qt::LeftButton);
@@ -195,6 +195,7 @@ TEST (wallet, enter_password)
     ASSERT_NE (-1, wallet.settings.lock_layout->indexOf (wallet.settings.lock));
     ASSERT_NE (-1, wallet.settings.layout->indexOf (wallet.settings.back));
     QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
+	test_application->processEvents();
     ASSERT_EQ ("Status: Wallet password empty", wallet.status->text ());
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
@@ -203,10 +204,12 @@ TEST (wallet, enter_password)
     QTest::mouseClick (wallet.settings_button, Qt::LeftButton);
     QTest::keyClicks (wallet.settings.new_password, "a");
     QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
+	test_application->processEvents();
     ASSERT_EQ ("Status: Wallet locked", wallet.status->text ());
     wallet.settings.new_password->setText ("");
     QTest::keyClicks (wallet.settings.password, "abc");
     QTest::mouseClick (wallet.settings.unlock, Qt::LeftButton);
+	test_application->processEvents();
 	auto status (wallet.status->text ());
     ASSERT_EQ ("Status: Running", status);
     ASSERT_EQ ("", wallet.settings.password->text ());
