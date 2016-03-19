@@ -780,7 +780,10 @@ active_status (*this)
 	});
 	wallet_m->lock_observer = [this] (bool invalid, bool vulnerable)
 	{
-		this->settings.update_locked (invalid, vulnerable);
+		application.postEvent (&processor, new eventloop_event ([this, invalid, vulnerable] ()
+		{
+			this->settings.update_locked (invalid, vulnerable);
+		}));
 	};
 	refresh ();
 }
