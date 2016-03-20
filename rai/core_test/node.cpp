@@ -1010,3 +1010,44 @@ TEST (node, coherent_observer)
 	rai::keypair key;
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1);
 }
+
+TEST (node, fork_no_vote_quorum)
+{
+    rai::system system (24000, 3);
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+    auto & node3 (*system.nodes [2]);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto key4 (system.wallet (0)->deterministic_insert ());
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, key4, rai::genesis_amount / 4);
+	auto key1 (system.wallet (1)->deterministic_insert ());
+	system.wallet (1)->store.representative_set (rai::transaction (system.wallet (1)->store.environment, nullptr, true), key1);
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1, node1.config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, block);
+	auto iterations (0);
+	while (node3.balance (key1) != node1.config.receive_minimum.number ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_EQ (node1.config.receive_minimum.number (), node1.weight (key1));
+	ASSERT_EQ (node1.config.receive_minimum.number (), node2.weight (key1));
+	ASSERT_EQ (node1.config.receive_minimum.number (), node3.weight (key1));
+	rai::send_block send1 (block->hash (), key1, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ()));
+	ASSERT_EQ (rai::process_result::progress, node1.process (send1).code);
+	ASSERT_EQ (rai::process_result::progress, node2.process (send1).code);
+	ASSERT_EQ (rai::process_result::progress, node3.process (send1).code);
+	auto key2 (system.wallet (2)->deterministic_insert ());
+	rai::send_block send2 (block->hash (), key2, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ()));
+	rai::raw_key key3;
+	ASSERT_FALSE (system.wallet (1)->store.fetch (rai::transaction (system.wallet (1)->store.environment, nullptr, false), key1, key3));
+	node2.network.confirm_block (key3, key1, send2.clone (), 0, node3.network.endpoint (), 0);
+	while (node3.network.confirm_ack_count < 3)
+	{
+		system.poll ();
+	}
+	ASSERT_TRUE (node1.latest (rai::test_genesis_key.pub) == send1.hash ());
+	ASSERT_TRUE (node2.latest (rai::test_genesis_key.pub) == send1.hash ());
+	ASSERT_TRUE (node3.latest (rai::test_genesis_key.pub) == send1.hash ());
+}

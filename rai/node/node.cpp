@@ -2164,7 +2164,7 @@ void rai::election::broadcast_winner ()
 	node.network.confirm_broadcast (list, std::move (winner_l), votes.sequence, 0);
 }
 
-rai::uint128_t rai::election::uncontested_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
+rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
     return ledger_a.supply (transaction_a) / 2;
 }
@@ -2189,19 +2189,20 @@ bool rai::election::recalculate_winner ()
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	auto tally_l (node.ledger.tally (transaction, votes));
 	assert (tally_l.size () > 0);
-	auto winner (std::move (tally_l.begin ()->second));
-	if (!(*winner == *last_winner))
+	auto quorum_threshold_l (quorum_threshold (transaction, node.ledger));
+	auto winner (std::move (tally_l.begin ()));
+	if (!(*winner->second == *last_winner) && (winner->first > quorum_threshold_l))
 	{
 		// Replace our block with the winner and roll back any dependent blocks
 		node.ledger.rollback (transaction, last_winner->hash ());
-		node.ledger.process (transaction, *winner);
-		last_winner = std::move (winner);
+		node.ledger.process (transaction, *winner->second);
+		last_winner = std::move (winner->second);
 	}
 	// Check if we can do a fast confirm for the usual case of good actors
 	if (tally_l.size () == 1)
 	{
 		// No forks detected
-		if (tally_l.begin ()->first > uncontested_threshold (transaction, node.ledger))
+		if (tally_l.begin ()->first > quorum_threshold (transaction, node.ledger))
 		{
 			// We have vote quarum
 			result = true;

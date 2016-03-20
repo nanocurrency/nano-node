@@ -51,7 +51,7 @@ public:
 	void confirm_if_quarum ();
 	// Confirmation method 2, settling time
 	void confirm_cutoff ();
-    rai::uint128_t uncontested_threshold (MDB_txn *, rai::ledger &);
+    rai::uint128_t quorum_threshold (MDB_txn *, rai::ledger &);
     rai::votes votes;
     rai::node & node;
     std::chrono::system_clock::time_point last_vote;

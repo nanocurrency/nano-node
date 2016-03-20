@@ -1289,4 +1289,6 @@ TEST (ledger, inactive_supply)
 	ASSERT_EQ (10, ledger.supply (transaction));
 	ledger.inactive_supply = 60;
 	ASSERT_EQ (0, ledger.supply (transaction));
+	ledger.inactive_supply = 0;
+	ASSERT_EQ (50, ledger.supply (transaction));
 }

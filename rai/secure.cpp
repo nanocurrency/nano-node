@@ -2605,7 +2605,7 @@ rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 	auto unallocated (account_balance (transaction_a, rai::genesis_account));
     auto absolute_supply (rai::genesis_amount - unallocated);
 	auto adjusted_supply (absolute_supply - inactive_supply);
-	return adjusted_supply < absolute_supply ? adjusted_supply : 0;
+	return adjusted_supply <= absolute_supply ? adjusted_supply : 0;
 }
 
 rai::account rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
