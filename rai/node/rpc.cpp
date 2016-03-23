@@ -529,7 +529,7 @@ void rai::rpc_handler::history ()
 			boost::property_tree::ptree history;
 			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
 			auto block (rpc.node.store.block_get (transaction, hash));
-			while (block != nullptr)
+			while (block != nullptr && count > 0)
 			{
 				boost::property_tree::ptree entry;
 				history_visitor visitor (*this, transaction, entry, hash);
@@ -540,6 +540,7 @@ void rai::rpc_handler::history ()
 				}
 				hash = block->previous ();
 				block = rpc.node.store.block_get (transaction, hash);
+				--count;
 			}
 			response_l.add_child ("history", history);
 			rpc.send_response (connection, response_l);

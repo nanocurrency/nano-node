@@ -813,6 +813,32 @@ TEST (rpc, history)
 	thread1.join();
 }
 
+TEST (rpc, history_count)
+{
+    rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto change (system.wallet (0)->change_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub));
+	ASSERT_NE (nullptr, change);
+	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, system.nodes [0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send);
+	auto receive (system.wallet (0)->receive_action (static_cast <rai::send_block &>(*send), rai::test_genesis_key.pub, system.nodes [0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, receive);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request;
+    request.put ("action", "history");
+	request.put ("hash", receive->hash().to_string ());
+	request.put ("count", 1);
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    auto & history_node (response.first.get_child ("history"));
+	ASSERT_EQ (1, history_node.size ());
+	rpc.stop();
+	thread1.join();
+}
+
 TEST (rpc, process_block)
 {
     rai::system system (24000, 1);
