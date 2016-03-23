@@ -90,6 +90,7 @@ public:
 	void account_weight ();
 	void available_supply ();
 	void block ();
+	void block_account ();
 	void block_count ();
 	void chain ();
 	void frontiers ();

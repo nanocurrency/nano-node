@@ -587,6 +587,26 @@ TEST (rpc, block)
 	thread1.join();
 }
 
+TEST (rpc, block_account)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+	rai::genesis genesis;
+    boost::property_tree::ptree request;
+    request.put ("action", "block_account");
+	request.put ("hash", genesis.hash ().to_string ());
+	auto response (test_response (request, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+    std::string account_text (response.first.get <std::string> ("account"));
+    rai::account account;
+    ASSERT_FALSE (account.decode_account (account_text));
+	rpc.stop();
+	thread1.join();
+}
+
 TEST (rpc, chain)
 {
     rai::system system (24000, 1);

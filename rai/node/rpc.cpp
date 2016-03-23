@@ -345,6 +345,31 @@ void rai::rpc_handler::block ()
 	}
 }
 
+void rai::rpc_handler::block_account ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::block_hash hash;
+	if (!hash.decode_hex (hash_text))
+	{
+		rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+		if (rpc.node.store.block_exists (transaction, hash))
+		{
+			boost::property_tree::ptree response_l;
+			auto account (rpc.node.ledger.account (transaction, hash));
+			response_l.put ("account", account.to_account ());
+			rpc.send_response (connection, response_l);
+		}
+		else
+		{
+			rpc.error_response (connection, "Block not found");
+		}
+	}
+	else
+	{
+		rpc.error_response (connection, "Invalid block hash");
+	}
+}
+
 void rai::rpc_handler::block_count ()
 {
 	rai::transaction transaction (rpc.node.store.environment, nullptr, false);
@@ -1490,6 +1515,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block")
 		{
 			block ();
+		}
+		else if (action == "block_account")
+		{
+			block_account ();
 		}
 		else if (action == "block_count")
 		{
