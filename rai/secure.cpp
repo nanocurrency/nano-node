@@ -2390,7 +2390,7 @@ void amount_visitor::open_block (rai::open_block const & block_a)
 
 void amount_visitor::change_block (rai::change_block const & block_a)
 {
-    assert (false);
+	result = 0;
 }
 
 void amount_visitor::from_send (rai::block_hash const & hash_a)

@@ -102,6 +102,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (rai::test_genesis_key.pub, store.frontier_get (transaction, info1.head));
 	// This was a valid block, it should progress.
 	auto return1 (ledger.process (transaction, send));
+	ASSERT_EQ (rai::genesis_amount - 50, ledger.amount (transaction, hash1));
 	ASSERT_TRUE (store.frontier_get (transaction, info1.head).is_zero ());
 	ASSERT_EQ (rai::test_genesis_key.pub, store.frontier_get (transaction, hash1));
 	ASSERT_EQ (rai::process_result::progress, return1.code);
@@ -120,6 +121,7 @@ TEST (ledger, process_send)
 	rai::block_hash hash2 (open.hash ());
 	// This was a valid block, it should progress.
 	auto return2 (ledger.process (transaction, open));
+	ASSERT_EQ (rai::genesis_amount - 50, ledger.amount (transaction, hash2));
 	ASSERT_EQ (rai::process_result::progress, return2.code);
 	ASSERT_EQ (key2.pub, return2.account);
 	ASSERT_EQ (rai::genesis_amount - 50, return2.amount.number ());
@@ -198,6 +200,7 @@ TEST (ledger, process_receive)
 	auto hash4 (receive.hash ());
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash2));
 	auto return2 (ledger.process (transaction, receive));
+	ASSERT_EQ (25, ledger.amount (transaction, hash4));
 	ASSERT_TRUE (store.frontier_get (transaction, hash2).is_zero ());
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash4));
 	ASSERT_EQ (rai::process_result::progress, return2.code);
@@ -359,6 +362,7 @@ TEST (ledger, representative_change)
 	rai::change_block block (info1.head, key2.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::test_genesis_key.pub, store.frontier_get (transaction, info1.head));
 	auto return1 (ledger.process (transaction, block));
+	ASSERT_EQ (0, ledger.amount (transaction, block.hash ()));
 	ASSERT_TRUE (store.frontier_get (transaction, info1.head).is_zero ());
 	ASSERT_EQ (rai::test_genesis_key.pub, store.frontier_get (transaction, block.hash ()));
 	ASSERT_EQ (rai::process_result::progress, return1.code);
