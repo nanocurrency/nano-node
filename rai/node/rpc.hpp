@@ -94,6 +94,7 @@ public:
 	void chain ();
 	void frontiers ();
 	void frontier_count ();
+	void history ();
 	void keepalive ();
 	void mrai_to_raw ();
 	void mrai_from_raw ();

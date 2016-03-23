@@ -436,6 +436,100 @@ void rai::rpc_handler::frontier_count ()
 	rpc.send_response (connection, response_l);
 }
 
+namespace
+{
+class history_visitor : public rai::block_visitor
+{
+public:
+	history_visitor (rai::rpc_handler & handler_a, rai::transaction & transaction_a, boost::property_tree::ptree & tree_a, rai::block_hash const & hash_a) :
+	handler (handler_a),
+	transaction (transaction_a),
+	tree (tree_a),
+	hash (hash_a)
+	{
+	}
+	void send_block (rai::send_block const & block_a)
+	{
+		tree.put ("type", "send");
+		auto account (block_a.hashables.destination.to_account ());
+		tree.put ("account", account);
+		auto amount (handler.rpc.node.ledger.amount (transaction, hash).convert_to <std::string> ());
+		tree.put ("amount", amount);
+	}
+	void receive_block (rai::receive_block const & block_a)
+	{
+		tree.put ("type", "receive");
+		auto account (handler.rpc.node.ledger.account (transaction, block_a.hashables.source).to_account ());
+		tree.put ("account", account);
+		auto amount (handler.rpc.node.ledger.amount (transaction, hash).convert_to <std::string> ());
+		tree.put ("amount", amount);
+	}
+	void open_block (rai::open_block const & block_a)
+	{
+		// Report opens as a receive
+		tree.put ("type", "receive");
+		if (block_a.hashables.source != rai::genesis_account)
+		{
+			tree.put ("account", handler.rpc.node.ledger.account (transaction, block_a.hashables.source).to_account ());
+			tree.put ("amount", handler.rpc.node.ledger.amount (transaction, hash).convert_to <std::string> ());
+		}
+		else
+		{
+			tree.put ("account", rai::genesis_account.to_account ());
+			tree.put ("amount", rai::genesis_amount.convert_to <std::string> ());
+		}
+	}
+	void change_block (rai::change_block const &)
+	{
+		// Don't report change blocks
+	}
+	rai::rpc_handler & handler;
+	rai::transaction & transaction;
+	boost::property_tree::ptree & tree;
+	rai::block_hash const & hash;
+};
+}
+
+void rai::rpc_handler::history ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	std::string count_text (request.get <std::string> ("count"));
+	rai::block_hash hash;
+	if (!hash.decode_hex (hash_text))
+	{
+		uint64_t count;
+		if (!rpc.decode_unsigned (count_text, count))
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree history;
+			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+			auto block (rpc.node.store.block_get (transaction, hash));
+			while (block != nullptr)
+			{
+				boost::property_tree::ptree entry;
+				history_visitor visitor (*this, transaction, entry, hash);
+				block->visit (visitor);
+				if (!entry.empty ())
+				{
+					history.put_child (hash.to_string (), entry);
+				}
+				hash = block->previous ();
+				block = rpc.node.store.block_get (transaction, hash);
+			}
+			response_l.add_child ("history", history);
+			rpc.send_response (connection, response_l);
+		}
+		else
+		{
+			rpc.error_response (connection, "Invalid count limit");
+		}
+	}
+	else
+	{
+		rpc.error_response (connection, "Invalid block hash");
+	}
+}
+
 void rai::rpc_handler::keepalive ()
 {
 	if (rpc.config.enable_control)
@@ -1412,6 +1506,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "frontier_count")
 		{
 			frontier_count ();
+		}
+		else if (action == "history")
+		{
+			history ();
 		}
 		else if (action == "keepalive")
 		{

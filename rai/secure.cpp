@@ -2378,7 +2378,14 @@ void amount_visitor::receive_block (rai::receive_block const & block_a)
 
 void amount_visitor::open_block (rai::open_block const & block_a)
 {
-    from_send (block_a.hashables.source);
+	if (block_a.hashables.source != rai::genesis_account)
+	{
+		from_send (block_a.hashables.source);
+	}
+	else
+	{
+		result = rai::genesis_amount;
+	}
 }
 
 void amount_visitor::change_block (rai::change_block const & block_a)
@@ -2388,12 +2395,9 @@ void amount_visitor::change_block (rai::change_block const & block_a)
 
 void amount_visitor::from_send (rai::block_hash const & hash_a)
 {
-    balance_visitor source (transaction, store);
-    source.compute (hash_a);
     auto source_block (store.block_get (transaction, hash_a));
     assert (source_block != nullptr);
-    balance_visitor source_prev (transaction, store);
-    source_prev.compute (source_block->previous ());
+	source_block->visit (*this);
 }
 
 balance_visitor::balance_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :

@@ -37,6 +37,8 @@ TEST (ledger, genesis_balance)
 	genesis.initialize (transaction, store);
 	auto balance (ledger.account_balance (transaction, rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, balance);
+	auto amount (ledger.amount (transaction, rai::genesis_account));
+	ASSERT_EQ (rai::genesis_amount, amount);
 	rai::account_info info;
 	ASSERT_FALSE (store.account_get (transaction, rai::genesis_account, info));
 	// Frontier time should have been updated when genesis balance was added
