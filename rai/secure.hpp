@@ -356,6 +356,9 @@ public:
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
 	
+	uint64_t sequence_atomic_inc (MDB_txn *, rai::account const &);
+	uint64_t sequence_atomic_observe (MDB_txn *, rai::account const &, uint64_t);
+	
 	void version_put (MDB_txn *, int);
 	int version_get (MDB_txn *);
 	void do_upgrades (MDB_txn *);
@@ -388,6 +391,8 @@ public:
 	MDB_dbi stack;
 	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
 	MDB_dbi checksum;
+	// account -> uint64_t											// Highest vote sequence observed for account
+	MDB_dbi sequence;
 	// uint256_union -> ?											// Meta information about block store
 	MDB_dbi meta;
 };

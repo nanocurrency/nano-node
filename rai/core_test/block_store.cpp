@@ -565,3 +565,29 @@ TEST (block_store, frontier_count)
 	store.frontier_put (rai::transaction (store.environment, nullptr, true), hash, account);
 	ASSERT_EQ (1, store.frontier_count (rai::transaction (store.environment, nullptr, false)));
 }
+
+TEST (block_store, sequence_increment)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::account account1 (1);
+	rai::account account2 (2);
+	rai::transaction transaction (store.environment, nullptr, true);
+	auto seq1 (store.sequence_atomic_inc (transaction, account1));
+	ASSERT_EQ (1, seq1);
+	auto seq2 (store.sequence_atomic_inc (transaction, account1));
+	ASSERT_EQ (2, seq2);
+	auto seq3 (store.sequence_atomic_inc (transaction, account2));
+	ASSERT_EQ (1, seq3);
+	auto seq4 (store.sequence_atomic_inc (transaction, account2));
+	ASSERT_EQ (2, seq4);
+	auto seq5 (store.sequence_atomic_observe (transaction, account1, 20));
+	ASSERT_EQ (20, seq5);
+	auto seq6 (store.sequence_atomic_observe (transaction, account2, 30));
+	ASSERT_EQ (30, seq6);
+	auto seq7 (store.sequence_atomic_inc (transaction, account1));
+	ASSERT_EQ (21, seq7);
+	auto seq8 (store.sequence_atomic_inc (transaction, account2));
+	ASSERT_EQ (31, seq8);
+}

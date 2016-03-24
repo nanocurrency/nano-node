@@ -1520,6 +1520,7 @@ checksum (0)
 		error_a = error_a || mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
 		error_a = error_a || mdb_dbi_open (transaction, "stack", MDB_CREATE, &stack) != 0;
 		error_a = error_a || mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
+		error_a = error_a || mdb_dbi_open (transaction, "sequence", MDB_CREATE, &sequence) != 0;
 		error_a = error_a || mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
@@ -2196,6 +2197,42 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
     uint64_t key (prefix | mask);
 	auto status (mdb_del (transaction_a, checksum, rai::mdb_val (sizeof (key), &key), nullptr));
 	assert (status == 0);
+}
+	
+uint64_t rai::block_store::sequence_atomic_inc (MDB_txn * transaction_a, rai::account const & account_a)
+{
+	uint64_t result (0);
+	MDB_val value;
+	auto status (mdb_get (transaction_a, sequence, account_a.val (), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
+	if (status == 0)
+	{
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
+        auto error (rai::read (stream, result));
+        assert (!error);
+	}
+	result += 1;
+	auto status1 (mdb_put (transaction_a, sequence, account_a.val (), rai::mdb_val (sizeof (result), &result), 0));
+	assert (status1 == 0);
+	return result;
+}
+
+uint64_t rai::block_store::sequence_atomic_observe (MDB_txn * transaction_a, rai::account const & account_a, uint64_t sequence_a)
+{
+	uint64_t result (0);
+	MDB_val value;
+	auto status (mdb_get (transaction_a, sequence, account_a.val (), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
+	if (status == 0)
+	{
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
+        auto error (rai::read (stream, result));
+        assert (!error);
+	}
+	result = std::max (result, sequence_a);
+	auto status1 (mdb_put (transaction_a, sequence, account_a.val (), rai::mdb_val (sizeof (result), &result), 0));
+	assert (status1 == 0);
+	return result;
 }
 
 namespace
