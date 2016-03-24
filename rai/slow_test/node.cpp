@@ -193,7 +193,7 @@ TEST (node, fork_storm)
 			system.nodes [i]->generate_work (open);
 			auto open_result (system.nodes [i]->process (open));
 			ASSERT_EQ (rai::process_result::progress, open_result.code);
-			system.nodes [i]->network.republish_block (open.clone (), 0);
+			system.nodes [i]->network.republish_block (open, 0);
 		}
 	}
 	auto again (true);
