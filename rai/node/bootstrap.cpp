@@ -962,7 +962,7 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
         auto error (request->deserialize (stream));
         if (!error)
         {
-            if (node->config.logging.network_logging ())
+            if (node->config.logging.bulk_pull_logging ())
             {
                 BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
             }
@@ -981,7 +981,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 		auto error (request->deserialize (stream));
 		if (!error)
 		{
-			if (node->config.logging.network_logging ())
+			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age);
 			}
@@ -1330,7 +1330,7 @@ void rai::frontier_req_server::send_next ()
             write (stream, info.head.bytes);
         }
         auto this_l (shared_from_this ());
-        if (connection->node->config.logging.network_logging ())
+        if (connection->node->config.logging.bulk_pull_logging ())
         {
             BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % info.head.to_string ());
         }
