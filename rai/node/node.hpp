@@ -212,9 +212,9 @@ public:
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
-    void republish_block (std::unique_ptr <rai::block>, size_t);
+    void republish_block (rai::block &, size_t);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
-    bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, uint64_t, size_t);
+    bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, size_t);
 	void confirm_block (rai::raw_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &, size_t);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);

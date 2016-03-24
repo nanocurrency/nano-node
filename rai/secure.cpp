@@ -123,28 +123,29 @@ bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const
 	return *lhs == *rhs;
 }
 
-bool rai::votes::vote (rai::vote const & vote_a)
+bool rai::votes::vote (rai::block_store & store_a, rai::vote const & vote_a)
 {
 	auto result (false);
 	// Reject unsigned votes
 	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
 	{
-		// Check if we're adding a new vote entry or modifying an existing one.
-		auto existing (rep_votes.find (vote_a.account));
-		if (existing == rep_votes.end ())
+		rai::transaction transaction (store_a.environment, nullptr, true);
+		// Make sure this sequence number is > any we've seen from this account before
+		if (store_a.sequence_atomic_observe (transaction, vote_a.account, vote_a.sequence) == vote_a.sequence)
 		{
-			result = true;
-			rep_votes.insert (std::make_pair (vote_a.account, std::make_pair (vote_a.sequence, vote_a.block->clone ())));
-		}
-		else
-		{
-			// Only accept votes with an increasing sequence number
-			if (existing->second.first < vote_a.sequence)
+			// Check if we're adding a new vote entry or modifying an existing one.
+			auto existing (rep_votes.find (vote_a.account));
+			if (existing == rep_votes.end ())
 			{
-				result = !(*existing->second.second == *vote_a.block);
+				result = true;
+				rep_votes.insert (std::make_pair (vote_a.account, vote_a.block->clone ()));
+			}
+			else
+			{
+				result = !(*existing->second == *vote_a.block);
 				if (result)
 				{
-					existing->second.second = vote_a.block->clone ();
+					existing->second = vote_a.block->clone ();
 				}
 			}
 		}
@@ -166,11 +167,11 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 	// Construct a map of blocks -> vote total.
 	for (auto & i: votes_a.rep_votes)
 	{
-		auto existing (totals.find (i.second.second));
+		auto existing (totals.find (i.second));
 		if (existing == totals.end ())
 		{
-			totals.insert (std::make_pair (i.second.second->clone (), 0));
-			existing = totals.find (i.second.second);
+			totals.insert (std::make_pair (i.second->clone (), 0));
+			existing = totals.find (i.second);
 			assert (existing != totals.end ());
 		}
 		auto weight_l (weight (transaction_a, i.first));
@@ -186,11 +187,9 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 }
 
 rai::votes::votes (rai::block const & block_a) :
-// Sequence 0 is the first response by a representative before a fork was observed
-sequence (1),
 id (block_a.root ())
 {
-	rep_votes.insert (std::make_pair (0, std::make_pair (0, block_a.clone ())));
+	rep_votes.insert (std::make_pair (0, block_a.clone ()));
 }
 
 // Create a new random keypair

@@ -435,13 +435,11 @@ class votes
 {
 public:
 	votes (rai::block const &);
-	bool vote (rai::vote const &);
-	// Our vote round sequence number
-	uint64_t sequence;
+	bool vote (rai::block_store &, rai::vote const &);
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account
-	std::unordered_map <rai::account, std::pair <uint64_t, std::unique_ptr <rai::block>>> rep_votes;
+	std::unordered_map <rai::account, std::unique_ptr <rai::block>> rep_votes;
 };
 class ledger
 {

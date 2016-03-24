@@ -149,7 +149,7 @@ TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
-    system.nodes [0]->network.republish_block (std::move (block), 0);
+    system.nodes [0]->network.republish_block (*block, 0);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
@@ -168,7 +168,7 @@ TEST (network, send_invalid_publish)
 {
     rai::system system (24000, 2);
     std::unique_ptr <rai::send_block> block (new rai::send_block (1, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (1)));
-    system.nodes [0]->network.republish_block (std::move (block), 0);
+    system.nodes [0]->network.republish_block (*block, 0);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));

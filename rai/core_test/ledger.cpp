@@ -733,7 +733,7 @@ TEST (votes, add_one)
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
-	ASSERT_EQ (send1, *existing1->second.second);
+	ASSERT_EQ (send1, *existing1->second);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 	auto winner (node1.ledger.winner (transaction, votes1->votes));
 	ASSERT_EQ (send1, *winner.second);
@@ -765,9 +765,9 @@ TEST (votes, add_two)
 	votes1->vote (vote2);
 	ASSERT_EQ (3, votes1->votes.rep_votes.size ());
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
-	ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
+	ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub]);
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (key2.pub));
-	ASSERT_EQ (send2, *votes1->votes.rep_votes [key2.pub].second);
+	ASSERT_EQ (send2, *votes1->votes.rep_votes [key2.pub]);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 	auto winner (node1.ledger.winner (transaction, votes1->votes));
 	ASSERT_EQ (send1, *winner.second);
@@ -799,7 +799,7 @@ TEST (votes, add_existing)
 	votes1->vote (vote2);
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
-	ASSERT_EQ (send2, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
+	ASSERT_EQ (send2, *votes1->votes.rep_votes [rai::test_genesis_key.pub]);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 	auto winner (node1.ledger.winner (transaction, votes1->votes));
 	ASSERT_EQ (send2, *winner.second);
@@ -831,7 +831,7 @@ TEST (votes, add_old)
 	votes1->vote (vote2);
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
-	ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub].second);
+	ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub]);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 	auto winner (node1.ledger.winner (transaction, votes1->votes));
 	ASSERT_EQ (send1, *winner.second);

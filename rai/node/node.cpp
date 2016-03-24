@@ -114,14 +114,14 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-void rai::network::republish_block (std::unique_ptr <rai::block> block, size_t rebroadcast_a)
+void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
 {
-	auto hash (block->hash ());
+	auto hash (block.hash ());
     auto list (node.peers.list ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-    if (!confirm_broadcast (list, block->clone (), 0, rebroadcast_a))
+    if (!confirm_broadcast (list, block.clone (), rebroadcast_a))
     {
-        rai::publish message (std::move (block));
+        rai::publish message (block.clone ());
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
         {
             rai::vectorstream stream (*bytes);
@@ -1031,7 +1031,7 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
     auto existing (blocks.get <2> ().find (hash));
     if (existing != blocks.get <2> ().end ())
     {
-        auto changed (existing->votes->vote (vote_a));
+        auto changed (existing->votes->vote (node.store, vote_a));
         if (changed)
         {
             auto winner (node.ledger.winner (transaction_a, *existing->votes));
@@ -1063,17 +1063,22 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 	return result;
 }
 
-bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, size_t rebroadcast_a)
+bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
 {
     bool result (false);
-	node.wallets.foreach_representative ([&result, &block_a, &list_a, this, sequence_a, rebroadcast_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+	node.wallets.foreach_representative ([&result, &block_a, &list_a, this, rebroadcast_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
+		uint64_t sequence;
+		{
+			rai::transaction transaction (node.store.environment, nullptr, true);
+			sequence = node.store.sequence_atomic_inc (transaction, pub_a);
+		}
 		auto hash (block_a->hash ());
 		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 		{
 			if (!node.peers.knows_about (j->endpoint, hash))
 			{
-				confirm_block (prv_a, pub_a, block_a->clone (), sequence_a, j->endpoint, rebroadcast_a);
+				confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
 				result = true;
 			}
 		}
@@ -1119,7 +1124,12 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 				case rai::process_result::progress:
 				{
 					completed.push_back (std::make_tuple (result_a, block_a.clone ()));
-					this->network.republish_block (block_a.clone (), rebroadcast_a);
+					std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
+					auto this_l (this->shared ());
+					this->background ([block_l, this_l, rebroadcast_a] ()
+					{
+						this_l->network.republish_block (*block_l, rebroadcast_a);
+					});
 					break;
 				}
 				default:
@@ -1312,7 +1322,12 @@ void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint 
 		{
 			BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
 		}
-		this->network.confirm_block (prv_a, pub_a, block_a.clone (), 0, sender, 0);
+		uint64_t sequence;
+		{
+			rai::transaction transaction (this->store.environment, nullptr, true);
+			sequence = this->store.sequence_atomic_inc (transaction, pub_a);
+		}
+		this->network.confirm_block (prv_a, pub_a, block_a.clone (), sequence, sender, 0);
 	});
 }
 
@@ -2127,7 +2142,7 @@ void rai::election::recompute_winner ()
 		auto is_representative (false);
 		rai::vote vote_l;
 		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
+			rai::transaction transaction (node.store.environment, nullptr, true);
 			is_representative = i->second->store.is_representative (transaction);
 			if (is_representative)
 			{
@@ -2136,7 +2151,7 @@ void rai::election::recompute_winner ()
 				is_representative = !i->second->store.fetch (transaction, representative, prv);
 				if (is_representative)
 				{
-					vote_l = rai::vote (representative, prv, 0, last_winner_l->clone ());
+					vote_l = rai::vote (representative, prv, node.store.sequence_atomic_inc (transaction, representative), last_winner_l->clone ());
 				}
 				else
 				{
@@ -2161,7 +2176,7 @@ void rai::election::broadcast_winner ()
 	}
 	assert (winner_l != nullptr);
 	auto list (node.peers.list ());
-	node.network.confirm_broadcast (list, std::move (winner_l), votes.sequence, 0);
+	node.network.confirm_broadcast (list, std::move (winner_l), 0);
 }
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
@@ -2227,7 +2242,7 @@ void rai::election::confirm_cutoff ()
 
 void rai::election::vote (rai::vote const & vote_a)
 {
-	auto tally_changed (votes.vote (vote_a));
+	auto tally_changed (votes.vote (node.store, vote_a));
 	if (tally_changed)
 	{
 		confirm_if_quarum ();

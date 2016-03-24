@@ -627,7 +627,7 @@ TEST (node, block_replace)
 	{
 		system.nodes [1]->generate_work (*block1);
 	}
-	system.nodes [1]->network.republish_block (block1->clone (), 0);
+	system.nodes [1]->network.republish_block (*block1, 0);
 	auto iterations1 (0);
 	std::unique_ptr <rai::block> block2;
 	while (block2 == nullptr)
@@ -690,7 +690,7 @@ TEST (node, fork_publish)
         ASSERT_EQ (2, votes1->votes.rep_votes.size ());
         auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
         ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
-        ASSERT_EQ (*publish1.block, *existing1->second.second);
+        ASSERT_EQ (*publish1.block, *existing1->second);
 		rai::transaction transaction (node1.store.environment, nullptr, false);
         auto winner (node1.ledger.winner (transaction, votes1->votes));
         ASSERT_EQ (*publish1.block, *winner.second);
