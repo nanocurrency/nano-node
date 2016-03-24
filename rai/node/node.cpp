@@ -1070,7 +1070,7 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
 	{
 		uint64_t sequence;
 		{
-			rai::transaction transaction (node.store.environment, nullptr, true);
+			rai::transaction transaction (this->node.store.environment, nullptr, true);
 			sequence = node.store.sequence_atomic_inc (transaction, pub_a);
 		}
 		auto hash (block_a->hash ());

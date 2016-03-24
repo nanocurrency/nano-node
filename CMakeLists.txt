@@ -67,13 +67,19 @@ include_directories("${CMAKE_SOURCE_DIR}/Argon2/Source/Blake2")
 include_directories("${CMAKE_SOURCE_DIR}/Argon2/Source/Core")
 include_directories("${CMAKE_SOURCE_DIR}/blake2")
 
+if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+	set (ARGON_CORE Argon2/Source/Core/argon2-opt-core.cpp)
+else ()
+	set (ARGON_CORE Argon2/Source/Core/argon2-ref-core.cpp)
+endif ()
+
 add_library (argon2
 	Argon2/Source/Argon2/argon2.cpp
 	Argon2/Source/Argon2/argon2.h
 	Argon2/Source/Common/brg-endian.h
 	Argon2/Source/Core/argon2-core.cpp
 	Argon2/Source/Core/argon2-core.h
-	Argon2/Source/Core/argon2-opt-core.cpp)
+	${ARGON_CORE})
 
 add_library (xxhash
 	xxhash/xxhash.c
