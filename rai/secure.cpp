@@ -2354,52 +2354,6 @@ public:
     rai::uint128_t result;
 };
 
-// Determine the account for this block
-class account_visitor : public rai::block_visitor
-{
-public:
-    account_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
-    store (store_a),
-	transaction (transaction_a),
-	result (0),
-	current (0)
-    {
-    }
-    void compute (rai::block_hash const & hash_block)
-    {
-		current = hash_block;
-		while (result.is_zero ())
-		{
-			auto block (store.block_get (transaction, current));
-			assert (block != nullptr);
-			block->visit (*this);
-		}
-    }
-    void send_block (rai::send_block const & block_a) override
-    {
-        current = block_a.hashables.previous;
-    }
-    void receive_block (rai::receive_block const & block_a) override
-    {
-        auto block (store.block_get (transaction, block_a.hashables.source));
-        assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-        auto send (static_cast <rai::send_block *> (block.get ()));
-        result = send->hashables.destination;
-    }
-    void open_block (rai::open_block const & block_a) override
-    {
-        result = block_a.hashables.account;
-    }
-    void change_block (rai::change_block const & block_a) override
-    {
-        current = block_a.hashables.previous;
-    }
-    rai::block_store & store;
-	MDB_txn * transaction;
-    rai::account result;
-	rai::account current;
-};
-
 amount_visitor::amount_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a)
