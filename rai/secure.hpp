@@ -306,6 +306,7 @@ public:
 	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &);
 	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
+	void block_successor_clear (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr <rai::block> block_get (MDB_txn *, rai::block_hash const &);
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);

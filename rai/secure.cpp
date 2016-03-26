@@ -1756,6 +1756,12 @@ rai::block_hash rai::block_store::block_successor (MDB_txn * transaction_a, rai:
 	return result;
 }
 
+void rai::block_store::block_successor_clear (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	auto block (block_get (transaction_a, hash_a));
+	block_put (transaction_a, hash_a, *block);
+}
+
 std::unique_ptr <rai::block> rai::block_store::block_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
@@ -2535,6 +2541,7 @@ public:
         ledger.store.block_del (transaction, hash);
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, receivable.source);
+		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
     }
     void receive_block (rai::receive_block const & block_a) override
     {
@@ -2548,6 +2555,7 @@ public:
         ledger.store.pending_put (transaction, block_a.hashables.source, {ledger.account (transaction, block_a.hashables.source), amount, destination_account});
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, destination_account);
+		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
     }
     void open_block (rai::open_block const & block_a) override
     {
@@ -2573,6 +2581,7 @@ public:
         ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance);
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, account);
+		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
     }
 	MDB_txn * transaction;
     rai::ledger & ledger;
@@ -2694,9 +2703,20 @@ void rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & fro
 // Return account containing hash
 rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    account_visitor account (transaction_a, store);
-    account.compute (hash_a);
-    return account.result;
+	assert (store.block_exists (transaction_a, hash_a));
+	auto hash (hash_a);
+	rai::block_hash successor;
+	while (!successor.is_zero ())
+	{
+		successor = store.block_successor (transaction_a, hash);
+		if (!successor.is_zero ())
+		{
+			hash = successor;
+		}
+	}
+	auto result (store.frontier_get (transaction_a, hash));
+	assert (!result.is_zero ());
+	return result;
 }
 
 // Return amount decrease or increase for block

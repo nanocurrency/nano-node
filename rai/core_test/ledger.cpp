@@ -211,6 +211,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (rai::genesis_amount - 25, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (rai::genesis_amount - 25, ledger.weight (transaction, key3.pub));
 	ledger.rollback (transaction, hash4);
+	ASSERT_TRUE (store.block_successor(transaction, hash2).is_zero ());
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash2));
 	ASSERT_TRUE (store.frontier_get (transaction, hash4).is_zero ());
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
