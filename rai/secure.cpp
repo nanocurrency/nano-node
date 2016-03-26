@@ -2659,7 +2659,7 @@ rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash cons
 {
 	assert (store.block_exists (transaction_a, hash_a));
 	auto hash (hash_a);
-	rai::block_hash successor;
+	rai::block_hash successor (1);
 	while (!successor.is_zero ())
 	{
 		successor = store.block_successor (transaction_a, hash);
