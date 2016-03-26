@@ -2,6 +2,7 @@
 
 #include <rai/node/working.hpp>
 #include <rai/icon.hpp>
+#include <rai/node/rpc.hpp>
 
 #include <boost/make_shared.hpp>
 
@@ -13,7 +14,8 @@ class qt_wallet_config
 {
 public:
 	qt_wallet_config () :
-	account (0)
+	account (0),
+	rpc_enable (false)
 	{
 		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
@@ -34,6 +36,16 @@ public:
 			result = true;
 		}
 		case 2:
+		{
+			boost::property_tree::ptree rpc_l;
+			rpc.serialize_json (rpc_l);
+			tree_a.put ("rpc_enable", "false");
+			tree_a.put_child ("rpc", rpc_l);
+			tree_a.erase ("version");
+			tree_a.put ("version", "3");
+			result = true;
+		}
+		case 3:
 		break;
 		default:
 		throw std::runtime_error ("Unknown qt_wallet_config version");
@@ -56,11 +68,14 @@ public:
 			auto wallet_l (tree_a.get <std::string> ("wallet"));
 			auto account_l (tree_a.get <std::string> ("account"));
 			auto & node_l (tree_a.get_child ("node"));
+			rpc_enable = tree_a.get <bool> ("rpc_enable");
+			auto & rpc_l (tree_a.get_child ("rpc"));
 			try
 			{
 				error |= wallet.decode_hex (wallet_l);
 				error |= account.decode_account (account_l);
 				error |= node.deserialize_json (upgraded_a, node_l);
+				error |= rpc.deserialize_json (rpc_l);
 				if (wallet.is_zero ())
 				{
 					rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
@@ -83,12 +98,16 @@ public:
 	{
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
-		tree_a.put ("version", "2");
+		tree_a.put ("version", "3");
 		tree_a.put ("wallet", wallet_string);
 		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;
 		node.serialize_json (node_l);
 		tree_a.add_child ("node", node_l);
+		boost::property_tree::ptree rpc_l;
+		rpc.serialize_json (rpc_l);
+		tree_a.add_child ("rpc", rpc_l);
+		tree_a.put ("rpc_enable", rpc_enable);
 	}
 	bool serialize_json_stream (std::ostream & stream_a)
 	{
@@ -109,6 +128,8 @@ public:
 	rai::uint256_union wallet;
 	rai::account account;
 	rai::node_config node;
+	bool rpc_enable;
+	rai::rpc_config rpc;
 };
 
 int run_wallet (int argc, char * const * argv)
@@ -132,6 +153,7 @@ int run_wallet (int argc, char * const * argv)
 			rai::alarm alarm (*service);
 			rai::node_init init;
 			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
+			auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
 			if (!init.error ())
 			{
 				if (config.account.is_zero ())
@@ -148,14 +170,20 @@ int run_wallet (int argc, char * const * argv)
 					{
 						if (wallet->exists (config.account))
 						{
-							QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-							{
-								node->stop ();
-							});
 							node->start ();
+							rai::rpc rpc (service, pool, *node, config.rpc);
+							if (config.rpc_enable)
+							{
+								rpc.start ();
+							}
 							std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
 							gui->client_window->show ();
 							rai::thread_runner runner (*service, node->config.io_threads);
+							QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+							{
+								rpc.stop ();
+								node->stop ();
+							});
 							try
 							{
 								result = application.exec ();
