@@ -764,7 +764,7 @@ active_status (*this)
 			update_connected ();
 		}));
 	});
-	node.bootstrap_initiator.observers.push_back ([this] (bool active_a)
+	node.bootstrap_initiator.add_observer ([this] (bool active_a)
 	{
 		application.postEvent (&processor, new eventloop_event ([this, active_a] ()
 		{

@@ -106,7 +106,6 @@ public:
     std::shared_ptr <rai::frontier_req_client> connection;
     rai::push_synchronization synchronization;
 };
-
 class bootstrap_initiator
 {
 public:
@@ -116,11 +115,13 @@ public:
     void bootstrap_any ();
 	void initiate (rai::endpoint const &);
 	void notify_listeners ();
-	std::vector <std::function <void (bool)>> observers;
+	void add_observer (std::function <void (bool)> const &);
 	std::mutex mutex;
 	rai::node & node;
 	bool in_progress;
 	std::unordered_set <rai::endpoint> warmed_up;
+private:
+	std::vector <std::function <void (bool)>> observers;
 };
 class bootstrap_listener
 {

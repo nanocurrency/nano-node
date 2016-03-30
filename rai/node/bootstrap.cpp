@@ -813,8 +813,15 @@ void rai::bootstrap_initiator::initiate (rai::endpoint const & endpoint_a)
     processor->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 }
 
+void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const & observer_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	observers.push_back (observer_a);
+}
+
 void rai::bootstrap_initiator::notify_listeners ()
 {
+	assert (!mutex.try_lock());
 	for (auto & i: observers)
 	{
 		i (in_progress);
