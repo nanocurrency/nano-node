@@ -185,11 +185,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
     {
 		if (!ec)
 		{
-			{
-				std::lock_guard <std::mutex> lock (this_l->node->bootstrap_initiator.mutex);
-				this_l->attempt->peers.clear ();
-			}
-			if (!this_l->attempt->connected.test_and_set ())
+			if (!this_l->attempt->connected.exchange (true))
 			{
 				this_l->connect_action ();
 			}
@@ -774,9 +770,9 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a, std::vector <rai::endpoint> const & peers_a) :
 node (node_a),
-peers (peers_a)
+peers (peers_a),
+connected (false)
 {
-	connected.clear ();
 }
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
@@ -788,7 +784,7 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 
 void rai::bootstrap_attempt::attempt ()
 {
-	if (!peers.empty ())
+	if (!peers.empty () && !connected)
 	{
 		rai::endpoint endpoint (peers.back ());
 		peers.pop_back ();

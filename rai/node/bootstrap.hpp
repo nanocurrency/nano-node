@@ -52,7 +52,7 @@ public:
 	void attempt ();
 	std::shared_ptr <rai::node> node;
 	std::vector <rai::endpoint> peers;
-	std::atomic_flag connected;
+	std::atomic_bool connected;
 };
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
