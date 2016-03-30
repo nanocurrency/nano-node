@@ -496,7 +496,7 @@ TEST (bootstrap_processor, DISABLED_process_none)
 TEST (bootstrap_processor, DISABLED_process_incomplete)
 {
     rai::system system (24000, 1);
-    auto node1 (std::make_shared <rai::bootstrap_client> (system.nodes [0]));
+    auto node1 (std::make_shared <rai::bootstrap_client> (system.nodes [0], nullptr));
     rai::genesis genesis;
     auto frontier_req_client (std::make_shared <rai::frontier_req_client> (node1));
     frontier_req_client->pulls [rai::test_genesis_key.pub] = genesis.hash ();

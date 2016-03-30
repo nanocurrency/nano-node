@@ -44,17 +44,27 @@ public:
     std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
 };
 class node;
+class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
+{
+public:
+	bootstrap_attempt (std::shared_ptr <rai::node> node_a, std::vector <rai::endpoint> const & peers_a);
+	~bootstrap_attempt ();
+	void attempt ();
+	std::shared_ptr <rai::node> node;
+	std::vector <rai::endpoint> peers;
+	std::atomic_flag connected;
+};
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr <rai::node>, std::function <void ()> const & = [] () {});
+	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>);
     ~bootstrap_client ();
     void run (rai::tcp_endpoint const &);
     void connect_action ();
     void sent_request (boost::system::error_code const &, size_t);
     std::shared_ptr <rai::node> node;
+	std::shared_ptr <rai::bootstrap_attempt> attempt;
     boost::asio::ip::tcp::socket socket;
-	std::function <void ()> completion_action;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
@@ -113,13 +123,13 @@ public:
 	void warmup (rai::endpoint const &);
 	void bootstrap (rai::endpoint const &);
     void bootstrap_any ();
-	void initiate (rai::endpoint const &);
+	void begin_attempt (std::shared_ptr <rai::bootstrap_attempt>);
 	void notify_listeners ();
 	void add_observer (std::function <void (bool)> const &);
 	std::mutex mutex;
 	rai::node & node;
 	bool in_progress;
-	std::unordered_set <rai::endpoint> warmed_up;
+	unsigned warmed_up;
 private:
 	std::vector <std::function <void (bool)>> observers;
 };
