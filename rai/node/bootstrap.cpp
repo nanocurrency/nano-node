@@ -778,12 +778,12 @@ connected (false)
 rai::bootstrap_attempt::~bootstrap_attempt ()
 {
 	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
-	node->bootstrap_initiator.in_progress = false;
 	node->bootstrap_initiator.notify_listeners ();
 }
 
 void rai::bootstrap_attempt::attempt ()
 {
+	assert (!node->bootstrap_initiator.mutex.try_lock ());
 	if (!peers.empty () && !connected)
 	{
 		rai::endpoint endpoint (peers.back ());
@@ -793,8 +793,9 @@ void rai::bootstrap_attempt::attempt ()
 		auto this_l (shared_from_this ());
 		auto processor (std::make_shared <rai::bootstrap_client> (node_l, this_l));
 		processor->run (rai::tcp_endpoint (endpoint.address (), endpoint.port ()));
-		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (150), [this_l] ()
+		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (250), [this_l] ()
 		{
+			std::lock_guard <std::mutex> lock (this_l->node->bootstrap_initiator.mutex);
 			this_l->attempt ();
 		});
 	}
@@ -802,20 +803,25 @@ void rai::bootstrap_attempt::attempt ()
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
-in_progress (false),
 warmed_up (false)
 {
 }
 
-void rai::bootstrap_initiator::warmup (rai::endpoint const &)
+void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 {
 	auto do_warmup (false);
 	{
 		std::lock_guard <std::mutex> lock (mutex);
-		if (!in_progress && warmed_up < 3)
+		auto attempt_l (attempt.lock ());
+		if (attempt_l == nullptr && warmed_up < 3)
 		{
 			++warmed_up;
 			do_warmup = true;
+		}
+		else
+		{
+			attempt_l->peers.push_back (endpoint_a);
+			attempt_l->attempt ();
 		}
 	}
 	if (do_warmup)
@@ -846,9 +852,9 @@ void rai::bootstrap_initiator::bootstrap_any ()
 void rai::bootstrap_initiator::begin_attempt (std::shared_ptr <rai::bootstrap_attempt> attempt_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	if (!in_progress)
+	if (!in_progress ())
 	{
-		in_progress = true;
+		attempt = attempt_a;
 		attempt_a->attempt ();
 		notify_listeners ();
 	}
@@ -860,12 +866,17 @@ void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const &
 	observers.push_back (observer_a);
 }
 
+bool rai::bootstrap_initiator::in_progress ()
+{
+	return attempt.lock () != nullptr;
+}
+
 void rai::bootstrap_initiator::notify_listeners ()
 {
 	assert (!mutex.try_lock());
 	for (auto & i: observers)
 	{
-		i (in_progress);
+		i (in_progress ());
 	}
 }
 

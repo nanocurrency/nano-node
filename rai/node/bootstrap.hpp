@@ -126,9 +126,10 @@ public:
 	void begin_attempt (std::shared_ptr <rai::bootstrap_attempt>);
 	void notify_listeners ();
 	void add_observer (std::function <void (bool)> const &);
+	bool in_progress ();
 	std::mutex mutex;
 	rai::node & node;
-	bool in_progress;
+	std::weak_ptr <rai::bootstrap_attempt> attempt;
 	unsigned warmed_up;
 private:
 	std::vector <std::function <void (bool)>> observers;

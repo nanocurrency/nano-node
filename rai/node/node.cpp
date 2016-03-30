@@ -1965,7 +1965,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_h
 			unknown = true;
         }
     }
-	if (unknown)
+	if (unknown && !result)
 	{
 		peer_observer (endpoint_a);
 	}
