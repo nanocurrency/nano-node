@@ -3,6 +3,7 @@
 #include <rai/secure.hpp>
 #include <rai/node/common.hpp>
 
+#include <atomic>
 #include <queue>
 #include <unordered_set>
 
