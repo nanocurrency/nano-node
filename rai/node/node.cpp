@@ -926,7 +926,7 @@ application_path (application_path_a)
     });
     observers.add_vote ([this] (rai::vote const & vote_a)
     {
-		rai::transaction transaction (store.environment, nullptr, false);
+		rai::transaction transaction (store.environment, nullptr, true);
 		this->gap_cache.vote (transaction, vote_a);
     });
     if (config.logging.log_to_cerr ())
@@ -1031,7 +1031,7 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
     auto existing (blocks.get <2> ().find (hash));
     if (existing != blocks.get <2> ().end ())
     {
-        auto changed (existing->votes->vote (node.store, vote_a));
+        auto changed (existing->votes->vote (transaction_a, node.store, vote_a));
         if (changed)
         {
             auto winner (node.ledger.winner (transaction_a, *existing->votes));
@@ -2198,26 +2198,25 @@ void rai::election::confirm_once ()
 	}
 }
 
-bool rai::election::recalculate_winner ()
+bool rai::election::recalculate_winner (MDB_txn * transaction_a)
 {
 	auto result (false);
-	rai::transaction transaction (node.store.environment, nullptr, true);
-	auto tally_l (node.ledger.tally (transaction, votes));
+	auto tally_l (node.ledger.tally (transaction_a, votes));
 	assert (tally_l.size () > 0);
-	auto quorum_threshold_l (quorum_threshold (transaction, node.ledger));
+	auto quorum_threshold_l (quorum_threshold (transaction_a, node.ledger));
 	auto winner (std::move (tally_l.begin ()));
 	if (!(*winner->second == *last_winner) && (winner->first > quorum_threshold_l))
 	{
 		// Replace our block with the winner and roll back any dependent blocks
-		node.ledger.rollback (transaction, last_winner->hash ());
-		node.ledger.process (transaction, *winner->second);
+		node.ledger.rollback (transaction_a, last_winner->hash ());
+		node.ledger.process (transaction_a, *winner->second);
 		last_winner = std::move (winner->second);
 	}
 	// Check if we can do a fast confirm for the usual case of good actors
 	if (tally_l.size () == 1)
 	{
 		// No forks detected
-		if (tally_l.begin ()->first > quorum_threshold (transaction, node.ledger))
+		if (tally_l.begin ()->first > quorum_threshold (transaction_a, node.ledger))
 		{
 			// We have vote quarum
 			result = true;
@@ -2226,9 +2225,9 @@ bool rai::election::recalculate_winner ()
 	return result;
 }
 
-void rai::election::confirm_if_quarum ()
+void rai::election::confirm_if_quarum (MDB_txn * transaction_a)
 {
-	auto quarum (recalculate_winner ());
+	auto quarum (recalculate_winner (transaction_a));
 	if (quarum)
 	{
 		confirm_once ();
@@ -2242,10 +2241,11 @@ void rai::election::confirm_cutoff ()
 
 void rai::election::vote (rai::vote const & vote_a)
 {
-	auto tally_changed (votes.vote (node.store, vote_a));
+	rai::transaction transaction (node.store.environment, nullptr, true);
+	auto tally_changed (votes.vote (transaction, node.store, vote_a));
 	if (tally_changed)
 	{
-		confirm_if_quarum ();
+		confirm_if_quarum (transaction);
 	}
 }
 

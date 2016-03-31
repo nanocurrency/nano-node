@@ -436,7 +436,7 @@ class votes
 {
 public:
 	votes (rai::block const &);
-	bool vote (rai::block_store &, rai::vote const &);
+	bool vote (MDB_txn *, rai::block_store &, rai::vote const &);
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account

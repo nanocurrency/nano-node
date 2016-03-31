@@ -123,15 +123,14 @@ bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const
 	return *lhs == *rhs;
 }
 
-bool rai::votes::vote (rai::block_store & store_a, rai::vote const & vote_a)
+bool rai::votes::vote (MDB_txn * transaction_a, rai::block_store & store_a, rai::vote const & vote_a)
 {
 	auto result (false);
 	// Reject unsigned votes
 	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
 	{
-		rai::transaction transaction (store_a.environment, nullptr, true);
 		// Make sure this sequence number is > any we've seen from this account before
-		if (store_a.sequence_atomic_observe (transaction, vote_a.account, vote_a.sequence) == vote_a.sequence)
+		if (store_a.sequence_atomic_observe (transaction_a, vote_a.account, vote_a.sequence) == vote_a.sequence)
 		{
 			// Check if we're adding a new vote entry or modifying an existing one.
 			auto existing (rep_votes.find (vote_a.account));
