@@ -813,10 +813,13 @@ void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		auto attempt_l (attempt.lock ());
-		if (attempt_l == nullptr && warmed_up < 3)
+		if (attempt_l == nullptr)
 		{
-			++warmed_up;
-			do_warmup = true;
+			if (warmed_up < 3)
+			{
+				++warmed_up;
+				do_warmup = true;
+			}
 		}
 		else
 		{
