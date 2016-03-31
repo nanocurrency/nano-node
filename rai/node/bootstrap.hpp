@@ -14,7 +14,7 @@ namespace rai
 class block_synchronization
 {
 public:
-    block_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
+    block_synchronization (boost::log::sources::logger_mt &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
     ~block_synchronization ();
     // Return true if target already has block
     virtual bool synchronized (rai::transaction &, rai::block_hash const &) = 0;
@@ -26,21 +26,21 @@ public:
     bool synchronize (rai::transaction &, rai::block_hash const &);
     std::stack <rai::block_hash> blocks;
     std::unordered_set <rai::block_hash> sent;
-	boost::log::sources::logger & log;
+	boost::log::sources::logger_mt & log;
     std::function <void (rai::transaction &, rai::block const &)> target;
     rai::block_store & store;
 };
 class pull_synchronization : public rai::block_synchronization
 {
 public:
-    pull_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
+    pull_synchronization (boost::log::sources::logger_mt &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
     bool synchronized (rai::transaction &, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
 };
 class push_synchronization : public rai::block_synchronization
 {
 public:
-    push_synchronization (boost::log::sources::logger &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
+    push_synchronization (boost::log::sources::logger_mt &, std::function <void (rai::transaction &, rai::block const &)> const &, rai::block_store &);
     bool synchronized (rai::transaction &, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
 };

@@ -369,7 +369,7 @@ public:
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
-    boost::log::sources::logger log;
+    boost::log::sources::logger_mt log;
     rai::block_store store;
     rai::gap_cache gap_cache;
     rai::ledger ledger;

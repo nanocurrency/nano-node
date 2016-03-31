@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <rai/node/node.hpp>
 
-static boost::log::sources::logger test_log;
+static boost::log::sources::logger_mt test_log;
 
 TEST (pull_synchronization, empty)
 {

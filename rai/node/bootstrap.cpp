@@ -5,7 +5,7 @@
 
 #include <boost/log/trivial.hpp>
 
-rai::block_synchronization::block_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
 log (log_a),
 target (target_a),
 store (store_a)
@@ -124,7 +124,7 @@ bool rai::block_synchronization::synchronize (rai::transaction & transaction_a, 
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
@@ -139,7 +139,7 @@ bool rai::pull_synchronization::synchronized (rai::transaction & transaction_a, 
     return store.block_exists (transaction_a, hash_a);
 }
 
-rai::push_synchronization::push_synchronization (boost::log::sources::logger & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
