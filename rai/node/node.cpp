@@ -1703,13 +1703,13 @@ void success (boost::iterator_range <char const *> const & range, std::string co
 		}
 		else
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't a number") % address % work_text);
+			BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't a number %2%") % address % work_text);
 			handle_failure (last);
 		}
 	}
 	catch (...)
 	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable") % address % body);
+		BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable %2%") % address % body);
 		handle_failure (last);
 	}
 }
