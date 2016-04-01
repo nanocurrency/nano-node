@@ -1690,7 +1690,7 @@ void success (boost::iterator_range <char const *> const & range, std::string co
 		uint64_t work;
 		if (!rai::from_string_hex (work_text, work))
 		{
-			if (node->work.work_validate (root, work))
+			if (!node->work.work_validate (root, work))
 			{
 				set_once (work);
 				stop ();
