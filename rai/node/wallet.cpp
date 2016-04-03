@@ -1,6 +1,7 @@
 #include <rai/node/wallet.hpp>
 
 #include <rai/node/node.hpp>
+#include <rai/node/xorshift.hpp>
 
 #include <argon2.h>
 
@@ -11,7 +12,7 @@
 
 #include <future>
 
-rai::work_pool::work_pool () :
+rai::work_pool::work_pool (bool opencl_work_a) :
 current (0),
 ticket (0),
 done (false)
@@ -27,6 +28,12 @@ done (false)
 		}));
 		threads.push_back (std::move (thread));
 	}
+	if (opencl_work_a)
+	{
+		auto error (false);
+		rai::opencl_environment environment (error);
+		opencl.reset (new rai::opencl_work (error, environment, *this));
+	}
 }
 
 rai::work_pool::~work_pool ()
@@ -36,32 +43,6 @@ rai::work_pool::~work_pool ()
 	{
 		i.join ();
 	}
-}
-
-namespace
-{
-class xorshift1024star
-{
-public:
-    xorshift1024star ():
-    p (0)
-    {
-    }
-    std::array <uint64_t, 16> s;
-    unsigned p;
-    uint64_t next ()
-    {
-        auto p_l (p);
-        auto pn ((p_l + 1) & 15);
-        p = pn;
-        uint64_t s0 = s[ p_l ];
-        uint64_t s1 = s[ pn ];
-        s1 ^= s1 << 31; // a
-        s1 ^= s1 >> 11; // b
-        s0 ^= s0 >> 30; // c
-        return ( s[ pn ] = s0 ^ s1 ) * 1181783497276652981LL;
-    }
-};
 }
 
 uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t work_a)
@@ -183,19 +164,26 @@ boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union co
 {
 	assert (!root_a.is_zero ());
 	boost::optional <uint64_t> result;
-	std::unique_lock <std::mutex> lock (mutex);
-	pending.push_back (root_a);
-	producer_condition.notify_all ();
-	auto done (false);
-	while (!done)
+	if (opencl != nullptr)
 	{
-		consumer_condition.wait (lock);
-		auto finish (completed.find (root_a));
-		if (finish != completed.end ())
+		result = opencl->generate_work (root_a);
+	}
+	else
+	{
+		std::unique_lock <std::mutex> lock (mutex);
+		pending.push_back (root_a);
+		producer_condition.notify_all ();
+		auto done (false);
+		while (!done)
 		{
-			done = true;
-			result = finish->second;
-			completed.erase (finish);
+			consumer_condition.wait (lock);
+			auto finish (completed.find (root_a));
+			if (finish != completed.end ())
+			{
+				done = true;
+				result = finish->second;
+				completed.erase (finish);
+			}
 		}
 	}
 	return result;

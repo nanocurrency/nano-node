@@ -5,7 +5,8 @@
 
 rai::system::system (uint16_t port_a, size_t count_a) :
 service (new boost::asio::io_service),
-alarm (*service)
+alarm (*service),
+work (false)
 {
     nodes.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)

@@ -26,7 +26,7 @@ else (WIN32)
 endif (WIN32)
 
 if (APPLE)
-	set (PLATFORM_LINK_FLAGS "-framework Foundation")
+	set (PLATFORM_LINK_FLAGS "-framework Foundation -framework OpenCL")
 else (APPLE)
 	set (PLATFORM_LINK_FLAGS "")
 endif (APPLE)
@@ -129,13 +129,16 @@ add_library (node
 	rai/node/common.hpp
 	rai/node/node.hpp
 	rai/node/node.cpp
+	rai/node/openclwork.cpp
+	rai/node/openclwork.hpp
 	rai/node/rpc.hpp
 	rai/node/rpc.cpp
 	rai/node/testing.hpp
 	rai/node/testing.cpp
 	rai/node/wallet.hpp
 	rai/node/wallet.cpp
-	rai/node/working.hpp)
+	rai/node/working.hpp
+	rai/node/xorshift.hpp)
 
 add_executable (core_test
 	rai/core_test/block.cpp

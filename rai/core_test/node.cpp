@@ -19,7 +19,7 @@ TEST (node, block_store_path_failure)
     auto service (boost::make_shared <boost::asio::io_service> ());
     rai::alarm alarm (*service);
 	rai::logging logging;
-	rai::work_pool work;
+	rai::work_pool work (false);
     auto node (std::make_shared <rai::node> (init, *service, 0, rai::unique_path (), alarm, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
     node->stop ();
@@ -31,7 +31,7 @@ TEST (node, inactive_supply)
     auto service (boost::make_shared <boost::asio::io_service> ());
 	rai::alarm alarm (*service);
 	rai::node_config config;
-	rai::work_pool work;
+	rai::work_pool work (false);
 	config.inactive_supply = 10;
     auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), alarm, config, work));
 	ASSERT_EQ (10, node->ledger.inactive_supply);
@@ -43,7 +43,7 @@ TEST (node, password_fanout)
     auto service (boost::make_shared <boost::asio::io_service> ());
 	rai::alarm alarm (*service);
 	rai::node_config config;
-	rai::work_pool work;
+	rai::work_pool work (false);
 	config.password_fanout = 10;
     auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), alarm, config, work));
 	auto wallet (node->wallets.create (100));

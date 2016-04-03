@@ -3,6 +3,7 @@
 #include <boost/optional.hpp>
 
 #include <rai/secure.hpp>
+#include <rai/node/openclwork.hpp>
 
 #include <atomic>
 #include <mutex>
@@ -15,7 +16,7 @@ namespace rai
 class work_pool
 {
 public:
-	work_pool ();
+	work_pool (bool);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
@@ -34,6 +35,7 @@ public:
 	std::mutex mutex;
 	std::condition_variable consumer_condition;
 	std::condition_variable producer_condition;
+	std::unique_ptr <rai::opencl_work> opencl;
 	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
 	static uint64_t const publish_test_threshold = 0xff00000000000000;
 	static uint64_t const publish_full_threshold = 0xffffffc000000000;

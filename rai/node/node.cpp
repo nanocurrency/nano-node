@@ -591,7 +591,8 @@ receive_minimum (rai::Mrai_ratio),
 inactive_supply (0),
 password_fanout (1024),
 io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
-work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ()))
+work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
+opencl_work (false)
 {
 	switch (rai::rai_network)
 	{
@@ -2955,7 +2956,8 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 
 rai::inactive_node::inactive_node () :
 service (boost::make_shared <boost::asio::io_service> ()),
-alarm (*service)
+alarm (*service),
+work (false)
 {
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
