@@ -410,6 +410,12 @@ rai::opencl_environment::opencl_environment (bool & error_a)
 void rai::opencl_environment::dump ()
 {
 	auto index (0);
+	auto device_count (0);
+	for (auto & i: devices)
+	{
+		device_count += i.second.size ();
+	}
+	std::cout << boost::str (boost::format ("Found %1% platforms and %2% devices\n") % devices.size () % device_count);
 	for (auto i (devices.begin ()), n (devices.end ()); i != n; ++i, ++index)
 	{
 		std::vector <unsigned> queries = {CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS};

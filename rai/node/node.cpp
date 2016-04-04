@@ -2468,6 +2468,17 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		rai::uint256_union junk2 (0);
 		rai::kdf kdf;
 		kdf.phs (junk1, "", junk2);
+		std::cout << "Dumping OpenCL information" << std::endl;
+		bool error (false);
+		rai::opencl_environment environment (error);
+		if (!error)
+		{
+			environment.dump ();
+		}
+		else
+		{
+			std::cout << "Error initializing OpenCL" << std::endl;
+		}
 	}
     else if (vm.count ("key_create"))
     {
