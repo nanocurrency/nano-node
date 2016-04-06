@@ -12,7 +12,24 @@ public:
 		opencl_library = dlopen ("libOpenCL.so", RTLD_NOW);
 		if (opencl_library != nullptr)
 		{
-			clGetPlatformIDs = reinterpret_cast <decltype (clGetPlatformIDs)> (dlsym (opencl_library, "clGetPlatformIDs"));
+			clGetPlatformIDs = reinterpret_cast <decltype (clGetPlatformIDs)> (dlsym(opencl_library, "clGetPlatformIDs"));
+			clGetPlatformInfo = reinterpret_cast <decltype (clGetPlatformInfo)> (dlsym(opencl_library, "clGetPlatformInfo"));
+			clGetDeviceIDs = reinterpret_cast <decltype (clGetDeviceIDs)> (dlsym(opencl_library, "clGetDeviceIDs"));
+			clGetDeviceInfo = reinterpret_cast <decltype (clGetDeviceInfo)> (dlsym(opencl_library, "clGetDeviceInfo"));
+			clCreateContext = reinterpret_cast <decltype (clCreateContext)> (dlsym(opencl_library, "clCreateContext"));
+			clCreateCommandQueue = reinterpret_cast <decltype (clCreateCommandQueue)> (dlsym(opencl_library, "clCreateCommandQueue"));
+			clCreateBuffer = reinterpret_cast <decltype (clCreateBuffer)> (dlsym(opencl_library, "clCreateBuffer"));
+			clCreateProgramWithSource = reinterpret_cast <decltype (clCreateProgramWithSource)> (dlsym(opencl_library, "clCreateProgramWithSource"));
+			clCreateBuildProgram = reinterpret_cast <decltype (clCreateBuildProgram)> (dlsym(opencl_library, "clCreateBuildProgram"));
+			clCreateKernel = reinterpret_cast <decltype (clCreateKernel)> (dlsym(opencl_library, "clCreateKernel"));
+			clSetKernelArg = reinterpret_cast <decltype (clSetKernelArg)> (dlsym(opencl_library, "clSetKernelArg"));
+			clReleaseKernel = reinterpret_cast <decltype (clReleaseKernel)> (dlsym(opencl_library, "clReleaseKernel"));
+			clReleaseProgram = reinterpret_cast <decltype (clReleaseProgram)> (dlsym(opencl_library, "clReleaseProgram"));
+			clReleaseContext = reinterpret_cast <decltype (clReleaseContext)> (dlsym(opencl_library, "clReleaseContext"));
+			clEnqueueWriteBuffer = reinterpret_cast <decltype (clEnqueueWriteBuffer)> (dlsym(opencl_library, "clEnqueueWriteBuffer"));
+			clEnqueueNDRangeKernel = reinterpret_cast <decltype (clEnqueueNDRangeKernel)> (dlsym(opencl_library, "clEnqueueNDRangeKernel"));
+			clEnqueueReadBuffer = reinterpret_cast <decltype (clEnqueueReadBuffer)> (dlsym(opencl_library, "clEnqueueReadBuffer"));
+			clFinish = reinterpret_cast <decltype (clFinish)> (dlsym(opencl_library, "clFinish"));
 		}
 	}
 	~opencl_initializer ()
