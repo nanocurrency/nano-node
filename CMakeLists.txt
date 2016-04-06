@@ -210,7 +210,7 @@ set_target_properties (rai_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK
 if (WIN32)
 	set (PLATFORM_LIBS ws2_32 mswsock)
 else (WIN32)
-	set (PLATFORM_LIBS pthread OpenCL)
+	set (PLATFORM_LIBS pthread dl)
 endif (WIN32)
 
 if (WIN32)
