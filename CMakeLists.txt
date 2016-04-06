@@ -101,12 +101,15 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp rai/plat/windows/priority.cpp)
+	set (PLATFORM_NODE_SOURCE rai/plat/windows/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/linux/priority.cpp)
+	set (PLATFORM_NODE_SOURCE rai/plat/posix/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/default/priority.cpp)
+	set (PLATFORM_NODE_SOURCE rai/plat/posix/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 else ()
 	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
@@ -123,6 +126,7 @@ add_library (secure
 	rai/versioning.cpp)
 
 add_library (node
+	${PLATFORM_NODE_SOURCE}
 	rai/node/bootstrap.cpp
 	rai/node/bootstrap.hpp
 	rai/node/common.cpp
