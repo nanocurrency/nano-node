@@ -562,6 +562,7 @@ pool (pool_a)
 							}
 							else
 							{
+								/*
 								for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
 								{
 									size_t log_size (0);
@@ -569,7 +570,7 @@ pool (pool_a)
 									std::vector <char> log (log_size);
 									clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
 									std::cout << log.data () << std::endl;
-								}
+								}*/
 							}
 						}
 					}
