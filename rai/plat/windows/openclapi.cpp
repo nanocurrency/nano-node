@@ -21,6 +21,7 @@ namespace
 				clCreateBuffer = reinterpret_cast <decltype (clCreateBuffer)> (GetProcAddress(opencl_library, "clCreateBuffer"));
 				clCreateProgramWithSource = reinterpret_cast <decltype (clCreateProgramWithSource)> (GetProcAddress(opencl_library, "clCreateProgramWithSource"));
 				clBuildProgram = reinterpret_cast <decltype (clBuildProgram)> (GetProcAddress(opencl_library, "clBuildProgram"));
+				clGetProgramBuildInfo = reinterpret_cast <decltype (clGetProgramBuildInfo)> (GetProcAddress(opencl_library, "clGetProgramBuildInfo"));
 				clCreateKernel = reinterpret_cast <decltype (clCreateKernel)> (GetProcAddress(opencl_library, "clCreateKernel"));
 				clSetKernelArg = reinterpret_cast <decltype (clSetKernelArg)> (GetProcAddress(opencl_library, "clSetKernelArg"));
 				clReleaseKernel = reinterpret_cast <decltype (clReleaseKernel)> (GetProcAddress(opencl_library, "clReleaseKernel"));
@@ -46,6 +47,7 @@ namespace
 		cl_mem(*clCreateBuffer) (cl_context, cl_mem_flags, size_t, void *, cl_int *);
 		cl_program(*clCreateProgramWithSource) (cl_context, cl_uint, char const **, size_t const *, cl_int *);
 		cl_int(*clBuildProgram) (cl_program, cl_uint, cl_device_id const *, char const *, void(*)(cl_program, void *), void *);
+		cl_int (*clGetProgramBuildInfo) (cl_program, cl_device_id, cl_program_build_info, size_t, void *, size_t *);
 		cl_kernel(*clCreateKernel) (cl_program, char const *, cl_int *);
 		cl_int(*clSetKernelArg) (cl_kernel, cl_uint, size_t, void const *);
 		cl_int(*clReleaseKernel) (cl_kernel);
@@ -117,6 +119,11 @@ cl_program clCreateProgramWithSource(cl_context context, cl_uint count, char con
 cl_int clBuildProgram(cl_program program, cl_uint num_devices, cl_device_id const * device_list, char const * options, void(*pfn_notify) (cl_program, void *), void * user_data)
 {
 	return opencl_initializer::initializer.clBuildProgram(program, num_devices, device_list, options, pfn_notify, user_data);
+}
+
+cl_int clGetProgramBuildInfo(cl_program program, cl_device_id device, cl_program_build_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
+{
+	return opencl_initializer::initializer.clGetProgramBuildInfo(program, device, param_name, param_value_size, param_value, param_value_size_ret);
 }
 
 cl_kernel clCreateKernel(cl_program program, char const * kernel_name, cl_int * errcode_ret)

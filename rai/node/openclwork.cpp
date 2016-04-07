@@ -160,6 +160,15 @@ static inline ulong rotr64( const ulong w, const unsigned c )
   return ( w >> c ) | ( w << ( 64 - c ) );
 }
 
+static void ucharset (void * dest_a, int val, size_t count)
+{
+	uchar * dest = (uchar *)dest_a;
+	for (size_t i = 0; i < count; ++i)
+	{
+		*dest++ = val;
+	}
+}
+
 /* init xors IV with input parameter block */
 static inline int blake2b_init_param( blake2b_state *S, const blake2b_param *P )
 {
@@ -168,7 +177,7 @@ static inline int blake2b_init_param( blake2b_state *S, const blake2b_param *P )
   h = ( uchar * )( S->h );
   p = ( uchar * )( P );
   /* IV XOR ParamBlock */
-  memset( S, 0, sizeof( blake2b_state ) );
+  ucharset( S, 0, sizeof( blake2b_state ) );
 
   for( int i = 0; i < BLAKE2B_OUTBYTES; ++i ) h[i] = v[i] ^ p[i];
 
@@ -189,9 +198,9 @@ static inline int blake2b_init( blake2b_state *S, const uchar outlen )
   store64( &P->node_offset, 0 );
   P->node_depth    = 0;
   P->inner_length  = 0;
-  memset( P->reserved, 0, sizeof( P->reserved ) );
-  memset( P->salt,     0, sizeof( P->salt ) );
-  memset( P->personal, 0, sizeof( P->personal ) );
+  ucharset( P->reserved, 0, sizeof( P->reserved ) );
+  ucharset( P->salt,     0, sizeof( P->salt ) );
+  ucharset( P->personal, 0, sizeof( P->personal ) );
   return blake2b_init_param( S, P );
 }
 
@@ -305,14 +314,6 @@ static int blake2b_update( blake2b_state *S, const uchar *in, ulong inlen )
   }
 
   return 0;
-}
-
-static void ucharset (uchar * dest, int val, size_t count)
-{
-	for (size_t i = 0; i < count; ++i)
-	{
-		*dest++ = val;
-	}
 }
 
 /* Is this correct? */
@@ -496,7 +497,7 @@ pool (pool_a)
 	auto i (environment_a.devices.begin ());
 	auto selected_platform (i->first);
 	std::array <cl_device_id, 1> selected_devices;
-	selected_devices [0] = i->second [1];
+	selected_devices [0] = i->second [0];
 	cl_context_properties contextProperties [] =
 	{
 		CL_CONTEXT_PLATFORM,
@@ -536,17 +537,10 @@ pool (pool_a)
 						error_a |= program_error != CL_SUCCESS;
 						if (!error_a)
 						{
-							error_a |= clBuildProgram (program, selected_devices.size (), selected_devices.data (), "-D __APPLE__", nullptr, nullptr) != CL_SUCCESS;
+							auto clBuildProgramError(clBuildProgram(program, selected_devices.size(), selected_devices.data(), "-D __APPLE__", nullptr, nullptr));
+							error_a |= clBuildProgramError != CL_SUCCESS;
 							if (!error_a)
 							{
-								/*for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
-								{
-									size_t log_size (0);
-									clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
-									std::vector <char> log (log_size);
-									clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
-									std::cout << log.data () << std::endl;
-								}*/
 								cl_int kernel_error (0);
 								kernel = clCreateKernel (program, "raiblocks_work", &kernel_error);
 								error_a |= kernel_error != CL_SUCCESS;
@@ -564,6 +558,17 @@ pool (pool_a)
 											error_a |= arg2_error != CL_SUCCESS;
 										}
 									}
+								}
+							}
+							else
+							{
+								for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
+								{
+									size_t log_size (0);
+									clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
+									std::vector <char> log (log_size);
+									clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
+									std::cout << log.data () << std::endl;
 								}
 							}
 						}

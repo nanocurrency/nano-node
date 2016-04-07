@@ -33,6 +33,10 @@ done (false)
 		auto error (false);
 		rai::opencl_environment environment (error);
 		opencl.reset (new rai::opencl_work (error, environment, *this));
+		if (error)
+		{
+			opencl.reset();
+		}
 	}
 }
 
