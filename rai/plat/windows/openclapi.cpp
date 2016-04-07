@@ -19,8 +19,8 @@ namespace
 				clCreateContext = reinterpret_cast <decltype (clCreateContext)> (GetProcAddress(opencl_library, "clCreateContext"));
 				clCreateCommandQueue = reinterpret_cast <decltype (clCreateCommandQueue)> (GetProcAddress(opencl_library, "clCreateCommandQueue"));
 				clCreateBuffer = reinterpret_cast <decltype (clCreateBuffer)> (GetProcAddress(opencl_library, "clCreateBuffer"));
-				clCreateProgramWithSource = reinterpret_cast <decltype (clCreateProgramWithSource)> (dlsym(opencl_library, "clCreateProgramWithSource"));
-				clCreateBuildProgram = reinterpret_cast <decltype (clCreateBuildProgram)> (GetProcAddress(opencl_library, "clCreateBuildProgram"));
+				clCreateProgramWithSource = reinterpret_cast <decltype (clCreateProgramWithSource)> (GetProcAddress(opencl_library, "clCreateProgramWithSource"));
+				clBuildProgram = reinterpret_cast <decltype (clBuildProgram)> (GetProcAddress(opencl_library, "clBuildProgram"));
 				clCreateKernel = reinterpret_cast <decltype (clCreateKernel)> (GetProcAddress(opencl_library, "clCreateKernel"));
 				clSetKernelArg = reinterpret_cast <decltype (clSetKernelArg)> (GetProcAddress(opencl_library, "clSetKernelArg"));
 				clReleaseKernel = reinterpret_cast <decltype (clReleaseKernel)> (GetProcAddress(opencl_library, "clReleaseKernel"));
@@ -34,7 +34,7 @@ namespace
 		}
 		~opencl_initializer()
 		{
-			dlclose(opencl_library);
+			FreeLibrary(opencl_library);
 		}
 		HMODULE opencl_library;
 		cl_int(*clGetPlatformIDs) (cl_uint, cl_platform_id *, cl_uint *);
@@ -71,7 +71,10 @@ cl_int clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint
 	else
 	{
 		result = CL_SUCCESS;
-		*num_platforms = 0;
+		if (num_platforms != nullptr)
+		{
+			*num_platforms = 0;
+		}
 	}
 	return result;
 }

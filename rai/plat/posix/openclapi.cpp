@@ -20,7 +20,7 @@ public:
 			clCreateCommandQueue = reinterpret_cast <decltype (clCreateCommandQueue)> (dlsym(opencl_library, "clCreateCommandQueue"));
 			clCreateBuffer = reinterpret_cast <decltype (clCreateBuffer)> (dlsym(opencl_library, "clCreateBuffer"));
 			clCreateProgramWithSource = reinterpret_cast <decltype (clCreateProgramWithSource)> (dlsym(opencl_library, "clCreateProgramWithSource"));
-			clCreateBuildProgram = reinterpret_cast <decltype (clCreateBuildProgram)> (dlsym(opencl_library, "clCreateBuildProgram"));
+			clBuildProgram = reinterpret_cast <decltype (clBuildProgram)> (dlsym(opencl_library, "clBuildProgram"));
 			clCreateKernel = reinterpret_cast <decltype (clCreateKernel)> (dlsym(opencl_library, "clCreateKernel"));
 			clSetKernelArg = reinterpret_cast <decltype (clSetKernelArg)> (dlsym(opencl_library, "clSetKernelArg"));
 			clReleaseKernel = reinterpret_cast <decltype (clReleaseKernel)> (dlsym(opencl_library, "clReleaseKernel"));

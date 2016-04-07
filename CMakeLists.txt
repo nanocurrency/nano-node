@@ -55,6 +55,8 @@ include_directories (${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets
 find_package (cppnetlib)
 include_directories (${CPPNETLIB_INCLUDE_DIRS})
 
+include_directories (${OPENCL_INCLUDE_DIRS})
+
 add_library (ed25519
 	ed25519-donna/ed25519-donna-portable.h
 	ed25519-donna/ed25519-hash-custom.h
