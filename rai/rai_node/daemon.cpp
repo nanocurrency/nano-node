@@ -62,7 +62,7 @@ void rai_daemon::daemon::run ()
 		if (!error)
 		{
 			auto service (boost::make_shared <boost::asio::io_service> ());
-			rai::work_pool work (config.node.opencl_work);
+			rai::work_pool work (std::move (rai::opencl_work::create (config.node.opencl_work, 0, 1)));
 			rai::alarm alarm (*service);
 			rai::node_init init;
 			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));

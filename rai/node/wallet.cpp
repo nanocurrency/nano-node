@@ -12,10 +12,11 @@
 
 #include <future>
 
-rai::work_pool::work_pool (bool opencl_work_a) :
+rai::work_pool::work_pool (std::unique_ptr <rai::opencl_work> opencl_a) :
 current (0),
 ticket (0),
-done (false)
+done (false),
+opencl (std::move (opencl_a))
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	auto count (std::max (1u, std::thread::hardware_concurrency ()));
@@ -27,16 +28,6 @@ done (false)
 			loop (i);
 		}));
 		threads.push_back (std::move (thread));
-	}
-	if (opencl_work_a)
-	{
-		auto error (false);
-		rai::opencl_environment environment (error);
-		opencl.reset (new rai::opencl_work (error, environment, *this));
-		if (error)
-		{
-			opencl.reset();
-		}
 	}
 }
 
@@ -170,7 +161,7 @@ boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union co
 	boost::optional <uint64_t> result;
 	if (opencl != nullptr)
 	{
-		result = opencl->generate_work (root_a);
+		result = opencl->generate_work (*this, root_a);
 	}
 	else
 	{

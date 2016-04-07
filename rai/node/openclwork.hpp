@@ -14,21 +14,28 @@
 
 namespace rai
 {
+class opencl_platform
+{
+public:
+	cl_platform_id platform;
+	std::vector <cl_device_id> devices;
+};
 class opencl_environment
 {
 public:
 	opencl_environment (bool &);
 	void dump ();
-	std::map <cl_platform_id, std::vector <cl_device_id>> devices;
+	std::vector <rai::opencl_platform> platforms;
 };
 union uint256_union;
 class work_pool;
 class opencl_work
 {
 public:
-	opencl_work (bool &, rai::opencl_environment &, rai::work_pool &);
+	opencl_work (bool &, unsigned, unsigned, rai::opencl_environment &);
 	~opencl_work ();
-	uint64_t generate_work (rai::uint256_union const &);
+	uint64_t generate_work (rai::work_pool &, rai::uint256_union const &);
+	static std::unique_ptr <opencl_work> create (bool, unsigned, unsigned);
 	std::mutex mutex;
 	cl_context context;
 	cl_mem attempt_buffer;
@@ -38,6 +45,5 @@ public:
 	cl_kernel kernel;
 	cl_command_queue queue;
 	rai::xorshift1024star rand;
-	rai::work_pool & pool;
 };
 }

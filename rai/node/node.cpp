@@ -2968,7 +2968,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 rai::inactive_node::inactive_node () :
 service (boost::make_shared <boost::asio::io_service> ()),
 alarm (*service),
-work (false)
+work (nullptr)
 {
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);

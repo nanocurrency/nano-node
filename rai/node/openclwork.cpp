@@ -396,15 +396,16 @@ rai::opencl_environment::opencl_environment (bool & error_a)
 	clGetPlatformIDs (platformIdCount, platformIds.data(), nullptr);
 	for (auto i (platformIds.begin ()), n (platformIds.end ()); i != n; ++i)
 	{
-		auto & devices_container (devices [*i]);
+		rai::opencl_platform platform;
 		cl_uint deviceIdCount = 0;
 		clGetDeviceIDs (*i, CL_DEVICE_TYPE_ALL, 0, nullptr, &deviceIdCount);
 		std::vector <cl_device_id> deviceIds (deviceIdCount);
 		clGetDeviceIDs (*i, CL_DEVICE_TYPE_ALL, deviceIdCount, deviceIds.data (), nullptr);
 		for (auto j (deviceIds.begin ()), m (deviceIds.end ()); j != m; ++j)
 		{
-			devices_container.push_back (*j);
+			platform.devices.push_back (*j);
 		}
+		platforms.push_back (platform);
 	}
 }
 
@@ -412,27 +413,27 @@ void rai::opencl_environment::dump ()
 {
 	auto index (0);
 	auto device_count (0);
-	for (auto & i: devices)
+	for (auto & i: platforms)
 	{
-		device_count += i.second.size ();
+		device_count += i.devices.size ();
 	}
-	std::cout << boost::str (boost::format ("Found %1% platforms and %2% devices\n") % devices.size () % device_count);
-	for (auto i (devices.begin ()), n (devices.end ()); i != n; ++i, ++index)
+	std::cout << boost::str (boost::format ("Found %1% platforms and %2% devices\n") % platforms.size () % device_count);
+	for (auto i (platforms.begin ()), n (platforms.end ()); i != n; ++i, ++index)
 	{
 		std::vector <unsigned> queries = {CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS};
 		std::cout << "Platform: " << index << std::endl;
 		for (auto j (queries.begin ()), m (queries.end ()); j != m; ++j)
 		{
 			size_t platformInfoCount = 0;
-			clGetPlatformInfo(i->first, *j, 0, nullptr, &platformInfoCount);
+			clGetPlatformInfo(i->platform, *j, 0, nullptr, &platformInfoCount);
 			std::vector <char> info (platformInfoCount);
-			clGetPlatformInfo(i->first, *j, info.size (), info.data (), nullptr);
+			clGetPlatformInfo(i->platform, *j, info.size (), info.data (), nullptr);
 			std::cout << info.data () << std::endl;
 		}
-		for (auto j (i->second.begin ()), m (i->second.end ()); j != m; ++j)
+		for (auto j (i->devices.begin ()), m (i->devices.end ()); j != m; ++j)
 		{
 			std::vector <unsigned> queries = {CL_DEVICE_NAME, CL_DEVICE_VENDOR, CL_DEVICE_PROFILE};
-			std::cout << "Device: " << j - i->second.begin () << std::endl;
+			std::cout << "Device: " << j - i->devices.begin () << std::endl;
 			for (auto k (queries.begin ()), o (queries.end ()); k != o; ++k)
 			{
 				size_t platformInfoCount = 0;
@@ -483,94 +484,100 @@ void rai::opencl_environment::dump ()
 	}
 }
 
-rai::opencl_work::opencl_work (bool & error_a, rai::opencl_environment & environment_a, rai::work_pool & pool_a) :
+rai::opencl_work::opencl_work (bool & error_a, unsigned platform_a, unsigned device_a, rai::opencl_environment & environment_a) :
 context (0),
 attempt_buffer (0),
 result_buffer (0),
 item_buffer (0),
 program (0),
 kernel (0),
-queue (0),
-pool (pool_a)
+queue (0)
 {
-	rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rand.s.data ()),  rand.s.size () * sizeof (decltype (rand.s)::value_type));
-	auto i (environment_a.devices.begin ());
-	auto selected_platform (i->first);
-	std::array <cl_device_id, 1> selected_devices;
-	selected_devices [0] = i->second [0];
-	cl_context_properties contextProperties [] =
-	{
-		CL_CONTEXT_PLATFORM,
-		reinterpret_cast<cl_context_properties> (selected_platform),
-		0, 0
-	};
-	cl_int createContextError (0);
-	context = clCreateContext (contextProperties, selected_devices.size (), selected_devices.data (), nullptr, nullptr, &createContextError);
-	error_a |= createContextError != CL_SUCCESS;
+	error_a |= platform_a >= environment_a.platforms.size ();
 	if (!error_a)
 	{
-		cl_int queue_error (0);
-		queue = clCreateCommandQueue (context, selected_devices [0], 0, &queue_error);
-		error_a |= queue_error != CL_SUCCESS;
-		if (!error_a)
+		auto & platform (environment_a.platforms [platform_a]);
+		error_a |= device_a >= platform.devices.size ();
+		if (error_a)
 		{
-			cl_int attempt_error (0);
-			attempt_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &attempt_error);
-			error_a |= attempt_error != CL_SUCCESS;
+			rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rand.s.data ()),  rand.s.size () * sizeof (decltype (rand.s)::value_type));
+			std::array <cl_device_id, 1> selected_devices;
+			selected_devices [0] = platform.devices [device_a];
+			cl_context_properties contextProperties [] =
+			{
+				CL_CONTEXT_PLATFORM,
+				reinterpret_cast<cl_context_properties> (platform.platform),
+				0, 0
+			};
+			cl_int createContextError (0);
+			context = clCreateContext (contextProperties, selected_devices.size (), selected_devices.data (), nullptr, nullptr, &createContextError);
+			error_a |= createContextError != CL_SUCCESS;
 			if (!error_a)
 			{
-				cl_int result_error (0);
-				result_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &result_error);
-				error_a |= result_error != CL_SUCCESS;
+				cl_int queue_error (0);
+				queue = clCreateCommandQueue (context, selected_devices [0], 0, &queue_error);
+				error_a |= queue_error != CL_SUCCESS;
 				if (!error_a)
 				{
-					cl_int item_error (0);
-					size_t item_size (sizeof (rai::uint256_union));
-					item_buffer = clCreateBuffer (context, 0, item_size, nullptr, &item_error);
-					error_a |= item_error != CL_SUCCESS;
+					cl_int attempt_error (0);
+					attempt_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &attempt_error);
+					error_a |= attempt_error != CL_SUCCESS;
 					if (!error_a)
 					{
-						cl_int program_error (0);
-						char const * program_data (opencl_program.data ());
-						size_t program_length (opencl_program.size ());
-						program = clCreateProgramWithSource (context, 1, &program_data, &program_length, &program_error);
-						error_a |= program_error != CL_SUCCESS;
+						cl_int result_error (0);
+						result_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &result_error);
+						error_a |= result_error != CL_SUCCESS;
 						if (!error_a)
 						{
-							auto clBuildProgramError(clBuildProgram(program, selected_devices.size(), selected_devices.data(), "-D __APPLE__", nullptr, nullptr));
-							error_a |= clBuildProgramError != CL_SUCCESS;
+							cl_int item_error (0);
+							size_t item_size (sizeof (rai::uint256_union));
+							item_buffer = clCreateBuffer (context, 0, item_size, nullptr, &item_error);
+							error_a |= item_error != CL_SUCCESS;
 							if (!error_a)
 							{
-								cl_int kernel_error (0);
-								kernel = clCreateKernel (program, "raiblocks_work", &kernel_error);
-								error_a |= kernel_error != CL_SUCCESS;
+								cl_int program_error (0);
+								char const * program_data (opencl_program.data ());
+								size_t program_length (opencl_program.size ());
+								program = clCreateProgramWithSource (context, 1, &program_data, &program_length, &program_error);
+								error_a |= program_error != CL_SUCCESS;
 								if (!error_a)
 								{
-									cl_int arg0_error (clSetKernelArg (kernel, 0, sizeof (attempt_buffer), &attempt_buffer));
-									error_a |= arg0_error != CL_SUCCESS;
+									auto clBuildProgramError(clBuildProgram(program, selected_devices.size(), selected_devices.data(), "-D __APPLE__", nullptr, nullptr));
+									error_a |= clBuildProgramError != CL_SUCCESS;
 									if (!error_a)
 									{
-										cl_int arg1_error (clSetKernelArg (kernel, 1, sizeof (result_buffer), &result_buffer));
-										error_a |= arg1_error != CL_SUCCESS;
+										cl_int kernel_error (0);
+										kernel = clCreateKernel (program, "raiblocks_work", &kernel_error);
+										error_a |= kernel_error != CL_SUCCESS;
 										if (!error_a)
 										{
-											cl_int arg2_error (clSetKernelArg (kernel, 2, sizeof (item_buffer), &item_buffer));
-											error_a |= arg2_error != CL_SUCCESS;
+											cl_int arg0_error (clSetKernelArg (kernel, 0, sizeof (attempt_buffer), &attempt_buffer));
+											error_a |= arg0_error != CL_SUCCESS;
+											if (!error_a)
+											{
+												cl_int arg1_error (clSetKernelArg (kernel, 1, sizeof (result_buffer), &result_buffer));
+												error_a |= arg1_error != CL_SUCCESS;
+												if (!error_a)
+												{
+													cl_int arg2_error (clSetKernelArg (kernel, 2, sizeof (item_buffer), &item_buffer));
+													error_a |= arg2_error != CL_SUCCESS;
+												}
+											}
 										}
 									}
+									else
+									{
+										/*
+										for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
+										{
+											size_t log_size (0);
+											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
+											std::vector <char> log (log_size);
+											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
+											std::cout << log.data () << std::endl;
+										}*/
+									}
 								}
-							}
-							else
-							{
-								/*
-								for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
-								{
-									size_t log_size (0);
-									clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
-									std::vector <char> log (log_size);
-									clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
-									std::cout << log.data () << std::endl;
-								}*/
 							}
 						}
 					}
@@ -587,13 +594,13 @@ rai::opencl_work::~opencl_work ()
 	clReleaseContext (context);
 }
 
-uint64_t rai::opencl_work::generate_work (rai::uint256_union const & root_a)
+uint64_t rai::opencl_work::generate_work (rai::work_pool & pool_a, rai::uint256_union const & root_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	uint64_t result (0);
 	unsigned thread_count (rai::rai_network == rai::rai_networks::rai_test_network ? 128 : 1024 * 1024);
 	size_t work_size [] = { thread_count, 0, 0 };
-	while (pool.work_validate (root_a, result))
+	while (pool_a.work_validate (root_a, result))
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
@@ -601,6 +608,25 @@ uint64_t rai::opencl_work::generate_work (rai::uint256_union const & root_a)
 		cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
 		cl_int read_error1 = clEnqueueReadBuffer(queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
 		cl_int finishError = clFinish (queue);
+	}
+	return result;
+}
+
+std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, unsigned platform_a, unsigned device_a)
+{
+	std::unique_ptr <rai::opencl_work> result;
+	if (create_a)
+	{
+		auto error (false);
+		rai::opencl_environment environment (error);
+		if (!error)
+		{
+			result.reset (new rai::opencl_work (error, platform_a, device_a, environment));
+			if (error)
+			{
+				result.reset ();
+			}
+		}
 	}
 	return result;
 }

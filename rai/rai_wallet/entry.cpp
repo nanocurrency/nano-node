@@ -149,7 +149,7 @@ int run_wallet (int argc, char * const * argv)
 			QApplication application (argc, const_cast <char **> (argv));
 			rai::set_application_icon (application);
 			auto service (boost::make_shared <boost::asio::io_service> ());
-			rai::work_pool work (config.node.opencl_work);
+			rai::work_pool work (rai::opencl_work::create (config.node.opencl_work, 0, 1));
 			rai::alarm alarm (*service);
 			rai::node_init init;
 			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
