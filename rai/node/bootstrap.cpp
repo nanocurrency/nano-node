@@ -1239,7 +1239,7 @@ void rai::bulk_pull_server::send_finished ()
     send_buffer.clear ();
     send_buffer.push_back (static_cast <uint8_t> (rai::block_type::not_a_block));
     auto this_l (shared_from_this ());
-    if (connection->node->config.logging.network_logging ())
+    if (connection->node->config.logging.bulk_pull_logging ())
     {
         BOOST_LOG (connection->node->log) << "Bulk sending finished";
     }
