@@ -15,7 +15,6 @@ namespace rai_daemon
         bool deserialize_json (bool &, boost::property_tree::ptree &);
         void serialize_json (boost::property_tree::ptree &);
 		bool upgrade_json (unsigned, boost::property_tree::ptree &);
-		unsigned version;
 		bool rpc_enable;
 		rai::rpc_config rpc;
 		rai::node_config node;

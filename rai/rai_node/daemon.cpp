@@ -13,7 +13,7 @@ opencl_enable (false)
 
 void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
 {
-	tree_a.put ("version", version);
+	tree_a.put ("version", "2");
 	tree_a.put ("rpc_enable", rpc_enable);
 	boost::property_tree::ptree rpc_l;
 	rpc.serialize_json (rpc_l);

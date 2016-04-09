@@ -88,12 +88,15 @@ public:
 			auto & node_l (tree_a.get_child ("node"));
 			rpc_enable = tree_a.get <bool> ("rpc_enable");
 			auto & rpc_l (tree_a.get_child ("rpc"));
+			opencl_enable = tree_a.get <bool> ("opencl_enable");
+			auto & opencl_l (tree_a.get_child ("opencl"));
 			try
 			{
 				error |= wallet.decode_hex (wallet_l);
 				error |= account.decode_account (account_l);
 				error |= node.deserialize_json (upgraded_a, node_l);
 				error |= rpc.deserialize_json (rpc_l);
+				error |= opencl.deserialize_json (opencl_l);
 				if (wallet.is_zero ())
 				{
 					rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
@@ -116,7 +119,7 @@ public:
 	{
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
-		tree_a.put ("version", "3");
+		tree_a.put ("version", "4");
 		tree_a.put ("wallet", wallet_string);
 		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;
@@ -126,6 +129,10 @@ public:
 		rpc.serialize_json (rpc_l);
 		tree_a.add_child ("rpc", rpc_l);
 		tree_a.put ("rpc_enable", rpc_enable);
+		tree_a.put ("opencl_enable", opencl_enable);
+		boost::property_tree::ptree opencl_l;
+		opencl.serialize_json (opencl_l);
+		tree_a.add_child ("opencl", opencl_l);
 	}
 	bool serialize_json_stream (std::ostream & stream_a)
 	{
