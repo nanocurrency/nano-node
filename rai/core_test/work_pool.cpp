@@ -41,7 +41,7 @@ TEST (work, cancel)
 
 TEST (work, opencl)
 {
-	auto work (rai::opencl_work::create (true, 0, 1));
+	auto work (rai::opencl_work::create (true, {0, 1, 1024 * 1024}));
 	ASSERT_NE (nullptr, work);
 	rai::work_pool pool (std::move (work));
 	ASSERT_NE (nullptr, pool.opencl);
@@ -52,4 +52,19 @@ TEST (work, opencl)
 		auto result (pool.generate (root));
 		ASSERT_FALSE (pool.work_validate (root, result));
 	}
+}
+
+TEST (work, opencl_config)
+{
+	rai::opencl_config config1;
+	config1.platform = 1;
+	config1.device = 2;
+	config1.threads = 3;
+	boost::property_tree::ptree tree;
+	config1.serialize_json (tree);
+	rai::opencl_config config2;
+	ASSERT_FALSE (config2.deserialize_json (tree));
+	ASSERT_EQ (1, config2.platform);
+	ASSERT_EQ (2, config2.device);
+	ASSERT_EQ (3, config2.threads);
 }

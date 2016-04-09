@@ -6,12 +6,14 @@
 #include <fstream>
 
 rai_daemon::daemon_config::daemon_config () :
-rpc_enable (false)
+rpc_enable (false),
+opencl_enable (false)
 {
 }
 
 void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
 {
+	tree_a.put ("version", version);
 	tree_a.put ("rpc_enable", rpc_enable);
 	boost::property_tree::ptree rpc_l;
 	rpc.serialize_json (rpc_l);
@@ -19,6 +21,10 @@ void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tr
 	boost::property_tree::ptree node_l;
 	node.serialize_json (node_l);
 	tree_a.add_child ("node", node_l);
+	tree_a.put ("opencl_enable", opencl_enable);
+	boost::property_tree::ptree opencl_l;
+	opencl.serialize_json (opencl_l);
+	tree_a.add_child ("opencl", opencl_l);
 }
 
 bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
@@ -28,11 +34,21 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 	{
 		if (!tree_a.empty ())
 		{
+			auto version_l (tree_a.get_optional <std::string> ("version"));
+			if (!version_l)
+			{
+				tree_a.put ("version", "1");
+				version_l = "1";
+			}
+			upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
 			rpc_enable = tree_a.get <bool> ("rpc_enable");
-			auto & node_l (tree_a.get_child ("node"));
-			error |= node.deserialize_json (upgraded_a, node_l);
 			auto rpc_l (tree_a.get_child ("rpc"));
 			error |= rpc.deserialize_json (rpc_l);
+			auto & node_l (tree_a.get_child ("node"));
+			error |= node.deserialize_json (upgraded_a, node_l);
+			opencl_enable = tree_a.get <bool> ("opencl_enable");
+			auto & opencl_l (tree_a.get_child ("opencl"));
+			error |= opencl.deserialize_json (opencl_l);
 		}
 		else
 		{
@@ -45,6 +61,37 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 		error = true;
 	}
 	return error;
+}
+
+
+bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+{
+	auto result (false);
+	switch (version_a)
+	{
+	case 1:
+	{
+		auto opencl_enable_l (tree_a.get_optional <bool> ("opencl_enable"));
+		if (!opencl_enable_l)
+		{
+			tree_a.put ("opencl_enable", "false");
+		}
+		auto opencl_l (tree_a.get_child_optional ("opencl"));
+		if (!opencl_l)
+		{
+			boost::property_tree::ptree opencl_l;
+			opencl.serialize_json (opencl_l);
+			tree_a.put_child ("opencl", opencl_l);
+		}
+		tree_a.put ("version", "2");
+		result = true;
+	}
+	case 2:
+		break;
+	default:
+		throw std::runtime_error ("Unknown daemon_config version");
+	}
+	return result;
 }
 
 void rai_daemon::daemon::run ()
@@ -62,7 +109,7 @@ void rai_daemon::daemon::run ()
 		if (!error)
 		{
 			auto service (boost::make_shared <boost::asio::io_service> ());
-			rai::work_pool work (std::move (rai::opencl_work::create (config.node.opencl_work, 0, 1)));
+			rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl));
 			rai::alarm alarm (*service);
 			rai::node_init init;
 			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));

@@ -591,8 +591,7 @@ receive_minimum (rai::Mrai_ratio),
 inactive_supply (0),
 password_fanout (1024),
 io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
-work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
-opencl_work (false)
+work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ()))
 {
 	switch (rai::rai_network)
 	{
@@ -700,7 +699,6 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 	}
 	case 3:
 		break;
-	break;
 	default:
 		throw std::runtime_error ("Unknown node_config version");
 	}

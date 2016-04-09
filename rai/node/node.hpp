@@ -307,9 +307,6 @@ public:
 	unsigned password_fanout;
 	unsigned io_threads;
 	unsigned work_threads;
-	bool opencl_work;
-	unsigned opencl_platform;
-	unsigned opencl_device;
     static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

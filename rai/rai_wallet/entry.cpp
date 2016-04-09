@@ -15,7 +15,8 @@ class qt_wallet_config
 public:
 	qt_wallet_config () :
 	account (0),
-	rpc_enable (false)
+	rpc_enable (false),
+	opencl_enable (false)
 	{
 		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
@@ -46,9 +47,26 @@ public:
 			result = true;
 		}
 		case 3:
-		break;
+		{
+			auto opencl_enable_l (tree_a.get_optional <bool> ("opencl_enable"));
+			if (!opencl_enable_l)
+			{
+				tree_a.put ("opencl_enable", "false");
+			}
+			auto opencl_l (tree_a.get_child_optional ("opencl"));
+			if (!opencl_l)
+			{
+				boost::property_tree::ptree opencl_l;
+				opencl.serialize_json (opencl_l);
+				tree_a.put_child ("opencl", opencl_l);
+			}
+			tree_a.put ("version", "4");
+			result = true;
+		}
+		case 4:
+			break;
 		default:
-		throw std::runtime_error ("Unknown qt_wallet_config version");
+			throw std::runtime_error ("Unknown qt_wallet_config version");
 		}
 		return result;
 	}
@@ -130,6 +148,8 @@ public:
 	rai::node_config node;
 	bool rpc_enable;
 	rai::rpc_config rpc;
+	bool opencl_enable;
+	rai::opencl_config opencl;
 };
 
 int run_wallet (int argc, char * const * argv)
@@ -149,7 +169,7 @@ int run_wallet (int argc, char * const * argv)
 			QApplication application (argc, const_cast <char **> (argv));
 			rai::set_application_icon (application);
 			auto service (boost::make_shared <boost::asio::io_service> ());
-			rai::work_pool work (rai::opencl_work::create (config.node.opencl_work, 0, 1));
+			rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl));
 			rai::alarm alarm (*service);
 			rai::node_init init;
 			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));

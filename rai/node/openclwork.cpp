@@ -484,7 +484,55 @@ void rai::opencl_environment::dump ()
 	}
 }
 
-rai::opencl_work::opencl_work (bool & error_a, unsigned platform_a, unsigned device_a, rai::opencl_environment & environment_a) :
+rai::opencl_config::opencl_config () :
+platform (0),
+device (0),
+threads (1024 * 1024)
+{
+}
+
+rai::opencl_config::opencl_config (unsigned platform_a, unsigned device_a, unsigned threads_a) :
+platform (platform_a),
+device (device_a),
+threads (threads_a)
+{
+}
+
+void rai::opencl_config::serialize_json (boost::property_tree::ptree & tree_a) const
+{
+	tree_a.put ("platform", std::to_string (platform));
+	tree_a.put ("device", std::to_string (device));
+	tree_a.put ("threads", std::to_string (threads));
+}
+
+bool rai::opencl_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+{
+	auto result (false);
+    try
+    {
+		auto platform_l (tree_a.get <std::string> ("platform"));
+		auto device_l (tree_a.get <std::string> ("device"));
+		auto threads_l (tree_a.get <std::string> ("threads"));
+		try
+		{
+			platform = std::stoull (platform_l);
+			device = std::stoull (device_l);
+			threads = std::stoull (threads_l);
+		}
+		catch (std::logic_error const &)
+		{
+			result = true;
+		}
+    }
+    catch (std::runtime_error const &)
+    {
+        result = true;
+    }
+	return result;
+}
+
+rai::opencl_work::opencl_work (bool & error_a, rai::opencl_config const & config_a, rai::opencl_environment & environment_a) :
+config (config_a),
 context (0),
 attempt_buffer (0),
 result_buffer (0),
@@ -493,16 +541,16 @@ program (0),
 kernel (0),
 queue (0)
 {
-	error_a |= platform_a >= environment_a.platforms.size ();
+	error_a |= config.platform >= environment_a.platforms.size ();
 	if (!error_a)
 	{
-		auto & platform (environment_a.platforms [platform_a]);
-		error_a |= device_a >= platform.devices.size ();
+		auto & platform (environment_a.platforms [config.platform]);
+		error_a |= config.device >= platform.devices.size ();
 		if (error_a)
 		{
 			rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rand.s.data ()),  rand.s.size () * sizeof (decltype (rand.s)::value_type));
 			std::array <cl_device_id, 1> selected_devices;
-			selected_devices [0] = platform.devices [device_a];
+			selected_devices [0] = platform.devices [config.device];
 			cl_context_properties contextProperties [] =
 			{
 				CL_CONTEXT_PLATFORM,
@@ -598,7 +646,7 @@ uint64_t rai::opencl_work::generate_work (rai::work_pool & pool_a, rai::uint256_
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	uint64_t result (0);
-	unsigned thread_count (rai::rai_network == rai::rai_networks::rai_test_network ? 128 : 1024 * 1024);
+	unsigned thread_count (rai::rai_network == rai::rai_networks::rai_test_network ? 128 : config.threads);
 	size_t work_size [] = { thread_count, 0, 0 };
 	while (pool_a.work_validate (root_a, result))
 	{
@@ -612,7 +660,7 @@ uint64_t rai::opencl_work::generate_work (rai::work_pool & pool_a, rai::uint256_
 	return result;
 }
 
-std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, unsigned platform_a, unsigned device_a)
+std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, rai::opencl_config const & config_a)
 {
 	std::unique_ptr <rai::opencl_work> result;
 	if (create_a)
@@ -621,7 +669,7 @@ std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, unsi
 		rai::opencl_environment environment (error);
 		if (!error)
 		{
-			result.reset (new rai::opencl_work (error, platform_a, device_a, environment));
+			result.reset (new rai::opencl_work (error, config_a, environment));
 			if (error)
 			{
 				result.reset ();
