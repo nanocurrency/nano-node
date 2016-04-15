@@ -320,9 +320,14 @@ ledger (ledger_a),
 account (account_a),
 rendering_ratio (rendering_ratio_a)
 {
-    model->setHorizontalHeaderItem (0, new QStandardItem ("History"));
+    model->setHorizontalHeaderItem (0, new QStandardItem ("Type"));
+    model->setHorizontalHeaderItem (1, new QStandardItem ("Account"));
+    model->setHorizontalHeaderItem (2, new QStandardItem ("Amount"));
+    model->setHorizontalHeaderItem (3, new QStandardItem ("Hash"));
     view->setModel (model);
+	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
+	view->verticalHeader ()->hide ();
 }
 
 
@@ -331,42 +336,48 @@ namespace
 class short_text_visitor : public rai::block_visitor
 {
 public:
-	short_text_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a, rai::uint128_t const & rendering_ratio_a) :
+	short_text_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a) :
 	transaction (transaction_a),
-	ledger (ledger_a),
-	rendering_ratio (rendering_ratio_a)
+	ledger (ledger_a)
 	{
 	}
 	void send_block (rai::send_block const & block_a)
 	{
-		auto amount (ledger.amount (transaction, block_a.hash ()));
-		std::string balance;
-		rai::amount (amount / rendering_ratio).encode_dec (balance);
-		text = boost::str (boost::format ("Sent %1% to %2%") % balance % block_a.hashables.destination.to_account ().substr (0, 16));
+		type = "Send";
+		account = block_a.hashables.destination;
+		amount = ledger.amount (transaction, block_a.hash ());
 	}
 	void receive_block (rai::receive_block const & block_a)
 	{
-		auto amount (ledger.amount (transaction, block_a.source ()));
-		std::string balance;
-		rai::amount (amount / rendering_ratio).encode_dec (balance);
-		auto account (ledger.account (transaction, block_a.source ()));
-		text = boost::str (boost::format ("Received %1% from %2%") % balance % account.to_account ().substr (0, 16));
+		type = "Receive";
+		account = ledger.account (transaction, block_a.source ());
+		amount = ledger.amount (transaction, block_a.source ());
 	}
 	void open_block (rai::open_block const & block_a)
 	{
-		auto amount (ledger.amount (transaction, block_a.source ()));
-		std::string balance;
-		rai::amount (amount / rendering_ratio).encode_dec (balance);
-		text = boost::str (boost::format ("Opened %1%") % balance);
+		type = "Receive";
+		if (block_a.hashables.source != rai::genesis_account)
+		{
+			account = ledger.account (transaction, block_a.hashables.source);
+			amount = ledger.amount (transaction, block_a.hash ());
+		}
+		else
+		{
+			account = rai::genesis_account;
+			amount = rai::genesis_amount;
+		}
 	}
 	void change_block (rai::change_block const & block_a)
 	{
-		text = boost::str (boost::format ("Changed: %1%") % block_a.representative ().to_account ().substr (0, 16));
+		type = "Change";
+		amount = 0;
+		account = block_a.hashables.representative;
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
-	rai::uint128_t rendering_ratio;
-	std::string text;
+	std::string type;
+	rai::uint128_t amount;
+	rai::account account;
 };
 }
 
@@ -375,14 +386,17 @@ void rai_qt::history::refresh ()
 	rai::transaction transaction (ledger.store.environment, nullptr, false);
 	model->removeRows (0, model->rowCount ());
 	auto hash (ledger.latest (transaction, account));
-	short_text_visitor visitor (transaction, ledger, rendering_ratio);
+	short_text_visitor visitor (transaction, ledger);
 	for (auto i (0); i < 32 && !hash.is_zero (); ++i)
 	{
 		QList <QStandardItem *> items;
 		auto block (ledger.store.block_get (transaction, hash));
 		assert (block != nullptr);
 		block->visit (visitor);
-		items.push_back (new QStandardItem (QString (visitor.text.c_str ())));
+		items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
+		items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
+		items.push_back (new QStandardItem (QString (rai::amount (visitor.amount / rendering_ratio).to_string_dec ().c_str ())));
+		items.push_back (new QStandardItem (QString (hash.to_string ().c_str ())));
 		hash = block->previous ();
 		model->appendRow (items);
 	}
