@@ -50,6 +50,9 @@ namespace rai_qt {
     {
     public:
 		advanced_actions (rai_qt::wallet &);
+		void refresh_count ();
+		QLabel * block_count_text;
+		QLabel * block_count;
 		QWidget * window;
 		QVBoxLayout * layout;
 		QPushButton * accounts;

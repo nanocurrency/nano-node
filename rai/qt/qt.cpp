@@ -745,6 +745,7 @@ active_status (*this)
 				this->history.refresh ();
 				self.refresh_balance ();
 			}
+			this->advanced.refresh_count ();
 		}));
     });
 	node.observers.add_wallet ([this] (rai::account const & account_a, bool active_a)
@@ -965,6 +966,8 @@ void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
 rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
+block_count_text (new QLabel ("Block count:")),
+block_count (new QLabel),
 accounts (new QPushButton ("Accounts")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
@@ -1017,6 +1020,8 @@ wallet (wallet_a)
     peers_layout->setContentsMargins (0, 0, 0, 0);
     peers_window->setLayout (peers_layout);
 
+	layout->addWidget (block_count_text);
+	layout->addWidget (block_count);
     layout->addWidget (accounts);
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
@@ -1097,6 +1102,14 @@ wallet (wallet_a)
 		this->wallet.push_main_stack (this->wallet.block_viewer.window);
 	});
     refresh_ledger ();
+	refresh_count ();
+}
+
+void rai_qt::advanced_actions::refresh_count ()
+{
+	rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
+	auto size (wallet.wallet_m->node.store.block_count (transaction));
+	block_count->setText (QString (std::to_string (size).c_str ()));
 }
 
 void rai_qt::advanced_actions::refresh_peers ()
