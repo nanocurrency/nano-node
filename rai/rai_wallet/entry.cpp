@@ -221,7 +221,18 @@ int run_wallet (int argc, char * const * argv)
 								assert (false);
 							}
 							runner.join ();
-							error = config.serialize_json_stream (config_file);
+							config_file.seekg (0);
+							auto account (config.account);
+							if (!rai::fetch_object (config, config_file))
+							{
+								if (account != config.account)
+								{
+									config.account = account;
+									config_file.close ();
+									config_file.open (config_path, std::ios_base::out | std::ios_base::trunc);
+									error = config.serialize_json_stream (config_file);
+								}
+							}
 						}
 						else
 						{
