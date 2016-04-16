@@ -21,7 +21,7 @@ public:
 			clCreateBuffer = reinterpret_cast <decltype (clCreateBuffer)> (dlsym(opencl_library, "clCreateBuffer"));
 			clCreateProgramWithSource = reinterpret_cast <decltype (clCreateProgramWithSource)> (dlsym(opencl_library, "clCreateProgramWithSource"));
 			clBuildProgram = reinterpret_cast <decltype (clBuildProgram)> (dlsym(opencl_library, "clBuildProgram"));
-			clGetProgramBuildInfo = reinterpret_cast <decltype (clGetProgramBuildInfo)> (GetProcAddress(opencl_library, "clGetProgramBuildInfo"));
+			clGetProgramBuildInfo = reinterpret_cast <decltype (clGetProgramBuildInfo)> (dlsym(opencl_library, "clGetProgramBuildInfo"));
 			clCreateKernel = reinterpret_cast <decltype (clCreateKernel)> (dlsym(opencl_library, "clCreateKernel"));
 			clSetKernelArg = reinterpret_cast <decltype (clSetKernelArg)> (dlsym(opencl_library, "clSetKernelArg"));
 			clReleaseKernel = reinterpret_cast <decltype (clReleaseKernel)> (dlsym(opencl_library, "clReleaseKernel"));
@@ -35,7 +35,10 @@ public:
 	}
 	~opencl_initializer ()
 	{
-		dlclose (opencl_library);
+		if (opencl_library != nullptr)
+		{
+			dlclose (opencl_library);
+		}
 	}
 	void * opencl_library;
 	cl_int (* clGetPlatformIDs) (cl_uint, cl_platform_id *, cl_uint *);
@@ -73,7 +76,10 @@ cl_int clGetPlatformIDs (cl_uint num_entries, cl_platform_id * platforms, cl_uin
 	else
 	{
 		result = CL_SUCCESS;
-		*num_platforms = 0;
+		if (num_platforms != nullptr)
+		{
+			*num_platforms = 0;
+		}
 	}
 	return result;
 }

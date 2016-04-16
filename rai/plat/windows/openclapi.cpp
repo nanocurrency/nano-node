@@ -35,7 +35,10 @@ namespace
 		}
 		~opencl_initializer()
 		{
-			FreeLibrary(opencl_library);
+			if (opencl_library != nullptr)
+			{
+				FreeLibrary(opencl_library);
+			}
 		}
 		HMODULE opencl_library;
 		cl_int(*clGetPlatformIDs) (cl_uint, cl_platform_id *, cl_uint *);
