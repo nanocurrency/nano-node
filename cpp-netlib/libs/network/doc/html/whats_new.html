@@ -1,0 +1,342 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>What’s New &mdash; cpp-netlib v0.11.2</title>
+    
+    <link rel="stylesheet" href="_static/pyramid.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.11.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="cpp-netlib v0.11.2" href="index.html" />
+    <link rel="next" title="Getting Started" href="getting_started.html" />
+    <link rel="prev" title="Getting cpp-netlib" href="index.html" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head>
+  <body>
+
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="getting_started.html" title="Getting Started"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Getting cpp-netlib"
+             accesskey="P">previous</a> |</li>
+        <li><a href="contents.html">cpp-netlib v0.11.2</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="what-s-new">
+<span id="whats-new"></span><h1>What&#8217;s New<a class="headerlink" href="#what-s-new" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="cpp-netlib-0-11">
+<h2><tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> 0.11<a class="headerlink" href="#cpp-netlib-0-11" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="v0-11-2">
+<h3>v0.11.2<a class="headerlink" href="#v0-11-2" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Support a source_port setting for connections made by the client per-request.</li>
+<li>Allow using cpp-netlib without OpenSSL.</li>
+<li>Fix build breakage for Visual Studio 2015.</li>
+<li>Add more options for HTTP client use of SSL/TLS options/ciphers.</li>
+<li>Made client_get_timeout_test less flaky.</li>
+<li>Fixes to URI encoding issues with multibyte strings.</li>
+<li>Make cpp-netlib not crash on unstable networks.</li>
+<li>Allow parsing empty query parameters (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/499">#499</a>).</li>
+<li>CMake build changes to simplify dependencies on cppnetlib-client-connections.</li>
+<li>Handle EOF correctly (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/496">#496</a>).</li>
+<li>Fix fileserver example to chunk data correctly.</li>
+<li>Copy hostname to avoid dangling reference to a temporary request object. (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/482">#482</a>)</li>
+<li>Catch exceptions in parse_headers to avoid propagating issues in parsing upwards.</li>
+<li>Fix some GCC warnings on signed/unsigned comparison.</li>
+<li>Support environment variable-based peer verification (via OpenSSL).</li>
+<li>Support IPv6 connections.</li>
+<li>Support certificate-based verification, and option to always verify hosts.</li>
+</ul>
+</div>
+<div class="section" id="v0-11-1">
+<h3>v0.11.1<a class="headerlink" href="#v0-11-1" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Add support for request timeouts.</li>
+<li>Build configuration fixes.</li>
+<li>Support for Travis CI in-project config.</li>
+<li>Make the response parser more flexible to support older/ad-hoc servers that don&#8217;t have standard format responses.</li>
+<li>Fix some instability in the client destructor.</li>
+<li>MSVC 2010 specific fixes.</li>
+</ul>
+</div>
+<div class="section" id="v0-11-0">
+<h3>v0.11.0<a class="headerlink" href="#v0-11-0" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Fix thread leak in DNS resolution failure (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/245">#245</a>)</li>
+<li>Remove unsupported <cite>client_fwd.hpp</cite> header (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/277">#277</a>)</li>
+<li>Remove support for header-only usage (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/129">#129</a>) &#8211; this means that the BOOST_NETWORK_NO_LIB option is no longer actually supported.</li>
+<li>Deprecate Synchronous Client implementations (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/279">#279</a>)</li>
+<li>Support streaming body chunks for PUT/POST client requests (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/27">#27</a>)</li>
+<li>Fix non-case-sensitive header parsing for some client tags (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/313">#313</a>)</li>
+<li>Remove unsupported Jamfiles from the whole project (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/316">#316</a>)</li>
+<li>Add <tt class="docutils literal"><span class="pre">make</span> <span class="pre">install</span></tt> for Linux and OS X (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/285">#285</a>)</li>
+<li>Fix incorrect Body processing (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/69">#69</a>)</li>
+<li>Support chunked transfer encoding from HTTP responses (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/86">#86</a>)</li>
+<li>Make OS X Clang builds use C++11 and libc++.</li>
+<li>Update Boost requirement to 1.54.0.</li>
+<li>Experimental Base64 encoding/decoding library (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/287">#287</a>)</li>
+<li><em>Known test failure:</em> OS X Xcode Clang 5.0 + Boost 1.54.0 + libc++ don&#8217;t play
+well with Boost.Serialization issues, mitigate test breakage but
+<tt class="docutils literal"><span class="pre">cpp-netlib-utils_base64_test</span></tt> still fails in this platform. (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/287">#287</a>)</li>
+<li>Provide a client option to always validate peers for HTTPS requests made by
+the client. (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/349">#349</a>)</li>
+<li>Back-port fix for <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/163">#163</a> for improved URI parsing.</li>
+<li>Added support for client-side certificates and private keys (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/pull/361">#361</a>).</li>
+</ul>
+</div>
+</div>
+<div class="section" id="cpp-netlib-0-10">
+<h2><tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> 0.10<a class="headerlink" href="#cpp-netlib-0-10" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="v0-10-1">
+<h3>v0.10.1<a class="headerlink" href="#v0-10-1" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Documentation updates (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/182">#182</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/265">#265</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/194">#194</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/233">#233</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/255">#255</a>)</li>
+<li>Fix issue with async server inadvertently stopping from listening when
+accepting a connection fails. (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/172">#172</a>)</li>
+<li>Allow overriding and ultimately removing defaulted headers from HTTP
+requests. (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/263">#263</a>)</li>
+<li>Add <cite>-Wall</cite> to the base rule for GCC builds. (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/264">#264</a>)</li>
+<li>Make the server implementation throw on startup errors. (<a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/166">#166</a>)</li>
+</ul>
+</div>
+<div class="section" id="v0-10-0">
+<h3>v0.10.0<a class="headerlink" href="#v0-10-0" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Added support for more HTTP status codes (206, 408, 412, 416, 507).</li>
+<li>Refactored the parser for chunked encoding.</li>
+<li>Fixed parsing chunked encoding if the response body has <tt class="docutils literal"><span class="pre">&lt;chunk&gt;CLRF&lt;hex&gt;CLRF&lt;data&gt;</span></tt>.</li>
+<li>Added librt dependency on Linux.</li>
+<li>Check the callback in the asynchronous client before calling it.</li>
+<li>Fixed issues <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/110">#110</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/168">#168</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/213">#213</a>.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="cpp-netlib-0-9">
+<h2><tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> 0.9<a class="headerlink" href="#cpp-netlib-0-9" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="v0-9-5">
+<h3>v0.9.5<a class="headerlink" href="#v0-9-5" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Removed dependency on Boost.Parameter from HTTP client and server.</li>
+<li>Fixed for Clang error on Twitter example.</li>
+<li>Added source port to the request (HTTP server).</li>
+<li>Updated CMake config for MSVC 2010/2012.</li>
+<li>Now support chunked content encoding in client response parsing.</li>
+<li>Fixed bug with client not invoking callback when a request fails.</li>
+</ul>
+</div>
+<div class="section" id="v0-9-4">
+<h3>v0.9.4<a class="headerlink" href="#v0-9-4" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Lots of URI fixes.</li>
+<li>Fixed async_server&#8217;s request handler so it doesn&#8217;t make copies of the supplied handler.</li>
+<li>Fix for issue <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/73">#73</a> regarding SSL connections ending in short read errors.</li>
+<li>Final C++03-only release.</li>
+</ul>
+</div>
+<div class="section" id="v0-9-3">
+<h3>v0.9.3<a class="headerlink" href="#v0-9-3" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>URI, HTTP client and HTTP server are now built as static libraries (<tt class="docutils literal"><span class="pre">libcppnetlib-uri.a</span></tt>, <tt class="docutils literal"><span class="pre">libcppnetlib-client-connections.a</span></tt> and <tt class="docutils literal"><span class="pre">libcppnetlib-server-parsers.a</span></tt> on Linux and <tt class="docutils literal"><span class="pre">cppnetlib-uri.lib</span></tt>, <tt class="docutils literal"><span class="pre">cppnetlib-client-connections.lib</span></tt> and <tt class="docutils literal"><span class="pre">cppnetlib-server-parsers.lib</span></tt> on Windows).</li>
+<li>Updated URI parser.</li>
+<li>A new URI builder.</li>
+<li>URI support for IPv6 RFC 2732.</li>
+<li>Fixed issues <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/67">#67</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/72">#72</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/78">#78</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/79">#79</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/80">#80</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/81">#81</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/82">#82</a>, <a class="reference external" href="https://github.com/cpp-netlib/cpp-netlib/issues/83">#83</a>.</li>
+<li>New examples for the HTTP client, including an Atom feed, an RSS feed and a
+very simple client that uses the Twitter Search API.</li>
+</ul>
+</div>
+<div class="section" id="v0-9-2">
+<h3>v0.9.2<a class="headerlink" href="#v0-9-2" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Critial bug fixes to v0.9.1.</li>
+</ul>
+</div>
+<div class="section" id="v0-9-1">
+<h3>v0.9.1<a class="headerlink" href="#v0-9-1" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Introduced macro <tt class="docutils literal"><span class="pre">BOOST_NETWORK_DEFAULT_TAG</span></tt> to allow for programmatically
+defining the default flag to use throughout the compilation unit.</li>
+<li>Support for streaming body handlers when performing HTTP client operations.
+See documentation for HTTP client interface for more information.</li>
+<li>Numerous bug fixes from v0.9.0.</li>
+<li>Google, Inc. contributions.</li>
+</ul>
+</div>
+<div class="section" id="v0-9-0">
+<h3>v0.9.0<a class="headerlink" href="#v0-9-0" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><strong>IMPORTANT BREAKING CHANGE</strong>: By default all compile-time heavy parser
+implementations are now compiled to external static libraries. In order to use
+<tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> in header-only mode, users must define the preprocessor
+macro <tt class="docutils literal"><span class="pre">BOOST_NETWORK_NO_LIB</span></tt> before including any <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> header.
+This breaks code that relied on the version 0.8.x line where the library is
+strictly header-only.</li>
+<li>Fix issue #41: Introduce a macro <tt class="docutils literal"><span class="pre">BOOST_NETWORK_HTTP_CLIENT_DEFAULT_TAG</span></tt>
+which makes the default HTTP client use <tt class="docutils literal"><span class="pre">tags::http_async_8bit_udp_resolve</span></tt>
+as the tag.</li>
+<li>Fix issue #40: Write the status line and headers in a single buffer write
+instead of two writes.</li>
+<li>More consistent message API for client and server messages (request and
+response objects).</li>
+<li>Refactoring of internal implementations to allow better separation of concerns
+and more manageable coding/documentation.</li>
+<li>Client and server constructors that support Boost.Parameter named parameters.</li>
+<li>Client and server constructors now take in an optional reference to a Boost.Asio
+<tt class="docutils literal"><span class="pre">io_service</span></tt> to use internally.</li>
+<li>Documentation updates to reflect new APIs.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="cpp-netlib-0-8">
+<h2><tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> 0.8<a class="headerlink" href="#cpp-netlib-0-8" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Updates to URI unit tests and documentation.</li>
+<li>More documentation, covering the HTTP Client and HTTP Server APIs</li>
+<li>Asynchronous HTTP Server that now supports running request handlers on a
+different thread pool.</li>
+<li>An initial thread pool implementation, using Boost.Asio underneath.</li>
+<li>Adding a ready(...) wrapper to check whether a response object returned by
+the asynchronous client in 0.7 already has all the parts available.</li>
+<li>Some attempts at lowering compile time costs.</li>
+</ul>
+</div>
+<div class="section" id="cpp-netlib-0-7">
+<h2><tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> 0.7<a class="headerlink" href="#cpp-netlib-0-7" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Radical documentation overhaul</li>
+<li>Asynchronous HTTP client</li>
+<li>Tag dispatch overhaul, using Boost.MPL</li>
+<li>HTTP Client Facade refactoring</li>
+<li>Bug fixes for HTTP 1.1 response parsing</li>
+<li>Minimized code repetition with some header macro&#8217;s</li>
+<li>Configurable HTTPS support in the library with <tt class="docutils literal"><span class="pre">BOOST_NETWORK_ENABLE_HTTPS</span></tt></li>
+</ul>
+</div>
+<div class="section" id="cpp-netlib-0-6">
+<h2><tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> 0.6<a class="headerlink" href="#cpp-netlib-0-6" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Many fixes for MSVC compiler</li>
+</ul>
+</div>
+<div class="section" id="cpp-netlib-0-5">
+<h2><tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> 0.5<a class="headerlink" href="#cpp-netlib-0-5" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>An embeddable HTTP 1.1 server</li>
+<li>An HTTP 1.1 client upgraded to support HTTPS</li>
+<li>An updated URI parser implementation</li>
+<li>An asynchronous HTTP 1.1 client</li>
+<li>An HTTP 1.1 client that supports streaming function handlers</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">What&#8217;s New</a><ul>
+<li><a class="reference internal" href="#cpp-netlib-0-11"><tt class="docutils literal"><span class="pre">cpp-netlib</span></tt> 0.11</a><ul>
+<li><a class="reference internal" href="#v0-11-2">v0.11.2</a></li>
+<li><a class="reference internal" href="#v0-11-1">v0.11.1</a></li>
+<li><a class="reference internal" href="#v0-11-0">v0.11.0</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cpp-netlib-0-10"><tt class="docutils literal"><span class="pre">cpp-netlib</span></tt> 0.10</a><ul>
+<li><a class="reference internal" href="#v0-10-1">v0.10.1</a></li>
+<li><a class="reference internal" href="#v0-10-0">v0.10.0</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cpp-netlib-0-9"><tt class="docutils literal"><span class="pre">cpp-netlib</span></tt> 0.9</a><ul>
+<li><a class="reference internal" href="#v0-9-5">v0.9.5</a></li>
+<li><a class="reference internal" href="#v0-9-4">v0.9.4</a></li>
+<li><a class="reference internal" href="#v0-9-3">v0.9.3</a></li>
+<li><a class="reference internal" href="#v0-9-2">v0.9.2</a></li>
+<li><a class="reference internal" href="#v0-9-1">v0.9.1</a></li>
+<li><a class="reference internal" href="#v0-9-0">v0.9.0</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cpp-netlib-0-8"><tt class="docutils literal"><span class="pre">cpp-netlib</span></tt> 0.8</a></li>
+<li><a class="reference internal" href="#cpp-netlib-0-7"><tt class="docutils literal"><span class="pre">cpp-netlib</span></tt> 0.7</a></li>
+<li><a class="reference internal" href="#cpp-netlib-0-6"><tt class="docutils literal"><span class="pre">cpp-netlib</span></tt> 0.6</a></li>
+<li><a class="reference internal" href="#cpp-netlib-0-5"><tt class="docutils literal"><span class="pre">cpp-netlib</span></tt> 0.5</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Getting cpp-netlib</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="getting_started.html"
+                        title="next chapter">Getting Started</a></p>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="getting_started.html" title="Getting Started"
+             >next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Getting cpp-netlib"
+             >previous</a> |</li>
+        <li><a href="contents.html">cpp-netlib v0.11.2</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2008-2014, Glyn Matthews, Dean Michael Berris; 2013 Google, Inc..
+      Last updated on Aug 27, 2015.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

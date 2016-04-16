@@ -1,0 +1,55 @@
+Benchmark results from GCC 4.6.4 without any optimization (no switches):
+
+  Executing base64_stateless_test:
+    Encoding 16 MB buffer took 4.81s.
+  Executing base64_stateful_buffer_test:
+    Encoding 16 MB buffer took 4.93s.
+    Encoding 256 x 64 KB buffers took 4.92s.
+  Executing base64_stateful_transform_test:
+    Encoding 16 MB buffer took 5.32s.
+    Encoding 256 x 64 KB buffers took 5.25s.
+  Executing base64_stateful_iterator_test:
+    Encoding 16 MB buffer took 7.03s.
+    Encoding 256 x 64 KB buffers took 7.02s.
+  Executing base64_standalone_test:
+    Encoding 16 MB buffer took 0.93s.
+    Encoding 256 x 64 KB buffers took 1.01s.
+  Executing base64_standalone_io_test:
+    Encoding 16 MB buffer took 2.31s.
+    Encoding 256 x 64 KB buffers took 2.32s.
+
+Benchmark results from GCC 4.6.4 with the -O3 optimization; the processed
+data were 10 times bigger than for the test run without any optimization:
+
+  Executing base64_stateless_test:
+    Encoding 160 MB buffer took 3.42s.
+  Executing base64_stateful_buffer_test:
+    Encoding 160 MB buffer took 3.69s.
+    Encoding 1280 x 320 KB buffers took 9.43s.
+  Executing base64_stateful_transform_test:
+    Encoding 160 MB buffer took 4.71s.
+    Encoding 1280 x 320 KB buffers took 12.27s.
+  Executing base64_stateful_iterator_test:
+    Encoding 160 MB buffer took 4.65s.
+    Encoding 1280 x 320 KB buffers took 11.92s.
+  Executing base64_standalone_test:
+    Encoding 160 MB buffer took 1.46s.
+    Encoding 1280 x 320 KB buffers took 4.09s.
+  Executing base64_standalone_io_test:
+    Encoding 160 MB buffer took 3.93s.
+    Encoding 1280 x 320 KB buffers took 10.18s.
+
+Testing the base64_stateless was done for the sake of completeness just to
+test the pure boost implementation only; state is needed for chunked encoding.
+
+The three different base64_stateful_xxx implementations are comparable;
+the base64_stateful_iterator may have spent more time in copy constructors,
+because the state is owned lower - by the transformed iterator adaptor.
+The iostream interface brings noticeable overhead, especially if the
+encoding state (stored in the internal extensible array of the output stream)
+is used extensively.
+
+The boost transforming iterators are not enough to implement BASE64 encoding
+of a chunked input.  Taking the additional code into consideration, the amount
+of code for the non-boost base64_standalone implementation is not so different
+and offers better performance.

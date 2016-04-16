@@ -1,0 +1,265 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Tag metafunctions &mdash; cpp-netlib v0.11.2</title>
+    
+    <link rel="stylesheet" href="../_static/pyramid.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.11.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="cpp-netlib v0.11.2" href="../index.html" />
+    <link rel="up" title="Techniques" href="../techniques.html" />
+    <link rel="next" title="Directives" href="directives.html" />
+    <link rel="prev" title="Techniques" href="../techniques.html" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head>
+  <body>
+
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="directives.html" title="Directives"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="../techniques.html" title="Techniques"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../techniques.html" accesskey="U">Techniques</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="tag-metafunctions">
+<h1>Tag metafunctions<a class="headerlink" href="#tag-metafunctions" title="Permalink to this headline">¶</a></h1>
+<p>Sometimes you want to vary a function or a type&#8217;s behavior based on a
+static parameter. In the <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> there are a number of
+things you might want to change based on some such parameter &#8211; like
+what the underlying string type should be and how large a buffer
+should be, among other things. The primary way to define this in a
+header-only manner is to use tag-based metafunctions.</p>
+<p>The skeleton of the approach is based on a similar technique for
+defining type traits. In the <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> however the type traits
+are defined on opaque tag types which serve to associate results to a
+family of metafunctions.</p>
+<div class="section" id="template-specialization">
+<h2>Template Specialization<a class="headerlink" href="#template-specialization" title="Permalink to this headline">¶</a></h2>
+<p>To illustrate this point, let&#8217;s define a tag <tt class="docutils literal"><span class="pre">default_</span></tt> which we use
+to denote the default implementation of a certain type <tt class="docutils literal"><span class="pre">foo</span></tt>. For
+instance we decide that the default string type we will use for
+<tt class="docutils literal"><span class="pre">default_</span></tt> tagged <tt class="docutils literal"><span class="pre">foo</span></tt> specializations will be an
+<tt class="docutils literal"><span class="pre">std::string</span></tt>.</p>
+<p>In the <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> this is done by defining a <tt class="docutils literal"><span class="pre">string</span></tt>
+metafunction type that is specialized on the tag <tt class="docutils literal"><span class="pre">default_</span></tt> whose
+nested <tt class="docutils literal"><span class="pre">type</span></tt> result is the type <tt class="docutils literal"><span class="pre">std::string</span></tt>. In code this would
+translate to:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">Tag</span><span class="o">&gt;</span>
+<span class="k">struct</span> <span class="n">string</span> <span class="p">{</span>
+    <span class="k">typedef</span> <span class="kt">void</span> <span class="n">type</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">struct</span> <span class="n">default_</span><span class="p">;</span>
+
+<span class="k">template</span> <span class="o">&lt;&gt;</span>
+<span class="k">struct</span> <span class="n">string</span><span class="o">&lt;</span><span class="n">default_</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">typedef</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">type</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="template-metaprogramming">
+<h2>Template Metaprogramming<a class="headerlink" href="#template-metaprogramming" title="Permalink to this headline">¶</a></h2>
+<p>Starting with version 0.7, the tag dispatch mechanism changed slightly to use
+<a class="reference external" href="http://www.boost.org/libs/mpl/index.html">Boost.MPL</a>. The idea is still the same, although we can get a little smarter
+than just using template specializations. Instead of just defining an opaque
+type <tt class="docutils literal"><span class="pre">default_</span></tt>, we use the Boost.MPL equivalent of a vector to define which
+root types of properties this <tt class="docutils literal"><span class="pre">default_</span></tt> tag supports. The idea is to make the
+opaque type <tt class="docutils literal"><span class="pre">default_</span></tt> inherit property tags which the library supports
+internally as definite extension points.</p>
+<p>Our definition of the <tt class="docutils literal"><span class="pre">default_</span></tt> tag will then look something like the
+following:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="k">typedef</span> <span class="n">mpl</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">default_string</span><span class="o">&gt;</span> <span class="n">default_tags</span><span class="p">;</span>
+
+<span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">Tag</span><span class="o">&gt;</span>
+<span class="k">struct</span> <span class="n">components</span><span class="p">;</span>
+
+<span class="k">typedef</span> <span class="n">mpl</span><span class="o">::</span><span class="n">inherit_linearly</span><span class="o">&lt;</span>
+    <span class="n">default_tags</span><span class="p">,</span>
+    <span class="n">mpl</span><span class="o">::</span><span class="n">inherit</span><span class="o">&lt;</span><span class="n">mpl</span><span class="o">::</span><span class="n">placeholders</span><span class="o">::</span><span class="n">_1</span><span class="p">,</span> <span class="n">mpl</span><span class="o">::</span><span class="n">placeholders</span><span class="o">::</span><span class="n">_2</span><span class="o">&gt;</span>
+    <span class="o">&gt;::</span><span class="n">type</span> <span class="n">default_</span><span class="p">;</span>
+
+<span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">Tag</span><span class="o">&gt;</span>
+<span class="k">struct</span> <span class="n">components</span><span class="o">&lt;</span><span class="n">default_</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">typedef</span> <span class="n">default_tags</span> <span class="n">type</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>In the above listing, <tt class="docutils literal"><span class="pre">default_string</span></tt> is what we call a &#8220;root&#8221; tag which is
+meant to be combined with other &#8220;root&#8221; tags to form composite tags. In this case
+our composite tag is the tag <tt class="docutils literal"><span class="pre">default_</span></tt>. There are a number of these &#8220;root&#8221;
+tags that <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> provides. These are in the namespace
+<tt class="docutils literal"><span class="pre">boost::network::tags</span></tt> and are defined in <tt class="docutils literal"><span class="pre">boost/network/tags.hpp</span></tt>.</p>
+<p>Using this technique we change slightly our definition of the <tt class="docutils literal"><span class="pre">string</span></tt>
+metafunction class into this:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">Tag</span><span class="o">&gt;</span>
+<span class="k">struct</span> <span class="n">unsupported_tag</span><span class="p">;</span>
+
+<span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">Tag</span><span class="o">&gt;</span>
+<span class="k">struct</span> <span class="n">string</span> <span class="o">:</span>
+    <span class="n">mpl</span><span class="o">::</span><span class="n">if_</span><span class="o">&lt;</span>
+        <span class="n">is_base_of</span><span class="o">&lt;</span>
+            <span class="n">tags</span><span class="o">::</span><span class="n">default_string</span><span class="p">,</span>
+            <span class="n">Tag</span>
+        <span class="o">&gt;</span><span class="p">,</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span>
+        <span class="n">unsupported_tag</span><span class="o">&lt;</span><span class="n">Tag</span><span class="o">&gt;</span>
+    <span class="o">&gt;</span>
+<span class="p">{};</span>
+</pre></div>
+</div>
+<p>Notice that we don&#8217;t have the typedef for <tt class="docutils literal"><span class="pre">type</span></tt> in the body of <tt class="docutils literal"><span class="pre">string</span></tt>
+anymore, but we do inherit from <tt class="docutils literal"><span class="pre">mpl::if_</span></tt>. Since <tt class="docutils literal"><span class="pre">mpl::if_</span></tt> is a template
+metafunction itself, it contains a definition of the resulting <tt class="docutils literal"><span class="pre">type</span></tt> which
+<tt class="docutils literal"><span class="pre">string</span></tt> inherits.</p>
+<p>You can see the real definition of the <tt class="docutils literal"><span class="pre">string</span></tt> metafunction in
+<tt class="docutils literal"><span class="pre">boost/network/traits/string.hpp</span></tt>.</p>
+</div>
+<div class="section" id="using-tags">
+<h2>Using Tags<a class="headerlink" href="#using-tags" title="Permalink to this headline">¶</a></h2>
+<p>Once we have the defined tag, we can then use this in the definition of our
+types. In the definition of the type <tt class="docutils literal"><span class="pre">foo</span></tt> we use this type function
+<tt class="docutils literal"><span class="pre">string</span></tt> and pass the tag type parameter to determine what to use as
+the string type in the context of the type <tt class="docutils literal"><span class="pre">foo</span></tt>. In code this would
+translate into:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">Tag</span><span class="o">&gt;</span>
+<span class="k">struct</span> <span class="n">foo</span> <span class="p">{</span>
+    <span class="k">typedef</span> <span class="k">typename</span> <span class="n">string</span><span class="o">&lt;</span><span class="n">Tag</span><span class="o">&gt;::</span><span class="n">type</span> <span class="n">string_type</span><span class="p">;</span>
+
+    <span class="c1">// .. use string_type where you need a string.</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Using this approach we can support different types of strings for
+different tags on the type <tt class="docutils literal"><span class="pre">foo</span></tt>. In case we want to use a different
+type of string for the tag <tt class="docutils literal"><span class="pre">default_</span></tt> we only change the
+composition of the <tt class="docutils literal"><span class="pre">string_tags</span></tt> MPL vector. For example, in <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt>
+there is a root tag <tt class="docutils literal"><span class="pre">default_wstring</span></tt> which causes the <tt class="docutils literal"><span class="pre">string</span></tt> metafunction
+to define <tt class="docutils literal"><span class="pre">std::wstring</span></tt> as the resulting type.</p>
+<p>The approach also allows for the control of the structure and features
+of types like <tt class="docutils literal"><span class="pre">foo</span></tt> based on the specialization of the tag. Whole
+type function families can be defined on tags where they are supported
+and ignored in cases where they are not.</p>
+<p>To illustrate let&#8217;s define a new tag <tt class="docutils literal"><span class="pre">swappable</span></tt>. Given the above
+definition of <tt class="docutils literal"><span class="pre">foo</span></tt>, we want to make the <tt class="docutils literal"><span class="pre">swappable</span></tt>-tagged
+<tt class="docutils literal"><span class="pre">foo</span></tt> define a <tt class="docutils literal"><span class="pre">swap</span></tt> function that extends the original
+<tt class="docutils literal"><span class="pre">default_</span></tt>-tagged <tt class="docutils literal"><span class="pre">foo</span></tt>. In code this would look like:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="k">struct</span> <span class="n">swappable</span><span class="p">;</span>
+
+<span class="k">template</span> <span class="o">&lt;&gt;</span>
+<span class="k">struct</span> <span class="n">foo</span><span class="o">&lt;</span><span class="n">swappable</span><span class="o">&gt;</span> <span class="o">:</span> <span class="n">foo</span><span class="o">&lt;</span><span class="n">default_</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="kt">void</span> <span class="n">swap</span><span class="p">(</span><span class="n">foo</span><span class="o">&lt;</span><span class="n">swappable</span><span class="o">&gt;</span> <span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// ...</span>
+    <span class="p">}</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>We also for example want to enable an ADL-reachable <tt class="docutils literal"><span class="pre">swap</span></tt> function:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="k">struct</span> <span class="n">swappable</span><span class="p">;</span>
+
+<span class="kr">inline</span>
+<span class="kt">void</span> <span class="nf">swap</span><span class="p">(</span><span class="n">foo</span><span class="o">&lt;</span><span class="n">swappable</span><span class="o">&gt;</span> <span class="o">&amp;</span> <span class="n">left</span><span class="p">,</span> <span class="n">foo</span><span class="o">&lt;</span><span class="n">swappable</span><span class="o">&gt;</span> <span class="o">&amp;</span> <span class="n">right</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">left</span><span class="p">.</span><span class="n">swap</span><span class="p">(</span><span class="n">right</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Overall what the tag-based definition approach allows is for static
+definition of extension points that ensures type-safety and
+invariants. This keeps the whole extension mechanism static and yet
+flexible.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Tag metafunctions</a><ul>
+<li><a class="reference internal" href="#template-specialization">Template Specialization</a></li>
+<li><a class="reference internal" href="#template-metaprogramming">Template Metaprogramming</a></li>
+<li><a class="reference internal" href="#using-tags">Using Tags</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../techniques.html"
+                        title="previous chapter">Techniques</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="directives.html"
+                        title="next chapter">Directives</a></p>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="directives.html" title="Directives"
+             >next</a></li>
+        <li class="right" >
+          <a href="../techniques.html" title="Techniques"
+             >previous</a> |</li>
+        <li><a href="../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../techniques.html" >Techniques</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2008-2014, Glyn Matthews, Dean Michael Berris; 2013 Google, Inc..
+      Last updated on Aug 27, 2015.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

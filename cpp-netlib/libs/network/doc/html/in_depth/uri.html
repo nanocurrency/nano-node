@@ -1,0 +1,295 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>The URI class &mdash; cpp-netlib v0.11.2</title>
+    
+    <link rel="stylesheet" href="../_static/pyramid.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.11.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="cpp-netlib v0.11.2" href="../index.html" />
+    <link rel="up" title="An in-depth look at the cpp-netlib" href="../in_depth.html" />
+    <link rel="next" title="HTTP implementation" href="http.html" />
+    <link rel="prev" title="The message template" href="message.html" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head>
+  <body>
+
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="http.html" title="HTTP implementation"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="message.html" title="The message template"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../in_depth.html" accesskey="U">An in-depth look at the <tt class="docutils literal"><span class="pre">cpp-netlib</span></tt></a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-uri-class">
+<h1>The URI class<a class="headerlink" href="#the-uri-class" title="Permalink to this headline">¶</a></h1>
+<p>In addition to protocol implementations, the <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt>
+provides a powerful URI class.  The class implements a parser based
+on <a class="reference external" href="http://tools.ietf.org/html/rfc3986">RFC 3986</a> and <a class="reference external" href="http://tools.ietf.org/html/rfc2732">RFC 2732</a>.</p>
+<div class="section" id="generic-uri-syntax-overview">
+<h2>Generic URI syntax overview<a class="headerlink" href="#generic-uri-syntax-overview" title="Permalink to this headline">¶</a></h2>
+<p>A generic URI will take the form:</p>
+<div class="highlight-python"><div class="highlight"><pre>[scheme:]scheme-specific-part[#fragment]
+</pre></div>
+</div>
+<p>A URI is known as <cite>absolute</cite> if it specifies the scheme.  Otherwise,
+it is known as a relative URI.  Currently, <tt class="docutils literal"><span class="pre">uri</span></tt> supports only
+absolute URIs.</p>
+<p>URIs can be further classified according to whether they&#8217;re
+hierarchical or opaque (non-hierarchical).</p>
+<p>Some examples of non-hierarchical URIs include:</p>
+<div class="highlight-python"><div class="highlight"><pre>mailto:john.doe@example.com
+news:comp.infosystems.www.servers.unix
+tel:+1-816-555-1212
+</pre></div>
+</div>
+<p>The data following the first <tt class="docutils literal"><span class="pre">&quot;:&quot;</span></tt> is said to be opaque to the URI
+parser and requires no further parsing.  By way of example, the
+following shows how a non-hierarchical URI is processed by the parser
+by defining everything after the <tt class="docutils literal"><span class="pre">&quot;:&quot;</span></tt> to be a part of the path:</p>
+<img alt="../_images/mailto_uri.png" src="../_images/mailto_uri.png" />
+<p>A hierarchical URI is identified by a double slash (<tt class="docutils literal"><span class="pre">&quot;//&quot;</span></tt>) after
+the scheme and a scheme-specific component, which <a class="reference external" href="http://tools.ietf.org/html/rfc3986">RFC 3986</a> defines
+to be:</p>
+<div class="highlight-python"><div class="highlight"><pre>[scheme:][//authority][path][?query][#fragment]
+</pre></div>
+</div>
+<p>The authority component can be further broken down to:</p>
+<div class="highlight-python"><div class="highlight"><pre>[user_info@]host[:port]
+</pre></div>
+</div>
+<p>Examples of hierarchical URIs include:</p>
+<div class="highlight-python"><div class="highlight"><pre>http://www.boost.org/
+file:///bin/bash
+</pre></div>
+</div>
+<p>The following example, describing a complex URI using FTP, shows how
+a URI is broken down by the parser:</p>
+<img alt="../_images/ftp_uri.png" src="../_images/ftp_uri.png" />
+<p>Note that the <tt class="docutils literal"><span class="pre">authority</span></tt> is further subdivided into different
+elements.  Another example, using HTTP is given below:</p>
+<img alt="../_images/http_uri.png" src="../_images/http_uri.png" />
+<p>The difference here between the path in a hierarchical URI and that in
+the example above for the non-hierarchical URI.</p>
+</div>
+<div class="section" id="id1">
+<h2>The <tt class="docutils literal"><span class="pre">uri</span></tt> class<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>As of version 0.9.3, <tt class="docutils literal"><span class="pre">uri</span></tt> supplies a URI parser and builder.
+To use the parser, it&#8217;s as simple as supplying a string to the
+constructor:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="k">using</span> <span class="k">namespace</span> <span class="n">boost</span><span class="o">::</span><span class="n">network</span><span class="p">;</span>
+<span class="n">uri</span><span class="o">::</span><span class="n">uri</span> <span class="n">instance</span><span class="p">(</span><span class="s">&quot;http://cpp-netlib.github.com/&quot;</span><span class="p">);</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">instance</span><span class="p">.</span><span class="n">is_valid</span><span class="p">());</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;scheme: &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">instance</span><span class="p">.</span><span class="n">scheme</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span>
+          <span class="o">&lt;&lt;</span> <span class="s">&quot;host: &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">instance</span><span class="p">.</span><span class="n">host</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The command-line output of this program will be:</p>
+<div class="highlight-python"><div class="highlight"><pre>scheme: http
+host: cpp-netlib.github.com
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-uri-builder">
+<h2>The <tt class="docutils literal"><span class="pre">uri</span></tt> builder<a class="headerlink" href="#the-uri-builder" title="Permalink to this headline">¶</a></h2>
+<p><tt class="docutils literal"><span class="pre">uri</span></tt> support a stream style syntax to create a URI from it&#8217;s
+elements.  For example the program:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="cp">#include &lt;iostream&gt;</span>
+<span class="cp">#include &lt;boost/network/uri.hpp&gt;</span>
+<span class="cp">#include &lt;boost/network/uri/uri_io.hpp&gt;</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">boost</span><span class="o">::</span><span class="n">network</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">uri</span><span class="o">::</span><span class="n">uri</span> <span class="n">url</span><span class="p">;</span>
+    <span class="n">url</span> <span class="o">&lt;&lt;</span> <span class="n">uri</span><span class="o">::</span><span class="n">scheme</span><span class="p">(</span><span class="s">&quot;http&quot;</span><span class="p">)</span>
+        <span class="o">&lt;&lt;</span> <span class="n">uri</span><span class="o">::</span><span class="n">host</span><span class="p">(</span><span class="s">&quot;www.github.com&quot;</span><span class="p">)</span>
+        <span class="o">&lt;&lt;</span> <span class="n">uri</span><span class="o">::</span><span class="n">path</span><span class="p">(</span><span class="s">&quot;/cpp-netlib&quot;</span><span class="p">);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">url</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>will output:</p>
+<div class="highlight-python"><div class="highlight"><pre>http://www.github.com/cpp-netlib
+</pre></div>
+</div>
+</div>
+<div class="section" id="uri-concept">
+<h2><tt class="docutils literal"><span class="pre">URI</span> <span class="pre">Concept</span></tt><a class="headerlink" href="#uri-concept" title="Permalink to this headline">¶</a></h2>
+<p><strong>Legend</strong></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">U:</th><td class="field-body">The URI type.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">u,u_:</th><td class="field-body">An instance of <strong>M</strong>.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">S:</th><td class="field-body">A string type.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">s,v:</th><td class="field-body">An instance of <strong>S</strong>.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">T:</th><td class="field-body">The Tag type.</td>
+</tr>
+</tbody>
+</table>
+<table border="1" class="docutils">
+<colgroup>
+<col width="31%" />
+<col width="24%" />
+<col width="45%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Construct</th>
+<th class="head">Result</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">U(u)</span></tt></td>
+<td>Instance of U</td>
+<td>Copy constructible.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">U(s)</span></tt></td>
+<td>Instance of U</td>
+<td>Constructible from string.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">u</span> <span class="pre">=</span> <span class="pre">u_;</span></tt></td>
+<td>Reference to u</td>
+<td>Assignable.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">u</span> <span class="pre">=</span> <span class="pre">s;</span></tt></td>
+<td>Reference to u</td>
+<td>Assignable from string.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">swap(u,</span> <span class="pre">u_);</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">void</span></tt></td>
+<td>Swappable.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">scheme(u);</span></tt></td>
+<td>Convertible to S</td>
+<td>Retrieve the URI scheme of <tt class="docutils literal"><span class="pre">u</span></tt>.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">user_info(u);</span></tt></td>
+<td>Convertible to S</td>
+<td>Retrieve the user info of <tt class="docutils literal"><span class="pre">u</span></tt>.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">host(u);</span></tt></td>
+<td>Convertible to S</td>
+<td>Retrieve the host of <tt class="docutils literal"><span class="pre">u</span></tt>.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">port(u);</span></tt></td>
+<td>Convertible to H</td>
+<td>Retrieve the port of <tt class="docutils literal"><span class="pre">u</span></tt>.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">path(u);</span></tt></td>
+<td>Convertible to S</td>
+<td>Retrieve the path of <tt class="docutils literal"><span class="pre">u</span></tt>.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">query(u);</span></tt></td>
+<td>Convertible to S</td>
+<td>Retrieve the query string of <tt class="docutils literal"><span class="pre">u</span></tt>.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">fragment(u);</span></tt></td>
+<td>Convertible to S</td>
+<td>Retrieve the fragment of <tt class="docutils literal"><span class="pre">u</span></tt>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">The URI class</a><ul>
+<li><a class="reference internal" href="#generic-uri-syntax-overview">Generic URI syntax overview</a></li>
+<li><a class="reference internal" href="#id1">The <tt class="docutils literal"><span class="pre">uri</span></tt> class</a></li>
+<li><a class="reference internal" href="#the-uri-builder">The <tt class="docutils literal"><span class="pre">uri</span></tt> builder</a></li>
+<li><a class="reference internal" href="#uri-concept"><tt class="docutils literal"><span class="pre">URI</span> <span class="pre">Concept</span></tt></a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="message.html"
+                        title="previous chapter">The message template</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="http.html"
+                        title="next chapter">HTTP implementation</a></p>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="http.html" title="HTTP implementation"
+             >next</a></li>
+        <li class="right" >
+          <a href="message.html" title="The message template"
+             >previous</a> |</li>
+        <li><a href="../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../in_depth.html" >An in-depth look at the <tt class="docutils literal"><span class="pre">cpp-netlib</span></tt></a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2008-2014, Glyn Matthews, Dean Michael Berris; 2013 Google, Inc..
+      Last updated on Aug 27, 2015.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

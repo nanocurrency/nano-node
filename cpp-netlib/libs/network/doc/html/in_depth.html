@@ -1,0 +1,132 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>An in-depth look at the cpp-netlib &mdash; cpp-netlib v0.11.2</title>
+    
+    <link rel="stylesheet" href="_static/pyramid.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.11.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="cpp-netlib v0.11.2" href="index.html" />
+    <link rel="next" title="The message template" href="in_depth/message.html" />
+    <link rel="prev" title="Twitter search" href="examples/http/twitter_search.html" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head>
+  <body>
+
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="in_depth/message.html" title="The message template"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="examples/http/twitter_search.html" title="Twitter search"
+             accesskey="P">previous</a> |</li>
+        <li><a href="contents.html">cpp-netlib v0.11.2</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="an-in-depth-look-at-the-cpp-netlib">
+<span id="in-depth"></span><h1>An in-depth look at the <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt><a class="headerlink" href="#an-in-depth-look-at-the-cpp-netlib" title="Permalink to this headline">¶</a></h1>
+<p>The <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> is composed of three different sets of
+functionality: a <strong>message</strong> template, a <strong>URI</strong> template and
+different <strong>protocol</strong> implementations.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="in_depth/message.html">The message template</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/message.html#message-concept">Message Concept</a></li>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/message.html#directives-modifiers-and-wrappers">Directives, Modifiers, and Wrappers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/message.html#basic-message"><tt class="docutils literal"><span class="pre">basic_message</span></tt></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="in_depth/uri.html">The URI class</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/uri.html#generic-uri-syntax-overview">Generic URI syntax overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/uri.html#id1">The <tt class="docutils literal"><span class="pre">uri</span></tt> class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/uri.html#the-uri-builder">The <tt class="docutils literal"><span class="pre">uri</span></tt> builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/uri.html#uri-concept"><tt class="docutils literal"><span class="pre">URI</span> <span class="pre">Concept</span></tt></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="in_depth/http.html">HTTP implementation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/http.html#http-client">HTTP client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="in_depth/http.html#http-server">HTTP server</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="examples/http/twitter_search.html"
+                        title="previous chapter">Twitter search</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="in_depth/message.html"
+                        title="next chapter">The message template</a></p>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="in_depth/message.html" title="The message template"
+             >next</a></li>
+        <li class="right" >
+          <a href="examples/http/twitter_search.html" title="Twitter search"
+             >previous</a> |</li>
+        <li><a href="contents.html">cpp-netlib v0.11.2</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2008-2014, Glyn Matthews, Dean Michael Berris; 2013 Google, Inc..
+      Last updated on Aug 27, 2015.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

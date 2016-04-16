@@ -1,0 +1,80 @@
+Resent-To: mail.app@flagg2.qualcomm.com
+Resent-From: win-eudora-bugs@flagg2.qualcomm.com
+Resent-Message-Id: <B0001796321@flagg2.na.qualcomm.com>
+Resent-Date: Mon, 1 Nov 2004 16:01:16 -0800
+Received: from flagg2.qualcomm.com [129.46.154.229]
+	by localhost with IMAP (fetchmail-6.2.5)
+	for marshall@localhost (single-drop); Tue, 02 Nov 2004 11:38:27 -0800 (PST)
+Received: from snape.qualcomm.com (unverified [129.46.132.184]) (using TLSv1 with Cipher RC4(128), Exch RSA_SIGN(1024), Hash MD5(128)) by flagg2.qualcomm.com
+ (Rockliffe SMTPRA 6.1.16) with ESMTP id <B0001796320@flagg2.qualcomm.com> for <win-eudora-bugs@flagg2.qualcomm.com>;
+ Mon, 1 Nov 2004 16:01:16 -0800
+Received: from neophyte.qualcomm.com (neophyte.qualcomm.com [129.46.61.149])
+	by snape.qualcomm.com (8.12.10/8.12.3/1.0) with ESMTP id iA201FcH022189
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL);
+	Mon, 1 Nov 2004 16:01:15 -0800 (PST)
+Received: from hobbiton.qualcomm.com (hobbiton.qualcomm.com [199.106.114.69])
+	by neophyte.qualcomm.com (8.12.10/8.12.5/1.0) with ESMTP id iA201D9A029029
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <win-eudora6-bugs@eudora.com>; Mon, 1 Nov 2004 16:01:13 -0800 (PST)
+Received: from isengard.qualcomm.com (isengard.qualcomm.com [199.106.114.75]) by hobbiton.qualcomm.com  (qualnet-external) with ESMTP id iA201BhJ016885 for <win-eudora6-bugs@eudora.com>; Mon, 1 Nov 2004 16:01:12 -0800 (PST)
+Received: from localhost (localhost) by isengard.qualcomm.com  id iA201CuA023535; Mon, 1 Nov 2004 16:01:12 -0800 (PST)
+Date: Mon, 1 Nov 2004 16:01:12 -0800 (PST)
+From: Mail Delivery Subsystem <MAILER-DAEMON@qualcomm.com>
+Message-Id: <200411020001.iA201CuA023535@isengard.qualcomm.com>
+To: <win-eudora6-bugs@qualcomm.com>
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status
+Subject: Returned mail: see transcript for details
+Auto-Submitted: auto-generated (failure)
+X-PMX-Version: 4.6.0.99824, Antispam-Core: 4.6.0.97340, Antispam-Data: 2004.11.1.3
+
+This is a MIME-encapsulated message
+
+--iA201CuA023535.1099353672/isengard.qualcomm.com
+
+The original message was received at Mon, 1 Nov 2004 16:01:09 -0800 (PST)
+from [210.193.18.250]
+
+   ----- The following addresses had permanent fatal errors -----
+<win-eudora6-bugs@eudora.com>
+    (reason: 550 5.6.1 Prohibited attachment type)
+
+   ----- Transcript of session follows -----
+... while talking to hobbiton.qualcomm.com.:
+>>> DATA
+<<< 550 5.6.1 Prohibited attachment type
+554 5.0.0 Service unavailable
+
+--iA201CuA023535.1099353672/isengard.qualcomm.com
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; isengard.qualcomm.com
+Received-From-MTA: DNS; [210.193.18.250]
+Arrival-Date: Mon, 1 Nov 2004 16:01:09 -0800 (PST)
+
+Final-Recipient: RFC822; win-eudora6-bugs@eudora.com
+Action: failed
+Status: 5.6.1
+Remote-MTA: DNS; hobbiton.qualcomm.com
+Diagnostic-Code: SMTP; 550 5.6.1 Prohibited attachment type
+Last-Attempt-Date: Mon, 1 Nov 2004 16:01:12 -0800 (PST)
+
+--iA201CuA023535.1099353672/isengard.qualcomm.com
+Content-Type: text/rfc822-headers
+
+Return-Path: <win-eudora6-bugs@eudora.com>
+Received: from eudora.com ([210.193.18.250]) by isengard.qualcomm.com  with ESMTP id iA2018uA023523 for <win-eudora6-bugs@eudora.com>; Mon, 1 Nov 2004 16:01:09 -0800 (PST)
+Message-Id: <200411020001.iA2018uA023523@isengard.qualcomm.com>
+From: win-eudora6-bugs@eudora.com
+To: win-eudora6-bugs@eudora.com
+Subject: Re: Excel file
+Date: Tue, 2 Nov 2004 08:00:34 +0800
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0001_00000AE6.000070CC"
+X-Priority: 3
+X-MSMail-Priority: Normal
+
+--iA201CuA023535.1099353672/isengard.qualcomm.com--
+
+

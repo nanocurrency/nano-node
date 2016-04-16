@@ -1,0 +1,182 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Atom feed reader &mdash; cpp-netlib v0.11.2</title>
+    
+    <link rel="stylesheet" href="../../_static/pyramid.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.11.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="cpp-netlib v0.11.2" href="../../index.html" />
+    <link rel="up" title="Examples" href="../../examples.html" />
+    <link rel="next" title="Twitter search" href="twitter_search.html" />
+    <link rel="prev" title="“Hello world” HTTP client" href="hello_world_client.html" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head>
+  <body>
+
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="twitter_search.html" title="Twitter search"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="hello_world_client.html" title="“Hello world” HTTP client"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../../examples.html" accesskey="U">Examples</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="atom-feed-reader">
+<span id="atom-reader"></span><h1>Atom feed reader<a class="headerlink" href="#atom-feed-reader" title="Permalink to this headline">¶</a></h1>
+<p>The next examples show some simple, more practical applications using
+the HTTP client.  The first one reads a simple <a class="reference external" href="http://en.wikipedia.org/wiki/Atom_(standard)">Atom</a> feed and prints
+the titles of each entry to the console.</p>
+<div class="section" id="the-code">
+<h2>The code<a class="headerlink" href="#the-code" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-c++"><div class="highlight"><pre><span class="cp">#include &quot;atom.hpp&quot;</span>
+<span class="cp">#include &lt;boost/network/protocol/http/client.hpp&gt;</span>
+<span class="cp">#include &lt;boost/foreach.hpp&gt;</span>
+<span class="cp">#include &lt;iostream&gt;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span> <span class="n">argv</span><span class="p">[])</span> <span class="p">{</span>
+    <span class="k">using</span> <span class="k">namespace</span> <span class="n">boost</span><span class="o">::</span><span class="n">network</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Usage: &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="s">&quot; &lt;url&gt;&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">try</span> <span class="p">{</span>
+        <span class="n">http</span><span class="o">::</span><span class="n">client</span> <span class="n">client</span><span class="p">;</span>
+        <span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">request</span> <span class="n">request</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+        <span class="n">request</span> <span class="o">&lt;&lt;</span> <span class="n">header</span><span class="p">(</span><span class="s">&quot;Connection&quot;</span><span class="p">,</span> <span class="s">&quot;close&quot;</span><span class="p">);</span>
+        <span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">response</span> <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
+        <span class="n">atom</span><span class="o">::</span><span class="n">feed</span> <span class="n">feed</span><span class="p">(</span><span class="n">response</span><span class="p">);</span>
+
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Feed: &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">feed</span><span class="p">.</span><span class="n">title</span><span class="p">()</span>
+                  <span class="o">&lt;&lt;</span> <span class="s">&quot; (&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">feed</span><span class="p">.</span><span class="n">subtitle</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;)&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">BOOST_FOREACH</span><span class="p">(</span><span class="k">const</span> <span class="n">atom</span><span class="o">::</span><span class="n">entry</span> <span class="o">&amp;</span><span class="n">entry</span><span class="p">,</span> <span class="n">feed</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">entry</span><span class="p">.</span><span class="n">title</span><span class="p">()</span>
+                      <span class="o">&lt;&lt;</span> <span class="s">&quot; (&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">entry</span><span class="p">.</span><span class="n">published</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;)&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">catch</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">exception</span> <span class="o">&amp;</span><span class="n">e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="n">e</span><span class="p">.</span><span class="n">what</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="building-and-running-atom-reader">
+<h2>Building and running <tt class="docutils literal"><span class="pre">atom_reader</span></tt><a class="headerlink" href="#building-and-running-atom-reader" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">cd</span> ~/cpp-netlib-build
+<span class="nv">$ </span>make atom_reader
+</pre></div>
+</div>
+<p>And to run the example from the command line to access the feed that
+lists of all the commits on cpp-netlib&#8217;s master branch:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>./example/atom_reader https://github.com/cpp-netlib/cpp-netlib/commits/master.atom
+</pre></div>
+</div>
+</div>
+<div class="section" id="diving-into-the-code">
+<h2>Diving into the code<a class="headerlink" href="#diving-into-the-code" title="Permalink to this headline">¶</a></h2>
+<p>Most of this will now be familiar.  The response is passed to the
+constructor to the <tt class="docutils literal"><span class="pre">atom::feed</span></tt> class, which parses the resultant
+XML.  To keep this example as simple as possible, <a class="reference external" href="http://rapidxml.sourceforge.net/">rapidxml</a>, a
+header-only XML parser library, was used to parse the response.</p>
+<p>A similar example using RSS feeds exists in
+<tt class="docutils literal"><span class="pre">libs/network/example/rss</span></tt>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Atom feed reader</a><ul>
+<li><a class="reference internal" href="#the-code">The code</a></li>
+<li><a class="reference internal" href="#building-and-running-atom-reader">Building and running <tt class="docutils literal"><span class="pre">atom_reader</span></tt></a></li>
+<li><a class="reference internal" href="#diving-into-the-code">Diving into the code</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="hello_world_client.html"
+                        title="previous chapter">&#8220;Hello world&#8221; HTTP client</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="twitter_search.html"
+                        title="next chapter">Twitter search</a></p>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="twitter_search.html" title="Twitter search"
+             >next</a></li>
+        <li class="right" >
+          <a href="hello_world_client.html" title="“Hello world” HTTP client"
+             >previous</a> |</li>
+        <li><a href="../../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../../examples.html" >Examples</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2008-2014, Glyn Matthews, Dean Michael Berris; 2013 Google, Inc..
+      Last updated on Aug 27, 2015.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

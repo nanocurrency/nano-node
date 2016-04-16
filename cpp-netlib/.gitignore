@@ -1,0 +1,11 @@
+*.cmake
+*.swp
+*.pyc
+CMakeCache.txt
+CMakeFiles
+Makefile
+Testing
+*.gch
+libs/mime/test/mime-roundtrip
+*.a
+_build

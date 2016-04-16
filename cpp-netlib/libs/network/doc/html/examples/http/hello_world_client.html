@@ -1,0 +1,199 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>“Hello world” HTTP client &mdash; cpp-netlib v0.11.2</title>
+    
+    <link rel="stylesheet" href="../../_static/pyramid.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.11.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="cpp-netlib v0.11.2" href="../../index.html" />
+    <link rel="up" title="Examples" href="../../examples.html" />
+    <link rel="next" title="Atom feed reader" href="atom_reader.html" />
+    <link rel="prev" title="“Hello world” HTTP server" href="hello_world_server.html" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head>
+  <body>
+
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="atom_reader.html" title="Atom feed reader"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="hello_world_server.html" title="“Hello world” HTTP server"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../../examples.html" accesskey="U">Examples</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="hello-world-http-client">
+<span id="id1"></span><h1>&#8220;Hello world&#8221; HTTP client<a class="headerlink" href="#hello-world-http-client" title="Permalink to this headline">¶</a></h1>
+<p>Since we have a &#8220;Hello World&#8221; HTTP server, let&#8217;s then create an HTTP client to
+access that server. This client will be similar to the HTTP client we made
+earlier in the documentation.</p>
+<div class="section" id="the-code">
+<h2>The code<a class="headerlink" href="#the-code" title="Permalink to this headline">¶</a></h2>
+<p>We want to create a simple HTTP client that just makes a request to the HTTP
+server that we created earlier. This really simple client will look like this:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="cp">#include &lt;boost/network/protocol/http/client.hpp&gt;</span>
+<span class="cp">#include &lt;string&gt;</span>
+<span class="cp">#include &lt;sstream&gt;</span>
+<span class="cp">#include &lt;iostream&gt;</span>
+
+<span class="k">namespace</span> <span class="n">http</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">network</span><span class="o">::</span><span class="n">http</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span> <span class="n">argv</span><span class="p">[])</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Usage: &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="s">&quot; address port&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">try</span> <span class="p">{</span>
+        <span class="n">http</span><span class="o">::</span><span class="n">client</span> <span class="n">client</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">ostringstream</span> <span class="n">url</span><span class="p">;</span>
+        <span class="n">url</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;http://&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;:&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;/&quot;</span><span class="p">;</span>
+        <span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">request</span> <span class="n">request</span><span class="p">(</span><span class="n">url</span><span class="p">.</span><span class="n">str</span><span class="p">());</span>
+        <span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">response</span> <span class="n">response</span> <span class="o">=</span>
+            <span class="n">client</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">body</span><span class="p">(</span><span class="n">response</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">exception</span> <span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="n">e</span><span class="p">.</span><span class="n">what</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="building-and-running-the-client">
+<h2>Building and running the client<a class="headerlink" href="#building-and-running-the-client" title="Permalink to this headline">¶</a></h2>
+<p>Just like with the HTTP Server and HTTP client example before, we can build this
+example by doing the following on the shell:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">cd</span> ~/cpp-netlib-build
+<span class="nv">$ </span>make hello_world_client
+</pre></div>
+</div>
+<p>This example can be run from the command line as follows:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>./example/hello_world_client http://127.0.0.1:8000
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This assumes that you have the <tt class="docutils literal"><span class="pre">hello_world_server</span></tt> running on
+localhost port 8000.</p>
+</div>
+</div>
+<div class="section" id="diving-into-the-code">
+<h2>Diving into the code<a class="headerlink" href="#diving-into-the-code" title="Permalink to this headline">¶</a></h2>
+<p>All this example shows is how easy it is to write an HTTP client that connects
+to an HTTP server, and gets the body of the response. The relevant lines are:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="n">http</span><span class="o">::</span><span class="n">client</span> <span class="n">client</span><span class="p">;</span>
+<span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">request</span> <span class="n">request</span><span class="p">(</span><span class="n">url</span><span class="p">.</span><span class="n">str</span><span class="p">());</span>
+<span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">response</span> <span class="n">response</span> <span class="o">=</span>
+    <span class="n">client</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">body</span><span class="p">(</span><span class="n">response</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>You can then imagine using this in an XML-RPC client, where you can craft the
+XML-RPC request as payload which you can pass as the body to a request, then
+perform the request via HTTP:</p>
+<div class="highlight-c++"><div class="highlight"><pre><span class="n">http</span><span class="o">::</span><span class="n">client</span> <span class="n">client</span><span class="p">;</span>
+<span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">request</span> <span class="n">request</span><span class="p">(</span><span class="s">&quot;http://my.webservice.com/&quot;</span><span class="p">);</span>
+<span class="n">http</span><span class="o">::</span><span class="n">client</span><span class="o">::</span><span class="n">response</span> <span class="o">=</span>
+    <span class="n">client</span><span class="p">.</span><span class="n">post</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">some_xml_string</span><span class="p">,</span> <span class="s">&quot;application/xml&quot;</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">data</span> <span class="o">=</span> <span class="n">body</span><span class="p">(</span><span class="n">response</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The next set of examples show some more practical applications using
+the <tt class="xref py py-mod docutils literal"><span class="pre">cpp-netlib</span></tt> HTTP client.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">&#8220;Hello world&#8221; HTTP client</a><ul>
+<li><a class="reference internal" href="#the-code">The code</a></li>
+<li><a class="reference internal" href="#building-and-running-the-client">Building and running the client</a></li>
+<li><a class="reference internal" href="#diving-into-the-code">Diving into the code</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="hello_world_server.html"
+                        title="previous chapter">&#8220;Hello world&#8221; HTTP server</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="atom_reader.html"
+                        title="next chapter">Atom feed reader</a></p>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="atom_reader.html" title="Atom feed reader"
+             >next</a></li>
+        <li class="right" >
+          <a href="hello_world_server.html" title="“Hello world” HTTP server"
+             >previous</a> |</li>
+        <li><a href="../../contents.html">cpp-netlib v0.11.2</a> &raquo;</li>
+          <li><a href="../../examples.html" >Examples</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2008-2014, Glyn Matthews, Dean Michael Berris; 2013 Google, Inc..
+      Last updated on Aug 27, 2015.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
