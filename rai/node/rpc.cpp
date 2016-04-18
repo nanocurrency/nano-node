@@ -981,6 +981,47 @@ void rai::rpc_handler::process ()
 	}
 }
 
+void rai::rpc_handler::rai_from_raw ()
+{
+	std::string amount_text (request.get <std::string> ("amount"));
+	rai::uint128_union amount;
+	if (!amount.decode_dec (amount_text))
+	{
+		auto result (amount.number () / rai::rai_ratio);
+		boost::property_tree::ptree response_l;
+		response_l.put ("amount", result.convert_to <std::string> ());
+		rpc.send_response (connection, response_l);
+	}
+	else
+	{
+		rpc.error_response (connection, "Bad amount number");
+	}
+}
+
+void rai::rpc_handler::rai_to_raw ()
+{
+	std::string amount_text (request.get <std::string> ("amount"));
+	rai::uint128_union amount;
+	if (!amount.decode_dec (amount_text))
+	{
+		auto result (amount.number () * rai::rai_ratio);
+		if (result > amount.number ())
+		{
+			boost::property_tree::ptree response_l;
+			response_l.put ("amount", result.convert_to <std::string> ());
+			rpc.send_response (connection, response_l);
+		}
+		else
+		{
+			rpc.error_response (connection, "Amount too big");
+		}
+	}
+	else
+	{
+		rpc.error_response (connection, "Bad amount number");
+	}
+}
+
 void rai::rpc_handler::representative ()
 {
 	std::string wallet_text (request.get <std::string> ("wallet"));
@@ -1637,6 +1678,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "process")
 		{
 			process ();
+		}
+		else if (action == "rai_from_raw")
+		{
+			rai_from_raw ();
+		}
+		else if (action == "rai_to_raw")
+		{
+			rai_to_raw ();
 		}
 		else if (action == "representative")
 		{

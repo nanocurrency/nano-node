@@ -110,6 +110,8 @@ public:
 	void payment_wait ();
 	void peers ();
 	void process ();
+	void rai_to_raw ();
+	void rai_from_raw ();
 	void representative ();
 	void representative_set ();
 	void search_pending ();
