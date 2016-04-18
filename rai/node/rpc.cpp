@@ -105,7 +105,7 @@ void rai::rpc::send_response (boost::network::http::async_server <rai::rpc>::con
     response->headers.push_back (boost::network::http::response_header_narrow {"content-type", "application/json"});
     response->content = ostream.str ();
 	response->headers.push_back (boost::network::http::response_header_narrow {"content-length", std::to_string (response->content.size ())});
-	connection->write (response->to_buffers (), [response] (boost::system::error_code const & ec)
+	connection->write (response->to_buffers (), [response, connection] (boost::system::error_code const & ec)
 	{
 	});
 }
@@ -132,7 +132,7 @@ void rai::rpc::error_response (boost::network::http::async_server <rai::rpc>::co
     auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request));
 	auto response (std::make_shared <decltype (response_l)> (response_l));
 	response->content = message_a;
-	connection->write (response->to_buffers (), [response] (boost::system::error_code) {});
+	connection->write (response->to_buffers (), [response, connection] (boost::system::error_code) {});
 }
 
 void rai::rpc_handler::account_balance ()

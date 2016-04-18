@@ -701,7 +701,7 @@ boost::optional <uint64_t> rai::opencl_work::generate_work (rai::work_pool & poo
 	std::lock_guard <std::mutex> lock (mutex);
 	bool error (false);
 	uint64_t result (0);
-	unsigned thread_count (rai::rai_network == rai::rai_networks::rai_test_network ? 128 : config.threads);
+	unsigned thread_count (config.threads);
 	size_t work_size [] = { thread_count, 0, 0 };
 	while (pool_a.work_validate (root_a, result) && !error)
 	{
