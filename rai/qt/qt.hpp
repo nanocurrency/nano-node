@@ -199,7 +199,7 @@ namespace rai_qt {
 		QTableView * view;
 		rai::ledger & ledger;
 		rai::account const & account;
-		rai::uint128_t const rendering_ratio;
+		rai::uint128_t const & rendering_ratio;
 	};
 	class block_viewer
 	{
