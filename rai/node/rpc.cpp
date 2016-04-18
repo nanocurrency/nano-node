@@ -621,6 +621,47 @@ void rai::rpc_handler::mrai_to_raw ()
 	}
 }
 
+void rai::rpc_handler::krai_from_raw ()
+{
+	std::string amount_text (request.get <std::string> ("amount"));
+	rai::uint128_union amount;
+	if (!amount.decode_dec (amount_text))
+	{
+		auto result (amount.number () / rai::krai_ratio);
+		boost::property_tree::ptree response_l;
+		response_l.put ("amount", result.convert_to <std::string> ());
+		rpc.send_response (connection, response_l);
+	}
+	else
+	{
+		rpc.error_response (connection, "Bad amount number");
+	}
+}
+
+void rai::rpc_handler::krai_to_raw ()
+{
+	std::string amount_text (request.get <std::string> ("amount"));
+	rai::uint128_union amount;
+	if (!amount.decode_dec (amount_text))
+	{
+		auto result (amount.number () * rai::krai_ratio);
+		if (result > amount.number ())
+		{
+			boost::property_tree::ptree response_l;
+			response_l.put ("amount", result.convert_to <std::string> ());
+			rpc.send_response (connection, response_l);
+		}
+		else
+		{
+			rpc.error_response (connection, "Amount too big");
+		}
+	}
+	else
+	{
+		rpc.error_response (connection, "Bad amount number");
+	}
+}
+
 void rai::rpc_handler::password_change ()
 {
 	if (rpc.config.enable_control)
@@ -1544,6 +1585,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "keepalive")
 		{
 			keepalive ();
+		}
+		else if (action == "krai_from_raw")
+		{
+			krai_from_raw ();
+		}
+		else if (action == "krai_to_raw")
+		{
+			krai_to_raw ();
 		}
 		else if (action == "mrai_from_raw")
 		{

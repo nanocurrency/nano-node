@@ -1466,3 +1466,43 @@ TEST (rpc, mrai_from_raw)
 	node1.stop ();
 	thread1.join ();
 }
+
+TEST (rpc, krai_to_raw)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto & node1 (*system.nodes [0]);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request1;
+	request1.put ("action", "krai_to_raw");
+	request1.put ("amount", "1");
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
+	ASSERT_EQ (rai::krai_ratio.convert_to <std::string> (), response1.first.get <std::string> ("amount"));
+	rpc.stop ();
+	node1.stop ();
+	thread1.join ();
+}
+
+TEST (rpc, krai_from_raw)
+{
+    rai::system system (24000, 1);
+	rai::node_init init1;
+    auto & node1 (*system.nodes [0]);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request1;
+	request1.put ("action", "krai_from_raw");
+	request1.put ("amount", rai::krai_ratio.convert_to <std::string> ());
+	auto response1 (test_response (request1, rpc));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.second);
+	ASSERT_EQ ("1", response1.first.get <std::string> ("amount"));
+	rpc.stop ();
+	node1.stop ();
+	thread1.join ();
+}
