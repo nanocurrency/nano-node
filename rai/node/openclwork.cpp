@@ -531,7 +531,7 @@ bool rai::opencl_config::deserialize_json (boost::property_tree::ptree const & t
 	return result;
 }
 
-rai::opencl_work::opencl_work (bool & error_a, rai::opencl_config const & config_a, rai::opencl_environment & environment_a) :
+rai::opencl_work::opencl_work (bool & error_a, rai::opencl_config const & config_a, rai::opencl_environment & environment_a, rai::logging & logging_a) :
 config (config_a),
 context (0),
 attempt_buffer (0),
@@ -539,7 +539,8 @@ result_buffer (0),
 item_buffer (0),
 program (0),
 kernel (0),
-queue (0)
+queue (0),
+logging (logging_a)
 {
 	error_a |= config.platform >= environment_a.platforms.size ();
 	if (!error_a)
@@ -660,7 +661,7 @@ uint64_t rai::opencl_work::generate_work (rai::work_pool & pool_a, rai::uint256_
 	return result;
 }
 
-std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, rai::opencl_config const & config_a)
+std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, rai::opencl_config const & config_a, rai::logging & logging_a)
 {
 	std::unique_ptr <rai::opencl_work> result;
 	if (create_a)
@@ -669,7 +670,7 @@ std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, rai:
 		rai::opencl_environment environment (error);
 		if (!error)
 		{
-			result.reset (new rai::opencl_work (error, config_a, environment));
+			result.reset (new rai::opencl_work (error, config_a, environment, logging_a));
 			if (error)
 			{
 				result.reset ();

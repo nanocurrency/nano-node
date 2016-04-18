@@ -16,6 +16,7 @@
 
 namespace rai
 {
+class logging;
 class opencl_platform
 {
 public:
@@ -45,10 +46,10 @@ public:
 class opencl_work
 {
 public:
-	opencl_work (bool &, rai::opencl_config const &, rai::opencl_environment &);
+	opencl_work (bool &, rai::opencl_config const &, rai::opencl_environment &, rai::logging &);
 	~opencl_work ();
 	uint64_t generate_work (rai::work_pool &, rai::uint256_union const &);
-	static std::unique_ptr <opencl_work> create (bool, rai::opencl_config const &);
+	static std::unique_ptr <opencl_work> create (bool, rai::opencl_config const &, rai::logging &);
 	rai::opencl_config const & config;
 	std::mutex mutex;
 	cl_context context;
@@ -59,5 +60,6 @@ public:
 	cl_kernel kernel;
 	cl_command_queue queue;
 	rai::xorshift1024star rand;
+	rai::logging & logging;
 };
 }

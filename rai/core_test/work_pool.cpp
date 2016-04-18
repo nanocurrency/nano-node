@@ -1,4 +1,6 @@
 #include <gtest/gtest.h>
+
+#include <rai/node/node.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/node/openclwork.hpp>
 
@@ -41,7 +43,8 @@ TEST (work, cancel)
 
 TEST (work, opencl)
 {
-	auto work (rai::opencl_work::create (true, {0, 1, 1024 * 1024}));
+	rai::logging logging (rai::unique_path ());
+	auto work (rai::opencl_work::create (true, {0, 1, 1024 * 1024}, logging));
 	ASSERT_NE (nullptr, work);
 	rai::work_pool pool (std::move (work));
 	ASSERT_NE (nullptr, pool.opencl);

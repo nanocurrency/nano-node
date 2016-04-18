@@ -2455,6 +2455,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	}
 	else if (vm.count ("diagnostics"))
 	{
+		inactive_node node;
 		std::cout << "Testing hash function" << std::endl;
 		rai::raw_key key;
 		key.data.clear ();
