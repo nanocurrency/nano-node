@@ -1358,6 +1358,10 @@ TEST (rpc, work_peer_many)
 	system2.stop ();
 	system3.stop ();
 	system4.stop ();
+	node1.stop();
+	node2.stop();
+	node3.stop();
+	node4.stop();
 	runner1.join ();
 	runner2.join ();
 	runner3.join ();
