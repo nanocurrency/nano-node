@@ -13,8 +13,9 @@ namespace rai
 class landing_config
 {
 public:
-	landing_config () :
-	landing_file ("landing.json")
+	landing_config (boost::filesystem::path const & application_path_a) :
+	landing_file ("landing.json"),
+	node (application_path_a)
 	{
 		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
@@ -69,7 +70,7 @@ int main (int argc, char * const * argv)
 {
     auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
-	rai::landing_config config;
+	rai::landing_config config (working);
 	auto config_path ((working / "config.json").string ());
 	std::fstream config_file;
 	rai::open_or_create (config_file, config_path);

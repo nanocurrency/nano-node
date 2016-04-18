@@ -13,8 +13,9 @@
 class qt_wallet_config
 {
 public:
-	qt_wallet_config () :
+	qt_wallet_config (boost::filesystem::path const & application_path_a) :
 	account (0),
+	node (application_path_a),
 	rpc_enable (false),
 	opencl_enable (false)
 	{
@@ -163,7 +164,7 @@ int run_wallet (int argc, char * const * argv)
 {
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
-	qt_wallet_config config;
+	qt_wallet_config config (working);
 	auto config_path ((working / "config.json").string ());
 	std::fstream config_file;
 	rai::open_or_create (config_file, config_path);

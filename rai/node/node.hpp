@@ -245,7 +245,7 @@ public:
 class logging
 {
 public:
-	logging ();
+	logging (boost::filesystem::path const &);
     void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (boost::property_tree::ptree const &);
     bool ledger_logging () const;
@@ -275,6 +275,7 @@ public:
 	bool work_generation_time_value;
 	bool log_to_cerr_value;
 	uintmax_t max_size;
+    boost::log::sources::logger_mt log;
 };
 class node_init
 {
@@ -287,7 +288,7 @@ public:
 class node_config
 {
 public:
-	node_config ();
+	node_config (boost::filesystem::path const &);
 	node_config (uint16_t, rai::logging const &);
     void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (bool &, boost::property_tree::ptree &);
@@ -400,6 +401,7 @@ class inactive_node
 {
 public:
 	inactive_node ();
+	boost::filesystem::path path;
 	boost::shared_ptr <boost::asio::io_service> service;
 	rai::alarm alarm;
 	rai::logging logging;

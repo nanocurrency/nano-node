@@ -5,8 +5,9 @@
 #include <iostream>
 #include <fstream>
 
-rai_daemon::daemon_config::daemon_config () :
+rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
 rpc_enable (false),
+node (application_path_a),
 opencl_enable (false)
 {
 }
@@ -98,7 +99,7 @@ void rai_daemon::daemon::run ()
 {
     auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
-    rai_daemon::daemon_config config;
+    rai_daemon::daemon_config config (working);
     auto config_path ((working / "config.json").string ());
     std::fstream config_file;
 	rai::open_or_create (config_file, config_path);
