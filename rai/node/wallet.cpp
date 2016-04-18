@@ -163,7 +163,7 @@ boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union co
 	{
 		result = opencl->generate_work (*this, root_a);
 	}
-	else
+	if (!result)
 	{
 		std::unique_lock <std::mutex> lock (mutex);
 		pending.push_back (root_a);

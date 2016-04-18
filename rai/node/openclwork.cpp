@@ -1,6 +1,7 @@
 #include <rai/node/openclwork.hpp>
 
 #include <rai/utility.hpp>
+#include <rai/node/node.hpp>
 #include <rai/node/wallet.hpp>
 
 #include <map>
@@ -397,6 +398,7 @@ rai::opencl_environment::opencl_environment (bool & error_a)
 	for (auto i (platformIds.begin ()), n (platformIds.end ()); i != n; ++i)
 	{
 		rai::opencl_platform platform;
+		platform.platform = *i;
 		cl_uint deviceIdCount = 0;
 		clGetDeviceIDs (*i, CL_DEVICE_TYPE_ALL, 0, nullptr, &deviceIdCount);
 		std::vector <cl_device_id> deviceIds (deviceIdCount);
@@ -547,7 +549,7 @@ logging (logging_a)
 	{
 		auto & platform (environment_a.platforms [config.platform]);
 		error_a |= config.device >= platform.devices.size ();
-		if (error_a)
+		if (!error_a)
 		{
 			rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rand.s.data ()),  rand.s.size () * sizeof (decltype (rand.s)::value_type));
 			std::array <cl_device_id, 1> selected_devices;
@@ -591,7 +593,7 @@ logging (logging_a)
 								error_a |= program_error != CL_SUCCESS;
 								if (!error_a)
 								{
-									auto clBuildProgramError(clBuildProgram(program, selected_devices.size(), selected_devices.data(), "-D __APPLE__", nullptr, nullptr));
+									auto clBuildProgramError (clBuildProgram(program, selected_devices.size(), selected_devices.data(), "-D __APPLE__", nullptr, nullptr));
 									error_a |= clBuildProgramError != CL_SUCCESS;
 									if (!error_a)
 									{
@@ -610,29 +612,80 @@ logging (logging_a)
 												{
 													cl_int arg2_error (clSetKernelArg (kernel, 2, sizeof (item_buffer), &item_buffer));
 													error_a |= arg2_error != CL_SUCCESS;
+													if (!error_a)
+													{
+													}
+													else
+													{
+														BOOST_LOG (logging.log) << boost::str (boost::format ("Bind argument 2 error %1%") % arg2_error);
+													}
+												}
+												else
+												{
+													BOOST_LOG (logging.log) << boost::str (boost::format ("Bind argument 1 error %1%") % arg1_error);
 												}
 											}
+											else
+											{
+												BOOST_LOG (logging.log) << boost::str (boost::format ("Bind argument 0 error %1%") % arg0_error);
+											}
+										}
+										else
+										{
+											BOOST_LOG (logging.log) << boost::str (boost::format ("Create kernel error %1%") % kernel_error);
 										}
 									}
 									else
 									{
-										/*
+										BOOST_LOG (logging.log) << boost::str (boost::format ("Build program error %1%") % clBuildProgramError);
 										for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
 										{
 											size_t log_size (0);
 											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
 											std::vector <char> log (log_size);
 											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
-											std::cout << log.data () << std::endl;
-										}*/
+											BOOST_LOG (logging.log) << log.data ();
+										}
 									}
 								}
+								else
+								{
+									BOOST_LOG (logging.log) << boost::str (boost::format ("Create program error %1%") % program_error);
+								}
+							}
+							else
+							{
+								BOOST_LOG (logging.log) << boost::str (boost::format ("Item buffer error %1%") % item_error);
 							}
 						}
+						else
+						{
+							BOOST_LOG (logging.log) << boost::str (boost::format ("Result buffer error %1%") % result_error);
+						}
+					}
+					else
+					{
+						BOOST_LOG (logging.log) << boost::str (boost::format ("Attempt buffer error %1%") % attempt_error);
 					}
 				}
+				else
+				{
+					BOOST_LOG (logging.log) << boost::str (boost::format ("Unable to create command queue %1%") % queue_error);
+				}
+			}
+			else
+			{
+				BOOST_LOG (logging.log) << boost::str (boost::format ("Unable to create context %1%") % createContextError);
 			}
 		}
+		else
+		{
+			BOOST_LOG (logging.log) << boost::str (boost::format ("Requested device %1%, and only have %2%") % config.device % platform.devices.size ());
+		}
+	}
+	else
+	{
+		BOOST_LOG (logging.log) << boost::str (boost::format ("Requested platform %1% and only have %2%") % config.platform % environment_a.platforms.size ());
 	}
 }
 
@@ -643,22 +696,68 @@ rai::opencl_work::~opencl_work ()
 	clReleaseContext (context);
 }
 
-uint64_t rai::opencl_work::generate_work (rai::work_pool & pool_a, rai::uint256_union const & root_a)
+boost::optional <uint64_t> rai::opencl_work::generate_work (rai::work_pool & pool_a, rai::uint256_union const & root_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
+	bool error (false);
 	uint64_t result (0);
 	unsigned thread_count (rai::rai_network == rai::rai_networks::rai_test_network ? 128 : config.threads);
 	size_t work_size [] = { thread_count, 0, 0 };
-	while (pool_a.work_validate (root_a, result))
+	while (pool_a.work_validate (root_a, result) && !error)
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
-		cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (rai::uint256_union), root_a.bytes.data (), 0, nullptr, nullptr);
-		cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
-		cl_int read_error1 = clEnqueueReadBuffer(queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
-		cl_int finishError = clFinish (queue);
+		if (write_error1 == CL_SUCCESS)
+		{
+			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (rai::uint256_union), root_a.bytes.data (), 0, nullptr, nullptr);
+			if (write_error2 == CL_SUCCESS)
+			{
+				cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
+				if (enqueue_error == CL_SUCCESS)
+				{
+					cl_int read_error1 = clEnqueueReadBuffer(queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
+					if (read_error1 == CL_SUCCESS)
+					{
+						cl_int finishError = clFinish (queue);
+						if (finishError == CL_SUCCESS)
+						{
+						}
+						else
+						{
+							error = true;
+							BOOST_LOG (logging.log) << boost::str (boost::format ("Error finishing queue %1%") % finishError);
+						}
+					}
+					else
+					{
+						error = true;
+						BOOST_LOG (logging.log) << boost::str (boost::format ("Error reading result %1%") % read_error1);
+					}
+				}
+				else
+				{
+					error = true;
+					BOOST_LOG (logging.log) << boost::str (boost::format ("Error enqueueing kernel %1%") % enqueue_error);
+				}
+			}
+			else
+			{
+				error = true;
+				BOOST_LOG (logging.log) << boost::str (boost::format ("Error writing item %1%") % write_error2);
+			}
+		}
+		else
+		{
+			error = true;
+			BOOST_LOG (logging.log) << boost::str (boost::format ("Error writing attempt %1%") % write_error1);
+		}
 	}
-	return result;
+	boost::optional <uint64_t> value;
+	if (!error)
+	{
+		value = result;
+	}
+	return value;
 }
 
 std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, rai::opencl_config const & config_a, rai::logging & logging_a)
