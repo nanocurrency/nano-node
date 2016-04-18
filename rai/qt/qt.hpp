@@ -148,7 +148,13 @@ namespace rai_qt {
 		QHBoxLayout * account_layout;
         QLabel * account_text;
 		QPushButton * copy_button;
+		QWidget * balance_window;
+		QHBoxLayout * balance_layout;
         QLabel * balance_label;
+		QButtonGroup * ratio_group;
+		QRadioButton * mrai;
+		QRadioButton * krai;
+		QRadioButton * rai;
         rai_qt::wallet & wallet;
     };
     class accounts
@@ -247,6 +253,7 @@ namespace rai_qt {
         wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account &);
         void refresh ();
 		void update_connected ();
+		void change_rendering_ratio (rai::uint128_t const &);
 		rai::uint128_t rendering_ratio;
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;

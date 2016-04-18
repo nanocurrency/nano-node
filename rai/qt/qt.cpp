@@ -45,25 +45,68 @@ account_window (new QWidget),
 account_layout (new QHBoxLayout),
 account_text (new QLabel),
 copy_button (new QPushButton ("Copy")),
+balance_window (new QWidget),
+balance_layout (new QHBoxLayout),
 balance_label (new QLabel),
+ratio_group (new QButtonGroup),
+mrai (new QRadioButton ("Mrai")),
+krai (new QRadioButton ("krai")),
+rai (new QRadioButton ("rai")),
 wallet (wallet_a)
 {
+    ratio_group->addButton (mrai);
+    ratio_group->addButton (krai);
+    ratio_group->addButton (rai);
+    ratio_group->setId (mrai, 0);
+    ratio_group->setId (krai, 1);
+    ratio_group->setId (rai, 2);
+
 	auto font (QFontDatabase::systemFont (QFontDatabase::FixedFont));
 	font.setPointSize (account_text->font().pointSize());
 	account_text->setFont (font);
 	account_layout->addWidget (account_text);
 	account_layout->addWidget (copy_button);
+	account_layout->setContentsMargins (0, 0, 0, 0);
 	account_window->setLayout (account_layout);
 	layout->addWidget (your_account_label);
 	layout->addWidget (account_window);
-	layout->addWidget (balance_label);
+	balance_layout->addWidget (balance_label);
+	balance_layout->addStretch ();
+	balance_layout->addWidget (mrai);
+	balance_layout->addWidget (krai);
+	balance_layout->addWidget (rai);
+	balance_layout->setContentsMargins (0, 0, 0, 0);
+	balance_window->setLayout (balance_layout);
+	layout->addWidget (balance_window);
 	layout->setContentsMargins (5, 5, 5, 5);
 	window->setLayout (layout);
 
 	QObject::connect (copy_button, &QPushButton::clicked, [this] ()
 	{
 		this->wallet.application.clipboard ()->setText (QString (this->wallet.account.to_account ().c_str ()));
-	});
+	});	
+    QObject::connect (mrai, &QRadioButton::toggled, [this] ()
+    {
+        if (mrai->isChecked ())
+        {
+			this->wallet.change_rendering_ratio (rai::Mrai_ratio);
+        }
+    });	
+    QObject::connect (krai, &QRadioButton::toggled, [this] ()
+    {
+        if (krai->isChecked ())
+        {
+			this->wallet.change_rendering_ratio (rai::krai_ratio);
+        }
+    });	
+    QObject::connect (rai, &QRadioButton::toggled, [this] ()
+    {
+        if (rai->isChecked ())
+        {
+			this->wallet.change_rendering_ratio (rai::rai_ratio);
+        }
+    });
+	mrai->click ();
 }
 
 void rai_qt::self_pane::refresh_balance ()
@@ -71,7 +114,7 @@ void rai_qt::self_pane::refresh_balance ()
 	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
 	std::string balance;
 	rai::amount (wallet.node.ledger.account_balance (transaction, wallet.account) / wallet.rendering_ratio).encode_dec (balance);
-	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + balance + std::string (" Mrai")).c_str ()));
+	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + balance).c_str ()));
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
@@ -825,6 +868,15 @@ void rai_qt::wallet::update_connected ()
 	{
 		active_status.erase (rai_qt::status_types::disconnected);
 	}
+}
+
+void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
+{
+	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a] ()
+	{
+		this->rendering_ratio = rendering_ratio_a;
+		this->refresh ();
+	}));
 }
 
 void rai_qt::wallet::push_main_stack (QWidget * widget_a)
