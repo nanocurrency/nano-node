@@ -899,20 +899,25 @@ bool rai::wallet::exists (rai::public_key const & account_a)
 
 bool rai::wallet::import (std::string const & json_a, std::string const & password_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
-	rai::uint256_union id;
-	random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
 	auto error (false);
-	rai::wallet_store temp (error, node.wallets.kdf, transaction, 0, 1, id.to_string (), json_a);
+	std::unique_ptr <rai::wallet_store> temp;
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		rai::uint256_union id;
+		random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
+		temp.reset (new rai::wallet_store (error, node.wallets.kdf, transaction, 0, 1, id.to_string (), json_a));
+	}
 	if (!error)
 	{
-		error = temp.attempt_password (transaction, password_a);
-		if (!error)
-		{
-			error = store.import (transaction, temp);
-		}
+		rai::transaction transaction (store.environment, nullptr, false);
+		error = temp->attempt_password (transaction, password_a);
 	}
-	temp.destroy (transaction);
+	rai::transaction transaction (store.environment, nullptr, true);
+	if (!error)
+	{
+		error = store.import (transaction, *temp);
+	}
+	temp->destroy (transaction);
 	return error;
 }
 
