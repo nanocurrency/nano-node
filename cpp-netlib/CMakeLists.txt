@@ -110,8 +110,6 @@ endif()
 
 enable_testing()
 
-install(DIRECTORY boost DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
 ###
 ## Export Targets
 # (so cpp-netlib can be easily used by other CMake projects)
@@ -138,13 +136,3 @@ configure_file(cppnetlibConfig.cmake.in
 # ... for both
 configure_file(cppnetlibConfigVersion.cmake.in
     "${PROJECT_BINARY_DIR}/cppnetlibConfigVersion.cmake" @ONLY)
-# Install the cppnetlibConfig.cmake and cppnetlibConfigVersion.cmake
-install(FILES
-    "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/cppnetlibConfig.cmake"
-    "${PROJECT_BINARY_DIR}/cppnetlibConfigVersion.cmake"
-    DESTINATION "${INSTALL_CMAKE_DIR}"
-    COMPONENT dev)
-# Install the export set for use with the install-tree
-install(EXPORT cppnetlibTargets
-    DESTINATION "${INSTALL_CMAKE_DIR}"
-    COMPONENT dev)
