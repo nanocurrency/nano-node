@@ -2,9 +2,9 @@ cmake_minimum_required (VERSION 2.8.11)
 project (rai)
 
 if (WIN32)
-	set (PLATFORM_COMPILE_FLAGS "-D_WIN32_WINNT=0x0501 -DWINVER=0x0501 -DWIN32_LEAN_AND_MEAN")
+	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -D_WIN32_WINNT=0x0501 -DWINVER=0x0501 -DWIN32_LEAN_AND_MEAN")
 else (WIN32)
-	set (PLATFORM_COMPILE_FLAGS "-Werror=switch -msse4 -fPIC")
+	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -Werror=switch -msse4 -fPIC")
 endif (WIN32)
 
 if (WIN32)
@@ -39,8 +39,7 @@ endif (WIN32)
 
 include_directories (${CMAKE_SOURCE_DIR})
 
-# Boost 1.59.0 has the json parser written with spirit2 which fixes thread safety issues
-find_package (Boost 1.59.0 REQUIRED COMPONENTS filesystem system log log_setup thread program_options)
+find_package (Boost 1.57.0 REQUIRED COMPONENTS filesystem system log log_setup thread program_options)
 include_directories (${Boost_INCLUDE_DIR})
 
 find_package (Qt5 REQUIRED COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
