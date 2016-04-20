@@ -43,7 +43,7 @@ endif()
 set(Boost_USE_MULTI_THREADED ON)
 find_package( Boost 1.54.0
     REQUIRED unit_test_framework system regex date_time thread filesystem
-    program_options chrono atomic )
+    program_options chrono atomic log log_setup )
 
 if (CPP-NETLIB_ENABLE_HTTPS)
     find_package( OpenSSL )
