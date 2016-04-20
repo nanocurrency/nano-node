@@ -28,7 +28,7 @@ class opencl_environment
 {
 public:
 	opencl_environment (bool &);
-	void dump ();
+	void dump (std::ostream & stream);
 	std::vector <rai::opencl_platform> platforms;
 };
 union uint256_union;

@@ -2479,7 +2479,10 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		rai::opencl_environment environment (error);
 		if (!error)
 		{
-			environment.dump ();
+			environment.dump (std::cout);
+			std::stringstream stream;
+			environment.dump (stream);
+			BOOST_LOG (node.logging.log) << stream.str ();
 		}
 		else
 		{
