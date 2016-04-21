@@ -588,6 +588,15 @@ TEST (wallet_store, fail_import_bad_password)
 	ASSERT_TRUE (error);
 }
 
+TEST (wallet_store, fail_import_corrupt)
+{
+    rai::system system (24000, 2);
+	auto wallet1 (system.wallet (1));
+	std::string json;
+	auto error (wallet1->import (json, "1"));
+	ASSERT_TRUE (error);
+}
+
 // Test arbitrary work can be generated
 TEST (wallet, empty_work)
 {

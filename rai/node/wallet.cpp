@@ -405,7 +405,14 @@ environment (transaction_a.environment)
 		assert (mdb_get (transaction_a, handle, version_special.val (), &junk) == MDB_NOTFOUND);
         boost::property_tree::ptree wallet_l;
         std::stringstream istream (json_a);
-        boost::property_tree::read_json (istream, wallet_l);
+		try
+		{
+			boost::property_tree::read_json (istream, wallet_l);
+		}
+		catch (...)
+		{
+			init_a = true;
+		}
         for (auto i (wallet_l.begin ()), n (wallet_l.end ()); i != n; ++i)
         {
             rai::uint256_union key;
