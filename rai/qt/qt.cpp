@@ -582,7 +582,7 @@ wallet (wallet_a)
 		if (!account.decode_account (account_line->text ().toStdString ()))
 		{
 			show_line_ok (*account_line);
-			history.refresh ();
+			this->history.refresh ();
 		}
 		else
 		{
