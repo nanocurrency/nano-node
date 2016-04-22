@@ -106,7 +106,7 @@ wallet (wallet_a)
 			this->wallet.change_rendering_ratio (rai::rai_ratio);
         }
     });
-	mrai->click ();
+	krai->click ();
 }
 
 void rai_qt::self_pane::refresh_balance ()
