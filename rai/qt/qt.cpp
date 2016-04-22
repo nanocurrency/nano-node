@@ -138,8 +138,6 @@ wallet (wallet_a)
     model->setHorizontalHeaderItem (1, new QStandardItem ("Account"));
     view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     view->setModel (model);
-    view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::ResizeToContents);
-    view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::Stretch);
     view->verticalHeader ()->hide ();
     view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
 	layout->addWidget (view);
@@ -369,7 +367,6 @@ rendering_ratio (rendering_ratio_a)
     model->setHorizontalHeaderItem (3, new QStandardItem ("Hash"));
     view->setModel (model);
 	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
-    view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
 	view->verticalHeader ()->hide ();
 }
 
@@ -1051,9 +1048,6 @@ wallet (wallet_a)
     ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
     ledger_view->setModel (ledger_model);
     ledger_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
-    ledger_view->horizontalHeader ()->setSectionResizeMode (0, QHeaderView::ResizeMode::Stretch);
-    ledger_view->horizontalHeader ()->setSectionResizeMode (1, QHeaderView::ResizeMode::ResizeToContents);
-    ledger_view->horizontalHeader ()->setSectionResizeMode (2, QHeaderView::ResizeMode::Stretch);
     ledger_view->verticalHeader ()->hide ();
     ledger_layout->addWidget (ledger_view);
     ledger_layout->addWidget (ledger_refresh);
