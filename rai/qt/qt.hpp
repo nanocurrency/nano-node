@@ -63,6 +63,7 @@ namespace rai_qt {
 		QPushButton * create_block;
 		QPushButton * enter_block;
 		QPushButton * block_viewer;
+		QPushButton * account_viewer;
 		QPushButton * back;
 
 		QWidget * ledger_window;
@@ -201,8 +202,14 @@ namespace rai_qt {
 	public:
 		history (rai::ledger &, rai::account const &, rai::uint128_t const &);
 		void refresh ();
+		QWidget * window;
+		QVBoxLayout * layout;
 		QStandardItemModel * model;
 		QTableView * view;
+		QWidget * tx_window;
+		QHBoxLayout * tx_layout;
+		QLabel * tx_label;
+		QSpinBox * tx_count;
 		rai::ledger & ledger;
 		rai::account const & account;
 		rai::uint128_t const & rendering_ratio;
@@ -223,6 +230,20 @@ namespace rai_qt {
 		QPushButton * retrieve;
 		QPushButton * rebroadcast;
 		QPushButton * back;
+		rai_qt::wallet & wallet;
+	};
+	class account_viewer
+	{
+	public:
+		account_viewer (rai_qt::wallet &);
+		QWidget * window;
+		QVBoxLayout * layout;
+		QLabel * account_label;
+		QLineEdit * account_line;
+		QPushButton * refresh;
+		rai_qt::history history;
+		QPushButton * back;
+		rai::account account;
 		rai_qt::wallet & wallet;
 	};
 	enum class status_types
@@ -267,6 +288,7 @@ namespace rai_qt {
         rai_qt::block_creation block_creation;
         rai_qt::block_entry block_entry;
 		rai_qt::block_viewer block_viewer;
+		rai_qt::account_viewer account_viewer;
 		rai_qt::import import;
     
         QApplication & application;

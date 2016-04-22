@@ -355,12 +355,23 @@ wallet (wallet_a)
 }
 
 rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai::uint128_t const & rendering_ratio_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
 model (new QStandardItemModel),
 view (new QTableView),
+tx_window (new QWidget),
+tx_layout (new QHBoxLayout),
+tx_label (new QLabel ("Account history count:")),
+tx_count (new QSpinBox),
 ledger (ledger_a),
 account (account_a),
 rendering_ratio (rendering_ratio_a)
-{
+{/*
+	tx_count->setRange (1, 256);
+	tx_layout->addWidget (tx_label);
+	tx_layout->addWidget (tx_count);
+	tx_layout->setContentsMargins (0, 0, 0, 0);
+	tx_window->setLayout (tx_layout);*/
     model->setHorizontalHeaderItem (0, new QStandardItem ("Type"));
     model->setHorizontalHeaderItem (1, new QStandardItem ("Account"));
     model->setHorizontalHeaderItem (2, new QStandardItem ("Amount"));
@@ -368,6 +379,11 @@ rendering_ratio (rendering_ratio_a)
     view->setModel (model);
 	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
 	view->verticalHeader ()->hide ();
+//	layout->addWidget (tx_window);
+	layout->addWidget (view);
+	layout->setContentsMargins (0, 0, 0, 0);
+	window->setLayout (layout);
+	tx_count->setValue (32);
 }
 
 
@@ -427,7 +443,7 @@ void rai_qt::history::refresh ()
 	model->removeRows (0, model->rowCount ());
 	auto hash (ledger.latest (transaction, account));
 	short_text_visitor visitor (transaction, ledger);
-	for (auto i (0); i < 32 && !hash.is_zero (); ++i)
+	for (auto i (0), n (tx_count->value ()); i < n && !hash.is_zero (); ++i)
 	{
 		QList <QStandardItem *> items;
 		auto block (ledger.store.block_get (transaction, hash));
@@ -539,6 +555,42 @@ void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a
 	}
 }
 
+rai_qt::account_viewer::account_viewer (rai_qt::wallet & wallet_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+account_label (new QLabel ("Account:")),
+account_line (new QLineEdit),
+refresh (new QPushButton ("Refresh")),
+history (wallet_a.wallet_m->node.ledger, account, wallet_a.rendering_ratio),
+back (new QPushButton ("Back")),
+account (wallet_a.account),
+wallet (wallet_a)
+{
+	layout->addWidget (account_label);
+	layout->addWidget (account_line);
+	layout->addWidget (refresh);
+	layout->addWidget (history.window);
+	layout->addWidget (back);
+	window->setLayout (layout);
+	QObject::connect (back, &QPushButton::released, [this] ()
+	{
+		this->wallet.pop_main_stack ();
+	});
+	QObject::connect (refresh, &QPushButton::released, [this] ()
+	{
+		account.clear ();
+		if (!account.decode_account (account_line->text ().toStdString ()))
+		{
+			show_line_ok (*account_line);
+			history.refresh ();
+		}
+		else
+		{
+			show_line_error (*account_line);
+		}
+	});
+}
+
 rai_qt::status::status (rai_qt::wallet & wallet_a) :
 wallet (wallet_a)
 {
@@ -641,6 +693,7 @@ advanced (*this),
 block_creation (*this),
 block_entry (*this),
 block_viewer (*this),
+account_viewer (*this),
 import (*this),
 application (application_a),
 status (new QLabel),
@@ -679,7 +732,7 @@ active_status (*this)
     send_blocks_window->setLayout (send_blocks_layout);
 	
 	entry_window_layout->addWidget (account_history_label);
-	entry_window_layout->addWidget (history.view);
+	entry_window_layout->addWidget (history.window);
     entry_window_layout->addWidget (send_blocks);
 	entry_window_layout->addWidget (settings_button);
     entry_window_layout->addWidget (show_advanced);
@@ -853,6 +906,7 @@ void rai_qt::wallet::refresh ()
 	self.refresh_balance ();
     accounts.refresh ();
     history.refresh ();
+	account_viewer.history.refresh ();
 }
 
 void rai_qt::wallet::update_connected ()
@@ -1025,6 +1079,7 @@ wallet_refresh (new QPushButton ("Refresh Wallet")),
 create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 block_viewer (new QPushButton ("Block Viewer")),
+account_viewer (new QPushButton ("Account Viewer")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1076,6 +1131,7 @@ wallet (wallet_a)
     layout->addWidget (create_block);
     layout->addWidget (enter_block);
 	layout->addWidget (block_viewer);
+	layout->addWidget (account_viewer);
     layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
@@ -1146,6 +1202,10 @@ wallet (wallet_a)
 	QObject::connect (block_viewer, &QPushButton::released, [this] ()
 	{
 		this->wallet.push_main_stack (this->wallet.block_viewer.window);
+	});
+	QObject::connect (account_viewer, &QPushButton::released, [this] ()
+	{
+		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
     refresh_ledger ();
 	refresh_count ();
