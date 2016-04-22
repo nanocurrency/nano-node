@@ -39,7 +39,7 @@ endif (WIN32)
 
 include_directories (${CMAKE_SOURCE_DIR})
 
-find_package (Boost 1.57.0 REQUIRED COMPONENTS filesystem system log log_setup thread program_options)
+find_package (Boost 1.57.0 REQUIRED COMPONENTS filesystem system log log_setup thread program_options regex chrono atomic)
 include_directories (${Boost_INCLUDE_DIR})
 
 find_package (Qt5 REQUIRED COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
