@@ -100,44 +100,36 @@ void rai_daemon::daemon::run ()
     auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
     rai_daemon::daemon_config config (working);
-    auto config_path ((working / "config.json").string ());
+    auto config_path ((working / "config.json"));
     std::fstream config_file;
-	rai::open_or_create (config_file, config_path);
     std::unique_ptr <rai::thread_runner> runner;
-    if (!config_file.fail ())
-    {
-		auto error (rai::fetch_object (config, config_file));
-		if (!error)
+	auto error (rai::fetch_object (config, config_path, config_file));
+	if (!error)
+	{
+		auto service (boost::make_shared <boost::asio::io_service> ());
+		rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		rai::alarm alarm (*service);
+		rai::node_init init;
+		auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
+		auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
+		if (!init.error ())
 		{
-			auto service (boost::make_shared <boost::asio::io_service> ());
-			rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-			rai::alarm alarm (*service);
-			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
-			auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
-			if (!init.error ())
+			node->start ();
+			rai::rpc rpc (service, pool, *node, config.rpc);
+			if (config.rpc_enable)
 			{
-				node->start ();
-				rai::rpc rpc (service, pool, *node, config.rpc);
-				if (config.rpc_enable)
-				{
-					rpc.start ();
-				}
-				runner.reset (new rai::thread_runner (*service, node->config.io_threads));
-				runner->join ();
+				rpc.start ();
 			}
-			else
-			{
-				std::cerr << "Error initializing node\n";
-			}
+			runner.reset (new rai::thread_runner (*service, node->config.io_threads));
+			runner->join ();
 		}
 		else
 		{
-			std::cerr << "Error deserializing config\n";
+			std::cerr << "Error initializing node\n";
 		}
-    }
-    else
-    {
-        std::cerr << "Error loading configuration\n";
-    }
+	}
+	else
+	{
+		std::cerr << "Error deserializing config\n";
+	}
 }

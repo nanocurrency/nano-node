@@ -165,105 +165,97 @@ int run_wallet (int argc, char * const * argv)
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
 	qt_wallet_config config (working);
-	auto config_path ((working / "config.json").string ());
-	std::fstream config_file;
-	rai::open_or_create (config_file, config_path);
+	auto config_path ((working / "config.json"));
     int result (0);
-    if (!config_file.fail ())
-    {
-		auto error (rai::fetch_object (config, config_file));
-		if (!error)
+	std::fstream config_file;
+	auto error (rai::fetch_object (config, config_path, config_file));
+	if (!error)
+	{
+		QApplication application (argc, const_cast <char **> (argv));
+		rai::set_application_icon (application);
+		auto service (boost::make_shared <boost::asio::io_service> ());
+		rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		rai::alarm alarm (*service);
+		rai::node_init init;
+		auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
+		auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
+		if (!init.error ())
 		{
-			QApplication application (argc, const_cast <char **> (argv));
-			rai::set_application_icon (application);
-			auto service (boost::make_shared <boost::asio::io_service> ());
-			rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-			rai::alarm alarm (*service);
-			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
-			auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
-			if (!init.error ())
+			if (config.account.is_zero ())
 			{
-				if (config.account.is_zero ())
+				auto wallet (node->wallets.create (config.wallet));
+				config.account = wallet->deterministic_insert ();
+				assert (wallet->exists (config.account));
+				error = config.serialize_json_stream (config_file);
+			}
+			if (!error)
+			{
+				auto wallet (node->wallets.open (config.wallet));
+				if (wallet != nullptr)
 				{
-					auto wallet (node->wallets.create (config.wallet));
-					config.account = wallet->deterministic_insert ();
-					assert (wallet->exists (config.account));
-					error = config.serialize_json_stream (config_file);
-				}
-				if (!error)
-				{
-					auto wallet (node->wallets.open (config.wallet));
-					if (wallet != nullptr)
+					if (wallet->exists (config.account))
 					{
-						if (wallet->exists (config.account))
+						node->start ();
+						rai::rpc rpc (service, pool, *node, config.rpc);
+						if (config.rpc_enable)
 						{
-							node->start ();
-							rai::rpc rpc (service, pool, *node, config.rpc);
-							if (config.rpc_enable)
-							{
-								rpc.start ();
-							}
-							std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
-							gui->client_window->show ();
-							rai::thread_runner runner (*service, node->config.io_threads);
-							QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-							{
-								rpc.stop ();
-								node->stop ();
-							});
-							try
-							{
-								result = application.exec ();
-							}
-							catch (...)
-							{
-								result = -1;
-								assert (false);
-							}
-							runner.join ();
-							config_file.seekg (0);
-							auto account (config.account);
-							if (!rai::fetch_object (config, config_file))
-							{
-								if (account != config.account)
-								{
-									config.account = account;
-									config_file.close ();
-									config_file.open (config_path, std::ios_base::out | std::ios_base::trunc);
-									error = config.serialize_json_stream (config_file);
-								}
-							}
+							rpc.start ();
 						}
-						else
+						std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
+						gui->client_window->show ();
+						rai::thread_runner runner (*service, node->config.io_threads);
+						QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
 						{
-							std::cerr << "Wallet account doesn't exist\n";
+							rpc.stop ();
+							node->stop ();
+						});
+						try
+						{
+							result = application.exec ();
+						}
+						catch (...)
+						{
+							result = -1;
+							assert (false);
+						}
+						runner.join ();
+						config_file.seekg (0);
+						auto account (config.account);
+						if (!rai::fetch_object (config, config_file))
+						{
+							if (account != config.account)
+							{
+								config.account = account;
+								config_file.close ();
+								config_file.open (config_path.string (), std::ios_base::out | std::ios_base::trunc);
+								error = config.serialize_json_stream (config_file);
+							}
 						}
 					}
 					else
 					{
-						std::cerr << "Wallet id doesn't exist\n";
+						std::cerr << "Wallet account doesn't exist\n";
 					}
 				}
 				else
 				{
-					std::cerr << "Error writing config file\n";
+					std::cerr << "Wallet id doesn't exist\n";
 				}
 			}
 			else
 			{
-				std::cerr << "Error initializing node\n";
+				std::cerr << "Error writing config file\n";
 			}
 		}
 		else
 		{
-			std::cerr << "Error deserializing config\n";
+			std::cerr << "Error initializing node\n";
 		}
-    }
-    else
-    {
-        std::cerr << "Unable to open config file\n";
-    }
+	}
+	else
+	{
+		std::cerr << "Error deserializing config\n";
+	}
 	return result;
 }
 

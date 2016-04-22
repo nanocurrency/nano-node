@@ -72,21 +72,46 @@ bool fetch_object (T & object, std::iostream & stream_a)
 	{
 		auto updated (false);
 		error = object.deserialize_json (updated, tree);
-		if (!error && updated)
+	}
+	return error;
+}
+// Reads a json object from the stream and if was changed, write the object back to the stream
+template <typename T>
+bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstream & stream_a)
+{
+	bool error (false);
+	rai::open_or_create (stream_a, path_a.string ());
+	if (!stream_a.fail ())
+	{
+		boost::property_tree::ptree tree;
+		try
 		{
-			auto end (stream_a.tellp ());
-			stream_a.seekp (0);
-			try
-			{
-				boost::property_tree::write_json (stream_a, tree);
-				while (stream_a.tellp () != end)
-				{
-					stream_a << ' ';
-				}
-			}
-			catch (std::runtime_error const &)
+			boost::property_tree::read_json (stream_a, tree);
+		}
+		catch (std::runtime_error const &)
+		{
+			auto pos (stream_a.tellg ());
+			if (pos != std::streampos(0))
 			{
 				error = true;
+			}
+		}
+		if (!error)
+		{
+			auto updated (false);
+			error = object.deserialize_json (updated, tree);
+			if (!error && updated)
+			{
+				stream_a.close ();
+				stream_a.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
+				try
+				{
+					boost::property_tree::write_json (stream_a, tree);
+				}
+				catch (std::runtime_error const &)
+				{
+					error = true;
+				}
 			}
 		}
 	}

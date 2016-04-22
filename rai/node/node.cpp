@@ -593,7 +593,7 @@ packet_delay_microseconds (5000),
 bootstrap_fraction_numerator (1),
 creation_rebroadcast (2),
 rebroadcast_delay (15),
-receive_minimum (rai::Mrai_ratio),
+receive_minimum (rai::rai_ratio),
 inactive_supply (0),
 password_fanout (1024),
 io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
@@ -630,7 +630,7 @@ work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ()))
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "4");
+	tree_a.put ("version", "5");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("packet_delay_microseconds", std::to_string (packet_delay_microseconds));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
@@ -711,6 +711,13 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		result = true;
 		break;
 	case 4:
+		tree_a.erase ("receive_minimum");
+		tree_a.put ("receive_minimum", rai::rai_ratio.convert_to <std::string> ());
+		tree_a.erase ("version");
+		tree_a.put ("version", "5");
+		result = true;
+		break;
+	case 5:
 		break;
 	default:
 		throw std::runtime_error ("Unknown node_config version");
