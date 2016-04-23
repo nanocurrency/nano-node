@@ -1506,20 +1506,20 @@ checksum (0)
 	if (!error_a)
 	{
 		rai::transaction transaction (environment, nullptr, true);
-		error_a = error_a || mdb_dbi_open (transaction, "frontiers", MDB_CREATE, &frontiers) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "accounts", MDB_CREATE, &accounts) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "send", MDB_CREATE, &send_blocks) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "receive", MDB_CREATE, &receive_blocks) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "open", MDB_CREATE, &open_blocks) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "change", MDB_CREATE, &change_blocks) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "pending", MDB_CREATE, &pending) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &unchecked) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "stack", MDB_CREATE, &stack) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "sequence", MDB_CREATE, &sequence) != 0;
-		error_a = error_a || mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
+		error_a |= mdb_dbi_open (transaction, "frontiers", MDB_CREATE, &frontiers) != 0;
+		error_a |= mdb_dbi_open (transaction, "accounts", MDB_CREATE, &accounts) != 0;
+		error_a |= mdb_dbi_open (transaction, "send", MDB_CREATE, &send_blocks) != 0;
+		error_a |= mdb_dbi_open (transaction, "receive", MDB_CREATE, &receive_blocks) != 0;
+		error_a |= mdb_dbi_open (transaction, "open", MDB_CREATE, &open_blocks) != 0;
+		error_a |= mdb_dbi_open (transaction, "change", MDB_CREATE, &change_blocks) != 0;
+		error_a |= mdb_dbi_open (transaction, "pending", MDB_CREATE, &pending) != 0;
+		error_a |= mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
+		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &unchecked) != 0;
+		error_a |= mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
+		error_a |= mdb_dbi_open (transaction, "stack", MDB_CREATE, &stack) != 0;
+		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
+		error_a |= mdb_dbi_open (transaction, "sequence", MDB_CREATE, &sequence) != 0;
+		error_a |= mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
 			do_upgrades (transaction);
