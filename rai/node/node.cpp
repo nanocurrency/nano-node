@@ -1356,16 +1356,16 @@ public:
     void send_block (rai::send_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-        rai::receivable receivable;
+        rai::pending_info pending;
 		rai::transaction transaction (ledger.store.environment, nullptr, true);
-		while (ledger.store.pending_get (transaction, hash, receivable))
+		while (ledger.store.pending_get (transaction, hash, pending))
 		{
 			ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
 		}
         rai::account_info info;
-        ledger.store.account_get (transaction, receivable.source, info);
+        ledger.store.account_get (transaction, pending.source, info);
 		ledger.store.pending_del (transaction, hash);
-        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
+        ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
 		ledger.store.block_del (transaction, hash);
     }
     void receive_block (rai::receive_block const & block_a) override
@@ -1792,15 +1792,15 @@ public:
 			if (wallet->exists (block_a.hashables.destination))
 			{
 				rai::account representative;
-				rai::receivable receivable;
+				rai::pending_info pending;
 				rai::transaction transaction (node.store.environment, nullptr, false);
 				representative = wallet->store.representative (transaction);
-				auto error (node.store.pending_get (transaction, block_a.hash (), receivable));
+				auto error (node.store.pending_get (transaction, block_a.hash (), pending));
 				if (!error)
 				{
 					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));
 					auto node_l (node.shared ());
-					auto amount (receivable.amount.number ());
+					auto amount (pending.amount.number ());
 					wallet->receive_async (*block_l, representative, amount, [] (std::unique_ptr <rai::block> block_a) {});
 				}
 				else

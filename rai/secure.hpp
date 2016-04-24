@@ -281,15 +281,15 @@ public:
 	rai::store_entry current;
 };
 // Information on an uncollected send, source account, amount, target account.
-class receivable
+class pending_info
 {
 public:
-	receivable ();
-	receivable (MDB_val const &);
-	receivable (rai::account const &, rai::amount const &, rai::account const &);
+	pending_info ();
+	pending_info (MDB_val const &);
+	pending_info (rai::account const &, rai::amount const &, rai::account const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
-	bool operator == (rai::receivable const &) const;
+	bool operator == (rai::pending_info const &) const;
 	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
@@ -325,9 +325,9 @@ public:
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
 	
-	void pending_put (MDB_txn *, rai::block_hash const &, rai::receivable const &);
+	void pending_put (MDB_txn *, rai::block_hash const &, rai::pending_info const &);
 	void pending_del (MDB_txn *, rai::block_hash const &);
-	bool pending_get (MDB_txn *, rai::block_hash const &, rai::receivable &);
+	bool pending_get (MDB_txn *, rai::block_hash const &, rai::pending_info &);
 	bool pending_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator pending_begin (MDB_txn *);

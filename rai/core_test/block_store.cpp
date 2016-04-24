@@ -108,15 +108,15 @@ TEST (block_store, add_pending)
     ASSERT_TRUE (!init);
     rai::keypair key1;
     rai::block_hash hash1 (0);
-    rai::receivable receivable1;
+    rai::pending_info pending1;
 	rai::transaction transaction (store.environment, nullptr, true);
-    ASSERT_TRUE (store.pending_get (transaction, hash1, receivable1));
-    store.pending_put (transaction, hash1, receivable1);
-    rai::receivable receivable2;
-    ASSERT_FALSE (store.pending_get (transaction, hash1, receivable2));
-    ASSERT_EQ (receivable1, receivable2);
+    ASSERT_TRUE (store.pending_get (transaction, hash1, pending1));
+    store.pending_put (transaction, hash1, pending1);
+    rai::pending_info pending2;
+    ASSERT_FALSE (store.pending_get (transaction, hash1, pending2));
+    ASSERT_EQ (pending1, pending2);
     store.pending_del (transaction, hash1);
-    ASSERT_TRUE (store.pending_get (transaction, hash1, receivable2));
+    ASSERT_TRUE (store.pending_get (transaction, hash1, pending2));
 }
 
 TEST (block_store, pending_iterator)
@@ -130,10 +130,10 @@ TEST (block_store, pending_iterator)
     auto current (store.pending_begin (transaction));
     ASSERT_NE (store.pending_end (), current);
     ASSERT_EQ (rai::account (1), current->first);
-	rai::receivable receivable (current->second);
-    ASSERT_EQ (rai::account (2), receivable.source);
-    ASSERT_EQ (rai::amount (3), receivable.amount);
-    ASSERT_EQ (rai::account (4), receivable.destination);
+	rai::pending_info pending (current->second);
+    ASSERT_EQ (rai::account (2), pending.source);
+    ASSERT_EQ (rai::amount (3), pending.amount);
+    ASSERT_EQ (rai::account (4), pending.destination);
 }
 
 TEST (block_store, genesis)
@@ -411,9 +411,9 @@ TEST (block_store, pending_exists)
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
     rai::block_hash two (2);
-    rai::receivable receivable;
+    rai::pending_info pending;
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.pending_put (transaction, two, receivable);
+    store.pending_put (transaction, two, pending);
     rai::block_hash one (1);
     ASSERT_FALSE (store.pending_exists (transaction, one));
 }

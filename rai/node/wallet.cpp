@@ -1216,14 +1216,14 @@ public:
 		std::unordered_set <rai::account> already_searched;
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
-			rai::receivable receivable (i->second);
-			auto existing (keys.find (receivable.destination));
+			rai::pending_info pending (i->second);
+			auto existing (keys.find (pending.destination));
 			if (existing != keys.end ())
 			{
 				rai::account_info info;
-				wallet->node.store.account_get (transaction, receivable.source, info);
-				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % receivable.source.to_string () % receivable.source.to_account () % info.head.to_string ());
-				auto account (receivable.source);
+				wallet->node.store.account_get (transaction, pending.source, info);
+				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % pending.source.to_string () % pending.source.to_account () % info.head.to_string ());
+				auto account (pending.source);
 				if (already_searched.find (account) == already_searched.end ())
 				{
 					auto this_l (shared_from_this ());
@@ -1250,10 +1250,10 @@ public:
 		auto representative (wallet->store.representative (transaction));
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
-			rai::receivable receivable (i->second);
-			if (receivable.source == account_a)
+			rai::pending_info pending (i->second);
+			if (pending.source == account_a)
 			{
-				if (wallet->store.exists (transaction, receivable.destination))
+				if (wallet->store.exists (transaction, pending.destination))
 				{
 					if (wallet->store.valid_password (transaction))
 					{
@@ -1261,7 +1261,7 @@ public:
 						assert (dynamic_cast <rai::send_block *> (block_l.get ()) != nullptr);
 						std::shared_ptr <rai::send_block> block (static_cast <rai::send_block *> (block_l.release ()));
 						auto wallet_l (wallet);
-						auto amount (receivable.amount.number ());
+						auto amount (pending.amount.number ());
 						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
 						wallet_l->receive_async (*block, representative, amount, [wallet_l, block] (std::unique_ptr <rai::block> block_a)
 						{
@@ -1273,7 +1273,7 @@ public:
 					}
 					else
 					{
-						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % receivable.destination.to_account ());
+						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % pending.destination.to_account ());
 					}
 				}
 			}

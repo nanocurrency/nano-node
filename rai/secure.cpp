@@ -1919,16 +1919,16 @@ void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const 
     assert (status == 0);
 }
 
-void rai::block_store::pending_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::receivable const & receivable_a)
+void rai::block_store::pending_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::pending_info const & pending_a)
 {
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
-        rai::write (stream, receivable_a.source);
-        rai::write (stream, receivable_a.amount);
-        rai::write (stream, receivable_a.destination);
+        rai::write (stream, pending_a.source);
+        rai::write (stream, pending_a.amount);
+        rai::write (stream, pending_a.destination);
     }
-	auto status (mdb_put (transaction_a, pending, hash_a.val (), receivable_a.val (), 0));
+	auto status (mdb_put (transaction_a, pending, hash_a.val (), pending_a.val (), 0));
     assert (status == 0);
 }
 
@@ -1944,7 +1944,7 @@ bool rai::block_store::pending_exists (MDB_txn * transaction_a, rai::block_hash 
 	return iterator != rai::store_iterator (nullptr) && rai::block_hash (iterator->first) == hash_a;
 }
 
-bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::receivable & receivable_a)
+bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::pending_info & pending_a)
 {
 	MDB_val value;
 	auto status (mdb_get (transaction_a, pending, hash_a.val (), &value));
@@ -1957,13 +1957,13 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::block_hash con
     else
     {
         result = false;
-        assert (value.mv_size == sizeof (receivable_a.source.bytes) + sizeof (receivable_a.amount.bytes) + sizeof (receivable_a.destination.bytes));
+        assert (value.mv_size == sizeof (pending_a.source.bytes) + sizeof (pending_a.amount.bytes) + sizeof (pending_a.destination.bytes));
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
-        auto error1 (rai::read (stream, receivable_a.source));
+        auto error1 (rai::read (stream, pending_a.source));
         assert (!error1);
-        auto error2 (rai::read (stream, receivable_a.amount));
+        auto error2 (rai::read (stream, pending_a.amount));
         assert (!error2);
-        auto error3 (rai::read (stream, receivable_a.destination));
+        auto error3 (rai::read (stream, pending_a.destination));
         assert (!error3);
     }
     return result;
@@ -1987,35 +1987,35 @@ rai::store_iterator rai::block_store::pending_end ()
     return result;
 }
 
-rai::receivable::receivable () :
+rai::pending_info::pending_info () :
 source (0),
 amount (0),
 destination (0)
 {
 }
 
-rai::receivable::receivable (MDB_val const & val_a)
+rai::pending_info::pending_info (MDB_val const & val_a)
 {
 	assert(val_a.mv_size == sizeof (*this));
 	static_assert (sizeof (source) + sizeof (amount) + sizeof (destination) == sizeof (*this), "Packed class");
 	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast <uint8_t *> (this));
 }
 
-rai::receivable::receivable (rai::account const & source_a, rai::amount const & amount_a, rai::account const & destination_a) :
+rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, rai::account const & destination_a) :
 source (source_a),
 amount (amount_a),
 destination (destination_a)
 {
 }
 
-void rai::receivable::serialize (rai::stream & stream_a) const
+void rai::pending_info::serialize (rai::stream & stream_a) const
 {
     rai::write (stream_a, source.bytes);
     rai::write (stream_a, amount.bytes);
     rai::write (stream_a, destination.bytes);
 }
 
-bool rai::receivable::deserialize (rai::stream & stream_a)
+bool rai::pending_info::deserialize (rai::stream & stream_a)
 {
     auto result (rai::read (stream_a, source.bytes));
     if (!result)
@@ -2029,14 +2029,14 @@ bool rai::receivable::deserialize (rai::stream & stream_a)
     return result;
 }
 
-bool rai::receivable::operator == (rai::receivable const & other_a) const
+bool rai::pending_info::operator == (rai::pending_info const & other_a) const
 {
     return source == other_a.source && amount == other_a.amount && destination == other_a.destination;
 }
 
-rai::mdb_val rai::receivable::val () const
+rai::mdb_val rai::pending_info::val () const
 {
-	return rai::mdb_val (sizeof (*this), const_cast <rai::receivable *> (this));
+	return rai::mdb_val (sizeof (*this), const_cast <rai::pending_info *> (this));
 }
 
 rai::uint128_t rai::block_store::representation_get (MDB_txn * transaction_a, rai::account const & account_a)
@@ -2482,18 +2482,18 @@ public:
     void send_block (rai::send_block const & block_a) override
     {
         auto hash (block_a.hash ());
-        rai::receivable receivable;
-        while (ledger.store.pending_get (transaction, hash, receivable))
+        rai::pending_info pending;
+        while (ledger.store.pending_get (transaction, hash, pending))
         {
             ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
         }
         rai::account_info info;
-        ledger.store.account_get (transaction, receivable.source, info);
+        ledger.store.account_get (transaction, pending.source, info);
         ledger.store.pending_del (transaction, hash);
-        ledger.change_latest (transaction, receivable.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
+        ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
         ledger.store.block_del (transaction, hash);
 		ledger.store.frontier_del (transaction, hash);
-		ledger.store.frontier_put (transaction, block_a.hashables.previous, receivable.source);
+		ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
     }
     void receive_block (rai::receive_block const & block_a) override
@@ -2888,33 +2888,33 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
         result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block already? (Harmless)
         if (result.code == rai::process_result::progress)
         {
-            rai::receivable receivable;
-            result.code = ledger.store.pending_get (transaction, block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
+            rai::pending_info pending;
+            result.code = ledger.store.pending_get (transaction, block_a.hashables.source, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
             if (result.code == rai::process_result::progress)
             {
-                result.code = rai::validate_message (receivable.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+                result.code = rai::validate_message (pending.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
                 if (result.code == rai::process_result::progress)
                 {
                     rai::account_info info;
-                    result.code = ledger.store.account_get (transaction, receivable.destination, info) ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for account at all (Harmless)
+                    result.code = ledger.store.account_get (transaction, pending.destination, info) ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for account at all (Harmless)
                     if (result.code == rai::process_result::progress)
                     {
                         result.code = info.head == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
                         if (result.code == rai::process_result::progress)
                         {
-							assert (ledger.store.frontier_get (transaction, block_a.hashables.previous) == receivable.destination);
-                            auto new_balance (info.balance.number () + receivable.amount.number ());
+							assert (ledger.store.frontier_get (transaction, block_a.hashables.previous) == pending.destination);
+                            auto new_balance (info.balance.number () + pending.amount.number ());
                             rai::account_info source_info;
-                            auto error (ledger.store.account_get (transaction, receivable.source, source_info));
+                            auto error (ledger.store.account_get (transaction, pending.source, source_info));
                             assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, receivable.destination, hash, info.rep_block, new_balance);
-							ledger.move_representation (transaction, source_info.rep_block, info.rep_block, receivable.amount.number ());
+							ledger.change_latest (transaction, pending.destination, hash, info.rep_block, new_balance);
+							ledger.move_representation (transaction, source_info.rep_block, info.rep_block, pending.amount.number ());
 							ledger.store.frontier_del (transaction, block_a.hashables.previous);
-							ledger.store.frontier_put (transaction, hash, receivable.destination);
-							result.account = receivable.destination;
-							result.amount = receivable.amount;
+							ledger.store.frontier_put (transaction, hash, pending.destination);
+							result.account = pending.destination;
+							result.amount = pending.amount;
                         }
                         else
                         {
@@ -2945,23 +2945,23 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 				result.code = ledger.store.account_get (transaction, block_a.hashables.account, info) ? rai::process_result::progress : rai::process_result::fork; // Has this account already been opened? (Malicious)
 				if (result.code == rai::process_result::progress)
 				{
-					rai::receivable receivable;
-					result.code = ledger.store.pending_get (transaction, block_a.hashables.source, receivable) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
+					rai::pending_info pending;
+					result.code = ledger.store.pending_get (transaction, block_a.hashables.source, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
 					if (result.code == rai::process_result::progress)
 					{
-						result.code = receivable.destination == block_a.hashables.account ? rai::process_result::progress : rai::process_result::account_mismatch; // Does the account listed in the open block match the one named in the send block? (Malformed)
+						result.code = pending.destination == block_a.hashables.account ? rai::process_result::progress : rai::process_result::account_mismatch; // Does the account listed in the open block match the one named in the send block? (Malformed)
 						if (result.code == rai::process_result::progress)
 						{
 							rai::account_info source_info;
-							auto error (ledger.store.account_get (transaction, receivable.source, source_info));
+							auto error (ledger.store.account_get (transaction, pending.source, source_info));
 							assert (!error);
 							ledger.store.pending_del (transaction, block_a.hashables.source);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, receivable.destination, hash, hash, receivable.amount.number ());
-							ledger.move_representation (transaction, source_info.rep_block, hash, receivable.amount.number ());
-							ledger.store.frontier_put (transaction, hash, receivable.destination);
-							result.account = receivable.destination;
-							result.amount = receivable.amount;
+							ledger.change_latest (transaction, pending.destination, hash, hash, pending.amount.number ());
+							ledger.move_representation (transaction, source_info.rep_block, hash, pending.amount.number ());
+							ledger.store.frontier_put (transaction, hash, pending.destination);
+							result.account = pending.destination;
+							result.amount = pending.amount;
 						}
 					}
 				}

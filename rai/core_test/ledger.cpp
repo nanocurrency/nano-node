@@ -147,11 +147,11 @@ TEST (ledger, process_send)
 	ASSERT_TRUE (store.frontier_get (transaction, hash2).is_zero ());
 	rai::account_info info5;
 	ASSERT_TRUE (ledger.store.account_get (transaction, key2.pub, info5));
-	rai::receivable receivable1;
-	ASSERT_FALSE (ledger.store.pending_get (transaction, hash1, receivable1));
-	ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
-	ASSERT_EQ (key2.pub, receivable1.destination);
-	ASSERT_EQ (rai::genesis_amount - 50, receivable1.amount.number ());
+	rai::pending_info pending1;
+	ASSERT_FALSE (ledger.store.pending_get (transaction, hash1, pending1));
+	ASSERT_EQ (rai::test_genesis_key.pub, pending1.source);
+	ASSERT_EQ (key2.pub, pending1.destination);
+	ASSERT_EQ (rai::genesis_amount - 50, pending1.amount.number ());
 	ASSERT_EQ (0, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, rai::test_genesis_key.pub));
@@ -165,8 +165,8 @@ TEST (ledger, process_send)
 	rai::account_info info7;
 	ASSERT_FALSE (ledger.store.account_get (transaction, rai::test_genesis_key.pub, info7));
 	ASSERT_EQ (info1.head, info7.head);
-	rai::receivable receivable2;
-	ASSERT_TRUE (ledger.store.pending_get (transaction, hash1, receivable2));
+	rai::pending_info pending2;
+	ASSERT_TRUE (ledger.store.pending_get (transaction, hash1, pending2));
 	ASSERT_EQ (rai::genesis_amount, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 }
 
@@ -218,10 +218,10 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (transaction, key2.pub));
-	rai::receivable receivable1;
-	ASSERT_FALSE (ledger.store.pending_get (transaction, hash3, receivable1));
-	ASSERT_EQ (rai::test_genesis_key.pub, receivable1.source);
-	ASSERT_EQ (25, receivable1.amount.number ());
+	rai::pending_info pending1;
+	ASSERT_FALSE (ledger.store.pending_get (transaction, hash3, pending1));
+	ASSERT_EQ (rai::test_genesis_key.pub, pending1.source);
+	ASSERT_EQ (25, pending1.amount.number ());
 }
 
 TEST (ledger, rollback_receiver)
@@ -257,8 +257,8 @@ TEST (ledger, rollback_receiver)
 	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
 	rai::account_info info2;
 	ASSERT_TRUE (ledger.store.account_get (transaction, key2.pub, info2));
-	rai::receivable receivable1;
-	ASSERT_TRUE (ledger.store.pending_get (transaction, info2.head, receivable1));
+	rai::pending_info pending1;
+	ASSERT_TRUE (ledger.store.pending_get (transaction, info2.head, pending1));
 }
 
 TEST (ledger, rollback_representation)
