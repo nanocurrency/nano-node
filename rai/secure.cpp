@@ -1513,6 +1513,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "open", MDB_CREATE, &open_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "change", MDB_CREATE, &change_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "pending", MDB_CREATE, &pending) != 0;
+		error_a |= mdb_dbi_open (transaction, "receivable", MDB_CREATE, &receivable) != 0;
 		error_a |= mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &unchecked) != 0;
 		error_a |= mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
@@ -1563,6 +1564,9 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 			upgrade_v1_to_v2 (transaction_a);
 			break;
 		case 2:
+			upgrade_v2_to_v3 (transaction_a);
+			break;
+		case 3:
 		break;
 		default:
 		assert (false);
@@ -1600,6 +1604,18 @@ void rai::block_store::upgrade_v1_to_v2 (MDB_txn * transaction_a)
 		{
 			account.clear ();
 		}
+	}
+}
+
+void rai::block_store::upgrade_v2_to_v3 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 3);
+	for (auto i (pending_begin (transaction_a)), n (pending_end ()); i != n; ++i)
+	{
+		rai::pending_info pending (i->second);
+		rai::block_hash hash (i->first);
+		rai::receivable_info receivable_l (pending.destination, hash);
+		receivable_put (transaction_a, receivable_l);
 	}
 }
 
@@ -1921,13 +1937,6 @@ void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const 
 
 void rai::block_store::pending_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::pending_info const & pending_a)
 {
-    std::vector <uint8_t> vector;
-    {
-        rai::vectorstream stream (vector);
-        rai::write (stream, pending_a.source);
-        rai::write (stream, pending_a.amount);
-        rai::write (stream, pending_a.destination);
-    }
 	auto status (mdb_put (transaction_a, pending, hash_a.val (), pending_a.val (), 0));
     assert (status == 0);
 }
@@ -1986,6 +1995,37 @@ rai::store_iterator rai::block_store::pending_end ()
     rai::store_iterator result (nullptr);
     return result;
 }
+	
+void rai::block_store::receivable_put (MDB_txn * transaction_a, rai::receivable_info const & receivable_a)
+{
+	auto status (mdb_put (transaction_a, receivable, receivable_a.val (), rai::mdb_val (0, nullptr), 0));
+    assert (status == 0);
+}
+
+void rai::block_store::receivable_del (MDB_txn * transaction_a, rai::receivable_info const & receivable_a)
+{
+	auto status (mdb_del (transaction_a, receivable, receivable_a.val (), nullptr));
+    assert (status == 0);
+}
+
+rai::store_iterator rai::block_store::receivable_begin (MDB_txn * transaction_a)
+{
+    rai::store_iterator result (transaction_a, receivable);
+    return result;
+}
+
+rai::store_iterator rai::block_store::receivable_begin (MDB_txn * transaction_a, rai::account const & account_a)
+{
+	rai::receivable_info receivable_l (account_a, 0);
+	rai::store_iterator result (transaction_a, receivable, receivable_l.val ());
+	return result;
+}
+
+rai::store_iterator rai::block_store::receivable_end ()
+{
+    rai::store_iterator result (nullptr);
+    return result;
+}
 
 rai::pending_info::pending_info () :
 source (0),
@@ -2037,6 +2077,51 @@ bool rai::pending_info::operator == (rai::pending_info const & other_a) const
 rai::mdb_val rai::pending_info::val () const
 {
 	return rai::mdb_val (sizeof (*this), const_cast <rai::pending_info *> (this));
+}
+
+rai::receivable_info::receivable_info () :
+account (0),
+hash (0)
+{
+}
+
+rai::receivable_info::receivable_info (MDB_val const & val_a)
+{
+	assert(val_a.mv_size == sizeof (*this));
+	static_assert (sizeof (account) + sizeof (hash) == sizeof (*this), "Packed class");
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast <uint8_t *> (this));
+}
+
+rai::receivable_info::receivable_info (rai::account const & account_a, rai::block_hash const & hash_a) :
+account (account_a),
+hash (hash_a)
+{
+}
+
+void rai::receivable_info::serialize (rai::stream & stream_a) const
+{
+	rai::write (stream_a, account);
+	rai::write (stream_a, hash);
+}
+
+bool rai::receivable_info::deserialize (rai::stream & stream_a)
+{
+	auto result (rai::read (stream_a, account));
+	if (!result)
+	{
+		result = rai::read (stream_a, hash);
+	}
+	return result;
+}
+
+bool rai::receivable_info::operator == (rai::receivable_info const & other_a) const
+{
+	return account == other_a.account && hash == other_a.hash;
+}
+
+rai::mdb_val rai::receivable_info::val () const
+{
+	return rai::mdb_val (sizeof (*this), const_cast <rai::receivable_info *> (this));
 }
 
 rai::uint128_t rai::block_store::representation_get (MDB_txn * transaction_a, rai::account const & account_a)
