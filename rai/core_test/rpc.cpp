@@ -791,24 +791,26 @@ TEST (rpc, history)
 	request.put ("count", 100);
 	auto response (test_response (request, rpc, system.service));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.second);
+	std::vector <std::tuple <std::string, std::string, std::string, std::string>> history_l;
     auto & history_node (response.first.get_child ("history"));
-	ASSERT_EQ (3, history_node.size ());
-	auto i (history_node.begin ());
-	ASSERT_EQ (receive->hash ().to_string (), i->first);
-	ASSERT_EQ ("receive", i->second.get <std::string> ("type"));
-	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), i->second.get <std::string> ("account"));
-	ASSERT_EQ (system.nodes [0]->config.receive_minimum.to_string_dec (), i->second.get <std::string> ("amount"));
-	++i;
-	ASSERT_EQ (send->hash ().to_string (), i->first);
-	ASSERT_EQ ("send", i->second.get <std::string> ("type"));
-	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), i->second.get <std::string> ("account"));
-	ASSERT_EQ (system.nodes [0]->config.receive_minimum.to_string_dec (), i->second.get <std::string> ("amount"));
-	++i;
+	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
+	{
+		history_l.push_back (std::make_tuple (i->second.get <std::string> ("type"), i->second.get <std::string> ("account"), i->second.get <std::string> ("amount"), i->second.get <std::string> ("hash")));
+	}
+	ASSERT_EQ (3, history_l.size ());
+	ASSERT_EQ ("receive", std::get <0> (history_l [0]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get <1> (history_l [0]));
+	ASSERT_EQ (system.nodes [0]->config.receive_minimum.to_string_dec (), std::get <2> (history_l [0]));
+	ASSERT_EQ (receive->hash ().to_string (), std::get <3> (history_l [0]));
+	ASSERT_EQ ("send", std::get <0> (history_l [1]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get <1> (history_l [1]));
+	ASSERT_EQ (system.nodes [0]->config.receive_minimum.to_string_dec (), std::get <2> (history_l [1]));
+	ASSERT_EQ (send->hash ().to_string (), std::get <3> (history_l [1]));
 	rai::genesis genesis;
-	ASSERT_EQ (genesis.hash ().to_string (), i->first);
-	ASSERT_EQ ("receive", i->second.get <std::string> ("type"));
-	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), i->second.get <std::string> ("account"));
-	ASSERT_EQ (rai::genesis_amount.convert_to <std::string> (), i->second.get <std::string> ("amount"));
+	ASSERT_EQ ("receive", std::get <0> (history_l [2]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get <1> (history_l [2]));
+	ASSERT_EQ (rai::genesis_amount.convert_to <std::string> (), std::get <2> (history_l [2]));
+	ASSERT_EQ (genesis.hash ().to_string (), std::get <3> (history_l [2]));
 	rpc.stop();
 	thread1.join();
 }
