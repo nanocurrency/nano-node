@@ -536,7 +536,8 @@ void rai::rpc_handler::history ()
 				block->visit (visitor);
 				if (!entry.empty ())
 				{
-					history.put_child (hash.to_string (), entry);
+					entry.put ("hash", hash.to_string ());
+					history.push_back (std::make_pair ("", entry));
 				}
 				hash = block->previous ();
 				block = rpc.node.store.block_get (transaction, hash);
