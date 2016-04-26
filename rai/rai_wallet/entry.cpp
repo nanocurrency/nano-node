@@ -160,6 +160,17 @@ public:
 	rai::opencl_config opencl;
 };
 
+namespace
+{
+void show_error (std::string const & message_a)
+{
+	QMessageBox message (QMessageBox::Critical, "Error starting RaiBlocks", message_a.c_str ());
+	message.setModal (true);
+	message.show ();
+	message.exec ();
+}
+}
+
 int run_wallet (int argc, char * const * argv)
 {
 	auto working (rai::working_path ());
@@ -169,9 +180,9 @@ int run_wallet (int argc, char * const * argv)
     int result (0);
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
+	QApplication application (argc, const_cast <char **> (argv));
 	if (!error)
 	{
-		QApplication application (argc, const_cast <char **> (argv));
 		rai::set_application_icon (application);
 		auto service (boost::make_shared <boost::asio::io_service> ());
 		rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
@@ -236,27 +247,27 @@ int run_wallet (int argc, char * const * argv)
 					}
 					else
 					{
-						std::cerr << "Wallet account doesn't exist\n";
+						show_error ("Wallet account doesn't exist");
 					}
 				}
 				else
 				{
-					std::cerr << "Wallet id doesn't exist\n";
+					show_error ("Wallet id doesn't exist");
 				}
 			}
 			else
 			{
-				std::cerr << "Error writing config file\n";
+				show_error ("Error writing config file");
 			}
 		}
 		else
 		{
-			std::cerr << "Error initializing node\n";
+			show_error ("Error initializing node");
 		}
 	}
 	else
 	{
-		std::cerr << "Error deserializing config\n";
+		show_error ("Error deserializing config");
 	}
 	return result;
 }
@@ -279,7 +290,18 @@ int main (int argc, char * const * argv)
 	}
     else
     {
-		result = run_wallet (argc, argv);
+		try
+		{
+			result = run_wallet (argc, argv);
+		}
+		catch (std::exception const & e)
+		{
+			show_error (boost::str (boost::format ("Exception while running wallet: %1%") % e.what ()));
+		}
+		catch (...)
+		{
+			show_error ("Unknown exception while running wallet");
+		}
     }
     return result;
 }
