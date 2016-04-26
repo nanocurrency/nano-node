@@ -181,12 +181,15 @@ int run_wallet (int argc, char * const * argv)
 		auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
 		if (!init.error ())
 		{
+			config_file.close ();
 			if (config.account.is_zero ())
 			{
 				auto wallet (node->wallets.create (config.wallet));
 				config.account = wallet->deterministic_insert ();
 				assert (wallet->exists (config.account));
+				config_file.open (config_path.string (), std::ios_base::out | std::ios_base::trunc);
 				error = config.serialize_json_stream (config_file);
+				config_file.close ();
 			}
 			if (!error)
 			{
@@ -219,9 +222,8 @@ int run_wallet (int argc, char * const * argv)
 							assert (false);
 						}
 						runner.join ();
-						config_file.seekg (0);
 						auto account (config.account);
-						if (!rai::fetch_object (config, config_file))
+						if (!rai::fetch_object (config, config_path, config_file))
 						{
 							if (account != config.account)
 							{

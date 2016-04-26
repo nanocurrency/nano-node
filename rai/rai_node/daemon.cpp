@@ -106,6 +106,7 @@ void rai_daemon::daemon::run ()
 	auto error (rai::fetch_object (config, config_path, config_file));
 	if (!error)
 	{
+		config_file.close ();
 		auto service (boost::make_shared <boost::asio::io_service> ());
 		rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 		rai::alarm alarm (*service);
