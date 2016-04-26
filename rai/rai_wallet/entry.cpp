@@ -223,15 +223,7 @@ int run_wallet (int argc, char * const * argv)
 							rpc.stop ();
 							node->stop ();
 						});
-						try
-						{
-							result = application.exec ();
-						}
-						catch (...)
-						{
-							result = -1;
-							assert (false);
-						}
+						result = application.exec ();
 						runner.join ();
 						auto account (config.account);
 						if (!rai::fetch_object (config, config_path, config_file))
