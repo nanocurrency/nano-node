@@ -2436,26 +2436,27 @@ class representative_visitor : public rai::block_visitor
 public:
     representative_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
 	transaction (transaction_a),
-    store (store_a)
+    store (store_a),
+	result (0)
     {
     }
     void compute (rai::block_hash const & hash_a)
     {
-        auto block (store.block_get (transaction, hash_a));
-        assert (block != nullptr);
-        block->visit (*this);
+		current = hash_a;
+		while (result.is_zero ())
+		{
+			auto block (store.block_get (transaction, current));
+			assert (block != nullptr);
+			block->visit (*this);
+		}
     }
     void send_block (rai::send_block const & block_a) override
     {
-        representative_visitor visitor (transaction, store);
-        visitor.compute (block_a.previous ());
-        result = visitor.result;
+        current = block_a.previous ();
     }
     void receive_block (rai::receive_block const & block_a) override
     {
-        representative_visitor visitor (transaction, store);
-        visitor.compute (block_a.previous ());
-        result = visitor.result;
+		current = block_a.previous ();
     }
     void open_block (rai::open_block const & block_a) override
     {
@@ -2467,6 +2468,7 @@ public:
     }
 	MDB_txn * transaction;
     rai::block_store & store;
+	rai::block_hash current;
     rai::account result;
 };
 
