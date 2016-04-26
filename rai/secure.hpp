@@ -295,19 +295,6 @@ public:
 	rai::amount amount;
 	rai::account destination;
 };
-class receivable_info
-{
-public:
-	receivable_info ();
-	receivable_info (MDB_val const &);
-	receivable_info (rai::account const &, rai::block_hash const &);
-	void serialize (rai::stream &) const;
-	bool deserialize (rai::stream &);
-	bool operator == (rai::receivable_info const &) const;
-	rai::mdb_val val () const;
-	rai::account account;
-	rai::block_hash hash;
-};
 class block_store
 {
 public:
@@ -346,12 +333,6 @@ public:
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
 	
-	void receivable_put (MDB_txn *, rai::receivable_info const &);
-	void receivable_del (MDB_txn *, rai::receivable_info const &);
-	rai::store_iterator receivable_begin (MDB_txn *);
-	rai::store_iterator receivable_begin (MDB_txn *, rai::account const &);
-	rai::store_iterator receivable_end ();
-	
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
 	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	
@@ -383,7 +364,6 @@ public:
 	int version_get (MDB_txn *);
 	void do_upgrades (MDB_txn *);
 	void upgrade_v1_to_v2 (MDB_txn *);
-	void upgrade_v2_to_v3 (MDB_txn *);
 	
 	void clear (MDB_dbi);
 	
@@ -402,8 +382,6 @@ public:
 	MDB_dbi change_blocks;
 	// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
 	MDB_dbi pending;
-	// account, block_hash ->										// Directly get
-	MDB_dbi receivable;
 	// account -> weight                                            // Representation
 	MDB_dbi representation;
 	// block_hash -> block                                          // Unchecked bootstrap blocks
