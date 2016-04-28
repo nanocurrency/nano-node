@@ -169,6 +169,24 @@ void show_error (std::string const & message_a)
 	message.show ();
 	message.exec ();
 }
+bool update_config (qt_wallet_config & config_a, boost::filesystem::path const & config_path_a, std::fstream & config_file_a)
+{
+	auto account (config_a.account);
+	auto wallet (config_a.wallet);
+	auto error (false);
+	if (!rai::fetch_object (config_a, config_path_a, config_file_a))
+	{
+		if (account != config_a.account || wallet != config_a.wallet)
+		{
+			config_a.account = account;
+			config_a.wallet = wallet;
+			config_file_a.close ();
+			config_file_a.open (config_path_a.string (), std::ios_base::out | std::ios_base::trunc);
+			error = config_a.serialize_json_stream (config_file_a);
+		}
+	}
+	return error;
+}
 }
 
 int run_wallet (int argc, char * const * argv)
@@ -180,6 +198,7 @@ int run_wallet (int argc, char * const * argv)
     int result (0);
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
+	config_file.close ();
 	QApplication application (argc, const_cast <char **> (argv));
 	if (!error)
 	{
@@ -192,65 +211,53 @@ int run_wallet (int argc, char * const * argv)
 		auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
 		if (!init.error ())
 		{
-			config_file.close ();
-			if (config.account.is_zero ())
+			auto wallet (node->wallets.open (config.wallet));
+			if (wallet == nullptr)
 			{
-				auto wallet (node->wallets.create (config.wallet));
-				config.account = wallet->deterministic_insert ();
-				assert (wallet->exists (config.account));
-				config_file.open (config_path.string (), std::ios_base::out | std::ios_base::trunc);
-				error = config.serialize_json_stream (config_file);
-				config_file.close ();
-			}
-			if (!error)
-			{
-				auto wallet (node->wallets.open (config.wallet));
-				if (wallet != nullptr)
+				auto existing (node->wallets.items.begin ());
+				if (existing != node->wallets.items.end ())
 				{
-					if (wallet->exists (config.account))
-					{
-						node->start ();
-						rai::rpc rpc (service, pool, *node, config.rpc);
-						if (config.rpc_enable)
-						{
-							rpc.start ();
-						}
-						std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
-						gui->client_window->show ();
-						rai::thread_runner runner (*service, node->config.io_threads);
-						QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-						{
-							rpc.stop ();
-							node->stop ();
-						});
-						result = application.exec ();
-						runner.join ();
-						auto account (config.account);
-						if (!rai::fetch_object (config, config_path, config_file))
-						{
-							if (account != config.account)
-							{
-								config.account = account;
-								config_file.close ();
-								config_file.open (config_path.string (), std::ios_base::out | std::ios_base::trunc);
-								error = config.serialize_json_stream (config_file);
-							}
-						}
-					}
-					else
-					{
-						show_error ("Wallet account doesn't exist");
-					}
+					wallet = existing->second;
+					config.wallet = existing->first;
 				}
 				else
 				{
-					show_error ("Wallet id doesn't exist");
+					wallet = node->wallets.create (config.wallet);
 				}
 			}
-			else
+			if (config.account.is_zero () || !wallet->exists (config.account))
 			{
-				show_error ("Error writing config file");
+				rai::transaction transaction (wallet->store.environment, nullptr, true);
+				auto existing (wallet->store.begin (transaction));
+				if (existing != wallet->store.end ())
+				{
+					rai::uint256_union account (existing->first);
+					config.account = account;
+				}
+				else
+				{
+					config.account = wallet->deterministic_insert (transaction);
+				}
 			}
+			assert (wallet->exists (config.account));
+			update_config (config, config_path, config_file);
+			node->start ();
+			rai::rpc rpc (service, pool, *node, config.rpc);
+			if (config.rpc_enable)
+			{
+				rpc.start ();
+			}
+			std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
+			gui->client_window->show ();
+			rai::thread_runner runner (*service, node->config.io_threads);
+			QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+			{
+				rpc.stop ();
+				node->stop ();
+			});
+			result = application.exec ();
+			runner.join ();
+			update_config (config, config_path, config_file);
 		}
 		else
 		{
