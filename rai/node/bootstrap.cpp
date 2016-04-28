@@ -792,12 +792,25 @@ void rai::bootstrap_attempt::attempt ()
 		auto node_l (node->shared ());
 		auto this_l (shared_from_this ());
 		auto processor (std::make_shared <rai::bootstrap_client> (node_l, this_l));
+		attempts.push_back (processor);
 		processor->run (rai::tcp_endpoint (endpoint.address (), endpoint.port ()));
 		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (250), [this_l] ()
 		{
 			std::lock_guard <std::mutex> lock (this_l->node->bootstrap_initiator.mutex);
 			this_l->attempt ();
 		});
+	}
+}
+
+void rai::bootstrap_attempt::stop ()
+{
+	for (auto i: attempts)
+	{
+		auto attempt (i.lock ());
+		if (attempt != nullptr)
+		{
+			attempt->socket.close ();
+		}
 	}
 }
 
@@ -872,6 +885,15 @@ void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const &
 bool rai::bootstrap_initiator::in_progress ()
 {
 	return attempt.lock () != nullptr;
+}
+
+void rai::bootstrap_initiator::stop ()
+{
+	auto attempt_l (attempt.lock ());
+	if (attempt_l != nullptr)
+	{
+		attempt_l->stop ();
+	}
 }
 
 void rai::bootstrap_initiator::notify_listeners ()

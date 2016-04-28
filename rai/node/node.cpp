@@ -1496,6 +1496,7 @@ void rai::node::stop ()
     BOOST_LOG (log) << "Node stopping";
 	active.roots.clear ();
     network.stop ();
+	bootstrap_initiator.stop ();
     bootstrap.stop ();
 }
 

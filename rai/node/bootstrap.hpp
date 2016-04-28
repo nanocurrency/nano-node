@@ -45,12 +45,15 @@ public:
     std::unique_ptr <rai::block> retrieve (rai::transaction &, rai::block_hash const &) override;
 };
 class node;
+class bootstrap_client;
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {
 public:
 	bootstrap_attempt (std::shared_ptr <rai::node> node_a, std::vector <rai::endpoint> const & peers_a);
 	~bootstrap_attempt ();
 	void attempt ();
+	void stop ();
+	std::vector <std::weak_ptr <rai::bootstrap_client>> attempts;
 	std::shared_ptr <rai::node> node;
 	std::vector <rai::endpoint> peers;
 	std::atomic_bool connected;
@@ -128,6 +131,7 @@ public:
 	void notify_listeners ();
 	void add_observer (std::function <void (bool)> const &);
 	bool in_progress ();
+	void stop ();
 	std::mutex mutex;
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
