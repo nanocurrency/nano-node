@@ -1310,6 +1310,7 @@ std::vector <rai::peer_information> rai::peer_container::list ()
     {
         result.push_back (*i);
     }
+	std::random_shuffle (result.begin (), result.end ());
     return result;
 }
 
