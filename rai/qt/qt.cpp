@@ -40,6 +40,8 @@ action (action_a)
 rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & account_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
+self_layout (new QHBoxLayout),
+self_window (new QWidget),
 your_account_label (new QLabel ("Your RaiBlocks account:")),
 account_window (new QWidget),
 account_layout (new QHBoxLayout),
@@ -61,6 +63,13 @@ wallet (wallet_a)
     ratio_group->setId (krai, 1);
     ratio_group->setId (rai, 2);
 
+	version = new QLabel (boost::str (boost::format ("Version %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH).c_str ());
+	self_layout->addWidget (your_account_label);
+	self_layout->addStretch ();
+	self_layout->addWidget (version);
+	self_layout->setContentsMargins (0, 0, 0, 0);
+	self_window->setLayout (self_layout);
+
 	auto font (QFontDatabase::systemFont (QFontDatabase::FixedFont));
 	font.setPointSize (account_text->font().pointSize());
 	account_text->setFont (font);
@@ -68,7 +77,7 @@ wallet (wallet_a)
 	account_layout->addWidget (copy_button);
 	account_layout->setContentsMargins (0, 0, 0, 0);
 	account_window->setLayout (account_layout);
-	layout->addWidget (your_account_label);
+	layout->addWidget (self_window);
 	layout->addWidget (account_window);
 	balance_layout->addWidget (balance_label);
 	balance_layout->addStretch ();

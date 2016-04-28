@@ -144,7 +144,10 @@ namespace rai_qt {
 		void refresh_balance ();
         QWidget * window;
         QVBoxLayout * layout;
+		QHBoxLayout * self_layout;
+		QWidget * self_window;
         QLabel * your_account_label;
+		QLabel * version;
 		QWidget * account_window;
 		QHBoxLayout * account_layout;
         QLabel * account_text;
