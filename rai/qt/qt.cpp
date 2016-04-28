@@ -1220,8 +1220,13 @@ void rai_qt::advanced_actions::refresh_count ()
 
 void rai_qt::advanced_actions::refresh_peers ()
 {
+	auto list (wallet.node.peers.list ());
+	std::sort (list.begin (), list.end (), [] (rai::peer_information const & lhs, rai::peer_information const & rhs)
+	{
+		return lhs.endpoint < rhs.endpoint;
+	});
     QStringList peers;
-    for (auto i: wallet.node.peers.list ())
+    for (auto i: list)
     {
         std::stringstream endpoint;
         endpoint << i.endpoint.address ().to_string ();
