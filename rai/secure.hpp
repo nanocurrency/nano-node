@@ -335,6 +335,7 @@ public:
 	
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
 	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
+	void representation_add (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	
 	void unchecked_put (MDB_txn *, rai::block_hash const &, rai::block const &);
 	std::unique_ptr <rai::block> unchecked_get (MDB_txn *, rai::block_hash const &);
@@ -364,6 +365,7 @@ public:
 	int version_get (MDB_txn *);
 	void do_upgrades (MDB_txn *);
 	void upgrade_v1_to_v2 (MDB_txn *);
+	void upgrade_v2_to_v3 (MDB_txn *);
 	
 	void clear (MDB_dbi);
 	
@@ -463,7 +465,6 @@ public:
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
-	void add_representation (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);

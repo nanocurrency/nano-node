@@ -591,3 +591,39 @@ TEST (block_store, sequence_increment)
 	auto seq8 (store.sequence_atomic_inc (transaction, account2));
 	ASSERT_EQ (31, seq8);
 }
+
+
+TEST (block_store, upgrade_v2_v3)
+{
+	rai::keypair key1;
+	rai::keypair key2;
+	auto path (rai::unique_path ());
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		ASSERT_TRUE (!init);
+		rai::genesis genesis;
+		auto hash (genesis.hash ());
+		rai::transaction transaction (store.environment, nullptr, true);
+		genesis.initialize (transaction, store);
+		rai::ledger ledger (store);
+		rai::change_block change (hash, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, change).code);
+		ASSERT_EQ (0, ledger.weight(transaction, rai::test_genesis_key.pub));
+		ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key1.pub));
+		store.version_put (transaction, 2);
+		store.representation_put (transaction, key1.pub, 7);
+		ASSERT_EQ (7, ledger.weight (transaction, key1.pub));
+		ASSERT_EQ (2, store.version_get (transaction));
+		store.representation_put (transaction, key2.pub, 6);
+		ASSERT_EQ (6, ledger.weight (transaction, key2.pub));
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	rai::ledger ledger (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+	ASSERT_TRUE (!init);
+	ASSERT_EQ (3, store.version_get (transaction));
+	ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key1.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
+}
