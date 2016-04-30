@@ -289,7 +289,13 @@ TEST (ledger, rollback_representation)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive1).code);
 	ASSERT_EQ (1, ledger.weight (transaction, key3.pub));
 	ASSERT_EQ (rai::genesis_amount - 1, ledger.weight (transaction, key4.pub));
+	rai::account_info info1;
+	ASSERT_FALSE (store.account_get (transaction, key2.pub, info1));
+	ASSERT_EQ (open.hash (), info1.rep_block);
 	ledger.rollback (transaction, receive1.hash ());
+	rai::account_info info2;
+	ASSERT_FALSE (store.account_get (transaction, key2.pub, info2));
+	ASSERT_EQ (open.hash (), info2.rep_block);
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key4.pub));
 	ledger.rollback (transaction, open.hash ());
@@ -297,7 +303,13 @@ TEST (ledger, rollback_representation)
 	ASSERT_EQ (0, ledger.weight (transaction, key4.pub));
 	ledger.rollback (transaction, send1.hash ());
 	ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key3.pub));
+	rai::account_info info3;
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info3));
+	ASSERT_EQ (change2.hash (), info3.rep_block);
 	ledger.rollback (transaction, change2.hash ());
+	rai::account_info info4;
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info4));
+	ASSERT_EQ (change1.hash (), info4.rep_block);
 	ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key5.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
 }

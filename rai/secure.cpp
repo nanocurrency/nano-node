@@ -1606,14 +1606,62 @@ void rai::block_store::upgrade_v1_to_v2 (MDB_txn * transaction_a)
 	}
 }
 
+// Determine the representative for this block
+class representative_visitor : public rai::block_visitor
+{
+public:
+    representative_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
+	transaction (transaction_a),
+    store (store_a),
+	result (0)
+    {
+    }
+    void compute (rai::block_hash const & hash_a)
+    {
+		current = hash_a;
+		while (result.is_zero ())
+		{
+			auto block (store.block_get (transaction, current));
+			assert (block != nullptr);
+			block->visit (*this);
+		}
+    }
+    void send_block (rai::send_block const & block_a) override
+    {
+        current = block_a.previous ();
+    }
+    void receive_block (rai::receive_block const & block_a) override
+    {
+		current = block_a.previous ();
+    }
+    void open_block (rai::open_block const & block_a) override
+    {
+        result = block_a.hash ();
+    }
+    void change_block (rai::change_block const & block_a) override
+    {
+        result = block_a.hash ();
+    }
+	MDB_txn * transaction;
+    rai::block_store & store;
+	rai::block_hash current;
+    rai::account result;
+};
+
 void rai::block_store::upgrade_v2_to_v3 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 3);
 	mdb_drop (transaction_a, representation, 0);
 	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 	{
+		rai::account account_l (i->first);
 		account_info info (i->second);
-		representation_add (transaction_a, info.rep_block, info.balance.number());
+		representative_visitor visitor (transaction_a, *this);
+		visitor.compute (info.head);
+		assert (!visitor.result.is_zero ());
+		info.rep_block = visitor.result;
+		mdb_cursor_put (i.cursor, account_l.val (), info.val (), MDB_CURRENT);
+		representation_add (transaction_a, visitor.result, info.balance.number());
 	}
 }
 
@@ -2444,48 +2492,6 @@ void balance_visitor::change_block (rai::change_block const & block_a)
 	current = block_a.hashables.previous;
 }
 
-// Determine the representative for this block
-class representative_visitor : public rai::block_visitor
-{
-public:
-    representative_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
-	transaction (transaction_a),
-    store (store_a),
-	result (0)
-    {
-    }
-    void compute (rai::block_hash const & hash_a)
-    {
-		current = hash_a;
-		while (result.is_zero ())
-		{
-			auto block (store.block_get (transaction, current));
-			assert (block != nullptr);
-			block->visit (*this);
-		}
-    }
-    void send_block (rai::send_block const & block_a) override
-    {
-        current = block_a.previous ();
-    }
-    void receive_block (rai::receive_block const & block_a) override
-    {
-		current = block_a.previous ();
-    }
-    void open_block (rai::open_block const & block_a) override
-    {
-        result = block_a.hash ();
-    }
-    void change_block (rai::change_block const & block_a) override
-    {
-        result = block_a.hash ();
-    }
-	MDB_txn * transaction;
-    rai::block_store & store;
-	rai::block_hash current;
-    rai::account result;
-};
-
 // Rollback this block
 class rollback_visitor : public rai::block_visitor
 {
@@ -2517,7 +2523,7 @@ public:
     void receive_block (rai::receive_block const & block_a) override
     {
         auto hash (block_a.hash ());
-        auto representative (ledger.representative (transaction, block_a.hashables.source));
+        auto representative (ledger.representative (transaction, block_a.hashables.previous));
         auto amount (ledger.amount (transaction, block_a.hashables.source));
         auto destination_account (ledger.account (transaction, hash));
         ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
