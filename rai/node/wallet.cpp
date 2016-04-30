@@ -1221,7 +1221,8 @@ public:
 			if (existing != keys.end ())
 			{
 				rai::account_info info;
-				wallet->node.store.account_get (transaction, pending.source, info);
+				auto error (wallet->node.store.account_get (transaction, pending.source, info));
+				assert (!error);
 				BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % pending.source.to_string () % pending.source.to_account () % info.head.to_string ());
 				auto account (pending.source);
 				if (already_searched.find (account) == already_searched.end ())

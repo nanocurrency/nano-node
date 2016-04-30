@@ -2504,7 +2504,8 @@ public:
             ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
         }
         rai::account_info info;
-        ledger.store.account_get (transaction, pending.source, info);
+        auto error (ledger.store.account_get (transaction, pending.source, info));
+		assert (!error);
         ledger.store.pending_del (transaction, hash);
         ledger.store.representation_add (transaction, ledger.representative (transaction, hash), pending.amount.number ());
         ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
@@ -2545,7 +2546,8 @@ public:
         auto representative (ledger.representative (transaction, block_a.hashables.previous));
         auto account (ledger.account (transaction, block_a.hashables.previous));
         rai::account_info info;
-        ledger.store.account_get (transaction, account, info);
+        auto error (ledger.store.account_get (transaction, account, info));
+		assert (!error);
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
         ledger.store.representation_add (transaction, representative, balance);
         ledger.store.representation_add (transaction, hash, 0 - balance);
