@@ -1270,7 +1270,7 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
         }
         case rai::process_result::fork:
         {
-		    BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1%") % block_a.hash ().to_string ());
+		    BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
             std::unique_ptr <rai::block> root;
 			root = ledger.successor (transaction_a, block_a.root ());
 			auto node_l (shared_from_this ());
@@ -2157,9 +2157,9 @@ bool rai::election::recalculate_winner (MDB_txn * transaction_a)
 	if (!(*winner->second == *last_winner) && (winner->first > quorum_threshold_l))
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % last_winner->hash ().to_string () % winner->second->hash ().to_string ());
-		for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
+		for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.convert_to <std::string> () % i->second->hash ().to_string ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
 		}
 		// Replace our block with the winner and roll back any dependent blocks
 		node.ledger.rollback (transaction_a, last_winner->hash ());
