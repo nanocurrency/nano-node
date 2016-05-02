@@ -198,7 +198,6 @@ public:
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
-    void process_end ();
     std::array <uint8_t, 256> receive_buffer;
     std::shared_ptr <rai::bootstrap_server> connection;
 };
