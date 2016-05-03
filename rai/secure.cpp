@@ -2129,6 +2129,18 @@ void rai::block_store::representation_put (MDB_txn * transaction_a, rai::account
     assert (status == 0);
 }
 
+rai::store_iterator rai::block_store::representation_begin(MDB_txn * transaction_a)
+{
+	rai::store_iterator result(transaction_a, representation);
+	return result;
+}
+
+rai::store_iterator rai::block_store::representation_end()
+{
+	rai::store_iterator result(nullptr);
+	return result;
+}
+
 void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
     std::vector <uint8_t> vector;

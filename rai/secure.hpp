@@ -336,6 +336,8 @@ public:
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
 	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	void representation_add (MDB_txn *, rai::account const &, rai::uint128_t const &);
+	rai::store_iterator representation_begin (MDB_txn *);
+	rai::store_iterator representation_end ();
 	
 	void unchecked_put (MDB_txn *, rai::block_hash const &, rai::block const &);
 	std::unique_ptr <rai::block> unchecked_get (MDB_txn *, rai::block_hash const &);

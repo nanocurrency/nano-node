@@ -115,6 +115,7 @@ int main (int argc, char * const * argv)
 		("daemon", "Start node daemon")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_dump_representatives", "List representatives and weights")
 		("debug_frontier_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
@@ -186,6 +187,34 @@ int main (int argc, char * const * argv)
 		{
 			std::cerr << "Bootstrapping requires one <key> option\n";
 			result = -1;
+		}
+	}
+	else if (vm.count ("debug_dump_representatives"))
+	{
+		rai::inactive_node node;
+		rai::transaction transaction (node.node->store.environment, nullptr, false);
+		rai::uint128_t total;
+		for (auto i(node.node->store.representation_begin(transaction)), n(node.node->store.representation_end()); i != n; ++i)
+		{
+			rai::account account(i->first);
+			auto amount (node.node->store.representation_get(transaction, account));
+			total += amount;
+			std::cout << boost::str(boost::format("%1% %2% %3%\n") % account.to_account () % amount.convert_to <std::string> () % total.convert_to<std::string> ());
+		}
+		std::map <rai::account, rai::uint128_t> calculated;
+		for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+		{
+			rai::account account (i->first);
+			rai::account_info info (i->second);
+			rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
+			std::unique_ptr <rai::block> block (node.node->store.block_get (transaction, rep_block));
+			calculated [block->representative()] += info.balance.number();
+		}
+		total = 0;
+		for (auto i (calculated.begin ()), n (calculated.end ()); i != n; ++i)
+		{
+			total += i->second;
+			std::cout << boost::str(boost::format("%1% %2% %3%\n") % i->first.to_account () % i->second.convert_to <std::string> () % total.convert_to<std::string> ());
 		}
 	}
 	else if (vm.count ("debug_frontier_count"))
