@@ -2162,9 +2162,16 @@ bool rai::election::recalculate_winner (MDB_txn * transaction_a)
 			BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
 		}
 		// Replace our block with the winner and roll back any dependent blocks
-		node.ledger.rollback (transaction_a, last_winner->hash ());
-		node.ledger.process (transaction_a, *winner->second);
-		last_winner = std::move (winner->second);
+		auto error (node.ledger.rollback (transaction_a, last_winner->hash ()));
+		if (!error)
+		{
+			node.ledger.process (transaction_a, *winner->second);
+			last_winner = std::move (winner->second);
+		}
+		else
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Rollback consistency violation rolling back %1% trying to replace with %2%") % last_winner->to_json () % winner->second->to_json ());
+		}
 	}
 	// Check if we can do a fast confirm for the usual case of good actors
 	if (tally_l.size () == 1)
