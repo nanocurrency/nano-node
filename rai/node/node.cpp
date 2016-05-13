@@ -913,7 +913,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb"),
 gap_cache (*this),
-ledger (store, config_a.inactive_supply.number ()),
+ledger (store, config_a.inactive_supply.number (), [this] (rai::block const & block_a) { return rollback_predicate (block_a); } ),
 active (*this),
 wallets (init_a.block_store_init, *this),
 network (service_a, config.peering_port, *this),
@@ -969,6 +969,12 @@ application_path (application_path_a)
             genesis.initialize (transaction, store);
         }
     }
+}
+
+bool rai::node::rollback_predicate (rai::block const & block_a)
+{
+	auto error (bootstrap_initiator.warmed_up && !active.active (block_a));
+	return error;
 }
 
 rai::node::~node ()
@@ -2289,6 +2295,12 @@ void rai::active_transactions::vote (rai::vote const & vote_a)
 	{
         election->vote (vote_a);
 	}
+}
+
+bool rai::active_transactions::active (rai::block const & block_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+	return roots.find (block_a.root ()) != roots.end ();
 }
 
 rai::active_transactions::active_transactions (rai::node & node_a) :

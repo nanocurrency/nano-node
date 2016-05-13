@@ -2521,20 +2521,23 @@ public:
 		{
 			auto hash (block_a.hash ());
 			rai::pending_info pending;
-			while (ledger.store.pending_get (transaction, hash, pending))
+			while (ledger.store.pending_get (transaction, hash, pending) && !error)
 			{
-				ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
+				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
 			}
-			rai::account_info info;
-			auto error (ledger.store.account_get (transaction, pending.source, info));
-			assert (!error);
-			ledger.store.pending_del (transaction, hash);
-			ledger.store.representation_add (transaction, ledger.representative (transaction, hash), pending.amount.number ());
-			ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
-			ledger.store.block_del (transaction, hash);
-			ledger.store.frontier_del (transaction, hash);
-			ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
-			ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
+			if (!error)
+			{
+				rai::account_info info;
+				auto error (ledger.store.account_get (transaction, pending.source, info));
+				assert (!error);
+				ledger.store.pending_del (transaction, hash);
+				ledger.store.representation_add (transaction, ledger.representative (transaction, hash), pending.amount.number ());
+				ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
+				ledger.store.block_del (transaction, hash);
+				ledger.store.frontier_del (transaction, hash);
+				ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
+				ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
+			}
 		}
 		else
 		{

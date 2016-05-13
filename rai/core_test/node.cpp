@@ -1060,3 +1060,44 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_TRUE (node2.latest (rai::test_genesis_key.pub) == send1.hash ());
 	ASSERT_TRUE (node3.latest (rai::test_genesis_key.pub) == send1.hash ());
 }
+
+TEST (node, stopped_rollback)
+{
+    rai::system system (24000, 3);
+    auto & node1 (*system.nodes [0]);
+    auto & node2 (*system.nodes [1]);
+    auto & node3 (*system.nodes [2]);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto key1 (system.wallet (0)->deterministic_insert ());
+	auto amount1 (rai::genesis_amount / 4);
+	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1, amount1));
+	ASSERT_NE (nullptr, block1);
+	auto iterations (0);
+	while (node3.balance (key1) != amount1 || node2.balance (key1) != amount1 || node1.balance (key1) != amount1 || !node1.rollback_predicate (*block1) || !node2.rollback_predicate (*block1) || !node3.rollback_predicate (*block1))
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	{
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		auto original (node1.ledger.rollback_predicate);
+		node1.ledger.rollback_predicate = [] (rai::block const &) { return false; };
+		ASSERT_FALSE (node1.ledger.rollback (transaction, block1->hash ()));
+		ASSERT_FALSE (node1.store.block_exists (transaction, block1->hash ()));
+		node1.ledger.rollback_predicate = original;
+	}
+	auto key2 (system.wallet (0)->deterministic_insert ());
+	auto block2 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2, amount1));
+	ASSERT_NE (nullptr, block2);
+	auto iterations2 (0);
+	while (iterations2 < 50)
+	{
+		system.poll ();
+		++iterations2;
+		ASSERT_TRUE (node2.ledger.block_exists (block1->hash ()));
+		ASSERT_FALSE (node2.ledger.block_exists (block2->hash ()));
+		ASSERT_TRUE (node3.ledger.block_exists (block1->hash ()));
+		ASSERT_FALSE (node3.ledger.block_exists (block2->hash ()));
+	}
+}

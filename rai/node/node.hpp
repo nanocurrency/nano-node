@@ -76,6 +76,7 @@ public:
 	// Call action with confirmed block, may be different than what we started with
     void start (rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
+	bool active (rai::block const &);
 	void announce_votes ();
     boost::multi_index_container
 	<
@@ -367,6 +368,7 @@ public:
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
+	bool rollback_predicate (rai::block const &);
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
