@@ -972,9 +972,16 @@ void rai::rpc_handler::process ()
 	auto block (rai::deserialize_block_json (block_l));
 	if (block != nullptr)
 	{
-		rpc.node.process_receive_republish (std::move (block), 0);
-		boost::property_tree::ptree response_l;
-		rpc.send_response (connection, response_l);
+		if (!rpc.node.work.work_validate (*block))
+		{
+			rpc.node.process_receive_republish (std::move (block), 0);
+			boost::property_tree::ptree response_l;
+			rpc.send_response (connection, response_l);
+		}
+		else
+		{
+			rpc.error_response (connection, "Block work is invalid");
+		}
 	}
 	else
 	{

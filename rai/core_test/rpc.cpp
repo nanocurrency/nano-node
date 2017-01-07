@@ -864,6 +864,29 @@ TEST (rpc, process_block)
 	thread1.join();
 }
 
+TEST (rpc, process_block_no_work)
+{
+    rai::system system (24000, 1);
+	rai::keypair key;
+	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	auto & node1 (*system.nodes [0]);
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	send.block_work_set(0);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, node1, rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request;
+    request.put ("action", "process");
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	auto response (test_response (request, rpc, system.service));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, response.second);
+	rpc.stop();
+	thread1.join();
+}
+
 TEST (rpc, keepalive)
 {
     rai::system system (24000, 1);
