@@ -146,10 +146,10 @@ TEST (uint256_union, parse_error_overflow)
 
 TEST (uint256_union, big_endian_union_constructor)
 {
-	boost::multiprecision::uint256_t value1 (1);
+	rai::uint256_t value1 (1);
 	rai::uint256_union bytes1 (value1);
 	ASSERT_EQ (1, bytes1.bytes [31]);
-	boost::multiprecision::uint512_t value2 (1);
+	rai::uint512_t value2 (1);
 	rai::uint512_union bytes2 (value2);
 	ASSERT_EQ (1, bytes2.bytes [63]);
 }

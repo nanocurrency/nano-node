@@ -181,7 +181,7 @@ rai::uint128_union::uint128_union (uint64_t value_a)
 
 rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
 {
-    boost::multiprecision::uint128_t number_l (value_a);
+    rai::uint128_t number_l (value_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
 		*i = ((number_l) & 0xff).convert_to <uint8_t> ();
@@ -206,7 +206,7 @@ bool rai::uint128_union::operator < (rai::uint128_union const & other_a) const
 
 rai::uint128_t rai::uint128_union::number () const
 {
-    boost::multiprecision::uint128_t result;
+    rai::uint128_t result;
 	auto shift (0);
 	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
 	{
@@ -376,7 +376,7 @@ void rai::uint256_union::clear ()
 
 rai::uint256_t rai::uint256_union::number () const
 {
-    boost::multiprecision::uint256_t result;
+    rai::uint256_t result;
 	auto shift (0);
 	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
 	{
@@ -650,7 +650,7 @@ bool rai::uint256_union::decode_account (std::string const & source_a)
 
 rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
 {
-    boost::multiprecision::uint256_t number_l (number_a);
+    rai::uint256_t number_l (number_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
 		*i = ((number_l) & 0xff).convert_to <uint8_t> ();
@@ -663,9 +663,9 @@ bool rai::uint512_union::operator == (rai::uint512_union const & other_a) const
 	return bytes == other_a.bytes;
 }
 
-rai::uint512_union::uint512_union (boost::multiprecision::uint512_t const & number_a)
+rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 {
-    boost::multiprecision::uint512_t number_l (number_a);
+    rai::uint512_t number_l (number_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
 		*i = ((number_l) & 0xff).convert_to <uint8_t> ();
@@ -678,9 +678,9 @@ void rai::uint512_union::clear ()
     bytes.fill (0);
 }
 
-boost::multiprecision::uint512_t rai::uint512_union::number () const
+rai::uint512_t rai::uint512_union::number () const
 {
-    boost::multiprecision::uint512_t result;
+    rai::uint512_t result;
 	auto shift (0);
 	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
 	{

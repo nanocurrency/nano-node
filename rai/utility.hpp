@@ -259,7 +259,7 @@ union uint512_union
 	std::array <uint64_t, 8> qwords;
 	std::array <uint256_union, 2> uint256s;
 	void clear ();
-	boost::multiprecision::uint512_t number () const;
+	rai::uint512_t number () const;
 };
 // Only signatures are 512 bit.
 using signature = uint512_union;
