@@ -2704,6 +2704,23 @@ bool rai::ledger::block_exists (rai::block_hash const & hash_a)
 	return result;
 }
 
+std::string rai::ledger::block_text (char const * hash_a)
+{
+	return block_text (rai::block_hash (hash_a));
+}
+
+std::string rai::ledger::block_text (rai::block_hash const & hash_a)
+{
+	std::string result;
+	rai::transaction transaction (store.environment, nullptr, false);
+	auto block (store.block_get (transaction, hash_a));
+	if (block != nullptr)
+	{
+		block->serialize_json (result);
+	}
+	return result;
+}
+
 // Vote weight of an account
 rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const & account_a)
 {
