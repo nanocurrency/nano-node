@@ -2356,11 +2356,19 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned
 	}
 }
 
+rai::thread_runner::~thread_runner ()
+{
+	join ();
+}
+
 void rai::thread_runner::join ()
 {
 	for (auto &i : threads)
 	{
-		i.join ();
+		if (i.joinable ())
+		{
+			i.join ();
+		}
 	}
 }
 

@@ -394,6 +394,7 @@ class thread_runner
 {
 public:
 	thread_runner (boost::asio::io_service &, unsigned);
+	~thread_runner ();
 	void join ();
 	std::vector <std::thread> threads;
 };
