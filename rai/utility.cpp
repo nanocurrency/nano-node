@@ -108,12 +108,16 @@ void rai::mdb_env::add_transaction ()
 		if (slack < (rai::database_size_increment / 4))
 		{
 			resizing = true;
-			while (open_transactions > 0)
+			auto done (std::chrono::system_clock::now () + std::chrono::milliseconds (50));
+			while (std::chrono::system_clock::now () < done && open_transactions > 0)
 			{
-				open_notify.wait (lock_l);
+				open_notify.wait_for (lock_l, std::chrono::milliseconds (50));
 			}
-			auto next_size (((info.me_mapsize / database_size_increment) + 1) * database_size_increment);
-			mdb_env_set_mapsize (environment, next_size);
+			if (open_transactions == 0)
+			{
+				auto next_size (((info.me_mapsize / database_size_increment) + 1) * database_size_increment);
+				mdb_env_set_mapsize (environment, next_size);
+			}
 			resizing = false;
 			resize_notify.notify_all ();
 		}
