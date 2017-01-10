@@ -2710,20 +2710,20 @@ rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const 
     return store.representation_get (transaction_a, account_a);
 }
 
-// Rollback blocks until `frontier_a' is the frontier block
-bool rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & frontier_a)
+// Rollback blocks until `block_a' doesn't exist
+bool rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & block_a)
 {
-    auto account_l (account (transaction_a, frontier_a));
+	assert (store.block_exists (transaction_a, block_a));
+    auto account_l (account (transaction_a, block_a));
     rollback_visitor rollback (transaction_a, *this);
     rai::account_info info;
-    do
+    while (store.block_exists (transaction_a, block_a) && !rollback.error)
     {
         auto latest_error (store.account_get (transaction_a, account_l, info));
         assert (!latest_error);
         auto block (store.block_get (transaction_a, info.head));
         block->visit (rollback);
-    // Continue rolling back until this block is the frontier
-    } while (info.head != frontier_a && rollback.error == false);
+    }
 	return rollback.error;
 }
 
