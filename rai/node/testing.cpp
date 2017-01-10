@@ -40,7 +40,7 @@ logging (rai::unique_path ())
 	{
 		poll ();
 		++iterations1;
-		assert (iterations1 < 1000);
+		assert (iterations1 < 10000);
 	}
 }
 
@@ -127,10 +127,75 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, siz
     generate->run ();
 }
 
+void rai::system::generate_rollback (rai::node & node_a, std::vector <rai::account> & accounts_a)
+{
+	rai::block_hash current (node_a.latest (get_random_account (accounts_a)));
+	rai::block_hash target (current);
+	rai::transaction transaction (node_a.store.environment, nullptr, true);
+	while (!current.is_zero ())
+	{
+		auto block1 (node_a.store.block_get (transaction, current));
+		assert (block1 != nullptr);
+		current = block1->previous ();
+		auto block2 (node_a.store.block_get (transaction, target));
+		assert (block2 != nullptr);
+		target = block2->previous ();
+		if (!current.is_zero ())
+		{
+			auto block2 (node_a.store.block_get (transaction, current));
+			current = block2->previous ();
+		}
+		auto open (dynamic_cast <rai::open_block *> (block2.get()));
+		if (open != nullptr)
+		{
+			if (!node_a.ledger.block_exists (open->hashables.source))
+			{
+				target = 0;
+			}
+		}
+	}
+	if (!target.is_zero ())
+	{
+		node_a.ledger.rollback (transaction, target);
+	}
+}
+
+void rai::system::generate_receive (rai::node & node_a)
+{
+	rai::transaction transaction (node_a.store.environment, nullptr, false);
+    rai::uint256_union random_block;
+    random_pool.GenerateBlock (random_block.bytes.data (), sizeof (random_block.bytes));
+	auto i (node_a.store.pending_begin (transaction, random_block));
+	if (i != node_a.store.pending_end ())
+	{
+		rai::block_hash send_hash (i->first);
+		rai::pending_info info (i->second);
+		auto send_block (node_a.store.block_get (transaction, send_hash));
+		assert (send_block != nullptr);
+		auto receive_error (wallet (0)->receive_sync (static_cast <rai::send_block &> (*send_block), rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
+	}
+}
+
 void rai::system::generate_activity (rai::node & node_a, std::vector <rai::account> & accounts_a)
 {
     auto what (random_pool.GenerateByte ());
-    if (what < 0xc0)
+	if (what < 0x10)
+	{
+		generate_rollback (node_a, accounts_a);
+	}
+	else if (what < 0x1)
+	{
+		generate_change_known (node_a, accounts_a);
+	}
+	else if (what < 0x20)
+	{
+		generate_change_unknown (node_a, accounts_a);
+	}
+	else if (what < 0x70)
+	{
+		generate_receive (node_a);
+	}
+    else if (what < 0xc0)
     {
         generate_send_existing (node_a, accounts_a);
     }
@@ -177,7 +242,34 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector <rai::
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
-    wallet (0)->send_action (source, destination, amount);
+	if (!amount.is_zero ())
+	{
+		auto hash (wallet (0)->send_sync (source, destination, amount));
+		assert (!hash.is_zero ());
+	}
+}
+
+void rai::system::generate_change_known (rai::node & node_a, std::vector <rai::account> & accounts_a)
+{
+	rai::account source (get_random_account (accounts_a));
+	if (!node_a.latest (source).is_zero ())
+	{
+		rai::account destination (get_random_account (accounts_a));
+		auto change_error (wallet (0)->change_sync (source, destination));
+		assert (!change_error);
+	}
+}
+
+void rai::system::generate_change_unknown (rai::node & node_a, std::vector <rai::account> & accounts_a)
+{
+	rai::account source (get_random_account (accounts_a));
+	if (!node_a.latest (source).is_zero ())
+	{
+		rai::keypair key;
+		rai::account destination (key.pub);
+		auto change_error (wallet (0)->change_sync (source, destination));
+		assert (!change_error);
+	}
 }
 
 void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::account> & accounts_a)
@@ -190,9 +282,13 @@ void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::accou
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
-	auto pub (node_a.wallets.items.begin ()->second->deterministic_insert ());
-	accounts_a.push_back (pub);
-    node_a.wallets.items.begin ()->second->send_async (source, pub, amount, [] (std::unique_ptr <rai::block>) {});
+	if (!amount.is_zero ())
+	{
+		auto pub (node_a.wallets.items.begin ()->second->deterministic_insert ());
+		accounts_a.push_back (pub);
+		auto hash (wallet (0)->send_sync (source, pub, amount));
+		assert (!hash.is_zero ());
+	}
 }
 
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
@@ -211,7 +307,6 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
             previous = now;
         }
         generate_activity (node_a, accounts);
-		poll ();
     }
 }
 

@@ -15,7 +15,6 @@ TEST (system, generate_mass_activity)
     {
         ++accounts;
     }
-    ASSERT_GT (accounts, count / 10);
 }
 
 TEST (system, generate_mass_activity_long)
@@ -25,7 +24,7 @@ TEST (system, generate_mass_activity_long)
 		rai::system system (24000, 1);
 		rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-		size_t count (10000);
+		size_t count (1000000000);
 		system.generate_mass_activity (count, *system.nodes [0]);
 		size_t accounts (0);
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
@@ -33,7 +32,6 @@ TEST (system, generate_mass_activity_long)
 		{
 			++accounts;
 		}
-		ASSERT_GT (accounts, count / 10);
 		system.stop ();
 		runner.join ();
 	}

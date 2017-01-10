@@ -521,6 +521,7 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (system, generate_send_existing)
 {
     rai::system system (24000, 1);
+	rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::account_info info1;
 	{
@@ -550,11 +551,14 @@ TEST (system, generate_send_existing)
         ++iterations2;
         ASSERT_LT (iterations2, 20);
     }
+	system.stop ();
+	runner.join ();
 }
 
 TEST (system, generate_send_new)
 {
     rai::system system (24000, 1);
+	rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
@@ -591,6 +595,8 @@ TEST (system, generate_send_new)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
+	system.stop ();
+	runner.join ();
 }
 
 TEST (ledger, representation)
@@ -1392,4 +1398,61 @@ TEST (ledger, stopped_rollback)
 	ASSERT_TRUE (store.block_exists (transaction, hash1));
 	ASSERT_TRUE (ledger.rollback (transaction, send.hash ()));
 	ASSERT_TRUE (store.block_exists (transaction, hash1));
+}
+
+TEST (ledger, send_open_receive_rollback)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::ledger ledger (store, 0, [] (rai::block const &) { return false; });
+	rai::transaction transaction (store.environment, nullptr, true);
+	rai::genesis genesis;
+	genesis.initialize (transaction, store);
+	rai::account_info info1;
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
+	rai::keypair key1;
+	rai::send_block send1 (info1.head, key1.pub, rai::genesis_amount - 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	auto return1 (ledger.process (transaction, send1));
+	ASSERT_EQ (rai::process_result::progress, return1.code);
+	rai::send_block send2 (send1.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	auto return2 (ledger.process (transaction, send2));
+	ASSERT_EQ (rai::process_result::progress, return2.code);
+	rai::keypair key2;
+	rai::open_block open (send2.hash (), key2.pub, key1.pub, key1.prv, key1.pub, 0);
+	auto return4 (ledger.process (transaction, open));
+	ASSERT_EQ (rai::process_result::progress, return4.code);
+	rai::receive_block receive (open.hash (), send1.hash (), key1.prv, key1.pub, 0);
+	auto return5 (ledger.process (transaction, receive));
+	ASSERT_EQ (rai::process_result::progress, return5.code);
+	rai::keypair key3;
+	ASSERT_EQ (100, ledger.weight (transaction, key2.pub));
+	ASSERT_EQ (rai::genesis_amount - 100, ledger.weight (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
+	rai::change_block change1 (send2.hash (), key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	auto return6 (ledger.process (transaction, change1));
+	ASSERT_EQ (rai::process_result::progress, return6.code);
+	ASSERT_EQ (100, ledger.weight (transaction, key2.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (rai::genesis_amount - 100, ledger.weight (transaction, key3.pub));
+	ASSERT_FALSE (ledger.rollback (transaction, receive.hash ()));
+	ASSERT_EQ (50, ledger.weight (transaction, key2.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (rai::genesis_amount - 100, ledger.weight (transaction, key3.pub));
+	ASSERT_FALSE (ledger.rollback (transaction, open.hash ()));
+	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (rai::genesis_amount - 100, ledger.weight (transaction, key3.pub));
+	ASSERT_FALSE (ledger.rollback (transaction, change1.hash ()));
+	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
+	ASSERT_EQ (rai::genesis_amount - 100, ledger.weight (transaction, rai::test_genesis_key.pub));
+	ASSERT_FALSE (ledger.rollback (transaction, send2.hash ()));
+	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
+	ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, rai::test_genesis_key.pub));
+	ASSERT_FALSE (ledger.rollback (transaction, send1.hash ()));
+	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
+	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
+	ASSERT_EQ (rai::genesis_amount - 0, ledger.weight (transaction, rai::test_genesis_key.pub));
 }
