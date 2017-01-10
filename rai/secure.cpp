@@ -1646,7 +1646,7 @@ public:
 	MDB_txn * transaction;
     rai::block_store & store;
 	rai::block_hash current;
-    rai::account result;
+    rai::block_hash result;
 };
 
 void rai::block_store::upgrade_v2_to_v3 (MDB_txn * transaction_a)
@@ -2683,14 +2683,14 @@ rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 	return adjusted_supply <= absolute_supply ? adjusted_supply : 0;
 }
 
-rai::account rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::block_hash rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (representative_calculated (transaction_a, hash_a));
 	assert (result.is_zero () || store.block_exists (transaction_a, result));
     return result;
 }
 
-rai::account rai::ledger::representative_calculated (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::block_hash rai::ledger::representative_calculated (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     representative_visitor visitor (transaction_a, store);
     visitor.compute (hash_a);
