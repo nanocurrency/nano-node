@@ -13,7 +13,6 @@
 #include <future>
 
 rai::work_pool::work_pool (std::unique_ptr <rai::opencl_work> opencl_a) :
-current (0),
 ticket (0),
 done (false),
 opencl (std::move (opencl_a))
@@ -62,9 +61,9 @@ void rai::work_pool::loop (uint64_t thread)
 	std::unique_lock <std::mutex> lock (mutex);
 	while (!done || !pending.empty())
 	{
-		auto current_l (current);
-		if (!current_l.is_zero ())
+		if (!pending.empty ())
 		{
+			auto current_l (pending.front ());
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
@@ -75,22 +74,20 @@ void rai::work_pool::loop (uint64_t thread)
 				{
 					work = rng.next ();
 					blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work), sizeof (work));
-					blake2b_update (&hash, current_l.bytes.data (), current_l.bytes.size ());
+					blake2b_update (&hash, current_l.first.bytes.data (), current_l.first.bytes.size ());
 					blake2b_final (&hash, reinterpret_cast <uint8_t *> (&output), sizeof (output));
 					blake2b_init (&hash, sizeof (output));
 					iteration -= 1;
 				}
 			}
 			lock.lock ();
-			if (current == current_l && output >= rai::work_pool::publish_threshold)
+			if (!pending.empty () && pending.front () == current_l && output >= rai::work_pool::publish_threshold)
 			{
 				assert (output >= rai::work_pool::publish_threshold);
-				assert (work_value (current_l, work) == output);
+				assert (work_value (current_l.first, work) == output);
 				++ticket;
-				completed [current_l] = work;
-				consumer_condition.notify_all ();
-				// Change current so only one work thread publishes their result
-				current.clear ();
+				current_l.second->set_value (work);
+				pending.pop_front ();
 			}
 			else
 			{
@@ -98,16 +95,7 @@ void rai::work_pool::loop (uint64_t thread)
 		}
 		else
 		{
-			if (!pending.empty ())
-			{
-				current = pending.front ();
-				pending.pop_front ();
-				producer_condition.notify_all ();
-			}
-			else
-			{
-				producer_condition.wait (lock);
-			}
+			producer_condition.wait (lock);
 		}
 	}
 }
@@ -115,26 +103,14 @@ void rai::work_pool::loop (uint64_t thread)
 void rai::work_pool::cancel (rai::uint256_union const & root_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	if (current == root_a)
+	for (auto i (pending.begin ()), n (pending.end ()); i != n; ++i)
 	{
-		++ticket;
-		completed [root_a] = boost::none;
-		current.clear ();
-	}
-	else
-	{
-		auto existing (std::find (pending.begin (), pending.end (), root_a));
-		if (existing != pending.end ())
+		if (i->first == root_a)
 		{
-			pending.erase (existing);
-			completed [root_a] = boost::none;
+			i->second->set_value (boost::none);
+			pending.erase (i);
 		}
-		else
-		{
-			// Requested something that we're no longer working on
-		}
-	}
-	consumer_condition.notify_all ();
+	};
 }
 
 bool rai::work_pool::work_validate (rai::block_hash const & root_a, uint64_t work_a)
@@ -165,21 +141,13 @@ boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union co
 	}
 	if (!result)
 	{
-		std::unique_lock <std::mutex> lock (mutex);
-		pending.push_back (root_a);
-		producer_condition.notify_all ();
-		auto done (false);
-		while (!done)
+		std::promise <boost::optional <uint64_t>> work;
 		{
-			consumer_condition.wait (lock);
-			auto finish (completed.find (root_a));
-			if (finish != completed.end ())
-			{
-				done = true;
-				result = finish->second;
-				completed.erase (finish);
-			}
+			std::lock_guard <std::mutex> lock (mutex);
+			pending.push_back (std::make_pair (root_a, &work));
+			producer_condition.notify_all ();
 		}
+		result = work.get_future ().get ();
 	}
 	return result;
 }

@@ -6,6 +6,7 @@
 #include <rai/node/openclwork.hpp>
 
 #include <atomic>
+#include <future>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -26,14 +27,11 @@ public:
 	uint64_t work_value (rai::block_hash const &, uint64_t);
 	bool work_validate (rai::block &);
 	bool work_validate (rai::block_hash const &, uint64_t);
-	rai::uint256_union current;
 	std::atomic <int> ticket;
 	bool done;
 	std::vector <std::thread> threads;
-	std::unordered_map <rai::uint256_union, boost::optional <uint64_t>> completed;
-	std::deque <rai::uint256_union> pending;
+	std::deque <std::pair <rai::uint256_union, std::promise <boost::optional <uint64_t>> *>> pending;
 	std::mutex mutex;
-	std::condition_variable consumer_condition;
 	std::condition_variable producer_condition;
 	std::unique_ptr <rai::opencl_work> opencl;
 	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.

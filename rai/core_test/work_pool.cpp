@@ -35,7 +35,7 @@ TEST (work, cancel)
 	while (!done)
 	{
 		std::lock_guard <std::mutex> lock (pool.mutex);
-		done = exited || !pool.pending.empty () || !pool.current.is_zero ();
+		done = exited || !pool.pending.empty ();
 	}
 	pool.cancel (key);
 	thread.join ();
