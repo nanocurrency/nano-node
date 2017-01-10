@@ -187,7 +187,7 @@ public:
 	void destroy (rai::uint256_union const &);
 	void do_wallet_actions (rai::account const &);
 	void queue_wallet_action (rai::account const &, rai::uint128_t const &, std::function <void ()> const &);
-	void foreach_representative (std::function <void (rai::public_key const &, rai::raw_key const &)> const &);
+	void foreach_representative (rai::transaction const &, std::function <void (rai::public_key const &, rai::raw_key const &)> const &);
 	std::function <void (rai::account const &, bool)> observer;
 	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
 	std::unordered_map <rai::account, std::multimap <rai::uint128_t, std::function <void ()>, std::greater <rai::uint128_t>>> pending_actions;

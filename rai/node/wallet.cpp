@@ -1436,21 +1436,20 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, rai::uin
 	}
 }
 
-void rai::wallets::foreach_representative (std::function <void (rai::public_key const & pub_a, rai::raw_key const & prv_a)> const & action_a)
+void rai::wallets::foreach_representative (rai::transaction const & transaction_a, std::function <void (rai::public_key const & pub_a, rai::raw_key const & prv_a)> const & action_a)
 {
     for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
     {
-		rai::transaction transaction (node.store.environment, nullptr, false);
         auto & wallet (*i->second);
-		for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m; ++j)
+		for (auto j (wallet.store.begin (transaction_a)), m (wallet.store.end ()); j != m; ++j)
         {
 			rai::account account (j->first);
-			if (!node.ledger.weight (transaction, account).is_zero ())
+			if (!node.ledger.weight (transaction_a, account).is_zero ())
 			{
-				if (wallet.store.valid_password (transaction))
+				if (wallet.store.valid_password (transaction_a))
 				{
 					rai::raw_key prv;
-					auto error (wallet.store.fetch (transaction, j->first, prv));
+					auto error (wallet.store.fetch (transaction_a, j->first, prv));
 					assert (!error);
 					action_a (j->first, prv);
 				}

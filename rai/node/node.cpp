@@ -1085,13 +1085,10 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
 {
     bool result (false);
-	node.wallets.foreach_representative ([&result, &block_a, &list_a, this, rebroadcast_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+	rai::transaction transaction (this->node.store.environment, nullptr, true);
+	node.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, this, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
-		uint64_t sequence;
-		{
-			rai::transaction transaction (this->node.store.environment, nullptr, true);
-			sequence = node.store.sequence_atomic_inc (transaction, pub_a);
-		}
+		auto sequence (node.store.sequence_atomic_inc (transaction, pub_a));
 		auto hash (block_a->hash ());
 		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 		{
@@ -1333,17 +1330,14 @@ std::vector <rai::peer_information> rai::peer_container::bootstrap_candidates ()
 }
 void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
-	wallets.foreach_representative ([this, &block_a, &sender] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+	rai::transaction transaction (this->store.environment, nullptr, true);
+	wallets.foreach_representative (transaction, [this, &block_a, &sender, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
 		if (config.logging.network_message_logging ())
 		{
 			BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1%") % sender);
 		}
-		uint64_t sequence;
-		{
-			rai::transaction transaction (this->store.environment, nullptr, true);
-			sequence = this->store.sequence_atomic_inc (transaction, pub_a);
-		}
+		auto sequence (this->store.sequence_atomic_inc (transaction, pub_a));
 		this->network.confirm_block (prv_a, pub_a, block_a.clone (), sequence, sender, 0);
 	});
 }
