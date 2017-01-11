@@ -108,7 +108,7 @@ void rai::mdb_env::add_transaction ()
 		if (slack < (rai::database_size_increment / 4))
 		{
 			resizing = true;
-			auto done (std::chrono::system_clock::now () + std::chrono::milliseconds (50));
+			auto done (std::chrono::system_clock::now () + std::chrono::milliseconds (500));
 			while (std::chrono::system_clock::now () < done && open_transactions > 0)
 			{
 				open_notify.wait_for (lock_l, std::chrono::milliseconds (50));
