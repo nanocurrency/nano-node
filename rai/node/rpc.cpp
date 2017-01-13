@@ -105,6 +105,7 @@ void rai::rpc::send_response (boost::network::http::async_server <rai::rpc>::con
     response->headers.push_back (boost::network::http::response_header_narrow {"content-type", "application/json"});
     response->content = ostream.str ();
 	response->headers.push_back (boost::network::http::response_header_narrow {"content-length", std::to_string (response->content.size ())});
+	response->headers.push_back (boost::network::http::response_header_narrow {"Access-Control-Allow-Origin", "*"});
 	connection->write (response->to_buffers (), [response, connection] (boost::system::error_code const & ec)
 	{
 	});

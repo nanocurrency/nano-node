@@ -1226,6 +1226,10 @@ TEST (rpc, version)
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response1.second)));
 	ASSERT_EQ ("2", response1.first.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.first.get <std::string> ("node_vendor"));
+	auto headers (response1.second.headers ());
+	auto access_control (std::find_if (headers.begin (), headers.end (), [] (decltype (*headers.begin ()) & header_a) { return header_a.first == "Access-Control-Allow-Origin"; }));
+	ASSERT_NE (headers.end (), access_control);
+	ASSERT_EQ ("*", access_control->second);
 	rpc.stop();
 	thread1.join ();
 }
