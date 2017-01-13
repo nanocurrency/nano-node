@@ -1225,6 +1225,7 @@ TEST (rpc, version)
 	ASSERT_EQ ("1", response1.first.get <std::string> ("rpc_version"));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response1.second)));
 	ASSERT_EQ ("2", response1.first.get <std::string> ("store_version"));
+	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.first.get <std::string> ("node_vendor"));
 	rpc.stop();
 	thread1.join ();
 }
