@@ -1031,6 +1031,25 @@ void rai::rpc_handler::rai_to_raw ()
 	}
 }
 
+void rai::rpc_handler::representation ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+		auto representation (rpc.node.store.representation_get (transaction, account));
+		boost::property_tree::ptree response_l;
+		response_l.put ("representation", representation.convert_to <std::string> ());
+		rpc.send_response (connection, response_l);
+	}
+	else
+	{
+		rpc.error_response (connection, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::representative ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -1725,6 +1744,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "rai_to_raw")
 		{
 			rai_to_raw ();
+		}
+		else if (action == "representation")
+		{
+			representation ();
 		}
 		else if (action == "representative")
 		{

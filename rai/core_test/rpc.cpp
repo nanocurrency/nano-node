@@ -1599,3 +1599,22 @@ TEST (rpc, representative)
 	thread1.join();
 }
 
+TEST (rpc, representation)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request;
+    std::string wallet;
+    request.put ("account", rai::genesis_account.to_account ());
+    request.put ("action", "representation");
+	auto response (test_response (request, rpc, system.service));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response.second)));
+    std::string amount_text1 (response.first.get <std::string> ("representation"));
+    ASSERT_EQ (amount_text1, rai::genesis_amount.convert_to <std::string> ());
+	rpc.stop();
+	thread1.join();
+}
+
