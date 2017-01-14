@@ -2153,7 +2153,7 @@ bool rai::election::recalculate_winner (MDB_txn * transaction_a)
 	auto tally_l (node.ledger.tally (transaction_a, votes));
 	assert (tally_l.size () > 0);
 	auto quorum_threshold_l (quorum_threshold (transaction_a, node.ledger));
-	auto winner (std::move (tally_l.begin ()));
+	auto winner (tally_l.begin ());
 	if (!(*winner->second == *last_winner) && (winner->first > quorum_threshold_l))
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % last_winner->hash ().to_string () % winner->second->hash ().to_string ());
@@ -2482,7 +2482,6 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		rai::raw_key key;
 		key.data.clear ();
 		rai::send_block send (0, 0, 0, key, 0, 0);
-		auto hash (send.hash ());
 		std::cout << "Testing key derivation function" << std::endl;
 		rai::raw_key junk1;
 		junk1.data.clear ();
