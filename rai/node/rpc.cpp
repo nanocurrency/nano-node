@@ -1031,73 +1031,32 @@ void rai::rpc_handler::rai_to_raw ()
 	}
 }
 
-void rai::rpc_handler::wallet_representative ()
+void rai::rpc_handler::representative ()
 {
-	std::string wallet_text (request.get <std::string> ("wallet"));
-	rai::uint256_union wallet;
-	auto error (wallet.decode_hex (wallet_text));
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	auto error (account.decode_account (account_text));
 	if (!error)
 	{
-		auto existing (rpc.node.wallets.items.find (wallet));
-		if (existing != rpc.node.wallets.items.end ())
+		rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+		rai::account_info info;
+		auto error (rpc.node.store.account_get (transaction, account, info));
+		if (!error)
 		{
-			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+			auto block (rpc.node.store.block_get (transaction, info.rep_block));
+			assert (block != nullptr);
 			boost::property_tree::ptree response_l;
-			response_l.put ("representative", existing->second->store.representative (transaction).to_account ());
+			response_l.put ("representative", block->representative ().to_account ());
 			rpc.send_response (connection, response_l);
 		}
 		else
 		{
-			rpc.error_response (connection, "Wallet not found");
+			rpc.error_response (connection, "Account not found");
 		}
 	}
 	else
 	{
 		rpc.error_response (connection, "Bad account number");
-	}
-}
-
-void rai::rpc_handler::wallet_representative_set ()
-{
-	if (rpc.config.enable_control)
-	{
-		std::string wallet_text (request.get <std::string> ("wallet"));
-		rai::uint256_union wallet;
-		auto error (wallet.decode_hex (wallet_text));
-		if (!error)
-		{
-			auto existing (rpc.node.wallets.items.find (wallet));
-			if (existing != rpc.node.wallets.items.end ())
-			{
-				std::string representative_text (request.get <std::string> ("representative"));
-				rai::account representative;
-				auto error (representative.decode_account (representative_text));
-				if (!error)
-				{
-					rai::transaction transaction (rpc.node.store.environment, nullptr, true);
-					existing->second->store.representative_set (transaction, representative);
-					boost::property_tree::ptree response_l;
-					response_l.put ("set", "1");
-					rpc.send_response (connection, response_l);
-				}
-				else
-				{
-					rpc.error_response (connection, "Invalid account number");
-				}
-			}
-			else
-			{
-				rpc.error_response (connection, "Wallet not found");
-			}
-		}
-		else
-		{
-			rpc.error_response (connection, "Bad account number");
-		}
-	}
-	else
-	{
-		rpc.error_response (connection, "RPC control is disabled");
 	}
 }
 
@@ -1423,6 +1382,76 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
+void rai::rpc_handler::wallet_representative ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (rpc.node.wallets.items.find (wallet));
+		if (existing != rpc.node.wallets.items.end ())
+		{
+			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+			boost::property_tree::ptree response_l;
+			response_l.put ("representative", existing->second->store.representative (transaction).to_account ());
+			rpc.send_response (connection, response_l);
+		}
+		else
+		{
+			rpc.error_response (connection, "Wallet not found");
+		}
+	}
+	else
+	{
+		rpc.error_response (connection, "Bad account number");
+	}
+}
+
+void rai::rpc_handler::wallet_representative_set ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (rpc.node.wallets.items.find (wallet));
+			if (existing != rpc.node.wallets.items.end ())
+			{
+				std::string representative_text (request.get <std::string> ("representative"));
+				rai::account representative;
+				auto error (representative.decode_account (representative_text));
+				if (!error)
+				{
+					rai::transaction transaction (rpc.node.store.environment, nullptr, true);
+					existing->second->store.representative_set (transaction, representative);
+					boost::property_tree::ptree response_l;
+					response_l.put ("set", "1");
+					rpc.send_response (connection, response_l);
+				}
+				else
+				{
+					rpc.error_response (connection, "Invalid account number");
+				}
+			}
+			else
+			{
+				rpc.error_response (connection, "Wallet not found");
+			}
+		}
+		else
+		{
+			rpc.error_response (connection, "Bad account number");
+		}
+	}
+	else
+	{
+		rpc.error_response (connection, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::work_generate ()
 {
 	if (rpc.config.enable_control)
@@ -1696,6 +1725,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "rai_to_raw")
 		{
 			rai_to_raw ();
+		}
+		else if (action == "representative")
+		{
+			representative ();
 		}
 		else if (action == "search_pending")
 		{

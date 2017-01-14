@@ -374,7 +374,7 @@ TEST (rpc, wallet_password_enter)
 	thread1.join();
 }
 
-TEST (rpc, representative)
+TEST (rpc, wallet_representative)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -394,7 +394,7 @@ TEST (rpc, representative)
 	thread1.join();
 }
 
-TEST (rpc, representative_set)
+TEST (rpc, wallet_representative_set)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -1579,3 +1579,23 @@ TEST (rpc, rai_from_raw)
 	node1.stop ();
 	thread1.join ();
 }
+
+TEST (rpc, representative)
+{
+    rai::system system (24000, 1);
+    auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
+    rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	std::thread thread1 ([&rpc] () {rpc.server.run();});
+    boost::property_tree::ptree request;
+    std::string wallet;
+    request.put ("account", rai::genesis_account.to_account ());
+    request.put ("action", "representative");
+	auto response (test_response (request, rpc, system.service));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response.second)));
+    std::string account_text1 (response.first.get <std::string> ("representative"));
+    ASSERT_EQ (account_text1, rai::genesis_account.to_account ());
+	rpc.stop();
+	thread1.join();
+}
+

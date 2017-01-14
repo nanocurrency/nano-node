@@ -112,6 +112,7 @@ public:
 	void process ();
 	void rai_to_raw ();
 	void rai_from_raw ();
+	void representative ();
 	void search_pending ();
 	void send ();
 	void stop ();
