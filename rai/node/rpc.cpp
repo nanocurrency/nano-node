@@ -1031,7 +1031,7 @@ void rai::rpc_handler::rai_to_raw ()
 	}
 }
 
-void rai::rpc_handler::representative ()
+void rai::rpc_handler::wallet_representative ()
 {
 	std::string wallet_text (request.get <std::string> ("wallet"));
 	rai::uint256_union wallet;
@@ -1057,7 +1057,7 @@ void rai::rpc_handler::representative ()
 	}
 }
 
-void rai::rpc_handler::representative_set ()
+void rai::rpc_handler::wallet_representative_set ()
 {
 	if (rpc.config.enable_control)
 	{
@@ -1697,14 +1697,6 @@ void rai::rpc_handler::process_request ()
 		{
 			rai_to_raw ();
 		}
-		else if (action == "representative")
-		{
-			representative ();
-		}
-		else if (action == "representative_set")
-		{
-			representative_set ();
-		}
 		else if (action == "search_pending")
 		{
 			search_pending ();
@@ -1748,6 +1740,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_key_valid")
 		{
 			wallet_key_valid ();
+		}
+		else if (action == "wallet_representative")
+		{
+			wallet_representative ();
+		}
+		else if (action == "wallet_representative_set")
+		{
+			wallet_representative_set ();
 		}
 		else if (action == "work_generate")
 		{

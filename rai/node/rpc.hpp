@@ -112,8 +112,6 @@ public:
 	void process ();
 	void rai_to_raw ();
 	void rai_from_raw ();
-	void representative ();
-	void representative_set ();
 	void search_pending ();
 	void send ();
 	void stop ();
@@ -125,6 +123,8 @@ public:
 	void wallet_destroy ();
 	void wallet_export ();
 	void wallet_key_valid ();
+	void wallet_representative ();
+	void wallet_representative_set ();
 	void work_generate ();
 	void work_cancel ();
 	size_t length;

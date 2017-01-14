@@ -385,7 +385,7 @@ TEST (rpc, representative)
     std::string wallet;
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
-    request.put ("action", "representative");
+    request.put ("action", "wallet_representative");
 	auto response (test_response (request, rpc, system.service));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response.second)));
     std::string account_text1 (response.first.get <std::string> ("representative"));
@@ -406,7 +406,7 @@ TEST (rpc, representative_set)
     system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
     request.put ("wallet", wallet);
     rai::keypair key;
-    request.put ("action", "representative_set");
+    request.put ("action", "wallet_representative_set");
     request.put ("representative", key.pub.to_account ());
 	auto response (test_response (request, rpc, system.service));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response.second)));
