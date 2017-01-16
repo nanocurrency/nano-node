@@ -251,7 +251,7 @@ public:
     {
         if (node.config.logging.network_message_logging ())
         {
-            BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1%") % sender);
+            BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%") % sender % message_a.vote.block->hash ().to_string ());
         }
         ++node.network.confirm_ack_count;
         node.peers.contacted (sender);
@@ -2118,14 +2118,8 @@ void rai::election::recompute_winner ()
 void rai::election::broadcast_winner ()
 {
 	recompute_winner ();
-	std::unique_ptr <rai::block> winner_l;
-	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
-		winner_l = node.ledger.winner (transaction, votes).second;
-	}
-	assert (winner_l != nullptr);
 	auto list (node.peers.list ());
-	node.network.confirm_broadcast (list, std::move (winner_l), 0);
+	node.network.confirm_broadcast (list, last_winner->clone (), 0);
 }
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)

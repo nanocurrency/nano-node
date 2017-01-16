@@ -1101,3 +1101,66 @@ TEST (node, stopped_rollback)
 		ASSERT_FALSE (node3.ledger.block_exists (block2->hash ()));
 	}
 }
+
+TEST (node, broadcast_elected)
+{
+    rai::system system (24000, 3);
+	auto node0 (system.nodes [0]);
+	auto node1 (system.nodes [1]);
+	auto node2 (system.nodes [2]);
+	rai::keypair rep_big;
+	rai::keypair rep_small;
+	rai::keypair rep_other;
+	rai::block_hash fork_hash;
+	{
+		rai::transaction transaction0 (node0->store.environment, nullptr, true);
+		rai::transaction transaction1 (node1->store.environment, nullptr, true);
+		rai::transaction transaction2 (node2->store.environment, nullptr, true);
+		rai::send_block fund_big (node0->ledger.latest (transaction0, rai::test_genesis_key.pub), rep_big.pub, 500, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::open_block open_big (fund_big.hash (), rep_big.pub, rep_big.pub, rep_big.prv, rep_big.pub, 0);
+		rai::send_block fund_small (fund_big.hash (), rep_small.pub, 250, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::open_block open_small (fund_small.hash (), rep_small.pub, rep_small.pub, rep_small.prv, rep_small.pub, 0);
+		rai::send_block fund_other (fund_small.hash (), rep_other.pub, 125, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::open_block open_other (fund_other.hash (), rep_other.pub, rep_other.pub, rep_other.prv, rep_other.pub, 0);
+		rai::send_block fork0 (fund_other.hash (), rep_small.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		fork_hash = fork0.hash ();
+		node0->generate_work (fund_big);
+		node0->generate_work (open_big);
+		node0->generate_work (fund_small);
+		node0->generate_work (open_small);
+		node0->generate_work (fork0);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, fund_big).code);
+		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, fund_big).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open_big).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, open_big).code);
+		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, open_big).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_small).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, fund_small).code);
+		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, fund_small).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open_small).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, open_small).code);
+		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, open_small).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_other).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, fund_other).code);
+		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, fund_other).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open_other).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, open_other).code);
+		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, open_other).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fork0).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, fork0).code);
+	}
+	system.wallet (0)->insert_adhoc (rep_big.prv);
+	system.wallet (1)->insert_adhoc (rep_small.prv);
+	system.wallet (2)->insert_adhoc (rep_other.prv);
+	rai::send_block fork1 (node2->latest (rai::test_genesis_key.pub), rep_big.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node0->generate_work (fork1);
+	system.wallet (2)->insert_adhoc (rep_small.prv);
+	node2->process_receive_republish (fork1.clone (), 0);
+	while (!node2->ledger.block_exists (fork_hash))
+	{
+		system.poll ();
+		ASSERT_TRUE (node0->ledger.block_exists(fork_hash));
+		ASSERT_TRUE (node1->ledger.block_exists(fork_hash));
+	}
+}
