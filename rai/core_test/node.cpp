@@ -688,14 +688,6 @@ TEST (node, fork_publish)
         ASSERT_NE (node1.active.roots.end (), conflict1);
         auto votes1 (conflict1->election);
         ASSERT_NE (nullptr, votes1);
-        ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-		auto iterations1 (0);
-        while (votes1->votes.rep_votes.size () == 1)
-        {
-            system.poll ();
-			++iterations1;
-			ASSERT_LT (iterations1, 200);
-        }
         ASSERT_EQ (2, votes1->votes.rep_votes.size ());
         auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
         ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
@@ -1111,6 +1103,9 @@ TEST (node, broadcast_elected)
 	rai::keypair rep_big;
 	rai::keypair rep_small;
 	rai::keypair rep_other;
+	//std::cerr << "Big: " << rep_big.pub.to_account () << std::endl;
+	//std::cerr << "Small: " << rep_small.pub.to_account () << std::endl;
+	//std::cerr << "Other: " << rep_other.pub.to_account () << std::endl;
 	rai::block_hash fork_hash;
 	{
 		rai::transaction transaction0 (node0->store.environment, nullptr, true);
@@ -1157,10 +1152,44 @@ TEST (node, broadcast_elected)
 	node0->generate_work (fork1);
 	system.wallet (2)->insert_adhoc (rep_small.prv);
 	node2->process_receive_republish (fork1.clone (), 0);
+	//std::cerr << "fork0: " << fork_hash.to_string () << std::endl;
+	//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 	while (!node2->ledger.block_exists (fork_hash))
 	{
 		system.poll ();
 		ASSERT_TRUE (node0->ledger.block_exists(fork_hash));
 		ASSERT_TRUE (node1->ledger.block_exists(fork_hash));
 	}
+}
+
+TEST (node, rep_self_vote)
+{
+    rai::system system (24000, 1);
+	auto node0 (system.nodes [0]);
+	rai::keypair rep_big;
+	{
+		rai::transaction transaction0 (node0->store.environment, nullptr, true);
+		rai::send_block fund_big (node0->ledger.latest (transaction0, rai::test_genesis_key.pub), rep_big.pub, rai::uint128_t ("0xb0000000000000000000000000000000"), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::open_block open_big (fund_big.hash (), rep_big.pub, rep_big.pub, rep_big.prv, rep_big.pub, 0);
+		node0->generate_work (fund_big);
+		node0->generate_work (open_big);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open_big).code);
+	}
+	system.wallet (0)->insert_adhoc (rep_big.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::send_block block0 (node0->latest (rai::test_genesis_key.pub), rep_big.pub, rai::uint128_t ("0x60000000000000000000000000000000"), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node0->generate_work (block0);
+	ASSERT_EQ (rai::process_result::progress, node0->process (block0).code);
+	auto & active (node0->active);
+	{
+		rai::transaction transaction (node0->store.environment, nullptr, true);
+		active.start (transaction, block0, [] (rai::block &) {});
+	}
+	auto existing (active.roots.find (block0.root ()));
+	ASSERT_NE (active.roots.end (), existing);
+	auto & rep_votes (existing->election->votes.rep_votes);
+	ASSERT_EQ (3, rep_votes.size ());
+	ASSERT_NE (rep_votes.end (), rep_votes.find (rai::test_genesis_key.pub));
+	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }

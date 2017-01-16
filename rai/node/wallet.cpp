@@ -1199,7 +1199,8 @@ public:
 					std::shared_ptr <rai::block> block_l (wallet->node.store.block_get (transaction, info.head).release ());
 					wallet->node.background ([this_l, account, block_l]
 					{
-						this_l->wallet->node.active.start (*block_l, [this_l, account] (rai::block &)
+						rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
+						this_l->wallet->node.active.start (transaction, *block_l, [this_l, account] (rai::block &)
 						{
 							// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
 							this_l->receive_all (account);
@@ -1436,7 +1437,7 @@ void rai::wallets::queue_wallet_action (rai::account const & account_a, rai::uin
 	}
 }
 
-void rai::wallets::foreach_representative (rai::transaction const & transaction_a, std::function <void (rai::public_key const & pub_a, rai::raw_key const & prv_a)> const & action_a)
+void rai::wallets::foreach_representative (MDB_txn * transaction_a, std::function <void (rai::public_key const & pub_a, rai::raw_key const & prv_a)> const & action_a)
 {
     for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
     {

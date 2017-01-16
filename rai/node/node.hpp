@@ -39,14 +39,14 @@ class election : public std::enable_shared_from_this <rai::election>
 	std::function <void (rai::block &)> confirmation_action;
 	void confirm_once ();
 public:
-    election (rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
+    election (MDB_txn *, rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
 	// Set last_winner based on our current state of the ledger
 	bool recalculate_winner (MDB_txn *);
 	// Tell the network our view of the winner
 	void broadcast_winner ();
 	// Change our winner to agree with the network
-	void recompute_winner ();
+	void compute_rep_votes (MDB_txn *);
 	// Confirmation method 1, uncontested quarum
 	void confirm_if_quarum (MDB_txn *);
 	// Confirmation method 2, settling time
@@ -74,7 +74,7 @@ public:
     active_transactions (rai::node &);
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-    void start (rai::block const &, std::function <void (rai::block &)> const &);
+    void start (MDB_txn *, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
 	bool active (rai::block const &);
 	void announce_votes ();

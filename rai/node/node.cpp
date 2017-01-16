@@ -562,7 +562,8 @@ public:
 				BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
 			}
 			auto node_l (node.shared ());
-			node.active.start (block_a, [node_l] (rai::block & block_a)
+			rai::transaction transaction (node.store.environment, nullptr, true);
+			node.active.start (transaction, block_a, [node_l] (rai::block & block_a)
 			{
 				node_l->process_confirmed (block_a);
 			});
@@ -1277,7 +1278,7 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
             std::unique_ptr <rai::block> root;
 			root = ledger.successor (transaction_a, block_a.root ());
 			auto node_l (shared_from_this ());
-			active.start (*root, [node_l] (rai::block & block_a)
+			active.start (transaction_a, *root, [node_l] (rai::block & block_a)
 			{
 				node_l->process_confirmed (block_a);
 			});
@@ -2073,51 +2074,32 @@ std::shared_ptr <rai::node> rai::node::shared ()
     return shared_from_this ();
 }
 
-rai::election::election (rai::node & node_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a) :
+rai::election::election (MDB_txn * transaction_a, rai::node & node_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
 last_vote (std::chrono::system_clock::now ()),
 last_winner (block_a.clone ())
 {
+	assert (node_a.store.block_exists (transaction_a, block_a.hash ()));
 	confirmed.clear ();
+	compute_rep_votes (transaction_a);
 }
 
-void rai::election::recompute_winner ()
+void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 {
-	auto last_winner_l (last_winner);
-	for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+	node.wallets.foreach_representative (transaction_a, [this, transaction_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
-		auto is_representative (false);
-		rai::vote vote_l;
-		{
-			rai::transaction transaction (node.store.environment, nullptr, true);
-			is_representative = i->second->store.is_representative (transaction);
-			if (is_representative)
-			{
-				auto representative (i->second->store.representative (transaction));
-				rai::raw_key prv;
-				is_representative = !i->second->store.fetch (transaction, representative, prv);
-				if (is_representative)
-				{
-					vote_l = rai::vote (representative, prv, node.store.sequence_atomic_inc (transaction, representative), last_winner_l->clone ());
-				}
-				else
-				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Unable to vote on block due to locked wallet %1%") % i->first.to_string ());
-				}
-			}
-		}
-		if (is_representative)
-		{
-			vote (vote_l);
-		}
-	}
+		votes.vote (transaction_a, node.store, rai::vote (pub_a, prv_a, node.store.sequence_atomic_inc (transaction_a, pub_a), last_winner->clone ()));
+	});
 }
 
 void rai::election::broadcast_winner ()
 {
-	recompute_winner ();
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		compute_rep_votes (transaction);
+	}
 	auto list (node.peers.list ());
 	node.network.confirm_broadcast (list, last_winner->clone (), 0);
 }
@@ -2254,14 +2236,14 @@ void rai::active_transactions::announce_votes ()
 	node.alarm.add ((rai::rai_network == rai::rai_networks::rai_test_network) ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
 }
 
-void rai::active_transactions::start (rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a)
+void rai::active_transactions::start (MDB_txn * transaction_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto root (block_a.root ());
     auto existing (roots.find (root));
     if (existing == roots.end ())
     {
-        auto election (std::make_shared <rai::election> (node, block_a, confirmation_action_a));
+        auto election (std::make_shared <rai::election> (transaction_a, node, block_a, confirmation_action_a));
         roots.insert (rai::conflict_info {root, election, 0});
     }
 }

@@ -262,10 +262,13 @@ TEST (receivable_processor, confirm_insufficient_pos)
     rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
 	auto node_l (system.nodes [0]);
-    node1.active.start (block1, [node_l] (rai::block & block_a)
 	{
-		node_l->process_confirmed (block_a);
-	});
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		node1.active.start (transaction, block1, [node_l] (rai::block & block_a)
+		{
+			node_l->process_confirmed (block_a);
+		});
+	}
     rai::keypair key1;
     rai::confirm_ack con1 (key1.pub, key1.prv, 0, block1.clone ());
 	node1.process_message (con1, node1.network.endpoint ());
@@ -279,10 +282,13 @@ TEST (receivable_processor, confirm_sufficient_pos)
     rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
 	auto node_l (system.nodes [0]);
-    node1.active.start (block1, [node_l] (rai::block & block_a)
 	{
-		node_l->process_confirmed (block_a);
-	});
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		node1.active.start (transaction, block1, [node_l] (rai::block & block_a)
+		{
+			node_l->process_confirmed (block_a);
+		});
+	}
     rai::confirm_ack con1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
 	node1.process_message (con1, node1.network.endpoint ());
 }
