@@ -1141,12 +1141,6 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 				case rai::process_result::progress:
 				{
 					completed.push_back (std::make_tuple (result_a, block_a.clone ()));
-					std::shared_ptr <rai::block> block_l (block_a.clone ().release ());
-					auto this_l (this->shared ());
-					this->background ([block_l, this_l, rebroadcast_a] ()
-					{
-						this_l->network.republish_block (*block_l, rebroadcast_a);
-					});
 					break;
 				}
 				default:
@@ -2104,8 +2098,7 @@ void rai::election::broadcast_winner ()
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		compute_rep_votes (transaction);
 	}
-	auto list (node.peers.list ());
-	node.network.confirm_broadcast (list, last_winner->clone (), 0);
+	node.network.republish_block (*last_winner, 0);
 }
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
