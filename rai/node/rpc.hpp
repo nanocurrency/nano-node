@@ -87,6 +87,8 @@ public:
 	void account_create ();
 	void account_list ();
 	void account_move ();
+	void account_representative ();
+	void account_representative_set ();
 	void account_weight ();
 	void available_supply ();
 	void block ();
@@ -112,8 +114,6 @@ public:
 	void process ();
 	void rai_to_raw ();
 	void rai_from_raw ();
-	void representation ();
-	void representative ();
 	void search_pending ();
 	void send ();
 	void stop ();

@@ -1580,7 +1580,7 @@ TEST (rpc, rai_from_raw)
 	thread1.join ();
 }
 
-TEST (rpc, representative)
+TEST (rpc, account_representative)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -1590,7 +1590,7 @@ TEST (rpc, representative)
     boost::property_tree::ptree request;
     std::string wallet;
     request.put ("account", rai::genesis_account.to_account ());
-    request.put ("action", "representative");
+    request.put ("action", "account_representative");
 	auto response (test_response (request, rpc, system.service));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response.second)));
     std::string account_text1 (response.first.get <std::string> ("representative"));
@@ -1599,22 +1599,29 @@ TEST (rpc, representative)
 	thread1.join();
 }
 
-TEST (rpc, representation)
+TEST (rpc, account_representative_set)
 {
     rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	std::thread thread1 ([&rpc] () {rpc.server.run();});
     boost::property_tree::ptree request;
-    std::string wallet;
+	rai::keypair rep;
     request.put ("account", rai::genesis_account.to_account ());
-    request.put ("action", "representation");
+	request.put ("representative", rep.pub.to_account ());
+	request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
+    request.put ("action", "account_representative_set");
 	auto response (test_response (request, rpc, system.service));
     ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response.second)));
-    std::string amount_text1 (response.first.get <std::string> ("representation"));
-    ASSERT_EQ (amount_text1, rai::genesis_amount.convert_to <std::string> ());
+    std::string block_text1 (response.first.get <std::string> ("block"));
+	rai::block_hash hash;
+	ASSERT_FALSE (hash.decode_hex (block_text1));
+	ASSERT_FALSE (hash.is_zero ());
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, hash));
+	ASSERT_EQ (rep.pub, system.nodes [0]->store.block_get (transaction, hash)->representative ());
 	rpc.stop();
 	thread1.join();
 }
-
