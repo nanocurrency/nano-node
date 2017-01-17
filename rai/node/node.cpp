@@ -1162,6 +1162,12 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 	}
 }
 
+void rai::node::process_receive_many (rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
+{
+	rai::transaction transaction (store.environment, nullptr, true);
+	process_receive_many (transaction, block_a, completed_a);
+}
+
 void rai::node::process_receive_many (rai::transaction & transaction_a, rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
 {
 	std::vector <std::unique_ptr <rai::block>> blocks;
@@ -1193,6 +1199,11 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
                 block_a.serialize_json (block);
                 BOOST_LOG (log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash ().to_string () % block);
             }
+			auto node_l (shared_from_this ());
+			active.start (transaction_a, block_a, [node_l] (rai::block & block_a)
+			{
+				node_l->process_confirmed (block_a);
+			});
             break;
         }
         case rai::process_result::gap_previous:
@@ -1275,13 +1286,6 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
         case rai::process_result::fork:
         {
 		    BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
-            std::unique_ptr <rai::block> root;
-			root = ledger.successor (transaction_a, block_a.root ());
-			auto node_l (shared_from_this ());
-			active.start (transaction_a, *root, [node_l] (rai::block & block_a)
-			{
-				node_l->process_confirmed (block_a);
-			});
             break;
         }
         case rai::process_result::account_mismatch:
