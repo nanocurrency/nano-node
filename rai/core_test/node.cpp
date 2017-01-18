@@ -431,7 +431,9 @@ TEST (logging, serialization)
 	boost::property_tree::ptree tree;
 	logging1.serialize_json (tree);
 	rai::logging logging2 (path);
-	ASSERT_FALSE (logging2.deserialize_json (tree));
+	bool upgraded (false);
+	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
+	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (logging1.ledger_logging_value, logging2.ledger_logging_value);
 	ASSERT_EQ (logging1.ledger_duplicate_logging_value, logging2.ledger_duplicate_logging_value);
 	ASSERT_EQ (logging1.network_logging_value, logging2.network_logging_value);
@@ -446,6 +448,22 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.work_generation_time_value, logging2.work_generation_time_value);
 	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
 	ASSERT_EQ (logging1.max_size, logging2.max_size);
+}
+
+TEST (logging, upgrade_v1_v2)
+{
+	auto path1 (rai::unique_path ());
+	auto path2 (rai::unique_path ());
+	rai::logging logging1 (path1);
+	rai::logging logging2 (path2);
+	boost::property_tree::ptree tree;
+	logging1.serialize_json (tree);
+	tree.erase ("version");
+	tree.erase ("vote");
+	bool upgraded (false);
+	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
+	ASSERT_EQ ("2", tree.get <std::string> ("version"));
+	ASSERT_EQ (false, tree.get <bool> ("vote"));
 }
 
 TEST (node, price)

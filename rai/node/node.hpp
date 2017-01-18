@@ -248,9 +248,11 @@ class logging
 public:
 	logging (boost::filesystem::path const &);
     void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (boost::property_tree::ptree const &);
+	bool deserialize_json (bool &, boost::property_tree::ptree &);
+	bool upgrade_json (unsigned, boost::property_tree::ptree &);
     bool ledger_logging () const;
     bool ledger_duplicate_logging () const;
+	bool vote_logging () const;
     bool network_logging () const;
     bool network_message_logging () const;
     bool network_publish_logging () const;
@@ -264,6 +266,7 @@ public:
     bool log_to_cerr () const;
 	bool ledger_logging_value;
 	bool ledger_duplicate_logging_value;
+	bool vote_logging_value;
 	bool network_logging_value;
 	bool network_message_logging_value;
 	bool network_publish_logging_value;

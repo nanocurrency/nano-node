@@ -391,6 +391,7 @@ void rai::alarm::add (std::chrono::system_clock::time_point const & wakeup_a, st
 rai::logging::logging (boost::filesystem::path const & application_path_a) :
 ledger_logging_value (false),
 ledger_duplicate_logging_value (false),
+vote_logging_value (false),
 network_logging_value (true),
 network_message_logging_value (false),
 network_publish_logging_value (false),
@@ -414,8 +415,10 @@ max_size (16 * 1024 * 1024)
 
 void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 {
+	tree_a.put ("version", "2");
 	tree_a.put ("ledger", ledger_logging_value);
 	tree_a.put ("ledger_duplicate", ledger_duplicate_logging_value);
+	tree_a.put ("vote", vote_logging_value);
 	tree_a.put ("network", network_logging_value);
 	tree_a.put ("network_message", network_message_logging_value);
 	tree_a.put ("network_publish", network_publish_logging_value);
@@ -430,13 +433,45 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("max_size", max_size);
 }
 
-bool rai::logging::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+{
+	auto result (false);
+	switch (version_a)
+	{
+	case 1:
+		tree_a.put ("vote", vote_logging_value);
+		tree_a.put ("version", "2");
+		result = true;
+	case 2:
+	break;
+	default:
+		throw std::runtime_error ("Unknown logging_config version");
+	break;
+	}
+	return result;
+}
+
+bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	try
 	{
+		auto version_l (tree_a.get_optional <std::string> ("version"));
+		if (!version_l)
+		{
+			tree_a.put ("version", "1");
+			version_l = "1";
+			auto work_peers_l (tree_a.get_child_optional ("work_peers"));
+			if (!work_peers_l)
+			{
+				tree_a.add_child ("work_peers", boost::property_tree::ptree ());
+			}
+			upgraded_a = true;
+		}
+		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
 		ledger_logging_value = tree_a.get <bool> ("ledger");
 		ledger_duplicate_logging_value = tree_a.get <bool> ("ledger_duplicate");
+		vote_logging_value = tree_a.get <bool> ("vote");
 		network_logging_value = tree_a.get <bool> ("network");
 		network_message_logging_value = tree_a.get <bool> ("network_message");
 		network_publish_logging_value = tree_a.get <bool> ("network_publish");
@@ -465,6 +500,11 @@ bool rai::logging::ledger_logging () const
 bool rai::logging::ledger_duplicate_logging () const
 {
 	return ledger_logging () && ledger_duplicate_logging_value;
+}
+
+bool rai::logging::vote_logging () const
+{
+	return vote_logging_value;
 }
 
 bool rai::logging::network_logging () const
@@ -750,7 +790,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto creation_rebroadcast_l (tree_a.get <std::string> ("creation_rebroadcast"));
 		auto rebroadcast_delay_l (tree_a.get <std::string> ("rebroadcast_delay"));
 		auto receive_minimum_l (tree_a.get <std::string> ("receive_minimum"));
-		auto logging_l (tree_a.get_child ("logging"));
+		auto & logging_l (tree_a.get_child ("logging"));
 		work_peers.clear ();
 		auto work_peers_l (tree_a.get_child ("work_peers"));
 		for (auto i (work_peers_l.begin ()), n (work_peers_l.end ()); i != n; ++i)
@@ -800,7 +840,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= creation_rebroadcast > 10;
 			result |= rebroadcast_delay > 300;
 			result |= peering_port > std::numeric_limits <uint16_t>::max ();
-			result |= logging.deserialize_json (logging_l);
+			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
 			result |= inactive_supply.decode_dec (inactive_supply_l);
 			result |= password_fanout < 16;
@@ -2179,6 +2219,10 @@ void rai::election::vote (rai::vote const & vote_a)
 	auto tally_changed (votes.vote (transaction, node.store, vote_a));
 	if (tally_changed)
 	{
+		if (node.config.logging.vote_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3%") % vote_a.account.to_account () % std::to_string (vote_a.sequence) % vote_a.block->hash ().to_string ());
+		}
 		confirm_if_quarum (transaction);
 	}
 }
