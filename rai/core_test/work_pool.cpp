@@ -45,15 +45,17 @@ TEST (work, opencl)
 {
 	rai::logging logging (rai::unique_path ());
 	auto work (rai::opencl_work::create (true, {0, 1, 1024 * 1024}, logging));
-	ASSERT_NE (nullptr, work);
-	rai::work_pool pool (std::move (work));
-	ASSERT_NE (nullptr, pool.opencl);
-	rai::uint256_union root;
-	for (auto i (0); i < 1; ++i)
+	if (work != nullptr)
 	{
-		rai::random_pool.GenerateBlock (root.bytes.data (), root.bytes.size ());
-		auto result (pool.generate (root));
-		ASSERT_FALSE (pool.work_validate (root, result));
+		rai::work_pool pool (std::move (work));
+		ASSERT_NE (nullptr, pool.opencl);
+		rai::uint256_union root;
+		for (auto i (0); i < 1; ++i)
+		{
+			rai::random_pool.GenerateBlock (root.bytes.data (), root.bytes.size ());
+			auto result (pool.generate (root));
+			ASSERT_FALSE (pool.work_validate (root, result));
+		}
 	}
 }
 

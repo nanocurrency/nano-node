@@ -691,9 +691,18 @@ logging (logging_a)
 
 rai::opencl_work::~opencl_work ()
 {
-	clReleaseKernel (kernel);
-	clReleaseProgram (program);
-	clReleaseContext (context);
+	if (kernel != 0)
+	{
+		clReleaseKernel (kernel);
+	}
+	if (program != 0)
+	{
+		clReleaseProgram (program);
+	}
+	if (context != 0)
+	{
+		clReleaseContext (context);
+	}
 }
 
 boost::optional <uint64_t> rai::opencl_work::generate_work (rai::work_pool & pool_a, rai::uint256_union const & root_a)
