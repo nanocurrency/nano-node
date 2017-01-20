@@ -1174,12 +1174,17 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		assert (incoming != nullptr);
-		process_receive_many (transaction, *incoming, [this, rebroadcast_a, &completed] (rai::process_return result_a, rai::block const & block_a)
+		process_receive_many (transaction, *incoming, [this, rebroadcast_a, &completed, &transaction] (rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{
 				case rai::process_result::progress:
 				{
+					auto node_l (shared_from_this ());
+					active.start (transaction, block_a, [node_l] (rai::block & block_a)
+					{
+						node_l->process_confirmed (block_a);
+					});
 					completed.push_back (std::make_tuple (result_a, block_a.clone ()));
 					break;
 				}
@@ -1233,11 +1238,6 @@ rai::process_return rai::node::process_receive_one (rai::transaction & transacti
                 block_a.serialize_json (block);
                 BOOST_LOG (log) << boost::str (boost::format ("Processing block %1% %2%") % block_a.hash ().to_string () % block);
             }
-			auto node_l (shared_from_this ());
-			active.start (transaction_a, block_a, [node_l] (rai::block & block_a)
-			{
-				node_l->process_confirmed (block_a);
-			});
             break;
         }
         case rai::process_result::gap_previous:

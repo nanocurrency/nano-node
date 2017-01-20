@@ -687,13 +687,13 @@ TEST (node, fork_publish)
         rai::send_block send1 (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
         rai::keypair key2;
         rai::send_block send2 (genesis.hash (), key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-        node1.process_receive_many (send1);
+        node1.process_receive_republish (send1.clone (), 0);
         ASSERT_EQ (1, node1.active.roots.size ());
 		auto existing (node1.active.roots.find (send1.root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		ASSERT_EQ (2, election->votes.rep_votes.size ());
-        node1.process_receive_many (send2);
+        node1.process_receive_republish (send2.clone (), 0);
         auto existing1 (election->votes.rep_votes.find (rai::test_genesis_key.pub));
         ASSERT_NE (election->votes.rep_votes.end (), existing1);
         ASSERT_EQ (send1, *existing1->second);
@@ -862,33 +862,46 @@ TEST (node, fork_multi_flip)
 }
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
+// This could happen if a fork wasn't resolved before the process previously shut down
 TEST (node, fork_bootstrap_flip)
 {
-	rai::system system (24000, 2);
-	auto & node1 (*system.nodes [0]);
-	auto & node2 (*system.nodes [1]);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	rai::block_hash latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::system system0 (24000, 1);
+	rai::system system1 (24001, 1);
+	auto & node1 (*system0.nodes [0]);
+	auto & node2 (*system1.nodes [0]);
+	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::block_hash latest (system0.nodes [0]->latest (rai::test_genesis_key.pub));
 	rai::keypair key1;
-	std::unique_ptr <rai::send_block> send1 (new rai::send_block (latest, key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
+	rai::send_block send1 (latest, key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest));
 	rai::keypair key2;
-	std::unique_ptr <rai::send_block> send2 (new rai::send_block (latest, key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
-	node1.process_receive_many (*send1);
-	node2.process_receive_many (*send2);
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100);
-	auto iterations2 (0);
-	auto again (true);
+	rai::send_block send2 (latest, key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest));
+	// Insert but don't rebroadcast, simulating well-established blocks
+	node1.process_receive_many (send1);
+	node2.process_receive_many (send2);
 	{
 		rai::transaction transaction (node2.store.environment, nullptr, false);
-		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
+		ASSERT_TRUE (node2.store.block_exists (transaction, send2.hash ()));
 	}
+	node1.network.send_keepalive (node2.network.endpoint ());
+	auto iterations1 (0);
+	while (node2.peers.empty ())
+	{
+		system0.poll ();
+		system1.poll ();
+		++iterations1;
+		ASSERT_LT (iterations1, 1000);
+	}
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	auto again (true);
+	auto iterations2 (0);
 	while (again)
 	{
-		system.poll ();
+		system0.poll ();
+		system1.poll ();
 		++iterations2;
 		ASSERT_LT (iterations2, 200);
 		rai::transaction transaction (node2.store.environment, nullptr, false);
-		again = !node2.store.block_exists (transaction, send1->hash ());
+		again = !node2.store.block_exists (transaction, send1.hash ());
 	}
 }
 
@@ -1077,7 +1090,6 @@ TEST (node, broadcast_elected)
 	//std::cerr << "Big: " << rep_big.pub.to_account () << std::endl;
 	//std::cerr << "Small: " << rep_small.pub.to_account () << std::endl;
 	//std::cerr << "Other: " << rep_other.pub.to_account () << std::endl;
-	rai::block_hash fork_hash;
 	{
 		rai::transaction transaction0 (node0->store.environment, nullptr, true);
 		rai::transaction transaction1 (node1->store.environment, nullptr, true);
@@ -1088,13 +1100,10 @@ TEST (node, broadcast_elected)
 		rai::open_block open_small (fund_small.hash (), rep_small.pub, rep_small.pub, rep_small.prv, rep_small.pub, 0);
 		rai::send_block fund_other (fund_small.hash (), rep_other.pub, 125, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		rai::open_block open_other (fund_other.hash (), rep_other.pub, rep_other.pub, rep_other.prv, rep_other.pub, 0);
-		rai::send_block fork0 (fund_other.hash (), rep_small.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		fork_hash = fork0.hash ();
 		node0->generate_work (fund_big);
 		node0->generate_work (open_big);
 		node0->generate_work (fund_small);
 		node0->generate_work (open_small);
-		node0->generate_work (fork0);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
 		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, fund_big).code);
 		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, fund_big).code);
@@ -1113,12 +1122,14 @@ TEST (node, broadcast_elected)
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open_other).code);
 		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, open_other).code);
 		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, open_other).code);
-		node0->process_receive_many (transaction0, fork0);
-		node1->process_receive_many (transaction1, fork0);
 	}
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (1)->insert_adhoc (rep_small.prv);
 	system.wallet (2)->insert_adhoc (rep_other.prv);
+	rai::send_block fork0 (node2->latest (rai::test_genesis_key.pub), rep_small.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node0->generate_work (fork0);
+	node0->process_receive_republish (fork0.clone (), 0);
+	node1->process_receive_republish (fork0.clone (), 0);
 	rai::send_block fork1 (node2->latest (rai::test_genesis_key.pub), rep_big.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	node0->generate_work (fork1);
 	system.wallet (2)->insert_adhoc (rep_small.prv);
@@ -1126,11 +1137,11 @@ TEST (node, broadcast_elected)
 	//std::cerr << "fork0: " << fork_hash.to_string () << std::endl;
 	//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 	auto iterations (0);
-	while (!node2->ledger.block_exists (fork_hash))
+	while (!node2->ledger.block_exists (fork0.hash ()))
 	{
 		system.poll ();
-		ASSERT_TRUE (node0->ledger.block_exists(fork_hash));
-		ASSERT_TRUE (node1->ledger.block_exists(fork_hash));
+		ASSERT_TRUE (node0->ledger.block_exists (fork0.hash ()));
+		ASSERT_TRUE (node1->ledger.block_exists (fork0.hash ()));
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
@@ -1166,4 +1177,30 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (3, rep_votes.size ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
+}
+
+// Bootstrapping shouldn't republish the blocks to the network.
+TEST (node, bootstrap_no_publish)
+{
+    rai::system system0 (24000, 1);
+    rai::system system1 (24001, 1);
+	auto node0 (system0.nodes [0]);
+	auto node1 (system1.nodes [0]);
+	rai::keypair key0;
+	// node0 knows about send0 but node1 doesn't.
+	rai::send_block send0 (system0.nodes [0]->latest (rai::test_genesis_key.pub), key0.pub, 500, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	{
+		rai::transaction transaction (node0->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system0.nodes [0]->ledger.process (transaction, send0).code);
+	}
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
+	ASSERT_TRUE (node1->active.roots.empty ());
+	while (node1->bootstrap_initiator.in_progress ())
+	{
+		system0.poll ();
+		system1.poll ();
+		// There should never be an active transaction because the only activity is bootstrapping 1 block which shouldn't be publishing.
+		ASSERT_TRUE (node1->active.roots.empty ());
+	}
 }

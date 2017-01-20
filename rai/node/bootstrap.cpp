@@ -527,7 +527,7 @@ void rai::bulk_pull_client::process_end ()
 	block_flush ();
 	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::transaction & transaction_a, rai::block const & block_a)
 	{
-		connection->connection->node->process_receive_many (transaction_a, block_a, [this] (rai::process_return result_a, rai::block const & block_a)
+		connection->connection->node->process_receive_many (transaction_a, block_a, [this, &transaction_a] (rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{
@@ -535,9 +535,17 @@ void rai::bulk_pull_client::process_end ()
 				case rai::process_result::old:
 					break;
 				case rai::process_result::fork:
+				{
+					auto node_l (connection->connection->node);
+					auto block (node_l->store.block_get (transaction_a, node_l->store.block_successor (transaction_a, block_a.root ())));
+					node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
+					{
+						node_l->process_confirmed (block_a);
+					});
 					connection->connection->node->network.broadcast_confirm_req (block_a);
 					BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
 					break;
+				}
 				case rai::process_result::gap_previous:
 				case rai::process_result::gap_source:
 					if (connection->connection->node->config.logging.bulk_pull_logging ())
