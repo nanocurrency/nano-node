@@ -80,7 +80,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
     auto node_l (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t)
         {
-            if (node_l->config.logging.network_logging ())
+            if (node_l->config.logging.network_keepalive_logging ())
             {
                 if (ec)
                 {
