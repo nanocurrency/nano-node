@@ -191,6 +191,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 
 int run_wallet (int argc, char * const * argv)
 {
+	QApplication application (argc, const_cast <char **> (argv));
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
 	qt_wallet_config config (working);
@@ -199,7 +200,6 @@ int run_wallet (int argc, char * const * argv)
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
-	QApplication application (argc, const_cast <char **> (argv));
 	if (!error)
 	{
 		rai::set_application_icon (application);
