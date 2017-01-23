@@ -1129,11 +1129,11 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
 	rai::transaction transaction (this->node.store.environment, nullptr, true);
 	node.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, this, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
-		auto sequence (node.store.sequence_atomic_inc (transaction, pub_a));
+		auto sequence (this->node.store.sequence_atomic_inc (transaction, pub_a));
 		auto hash (block_a->hash ());
 		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 		{
-			if (!node.peers.knows_about (j->endpoint, hash))
+			if (!this->node.peers.knows_about (j->endpoint, hash))
 			{
 				confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
 				result = true;
@@ -2128,7 +2128,7 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 {
 	node.wallets.foreach_representative (transaction_a, [this, transaction_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
-		votes.vote (transaction_a, node.store, rai::vote (pub_a, prv_a, node.store.sequence_atomic_inc (transaction_a, pub_a), last_winner->clone ()));
+		this->votes.vote (transaction_a, this->node.store, rai::vote (pub_a, prv_a, this->node.store.sequence_atomic_inc (transaction_a, pub_a), last_winner->clone ()));
 	});
 }
 
