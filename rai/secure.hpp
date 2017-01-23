@@ -320,7 +320,7 @@ public:
 	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
 	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);
 	void account_del (MDB_txn *, rai::account const &);
-	bool account_exists (rai::account const &);
+	bool account_exists (MDB_txn *, rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
@@ -458,6 +458,7 @@ public:
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
 	rai::uint128_t weight (MDB_txn *, rai::account const &);
 	std::unique_ptr <rai::block> successor (MDB_txn *, rai::block_hash const &);
+	std::unique_ptr <rai::block> forked_block (MDB_txn *, rai::block const &);
 	rai::block_hash latest (MDB_txn *, rai::account const &);
 	rai::block_hash latest_root (MDB_txn *, rai::account const &);
 	rai::block_hash representative (MDB_txn *, rai::block_hash const &);

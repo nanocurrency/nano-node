@@ -428,7 +428,7 @@ TEST (block_store, latest_exists)
 	rai::transaction transaction (store.environment, nullptr, true);
     store.account_put (transaction, two, info);
     rai::block_hash one (1);
-    ASSERT_FALSE (store.account_exists (one));
+    ASSERT_FALSE (store.account_exists (transaction, one));
 }
 
 TEST (block_store, stack)

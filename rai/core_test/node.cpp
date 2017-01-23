@@ -1204,3 +1204,37 @@ TEST (node, bootstrap_no_publish)
 		ASSERT_TRUE (node1->active.roots.empty ());
 	}
 }
+
+// Bootstrapping a forked open block should succeed.
+TEST (node, bootstrap_fork_open)
+{
+    rai::system system0 (24000, 2);
+	system0.wallet(0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto node0 (system0.nodes [0]);
+	auto node1 (system0.nodes [1]);
+	rai::keypair key0;
+	rai::send_block send0 (system0.nodes [0]->latest (rai::test_genesis_key.pub), key0.pub, rai::genesis_amount - 500, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::open_block open0 (send0.hash (), 1, key0.pub, key0.prv, key0.pub, 0);
+	rai::open_block open1 (send0.hash (), 2, key0.pub, key0.prv, key0.pub, 0);
+	node0->generate_work (send0);
+	node0->generate_work (open0);
+	node0->generate_work (open1);
+	{
+		rai::transaction transaction0 (node0->store.environment, nullptr, true);
+		rai::transaction transaction1 (node1->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, send0).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, send0).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open0).code);
+		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, open1).code);
+	}
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
+	ASSERT_TRUE (node1->active.roots.empty ());
+	int iterations (0);
+	while (node1->ledger.block_exists (open1.hash ()))
+	{
+		system0.poll ();
+		ASSERT_LT (iterations, 200);
+		++iterations;
+	}
+}

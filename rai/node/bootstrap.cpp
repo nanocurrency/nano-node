@@ -537,7 +537,7 @@ void rai::bulk_pull_client::process_end ()
 				case rai::process_result::fork:
 				{
 					auto node_l (connection->connection->node);
-					auto block (node_l->store.block_get (transaction_a, node_l->store.block_successor (transaction_a, block_a.root ())));
+					auto block (node_l->ledger.forked_block (transaction_a, block_a));
 					node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
 					{
 						node_l->process_confirmed (block_a);
