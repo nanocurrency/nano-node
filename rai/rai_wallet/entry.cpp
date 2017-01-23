@@ -310,9 +310,9 @@ int main (int argc, char * const * argv)
 	{
 		std::cerr << boost::str (boost::format ("Exception while initializing %1%") % e.what ());
 	}
-	catch (std::exception const & e)
+	catch (...))
 	{
-		std::cerr << boost::str (boost::format ("Unknown exception while initializing %1%") % e.what ());
+		std::cerr << boost::str (boost::format ("Unknown exception while initializing"));
 	}
 	return 1;
 }
