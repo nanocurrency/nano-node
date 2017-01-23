@@ -189,9 +189,8 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 }
 }
 
-int run_wallet (int argc, char * const * argv)
+int run_wallet (QApplication & application, int argc, char * const * argv)
 {
-	QApplication application (argc, const_cast <char **> (argv));
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
 	qt_wallet_config config (working);
@@ -273,34 +272,47 @@ int run_wallet (int argc, char * const * argv)
 
 int main (int argc, char * const * argv)
 {
-	boost::program_options::options_description description ("Command line options");
-	description.add_options () ("help", "Print out options");
-	rai::add_node_options (description);
-	boost::program_options::variables_map vm;
-	boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
-	boost::program_options::notify (vm);
-	int result (0);
-	if (!rai::handle_node_options (vm))
+	try
 	{
+		QApplication application (argc, const_cast <char **> (argv));
+		boost::program_options::options_description description ("Command line options");
+		description.add_options () ("help", "Print out options");
+		rai::add_node_options (description);
+		boost::program_options::variables_map vm;
+		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
+		boost::program_options::notify (vm);
+		int result (0);
+		if (!rai::handle_node_options (vm))
+		{
+		}
+		else if (vm.count ("help") != 0)
+		{
+			std::cout << description << std::endl;
+		}
+		else
+		{
+			try
+			{
+				result = run_wallet (application, argc, argv);
+			}
+			catch (std::exception const & e)
+			{
+				show_error (boost::str (boost::format ("Exception while running wallet: %1%") % e.what ()));
+			}
+			catch (...)
+			{
+				show_error ("Unknown exception while running wallet");
+			}
+		}
+		return result;
 	}
-	else if (vm.count ("help") != 0)
+	catch (std::exception const & e)
 	{
-		std::cout << description << std::endl;
+		std::cerr << boost::str (boost::format ("Exception while initializing %1%") % e.what ());
 	}
-    else
-    {
-		try
-		{
-			result = run_wallet (argc, argv);
-		}
-		catch (std::exception const & e)
-		{
-			show_error (boost::str (boost::format ("Exception while running wallet: %1%") % e.what ()));
-		}
-		catch (...)
-		{
-			show_error ("Unknown exception while running wallet");
-		}
-    }
-    return result;
+	catch (std::exception const & e)
+	{
+		std::cerr << boost::str (boost::format ("Unknown exception while initializing %1%") % e.what ());
+	}
+	return 1;
 }
