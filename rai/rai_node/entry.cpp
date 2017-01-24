@@ -6,8 +6,6 @@
 
 #include <boost/program_options.hpp>
 
-#include <emmintrin.h>
-
 class xorshift128
 {
 public:
