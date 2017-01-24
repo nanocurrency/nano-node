@@ -906,3 +906,8 @@ TEST (network, endpoint_bad_fd)
 	ASSERT_TRUE (endpoint.address ().is_loopback ());
 	ASSERT_EQ (0, endpoint.port ());
 }
+
+TEST (network, reserved_address)
+{
+	ASSERT_FALSE (rai::reserved_address (rai::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
+}
