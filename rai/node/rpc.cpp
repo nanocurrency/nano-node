@@ -130,10 +130,9 @@ void rai::rpc::observer_action (rai::account const & account_a)
 
 void rai::rpc::error_response (boost::network::http::async_server <rai::rpc>::connection_ptr connection, std::string const & message_a)
 {
-    auto response_l (boost::network::http::server<rai::rpc>::response::stock_reply (boost::network::http::server<rai::rpc>::response::bad_request));
-	auto response (std::make_shared <decltype (response_l)> (response_l));
-	response->content = message_a;
-	connection->write (response->to_buffers (), [response, connection] (boost::system::error_code) {});
+	boost::property_tree::ptree response_l;
+	response_l.put ("error", message_a);
+	send_response (connection, response_l);
 }
 
 void rai::rpc_handler::account_balance ()

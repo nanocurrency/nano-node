@@ -881,7 +881,8 @@ TEST (rpc, process_block_no_work)
 	send.serialize_json (json);
 	request.put ("block", json);
 	auto response (test_response (request, rpc, system.service));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, static_cast <uint16_t> (boost::network::http::status (response.second)));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response.second)));
+	ASSERT_FALSE (response.first.get <std::string> ("error").empty ());
 	rpc.stop();
 	thread1.join();
 }
@@ -1002,7 +1003,8 @@ TEST (rpc, payment_end_nonempty)
 	request1.put ("wallet", wallet_id.to_string ());
 	request1.put ("account", rai::test_genesis_key.pub.to_account ());
 	auto response1 (test_response (request1, rpc, system.service));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, static_cast <uint16_t> (boost::network::http::status (response1.second)));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response1.second)));
+	ASSERT_FALSE (response1.first.get <std::string> ("error").empty ());
 	rpc.stop();
 	thread1.join();
 }
@@ -1093,7 +1095,8 @@ TEST (rpc, payment_begin_locked)
 	request1.put ("action", "payment_begin");
 	request1.put ("wallet", wallet_id.pub.to_string ());
 	auto response1 (test_response (request1, rpc, system.service));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::bad_request, static_cast <uint16_t> (boost::network::http::status (response1.second)));
+    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, static_cast <uint16_t> (boost::network::http::status (response1.second)));
+	ASSERT_FALSE (response1.first.get <std::string> ("error").empty ());
 	rpc.stop();
 	thread1.join();
 }
@@ -1336,7 +1339,7 @@ TEST (rpc, work_peer_one)
 	thread1.join ();
 }
 
-TEST (rpc, work_peer_many)
+TEST (rpc, DISABLED_work_peer_many)
 {
     rai::system system1 (24000, 1);
     rai::system system2 (24001, 1);
