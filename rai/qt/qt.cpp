@@ -847,7 +847,6 @@ active_status (*this)
 				this->history.refresh ();
 				self.refresh_balance ();
 			}
-			this->advanced.refresh_count ();
 		}));
     });
 	node.observers.add_wallet ([this] (rai::account const & account_a, bool active_a)
@@ -1224,7 +1223,20 @@ void rai_qt::advanced_actions::refresh_count ()
 {
 	rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
 	auto size (wallet.wallet_m->node.store.block_count (transaction));
-	block_count->setText (QString (std::to_string (size).c_str ()));
+	auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
+	auto count_string (std::to_string (size));
+	if (unchecked != 0)
+	{
+		count_string += " (" + std::to_string (unchecked) + ")";
+	}
+	block_count->setText (QString (count_string.c_str ()));
+	wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+	{
+		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] ()
+		{
+			refresh_count ();
+		}));
+	});
 }
 
 void rai_qt::advanced_actions::refresh_peers ()

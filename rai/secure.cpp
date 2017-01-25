@@ -2185,6 +2185,15 @@ rai::store_iterator rai::block_store::unchecked_end ()
     return result;
 }
 
+size_t rai::block_store::unchecked_count (MDB_txn * transaction_a)
+{
+	MDB_stat unchecked_stats;
+	auto status (mdb_stat (transaction_a, unchecked, &unchecked_stats));
+	assert (status == 0);
+	auto result (unchecked_stats.ms_entries);
+	return result;
+}
+
 void rai::block_store::unsynced_put (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto status (mdb_put (transaction_a, unsynced, hash_a.val (), rai::mdb_val (0, nullptr), 0));
