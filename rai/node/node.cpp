@@ -75,19 +75,19 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
     }
     if (node.config.logging.network_keepalive_logging ())
     {
-        BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent from %1% to %2%") % endpoint () % endpoint_a);
+        BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
     }
     auto node_l (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t)
-        {
-            if (node_l->config.logging.network_keepalive_logging ())
-            {
-                if (ec)
-                {
-                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive from %1% to %2% %3%") % node_l->network.endpoint () % endpoint_a % ec.message ());
-                }
-            }
-        });
+	{
+		if (node_l->config.logging.network_keepalive_logging ())
+		{
+			if (ec)
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive to %1% %2%") % endpoint_a % ec.message ());
+			}
+		}
+	});
 }
 
 void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
@@ -150,14 +150,14 @@ void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
         }
 		if (node.config.logging.network_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was published from %2%") % hash.to_string () % endpoint ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
 		}
     }
 	else
 	{
 		if (node.config.logging.network_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed from %2%") % hash.to_string () % endpoint ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % hash.to_string ());
 		}
 	}
 }
