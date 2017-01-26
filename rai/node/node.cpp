@@ -568,55 +568,6 @@ bool rai::node_init::error ()
     return block_store_init || wallet_init;
 }
 
-namespace {
-class send_visitor : public rai::block_visitor
-{
-public:
-	send_visitor (rai::node & node_a) :
-	node (node_a)
-	{
-	}
-	void send_block (rai::send_block const & block_a)
-	{
-		auto receive (false);
-		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n && receive == false; ++i)
-			{
-				auto & wallet (*i->second);
-				if (wallet.store.find (transaction, block_a.hashables.destination) != wallet.store.end ())
-				{
-					receive = true;
-				}
-			}
-		}
-		if (receive)
-		{
-			if (node.config.logging.ledger_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Starting fast confirmation of block: %1%") % block_a.hash ().to_string ());
-			}
-			auto node_l (node.shared ());
-			rai::transaction transaction (node.store.environment, nullptr, true);
-			node.active.start (transaction, block_a, [node_l] (rai::block & block_a)
-			{
-				node_l->process_confirmed (block_a);
-			});
-        }
-	}
-	void receive_block (rai::receive_block const &)
-	{
-	}
-	void open_block (rai::open_block const &)
-	{
-	}
-	void change_block (rai::change_block const &)
-	{
-	}
-	rai::node & node;
-};
-}
-
 rai::node_config::node_config (boost::filesystem::path const & application_path_a) :
 node_config (rai::network::node_port, rai::logging (application_path_a))
 {
@@ -986,11 +937,6 @@ application_path (application_path_a)
     });
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
 	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
-	observers.add_blocks ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
-    {
-		send_visitor visitor (*this);
-		block_a.visit (visitor);
-    });
     if (!init_a.error ())
     {
         if (config.logging.node_lifetime_tracing ())
