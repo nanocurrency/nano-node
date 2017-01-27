@@ -108,14 +108,20 @@ void rai::work_pool::loop (uint64_t thread)
 void rai::work_pool::cancel (rai::uint256_union const & root_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	for (auto i (pending.begin ()), n (pending.end ()); i != n; ++i)
+	pending.remove_if ([&root_a] (decltype (pending)::value_type const & item_a)
 	{
-		if (i->first == root_a)
+		bool result;
+		if (item_a.first == root_a)
 		{
-			i->second->set_value (boost::none);
-			pending.erase (i);
+			item_a.second->set_value (boost::none);
+			result = true;
 		}
-	};
+		else
+		{
+			result = false;
+		}
+		return result;
+	});
 }
 
 bool rai::work_pool::work_validate (rai::block_hash const & root_a, uint64_t work_a)
