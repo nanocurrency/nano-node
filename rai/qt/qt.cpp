@@ -636,6 +636,9 @@ std::string rai_qt::status::text ()
 		case rai_qt::status_types::disconnected:
 			result = "Status: Disconnected";
 			break;
+		case rai_qt::status_types::working:
+			result = "Status: Generating proof of work";
+			break;
 		case rai_qt::status_types::synchronizing:
 			result = "Status: Synchronizing";
 			break;
@@ -665,6 +668,9 @@ std::string rai_qt::status::color ()
 	switch (*active.begin ())
 	{
 		case rai_qt::status_types::disconnected:
+			result = "color: red";
+			break;
+		case rai_qt::status_types::working:
 			result = "color: red";
 			break;
 		case rai_qt::status_types::synchronizing:
@@ -891,6 +897,20 @@ active_status (*this)
 			else
 			{
 				active_status.erase (rai_qt::status_types::synchronizing);
+			}
+		}));
+	});
+	node.work.work_observers.add ([this] (bool working)
+	{
+		application.postEvent (&processor, new eventloop_event ([this, working] ()
+		{
+			if (working)
+			{
+				this->active_status.insert (rai_qt::status_types::working);
+			}
+			else
+			{
+				this->active_status.erase (rai_qt::status_types::working);
 			}
 		}));
 	});

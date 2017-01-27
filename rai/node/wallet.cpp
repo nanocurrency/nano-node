@@ -61,7 +61,12 @@ void rai::work_pool::loop (uint64_t thread)
 	std::unique_lock <std::mutex> lock (mutex);
 	while (!done || !pending.empty())
 	{
-		if (!pending.empty ())
+		auto empty (pending.empty ());
+		if (thread == 0)
+		{
+			work_observers (!empty);
+		}
+		if (!empty)
 		{
 			auto current_l (pending.front ());
 			int ticket_l (ticket);
