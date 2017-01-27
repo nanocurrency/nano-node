@@ -31,7 +31,7 @@ public:
 	std::atomic <int> ticket;
 	bool done;
 	std::vector <std::thread> threads;
-	std::deque <std::pair <rai::uint256_union, std::promise <boost::optional <uint64_t>> *>> pending;
+	std::list <std::pair <rai::uint256_union, std::promise <boost::optional <uint64_t>> *>> pending;
 	std::mutex mutex;
 	std::condition_variable producer_condition;
 	std::unique_ptr <rai::opencl_work> opencl;

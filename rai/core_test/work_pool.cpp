@@ -41,6 +41,48 @@ TEST (work, cancel)
 	thread.join ();
 }
 
+TEST (work, cancel_many)
+{
+	rai::work_pool pool (nullptr);
+	rai::uint256_union key1 (1);
+	rai::uint256_union key2 (2);
+	rai::uint256_union key3 (1);
+	rai::uint256_union key4 (1);
+	rai::uint256_union key5 (3);
+	rai::uint256_union key6 (1);
+	std::thread thread1 ([&key1, &pool]()
+	{
+		pool.generate_maybe (key1);
+	});
+	std::thread thread2 ([&key2, &pool]()
+	{
+		pool.generate_maybe (key2);
+	});
+	std::thread thread3 ([&key3, &pool]()
+	{
+		pool.generate_maybe (key3);
+	});
+	std::thread thread4 ([&key4, &pool]()
+	{
+		pool.generate_maybe (key4);
+	});
+	std::thread thread5 ([&key5, &pool]()
+	{
+		pool.generate_maybe (key5);
+	});
+	std::thread thread6 ([&key6, &pool]()
+	{
+		pool.generate_maybe (key6);
+	});
+	pool.cancel (key1);
+	thread1.join ();
+	thread2.join ();
+	thread3.join ();
+	thread4.join ();
+	thread5.join ();
+	thread6.join ();
+}
+
 TEST (work, opencl)
 {
 	rai::logging logging (rai::unique_path ());
