@@ -834,7 +834,7 @@ active_status (*this)
     {
         push_main_stack (send_blocks_window);
     });
-    node.observers.add_blocks ([this] (rai::block const &, rai::account const & account_a, rai::amount const &)
+    node.observers.blocks.add ([this] (rai::block const &, rai::account const & account_a, rai::amount const &)
     {
 		application.postEvent (&processor, new eventloop_event ([this, account_a] ()
 		{
@@ -849,7 +849,7 @@ active_status (*this)
 			}
 		}));
     });
-	node.observers.add_wallet ([this] (rai::account const & account_a, bool active_a)
+	node.observers.wallet.add ([this] (rai::account const & account_a, bool active_a)
 	{
 		application.postEvent (&processor, new eventloop_event ([this, account_a, active_a] ()
 		{
@@ -866,14 +866,14 @@ active_status (*this)
 			}
 		}));
 	});
-	node.observers.add_endpoint ([this] (rai::endpoint const &)
+	node.observers.endpoint.add ([this] (rai::endpoint const &)
 	{
 		application.postEvent (&processor, new eventloop_event ([this] ()
 		{
 			update_connected ();
 		}));
 	});
-	node.observers.add_disconnect ([this] ()
+	node.observers.disconnect.add ([this] ()
 	{
 		application.postEvent (&processor, new eventloop_event ([this] ()
 		{

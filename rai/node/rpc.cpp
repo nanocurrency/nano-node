@@ -72,7 +72,7 @@ config (config_a),
 server (decltype (server)::options (*this).address (config.address.to_string ()).port (std::to_string (config.port)).io_service (service_a).thread_pool (pool_a).reuse_address (true)),
 node (node_a)
 {
-	node_a.observers.add_blocks ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
+	node_a.observers.blocks.add ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
 	{
 		observer_action (account_a);
 	});

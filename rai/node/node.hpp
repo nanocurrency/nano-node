@@ -319,22 +319,11 @@ public:
 class node_observers
 {
 public:
-	void add_blocks (std::function <void (rai::block const &, rai::account const &, rai::amount const &)> const &);
-	void add_wallet (std::function <void (rai::account const &, bool)> const &);
-    void add_vote (std::function <void (rai::vote const &)> const &);
-	void add_endpoint (std::function <void (rai::endpoint const &)> const &);
-	void add_disconnect (std::function <void ()> const &);
-	void call_blocks (rai::block const &, rai::account const &, rai::amount const &);
-	void call_wallet (rai::account const &, bool);
-	void call_vote (rai::vote const &);
-	void call_endpoint (rai::endpoint const &);
-	void call_disconnect ();
-	std::mutex mutex;
-    std::vector <std::function <void (rai::block const &, rai::account const &, rai::amount const &)>> blocks;
-	std::vector <std::function <void (rai::account const &, bool)>> wallet;
-    std::vector <std::function <void (rai::vote const &)>> vote;
-	std::vector <std::function <void (rai::endpoint const &)>> endpoint;
-	std::vector <std::function <void ()>> disconnect;
+	rai::observer_set <rai::block const &, rai::account const &, rai::amount const &> blocks;
+	rai::observer_set <rai::account const &, bool> wallet;
+	rai::observer_set <rai::vote const &> vote;
+	rai::observer_set <rai::endpoint const &> endpoint;
+	rai::observer_set <> disconnect;
 };
 class node : public std::enable_shared_from_this <rai::node>
 {

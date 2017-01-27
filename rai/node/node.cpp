@@ -814,81 +814,6 @@ rai::account rai::node_config::random_representative ()
 	return result;
 }
 
-void rai::node_observers::add_blocks (std::function <void (rai::block const &, rai::account const &, rai::amount const &)> const & observer_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	blocks.push_back (observer_a);
-}
-
-void rai::node_observers::add_wallet (std::function <void (rai::account const &, bool)> const & observer_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	wallet.push_back (observer_a);
-}
-
-void rai::node_observers::add_vote (std::function <void (rai::vote const &)> const & observer_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	vote.push_back (observer_a);
-}
-
-void rai::node_observers::add_endpoint (std::function <void (rai::endpoint const &)> const & observer_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	endpoint.push_back (observer_a);
-}
-
-void rai::node_observers::add_disconnect (std::function <void ()> const & observer_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	disconnect.push_back (observer_a);
-}
-
-void rai::node_observers::call_blocks (rai::block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	for (auto & i: blocks)
-	{
-		i (block_a, account_a, amount_a);
-	}
-}
-
-void rai::node_observers::call_wallet (rai::account const & account_a, bool active_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	for (auto & i: wallet)
-	{
-		i (account_a, active_a);
-	}
-}
-
-void rai::node_observers::call_vote (rai::vote const & vote_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	for (auto & i: vote)
-	{
-		i (vote_a);
-	}
-}
-
-void rai::node_observers::call_endpoint (rai::endpoint const & endpoint_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	for (auto & i: endpoint)
-	{
-		i (endpoint_a);
-	}
-}
-
-void rai::node_observers::call_disconnect ()
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	for (auto & i: disconnect)
-	{
-		i ();
-	}
-}
-
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
 node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
@@ -911,26 +836,26 @@ application_path (application_path_a)
 {
 	wallets.observer = [this] (rai::account const & account_a, bool active)
 	{
-		observers.call_wallet (account_a, active);
+		observers.wallet (account_a, active);
 	};
 	peers.peer_observer = [this] (rai::endpoint const & endpoint_a)
 	{
-		observers.call_endpoint (endpoint_a);
+		observers.endpoint (endpoint_a);
 	};
 	peers.disconnect_observer = [this] ()
 	{
-		observers.call_disconnect ();
+		observers.disconnect ();
 	};
-	observers.add_endpoint ([this] (rai::endpoint const & endpoint_a)
+	observers.endpoint.add ([this] (rai::endpoint const & endpoint_a)
 	{
 		this->network.send_keepalive (endpoint_a);
 		this->bootstrap_initiator.warmup (endpoint_a);
 	});
-    observers.add_vote ([this] (rai::vote const & vote_a)
+    observers.vote.add ([this] (rai::vote const & vote_a)
     {
         active.vote (vote_a);
     });
-    observers.add_vote ([this] (rai::vote const & vote_a)
+    observers.vote.add ([this] (rai::vote const & vote_a)
     {
 		rai::transaction transaction (store.environment, nullptr, true);
 		this->gap_cache.vote (transaction, vote_a);
@@ -980,7 +905,7 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 
 void rai::node::vote (rai::vote const & vote_a)
 {
-	observers.call_vote (vote_a);
+	observers.vote (vote_a);
 }
 
 rai::gap_cache::gap_cache (rai::node & node_a) :
@@ -1138,7 +1063,7 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 	}
 	for (auto & i: completed)
 	{
-		observers.call_blocks (*std::get <1> (i), std::get <0> (i).account, std::get <0>(i).amount);
+		observers.blocks (*std::get <1> (i), std::get <0> (i).account, std::get <0>(i).amount);
 	}
 }
 
