@@ -257,7 +257,7 @@ TEST (rpc, send_fail)
 	thread2.join ();
 }
 
-TEST (rpc, stop)
+TEST (rpc, DISABLED_stop)
 {
     rai::system system (24000, 1);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
@@ -267,9 +267,8 @@ TEST (rpc, stop)
     boost::property_tree::ptree request;
     request.put ("action", "stop");
 	auto response (test_response (request, rpc, system.service));
-	ASSERT_FALSE (system.nodes [0]->network.on);
-	rpc.stop ();
 	thread1.join ();
+	ASSERT_FALSE (system.nodes [0]->network.on);
 }
 
 TEST (rpc, wallet_add)

@@ -1215,6 +1215,7 @@ void rai::rpc_handler::stop ()
 {
 	if (rpc.config.enable_control)
 	{
+		rpc.stop ();
 		rpc.node.stop ();
 	}
 	else
