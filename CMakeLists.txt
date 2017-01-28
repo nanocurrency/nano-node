@@ -41,7 +41,6 @@ include_directories (${CMAKE_SOURCE_DIR})
 
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
-set(Boost_USE_STATIC_RUNTIME     ON)
 find_package (Boost 1.57.0 REQUIRED COMPONENTS filesystem system log log_setup thread program_options regex chrono atomic)
 include_directories (${Boost_INCLUDE_DIR})
 
