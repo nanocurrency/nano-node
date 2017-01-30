@@ -41,6 +41,7 @@ std::pair <boost::property_tree::ptree, boost::network::http::client::response> 
 TEST (rpc, account_balance)
 {
     rai::system system (24000, 1);
+	rai::thread_runner runner (*system.service, 4);
     auto pool (boost::make_shared <boost::network::utils::thread_pool> ());
     rai::rpc rpc (system.service, pool, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
@@ -52,6 +53,7 @@ TEST (rpc, account_balance)
     std::string balance_text (response.first.get <std::string> ("balance"));
     ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
 	rpc.stop ();
+	runner.join ();
 }
 
 TEST (rpc, account_create)
