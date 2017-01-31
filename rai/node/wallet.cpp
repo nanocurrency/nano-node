@@ -18,7 +18,7 @@ done (false),
 opencl (std::move (opencl_a))
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	auto count (std::max (1u, std::thread::hardware_concurrency ()));
+	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::max (1u, std::thread::hardware_concurrency ()));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (std::thread ([this, i] ()

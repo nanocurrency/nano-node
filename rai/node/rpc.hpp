@@ -44,7 +44,7 @@ class payment_observer;
 class rpc
 {
 public:
-    rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, rai::node &, rai::rpc_config const &);
+    rpc (boost::shared_ptr <boost::asio::io_service>, rai::node &, rai::rpc_config const &);
     void start ();
     void stop ();
 	void handle_connection (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a);

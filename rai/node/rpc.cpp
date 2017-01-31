@@ -67,7 +67,7 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 	return result;
 }
 
-rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, boost::shared_ptr <boost::network::utils::thread_pool> pool_a, rai::node & node_a, rai::rpc_config const & config_a) :
+rai::rpc::rpc (boost::shared_ptr <boost::asio::io_service> service_a, rai::node & node_a, rai::rpc_config const & config_a) :
 server (*service_a),
 config (config_a),
 node (node_a)
