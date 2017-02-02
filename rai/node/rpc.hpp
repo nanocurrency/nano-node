@@ -8,6 +8,8 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include <nghttp2/asio_http2_server.h>
+
 #include <atomic>
 #include <unordered_map>
 
@@ -42,19 +44,19 @@ class payment_observer;
 class rpc
 {
 public:
-    rpc (boost::shared_ptr <boost::asio::io_service>, boost::shared_ptr <boost::network::utils::thread_pool>, rai::node &, rai::rpc_config const &);
+    rpc (boost::shared_ptr <boost::asio::io_service>, rai::node &, rai::rpc_config const &);
     void start ();
     void stop ();
-    void operator () (boost::network::http::async_server <rai::rpc>::request const &, boost::network::http::async_server <rai::rpc>::connection_ptr);
+	void handle_connection (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a);
     void log (const char *) {}
 	bool decode_unsigned (std::string const &, uint64_t &);
-	void error_response (boost::network::http::async_server <rai::rpc>::connection_ptr, std::string const &);
-	void send_response (boost::network::http::async_server <rai::rpc>::connection_ptr, boost::property_tree::ptree &);
+	void error_response (nghttp2::asio_http2::server::response const & response_a, std::string const &);
+	void send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree &);
 	void observer_action (rai::account const &);
+	nghttp2::asio_http2::server::http2 server;
 	std::mutex mutex;
 	std::unordered_map <rai::account, std::shared_ptr <rai::payment_observer>> payment_observers;
 	rai::rpc_config config;
-    boost::network::http::async_server <rai::rpc> server;
     rai::node & node;
     bool on;
     static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
@@ -62,7 +64,7 @@ public:
 class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
 {
 public:
-	payment_observer (boost::network::http::async_server <rai::rpc>::connection_ptr, rai::rpc &, rai::account const &, rai::amount const &);
+	payment_observer (nghttp2::asio_http2::server::response const &, rai::rpc &, rai::account const &, rai::amount const &);
 	~payment_observer ();
 	void start (uint64_t);
 	void observe ();
@@ -73,14 +75,13 @@ public:
 	rai::rpc & rpc;
 	rai::account account;
 	rai::amount amount;
-	boost::network::http::async_server <rai::rpc>::connection_ptr connection;
+	nghttp2::asio_http2::server::response const & response;
 	std::atomic_flag completed;
 };
 class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
 {
 public:
-	rpc_handler (rai::rpc &, size_t, boost::network::http::async_server <rai::rpc>::connection_ptr);
-    void read_or_process ();
+	rpc_handler (rai::rpc &, nghttp2::asio_http2::server::response const &);
 	void part_handler (boost::network::http::async_server <rai::rpc>::connection::input_range, boost::system::error_code, size_t);
 	void process_request ();
 	void account_balance ();
@@ -129,10 +130,9 @@ public:
 	void wallet_representative_set ();
 	void work_generate ();
 	void work_cancel ();
-	size_t length;
 	std::string body;
 	rai::rpc & rpc;
 	boost::property_tree::ptree request;
-	boost::network::http::async_server <rai::rpc>::connection_ptr connection;
+	nghttp2::asio_http2::server::response const & response;
 };
 }
