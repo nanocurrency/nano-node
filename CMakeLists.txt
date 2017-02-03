@@ -82,9 +82,12 @@ endif ()
 add_subdirectory (gtest)
 include_directories ("gtest/include")
 
-message (STATUS ${CMAKE_CURRENT_BINARY_DIR})
-include_directories (${CMAKE_CURRENT_BINARY_DIR}/../nghttp2/include)
-link_directories(${CMAKE_CURRENT_BINARY_DIR}/../nghttp2/lib)
+set (NGHTTP2_ROOT "NOT-FOUND" CACHE PATH "Path to nghttp2 install")
+if (NGHTTP2_ROOT STREQUAL "NOT-FOUND")
+  message (FATAL_ERROR "Please specify NGHTTP2_ROOT variable")
+endif ()
+include_directories (${NGHTTP2_ROOT}/include)
+link_directories(${NGHTTP2_ROOT}/lib)
 
 add_library (cryptopp
 	cryptopp/3way.cpp
