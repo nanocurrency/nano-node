@@ -74,9 +74,6 @@ endif ()
 add_subdirectory (gtest)
 include_directories ("gtest/include")
 
-add_subdirectory (cpp-netlib)
-include_directories ("cpp-netlib")
-
 message (STATUS ${CMAKE_CURRENT_BINARY_DIR})
 include_directories (${CMAKE_CURRENT_BINARY_DIR}/../nghttp2/include)
 link_directories(${CMAKE_CURRENT_BINARY_DIR}/../nghttp2/lib)
@@ -353,19 +350,19 @@ else (WIN32)
 	set (PLATFORM_WALLET_LIBS)
 endif (WIN32)
 
-target_link_libraries (core_test node secure lmdb xxhash ed25519 argon2 blake2 cryptopp gtest_main gtest nghttp2_asio nghttp2 cppnetlib-uri cppnetlib-server-parsers cppnetlib-client-connections ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (core_test node secure lmdb xxhash ed25519 argon2 blake2 cryptopp gtest_main gtest nghttp2_asio nghttp2 ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
-target_link_libraries (slow_test node secure lmdb xxhash ed25519 argon2 blake2 cryptopp gtest_main gtest nghttp2_asio nghttp2 cppnetlib-uri cppnetlib-server-parsers cppnetlib-client-connections ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (slow_test node secure lmdb xxhash ed25519 argon2 blake2 cryptopp gtest_main gtest nghttp2_asio nghttp2 ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
-target_link_libraries (rai_node node secure lmdb xxhash ed25519 argon2 blake2 cryptopp nghttp2_asio nghttp2 cppnetlib-uri cppnetlib-server-parsers cppnetlib-client-connections ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (rai_node node secure lmdb xxhash ed25519 argon2 blake2 cryptopp nghttp2_asio nghttp2 ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
-target_link_libraries (rai_landing node secure lmdb xxhash ed25519 argon2 blake2 cryptopp nghttp2_asio nghttp2 cppnetlib-uri cppnetlib-server-parsers cppnetlib-client-connections ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (rai_landing node secure lmdb xxhash ed25519 argon2 blake2 cryptopp nghttp2_asio nghttp2 ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
-target_link_libraries (qt_test node secure lmdb xxhash ed25519 qt argon2 blake2 cryptopp gtest nghttp2_asio nghttp2 cppnetlib-uri cppnetlib-server-parsers cppnetlib-client-connections ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (qt_test node secure lmdb xxhash ed25519 qt argon2 blake2 cryptopp gtest nghttp2_asio nghttp2 ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
 
-target_link_libraries (rai_wallet node secure lmdb xxhash ed25519 qt argon2 blake2 cryptopp nghttp2_asio nghttp2 cppnetlib-uri cppnetlib-server-parsers cppnetlib-client-connections ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
+target_link_libraries (rai_wallet node secure lmdb xxhash ed25519 qt argon2 blake2 cryptopp nghttp2_asio nghttp2 ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
 
-target_link_libraries (qt_system node secure lmdb xxhash ed25519 qt argon2 blake2 cryptopp gtest nghttp2_asio nghttp2 cppnetlib-uri cppnetlib-server-parsers cppnetlib-client-connections ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (qt_system node secure lmdb xxhash ed25519 qt argon2 blake2 cryptopp gtest nghttp2_asio nghttp2 ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
 
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 if (APPLE)

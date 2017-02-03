@@ -2,7 +2,6 @@
 
 #include <rai/node/node.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/network/uri/uri.ipp>
 
 #include <ed25519-donna/ed25519.h>
 
