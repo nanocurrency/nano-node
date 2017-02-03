@@ -2,7 +2,6 @@
 
 #include <rai/node/working.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/make_shared.hpp>
 #include <iostream>
 #include <fstream>
 
@@ -108,11 +107,11 @@ void rai_daemon::daemon::run ()
 	if (!error)
 	{
 		config_file.close ();
-		auto service (boost::make_shared <boost::asio::io_service> ());
+		boost::asio::io_service service;
 		rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::alarm alarm (*service);
+		rai::alarm alarm (service);
 		rai::node_init init;
-		auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
+		auto node (std::make_shared <rai::node> (init, service, working, alarm, config.node, work));
 		if (!init.error ())
 		{
 			node->start ();
@@ -121,7 +120,7 @@ void rai_daemon::daemon::run ()
 			{
 				rpc.start ();
 			}
-			runner.reset (new rai::thread_runner (*service, node->config.io_threads));
+			runner.reset (new rai::thread_runner (service, node->config.io_threads));
 			runner->join ();
 		}
 		else

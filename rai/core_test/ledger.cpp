@@ -521,7 +521,7 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (system, generate_send_existing)
 {
     rai::system system (24000, 1);
-	rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
+	rai::thread_runner runner (system.service, system.nodes [0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::account_info info1;
 	{
@@ -558,7 +558,7 @@ TEST (system, generate_send_existing)
 TEST (system, generate_send_new)
 {
     rai::system system (24000, 1);
-	rai::thread_runner runner (*system.service, system.nodes [0]->config.io_threads);
+	rai::thread_runner runner (system.service, system.nodes [0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);

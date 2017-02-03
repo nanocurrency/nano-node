@@ -9,7 +9,7 @@ TEST (node, stop)
     rai::system system (24000, 1);
     ASSERT_NE (system.nodes [0]->wallets.items.end (), system.nodes [0]->wallets.items.begin ());
     system.nodes [0]->stop ();
-    system.service->run ();
+    system.service.run ();
     ASSERT_TRUE (true);
 }
 
@@ -203,7 +203,7 @@ TEST (node, auto_bootstrap)
 		ASSERT_LT (iterations1, 200);
 	}
 	rai::node_init init1;
-	auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 	node1->start ();
@@ -244,7 +244,7 @@ TEST (node, auto_bootstrap_reverse)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
     ASSERT_FALSE (init1.error ());
     ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
     system.nodes [0]->network.send_keepalive (node1->network.endpoint ());
@@ -382,7 +382,7 @@ TEST (node, connect_after_junk)
 {
     rai::system system (24000, 1);
     rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
     uint64_t junk (0);
     node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes [0]->network.endpoint (), [] (boost::system::error_code const &, size_t) {});
     auto iterations1 (0);

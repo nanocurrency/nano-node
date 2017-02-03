@@ -13,11 +13,11 @@
 class test_response
 {
 public:
-	test_response (boost::property_tree::ptree const & request_a, rai::rpc & rpc_a, boost::shared_ptr <boost::asio::io_service> service_a) :
+	test_response (boost::property_tree::ptree const & request_a, rai::rpc & rpc_a, boost::asio::io_service & service_a) :
 	uri ("::1"),
 	status (0),
 	status_temp (0),
-	session (*service_a, uri, std::to_string (rpc_a.config.port))
+	session (service_a, uri, std::to_string (rpc_a.config.port))
 	{
 		std::stringstream ostream;
 		boost::property_tree::write_json (ostream, request_a);
@@ -916,7 +916,7 @@ TEST (rpc, keepalive)
 {
     rai::system system (24000, 1);
 	rai::node_init init1;
-    auto node1 (std::make_shared <rai::node> (init1, *system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+    auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
     node1->start ();
     rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();

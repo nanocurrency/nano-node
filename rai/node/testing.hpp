@@ -25,7 +25,7 @@ public:
     rai::account account (MDB_txn *, size_t);
 	void poll ();
 	void stop ();
-    boost::shared_ptr <boost::asio::io_service> service;
+    boost::asio::io_service service;
     rai::alarm alarm;
     std::vector <std::shared_ptr <rai::node>> nodes;
 	rai::logging logging;

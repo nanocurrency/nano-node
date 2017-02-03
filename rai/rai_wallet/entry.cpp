@@ -202,11 +202,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 	if (!error)
 	{
 		rai::set_application_icon (application);
-		auto service (boost::make_shared <boost::asio::io_service> ());
+		boost::asio::io_service service;
 		rai::work_pool work (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::alarm alarm (*service);
+		rai::alarm alarm (service);
 		rai::node_init init;
-		auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
+		auto node (std::make_shared <rai::node> (init, service, working, alarm, config.node, work));
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -247,7 +247,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 			}
 			std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
 			gui->client_window->show ();
-			rai::thread_runner runner (*service, node->config.io_threads);
+			rai::thread_runner runner (service, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
 			{
 				rpc.stop ();

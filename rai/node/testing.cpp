@@ -4,17 +4,16 @@
 #include <boost/property_tree/json_parser.hpp>
 
 rai::system::system (uint16_t port_a, size_t count_a) :
-service (new boost::asio::io_service),
-alarm (*service),
-work (nullptr),
-logging (rai::unique_path ())
+alarm (service),
+logging (rai::unique_path ()),
+work (nullptr)
 {
     nodes.reserve (count_a);
     for (size_t i (0); i < count_a; ++i)
     {
         rai::node_init init;
 		rai::node_config config (port_a + i, logging);
-        auto node (std::make_shared <rai::node> (init, *service, rai::unique_path (), alarm, config, work));
+        auto node (std::make_shared <rai::node> (init, service, rai::unique_path (), alarm, config, work));
         assert (!init.error ());
         node->start ();
 		rai::uint256_union wallet;
@@ -72,7 +71,7 @@ rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
 
 void rai::system::poll ()
 {
-	auto polled1 (service->poll_one ());
+	auto polled1 (service.poll_one ());
 	if (polled1 == 0)
 	{
 		std::this_thread::sleep_for (std::chrono::milliseconds (50));
@@ -173,6 +172,7 @@ void rai::system::generate_receive (rai::node & node_a)
 		auto send_block (node_a.store.block_get (transaction, send_hash));
 		assert (send_block != nullptr);
 		auto receive_error (wallet (0)->receive_sync (static_cast <rai::send_block &> (*send_block), rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
+		(void) receive_error;
 	}
 }
 
