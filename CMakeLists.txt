@@ -4,6 +4,7 @@ project (rai)
 if (WIN32)
 	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -D_WIN32_WINNT=0x0501 -DWINVER=0x0501 -DWIN32_LEAN_AND_MEAN")
 else (WIN32)
+	set (CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
 	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -Werror=switch -msse4 -fPIC")
 endif (WIN32)
 
