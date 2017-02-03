@@ -207,7 +207,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 		rai::alarm alarm (*service);
 		rai::node_init init;
 		auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
-		auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -241,7 +240,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 			assert (wallet->exists (config.account));
 			update_config (config, config_path, config_file);
 			node->start ();
-			rai::rpc rpc (service, pool, *node, config.rpc);
+			rai::rpc rpc (service, *node, config.rpc);
 			if (config.rpc_enable)
 			{
 				rpc.start ();

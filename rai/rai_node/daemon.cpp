@@ -112,11 +112,10 @@ void rai_daemon::daemon::run ()
 		rai::alarm alarm (*service);
 		rai::node_init init;
 		auto node (std::make_shared <rai::node> (init, *service, working, alarm, config.node, work));
-		auto pool (boost::make_shared <boost::network::utils::thread_pool> (node->config.io_threads));
 		if (!init.error ())
 		{
 			node->start ();
-			rai::rpc rpc (service, pool, *node, config.rpc);
+			rai::rpc rpc (service, *node, config.rpc);
 			if (config.rpc_enable)
 			{
 				rpc.start ();

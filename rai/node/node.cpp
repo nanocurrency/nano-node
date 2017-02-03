@@ -18,6 +18,8 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <nghttp2/asio_http2_client.h>
+
 #include <ed25519-donna/ed25519.h>
 
 double constexpr rai::node::price_max;
@@ -1432,7 +1434,7 @@ root (root_a)
 	completed.clear ();
 	for (auto & i : node_a->config.work_peers)
 	{
-		outstanding.insert (boost::str (boost::format ("http://[%1%]:%2%") % i.first.to_string () % std::to_string (i.second)));
+		outstanding [i.first.to_string ()] = std::to_string (i.second);
 	}
 }
 void start ()
@@ -1443,10 +1445,10 @@ void start ()
 		std::lock_guard <std::mutex> lock (mutex);
 		for (auto const & i: outstanding)
 		{
-			node->background ([this_l, i] ()
+			auto host (i.first);
+			auto service (i.second);
+			node->background ([this_l, host, service] ()
 			{
-				boost::network::http::client client;
-				boost::network::http::client::request request (i);
 				std::string request_string;
 				{
 					boost::property_tree::ptree request;
@@ -1456,25 +1458,32 @@ void start ()
 					boost::property_tree::write_json (ostream, request);
 					request_string = ostream.str ();
 				}
-				request.add_header (std::make_pair ("content-length", std::to_string (request_string.size ())));
-				try
+				auto body (std::make_shared <std::stringstream> ());
+				auto session (std::make_shared <nghttp2::asio_http2::client::session> (this_l->node->network.service, host, service));
+				session->on_connect ([this_l, request_string, host, body, session] (boost::asio::ip::tcp::resolver::iterator endpoint_it)
 				{
-					boost::network::http::client::response response = client.post (request, request_string, [this_l, i] (boost::iterator_range <char const *> const & range, boost::system::error_code const & ec)
+					boost::system::error_code ec;
+					nghttp2::asio_http2::header_map headers;
+					headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("content-length", { std::to_string (request_string.size ()), false }));
+					auto request (session->submit (ec, "POST", std::string ("http://[") + host + "]", request_string.data (), headers));
+					request->on_response ([this_l, session, body, host] (nghttp2::asio_http2::client::response const & response_a)
 					{
-						this_l->callback (range, ec, i);
+						auto status (response_a.status_code ());
+						if (status != 200)
+						{
+							BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer %1% responded with an error %2%") % host % std::to_string (status));
+							this_l->failure (host);
+						}
+						response_a.on_data ([this_l, body] (uint8_t const * data, size_t len)
+						{
+							body->write (reinterpret_cast <char const *> (data), len);
+						});
 					});
-					uint16_t status (boost::network::http::status (response));
-					if (status != 200)
+					request->on_close ([this_l, body, session, host] (uint32_t error_code)
 					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer %1% responded with an error %2%") % i % std::to_string (status));
-						this_l->failure (i);
-					}
-				}
-				catch (...)
-				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to contact work peer %1%") % i);
-					this_l->failure (i);
-				}
+						this_l->callback (body->str (), error_code, host);
+					});
+				});
 			});
 		}
 	}
@@ -1489,10 +1498,10 @@ void stop ()
 	std::lock_guard <std::mutex> lock (mutex);
 	for (auto const & i: outstanding)
 	{
-		node->background ([this_l, i] ()
+		auto host (i.first);
+		auto service (i.second);
+		node->background ([this_l, host, service] ()
 		{
-			boost::network::http::client client;
-			boost::network::http::client::request request (i);
 			std::string request_string;
 			{
 				boost::property_tree::ptree request;
@@ -1502,40 +1511,36 @@ void stop ()
 				boost::property_tree::write_json (ostream, request);
 				request_string = ostream.str ();
 			}
-			request.add_header (std::make_pair ("content-length", std::to_string (request_string.size ())));
-			try
+			auto session (std::make_shared <nghttp2::asio_http2::client::session> (this_l->node->network.service, host, service));
+			session->on_connect ([this_l, request_string, host, session] (boost::asio::ip::tcp::resolver::iterator endpoint_it)
 			{
-				boost::network::http::client::response response = client.post (request, request_string, [this_l, i] (boost::iterator_range <char const *> const & range, boost::system::error_code const & ec)
+				boost::system::error_code ec;
+				nghttp2::asio_http2::header_map headers;
+				headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("content-length", { std::to_string (request_string.size ()), false }));
+				auto request (session->submit (ec, "POST", std::string ("http://[") + host + "]", request_string.data (), headers));
+				request->on_close ([this_l, session] (uint32_t error_code)
 				{
 				});
-			}
-			catch (...)
-			{
-			}
+			});
 		});
 	}
 	outstanding.clear ();
 }
-void callback (boost::iterator_range <char const *> const & range, boost::system::error_code const & ec, std::string const & address)
+void callback (std::string const & body_a, uint32_t ec, std::string const & address)
 {
 	if (!ec)
 	{
-		success (range, address);
+		success (body_a, address);
 	}
 	else
 	{
 		failure (address);
 	}
 }
-void success (boost::iterator_range <char const *> const & range, std::string const & address)
+void success (std::string const & body_a, std::string const & address)
 {
 	auto last (remove (address));
-	std::string body;
-	for (auto const & i: range)
-	{
-		body += i;
-	}
-	std::stringstream istream (body);
+	std::stringstream istream (body_a);
 	try
 	{
 		boost::property_tree::ptree result;
@@ -1563,7 +1568,7 @@ void success (boost::iterator_range <char const *> const & range, std::string co
 	}
 	catch (...)
 	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable %2%") % address % body);
+		BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable %2%") % address % body_a);
 		handle_failure (last);
 	}
 }
@@ -1599,7 +1604,7 @@ std::promise <uint64_t> promise;
 std::shared_ptr <rai::node> node;
 rai::block_hash root;
 std::mutex mutex;
-std::unordered_set <std::string> outstanding;
+std::unordered_map <std::string, std::string> outstanding;
 std::atomic_flag completed;
 };
 }
