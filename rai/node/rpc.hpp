@@ -3,8 +3,6 @@
 #include <rai/utility.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/network/include/http/server.hpp>
-#include <boost/network/utils/thread_pool.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -82,7 +80,6 @@ class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
 {
 public:
 	rpc_handler (rai::rpc &, nghttp2::asio_http2::server::response const &);
-	void part_handler (boost::network::http::async_server <rai::rpc>::connection::input_range, boost::system::error_code, size_t);
 	void process_request ();
 	void account_balance ();
 	void account_create ();

@@ -3,7 +3,7 @@
 #include <rai/node/testing.hpp>
 #include <rai/node/rpc.hpp>
 
-#include <boost/network/protocol/http/client.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/thread.hpp>
@@ -76,7 +76,7 @@ TEST (rpc, account_balance)
 	{
 		system.poll ();
 	}
-	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+	ASSERT_EQ (200, response.status);
 	std::string balance_text (response.json.get <std::string> ("balance"));
 	ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
 }
@@ -94,7 +94,7 @@ TEST (rpc, account_create)
 	{
 		system.poll ();
 	}
-	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+	ASSERT_EQ (200, response.status);
 	auto account_text (response.json.get <std::string> ("account"));
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
@@ -119,7 +119,7 @@ TEST (rpc, account_weight)
 	{
 		system.poll ();
 	}
-	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+	ASSERT_EQ (200, response.status);
     std::string balance_text (response.json.get <std::string> ("weight"));
     ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
 }
@@ -141,7 +141,7 @@ TEST (rpc, wallet_contains)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string exists_text (response.json.get <std::string> ("exists"));
     ASSERT_EQ ("1", exists_text);
 }
@@ -162,7 +162,7 @@ TEST (rpc, wallet_doesnt_contain)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string exists_text (response.json.get <std::string> ("exists"));
     ASSERT_EQ ("0", exists_text);
 }
@@ -202,7 +202,7 @@ TEST (rpc, validate_account_invalid)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string exists_text (response.json.get <std::string> ("valid"));
     ASSERT_EQ ("0", exists_text);
 }
@@ -236,7 +236,7 @@ TEST (rpc, send)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string block_text (response.json.get <std::string> ("block"));
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
@@ -274,7 +274,7 @@ TEST (rpc, send_fail)
 		system.poll ();
 	}
 	done = true;
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string block_text (response.json.get <std::string> ("block"));
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
@@ -317,7 +317,7 @@ TEST (rpc, wallet_add)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string account_text1 (response.json.get <std::string> ("account"));
     ASSERT_EQ (account_text1, key1.pub.to_account ());
 }
@@ -337,7 +337,7 @@ TEST (rpc, wallet_password_valid)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string account_text1 (response.json.get <std::string> ("valid"));
     ASSERT_EQ (account_text1, "1");
 }
@@ -358,7 +358,7 @@ TEST (rpc, wallet_password_change)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string account_text1 (response.json.get <std::string> ("changed"));
     ASSERT_EQ (account_text1, "1");
     ASSERT_TRUE (system.wallet (0)->valid_password ());
@@ -394,7 +394,7 @@ TEST (rpc, wallet_password_enter)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string account_text1 (response.json.get <std::string> ("valid"));
     ASSERT_EQ (account_text1, "1");
 }
@@ -414,7 +414,7 @@ TEST (rpc, wallet_representative)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string account_text1 (response.json.get <std::string> ("representative"));
     ASSERT_EQ (account_text1, rai::genesis_account.to_account ());
 }
@@ -436,7 +436,7 @@ TEST (rpc, wallet_representative_set)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_EQ (key.pub, system.nodes [0]->wallets.items.begin ()->second->store.representative (transaction));
 }
@@ -459,7 +459,7 @@ TEST (rpc, account_list)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & accounts_node (response.json.get_child ("accounts"));
     std::vector <rai::uint256_union> accounts;
     for (auto i (accounts_node.begin ()), j (accounts_node.end ()); i != j; ++i)
@@ -492,7 +492,7 @@ TEST (rpc, wallet_key_valid)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string exists_text (response.json.get <std::string> ("valid"));
     ASSERT_EQ ("1", exists_text);
 }
@@ -509,7 +509,7 @@ TEST (rpc, wallet_create)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string wallet_text (response.json.get <std::string> ("wallet"));
     rai::uint256_union wallet_id;
     ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
@@ -530,7 +530,7 @@ TEST (rpc, wallet_export)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string wallet_json (response.json.get <std::string> ("json"));
     bool error (false);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
@@ -555,7 +555,7 @@ TEST (rpc, wallet_destroy)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     ASSERT_EQ (system.nodes [0]->wallets.items.end (), system.nodes [0]->wallets.items.find (wallet_id));
 }
 
@@ -585,7 +585,7 @@ TEST (rpc, account_move)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     ASSERT_EQ ("1", response.json.get <std::string> ("moved"));
     ASSERT_TRUE (destination->exists (key.pub));
     ASSERT_TRUE (destination->exists (rai::test_genesis_key.pub));
@@ -606,7 +606,7 @@ TEST (rpc, block)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	auto contents (response.json.get <std::string> ("contents"));
     ASSERT_FALSE (contents.empty ());
 }
@@ -625,7 +625,7 @@ TEST (rpc, block_account)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string account_text (response.json.get <std::string> ("account"));
     rai::account account;
     ASSERT_FALSE (account.decode_account (account_text));
@@ -651,7 +651,7 @@ TEST (rpc, chain)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & blocks_node (response.json.get_child ("blocks"));
 	std::vector <rai::block_hash> blocks;
 	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
@@ -683,7 +683,7 @@ TEST (rpc, chain_limit)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & blocks_node (response.json.get_child ("blocks"));
 	std::vector <rai::block_hash> blocks;
 	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
@@ -719,7 +719,7 @@ TEST (rpc, frontier)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & frontiers_node (response.json.get_child ("frontiers"));
     std::unordered_map <rai::account, rai::block_hash> frontiers;
     for (auto i (frontiers_node.begin ()), j (frontiers_node.end ()); i != j; ++i)
@@ -759,7 +759,7 @@ TEST (rpc, frontier_limited)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & frontiers_node (response.json.get_child ("frontiers"));
 	ASSERT_EQ (100, frontiers_node.size ());
 }
@@ -789,7 +789,7 @@ TEST (rpc, frontier_startpoint)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & frontiers_node (response.json.get_child ("frontiers"));
 	ASSERT_EQ (1, frontiers_node.size ());
 	ASSERT_EQ (source.begin ()->first.to_account (), frontiers_node.begin ()->first);
@@ -816,7 +816,7 @@ TEST (rpc, history)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	std::vector <std::tuple <std::string, std::string, std::string, std::string>> history_l;
     auto & history_node (response.json.get_child ("history"));
 	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
@@ -860,7 +860,7 @@ TEST (rpc, history_count)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & history_node (response.json.get_child ("history"));
 	ASSERT_EQ (1, history_node.size ());
 }
@@ -884,7 +884,7 @@ TEST (rpc, process_block)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	ASSERT_EQ (send.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
 }
 
@@ -908,7 +908,7 @@ TEST (rpc, process_block_no_work)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	ASSERT_FALSE (response.json.get <std::string> ("error").empty ());
 }
 
@@ -933,7 +933,7 @@ TEST (rpc, keepalive)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	auto iterations (0);
 	while (!system.nodes [0]->peers.known_peer (node1->network.endpoint ()))
 	{
@@ -962,7 +962,7 @@ TEST (rpc, payment_init)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Ready", response.json.get <std::string> ("status"));
 }
 
@@ -984,7 +984,7 @@ TEST (rpc, payment_begin_end)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	auto account_text (response1.json.get <std::string> ("account"));
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
@@ -1010,7 +1010,7 @@ TEST (rpc, payment_begin_end)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.status);
+    ASSERT_EQ (200, response2.status);
 	ASSERT_TRUE (wallet->exists (account));
 	ASSERT_NE (wallet->free_accounts.end (), wallet->free_accounts.find (account));
 	rpc.stop ();
@@ -1036,7 +1036,7 @@ TEST (rpc, payment_end_nonempty)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_FALSE (response1.json.get <std::string> ("error").empty ());
 }
 
@@ -1058,7 +1058,7 @@ TEST (rpc, payment_zero_balance)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	auto account_text (response1.json.get <std::string> ("account"));
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
@@ -1083,7 +1083,7 @@ TEST (rpc, payment_begin_reuse)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	auto account_text (response1.json.get <std::string> ("account"));
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
@@ -1098,7 +1098,7 @@ TEST (rpc, payment_begin_reuse)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.status);
+    ASSERT_EQ (200, response2.status);
 	ASSERT_TRUE (wallet->exists (account));
 	ASSERT_NE (wallet->free_accounts.end (), wallet->free_accounts.find (account));
 	test_response response3 (request1, rpc, system.service);
@@ -1106,7 +1106,7 @@ TEST (rpc, payment_begin_reuse)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response3.status);
+    ASSERT_EQ (200, response3.status);
 	auto account2_text (response1.json.get <std::string> ("account"));
 	rai::uint256_union account2;
 	ASSERT_FALSE (account2.decode_account (account2_text));
@@ -1136,7 +1136,7 @@ TEST (rpc, payment_begin_locked)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_FALSE (response1.json.get <std::string> ("error").empty ());
 }
 
@@ -1160,7 +1160,7 @@ TEST (rpc, DISABLED_payment_wait)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("nothing", response1.json.get <std::string> ("status"));
 	request1.put ("timeout", "100000");
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Mrai_ratio);
@@ -1173,7 +1173,7 @@ TEST (rpc, DISABLED_payment_wait)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.status);
+    ASSERT_EQ (200, response2.status);
 	ASSERT_EQ ("success", response2.json.get <std::string> ("status"));
 	request1.put ("amount", rai::amount (rai::Mrai_ratio * 2).to_string_dec ());
 	test_response response3 (request1, rpc, system.service);
@@ -1181,7 +1181,7 @@ TEST (rpc, DISABLED_payment_wait)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response3.status);
+    ASSERT_EQ (200, response3.status);
 	ASSERT_EQ ("success", response2.json.get <std::string> ("status"));
 }
 
@@ -1197,7 +1197,7 @@ TEST (rpc, peers)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     auto & frontiers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (1, frontiers_node.size ());
 }
@@ -1243,7 +1243,7 @@ TEST (rpc, search_pending)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
 	auto iterations (0);
 	while (system.nodes [0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
 	{
@@ -1270,9 +1270,9 @@ TEST (rpc, version)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("rpc_version"));
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("2", response1.json.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.json.get <std::string> ("node_vendor"));
 	auto & headers (response1.headers);
@@ -1300,7 +1300,7 @@ TEST (rpc, work_generate)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	auto work1 (response1.json.get <std::string> ("work"));
 	uint64_t work2;
 	ASSERT_FALSE (rai::from_string_hex (work1, work2));
@@ -1331,7 +1331,7 @@ TEST (rpc, work_cancel)
 	{
 		system.poll ();
 	}
-	ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+	ASSERT_EQ (200, response1.status);
 	thread.join ();
 }
 
@@ -1418,7 +1418,7 @@ TEST (rpc, block_count)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("count"));
 }
 
@@ -1436,7 +1436,7 @@ TEST (rpc, frontier_count)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("count"));
 }
 
@@ -1454,7 +1454,7 @@ TEST (rpc, available_supply)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("0", response1.json.get <std::string> ("available"));
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
@@ -1464,7 +1464,7 @@ TEST (rpc, available_supply)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response2.status);
+    ASSERT_EQ (200, response2.status);
 	ASSERT_EQ ("1", response2.json.get <std::string> ("available"));
 }
 
@@ -1483,7 +1483,7 @@ TEST (rpc, mrai_to_raw)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ (rai::Mrai_ratio.convert_to <std::string> (), response1.json.get <std::string> ("amount"));
 }
 
@@ -1502,7 +1502,7 @@ TEST (rpc, mrai_from_raw)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("amount"));
 }
 
@@ -1521,7 +1521,7 @@ TEST (rpc, krai_to_raw)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ (rai::krai_ratio.convert_to <std::string> (), response1.json.get <std::string> ("amount"));
 }
 
@@ -1540,7 +1540,7 @@ TEST (rpc, krai_from_raw)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("amount"));
 }
 
@@ -1559,7 +1559,7 @@ TEST (rpc, rai_to_raw)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ (rai::rai_ratio.convert_to <std::string> (), response1.json.get <std::string> ("amount"));
 }
 
@@ -1578,7 +1578,7 @@ TEST (rpc, rai_from_raw)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response1.status);
+    ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("amount"));
 }
 
@@ -1596,7 +1596,7 @@ TEST (rpc, account_representative)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string account_text1 (response.json.get <std::string> ("representative"));
     ASSERT_EQ (account_text1, rai::genesis_account.to_account ());
 }
@@ -1618,7 +1618,7 @@ TEST (rpc, account_representative_set)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (boost::network::http::server <rai::rpc>::response::ok, response.status);
+    ASSERT_EQ (200, response.status);
     std::string block_text1 (response.json.get <std::string> ("block"));
 	rai::block_hash hash;
 	ASSERT_FALSE (hash.decode_hex (block_text1));

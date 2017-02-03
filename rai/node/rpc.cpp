@@ -1,6 +1,7 @@
 #include <rai/node/rpc.hpp>
 
 #include <rai/node/node.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/network/uri/uri.ipp>
 
 #include <ed25519-donna/ed25519.h>
@@ -1563,7 +1564,7 @@ void rai::rpc::handle_connection (nghttp2::asio_http2::server::request const & r
 		auto const & headers (request_a.header ());
 		auto existing (std::find_if (headers.begin (), headers.end (), [] (nghttp2::asio_http2::header_map::value_type const & item_a)
 		{
-			return boost::to_lower_copy (item_a.first) == "content-length";
+			return boost::iequals (item_a.first, "content-length");
 		}));
 		if (existing != headers.end ())
 		{
