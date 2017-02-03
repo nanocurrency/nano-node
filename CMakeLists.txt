@@ -3,8 +3,15 @@ project (rai)
 
 if (WIN32)
 	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -D_WIN32_WINNT=0x0501 -DWINVER=0x0501 -DWIN32_LEAN_AND_MEAN")
+	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
 else (WIN32)
-	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -Werror=switch -msse4 -fPIC")
+	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -Werror=switch -fPIC")
+	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
+		set (PLATFORM_COMPILE_FLAGS "${PLATFORM_COMPILE_FLAGS} -msse4")
+		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+	else()
+		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
+	endif()
 endif (WIN32)
 
 if (WIN32)
@@ -66,7 +73,7 @@ include_directories("${CMAKE_SOURCE_DIR}/Argon2/Source/Blake2")
 include_directories("${CMAKE_SOURCE_DIR}/Argon2/Source/Core")
 include_directories("${CMAKE_SOURCE_DIR}/blake2")
 
-if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+if (CMAKE_SYSTEM_PROCESSOR EQUAL "x86_64")
 	set (ARGON_CORE Argon2/Source/Core/argon2-opt-core.cpp)
 else ()
 	set (ARGON_CORE Argon2/Source/Core/argon2-ref-core.cpp)
@@ -225,7 +232,7 @@ add_library (blake2
 	blake2/blake2-config.h
 	blake2/blake2-impl.h
 	blake2/blake2.h
-	blake2/blake2b.c)
+	${BLAKE2_IMPLEMENTATION})
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm rai/plat/default/priority.cpp)
