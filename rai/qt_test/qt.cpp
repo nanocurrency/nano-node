@@ -32,9 +32,13 @@ TEST (wallet, status)
 	ASSERT_EQ ("Status: Disconnected", wallet.status->text ().toStdString ());
 	system.nodes [0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	ASSERT_NE ("Status: Synchronizing", wallet.status->text ().toStdString ());
+	auto iterations (0);
 	while (wallet.status->text ().toStdString () != "Status: Synchronizing")
 	{
 		test_application->processEvents ();
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
 	}
 	system.nodes [0]->peers.purge_list (std::chrono::system_clock::now () + std::chrono::seconds (5));
 	while (wallet.status->text ().toStdString () == "Status: Synchronizing")
@@ -51,7 +55,7 @@ TEST (wallet, startup_balance)
     rai::keypair key;
 	wallet_l->insert_adhoc (key.prv);
     rai_qt::wallet wallet (*test_application, *system.nodes [0], wallet_l, key.pub);
-	ASSERT_EQ ("Balance: 0 Mrai", wallet.self.balance_label->text().toStdString ());
+	ASSERT_EQ ("Balance: 0", wallet.self.balance_label->text().toStdString ());
 }
 
 TEST (wallet, select_account)

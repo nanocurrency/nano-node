@@ -892,7 +892,13 @@ void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const &
 
 bool rai::bootstrap_initiator::in_progress ()
 {
-	return attempt.lock () != nullptr;
+	auto result (false);
+	auto attempt_l (attempt.lock ());
+	if (attempt_l != nullptr)
+	{
+		result = attempt_l->connected;
+	}
+	return result;
 }
 
 void rai::bootstrap_initiator::stop ()
