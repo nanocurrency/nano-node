@@ -189,6 +189,12 @@ typedef SSIZE_T ssize_t;
 #define ESECT
 #endif
 
+#ifdef _WIN32
+#define CALL_CONV WINAPI
+#else
+#define CALL_CONV
+#endif
+
 /** @defgroup internal	LMDB Internals
  *	@{
  */
@@ -8437,7 +8443,7 @@ typedef struct mdb_copy {
 } mdb_copy;
 
 	/** Dedicated writer thread for compacting copy. */
-static THREAD_RET ESECT
+static THREAD_RET ESECT CALL_CONV
 mdb_env_copythr(void *arg)
 {
 	mdb_copy *my = arg;
