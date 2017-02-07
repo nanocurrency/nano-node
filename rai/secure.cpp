@@ -2996,20 +2996,18 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
     result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already?  (Harmless)
     if (result.code == rai::process_result::progress)
     {
-		auto block (ledger.store.block_get (transaction, block_a.hashables.source));
-        auto source_missing (block == nullptr);
-        result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block already? (Harmless)
+        result.code = ledger.store.block_exists (transaction, block_a.hashables.source) ? rai::process_result::progress: rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
         if (result.code == rai::process_result::progress)
         {
-			assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
-			auto source (static_cast <rai::send_block *> (block.get ()));
-			result.code = rai::validate_message (source->hashables.destination, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+			auto account (ledger.store.frontier_get (transaction, block_a.hashables.previous));
+			result.code = account.is_zero () ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for account at all (Harmless)
 			if (result.code == rai::process_result::progress)
 			{
-				rai::account_info info;
-				result.code = ledger.store.account_get (transaction, source->hashables.destination, info) ? rai::process_result::gap_previous : rai::process_result::progress;  //Have we seen the previous block? No entries for account at all (Harmless)
+				result.code = rai::validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
 				if (result.code == rai::process_result::progress)
 				{
+					rai::account_info info;
+					ledger.store.account_get (transaction, account, info);
 					result.code = info.head == block_a.hashables.previous ? rai::process_result::progress : rai::process_result::gap_previous; // Block doesn't immediately follow latest block (Harmless)
 					if (result.code == rai::process_result::progress)
 					{
@@ -3032,12 +3030,12 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 							result.amount = pending.amount;
                         }
                     }
-					else
-					{
-						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::fork : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
-					}
                 }
             }
+			else
+			{
+				result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::fork : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
+			}
         }
     }
 }
