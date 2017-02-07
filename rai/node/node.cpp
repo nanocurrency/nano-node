@@ -1640,7 +1640,7 @@ public:
 				rai::pending_info pending;
 				rai::transaction transaction (node.store.environment, nullptr, false);
 				representative = wallet->store.representative (transaction);
-				auto error (node.store.pending_get (transaction, block_a.hash (), pending));
+				auto error (node.store.pending_get (transaction, rai::pending_key (block_a.hashables.destination, block_a.hash ()), pending));
 				if (!error)
 				{
 					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));

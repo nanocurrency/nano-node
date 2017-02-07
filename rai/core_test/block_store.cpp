@@ -107,16 +107,16 @@ TEST (block_store, add_pending)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
-    rai::block_hash hash1 (0);
+    rai::pending_key key2 (0, 0);
     rai::pending_info pending1;
 	rai::transaction transaction (store.environment, nullptr, true);
-    ASSERT_TRUE (store.pending_get (transaction, hash1, pending1));
-    store.pending_put (transaction, hash1, pending1);
+    ASSERT_TRUE (store.pending_get (transaction, key2, pending1));
+    store.pending_put (transaction, key2, pending1);
     rai::pending_info pending2;
-    ASSERT_FALSE (store.pending_get (transaction, hash1, pending2));
+    ASSERT_FALSE (store.pending_get (transaction, key2, pending2));
     ASSERT_EQ (pending1, pending2);
-    store.pending_del (transaction, hash1);
-    ASSERT_TRUE (store.pending_get (transaction, hash1, pending2));
+    store.pending_del (transaction, key2);
+    ASSERT_TRUE (store.pending_get (transaction, key2, pending2));
 }
 
 TEST (block_store, pending_iterator)
@@ -126,10 +126,12 @@ TEST (block_store, pending_iterator)
     ASSERT_TRUE (!init);
 	rai::transaction transaction (store.environment, nullptr, true);
     ASSERT_EQ (store.pending_end (), store.pending_begin (transaction));
-    store.pending_put (transaction, 1, {2, 3, 4});
+    store.pending_put (transaction, rai::pending_key (1, 2), {2, 3, 4});
     auto current (store.pending_begin (transaction));
     ASSERT_NE (store.pending_end (), current);
-    ASSERT_EQ (rai::account (1), current->first);
+	rai::pending_key key1 (current->first);
+    ASSERT_EQ (rai::account (1), key1.account);
+    ASSERT_EQ (rai::block_hash (2), key1.hash);
 	rai::pending_info pending (current->second);
     ASSERT_EQ (rai::account (2), pending.source);
     ASSERT_EQ (rai::amount (3), pending.amount);
@@ -410,11 +412,11 @@ TEST (block_store, pending_exists)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-    rai::block_hash two (2);
+    rai::pending_key two (2, 0);
     rai::pending_info pending;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.pending_put (transaction, two, pending);
-    rai::block_hash one (1);
+    rai::pending_key one (1, 0);
     ASSERT_FALSE (store.pending_exists (transaction, one));
 }
 

@@ -934,7 +934,7 @@ std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	if (node.config.receive_minimum.number () <= amount_a.number ())
 	{
 		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
-		if (node.ledger.store.pending_exists (transaction, hash))
+		if (node.ledger.store.pending_exists (transaction, rai::pending_key (send_a.hashables.destination, hash)))
 		{
 			rai::raw_key prv;
 			if (!store.fetch (transaction, send_a.hashables.destination, prv))
@@ -1238,7 +1238,8 @@ public:
 				{
 					if (wallet->store.valid_password (transaction))
 					{
-						auto block_l (wallet->node.store.block_get (transaction, i->first));
+						rai::pending_key key (i->first);
+						auto block_l (wallet->node.store.block_get (transaction, key.hash));
 						assert (dynamic_cast <rai::send_block *> (block_l.get ()) != nullptr);
 						std::shared_ptr <rai::send_block> block (static_cast <rai::send_block *> (block_l.release ()));
 						auto wallet_l (wallet);

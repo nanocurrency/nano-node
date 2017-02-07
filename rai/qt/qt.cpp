@@ -1579,41 +1579,59 @@ void rai_qt::block_creation::create_receive ()
     if (!error)
     {
 		rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-        rai::pending_info pending;
-        if (!wallet.node.store.pending_get (transaction, source_l, pending))
-        {
-            rai::account_info info;
-            auto error (wallet.node.store.account_get (transaction, pending.destination, info));
-            if (!error)
-            {
-                rai::raw_key key;
-                auto error (wallet.wallet_m->store.fetch (transaction, pending.destination, key));
-                if (!error)
-                {
-                    rai::receive_block receive (info.head, source_l, key, pending.destination, wallet.wallet_m->work_fetch (transaction, pending.destination, info.head));
-                    std::string block_l;
-                    receive.serialize_json (block_l);
-                    block->setPlainText (QString (block_l.c_str ()));
-					show_label_ok (*status);
-                    status->setText ("Created block");
-                }
-                else
-                {
+		auto block_l (wallet.node.store.block_get (transaction, source_l));
+		if (block_l != nullptr)
+		{
+			auto send_block (dynamic_cast <rai::send_block *> (block_l.get ()));
+			if (send_block != nullptr)
+			{
+				rai::pending_info pending;
+				if (!wallet.node.store.pending_get (transaction, rai::pending_key (send_block->hashables.destination, source_l), pending))
+				{
+					rai::account_info info;
+					auto error (wallet.node.store.account_get (transaction, pending.destination, info));
+					if (!error)
+					{
+						rai::raw_key key;
+						auto error (wallet.wallet_m->store.fetch (transaction, pending.destination, key));
+						if (!error)
+						{
+							rai::receive_block receive (info.head, source_l, key, pending.destination, wallet.wallet_m->work_fetch (transaction, pending.destination, info.head));
+							std::string block_l;
+							receive.serialize_json (block_l);
+							block->setPlainText (QString (block_l.c_str ()));
+							show_label_ok (*status);
+							status->setText ("Created block");
+						}
+						else
+						{
+							show_label_error (*status);
+							status->setText ("Account is not in wallet");
+						}
+					}
+					else
+					{
+						show_label_error (*status);
+						status->setText ("Account not yet open");
+					}
+				}
+				else
+				{
 					show_label_error (*status);
-                    status->setText ("Account is not in wallet");
-                }
-            }
-            else
-            {
+					status->setText ("Source block is not pending to receive");
+				}
+			}
+			else
+			{
 				show_label_error (*status);
-                status->setText ("Account not yet open");
-            }
-        }
-        else
-        {
+				status->setText("Source is not a send block");
+			}
+		}
+		else
+		{
 			show_label_error (*status);
-            status->setText ("Source block is not pending to receive");
-        }
+			status->setText("Source block not found");
+		}
     }
     else
     {
@@ -1684,41 +1702,59 @@ void rai_qt::block_creation::create_open ()
         if (!error)
         {
 			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-            rai::pending_info pending;
-            if (!wallet.node.store.pending_get (transaction, source_l, pending))
-            {
-                rai::account_info info;
-                auto error (wallet.node.store.account_get (transaction, pending.destination, info));
-                if (error)
-                {
-                    rai::raw_key key;
-                    auto error (wallet.wallet_m->store.fetch (transaction, pending.destination, key));
-                    if (!error)
-                    {
-                        rai::open_block open (source_l, representative_l, pending.destination, key, pending.destination, wallet.wallet_m->work_fetch (transaction, pending.destination, pending.destination));
-                        std::string block_l;
-                        open.serialize_json (block_l);
-                        block->setPlainText (QString (block_l.c_str ()));
-						show_label_ok (*status);
-                        status->setText ("Created block");
-                    }
-                    else
-                    {
+			auto block_l (wallet.node.store.block_get (transaction, source_l));
+			if (block_l != nullptr)
+			{
+				auto send_block (dynamic_cast <rai::send_block *> (block_l.get ()));
+				if (send_block != nullptr)
+				{
+					rai::pending_info pending;
+					if (!wallet.node.store.pending_get (transaction, rai::pending_key (send_block->hashables.destination, source_l), pending))
+					{
+						rai::account_info info;
+						auto error (wallet.node.store.account_get (transaction, pending.destination, info));
+						if (error)
+						{
+							rai::raw_key key;
+							auto error (wallet.wallet_m->store.fetch (transaction, pending.destination, key));
+							if (!error)
+							{
+								rai::open_block open (source_l, representative_l, pending.destination, key, pending.destination, wallet.wallet_m->work_fetch (transaction, pending.destination, pending.destination));
+								std::string block_l;
+								open.serialize_json (block_l);
+								block->setPlainText (QString (block_l.c_str ()));
+								show_label_ok (*status);
+								status->setText ("Created block");
+							}
+							else
+							{
+								show_label_error (*status);
+								status->setText ("Account is not in wallet");
+							}
+						}
+						else
+						{
+							show_label_error (*status);
+							status->setText ("Account already open");
+						}
+					}
+					else
+					{
 						show_label_error (*status);
-                        status->setText ("Account is not in wallet");
-                    }
-                }
-                else
-                {
+						status->setText ("Source block is not pending to receive");
+					}
+				}
+				else
+				{
 					show_label_error (*status);
-                    status->setText ("Account already open");
-                }
-            }
-            else
-            {
+					status->setText("Source is not a send block");
+				}
+			}
+			else
+			{
 				show_label_error (*status);
-                status->setText ("Source block is not pending to receive");
-            }
+				status->setText("Source block not found");
+			}
         }
         else
         {

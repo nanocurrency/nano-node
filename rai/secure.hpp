@@ -295,6 +295,18 @@ public:
 	rai::amount amount;
 	rai::account destination;
 };
+class pending_key
+{
+public:
+	pending_key (rai::account const &, rai::block_hash const &);
+	pending_key (MDB_val const &);
+	void serialize (rai::stream &) const;
+	bool deserialize (rai::stream &);
+	bool operator == (rai::pending_key const &) const;
+	rai::mdb_val val () const;
+	rai::account account;
+	rai::block_hash hash;
+};
 class block_store
 {
 public:
@@ -325,11 +337,11 @@ public:
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
 	
-	void pending_put (MDB_txn *, rai::block_hash const &, rai::pending_info const &);
-	void pending_del (MDB_txn *, rai::block_hash const &);
-	bool pending_get (MDB_txn *, rai::block_hash const &, rai::pending_info &);
-	bool pending_exists (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator pending_begin (MDB_txn *, rai::block_hash const &);
+	void pending_put (MDB_txn *, rai::pending_key const &, rai::pending_info const &);
+	void pending_del (MDB_txn *, rai::pending_key const &);
+	bool pending_get (MDB_txn *, rai::pending_key const &, rai::pending_info &);
+	bool pending_exists (MDB_txn *, rai::pending_key const &);
+	rai::store_iterator pending_begin (MDB_txn *, rai::pending_key const &);
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
 	
