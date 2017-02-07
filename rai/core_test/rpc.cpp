@@ -1446,6 +1446,7 @@ TEST (rpc, block_count)
 	}
     ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("count"));
+	ASSERT_EQ ("0", response1.json.get <std::string> ("unchecked"));
 }
 
 TEST (rpc, frontier_count)

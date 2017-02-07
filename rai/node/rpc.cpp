@@ -452,9 +452,9 @@ void rai::rpc_handler::block_account ()
 void rai::rpc_handler::block_count ()
 {
 	rai::transaction transaction (rpc.node.store.environment, nullptr, false);
-	auto size (rpc.node.store.block_count (transaction));
 	boost::property_tree::ptree response_l;
-	response_l.put ("count", std::to_string (size));
+	response_l.put ("count", std::to_string (rpc.node.store.block_count (transaction)));
+	response_l.put ("unchecked", std::to_string (rpc.node.store.unchecked_count (transaction)));
 	rpc.send_response (response, response_l);
 }
 
