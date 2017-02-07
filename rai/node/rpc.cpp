@@ -141,9 +141,10 @@ void rai::rpc_handler::account_balance ()
 	auto error (account.decode_account (account_text));
 	if (!error)
 	{
-		auto balance (rpc.node.balance (account));
+		auto balance (rpc.node.balance_pending (account));
 		boost::property_tree::ptree response_l;
-		response_l.put ("balance", balance.convert_to <std::string> ());
+		response_l.put ("balance", balance.first.convert_to <std::string> ());
+		response_l.put ("pending", balance.second.convert_to <std::string> ());
 		rpc.send_response (response, response_l);
 	}
 	else

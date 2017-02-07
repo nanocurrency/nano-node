@@ -79,6 +79,8 @@ TEST (rpc, account_balance)
 	ASSERT_EQ (200, response.status);
 	std::string balance_text (response.json.get <std::string> ("balance"));
 	ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+	std::string pending_text (response.json.get <std::string> ("pending"));
+	ASSERT_EQ ("0", pending_text);
 }
 
 TEST (rpc, account_create)
@@ -1273,7 +1275,7 @@ TEST (rpc, version)
     ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("rpc_version"));
     ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("2", response1.json.get <std::string> ("store_version"));
+	ASSERT_EQ ("4", response1.json.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.json.get <std::string> ("node_vendor"));
 	auto & headers (response1.headers);
 	auto access_control (std::find_if (headers.begin (), headers.end (), [] (decltype (*headers.begin ()) & header_a) { return boost::iequals (header_a.first, "Access-Control-Allow-Origin"); }));

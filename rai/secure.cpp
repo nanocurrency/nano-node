@@ -2725,6 +2725,18 @@ rai::uint128_t rai::ledger::account_balance (MDB_txn * transaction_a, rai::accou
     return result;
 }
 
+rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::account const & account_a)
+{
+	rai::uint128_t result (0);
+	rai::account end (account_a.number () + 1);
+	for (auto i (store.pending_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
+	{
+		rai::pending_info info (i->second);
+		result += info.amount.number ();
+	}
+	return result;
+}
+
 rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a)
 {
     ledger_processor processor (*this, transaction_a);

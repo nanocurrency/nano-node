@@ -109,6 +109,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (rai::test_genesis_key.pub, return1.account);
 	ASSERT_EQ (rai::genesis_amount - 50, return1.amount.number ());
 	ASSERT_EQ (50, ledger.account_balance (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_pending (transaction, key2.pub));
 	rai::account_info info2;
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	auto latest6 (store.block_get (transaction, info2.head));
@@ -127,6 +128,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (rai::genesis_amount - 50, return2.amount.number ());
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash2));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
+	ASSERT_EQ (0, ledger.account_pending (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.weight (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key2.pub));
 	rai::account_info info3;
@@ -152,6 +154,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (rai::test_genesis_key.pub, pending1.source);
 	ASSERT_EQ (rai::genesis_amount - 50, pending1.amount.number ());
 	ASSERT_EQ (0, ledger.account_balance (transaction, key2.pub));
+	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_pending (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (50, ledger.weight (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
@@ -168,6 +171,7 @@ TEST (ledger, process_send)
 	rai::pending_info pending2;
 	ASSERT_TRUE (ledger.store.pending_get (transaction, rai::pending_key (key2.pub, hash1), pending2));
 	ASSERT_EQ (rai::genesis_amount, ledger.account_balance (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (0, ledger.account_pending (transaction, key2.pub));
 }
 
 TEST (ledger, process_receive)
@@ -208,6 +212,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (25, return2.amount.number ());
 	ASSERT_EQ (hash4, ledger.latest (transaction, key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (0, ledger.account_pending (transaction, key2.pub));
 	ASSERT_EQ (rai::genesis_amount - 25, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (rai::genesis_amount - 25, ledger.weight (transaction, key3.pub));
 	ledger.rollback (transaction, hash4);
@@ -215,6 +220,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash2));
 	ASSERT_TRUE (store.frontier_get (transaction, hash4).is_zero ());
 	ASSERT_EQ (25, ledger.account_balance (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (25, ledger.account_pending (transaction, key2.pub));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.weight (transaction, key3.pub));
 	ASSERT_EQ (hash2, ledger.latest (transaction, key2.pub));

@@ -1360,6 +1360,15 @@ rai::uint128_t rai::node::balance (rai::account const & account_a)
 	return ledger.account_balance (transaction, account_a);
 }
 
+std::pair <rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a)
+{
+	std::pair <rai::uint128_t, rai::uint128_t> result;
+	rai::transaction transaction (store.environment, nullptr, false);
+	result.first = ledger.account_balance (transaction, account_a);
+	result.second = ledger.account_pending (transaction, account_a);
+	return result;
+}
+
 rai::uint128_t rai::node::weight (rai::account const & account_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);

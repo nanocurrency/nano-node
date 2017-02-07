@@ -630,7 +630,7 @@ TEST (block_store, upgrade_v2_v3)
 	rai::ledger ledger (store);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_TRUE (!init);
-	ASSERT_EQ (3, store.version_get (transaction));
+	ASSERT_LT (2, store.version_get (transaction));
 	ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key1.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
 	rai::account_info info;
@@ -659,6 +659,7 @@ TEST (block_store, upgrade_v3_v4)
 	rai::ledger ledger (store);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_FALSE (init);
+	ASSERT_LT (3, store.version_get (transaction));
 	rai::pending_key key (key2.pub, key3.pub);
 	rai::pending_info info;
 	auto error (store.pending_get (transaction, key, info));
