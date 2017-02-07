@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <rai/node/node.hpp>
+#include <rai/versioning.hpp>
 
 #include <fstream>
 
@@ -593,7 +594,6 @@ TEST (block_store, sequence_increment)
 	ASSERT_EQ (31, seq8);
 }
 
-
 TEST (block_store, upgrade_v2_v3)
 {
 	rai::keypair key1;
@@ -636,4 +636,33 @@ TEST (block_store, upgrade_v2_v3)
 	rai::account_info info;
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
 	ASSERT_EQ (change_hash, info.rep_block);
+}
+
+TEST (block_store, upgrade_v3_v4)
+{
+	rai::keypair key1;
+	rai::keypair key2;
+	rai::keypair key3;
+	auto path (rai::unique_path ());
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		ASSERT_FALSE (init);
+		rai::transaction transaction (store.environment, nullptr, true);
+		store.version_put (transaction, 3);
+		rai::pending_info_v3 info (key1.pub, 100, key2.pub);
+		auto status (mdb_put (transaction, store.pending, key3.pub.val (), info.val (), 0));
+		ASSERT_EQ (0, status);
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	rai::ledger ledger (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+	ASSERT_FALSE (init);
+	rai::pending_key key (key2.pub, key3.pub);
+	rai::pending_info info;
+	auto error (store.pending_get (transaction, key, info));
+	ASSERT_FALSE (error);
+	ASSERT_EQ (key1.pub, info.source);
+	ASSERT_EQ (rai::amount (100), info.amount);
 }

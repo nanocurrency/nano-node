@@ -9,6 +9,8 @@
 
 #include <ed25519-donna/ed25519.h>
 
+#include <queue>
+
 // Genesis keys for network variants
 namespace
 {
@@ -1562,12 +1564,12 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 	{
 		case 1:
 			upgrade_v1_to_v2 (transaction_a);
-			break;
 		case 2:
 			upgrade_v2_to_v3 (transaction_a);
-			break;
 		case 3:
-		break;
+			upgrade_v3_to_v4 (transaction_a);
+		case 4:
+			break;
 		default:
 		assert (false);
 	}
@@ -1663,6 +1665,24 @@ void rai::block_store::upgrade_v2_to_v3 (MDB_txn * transaction_a)
 		info.rep_block = visitor.result;
 		mdb_cursor_put (i.cursor, account_l.val (), info.val (), MDB_CURRENT);
 		representation_add (transaction_a, visitor.result, info.balance.number());
+	}
+}
+
+void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 4);
+	std::queue <std::pair <rai::pending_key, rai::pending_info>> items;
+	for (auto i (pending_begin (transaction_a)), n (pending_end ()); i != n; ++i)
+	{
+		rai::block_hash hash (i->first);
+		rai::pending_info_v3 info (i->second);
+		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount)));
+	}
+	mdb_drop (transaction_a, pending, 0);
+	while (!items.empty ())
+	{
+		pending_put (transaction_a, items.front ().first, items.front ().second);
+		items.pop ();
 	}
 }
 
