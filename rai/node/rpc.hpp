@@ -109,6 +109,7 @@ public:
 	void payment_end ();
 	void payment_wait ();
 	void peers ();
+	void pending ();
 	void process ();
 	void rai_to_raw ();
 	void rai_from_raw ();

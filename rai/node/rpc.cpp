@@ -847,6 +847,39 @@ void rai::rpc_handler::peers ()
 	rpc.send_response (response, response_l);
 }
 
+void rai::rpc_handler::pending ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	if (!account.decode_account(account_text))
+	{
+		std::string count_text (request.get <std::string> ("count"));
+		uint64_t count;
+		if (!rpc.decode_unsigned (count_text, count))
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree peers_l;
+			{
+				rai::transaction transaction (rpc.node.store.environment, nullptr, false);
+				rai::account end (account.number () + 1);
+				for (auto i (rpc.node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (rpc.node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size ()< count; ++i)
+				{
+					rai::pending_key key (i->first);
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
+				}
+			}
+			response_l.add_child ("blocks", peers_l);
+			rpc.send_response (response, response_l);
+		}
+	}
+	else
+	{
+		rpc.error_response (response, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::payment_begin ()
 {
 	std::string id_text (request.get <std::string> ("wallet"));
@@ -1752,6 +1785,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "peers")
 		{
 			peers ();
+		}
+		else if (action == "pending")
+		{
+			pending ();
 		}
 		else if (action == "process")
 		{

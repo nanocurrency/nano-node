@@ -1200,8 +1200,32 @@ TEST (rpc, peers)
 		system.poll ();
 	}
     ASSERT_EQ (200, response.status);
-    auto & frontiers_node (response.json.get_child ("peers"));
-	ASSERT_EQ (1, frontiers_node.size ());
+    auto & peers_node (response.json.get_child ("peers"));
+	ASSERT_EQ (1, peers_node.size ());
+}
+
+TEST (rpc, pending)
+{
+    rai::system system (24000, 1);
+	rai::keypair key1;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+    rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+    request.put ("action", "pending");
+	request.put ("account", key1.pub.to_account ());
+	request.put ("count", "100");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+    ASSERT_EQ (200, response.status);
+    auto & blocks_node (response.json.get_child ("blocks"));
+	ASSERT_EQ (1, blocks_node.size ());
+	rai::block_hash hash1 (blocks_node.begin ()->second.get <std::string> (""));
+	ASSERT_EQ (block1->hash (), hash1);
 }
 
 TEST (rpc_config, serialization)
