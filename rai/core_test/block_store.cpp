@@ -126,7 +126,7 @@ TEST (block_store, pending_iterator)
     ASSERT_TRUE (!init);
 	rai::transaction transaction (store.environment, nullptr, true);
     ASSERT_EQ (store.pending_end (), store.pending_begin (transaction));
-    store.pending_put (transaction, rai::pending_key (1, 2), {2, 3, 4});
+    store.pending_put (transaction, rai::pending_key (1, 2), {2, 3});
     auto current (store.pending_begin (transaction));
     ASSERT_NE (store.pending_end (), current);
 	rai::pending_key key1 (current->first);
@@ -135,7 +135,6 @@ TEST (block_store, pending_iterator)
 	rai::pending_info pending (current->second);
     ASSERT_EQ (rai::account (2), pending.source);
     ASSERT_EQ (rai::amount (3), pending.amount);
-    ASSERT_EQ (rai::account (4), pending.destination);
 }
 
 TEST (block_store, genesis)

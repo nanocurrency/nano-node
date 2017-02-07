@@ -150,7 +150,6 @@ TEST (ledger, process_send)
 	rai::pending_info pending1;
 	ASSERT_FALSE (ledger.store.pending_get (transaction, rai::pending_key (key2.pub, hash1), pending1));
 	ASSERT_EQ (rai::test_genesis_key.pub, pending1.source);
-	ASSERT_EQ (key2.pub, pending1.destination);
 	ASSERT_EQ (rai::genesis_amount - 50, pending1.amount.number ());
 	ASSERT_EQ (0, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (transaction, rai::test_genesis_key.pub));

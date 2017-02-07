@@ -1195,8 +1195,9 @@ public:
 		std::unordered_set <rai::account> already_searched;
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
+			rai::pending_key key (i->first);
 			rai::pending_info pending (i->second);
-			auto existing (keys.find (pending.destination));
+			auto existing (keys.find (key.account));
 			if (existing != keys.end ())
 			{
 				rai::account_info info;
@@ -1231,10 +1232,11 @@ public:
 		auto representative (wallet->store.representative (transaction));
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
+			rai::pending_key key (i->first);
 			rai::pending_info pending (i->second);
 			if (pending.source == account_a)
 			{
-				if (wallet->store.exists (transaction, pending.destination))
+				if (wallet->store.exists (transaction, key.account))
 				{
 					if (wallet->store.valid_password (transaction))
 					{
@@ -1255,7 +1257,7 @@ public:
 					}
 					else
 					{
-						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % pending.destination.to_account ());
+						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % key.account.to_account ());
 					}
 				}
 			}
