@@ -120,10 +120,13 @@ wallet (wallet_a)
 
 void rai_qt::self_pane::refresh_balance ()
 {
-	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-	std::string balance;
-	rai::amount (wallet.node.ledger.account_balance (transaction, wallet.account) / wallet.rendering_ratio).encode_dec (balance);
-	wallet.self.balance_label->setText (QString ((std::string ("Balance: ") + balance).c_str ()));
+	auto balance (wallet.node.balance_pending (wallet.account));
+	auto final_text (std::string ("Balance: ") + (balance.first / wallet.rendering_ratio).convert_to <std::string> ());
+	if (!balance.second.is_zero ())
+	{
+		final_text += "\nPending: " + (balance.second / wallet.rendering_ratio).convert_to <std::string> ();
+	}
+	wallet.self.balance_label->setText (QString (final_text.c_str ()));
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
