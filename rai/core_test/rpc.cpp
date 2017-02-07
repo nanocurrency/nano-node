@@ -79,6 +79,8 @@ TEST (rpc, account_balance)
 	ASSERT_EQ (200, response.status);
 	std::string balance_text (response.json.get <std::string> ("balance"));
 	ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+	std::string pending_text (response.json.get <std::string> ("pending"));
+	ASSERT_EQ ("0", pending_text);
 }
 
 TEST (rpc, account_create)
@@ -1198,8 +1200,32 @@ TEST (rpc, peers)
 		system.poll ();
 	}
     ASSERT_EQ (200, response.status);
-    auto & frontiers_node (response.json.get_child ("peers"));
-	ASSERT_EQ (1, frontiers_node.size ());
+    auto & peers_node (response.json.get_child ("peers"));
+	ASSERT_EQ (1, peers_node.size ());
+}
+
+TEST (rpc, pending)
+{
+    rai::system system (24000, 1);
+	rai::keypair key1;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+    rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+    request.put ("action", "pending");
+	request.put ("account", key1.pub.to_account ());
+	request.put ("count", "100");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+    ASSERT_EQ (200, response.status);
+    auto & blocks_node (response.json.get_child ("blocks"));
+	ASSERT_EQ (1, blocks_node.size ());
+	rai::block_hash hash1 (blocks_node.begin ()->second.get <std::string> (""));
+	ASSERT_EQ (block1->hash (), hash1);
 }
 
 TEST (rpc_config, serialization)
@@ -1273,7 +1299,7 @@ TEST (rpc, version)
     ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("rpc_version"));
     ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("2", response1.json.get <std::string> ("store_version"));
+	ASSERT_EQ ("4", response1.json.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.json.get <std::string> ("node_vendor"));
 	auto & headers (response1.headers);
 	auto access_control (std::find_if (headers.begin (), headers.end (), [] (decltype (*headers.begin ()) & header_a) { return boost::iequals (header_a.first, "Access-Control-Allow-Origin"); }));

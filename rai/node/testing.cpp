@@ -164,7 +164,7 @@ void rai::system::generate_receive (rai::node & node_a)
 	rai::transaction transaction (node_a.store.environment, nullptr, false);
     rai::uint256_union random_block;
     random_pool.GenerateBlock (random_block.bytes.data (), sizeof (random_block.bytes));
-	auto i (node_a.store.pending_begin (transaction, random_block));
+	auto i (node_a.store.pending_begin (transaction, rai::pending_key (random_block, 0)));
 	if (i != node_a.store.pending_end ())
 	{
 		rai::block_hash send_hash (i->first);

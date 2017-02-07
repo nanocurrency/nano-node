@@ -354,6 +354,7 @@ public:
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
+	std::pair <rai::uint128_t, rai::uint128_t> balance_pending (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
     void ongoing_keepalive ();

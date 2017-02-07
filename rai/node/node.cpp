@@ -1360,6 +1360,15 @@ rai::uint128_t rai::node::balance (rai::account const & account_a)
 	return ledger.account_balance (transaction, account_a);
 }
 
+std::pair <rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a)
+{
+	std::pair <rai::uint128_t, rai::uint128_t> result;
+	rai::transaction transaction (store.environment, nullptr, false);
+	result.first = ledger.account_balance (transaction, account_a);
+	result.second = ledger.account_pending (transaction, account_a);
+	return result;
+}
+
 rai::uint128_t rai::node::weight (rai::account const & account_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
@@ -1640,7 +1649,7 @@ public:
 				rai::pending_info pending;
 				rai::transaction transaction (node.store.environment, nullptr, false);
 				representative = wallet->store.representative (transaction);
-				auto error (node.store.pending_get (transaction, block_a.hash (), pending));
+				auto error (node.store.pending_get (transaction, rai::pending_key (block_a.hashables.destination, block_a.hash ()), pending));
 				if (!error)
 				{
 					auto block_l (std::shared_ptr <rai::send_block> (static_cast <rai::send_block *> (block_a.clone ().release ())));

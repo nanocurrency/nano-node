@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <rai/node/node.hpp>
+#include <rai/versioning.hpp>
 
 #include <fstream>
 
@@ -107,16 +108,16 @@ TEST (block_store, add_pending)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::keypair key1;
-    rai::block_hash hash1 (0);
+    rai::pending_key key2 (0, 0);
     rai::pending_info pending1;
 	rai::transaction transaction (store.environment, nullptr, true);
-    ASSERT_TRUE (store.pending_get (transaction, hash1, pending1));
-    store.pending_put (transaction, hash1, pending1);
+    ASSERT_TRUE (store.pending_get (transaction, key2, pending1));
+    store.pending_put (transaction, key2, pending1);
     rai::pending_info pending2;
-    ASSERT_FALSE (store.pending_get (transaction, hash1, pending2));
+    ASSERT_FALSE (store.pending_get (transaction, key2, pending2));
     ASSERT_EQ (pending1, pending2);
-    store.pending_del (transaction, hash1);
-    ASSERT_TRUE (store.pending_get (transaction, hash1, pending2));
+    store.pending_del (transaction, key2);
+    ASSERT_TRUE (store.pending_get (transaction, key2, pending2));
 }
 
 TEST (block_store, pending_iterator)
@@ -126,14 +127,15 @@ TEST (block_store, pending_iterator)
     ASSERT_TRUE (!init);
 	rai::transaction transaction (store.environment, nullptr, true);
     ASSERT_EQ (store.pending_end (), store.pending_begin (transaction));
-    store.pending_put (transaction, 1, {2, 3, 4});
+    store.pending_put (transaction, rai::pending_key (1, 2), {2, 3});
     auto current (store.pending_begin (transaction));
     ASSERT_NE (store.pending_end (), current);
-    ASSERT_EQ (rai::account (1), current->first);
+	rai::pending_key key1 (current->first);
+    ASSERT_EQ (rai::account (1), key1.account);
+    ASSERT_EQ (rai::block_hash (2), key1.hash);
 	rai::pending_info pending (current->second);
     ASSERT_EQ (rai::account (2), pending.source);
     ASSERT_EQ (rai::amount (3), pending.amount);
-    ASSERT_EQ (rai::account (4), pending.destination);
 }
 
 TEST (block_store, genesis)
@@ -410,11 +412,11 @@ TEST (block_store, pending_exists)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-    rai::block_hash two (2);
+    rai::pending_key two (2, 0);
     rai::pending_info pending;
 	rai::transaction transaction (store.environment, nullptr, true);
     store.pending_put (transaction, two, pending);
-    rai::block_hash one (1);
+    rai::pending_key one (1, 0);
     ASSERT_FALSE (store.pending_exists (transaction, one));
 }
 
@@ -592,7 +594,6 @@ TEST (block_store, sequence_increment)
 	ASSERT_EQ (31, seq8);
 }
 
-
 TEST (block_store, upgrade_v2_v3)
 {
 	rai::keypair key1;
@@ -629,10 +630,40 @@ TEST (block_store, upgrade_v2_v3)
 	rai::ledger ledger (store);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_TRUE (!init);
-	ASSERT_EQ (3, store.version_get (transaction));
+	ASSERT_LT (2, store.version_get (transaction));
 	ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, key1.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
 	rai::account_info info;
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
 	ASSERT_EQ (change_hash, info.rep_block);
+}
+
+TEST (block_store, upgrade_v3_v4)
+{
+	rai::keypair key1;
+	rai::keypair key2;
+	rai::keypair key3;
+	auto path (rai::unique_path ());
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		ASSERT_FALSE (init);
+		rai::transaction transaction (store.environment, nullptr, true);
+		store.version_put (transaction, 3);
+		rai::pending_info_v3 info (key1.pub, 100, key2.pub);
+		auto status (mdb_put (transaction, store.pending, key3.pub.val (), info.val (), 0));
+		ASSERT_EQ (0, status);
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	rai::ledger ledger (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+	ASSERT_FALSE (init);
+	ASSERT_LT (3, store.version_get (transaction));
+	rai::pending_key key (key2.pub, key3.pub);
+	rai::pending_info info;
+	auto error (store.pending_get (transaction, key, info));
+	ASSERT_FALSE (error);
+	ASSERT_EQ (key1.pub, info.source);
+	ASSERT_EQ (rai::amount (100), info.amount);
 }

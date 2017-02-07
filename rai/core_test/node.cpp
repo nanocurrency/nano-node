@@ -711,7 +711,7 @@ TEST (node, fork_keep)
     auto & node1 (*system.nodes [0]);
     auto & node2 (*system.nodes [1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert_adhoc ( rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
     std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -742,7 +742,7 @@ TEST (node, fork_keep)
 	{
 		system.poll ();
         ++iterations;
-        ASSERT_LT (iterations, 200);
+        ASSERT_LT (iterations, 2000);
 	}
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     auto winner (node1.ledger.winner (transaction, votes1->votes));

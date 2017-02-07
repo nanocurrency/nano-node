@@ -286,14 +286,25 @@ class pending_info
 public:
 	pending_info ();
 	pending_info (MDB_val const &);
-	pending_info (rai::account const &, rai::amount const &, rai::account const &);
+	pending_info (rai::account const &, rai::amount const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator == (rai::pending_info const &) const;
 	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
-	rai::account destination;
+};
+class pending_key
+{
+public:
+	pending_key (rai::account const &, rai::block_hash const &);
+	pending_key (MDB_val const &);
+	void serialize (rai::stream &) const;
+	bool deserialize (rai::stream &);
+	bool operator == (rai::pending_key const &) const;
+	rai::mdb_val val () const;
+	rai::account account;
+	rai::block_hash hash;
 };
 class block_store
 {
@@ -325,11 +336,11 @@ public:
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
 	
-	void pending_put (MDB_txn *, rai::block_hash const &, rai::pending_info const &);
-	void pending_del (MDB_txn *, rai::block_hash const &);
-	bool pending_get (MDB_txn *, rai::block_hash const &, rai::pending_info &);
-	bool pending_exists (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator pending_begin (MDB_txn *, rai::block_hash const &);
+	void pending_put (MDB_txn *, rai::pending_key const &, rai::pending_info const &);
+	void pending_del (MDB_txn *, rai::pending_key const &);
+	bool pending_get (MDB_txn *, rai::pending_key const &, rai::pending_info &);
+	bool pending_exists (MDB_txn *, rai::pending_key const &);
+	rai::store_iterator pending_begin (MDB_txn *, rai::pending_key const &);
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
 	
@@ -369,6 +380,7 @@ public:
 	void do_upgrades (MDB_txn *);
 	void upgrade_v1_to_v2 (MDB_txn *);
 	void upgrade_v2_to_v3 (MDB_txn *);
+	void upgrade_v3_to_v4 (MDB_txn *);
 	
 	void clear (MDB_dbi);
 	
@@ -457,6 +469,7 @@ public:
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
+	rai::uint128_t account_pending (MDB_txn *, rai::account const &);
 	rai::uint128_t weight (MDB_txn *, rai::account const &);
 	std::unique_ptr <rai::block> successor (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr <rai::block> forked_block (MDB_txn *, rai::block const &);

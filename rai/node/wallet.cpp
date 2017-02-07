@@ -934,7 +934,7 @@ std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	if (node.config.receive_minimum.number () <= amount_a.number ())
 	{
 		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
-		if (node.ledger.store.pending_exists (transaction, hash))
+		if (node.ledger.store.pending_exists (transaction, rai::pending_key (send_a.hashables.destination, hash)))
 		{
 			rai::raw_key prv;
 			if (!store.fetch (transaction, send_a.hashables.destination, prv))
@@ -1195,8 +1195,9 @@ public:
 		std::unordered_set <rai::account> already_searched;
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
+			rai::pending_key key (i->first);
 			rai::pending_info pending (i->second);
-			auto existing (keys.find (pending.destination));
+			auto existing (keys.find (key.account));
 			if (existing != keys.end ())
 			{
 				rai::account_info info;
@@ -1231,14 +1232,16 @@ public:
 		auto representative (wallet->store.representative (transaction));
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
+			rai::pending_key key (i->first);
 			rai::pending_info pending (i->second);
 			if (pending.source == account_a)
 			{
-				if (wallet->store.exists (transaction, pending.destination))
+				if (wallet->store.exists (transaction, key.account))
 				{
 					if (wallet->store.valid_password (transaction))
 					{
-						auto block_l (wallet->node.store.block_get (transaction, i->first));
+						rai::pending_key key (i->first);
+						auto block_l (wallet->node.store.block_get (transaction, key.hash));
 						assert (dynamic_cast <rai::send_block *> (block_l.get ()) != nullptr);
 						std::shared_ptr <rai::send_block> block (static_cast <rai::send_block *> (block_l.release ()));
 						auto wallet_l (wallet);
@@ -1254,7 +1257,7 @@ public:
 					}
 					else
 					{
-						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % pending.destination.to_account ());
+						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % key.account.to_account ());
 					}
 				}
 			}
