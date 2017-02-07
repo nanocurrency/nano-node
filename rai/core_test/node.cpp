@@ -1194,10 +1194,16 @@ TEST (node, bootstrap_no_publish)
 		ASSERT_EQ (rai::process_result::progress, system0.nodes [0]->ledger.process (transaction, send0).code);
 	}
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
-	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
+	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
+	while (node1->bootstrap_initiator.in_progress ())
+	{
+		// Poll until TCP connection is established and in_progress goes true
+		system0.poll ();
+	}
 	ASSERT_TRUE (node1->active.roots.empty ());
 	while (node1->bootstrap_initiator.in_progress ())
 	{
+		// Poll until the TCP connection is torn down and in_progress goes false
 		system0.poll ();
 		system1.poll ();
 		// There should never be an active transaction because the only activity is bootstrapping 1 block which shouldn't be publishing.
@@ -1222,17 +1228,25 @@ TEST (node, bootstrap_fork_open)
 	{
 		rai::transaction transaction0 (node0->store.environment, nullptr, true);
 		rai::transaction transaction1 (node1->store.environment, nullptr, true);
+		// Both know about send0
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, send0).code);
 		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, send0).code);
+		// They disagree about open0/open1
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open0).code);
 		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, open1).code);
 	}
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
-	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
+	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
+	while (node1->bootstrap_initiator.in_progress ())
+	{
+		// Poll until TCP connection is established and in_progress goes true
+		system0.poll ();
+	}
 	ASSERT_TRUE (node1->active.roots.empty ());
 	int iterations (0);
 	while (node1->ledger.block_exists (open1.hash ()))
 	{
+		// Poll until the outvoted block is evicted.
 		system0.poll ();
 		ASSERT_LT (iterations, 200);
 		++iterations;
