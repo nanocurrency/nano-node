@@ -127,11 +127,14 @@ void rai::rpc::observer_action (rai::account const & account_a)
 	}
 }
 
-void rai::rpc::error_response (nghttp2::asio_http2::server::response const & response_a, std::string const & message_a)
+namespace
+{
+void error_response (rai::rpc & rpc_a, nghttp2::asio_http2::server::response const & response_a, std::string const & message_a)
 {
 	boost::property_tree::ptree response_l;
 	response_l.put ("error", message_a);
-	send_response (response_a, response_l);
+	rpc_a.send_response (response_a, response_l);
+}
 }
 
 void rai::rpc_handler::account_balance ()
@@ -149,7 +152,7 @@ void rai::rpc_handler::account_balance ()
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -174,22 +177,22 @@ void rai::rpc_handler::account_create ()
 				}
 				else
 				{
-					rpc.error_response (response, "Wallet is locked");
+					error_response (rpc, response, "Wallet is locked");
 				}
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad wallet number");
+			error_response (rpc, response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -217,12 +220,12 @@ void rai::rpc_handler::account_list ()
 		}
 		else
 		{
-			rpc.error_response (response, "Wallet not found");
+			error_response (rpc, response, "Wallet not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad wallet number");
+		error_response (rpc, response, "Bad wallet number");
 	}
 }
 
@@ -264,27 +267,27 @@ void rai::rpc_handler::account_move ()
 					}
 					else
 					{
-						rpc.error_response (response, "Source not found");
+						error_response (rpc, response, "Source not found");
 					}
 				}
 				else
 				{
-					rpc.error_response (response, "Bad source number");
+					error_response (rpc, response, "Bad source number");
 				}
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad wallet number");
+			error_response (rpc, response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -308,12 +311,12 @@ void rai::rpc_handler::account_representative ()
 		}
 		else
 		{
-			rpc.error_response (response, "Account not found");
+			error_response (rpc, response, "Account not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -356,14 +359,14 @@ void rai::rpc_handler::account_representative_set ()
 				}
 				else
 				{
-					rpc.error_response (response, "Bad account number");
+					error_response (rpc, response, "Bad account number");
 				}
 			}
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -381,7 +384,7 @@ void rai::rpc_handler::account_weight ()
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -415,12 +418,12 @@ void rai::rpc_handler::block ()
 		}
 		else
 		{
-			rpc.error_response (response, "Block not found");
+			error_response (rpc, response, "Block not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad hash number");
+		error_response (rpc, response, "Bad hash number");
 	}
 }
 
@@ -440,12 +443,12 @@ void rai::rpc_handler::block_account ()
 		}
 		else
 		{
-			rpc.error_response (response, "Block not found");
+			error_response (rpc, response, "Block not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Invalid block hash");
+		error_response (rpc, response, "Invalid block hash");
 	}
 }
 
@@ -491,12 +494,12 @@ void rai::rpc_handler::chain ()
 		}
 		else
 		{
-			rpc.error_response (response, "Invalid count limit");
+			error_response (rpc, response, "Invalid count limit");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Invalid block hash");
+		error_response (rpc, response, "Invalid block hash");
 	}
 }
 
@@ -522,12 +525,12 @@ void rai::rpc_handler::frontiers ()
 		}
 		else
 		{
-			rpc.error_response (response, "Invalid count limit");
+			error_response (rpc, response, "Invalid count limit");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Invalid starting account");
+		error_response (rpc, response, "Invalid starting account");
 	}
 }
 
@@ -627,12 +630,12 @@ void rai::rpc_handler::history ()
 		}
 		else
 		{
-			rpc.error_response (response, "Invalid count limit");
+			error_response (rpc, response, "Invalid count limit");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Invalid block hash");
+		error_response (rpc, response, "Invalid block hash");
 	}
 }
 
@@ -651,12 +654,12 @@ void rai::rpc_handler::keepalive ()
 		}
 		else
 		{
-			rpc.error_response (response, "Invalid port");
+			error_response (rpc, response, "Invalid port");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -673,7 +676,7 @@ void rai::rpc_handler::mrai_from_raw ()
 	}
 	else
 	{
-		rpc.error_response (response, "Bad amount number");
+		error_response (rpc, response, "Bad amount number");
 	}
 }
 
@@ -692,12 +695,12 @@ void rai::rpc_handler::mrai_to_raw ()
 		}
 		else
 		{
-			rpc.error_response (response, "Amount too big");
+			error_response (rpc, response, "Amount too big");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad amount number");
+		error_response (rpc, response, "Bad amount number");
 	}
 }
 
@@ -714,7 +717,7 @@ void rai::rpc_handler::krai_from_raw ()
 	}
 	else
 	{
-		rpc.error_response (response, "Bad amount number");
+		error_response (rpc, response, "Bad amount number");
 	}
 }
 
@@ -733,12 +736,12 @@ void rai::rpc_handler::krai_to_raw ()
 		}
 		else
 		{
-			rpc.error_response (response, "Amount too big");
+			error_response (rpc, response, "Amount too big");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad amount number");
+		error_response (rpc, response, "Bad amount number");
 	}
 }
 
@@ -763,17 +766,17 @@ void rai::rpc_handler::password_change ()
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad account number");
+			error_response (rpc, response, "Bad account number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -795,12 +798,12 @@ void rai::rpc_handler::password_enter ()
 		}
 		else
 		{
-			rpc.error_response (response, "Wallet not found");
+			error_response (rpc, response, "Wallet not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -821,12 +824,12 @@ void rai::rpc_handler::password_valid ()
 		}
 		else
 		{
-			rpc.error_response (response, "Wallet not found");
+			error_response (rpc, response, "Wallet not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -876,7 +879,7 @@ void rai::rpc_handler::pending ()
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -929,22 +932,22 @@ void rai::rpc_handler::payment_begin ()
 				}
 				else
 				{
-					rpc.error_response (response, "Unable to create transaction account");
+					error_response (rpc, response, "Unable to create transaction account");
 				}
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet locked");
+				error_response (rpc, response, "Wallet locked");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Unable to find wallets");
+			error_response (rpc, response, "Unable to find wallets");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad wallet number");
+		error_response (rpc, response, "Bad wallet number");
 	}
 }
 
@@ -982,7 +985,7 @@ void rai::rpc_handler::payment_init ()
 	}
 	else
 	{
-		rpc.error_response (response, "Bad transaction wallet number");
+		error_response (rpc, response, "Bad transaction wallet number");
 	}
 }
 
@@ -1012,27 +1015,27 @@ void rai::rpc_handler::payment_end ()
 					}
 					else
 					{
-						rpc.error_response (response, "Account has non-zero balance");
+						error_response (rpc, response, "Account has non-zero balance");
 					}
 				}
 				else
 				{
-					rpc.error_response (response, "Account not in wallet");
+					error_response (rpc, response, "Account not in wallet");
 				}
 			}
 			else
 			{
-				rpc.error_response (response, "Invalid account number");
+				error_response (rpc, response, "Invalid account number");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Unable to find wallet");
+			error_response (rpc, response, "Unable to find wallet");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad wallet number");
+		error_response (rpc, response, "Bad wallet number");
 	}
 }
 
@@ -1061,17 +1064,17 @@ void rai::rpc_handler::payment_wait ()
 			}
 			else
 			{
-				rpc.error_response (response, "Bad timeout number");
+				error_response (rpc, response, "Bad timeout number");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad amount number");
+			error_response (rpc, response, "Bad amount number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -1092,12 +1095,12 @@ void rai::rpc_handler::process ()
 		}
 		else
 		{
-			rpc.error_response (response, "Block work is invalid");
+			error_response (rpc, response, "Block work is invalid");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Block is invalid");
+		error_response (rpc, response, "Block is invalid");
 	}
 }
 
@@ -1114,7 +1117,7 @@ void rai::rpc_handler::rai_from_raw ()
 	}
 	else
 	{
-		rpc.error_response (response, "Bad amount number");
+		error_response (rpc, response, "Bad amount number");
 	}
 }
 
@@ -1133,12 +1136,12 @@ void rai::rpc_handler::rai_to_raw ()
 		}
 		else
 		{
-			rpc.error_response (response, "Amount too big");
+			error_response (rpc, response, "Amount too big");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad amount number");
+		error_response (rpc, response, "Bad amount number");
 	}
 }
 
@@ -1161,13 +1164,13 @@ void rai::rpc_handler::search_pending ()
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1213,32 +1216,32 @@ void rai::rpc_handler::send ()
 						}
 						else
 						{
-							rpc.error_response (response, "Bad amount format");
+							error_response (rpc, response, "Bad amount format");
 						}
 					}
 					else
 					{
-						rpc.error_response (response, "Bad destination account");
+						error_response (rpc, response, "Bad destination account");
 					}
 				}
 				else
 				{
-					rpc.error_response (response, "Bad source account");
+					error_response (rpc, response, "Bad source account");
 				}
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad wallet number");
+			error_response (rpc, response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1251,7 +1254,7 @@ void rai::rpc_handler::stop ()
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1300,27 +1303,27 @@ void rai::rpc_handler::wallet_add ()
 					}
 					else
 					{
-						rpc.error_response (response, "Wallet locked");
+						error_response (rpc, response, "Wallet locked");
 					}
 				}
 				else
 				{
-					rpc.error_response (response, "Wallet not found");
+					error_response (rpc, response, "Wallet not found");
 				}
 			}
 			else
 			{
-				rpc.error_response (response, "Bad wallet number");
+				error_response (rpc, response, "Bad wallet number");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad private key");
+			error_response (rpc, response, "Bad private key");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1347,17 +1350,17 @@ void rai::rpc_handler::wallet_contains ()
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad wallet number");
+			error_response (rpc, response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -1373,7 +1376,7 @@ void rai::rpc_handler::wallet_create ()
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1395,17 +1398,17 @@ void rai::rpc_handler::wallet_destroy ()
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad wallet number");
+			error_response (rpc, response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1428,12 +1431,12 @@ void rai::rpc_handler::wallet_export ()
 		}
 		else
 		{
-			rpc.error_response (response, "Wallet not found");
+			error_response (rpc, response, "Wallet not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -1455,12 +1458,12 @@ void rai::rpc_handler::wallet_key_valid ()
 		}
 		else
 		{
-			rpc.error_response (response, "Wallet not found");
+			error_response (rpc, response, "Wallet not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad wallet number");
+		error_response (rpc, response, "Bad wallet number");
 	}
 }
 
@@ -1481,12 +1484,12 @@ void rai::rpc_handler::wallet_representative ()
 		}
 		else
 		{
-			rpc.error_response (response, "Wallet not found");
+			error_response (rpc, response, "Wallet not found");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "Bad account number");
+		error_response (rpc, response, "Bad account number");
 	}
 }
 
@@ -1515,22 +1518,22 @@ void rai::rpc_handler::wallet_representative_set ()
 				}
 				else
 				{
-					rpc.error_response (response, "Invalid account number");
+					error_response (rpc, response, "Invalid account number");
 				}
 			}
 			else
 			{
-				rpc.error_response (response, "Wallet not found");
+				error_response (rpc, response, "Wallet not found");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad account number");
+			error_response (rpc, response, "Bad account number");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1552,17 +1555,17 @@ void rai::rpc_handler::work_generate ()
 			}
 			else
 			{
-				rpc.error_response (response, "Cancelled");
+				error_response (rpc, response, "Cancelled");
 			}
 		}
 		else
 		{
-			rpc.error_response (response, "Bad block hash");
+			error_response (rpc, response, "Bad block hash");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1581,12 +1584,12 @@ void rai::rpc_handler::work_cancel ()
 		}
 		else
 		{
-			rpc.error_response (response, "Bad block hash");
+			error_response (rpc, response, "Bad block hash");
 		}
 	}
 	else
 	{
-		rpc.error_response (response, "RPC control is disabled");
+		error_response (rpc, response, "RPC control is disabled");
 	}
 }
 
@@ -1637,7 +1640,7 @@ void rai::rpc::handle_connection (nghttp2::asio_http2::server::request const & r
 	}
 	else
 	{
-		error_response (response_a, "Can only POST requests");
+		error_response (*this, response_a, "Can only POST requests");
 	}
 }
 
@@ -1864,16 +1867,16 @@ void rai::rpc_handler::process_request ()
 		}
 		else
 		{
-			rpc.error_response (response, "Unknown command");
+			error_response (rpc, response, "Unknown command");
 		}
 	}
 	catch (std::runtime_error const & err)
 	{
-		rpc.error_response (response, "Unable to parse JSON");
+		error_response (rpc, response, "Unable to parse JSON");
 	}
 	catch (...)
 	{
-		rpc.error_response (response, "Internal server error in RPC");
+		error_response (rpc, response, "Internal server error in RPC");
 	}
 }
 
@@ -1955,7 +1958,7 @@ void rai::payment_observer::complete (rai::payment_status status)
 			}
 			default:
 			{
-				rpc.error_response (response, "Internal payment error");
+				error_response (rpc, response, "Internal payment error");
 				break;
 			}
 		}

@@ -48,7 +48,6 @@ public:
 	void handle_connection (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a);
     void log (const char *) {}
 	bool decode_unsigned (std::string const &, uint64_t &);
-	void error_response (nghttp2::asio_http2::server::response const & response_a, std::string const &);
 	void send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree &);
 	void observer_action (rai::account const &);
 	nghttp2::asio_http2::server::http2 server;
