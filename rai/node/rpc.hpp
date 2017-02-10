@@ -48,7 +48,7 @@ public:
 	void handle_connection (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a);
     void log (const char *) {}
 	bool decode_unsigned (std::string const &, uint64_t &);
-	void send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree &);
+	void send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree const &);
 	void observer_action (rai::account const &);
 	nghttp2::asio_http2::server::http2 server;
 	std::mutex mutex;
@@ -61,7 +61,7 @@ public:
 class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
 {
 public:
-	payment_observer (nghttp2::asio_http2::server::response const &, rai::rpc &, rai::account const &, rai::amount const &);
+	payment_observer (std::function <void (boost::property_tree::ptree const &)> const &, rai::rpc &, rai::account const &, rai::amount const &);
 	~payment_observer ();
 	void start (uint64_t);
 	void observe ();
@@ -72,13 +72,13 @@ public:
 	rai::rpc & rpc;
 	rai::account account;
 	rai::amount amount;
-	nghttp2::asio_http2::server::response const & response;
+	std::function <void (boost::property_tree::ptree const &)> response;
 	std::atomic_flag completed;
 };
 class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
 {
 public:
-	rpc_handler (rai::rpc &, nghttp2::asio_http2::server::response const &);
+	rpc_handler (rai::rpc &, std::function <void (boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
 	void account_create ();
@@ -130,6 +130,6 @@ public:
 	std::string body;
 	rai::rpc & rpc;
 	boost::property_tree::ptree request;
-	nghttp2::asio_http2::server::response const & response;
+	std::function <void (boost::property_tree::ptree const &)> response;
 };
 }

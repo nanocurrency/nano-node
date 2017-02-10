@@ -91,13 +91,13 @@ void rai::rpc::stop ()
     server.stop ();
 }
 
-rai::rpc_handler::rpc_handler (rai::rpc & rpc_a, nghttp2::asio_http2::server::response const & response_a) :
+rai::rpc_handler::rpc_handler (rai::rpc & rpc_a, std::function <void (boost::property_tree::ptree const &)> const & response_a) :
 rpc (rpc_a),
 response (response_a)
 {
 }
 
-void rai::rpc::send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree & tree)
+void rai::rpc::send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree const & tree)
 {
     std::stringstream ostream;
     boost::property_tree::write_json (ostream, tree);
@@ -129,11 +129,11 @@ void rai::rpc::observer_action (rai::account const & account_a)
 
 namespace
 {
-void error_response (rai::rpc & rpc_a, nghttp2::asio_http2::server::response const & response_a, std::string const & message_a)
+void error_response (std::function <void (boost::property_tree::ptree const &)> response_a, std::string const & message_a)
 {
 	boost::property_tree::ptree response_l;
 	response_l.put ("error", message_a);
-	rpc_a.send_response (response_a, response_l);
+	response_a (response_l);
 }
 }
 
@@ -148,11 +148,11 @@ void rai::rpc_handler::account_balance ()
 		boost::property_tree::ptree response_l;
 		response_l.put ("balance", balance.first.convert_to <std::string> ());
 		response_l.put ("pending", balance.second.convert_to <std::string> ());
-		rpc.send_response (response, response_l);
+		response (response_l);
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -173,26 +173,26 @@ void rai::rpc_handler::account_create ()
 				{
 					boost::property_tree::ptree response_l;
 					response_l.put ("account", new_key.to_account ());
-					rpc.send_response (response, response_l);
+					response (response_l);
 				}
 				else
 				{
-					error_response (rpc, response, "Wallet is locked");
+					error_response (response, "Wallet is locked");
 				}
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad wallet number");
+			error_response (response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -216,16 +216,16 @@ void rai::rpc_handler::account_list ()
 				accounts.push_back (std::make_pair ("", entry));
 			}
 			response_l.add_child ("accounts", accounts);
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Wallet not found");
+			error_response (response, "Wallet not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad wallet number");
+		error_response (response, "Bad wallet number");
 	}
 }
 
@@ -263,31 +263,31 @@ void rai::rpc_handler::account_move ()
 						auto error (wallet->store.move (transaction, source->store, accounts));
 						boost::property_tree::ptree response_l;
 						response_l.put ("moved", error ? "0" : "1");
-						rpc.send_response (response, response_l);
+						response (response_l);
 					}
 					else
 					{
-						error_response (rpc, response, "Source not found");
+						error_response (response, "Source not found");
 					}
 				}
 				else
 				{
-					error_response (rpc, response, "Bad source number");
+					error_response (response, "Bad source number");
 				}
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad wallet number");
+			error_response (response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -307,16 +307,16 @@ void rai::rpc_handler::account_representative ()
 			assert (block != nullptr);
 			boost::property_tree::ptree response_l;
 			response_l.put ("representative", block->representative ().to_account ());
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Account not found");
+			error_response (response, "Account not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -343,8 +343,8 @@ void rai::rpc_handler::account_representative_set ()
 					auto error (representative.decode_account (representative_text));
 					if (!error)
 					{
-						auto rpc_l (shared_from_this ());
-						wallet->change_async (account, representative, [rpc_l] (std::unique_ptr <rai::block> block)
+						auto response_a (response);
+						wallet->change_async (account, representative, [response_a] (std::unique_ptr <rai::block> block)
 						{
 							rai::block_hash hash (0);
 							if (block != nullptr)
@@ -353,20 +353,20 @@ void rai::rpc_handler::account_representative_set ()
 							}
 							boost::property_tree::ptree response_l;
 							response_l.put ("block", hash.to_string ());
-							rpc_l->rpc.send_response (rpc_l->response, response_l);
+							response_a (response_l);
 						});
 					}
 				}
 				else
 				{
-					error_response (rpc, response, "Bad account number");
+					error_response (response, "Bad account number");
 				}
 			}
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -380,11 +380,11 @@ void rai::rpc_handler::account_weight ()
 		auto balance (rpc.node.weight (account));
 		boost::property_tree::ptree response_l;
 		response_l.put ("weight", balance.convert_to <std::string> ());
-		rpc.send_response (response, response_l);
+		response (response_l);
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -396,7 +396,7 @@ void rai::rpc_handler::available_supply ()
 	auto available (rai::genesis_amount - genesis_balance - landing_balance - faucet_balance);
 	boost::property_tree::ptree response_l;
 	response_l.put ("available", available.convert_to <std::string> ());
-	rpc.send_response (response, response_l);
+	response (response_l);
 }
 
 void rai::rpc_handler::block ()
@@ -414,16 +414,16 @@ void rai::rpc_handler::block ()
 			std::string contents;
 			block->serialize_json (contents);
 			response_l.put ("contents", contents);
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Block not found");
+			error_response (response, "Block not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad hash number");
+		error_response (response, "Bad hash number");
 	}
 }
 
@@ -439,16 +439,16 @@ void rai::rpc_handler::block_account ()
 			boost::property_tree::ptree response_l;
 			auto account (rpc.node.ledger.account (transaction, hash));
 			response_l.put ("account", account.to_account ());
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Block not found");
+			error_response (response, "Block not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Invalid block hash");
+		error_response (response, "Invalid block hash");
 	}
 }
 
@@ -458,7 +458,7 @@ void rai::rpc_handler::block_count ()
 	boost::property_tree::ptree response_l;
 	response_l.put ("count", std::to_string (rpc.node.store.block_count (transaction)));
 	response_l.put ("unchecked", std::to_string (rpc.node.store.unchecked_count (transaction)));
-	rpc.send_response (response, response_l);
+	response (response_l);
 }
 
 void rai::rpc_handler::chain ()
@@ -490,16 +490,16 @@ void rai::rpc_handler::chain ()
 				}
 			}
 			response_l.add_child ("blocks", blocks);
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Invalid count limit");
+			error_response (response, "Invalid count limit");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Invalid block hash");
+		error_response (response, "Invalid block hash");
 	}
 }
 
@@ -521,16 +521,16 @@ void rai::rpc_handler::frontiers ()
 				frontiers.put (rai::account (i->first).to_account (), rai::account_info (i->second).head.to_string ());
 			}
 			response_l.add_child ("frontiers", frontiers);
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Invalid count limit");
+			error_response (response, "Invalid count limit");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Invalid starting account");
+		error_response (response, "Invalid starting account");
 	}
 }
 
@@ -540,7 +540,7 @@ void rai::rpc_handler::frontier_count ()
 	auto size (rpc.node.store.frontier_count (transaction));
 	boost::property_tree::ptree response_l;
 	response_l.put ("count", std::to_string (size));
-	rpc.send_response (response, response_l);
+	response (response_l);
 }
 
 namespace
@@ -626,16 +626,16 @@ void rai::rpc_handler::history ()
 				--count;
 			}
 			response_l.add_child ("history", history);
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Invalid count limit");
+			error_response (response, "Invalid count limit");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Invalid block hash");
+		error_response (response, "Invalid block hash");
 	}
 }
 
@@ -650,16 +650,16 @@ void rai::rpc_handler::keepalive ()
 		{
 			rpc.node.keepalive (address_text, port);
 			boost::property_tree::ptree response_l;
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Invalid port");
+			error_response (response, "Invalid port");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -672,11 +672,11 @@ void rai::rpc_handler::mrai_from_raw ()
 		auto result (amount.number () / rai::Mrai_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to <std::string> ());
-		rpc.send_response (response, response_l);
+		response (response_l);
 	}
 	else
 	{
-		error_response (rpc, response, "Bad amount number");
+		error_response (response, "Bad amount number");
 	}
 }
 
@@ -691,16 +691,16 @@ void rai::rpc_handler::mrai_to_raw ()
 		{
 			boost::property_tree::ptree response_l;
 			response_l.put ("amount", result.convert_to <std::string> ());
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Amount too big");
+			error_response (response, "Amount too big");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad amount number");
+		error_response (response, "Bad amount number");
 	}
 }
 
@@ -713,11 +713,11 @@ void rai::rpc_handler::krai_from_raw ()
 		auto result (amount.number () / rai::krai_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to <std::string> ());
-		rpc.send_response (response, response_l);
+		response (response_l);
 	}
 	else
 	{
-		error_response (rpc, response, "Bad amount number");
+		error_response (response, "Bad amount number");
 	}
 }
 
@@ -732,16 +732,16 @@ void rai::rpc_handler::krai_to_raw ()
 		{
 			boost::property_tree::ptree response_l;
 			response_l.put ("amount", result.convert_to <std::string> ());
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Amount too big");
+			error_response (response, "Amount too big");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad amount number");
+		error_response (response, "Bad amount number");
 	}
 }
 
@@ -762,21 +762,21 @@ void rai::rpc_handler::password_change ()
 				std::string password_text (request.get <std::string> ("password"));
 				auto error (existing->second->store.rekey (transaction, password_text));
 				response_l.put ("changed", error ? "0" : "1");
-				rpc.send_response (response, response_l);
+				response (response_l);
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad account number");
+			error_response (response, "Bad account number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -794,16 +794,16 @@ void rai::rpc_handler::password_enter ()
 			std::string password_text (request.get <std::string> ("password"));
 			auto error (existing->second->enter_password (password_text));
 			response_l.put ("valid", error ? "0" : "1");
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Wallet not found");
+			error_response (response, "Wallet not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -820,16 +820,16 @@ void rai::rpc_handler::password_valid ()
 			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
 			boost::property_tree::ptree response_l;
 			response_l.put ("valid", existing->second->store.valid_password (transaction) ? "1" : "0");
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Wallet not found");
+			error_response (response, "Wallet not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -847,7 +847,7 @@ void rai::rpc_handler::peers ()
 		peers_l.push_back (std::make_pair ("", entry));
 	}
 	response_l.add_child ("peers", peers_l);
-	rpc.send_response (response, response_l);
+	response (response_l);
 }
 
 void rai::rpc_handler::pending ()
@@ -874,12 +874,12 @@ void rai::rpc_handler::pending ()
 				}
 			}
 			response_l.add_child ("blocks", peers_l);
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -928,26 +928,26 @@ void rai::rpc_handler::payment_begin ()
 				{
 					boost::property_tree::ptree response_l;
 					response_l.put ("account", account.to_account ());
-					rpc.send_response (response, response_l);
+					response (response_l);
 				}
 				else
 				{
-					error_response (rpc, response, "Unable to create transaction account");
+					error_response (response, "Unable to create transaction account");
 				}
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet locked");
+				error_response (response, "Wallet locked");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Unable to find wallets");
+			error_response (response, "Unable to find wallets");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad wallet number");
+		error_response (response, "Bad wallet number");
 	}
 }
 
@@ -967,25 +967,25 @@ void rai::rpc_handler::payment_init ()
 				wallet->init_free_accounts (transaction);
 				boost::property_tree::ptree response_l;
 				response_l.put ("status", "Ready");
-				rpc.send_response (response, response_l);
+				response (response_l);
 			}
 			else
 			{
 				boost::property_tree::ptree response_l;
 				response_l.put ("status", "Transaction wallet locked");
-				rpc.send_response (response, response_l);
+				response (response_l);
 			}
 		}
 		else
 		{
 			boost::property_tree::ptree response_l;
 			response_l.put ("status", "Unable to find transaction wallet");
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad transaction wallet number");
+		error_response (response, "Bad transaction wallet number");
 	}
 }
 
@@ -1011,31 +1011,31 @@ void rai::rpc_handler::payment_end ()
 					{
 						wallet->free_accounts.insert (account);
 						boost::property_tree::ptree response_l;
-						rpc.send_response (response, response_l);
+						response (response_l);
 					}
 					else
 					{
-						error_response (rpc, response, "Account has non-zero balance");
+						error_response (response, "Account has non-zero balance");
 					}
 				}
 				else
 				{
-					error_response (rpc, response, "Account not in wallet");
+					error_response (response, "Account not in wallet");
 				}
 			}
 			else
 			{
-				error_response (rpc, response, "Invalid account number");
+				error_response (response, "Invalid account number");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Unable to find wallet");
+			error_response (response, "Unable to find wallet");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad wallet number");
+		error_response (response, "Bad wallet number");
 	}
 }
 
@@ -1064,17 +1064,17 @@ void rai::rpc_handler::payment_wait ()
 			}
 			else
 			{
-				error_response (rpc, response, "Bad timeout number");
+				error_response (response, "Bad timeout number");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad amount number");
+			error_response (response, "Bad amount number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -1091,16 +1091,16 @@ void rai::rpc_handler::process ()
 		{
 			rpc.node.process_receive_republish (std::move (block), 0);
 			boost::property_tree::ptree response_l;
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Block work is invalid");
+			error_response (response, "Block work is invalid");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Block is invalid");
+		error_response (response, "Block is invalid");
 	}
 }
 
@@ -1113,11 +1113,11 @@ void rai::rpc_handler::rai_from_raw ()
 		auto result (amount.number () / rai::rai_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to <std::string> ());
-		rpc.send_response (response, response_l);
+		response (response_l);
 	}
 	else
 	{
-		error_response (rpc, response, "Bad amount number");
+		error_response (response, "Bad amount number");
 	}
 }
 
@@ -1132,16 +1132,16 @@ void rai::rpc_handler::rai_to_raw ()
 		{
 			boost::property_tree::ptree response_l;
 			response_l.put ("amount", result.convert_to <std::string> ());
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Amount too big");
+			error_response (response, "Amount too big");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad amount number");
+		error_response (response, "Bad amount number");
 	}
 }
 
@@ -1160,17 +1160,17 @@ void rai::rpc_handler::search_pending ()
 				auto error (existing->second->search_pending ());
 				boost::property_tree::ptree response_l;
 				response_l.put ("started", !error);
-				rpc.send_response (response, response_l);
+				response (response_l);
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1202,7 +1202,8 @@ void rai::rpc_handler::send ()
 						if (!error)
 						{
 							auto rpc_l (shared_from_this ());
-							existing->second->send_async (source, destination, amount.number (), [rpc_l] (std::unique_ptr <rai::block> block_a)
+							auto response_a (response);
+							existing->second->send_async (source, destination, amount.number (), [response_a] (std::unique_ptr <rai::block> block_a)
 							{
 								rai::uint256_union hash (0);
 								if (block_a != nullptr)
@@ -1211,37 +1212,37 @@ void rai::rpc_handler::send ()
 								}
 								boost::property_tree::ptree response_l;
 								response_l.put ("block", hash.to_string ());
-								rpc_l->rpc.send_response (rpc_l->response, response_l);
+								response_a (response_l);
 							});
 						}
 						else
 						{
-							error_response (rpc, response, "Bad amount format");
+							error_response (response, "Bad amount format");
 						}
 					}
 					else
 					{
-						error_response (rpc, response, "Bad destination account");
+						error_response (response, "Bad destination account");
 					}
 				}
 				else
 				{
-					error_response (rpc, response, "Bad source account");
+					error_response (response, "Bad source account");
 				}
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad wallet number");
+			error_response (response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1254,7 +1255,7 @@ void rai::rpc_handler::stop ()
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1264,7 +1265,7 @@ void rai::rpc_handler::version ()
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (rpc.node.store_version ()));
 	response_l.put ("node_vendor", boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH));
-	rpc.send_response (response, response_l);
+	response (response_l);
 }
 
 void rai::rpc_handler::validate_account_number ()
@@ -1274,7 +1275,7 @@ void rai::rpc_handler::validate_account_number ()
 	auto error (account.decode_account (account_text));
 	boost::property_tree::ptree response_l;
 	response_l.put ("valid", error ? "0" : "1");
-	rpc.send_response (response, response_l);
+	response (response_l);
 }
 
 void rai::rpc_handler::wallet_add ()
@@ -1299,31 +1300,31 @@ void rai::rpc_handler::wallet_add ()
 					{
 						boost::property_tree::ptree response_l;
 						response_l.put ("account", pub.to_account ());
-						rpc.send_response (response, response_l);
+						response (response_l);
 					}
 					else
 					{
-						error_response (rpc, response, "Wallet locked");
+						error_response (response, "Wallet locked");
 					}
 				}
 				else
 				{
-					error_response (rpc, response, "Wallet not found");
+					error_response (response, "Wallet not found");
 				}
 			}
 			else
 			{
-				error_response (rpc, response, "Bad wallet number");
+				error_response (response, "Bad wallet number");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad private key");
+			error_response (response, "Bad private key");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1346,21 +1347,21 @@ void rai::rpc_handler::wallet_contains ()
 				auto exists (existing->second->store.find (transaction, account) != existing->second->store.end ());
 				boost::property_tree::ptree response_l;
 				response_l.put ("exists", exists ? "1" : "0");
-				rpc.send_response (response, response_l);
+				response (response_l);
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad wallet number");
+			error_response (response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -1372,11 +1373,11 @@ void rai::rpc_handler::wallet_create ()
 		auto wallet (rpc.node.wallets.create (wallet_id.pub));
 		boost::property_tree::ptree response_l;
 		response_l.put ("wallet", wallet_id.pub.to_string ());
-		rpc.send_response (response, response_l);
+		response (response_l);
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1394,21 +1395,21 @@ void rai::rpc_handler::wallet_destroy ()
 			{
 				rpc.node.wallets.destroy (wallet);
 				boost::property_tree::ptree response_l;
-				rpc.send_response (response, response_l);
+				response (response_l);
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad wallet number");
+			error_response (response, "Bad wallet number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1427,16 +1428,16 @@ void rai::rpc_handler::wallet_export ()
 			existing->second->store.serialize_json (transaction, json);
 			boost::property_tree::ptree response_l;
 			response_l.put ("json", json);
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Wallet not found");
+			error_response (response, "Wallet not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -1454,16 +1455,16 @@ void rai::rpc_handler::wallet_key_valid ()
 			auto valid (existing->second->store.valid_password (transaction));
 			boost::property_tree::ptree response_l;
 			response_l.put ("valid", valid ? "1" : "0");
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Wallet not found");
+			error_response (response, "Wallet not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad wallet number");
+		error_response (response, "Bad wallet number");
 	}
 }
 
@@ -1480,16 +1481,16 @@ void rai::rpc_handler::wallet_representative ()
 			rai::transaction transaction (rpc.node.store.environment, nullptr, false);
 			boost::property_tree::ptree response_l;
 			response_l.put ("representative", existing->second->store.representative (transaction).to_account ());
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Wallet not found");
+			error_response (response, "Wallet not found");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "Bad account number");
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -1514,26 +1515,26 @@ void rai::rpc_handler::wallet_representative_set ()
 					existing->second->store.representative_set (transaction, representative);
 					boost::property_tree::ptree response_l;
 					response_l.put ("set", "1");
-					rpc.send_response (response, response_l);
+					response (response_l);
 				}
 				else
 				{
-					error_response (rpc, response, "Invalid account number");
+					error_response (response, "Invalid account number");
 				}
 			}
 			else
 			{
-				error_response (rpc, response, "Wallet not found");
+				error_response (response, "Wallet not found");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad account number");
+			error_response (response, "Bad account number");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1551,21 +1552,21 @@ void rai::rpc_handler::work_generate ()
 			{
 				boost::property_tree::ptree response_l;
 				response_l.put ("work", rai::to_string_hex (work.value ()));
-				rpc.send_response (response, response_l);
+				response (response_l);
 			}
 			else
 			{
-				error_response (rpc, response, "Cancelled");
+				error_response (response, "Cancelled");
 			}
 		}
 		else
 		{
-			error_response (rpc, response, "Bad block hash");
+			error_response (response, "Bad block hash");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
@@ -1580,21 +1581,25 @@ void rai::rpc_handler::work_cancel ()
 		{
 			rpc.node.work.cancel (hash);
 			boost::property_tree::ptree response_l;
-			rpc.send_response (response, response_l);
+			response (response_l);
 		}
 		else
 		{
-			error_response (rpc, response, "Bad block hash");
+			error_response (response, "Bad block hash");
 		}
 	}
 	else
 	{
-		error_response (rpc, response, "RPC control is disabled");
+		error_response (response, "RPC control is disabled");
 	}
 }
 
 void rai::rpc::handle_connection (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a)
 {
+	auto response_handler ([this, &response_a] (boost::property_tree::ptree const & tree_a)
+	{
+		send_response (response_a, tree_a);
+	});
 	if (request_a.method () == "POST")
 	{
 		auto const & headers (request_a.header ());
@@ -1609,7 +1614,7 @@ void rai::rpc::handle_connection (nghttp2::asio_http2::server::request const & r
 			{
 				if (length < 16384)
 				{
-					auto handler (std::make_shared <rai::rpc_handler> (*this, response_a));
+					auto handler (std::make_shared <rai::rpc_handler> (*this, response_handler));
 					handler->body.reserve (length);
 					request_a.on_data ([handler] (uint8_t const * data_a, size_t size_a)
 					{
@@ -1640,7 +1645,7 @@ void rai::rpc::handle_connection (nghttp2::asio_http2::server::request const & r
 	}
 	else
 	{
-		error_response (*this, response_a, "Can only POST requests");
+		error_response (response_handler, "Can only POST requests");
 	}
 }
 
@@ -1867,16 +1872,16 @@ void rai::rpc_handler::process_request ()
 		}
 		else
 		{
-			error_response (rpc, response, "Unknown command");
+			error_response (response, "Unknown command");
 		}
 	}
 	catch (std::runtime_error const & err)
 	{
-		error_response (rpc, response, "Unable to parse JSON");
+		error_response (response, "Unable to parse JSON");
 	}
 	catch (...)
 	{
-		error_response (rpc, response, "Internal server error in RPC");
+		error_response (response, "Internal server error in RPC");
 	}
 }
 
@@ -1901,7 +1906,7 @@ bool rai::rpc::decode_unsigned (std::string const & text, uint64_t & number)
 	return result;
 }
 
-rai::payment_observer::payment_observer (nghttp2::asio_http2::server::response const & response_a, rai::rpc & rpc_a, rai::account const & account_a, rai::amount const & amount_a) :
+rai::payment_observer::payment_observer (std::function <void (boost::property_tree::ptree const &)> const & response_a, rai::rpc & rpc_a, rai::account const & account_a, rai::amount const & amount_a) :
 rpc (rpc_a),
 account (account_a),
 amount (amount_a),
@@ -1946,19 +1951,19 @@ void rai::payment_observer::complete (rai::payment_status status)
 			{
 				boost::property_tree::ptree response_l;
 				response_l.put ("status", "nothing");
-				rpc.send_response (response, response_l);
+				response (response_l);
 				break;
 			}
 			case rai::payment_status::success:
 			{
 				boost::property_tree::ptree response_l;
 				response_l.put ("status", "success");
-				rpc.send_response (response, response_l);
+				response (response_l);
 				break;
 			}
 			default:
 			{
-				error_response (rpc, response, "Internal payment error");
+				error_response (response, "Internal payment error");
 				break;
 			}
 		}
