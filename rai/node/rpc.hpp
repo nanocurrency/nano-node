@@ -2,6 +2,8 @@
 
 #include <rai/utility.hpp>
 
+#include <beast/examples/http_async_server.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -45,12 +47,11 @@ public:
     rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
     void start ();
     void stop ();
-	void handle_connection (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a);
+	void handle_connection (beast::http::http_async_server::req_type const &, std::shared_ptr <beast::http::http_async_server::peer>);
     void log (const char *) {}
 	bool decode_unsigned (std::string const &, uint64_t &);
-	void send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree const &);
 	void observer_action (rai::account const &);
-	nghttp2::asio_http2::server::http2 server;
+	beast::http::http_async_server server;
 	std::mutex mutex;
 	std::unordered_map <rai::account, std::shared_ptr <rai::payment_observer>> payment_observers;
 	rai::rpc_config config;

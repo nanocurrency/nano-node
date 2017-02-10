@@ -68,11 +68,13 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 }
 
 rai::rpc::rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a) :
-server (service_a),
+server (rai::tcp_endpoint (config_a.address, config_a.port), service_a, [this] (beast::http::http_async_server::req_type const & req_a, std::shared_ptr <beast::http::http_async_server::peer> & peer_a)
+{
+	handle_connection (req_a, peer_a);
+}),
 config (config_a),
 node (node_a)
 {
-	server.handle ("/", [this] (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a) { handle_connection (request_a, response_a); });
 	node_a.observers.blocks.add ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const &)
 	{
 		observer_action (account_a);
@@ -81,9 +83,6 @@ node (node_a)
 
 void rai::rpc::start ()
 {
-	boost::system::error_code ec;
-    server.listen_and_serve (ec, config.address.to_string (), std::to_string (config.port), true);
-	assert (!ec);
 }
 
 void rai::rpc::stop ()
@@ -95,19 +94,6 @@ rai::rpc_handler::rpc_handler (rai::rpc & rpc_a, std::function <void (boost::pro
 rpc (rpc_a),
 response (response_a)
 {
-}
-
-void rai::rpc::send_response (nghttp2::asio_http2::server::response const & response_a, boost::property_tree::ptree const & tree)
-{
-    std::stringstream ostream;
-    boost::property_tree::write_json (ostream, tree);
-	auto body (ostream.str ());
-	nghttp2::asio_http2::header_map headers;
-	headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("content-type", { "application/json", false }));
-	headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("content-length", { std::to_string (body.size ()), false }));
-	headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("Access-Control-Allow-Origin",  { "*", false }));
-	response_a.write_head (200, headers);
-	response_a.end (body);
 }
 
 void rai::rpc::observer_action (rai::account const & account_a)
@@ -1594,53 +1580,43 @@ void rai::rpc_handler::work_cancel ()
 	}
 }
 
-void rai::rpc::handle_connection (nghttp2::asio_http2::server::request const & request_a, nghttp2::asio_http2::server::response const & response_a)
+void rai::rpc::handle_connection (beast::http::http_async_server::req_type const & req_a, std::shared_ptr<beast::http::http_async_server::peer> peer_a)
 {
-	auto response_handler ([this, &response_a] (boost::property_tree::ptree const & tree_a)
+	auto version (req_a.version);
+	std::cerr << version << std::endl;
+	auto response_handler ([peer_a, version] (boost::property_tree::ptree const & tree_a)
 	{
-		send_response (response_a, tree_a);
+		beast::http::http_async_server::resp_type res;
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, tree_a);
+		auto body (ostream.str ());
+		nghttp2::asio_http2::header_map headers;
+		res.fields.insert ("content-type", "application/json");
+		res.fields.insert ("Access-Control-Allow-Origin",  "*");
+		res.status = 200;
+		res.body = body;
+		res.version = version;
+		peer_a->write_response(res);
 	});
-	if (request_a.method () == "POST")
+	if (true)
 	{
-		auto const & headers (request_a.header ());
-		auto existing (std::find_if (headers.begin (), headers.end (), [] (nghttp2::asio_http2::header_map::value_type const & item_a)
+		uint64_t length;
+		if (!decode_unsigned ("10000", length))
 		{
-			return boost::iequals (item_a.first, "content-length");
-		}));
-		if (existing != headers.end ())
-		{
-			uint64_t length;
-			if (!decode_unsigned (existing->second.value, length))
+			if (length < 16384)
 			{
-				if (length < 16384)
-				{
-					auto handler (std::make_shared <rai::rpc_handler> (*this, response_handler));
-					handler->body.reserve (length);
-					request_a.on_data ([handler] (uint8_t const * data_a, size_t size_a)
-					{
-						if (size_a != 0)
-						{
-							handler->body.append (reinterpret_cast <char const *> (data_a), size_a);
-						}
-						else
-						{
-							handler->process_request ();
-						}
-					});
-				}
-				else
-				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("content-length is too large %1%") % length);
-				}
+				auto handler (std::make_shared <rai::rpc_handler> (*this, response_handler));
+				handler->body = req_a.body;
+				handler->process_request ();
 			}
 			else
 			{
-				BOOST_LOG (node.log) << "content-length isn't a number";
+				BOOST_LOG (node.log) << boost::str (boost::format ("content-length is too large %1%") % length);
 			}
 		}
 		else
 		{
-			BOOST_LOG (node.log) << "RPC request did not contain content-length header";
+			BOOST_LOG (node.log) << "content-length isn't a number";
 		}
 	}
 	else
