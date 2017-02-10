@@ -3,6 +3,9 @@
 #include <rai/node/testing.hpp>
 #include <rai/node/rpc.hpp>
 
+#include <beast/http.hpp>
+#include <beast/http/string_body.hpp>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -14,53 +17,60 @@ class test_response
 {
 public:
 	test_response (boost::property_tree::ptree const & request_a, rai::rpc & rpc_a, boost::asio::io_service & service_a) :
-	uri ("::1"),
-	status (0),
-	status_temp (0),
-	session (service_a, uri, std::to_string (rpc_a.config.port))
+	request (request_a),
+	sock (service_a),
+	status (0)
 	{
-		std::stringstream ostream;
-		boost::property_tree::write_json (ostream, request_a);
-		request_string = ostream.str ();
-		session.on_connect ([this] (boost::asio::ip::tcp::resolver::iterator endpoint_it)
+		sock.async_connect (rai::tcp_endpoint (boost::asio::ip::address_v6::loopback (), rpc_a.config.port), [this] (boost::system::error_code const & ec)
 		{
-			boost::system::error_code ec;
-			nghttp2::asio_http2::header_map headers;
-			headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("content-length", { std::to_string (request_string.size ()), false }));
-			auto request (session.submit (ec, "POST", std::string ("http://[") + uri + "]", request_string.data (), headers));
-			request->on_response ([this] (nghttp2::asio_http2::client::response const & response_a)
+			if (!ec)
 			{
-				status_temp = response_a.status_code ();
-				this->headers = response_a.header ();
-				response_a.on_data ([this] (uint8_t const * data, size_t len)
+				std::stringstream ostream;
+				boost::property_tree::write_json (ostream, request);
+				beast::http::request<beast::http::string_body> req;
+				req.method = "POST";
+				req.url = "/";
+				req.version = 11;
+				ostream.flush ();
+				req.body = ostream.str ();
+				beast::http::prepare(req);
+				beast::http::async_write (sock, req, [this] (boost::system::error_code & ec)
 				{
-					body.write (reinterpret_cast <char const *> (data), len);
+					beast::http::async_read(sock, sb, resp, [this] (boost::system::error_code & ec)
+					{
+						if (!ec)
+						{
+							std::stringstream body (resp.body);
+							try
+							{
+								boost::property_tree::read_json (body, json);
+								status = 200;
+							}
+							catch (std::exception & e)
+							{
+								status = 500;
+							}
+						}
+						else
+						{
+							status = 400;
+						};
+					});
+					
 				});
-			});
-			request->on_close ([this] (uint32_t error_code)
+			}
+			else
 			{
-				status = status_temp;
-				if (status == 200 && !body.str ().empty ())
-				{
-					try
-					{
-						boost::property_tree::read_json (body, json);
-					}
-					catch (std::exception & e)
-					{
-					}
-				}
-			});
+				status = 400;
+			}
 		});
 	}
-	std::string request_string;
-	char const * uri;
-	nghttp2::asio_http2::header_map headers;
-	uint32_t status;
-	uint32_t status_temp;
+	boost::property_tree::ptree const & request;
+	boost::asio::ip::tcp::socket sock;
 	boost::property_tree::ptree json;
-	std::stringstream body;
-	nghttp2::asio_http2::client::session session;
+	beast::streambuf sb;
+	beast::http::response<beast::http::string_body> resp;
+	int status;
 };
 
 TEST (rpc, account_balance)
@@ -1301,10 +1311,10 @@ TEST (rpc, version)
     ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("4", response1.json.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.json.get <std::string> ("node_vendor"));
-	auto & headers (response1.headers);
+	auto & headers (response1.resp.fields);
 	auto access_control (std::find_if (headers.begin (), headers.end (), [] (decltype (*headers.begin ()) & header_a) { return boost::iequals (header_a.first, "Access-Control-Allow-Origin"); }));
 	ASSERT_NE (headers.end (), access_control);
-	ASSERT_EQ ("*", access_control->second.value);
+	ASSERT_EQ ("*", access_control->second);
 }
 
 TEST (rpc, work_generate)

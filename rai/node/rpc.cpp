@@ -1583,7 +1583,6 @@ void rai::rpc_handler::work_cancel ()
 void rai::rpc::handle_connection (beast::http::http_async_server::req_type const & req_a, std::shared_ptr<beast::http::http_async_server::peer> peer_a)
 {
 	auto version (req_a.version);
-	std::cerr << version << std::endl;
 	auto response_handler ([peer_a, version] (boost::property_tree::ptree const & tree_a)
 	{
 		beast::http::http_async_server::resp_type res;
