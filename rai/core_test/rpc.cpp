@@ -1388,7 +1388,7 @@ TEST (rpc, work_peer_bad)
 	rpc.start ();
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any (), 0));
 	rai::block_hash hash1 (1);
-	uint64_t work;
+	uint64_t work (0);
 	node2.generate_work (hash1, [&work] (uint64_t work_a)
 	{
 		work = work_a;
@@ -1412,7 +1412,7 @@ TEST (rpc, work_peer_one)
 	rpc.start ();
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address (), rpc.config.port));
 	rai::keypair key1;
-	uint64_t work;
+	uint64_t work (0);
 	node2.generate_work (key1.pub, [&work] (uint64_t work_a)
 	{
 		work = work_a;
@@ -1453,7 +1453,7 @@ TEST (rpc, work_peer_many)
 	for (auto i (0); i < 10; ++i)
 	{
 		rai::keypair key1;
-		uint64_t work;
+		uint64_t work (0);
 		node1.generate_work (key1.pub, [&work] (uint64_t work_a)
 		{
 			work = work_a;
