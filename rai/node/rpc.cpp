@@ -95,7 +95,7 @@ void rai::rpc::start ()
 		}
 		else
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Error accepting RPC connections: %1%") % ec);
+			BOOST_LOG (this->node.log) << boost::str (boost::format ("Error accepting RPC connections: %1%") % ec);
 		}
 	});
 }
