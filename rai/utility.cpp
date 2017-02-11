@@ -59,7 +59,7 @@ resizing (false)
 			assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, 128));
 			assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, database_size_increment));
+			auto status3 (mdb_env_set_mapsize (environment, 2 * database_size_increment));
 			assert (status3 == 0);
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR, 00600));
 			error_a = status4 != 0;
