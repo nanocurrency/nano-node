@@ -69,6 +69,7 @@ public:
     std::shared_ptr <rai::node> node;
 	std::shared_ptr <rai::bootstrap_attempt> attempt;
     boost::asio::ip::tcp::socket socket;
+	bool connected;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {

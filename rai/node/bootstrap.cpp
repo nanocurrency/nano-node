@@ -162,7 +162,8 @@ std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::transacti
 rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a) :
 node (node_a),
 attempt (attempt_a),
-socket (node_a->network.service)
+socket (node_a->network.service),
+connected (false)
 {
 }
 
@@ -185,6 +186,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
     {
 		if (!ec)
 		{
+			this_l->connected = true;
 			if (!this_l->attempt->connected.exchange (true))
 			{
 				this_l->connect_action ();
@@ -203,6 +205,18 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 			this_l->node->peers.bootstrap_failed (rai::endpoint (endpoint_a.address (), endpoint_a.port ()));
 		}
     });
+	std::weak_ptr <rai::bootstrap_client> this_w (this_l);
+	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [this_w] ()
+	{
+		auto this_l (this_w.lock ());
+		if (this_l != nullptr)
+		{
+			if (!this_l->connected)
+			{
+				this_l->socket.close ();
+			}
+		}
+	});
 }
 
 void rai::bootstrap_client::connect_action ()
