@@ -189,6 +189,10 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 			this_l->connected = true;
 			if (!this_l->attempt->connected.exchange (true))
 			{
+				{
+					std::lock_guard <std::mutex> lock (this_l->node->bootstrap_initiator.mutex);
+					this_l->node->bootstrap_initiator.notify_listeners ();
+				}
 				this_l->connect_action ();
 			}
 			else
@@ -895,7 +899,6 @@ void rai::bootstrap_initiator::begin_attempt (std::shared_ptr <rai::bootstrap_at
 	{
 		attempt = attempt_a;
 		attempt_a->attempt ();
-		notify_listeners ();
 	}
 }
 
