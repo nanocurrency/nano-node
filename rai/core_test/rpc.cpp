@@ -11,8 +11,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/thread.hpp>
 
-#include <nghttp2/asio_http2_client.h>
-
 class test_response
 {
 public:
@@ -36,27 +34,33 @@ public:
 				beast::http::prepare(req);
 				beast::http::async_write (sock, req, [this] (boost::system::error_code & ec)
 				{
-					beast::http::async_read(sock, sb, resp, [this] (boost::system::error_code & ec)
+					if (!ec)
 					{
-						if (!ec)
+						beast::http::async_read(sock, sb, resp, [this] (boost::system::error_code & ec)
 						{
-							std::stringstream body (resp.body);
-							try
+							if (!ec)
 							{
-								boost::property_tree::read_json (body, json);
-								status = 200;
+								std::stringstream body (resp.body);
+								try
+								{
+									boost::property_tree::read_json (body, json);
+									status = 200;
+								}
+								catch (std::exception & e)
+								{
+									status = 500;
+								}
 							}
-							catch (std::exception & e)
+							else
 							{
-								status = 500;
-							}
-						}
-						else
-						{
-							status = 400;
-						};
-					});
-					
+								status = 400;
+							};
+						});
+					}
+					else
+					{
+						status = 600;
+					}
 				});
 			}
 			else

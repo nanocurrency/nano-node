@@ -17,8 +17,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <nghttp2/asio_http2_client.h>
-
 #include <ed25519-donna/ed25519.h>
 
 double constexpr rai::node::price_max;
@@ -1432,6 +1430,21 @@ int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 }
 
 namespace {
+class work_request
+{
+public:
+work_request (boost::asio::io_service & service_a, boost::asio::ip::address address_a, uint16_t port_a) :
+address (address_a),
+port (port_a),
+socket (service_a)
+{
+}
+boost::asio::ip::address address;
+uint16_t port;
+beast::streambuf buffer;
+beast::http::response <beast::http::string_body> response;
+boost::asio::ip::tcp::socket socket;
+};
 class distributed_work : public std::enable_shared_from_this <distributed_work>
 {
 public:
@@ -1442,7 +1455,7 @@ root (root_a)
 	completed.clear ();
 	for (auto & i : node_a->config.work_peers)
 	{
-		outstanding [i.first.to_string ()] = std::to_string (i.second);
+		outstanding [i.first] = i.second;
 	}
 }
 void start ()
@@ -1457,40 +1470,63 @@ void start ()
 			auto service (i.second);
 			node->background ([this_l, host, service] ()
 			{
-				std::string request_string;
+				auto connection (std::make_shared <work_request> (this_l->node->network.service, host, service));
+				connection->socket.async_connect (rai::tcp_endpoint (host, service), [this_l, connection] (boost::system::error_code const & ec)
 				{
-					boost::property_tree::ptree request;
-					request.put ("action", "work_generate");
-					request.put ("hash", this_l->root.to_string ());
-					std::stringstream ostream;
-					boost::property_tree::write_json (ostream, request);
-					request_string = ostream.str ();
-				}
-				auto body (std::make_shared <std::stringstream> ());
-				auto session (std::make_shared <nghttp2::asio_http2::client::session> (this_l->node->network.service, host, service));
-				session->on_connect ([this_l, request_string, host, body, session] (boost::asio::ip::tcp::resolver::iterator endpoint_it)
-				{
-					boost::system::error_code ec;
-					nghttp2::asio_http2::header_map headers;
-					headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("content-length", { std::to_string (request_string.size ()), false }));
-					auto request (session->submit (ec, "POST", std::string ("http://[") + host + "]", request_string.data (), headers));
-					request->on_response ([this_l, session, body, host] (nghttp2::asio_http2::client::response const & response_a)
+					if (!ec)
 					{
-						auto status (response_a.status_code ());
-						if (status != 200)
+						std::string request_string;
 						{
-							BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer %1% responded with an error %2%") % host % std::to_string (status));
-							this_l->failure (host);
+							boost::property_tree::ptree request;
+							request.put ("action", "work_generate");
+							request.put ("hash", this_l->root.to_string ());
+							std::stringstream ostream;
+							boost::property_tree::write_json (ostream, request);
+							request_string = ostream.str ();
 						}
-						response_a.on_data ([this_l, body] (uint8_t const * data, size_t len)
+						beast::http::request <beast::http::string_body> request;
+						request.method = "POST";
+						request.url = "/";
+						request.version = 11;
+						request.body = request_string;
+						beast::http::prepare (request);
+						beast::http::async_write (connection->socket, request, [this_l, connection] (boost::system::error_code const & ec)
 						{
-							body->write (reinterpret_cast <char const *> (data), len);
+							if (!ec)
+							{
+								beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection] (boost::system::error_code const & ec)
+								{
+									if (!ec)
+									{
+										if (connection->response.status == 200)
+										{
+											this_l->success (connection->response.body, connection->address);
+										}
+										else
+										{
+											BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer %1% responded with an error %2%") % connection->address % connection->port);
+											this_l->failure (connection->address);
+										}
+									}
+									else
+									{
+										BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to read from work_peer %1% %2%") % connection->address % connection->port);
+										this_l->failure (connection->address);
+									}
+								});
+							}
+							else
+							{
+								BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to write to work_peer %1% %2%") % connection->address % connection->port);
+								this_l->failure (connection->address);
+							}
 						});
-					});
-					request->on_close ([this_l, body, session, host] (uint32_t error_code)
+					}
+					else
 					{
-						this_l->callback (body->str (), error_code, host);
-					});
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to connect to work_peer %1% %2%") % connection->address % connection->port);
+						this_l->failure (connection->address);
+					}
 				});
 			});
 		}
@@ -1519,33 +1555,21 @@ void stop ()
 				boost::property_tree::write_json (ostream, request);
 				request_string = ostream.str ();
 			}
-			auto session (std::make_shared <nghttp2::asio_http2::client::session> (this_l->node->network.service, host, service));
-			session->on_connect ([this_l, request_string, host, session] (boost::asio::ip::tcp::resolver::iterator endpoint_it)
+			beast::http::request <beast::http::string_body> request;
+			request.method = "POST";
+			request.url = "/";
+			request.version = 11;
+			request.body = request_string;
+			beast::http::prepare (request);
+			auto socket (std::make_shared <boost::asio::ip::tcp::socket> (this_l->node->network.service));
+			beast::http::async_write (*socket, request, [socket] (boost::system::error_code const & ec)
 			{
-				boost::system::error_code ec;
-				nghttp2::asio_http2::header_map headers;
-				headers.insert (std::pair <std::string, nghttp2::asio_http2::header_value> ("content-length", { std::to_string (request_string.size ()), false }));
-				auto request (session->submit (ec, "POST", std::string ("http://[") + host + "]", request_string.data (), headers));
-				request->on_close ([this_l, session] (uint32_t error_code)
-				{
-				});
 			});
 		});
 	}
 	outstanding.clear ();
 }
-void callback (std::string const & body_a, uint32_t ec, std::string const & address)
-{
-	if (!ec)
-	{
-		success (body_a, address);
-	}
-	else
-	{
-		failure (address);
-	}
-}
-void success (std::string const & body_a, std::string const & address)
+void success (std::string const & body_a, boost::asio::ip::address const & address)
 {
 	auto last (remove (address));
 	std::stringstream istream (body_a);
@@ -1587,7 +1611,7 @@ void set_once (uint64_t work_a)
 		promise.set_value (work_a);
 	}
 }
-void failure (std::string const & address)
+void failure (boost::asio::ip::address const & address)
 {
 	auto last (remove (address));
 	handle_failure (last);
@@ -1602,7 +1626,7 @@ void handle_failure (bool last)
 		}
 	}
 }
-bool remove (std::string const & address)
+bool remove (boost::asio::ip::address const & address)
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	outstanding.erase (address);
@@ -1612,7 +1636,7 @@ std::promise <uint64_t> promise;
 std::shared_ptr <rai::node> node;
 rai::block_hash root;
 std::mutex mutex;
-std::unordered_map <std::string, std::string> outstanding;
+std::map <boost::asio::ip::address, uint16_t> outstanding;
 std::atomic_flag completed;
 };
 }

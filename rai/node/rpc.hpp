@@ -2,13 +2,11 @@
 
 #include <rai/utility.hpp>
 
-#include <beast/examples/http_async_server.hpp>
+#include <beast/http.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-
-#include <nghttp2/asio_http2_server.h>
 
 #include <atomic>
 #include <unordered_map>
@@ -47,17 +45,25 @@ public:
     rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
     void start ();
     void stop ();
-	void handle_connection (beast::http::http_async_server::req_type const &, std::shared_ptr <beast::http::http_async_server::peer>);
-    void log (const char *) {}
-	bool decode_unsigned (std::string const &, uint64_t &);
 	void observer_action (rai::account const &);
-	beast::http::http_async_server server;
+	boost::asio::ip::tcp::acceptor acceptor;
 	std::mutex mutex;
 	std::unordered_map <rai::account, std::shared_ptr <rai::payment_observer>> payment_observers;
 	rai::rpc_config config;
     rai::node & node;
     bool on;
     static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
+};
+class rpc_connection : public std::enable_shared_from_this <rai::rpc_connection>
+{
+public:
+	rpc_connection (rai::node &, rai::rpc &);
+	void parse_connection ();
+	std::shared_ptr <rai::node> node;
+	rai::rpc & rpc;
+	boost::asio::ip::tcp::socket socket;
+	beast::streambuf buffer;
+	beast::http::request <beast::http::string_body> request;
 };
 class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
 {
@@ -79,7 +85,7 @@ public:
 class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
 {
 public:
-	rpc_handler (rai::rpc &, std::function <void (boost::property_tree::ptree const &)> const &);
+	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::function <void (boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
 	void account_create ();
@@ -129,6 +135,7 @@ public:
 	void work_generate ();
 	void work_cancel ();
 	std::string body;
+	rai::node & node;
 	rai::rpc & rpc;
 	boost::property_tree::ptree request;
 	std::function <void (boost::property_tree::ptree const &)> response;
