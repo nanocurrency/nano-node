@@ -1635,16 +1635,17 @@ void rai::rpc_connection::parse_connection ()
 			auto version (this_l->request.version);
 			auto response_handler ([this_l, version] (boost::property_tree::ptree const & tree_a)
 			{
-				beast::http::response <beast::http::string_body> res;
 				std::stringstream ostream;
 				boost::property_tree::write_json (ostream, tree_a);
+				ostream.flush ();
 				auto body (ostream.str ());
-				res.fields.insert ("content-type", "application/json");
-				res.fields.insert ("Access-Control-Allow-Origin",  "*");
-				res.status = 200;
-				res.body = body;
-				res.version = version;
-				beast::http::async_write (this_l->socket, res, [this_l] (boost::system::error_code const & ec)
+				this_l->res.fields.insert ("content-type", "application/json");
+				this_l->res.fields.insert ("Access-Control-Allow-Origin",  "*");
+				this_l->res.status = 200;
+				this_l->res.body = body;
+				this_l->res.version = version;
+				beast::http::prepare (this_l->res);
+				beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec)
 				{
 				});
 			});

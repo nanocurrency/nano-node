@@ -64,6 +64,7 @@ public:
 	boost::asio::ip::tcp::socket socket;
 	beast::streambuf buffer;
 	beast::http::request <beast::http::string_body> request;
+	beast::http::response <beast::http::string_body> res;
 };
 class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
 {
