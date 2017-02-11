@@ -238,6 +238,10 @@ bool rai::uint128_union::decode_hex (std::string const & text)
         {
             stream >> number_l;
             *this = number_l;
+			if (!stream.eof ())
+			{
+				result = true;
+			}
         }
         catch (std::runtime_error &)
         {
@@ -415,6 +419,10 @@ bool rai::uint256_union::decode_hex (std::string const & text)
             {
                 stream >> number_l;
                 *this = number_l;
+				if (!stream.eof ())
+				{
+					result = true;
+				}
             }
             catch (std::runtime_error &)
             {
@@ -712,6 +720,10 @@ bool rai::uint512_union::decode_hex (std::string const & text)
         {
             stream >> number_l;
             *this = number_l;
+			if (!stream.eof ())
+			{
+				result = true;
+			}
         }
         catch (std::runtime_error &)
         {
