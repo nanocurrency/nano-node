@@ -298,7 +298,7 @@ TEST (rpc, send_fail)
 	thread2.join ();
 }
 
-TEST (rpc, DISABLED_stop)
+TEST (rpc, stop)
 {
     rai::system system (24000, 1);
     rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
