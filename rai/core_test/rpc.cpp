@@ -1375,7 +1375,7 @@ TEST (rpc, work_cancel)
 	thread.join ();
 }
 
-TEST (rpc, DISABLED_work_peer_bad)
+TEST (rpc, work_peer_bad)
 {
     rai::system system (24000, 2);
 	rai::node_init init1;
@@ -1388,11 +1388,18 @@ TEST (rpc, DISABLED_work_peer_bad)
 	rpc.start ();
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any (), 0));
 	rai::block_hash hash1 (1);
-	auto work (node2.generate_work (hash1));
-	ASSERT_FALSE (system.work.work_validate (hash1, work));
+	uint64_t work;
+	node2.generate_work (hash1, [&work] (uint64_t work_a)
+	{
+		work = work_a;
+	});
+	while (system.work.work_validate (hash1, work))
+	{
+		system.poll ();
+	}
 }
 
-TEST (rpc, DISABLED_work_peer_one)
+TEST (rpc, work_peer_one)
 {
     rai::system system (24000, 2);
 	rai::node_init init1;
@@ -1405,11 +1412,18 @@ TEST (rpc, DISABLED_work_peer_one)
 	rpc.start ();
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address (), rpc.config.port));
 	rai::keypair key1;
-	auto work (node2.generate_work (key1.pub));
-	ASSERT_FALSE (system.work.work_validate (key1.pub, work));
+	uint64_t work;
+	node2.generate_work (key1.pub, [&work] (uint64_t work_a)
+	{
+		work = work_a;
+	});
+	while (system.work.work_validate (key1.pub, work))
+	{
+		system.poll ();
+	}
 }
 
-TEST (rpc, DISABLED_work_peer_many)
+TEST (rpc, work_peer_many)
 {
     rai::system system1 (24000, 1);
     rai::system system2 (24001, 1);
@@ -1439,8 +1453,18 @@ TEST (rpc, DISABLED_work_peer_many)
 	for (auto i (0); i < 10; ++i)
 	{
 		rai::keypair key1;
-		auto work (node1.generate_work (key1.pub));
-		ASSERT_FALSE (system1.work.work_validate (key1.pub, work));
+		uint64_t work;
+		node1.generate_work (key1.pub, [&work] (uint64_t work_a)
+		{
+			work = work_a;
+		});
+		while (system1.work.work_validate (key1.pub, work))
+		{
+			system1.poll ();
+			system2.poll ();
+			system3.poll ();
+			system4.poll ();
+		}
 	}
 }
 

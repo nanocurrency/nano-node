@@ -1448,7 +1448,8 @@ boost::asio::ip::tcp::socket socket;
 class distributed_work : public std::enable_shared_from_this <distributed_work>
 {
 public:
-distributed_work (std::shared_ptr <rai::node> const & node_a, rai::block_hash const & root_a) :
+distributed_work (std::shared_ptr <rai::node> const & node_a, rai::block_hash const & root_a, std::function <void (uint64_t)> callback_a) :
+callback (callback_a),
 node (node_a),
 root (root_a)
 {
@@ -1608,7 +1609,7 @@ void set_once (uint64_t work_a)
 {
 	if (!completed.test_and_set ())
 	{
-		promise.set_value (work_a);
+		callback (work_a);
 	}
 }
 void failure (boost::asio::ip::address const & address)
@@ -1622,7 +1623,7 @@ void handle_failure (bool last)
 	{
 		if (!completed.test_and_set ())
 		{
-			promise.set_value (node->work.generate (root));
+			callback (node->work.generate (root));
 		}
 	}
 }
@@ -1632,7 +1633,7 @@ bool remove (boost::asio::ip::address const & address)
 	outstanding.erase (address);
 	return outstanding.empty ();
 }
-std::promise <uint64_t> promise;
+std::function <void (uint64_t)> callback;
 std::shared_ptr <rai::node> node;
 rai::block_hash root;
 std::mutex mutex;
@@ -1646,11 +1647,20 @@ void rai::node::generate_work (rai::block & block_a)
     block_a.block_work_set (generate_work (block_a.root ()));
 }
 
+void rai::node::generate_work (rai::uint256_union const & hash_a, std::function <void (uint64_t)> callback_a)
+{
+	auto work_generation (std::make_shared <distributed_work> (shared (), hash_a, callback_a));
+	work_generation->start ();
+}
+
 uint64_t rai::node::generate_work (rai::uint256_union const & hash_a)
 {
-	auto work_generation (std::make_shared <distributed_work> (shared (), hash_a));
-	work_generation->start ();
-	return work_generation->promise.get_future ().get ();
+	std::promise <uint64_t> promise;
+	generate_work (hash_a, [&promise] (uint64_t work_a)
+	{
+		promise.set_value (work_a);
+	});
+	return promise.get_future ().get ();
 }
 
 namespace

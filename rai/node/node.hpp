@@ -362,6 +362,7 @@ public:
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
+	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
 	bool rollback_predicate (rai::block const &);
 	rai::node_config config;
     rai::alarm & alarm;
