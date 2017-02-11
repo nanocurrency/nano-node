@@ -193,7 +193,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 			}
 			else
 			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from: %1% because bootstrap in progress") % endpoint_a);
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because bootstrap in progress") % endpoint_a);
 			}
 		}
 		else
@@ -206,13 +206,14 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 		}
     });
 	std::weak_ptr <rai::bootstrap_client> this_w (this_l);
-	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [this_w] ()
+	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [this_w, endpoint_a] ()
 	{
 		auto this_l (this_w.lock ());
 		if (this_l != nullptr)
 		{
 			if (!this_l->connected)
 			{
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because because of connection timeout") % endpoint_a);
 				this_l->socket.close ();
 			}
 		}
