@@ -272,7 +272,7 @@ clear_label (new QLabel ("Modifying seed clears existing keys\nType 'clear keys'
 clear_line (new QLineEdit),
 import_seed (new QPushButton ("Import seed")),
 separator (new QFrame),
-filename_label (new QLabel ("Filename:")),
+filename_label (new QLabel ("Filename with full path:")),
 filename (new QLineEdit),
 password_label (new QLabel ("Password:")),
 password (new QLineEdit),
