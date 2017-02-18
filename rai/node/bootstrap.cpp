@@ -52,6 +52,7 @@ public:
         {
             result = false;
             sync.store.stack_push (transaction, hash_a);
+			sync.attempted.insert (hash_a);
         }
 		else
 		{
@@ -135,7 +136,7 @@ std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * tran
 
 bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    return store.block_exists (transaction_a, hash_a);
+    return store.block_exists (transaction_a, hash_a) || attempted.count (hash_a) != 0;
 }
 
 rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :

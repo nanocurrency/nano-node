@@ -251,6 +251,32 @@ TEST (push_synchronization, one)
 	ASSERT_EQ (block2, *blocks [0]);
 }
 
+// Make sure synchronize terminates even with forks
+TEST (pull_synchronization, dependent_fork)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_FALSE (init);
+	rai::ledger ledger (store);
+	rai::keypair key0;
+	rai::keypair key1;
+	rai::transaction transaction (store.environment, nullptr, true);
+	rai::genesis genesis;
+	genesis.initialize (transaction, store);
+	rai::send_block send0 (genesis.hash (), key0.pub, rai::genesis_amount - 1 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send1 (genesis.hash (), key0.pub, rai::genesis_amount - 2 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send2 (send0.hash (), key0.pub, rai::genesis_amount - 3 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send3 (send1.hash (), key0.pub, rai::genesis_amount - 4 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send0).code);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send2).code);
+	store.unchecked_put (transaction, send1.hash (), send1);
+	store.unchecked_put (transaction, send3.hash (), send3);
+	rai::pull_synchronization sync (test_log, [] (MDB_txn *, rai::block const & block_a)
+	{
+	}, store);
+	ASSERT_FALSE (sync.synchronize (transaction, send3.hash ()));
+}
+
 // Make sure that when synchronizing, if a fork needs to be resolved, don't drop the blocks we downloaded.
 TEST (pull_synchronization, DISABLED_keep_blocks)
 {

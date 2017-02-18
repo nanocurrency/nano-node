@@ -28,6 +28,7 @@ public:
 	boost::log::sources::logger_mt & log;
     std::function <void (MDB_txn *, rai::block const &)> target;
     rai::block_store & store;
+	std::unordered_set <rai::block_hash> attempted;
 };
 class pull_synchronization : public rai::block_synchronization
 {
