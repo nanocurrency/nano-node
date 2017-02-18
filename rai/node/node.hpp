@@ -212,6 +212,7 @@ class mapping_protocol
 public:
 	char const * name;
 	int remaining;
+	boost::asio::ip::address_v4 external_address;
 	uint16_t external_port;
 };
 // These APIs aren't easy to understand so comments are verbose
@@ -237,9 +238,7 @@ public:
 	// Primes so they infrequently happen at the same time
 	static int constexpr mapping_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 53 : 3593;
 	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
-	// Our local address according to the IGD
-	std::array <char, 64> external_address;
-	std::array <char, 64> local_address;
+	boost::asio::ip::address_v4 address;
 	std::array <mapping_protocol, 2> protocols;
 };
 class network
