@@ -207,6 +207,13 @@ public:
 	size_t rebroadcast;
 	std::function <void (boost::system::error_code const &, size_t)> callback;
 };
+class mapping_protocol
+{
+public:
+	char const * name;
+	int remaining;
+	uint16_t external_port;
+};
 // These APIs aren't easy to understand so comments are verbose
 class port_mapping
 {
@@ -221,22 +228,19 @@ public:
 	// Refresh ocassionally in case router loses mapping
 	void check_mapping_loop ();
 	int check_mapping ();
-	int next_wakeup (int);
 	bool has_address ();
-	bool has_mapped_port ();
 	std::mutex mutex;
 	rai::node & node;
 	UPNPDev * devices; // List of all UPnP devices
 	UPNPUrls urls; // Something for UPnP
 	IGDdatas data; // Some other UPnP thing
-	std::array <char, 6> actual_external_port;
 	// Primes so they infrequently happen at the same time
 	static int constexpr mapping_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 53 : 3593;
 	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
 	// Our local address according to the IGD
+	std::array <char, 64> external_address;
 	std::array <char, 64> local_address;
-	std::array <char const *, 2> const protocols;
-	std::array <char, 16> remaining_mapping_duration;
+	std::array <mapping_protocol, 2> protocols;
 };
 class network
 {

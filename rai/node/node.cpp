@@ -2923,19 +2923,18 @@ work (nullptr)
 rai::port_mapping::port_mapping (rai::node & node_a) :
 node (node_a),
 devices (nullptr),
-protocols ({{"TCP", "UDP"}})
+protocols ({{{ "TCP", 0, 0 }, { "UDP", 0, 0 }}})
 {
 	urls = {0};
+	data = {{0}};
+	external_address.fill (0);
 	local_address.fill (0);
 }
 
 void rai::port_mapping::start ()
 {
-	if (has_address ())
-	{
-		refresh_mapping_loop ();
-		check_mapping_loop ();
-	}
+	refresh_mapping_loop ();
+	check_mapping_loop ();
 }
 
 void rai::port_mapping::refresh_devices ()
@@ -2957,34 +2956,43 @@ bool rai::port_mapping::has_address ()
 	return local_address [0] != '\0';
 }
 
-bool rai::port_mapping::has_mapped_port ()
-{
-	return actual_external_port [0] != '\0';
-}
-
 void rai::port_mapping::refresh_mapping ()
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	auto node_port (std::to_string (node.network.endpoint ().port ()));
-	
-	// Intentionally omitted: we don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
-	for (auto const protocol: protocols)
-	{
-		auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), local_address.data (), nullptr, protocol, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
-		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
-	}
-}
-
-void rai::port_mapping::refresh_mapping_loop ()
 {
 	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		refresh_devices ();
 	}
+	std::lock_guard <std::mutex> lock (mutex);
+	auto node_port (std::to_string (node.network.endpoint ().port ()));
+	
+	// Intentionally omitted: we don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
+	for (auto & protocol: protocols)
+	{
+		std::array <char, 6> actual_external_port;
+		actual_external_port.fill (0);
+		auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), local_address.data (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
+		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol.name % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
+		if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
+		{
+			protocol.external_port = std::atoi (actual_external_port.data ());
+		}
+		else
+		{
+			protocol.external_port = 0;
+		}
+	}
+}
+
+void rai::port_mapping::refresh_mapping_loop ()
+{
 	refresh_mapping ();
 	auto node_l (node.shared ());
-	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (check_mapping ()), [node_l] ()
+	auto remaining (check_mapping ());
+	// Filter out small durations so we never hammer the router with requests, like when a mapping can't be created
+	int const minimum_duration = 5;
+	auto wait_duration (std::max (remaining, minimum_duration));
+	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l] ()
 	{
 		node_l->port_mapping.refresh_mapping_loop ();
 	});
@@ -2996,32 +3004,39 @@ int rai::port_mapping::check_mapping ()
 	auto node_port (std::to_string (node.network.endpoint ().port ()));
 	std::array <char, 64> int_client;
 	std::array <char, 6> int_port;
-	int result = 0;
-	for (auto const protocol: protocols)
+	int result = std::numeric_limits <int>::max ();
+	for (auto & protocol: protocols)
 	{
-		auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
-		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol);
+		std::array <char, 16> remaining_mapping_duration;
+		remaining_mapping_duration.fill (0);
+		auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
 		if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
 		{
-			result = std::atoi (remaining_mapping_duration.data ());
+			protocol.remaining = result;
 		}
+		else
+		{
+			protocol.remaining = 0;
+		}
+		result = std::min (result, protocol.remaining);
+		auto external_ip_error (UPNP_GetExternalIPAddress (urls.controlURL, data.first.servicetype, external_address.data ()));
+		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, external ip response: %6%, external ip: %4%, internal ip: %5%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol.name % external_address.data () % local_address.data () % external_ip_error);
 	}
-	return next_wakeup (result);
-}
-
-int rai::port_mapping::next_wakeup (int raw_a)
-{
-	// Filter out small durations so we never hammer the router with requests
-	int const minimum_duration = 5;
-	int result (std::max (raw_a, minimum_duration));
 	return result;
 }
 
 void rai::port_mapping::check_mapping_loop ()
 {
-	check_mapping ();
+	auto remaining (check_mapping ());
+	// If the mapping is lost, refresh it
+	if (remaining == 0)
+	{
+		refresh_mapping ();
+	}
 	auto node_l (node.shared ());
-	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (check_timeout), [node_l] ()
+	int const minimum_duration = 5;
+	auto wait_duration (std::max (std::min (remaining, check_timeout), minimum_duration));
+	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l] ()
 	{
 		node_l->port_mapping.check_mapping_loop ();
 	});
@@ -3030,12 +3045,12 @@ void rai::port_mapping::check_mapping_loop ()
 void rai::port_mapping::stop ()
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	if (has_mapped_port ())
+	for (auto & protocol: protocols)
 	{
-		for (auto const protocol: protocols)
+		if (protocol.external_port != 0)
 		{
 			// Be a good citizen for the router and shut down our mapping
-			auto delete_error (UPNP_DeletePortMapping (urls.controlURL, data.first.servicetype, actual_external_port.data (), protocol, local_address.data ()));
+			auto delete_error (UPNP_DeletePortMapping (urls.controlURL, data.first.servicetype, std::to_string (protocol.external_port).c_str (), protocol.name, local_address.data ()));
 			BOOST_LOG (node.log) << boost::str (boost::format ("Shutdown port mapping response: %1%") % delete_error);
 		}
 	}
