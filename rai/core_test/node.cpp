@@ -1252,3 +1252,18 @@ TEST (node, bootstrap_fork_open)
 		++iterations;
 	}
 }
+
+TEST (node, process_unchecked_keep)
+{
+    rai::system system (24000, 1);
+	auto & node0 (*system.nodes [0]);
+	rai::keypair key0;
+	rai::send_block send (0, 0, 0, key0.prv, key0.pub, 0);
+	{
+		rai::transaction transaction (node0.store.environment, nullptr, true);
+		node0.store.unchecked_put (transaction, send.hash (), send);
+	}
+	node0.process_unchecked ();
+	rai::transaction transaction (node0.store.environment, nullptr, false);
+	ASSERT_NE (node0.store.unchecked_end (), node0.store.unchecked_begin (transaction, send.hash ()));
+}

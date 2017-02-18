@@ -1731,6 +1731,8 @@ void rai::node::process_unchecked ()
 			{
 				case rai::process_result::progress:
 				case rai::process_result::old:
+					// It definitely doesn't need to be in unchecked because it's in the ledger
+					store.unchecked_del (transaction_a, block_a.hash ());
 					break;
 				case rai::process_result::fork:
 				{
@@ -1757,12 +1759,15 @@ void rai::node::process_unchecked ()
 					break;
 			}
 		});
-		store.unchecked_del (transaction_a, block_a.hash ());
 	}, store);
 	rai::block_hash block (0);
 	{
 		rai::transaction transaction (store.environment, nullptr, false);
-		block = store.unchecked_first (transaction);
+		auto existing (store.unchecked_begin (transaction));
+		if (existing != store.unchecked_end ())
+		{
+			block = rai::block_hash (existing->first);
+		}
 	}
     while (!block.is_zero ())
     {
@@ -1791,14 +1796,21 @@ void rai::node::process_unchecked ()
 					}
 					auto block (store.unchecked_get (transaction, hash));
 				}
-				store.unchecked_del (transaction, hash);
 				if (block != nullptr)
 				{
 					process_receive_many (transaction, *block);
 				}
 			}
 		}
-		block = store.unchecked_first (transaction);
+		auto next (store.unchecked_begin (transaction, block.number () + 1));
+		if (next != store.unchecked_end ())
+		{
+			block = rai::block_hash (next->first);
+		}
+		else
+		{
+			block = 0;
+		}
     }
 }
 
