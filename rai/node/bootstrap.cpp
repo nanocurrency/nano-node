@@ -51,7 +51,7 @@ public:
         if (!sync.synchronized (transaction, hash_a))
         {
             result = false;
-            sync.blocks.push (hash_a);
+            sync.store.stack_push (transaction, hash_a);
         }
 		else
 		{
@@ -77,7 +77,7 @@ bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
     auto done (false);
     while (!result && !done)
     {
-		auto hash (blocks.top ());
+		auto hash (store.stack_top (transaction_a));
         auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
@@ -97,9 +97,8 @@ bool rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
     auto result (fill_dependencies (transaction_a));
     if (!result)
     {
-		auto hash (blocks.top ());
-        auto block (retrieve (transaction_a,hash));
-        blocks.pop ();
+		auto hash (store.stack_pop (transaction_a));
+        auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
 			target (transaction_a, *block);
@@ -116,8 +115,8 @@ bool rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
 bool rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (false);
-    blocks.push (hash_a);
-    while (!result && !blocks.empty ())
+    store.stack_push (transaction_a, hash_a);
+    while (!result && !store.stack_empty (transaction_a))
     {
         result = synchronize_one (transaction_a);
     }
@@ -615,32 +614,32 @@ void rai::bulk_push_client::start ()
     }
     auto this_l (shared_from_this ());
     boost::asio::async_write (connection->connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a)
-        {
-            if (!ec)
-            {
-                this_l->push ();
-            }
-            else
-            {
-                BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Unable to send bulk_push request %1%") % ec.message ());
-            }
-        });
+	{
+		rai::transaction transaction (this_l->connection->connection->node->store.environment, nullptr, true);
+		if (!ec)
+		{
+			this_l->push (transaction);
+		}
+		else
+		{
+			BOOST_LOG (this_l->connection->connection->node->log) << boost::str (boost::format ("Unable to send bulk_push request %1%") % ec.message ());
+		}
+	});
 }
 
-void rai::bulk_push_client::push ()
+void rai::bulk_push_client::push (MDB_txn * transaction_a)
 {
 	auto finished (false);
 	{
-		rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
-		auto first (connection->connection->node->store.unsynced_begin (transaction));
+		auto first (connection->connection->node->store.unsynced_begin (transaction_a));
 		if (first != rai::store_iterator (nullptr))
 		{
 			rai::block_hash hash (first->first);
 			if (!hash.is_zero ())
 			{
-				connection->connection->node->store.unsynced_del (transaction, hash);
-				synchronization.blocks.push (hash);
-				synchronization.synchronize_one (transaction);
+				connection->connection->node->store.unsynced_del (transaction_a, hash);
+				synchronization.store.stack_push (transaction_a, hash);
+				synchronization.synchronize_one (transaction_a);
 			}
 			else
 			{
@@ -685,14 +684,14 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 	{
 		if (!ec)
 		{
-			if (!this_l->synchronization.blocks.empty ())
+			rai::transaction transaction (this_l->connection->connection->node->store.environment, nullptr, true);
+			if (!this_l->synchronization.store.stack_empty (transaction))
 			{
-				rai::transaction transaction (this_l->connection->connection->node->store.environment, nullptr, true);
 				this_l->synchronization.synchronize_one (transaction);
 			}
 			else
 			{
-				this_l->push ();
+				this_l->push (transaction);
 			}
 		}
 		else

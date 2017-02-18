@@ -1776,11 +1776,10 @@ void rai::node::process_unchecked ()
 		auto error (synchronization.synchronize (transaction, block));
 		if (error)
 		{
-			while (!synchronization.blocks.empty ())
+			while (!synchronization.store.stack_empty (transaction))
 			{
 				std::unique_ptr <rai::block> block;
-				auto hash (synchronization.blocks.top ());
-				synchronization.blocks.pop ();
+				auto hash (synchronization.store.stack_pop (transaction));
 				if (!store.block_exists (transaction, hash))
 				{
 					if (config.logging.bulk_pull_logging ())

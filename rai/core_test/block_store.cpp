@@ -453,6 +453,7 @@ TEST (block_store, stack)
     rai::block_hash hash2 (2);
     store.stack_push (transaction, hash1);
     store.stack_push (transaction, hash2);
+	ASSERT_EQ (hash2, store.stack_top (transaction));
     auto hash3 (store.stack_pop (transaction));
     ASSERT_EQ (hash2, hash3);
     auto hash4 (store.stack_pop (transaction));
@@ -469,8 +470,11 @@ TEST (block_store, stack_clear)
     rai::block_hash hash2 (2);
     store.stack_push (transaction, hash1);
     store.stack_push (transaction, hash2);
+	ASSERT_FALSE (store.stack_empty (transaction));
 	store.stack_clear (transaction);
+	ASSERT_TRUE (store.stack_empty (transaction));
 	ASSERT_TRUE (store.stack_pop (transaction).is_zero ());
+	ASSERT_TRUE (store.stack_top (transaction).is_zero ());
 }
 
 TEST (block_store, unsynced)

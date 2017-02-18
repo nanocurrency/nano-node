@@ -368,6 +368,8 @@ public:
 	void stack_clear (MDB_txn *);
 	void stack_push (MDB_txn *, rai::block_hash const &);
 	rai::block_hash stack_pop (MDB_txn *);
+	rai::block_hash stack_top (MDB_txn *);
+	bool stack_empty (MDB_txn *);
 	
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);

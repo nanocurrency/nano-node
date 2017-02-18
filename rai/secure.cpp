@@ -2282,6 +2282,11 @@ rai::store_iterator rai::block_store::unsynced_end ()
     return rai::store_iterator (nullptr);
 }
 
+bool rai::block_store::stack_empty (MDB_txn * transaction_a)
+{
+	return rai::store_iterator (transaction_a, stack) == rai::store_iterator (nullptr);
+}
+
 void rai::block_store::stack_clear (MDB_txn * transaction_a)
 {
 	auto status (mdb_drop (transaction_a, stack, 0));
@@ -2309,6 +2314,17 @@ rai::block_hash rai::block_store::stack_pop (MDB_txn * transaction_a)
 		result = rai::block_hash (first->second);
 		auto status2 (mdb_del (transaction_a, stack, &first->first, nullptr));
 		assert (status2 == 0);
+	}
+	return result;
+}
+
+rai::block_hash rai::block_store::stack_top (MDB_txn * transaction_a)
+{
+	rai::block_hash result (0);
+	auto first (rai::store_iterator (transaction_a, stack));
+	if (first != rai::store_iterator (nullptr))
+	{
+		result = rai::block_hash (first->second);
 	}
 	return result;
 }

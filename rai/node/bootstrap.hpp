@@ -24,7 +24,6 @@ public:
     bool fill_dependencies (MDB_txn *);
     bool synchronize_one (MDB_txn *);
     bool synchronize (MDB_txn *, rai::block_hash const &);
-    std::stack <rai::block_hash> blocks;
     std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger_mt & log;
     std::function <void (MDB_txn *, rai::block const &)> target;
@@ -115,7 +114,7 @@ public:
     bulk_push_client (std::shared_ptr <rai::frontier_req_client> const &);
     ~bulk_push_client ();
     void start ();
-    void push ();
+    void push (MDB_txn *);
     void push_block (rai::block const &);
     void send_finished ();
     std::shared_ptr <rai::frontier_req_client> connection;
