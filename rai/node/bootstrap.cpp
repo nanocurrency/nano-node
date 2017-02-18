@@ -5,7 +5,7 @@
 
 #include <boost/log/trivial.hpp>
 
-rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 log (log_a),
 target (target_a),
 store (store_a)
@@ -20,7 +20,7 @@ namespace {
 class add_dependency_visitor : public rai::block_visitor
 {
 public:
-    add_dependency_visitor (rai::transaction & transaction_a, rai::block_synchronization & sync_a) :
+    add_dependency_visitor (MDB_txn * transaction_a, rai::block_synchronization & sync_a) :
 	transaction (transaction_a),
     sync (sync_a),
     result (true)
@@ -58,20 +58,20 @@ public:
 			// Block is already synchronized, normal
 		}
     }
-	rai::transaction & transaction;
+	MDB_txn * transaction;
     rai::block_synchronization & sync;
     bool result;
 };
 }
 
-bool rai::block_synchronization::add_dependency (rai::transaction & transaction_a, rai::block const & block_a)
+bool rai::block_synchronization::add_dependency (MDB_txn * transaction_a, rai::block const & block_a)
 {
     add_dependency_visitor visitor (transaction_a, *this);
     block_a.visit (visitor);
     return visitor.result;
 }
 
-bool rai::block_synchronization::fill_dependencies (rai::transaction & transaction_a)
+bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
 {
     auto result (false);
     auto done (false);
@@ -92,7 +92,7 @@ bool rai::block_synchronization::fill_dependencies (rai::transaction & transacti
     return result;
 }
 
-bool rai::block_synchronization::synchronize_one (rai::transaction & transaction_a)
+bool rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
 {
     auto result (fill_dependencies (transaction_a));
     if (!result)
@@ -113,7 +113,7 @@ bool rai::block_synchronization::synchronize_one (rai::transaction & transaction
     return result;
 }
 
-bool rai::block_synchronization::synchronize (rai::transaction & transaction_a, rai::block_hash const & hash_a)
+bool rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (false);
     blocks.push (hash_a);
@@ -124,27 +124,27 @@ bool rai::block_synchronization::synchronize (rai::transaction & transaction_a, 
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
 
-std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (rai::transaction & transaction_a, rai::block_hash const & hash_a)
+std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     return store.unchecked_get (transaction_a, hash_a);
 }
 
-bool rai::pull_synchronization::synchronized (rai::transaction & transaction_a, rai::block_hash const & hash_a)
+bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     return store.block_exists (transaction_a, hash_a);
 }
 
-rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (rai::transaction &, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
 
-bool rai::push_synchronization::synchronized (rai::transaction & transaction_a, rai::block_hash const & hash_a)
+bool rai::push_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (!store.unsynced_exists (transaction_a, hash_a));
 	if (!result)
@@ -154,7 +154,7 @@ bool rai::push_synchronization::synchronized (rai::transaction & transaction_a, 
 	return result;
 }
 
-std::unique_ptr <rai::block> rai::push_synchronization::retrieve (rai::transaction & transaction_a, rai::block_hash const & hash_a)
+std::unique_ptr <rai::block> rai::push_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     return store.block_get (transaction_a, hash_a);
 }
@@ -590,7 +590,7 @@ rai::bulk_pull_client::~bulk_pull_client ()
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
 connection (connection_a),
-synchronization (connection->connection->node->log, [this] (rai::transaction & transaction_a, rai::block const & block_a)
+synchronization (connection->connection->node->log, [this] (MDB_txn * transaction_a, rai::block const & block_a)
 {
     push_block (block_a);
 }, connection_a->connection->node->store)

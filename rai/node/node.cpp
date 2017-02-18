@@ -1723,9 +1723,9 @@ public:
 
 void rai::node::process_unchecked ()
 {
-	rai::pull_synchronization synchronization (log, [this] (rai::transaction & transaction_a, rai::block const & block_a)
+	rai::pull_synchronization synchronization (log, [this] (MDB_txn * transaction_a, rai::block const & block_a)
 	{
-		process_receive_many (transaction_a, block_a, [this, &transaction_a] (rai::process_return result_a, rai::block const & block_a)
+		process_receive_many (transaction_a, block_a, [this, transaction_a] (rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{
