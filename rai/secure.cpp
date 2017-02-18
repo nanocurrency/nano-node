@@ -2184,7 +2184,7 @@ rai::store_iterator rai::block_store::representation_begin (MDB_txn * transactio
 	return result;
 }
 
-rai::store_iterator rai::block_store::representation_end()
+rai::store_iterator rai::block_store::representation_end ()
 {
 	rai::store_iterator result(nullptr);
 	return result;
@@ -2282,24 +2282,34 @@ rai::store_iterator rai::block_store::unsynced_end ()
     return rai::store_iterator (nullptr);
 }
 
-void rai::block_store::stack_push (uint64_t key_a, rai::block_hash const & hash_a)
+void rai::block_store::stack_clear (MDB_txn * transaction_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
-	auto status (mdb_put (transaction, stack, rai::mdb_val (sizeof (key_a), &key_a), hash_a.val (), 0));
+	auto status (mdb_drop (transaction_a, stack, 0));
 	assert (status == 0);
 }
 
-rai::block_hash rai::block_store::stack_pop (uint64_t key_a)
+void rai::block_store::stack_push (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
-	MDB_val value;
-	auto status (mdb_get (transaction, stack, rai::mdb_val (sizeof (key_a), &key_a), &value));
+	rai::block_hash index (std::numeric_limits <rai::uint256_t>::max ());
+	auto first (rai::store_iterator (transaction_a, stack));
+	if (first != rai::store_iterator (nullptr))
+	{
+		index = rai::block_hash (first->first).number () - 1;
+	}
+	auto status (mdb_put (transaction_a, stack, index.val (), hash_a.val (), 0));
 	assert (status == 0);
-	rai::block_hash result;
-	assert (value.mv_size == result.chars.size ());
-	std::copy (reinterpret_cast <uint8_t const *> (value.mv_data), reinterpret_cast <uint8_t const *> (value.mv_data) + result.chars.size(), result.chars.data ());
-	auto status2 (mdb_del (transaction, stack, rai::mdb_val (sizeof (key_a), &key_a), nullptr));
-	assert (status2 == 0);
+}
+
+rai::block_hash rai::block_store::stack_pop (MDB_txn * transaction_a)
+{
+	rai::block_hash result (0);
+	auto first (rai::store_iterator (transaction_a, stack));
+	if (first != rai::store_iterator (nullptr))
+	{
+		result = rai::block_hash (first->second);
+		auto status2 (mdb_del (transaction_a, stack, &first->first, nullptr));
+		assert (status2 == 0);
+	}
 	return result;
 }
 

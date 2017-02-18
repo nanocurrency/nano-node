@@ -365,9 +365,9 @@ public:
 	rai::store_iterator unsynced_begin (MDB_txn *);
 	rai::store_iterator unsynced_end ();
 
-	void stack_open ();
-	void stack_push (uint64_t, rai::block_hash const &);
-	rai::block_hash stack_pop (uint64_t);
+	void stack_clear (MDB_txn *);
+	void stack_push (MDB_txn *, rai::block_hash const &);
+	rai::block_hash stack_pop (MDB_txn *);
 	
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
