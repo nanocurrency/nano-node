@@ -2190,6 +2190,17 @@ rai::store_iterator rai::block_store::representation_end()
 	return result;
 }
 
+rai::block_hash rai::block_store::unchecked_first (MDB_txn * transaction_a)
+{
+	rai::block_hash result (0);
+	auto iterator (unchecked_begin (transaction_a));
+	if (iterator != unchecked_end ())
+	{
+		result = rai::block_hash (iterator->first);
+	}
+	return result;
+}
+
 void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
     std::vector <uint8_t> vector;

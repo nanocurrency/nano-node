@@ -1721,6 +1721,87 @@ public:
 };
 }
 
+void rai::node::process_unchecked ()
+{
+	rai::pull_synchronization synchronization (log, [this] (rai::transaction & transaction_a, rai::block const & block_a)
+	{
+		process_receive_many (transaction_a, block_a, [this, &transaction_a] (rai::process_return result_a, rai::block const & block_a)
+		{
+			switch (result_a.code)
+			{
+				case rai::process_result::progress:
+				case rai::process_result::old:
+					break;
+				case rai::process_result::fork:
+				{
+					auto node_l (shared_from_this ());
+					auto block (node_l->ledger.forked_block (transaction_a, block_a));
+					node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
+					{
+						node_l->process_confirmed (block_a);
+					});
+					network.broadcast_confirm_req (block_a);
+					BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+					break;
+				}
+				case rai::process_result::gap_previous:
+				case rai::process_result::gap_source:
+					if (config.logging.bulk_pull_logging ())
+					{
+						// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
+						BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+					}
+					break;
+				default:
+					BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
+					break;
+			}
+		});
+		store.unchecked_del (transaction_a, block_a.hash ());
+	}, store);
+	rai::block_hash block (0);
+	{
+		rai::transaction transaction (store.environment, nullptr, false);
+		block = store.unchecked_first (transaction);
+	}
+    while (!block.is_zero ())
+    {
+		rai::transaction transaction (store.environment, nullptr, true);
+		BOOST_LOG (log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
+		auto error (synchronization.synchronize (transaction, block));
+		if (error)
+		{
+			while (!synchronization.blocks.empty ())
+			{
+				std::unique_ptr <rai::block> block;
+				auto hash (synchronization.blocks.top ());
+				synchronization.blocks.pop ();
+				if (!store.block_exists (transaction, hash))
+				{
+					if (config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
+					}
+				}
+				else
+				{
+					if (config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
+					}
+					auto block (store.unchecked_get (transaction, hash));
+				}
+				store.unchecked_del (transaction, hash);
+				if (block != nullptr)
+				{
+					process_receive_many (transaction, *block);
+				}
+			}
+		}
+		block = store.unchecked_first (transaction);
+    }
+}
+
 void rai::node::process_confirmed (rai::block const & confirmed_a)
 {
     confirmed_visitor visitor (*this);

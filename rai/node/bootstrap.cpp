@@ -522,103 +522,10 @@ void rai::bulk_pull_client::received_type ()
     }
 }
 
-rai::block_hash rai::bulk_pull_client::first ()
-{
-	rai::block_hash result (0);
-	rai::transaction transaction (connection->connection->node->store.environment, nullptr, false);
-	auto iterator (connection->connection->node->store.unchecked_begin (transaction));
-	if (iterator != connection->connection->node->store.unchecked_end ())
-	{
-		result = rai::block_hash (iterator->first);
-	}
-	else
-	{
-		if (connection->connection->node->config.logging.bulk_pull_logging ())
-		{
-			BOOST_LOG (connection->connection->node->log) << "Nothing left in unchecked table";
-		}
-	}
-	return result;
-}
-
 void rai::bulk_pull_client::process_end ()
 {
 	block_flush ();
-	rai::pull_synchronization synchronization (connection->connection->node->log, [this] (rai::transaction & transaction_a, rai::block const & block_a)
-	{
-		connection->connection->node->process_receive_many (transaction_a, block_a, [this, &transaction_a] (rai::process_return result_a, rai::block const & block_a)
-		{
-			switch (result_a.code)
-			{
-				case rai::process_result::progress:
-				case rai::process_result::old:
-					break;
-				case rai::process_result::fork:
-				{
-					auto node_l (connection->connection->node);
-					auto block (node_l->ledger.forked_block (transaction_a, block_a));
-					node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
-					{
-						node_l->process_confirmed (block_a);
-					});
-					connection->connection->node->network.broadcast_confirm_req (block_a);
-					BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-					break;
-				}
-				case rai::process_result::gap_previous:
-				case rai::process_result::gap_source:
-					if (connection->connection->node->config.logging.bulk_pull_logging ())
-					{
-						// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
-						BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-					}
-					break;
-				default:
-					BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
-					break;
-			}
-		});
-		connection->connection->node->store.unchecked_del (transaction_a, block_a.hash ());
-	}, connection->connection->node->store);
-	rai::block_hash block (first ());
-    while (!block.is_zero ())
-    {
-		{
-			rai::transaction transaction (connection->connection->node->store.environment, nullptr, true);
-			BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
-			auto error (synchronization.synchronize (transaction, block));
-			if (error)
-			{
-				while (!synchronization.blocks.empty ())
-				{
-					std::unique_ptr <rai::block> block;
-					auto hash (synchronization.blocks.top ());
-					synchronization.blocks.pop ();
-					if (!connection->connection->node->store.block_exists (transaction, hash))
-					{
-						if (connection->connection->node->config.logging.bulk_pull_logging ())
-						{
-							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
-						}
-					}
-					else
-					{
-						if (connection->connection->node->config.logging.bulk_pull_logging ())
-						{
-							BOOST_LOG (connection->connection->node->log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
-						}
-						auto block (connection->connection->node->store.unchecked_get (transaction, hash));
-					}
-					connection->connection->node->store.unchecked_del (transaction, hash);
-					if (block != nullptr)
-					{
-						connection->connection->node->process_receive_many (transaction, *block);
-					}
-				}
-			}
-		}
-		block = first ();
-    }
+	connection->connection->node->process_unchecked ();
 	connection->connection->node->wallets.search_pending_all ();
 }
 

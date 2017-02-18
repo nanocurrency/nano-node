@@ -357,6 +357,7 @@ public:
 	rai::store_iterator unchecked_end ();
 	size_t unchecked_count (MDB_txn *);
 	
+	rai::block_hash unchecked_first (MDB_txn *);
 	void unsynced_put (MDB_txn *, rai::block_hash const &);
 	void unsynced_del (MDB_txn *, rai::block_hash const &);
 	bool unsynced_exists (MDB_txn *, rai::block_hash const &);
