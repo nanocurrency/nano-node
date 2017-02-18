@@ -3054,24 +3054,24 @@ void rai::port_mapping::refresh_mapping ()
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		refresh_devices ();
-	}
-	std::lock_guard <std::mutex> lock (mutex);
-	auto node_port (std::to_string (node.network.endpoint ().port ()));
-	
-	// Intentionally omitted: we don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
-	for (auto & protocol: protocols)
-	{
-		std::array <char, 6> actual_external_port;
-		actual_external_port.fill (0);
-		auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
-		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol.name % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
-		if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
+		std::lock_guard <std::mutex> lock (mutex);
+		auto node_port (std::to_string (node.network.endpoint ().port ()));
+		
+		// Intentionally omitted: we don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
+		for (auto & protocol: protocols)
 		{
-			protocol.external_port = std::atoi (actual_external_port.data ());
-		}
-		else
-		{
-			protocol.external_port = 0;
+			std::array <char, 6> actual_external_port;
+			actual_external_port.fill (0);
+			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
+			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol.name % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
+			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
+			{
+				protocol.external_port = std::atoi (actual_external_port.data ());
+			}
+			else
+			{
+				protocol.external_port = 0;
+			}
 		}
 	}
 }
@@ -3092,38 +3092,42 @@ void rai::port_mapping::refresh_mapping_loop ()
 
 int rai::port_mapping::check_mapping ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	auto node_port (std::to_string (node.network.endpoint ().port ()));
-	int result = std::numeric_limits <int>::max ();
-	for (auto & protocol: protocols)
+	int result (std::numeric_limits <int>::max ());
+	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
-		std::array <char, 64> int_client;
-		std::array <char, 6> int_port;
-		std::array <char, 16> remaining_mapping_duration;
-		remaining_mapping_duration.fill (0);
-		auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
-		if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
+		// Long discovery time and fast setup/teardown make this impractical for testing
+		std::lock_guard <std::mutex> lock (mutex);
+		auto node_port (std::to_string (node.network.endpoint ().port ()));
+		for (auto & protocol: protocols)
 		{
-			protocol.remaining = result;
+			std::array <char, 64> int_client;
+			std::array <char, 6> int_port;
+			std::array <char, 16> remaining_mapping_duration;
+			remaining_mapping_duration.fill (0);
+			auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
+			if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
+			{
+				protocol.remaining = result;
+			}
+			else
+			{
+				protocol.remaining = 0;
+			}
+			result = std::min (result, protocol.remaining);
+			std::array <char, 64> external_address;
+			external_address.fill (0);
+			auto external_ip_error (UPNP_GetExternalIPAddress (urls.controlURL, data.first.servicetype, external_address.data ()));
+			if (external_ip_error == UPNPCOMMAND_SUCCESS)
+			{
+				boost::system::error_code ec;
+				protocol.external_address = boost::asio::ip::address_v4::from_string (external_address.data (), ec);
+			}
+			else
+			{
+				protocol.external_address = boost::asio::ip::address_v4::any ();
+			}
+			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, external ip response: %6%, external ip: %4%, internal ip: %5%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol.name % external_address.data () % address.to_string () % external_ip_error);
 		}
-		else
-		{
-			protocol.remaining = 0;
-		}
-		result = std::min (result, protocol.remaining);
-		std::array <char, 64> external_address;
-		external_address.fill (0);
-		auto external_ip_error (UPNP_GetExternalIPAddress (urls.controlURL, data.first.servicetype, external_address.data ()));
-		if (external_ip_error == UPNPCOMMAND_SUCCESS)
-		{
-			boost::system::error_code ec;
-			protocol.external_address = boost::asio::ip::address_v4::from_string (external_address.data (), ec);
-		}
-		else
-		{
-			protocol.external_address = boost::asio::ip::address_v4::any ();
-		}
-		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, external ip response: %6%, external ip: %4%, internal ip: %5%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol.name % external_address.data () % address.to_string () % external_ip_error);
 	}
 	return result;
 }
