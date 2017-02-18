@@ -263,6 +263,16 @@ TEST (block_store, one_bootstrap)
     ASSERT_EQ (end, begin);
 }
 
+TEST (block_store, unchecked_begin_search)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
+	rai::keypair key0;
+	rai::send_block block1 (0, 1, 2, key0.prv, key0.pub, 3);
+	rai::send_block block2 (5, 6, 7, key0.prv, key0.pub, 8);
+}
+
 TEST (block_store, frontier_retrieval)
 {
     bool init (false);

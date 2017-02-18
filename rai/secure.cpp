@@ -2178,7 +2178,7 @@ void rai::block_store::representation_put (MDB_txn * transaction_a, rai::account
     assert (status == 0);
 }
 
-rai::store_iterator rai::block_store::representation_begin(MDB_txn * transaction_a)
+rai::store_iterator rai::block_store::representation_begin (MDB_txn * transaction_a)
 {
 	rai::store_iterator result(transaction_a, representation);
 	return result;
@@ -2237,6 +2237,12 @@ rai::store_iterator rai::block_store::unchecked_begin (MDB_txn * transaction_a)
 {
     rai::store_iterator result (transaction_a, unchecked);
     return result;
+}
+
+rai::store_iterator rai::block_store::unchecked_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	rai::store_iterator result (transaction_a, unchecked, hash_a.val ());
+	return result;
 }
 
 rai::store_iterator rai::block_store::unchecked_end ()
