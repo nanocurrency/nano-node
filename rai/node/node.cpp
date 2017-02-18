@@ -19,11 +19,15 @@
 
 #include <ed25519-donna/ed25519.h>
 
+#include <upnpcommands.h>
+
 double constexpr rai::node::price_max;
 double constexpr rai::node::free_cutoff;
 std::chrono::seconds constexpr rai::node::period;
 std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
+int constexpr rai::port_mapping::mapping_timeout;
+int constexpr rai::port_mapping::check_timeout;
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
@@ -831,7 +835,8 @@ network (service_a, config.peering_port, *this),
 bootstrap_initiator (*this),
 bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
-application_path (application_path_a)
+application_path (application_path_a),
+port_mapping (*this)
 {
 	wallets.observer = [this] (rai::account const & account_a, bool active)
 	{
@@ -1327,6 +1332,7 @@ void rai::node::start ()
     bootstrap.start ();
 	backup_wallet ();
 	active.announce_votes ();
+	port_mapping.start ();
 }
 
 void rai::node::stop ()
@@ -1336,6 +1342,7 @@ void rai::node::stop ()
     network.stop ();
 	bootstrap_initiator.stop ();
     bootstrap.stop ();
+	port_mapping.stop ();
 }
 
 void rai::node::keepalive_preconfigured (std::vector <std::string> const & peers_a)
@@ -2911,4 +2918,127 @@ work (nullptr)
 {
 	boost::filesystem::create_directories (path);
 	node = std::make_shared <rai::node> (init, *service, 24000, path, alarm, logging, work);
+}
+
+rai::port_mapping::port_mapping (rai::node & node_a) :
+node (node_a),
+devices (nullptr),
+protocols ({{"TCP", "UDP"}})
+{
+	urls = {0};
+	local_address.fill (0);
+}
+
+void rai::port_mapping::start ()
+{
+	if (has_address ())
+	{
+		refresh_mapping_loop ();
+		check_mapping_loop ();
+	}
+}
+
+void rai::port_mapping::refresh_devices ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	int discover_error = 0;
+	freeUPNPDevlist (devices);
+	devices = upnpDiscover (2000, nullptr, nullptr, UPNP_LOCAL_PORT_ANY, false, 2, &discover_error);
+	auto igd_error (UPNP_GetValidIGD (devices, &urls, &data, local_address.data (), sizeof (local_address)));
+	BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %3%, discovery: %1%, IGD search: %2%") % discover_error % igd_error % local_address.data ());
+	for (auto i (devices); i != nullptr; i = i->pNext)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+	}
+}
+
+bool rai::port_mapping::has_address ()
+{
+	return local_address [0] != '\0';
+}
+
+bool rai::port_mapping::has_mapped_port ()
+{
+	return actual_external_port [0] != '\0';
+}
+
+void rai::port_mapping::refresh_mapping ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	auto node_port (std::to_string (node.network.endpoint ().port ()));
+	
+	// Intentionally omitted: we don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
+	for (auto const protocol: protocols)
+	{
+		auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), local_address.data (), nullptr, protocol, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
+		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
+	}
+}
+
+void rai::port_mapping::refresh_mapping_loop ()
+{
+	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	{
+		// Long discovery time and fast setup/teardown make this impractical for testing
+		refresh_devices ();
+	}
+	refresh_mapping ();
+	auto node_l (node.shared ());
+	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (check_mapping ()), [node_l] ()
+	{
+		node_l->port_mapping.refresh_mapping_loop ();
+	});
+}
+
+int rai::port_mapping::check_mapping ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	auto node_port (std::to_string (node.network.endpoint ().port ()));
+	std::array <char, 64> int_client;
+	std::array <char, 6> int_port;
+	int result = 0;
+	for (auto const protocol: protocols)
+	{
+		auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
+		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol);
+		if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
+		{
+			result = std::atoi (remaining_mapping_duration.data ());
+		}
+	}
+	return next_wakeup (result);
+}
+
+int rai::port_mapping::next_wakeup (int raw_a)
+{
+	// Filter out small durations so we never hammer the router with requests
+	int const minimum_duration = 5;
+	int result (std::max (raw_a, minimum_duration));
+	return result;
+}
+
+void rai::port_mapping::check_mapping_loop ()
+{
+	check_mapping ();
+	auto node_l (node.shared ());
+	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (check_timeout), [node_l] ()
+	{
+		node_l->port_mapping.check_mapping_loop ();
+	});
+}
+
+void rai::port_mapping::stop ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	if (has_mapped_port ())
+	{
+		for (auto const protocol: protocols)
+		{
+			// Be a good citizen for the router and shut down our mapping
+			auto delete_error (UPNP_DeletePortMapping (urls.controlURL, data.first.servicetype, actual_external_port.data (), protocol, local_address.data ()));
+			BOOST_LOG (node.log) << boost::str (boost::format ("Shutdown port mapping response: %1%") % delete_error);
+		}
+	}
+	freeUPNPDevlist (devices);
+	devices = nullptr;
 }

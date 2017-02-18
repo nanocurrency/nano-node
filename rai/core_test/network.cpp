@@ -911,3 +911,16 @@ TEST (network, reserved_address)
 {
 	ASSERT_FALSE (rai::reserved_address (rai::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
 }
+
+TEST (node, port_mapping)
+{
+	rai::system system (24000, 1);
+	auto node0 (system.nodes [0]);
+	node0->port_mapping.refresh_devices ();
+	node0->port_mapping.start ();
+	auto end (std::chrono::system_clock::now () + std::chrono::seconds (500));
+	//while (std::chrono::system_clock::now () < end)
+	{
+		system.poll ();
+	}
+}

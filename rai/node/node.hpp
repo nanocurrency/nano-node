@@ -20,6 +20,8 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/circular_buffer.hpp>
 
+#include <miniupnpc.h>
+
 std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
 
 namespace boost
@@ -205,6 +207,37 @@ public:
 	size_t rebroadcast;
 	std::function <void (boost::system::error_code const &, size_t)> callback;
 };
+// These APIs aren't easy to understand so comments are verbose
+class port_mapping
+{
+public:
+	port_mapping (rai::node &);
+	void start ();
+	void stop ();
+	void refresh_devices ();
+	// Refresh when the lease ends
+	void refresh_mapping_loop ();
+	void refresh_mapping ();
+	// Refresh ocassionally in case router loses mapping
+	void check_mapping_loop ();
+	int check_mapping ();
+	int next_wakeup (int);
+	bool has_address ();
+	bool has_mapped_port ();
+	std::mutex mutex;
+	rai::node & node;
+	UPNPDev * devices; // List of all UPnP devices
+	UPNPUrls urls; // Something for UPnP
+	IGDdatas data; // Some other UPnP thing
+	std::array <char, 6> actual_external_port;
+	// Primes so they infrequently happen at the same time
+	static int constexpr mapping_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 53 : 3593;
+	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
+	// Our local address according to the IGD
+	std::array <char, 64> local_address;
+	std::array <char const *, 2> const protocols;
+	std::array <char, 16> remaining_mapping_duration;
+};
 class network
 {
 public:
@@ -379,6 +412,7 @@ public:
     rai::peer_container peers;
 	boost::filesystem::path application_path;
 	rai::node_observers observers;
+	rai::port_mapping port_mapping;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
