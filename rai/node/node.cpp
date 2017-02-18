@@ -1741,6 +1741,7 @@ void rai::node::process_unchecked ()
 					node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
 					{
 						node_l->process_confirmed (block_a);
+						node_l->process_unchecked ();
 					});
 					network.broadcast_confirm_req (block_a);
 					BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
@@ -1780,18 +1781,11 @@ void rai::node::process_unchecked ()
 			{
 				std::unique_ptr <rai::block> block;
 				auto hash (synchronization.store.stack_pop (transaction));
-				if (!store.block_exists (transaction, hash))
+				if (store.block_exists (transaction, hash))
 				{
 					if (config.logging.bulk_pull_logging ())
 					{
-						BOOST_LOG (log) << boost::str (boost::format ("Dumping: %1%") % hash.to_string ());
-					}
-				}
-				else
-				{
-					if (config.logging.bulk_pull_logging ())
-					{
-						BOOST_LOG (log) << boost::str (boost::format ("Forcing: %1%") % hash.to_string ());
+						BOOST_LOG (log) << boost::str (boost::format ("Synchronizing: %1%") % hash.to_string ());
 					}
 					auto block (store.unchecked_get (transaction, hash));
 				}

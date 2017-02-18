@@ -278,7 +278,7 @@ TEST (pull_synchronization, dependent_fork)
 }
 
 // Make sure that when synchronizing, if a fork needs to be resolved, don't drop the blocks we downloaded.
-TEST (pull_synchronization, DISABLED_keep_blocks)
+TEST (pull_synchronization, keep_blocks)
 {
 	rai::system system0 (24000, 1);
 	rai::system system1 (24001, 1);
