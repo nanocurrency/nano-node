@@ -1077,7 +1077,7 @@ void rai::node::process_receive_many (rai::block const & block_a, std::function 
 	process_receive_many (transaction, block_a, completed_a);
 }
 
-void rai::node::process_receive_many (rai::transaction & transaction_a, rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
+void rai::node::process_receive_many (MDB_txn * transaction_a, rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
 {
 	std::vector <std::unique_ptr <rai::block>> blocks;
 	blocks.push_back (block_a.clone ());
@@ -1094,7 +1094,7 @@ void rai::node::process_receive_many (rai::transaction & transaction_a, rai::blo
     }
 }
 
-rai::process_return rai::node::process_receive_one (rai::transaction & transaction_a, rai::block const & block_a)
+rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai::block const & block_a)
 {
 	rai::process_return result;
 	result = ledger.process (transaction_a, block_a);

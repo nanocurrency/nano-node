@@ -385,8 +385,8 @@ public:
     void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_receive_republish (std::unique_ptr <rai::block>, size_t);
     void process_receive_many (rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
-    void process_receive_many (rai::transaction &, rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
-    rai::process_return process_receive_one (rai::transaction &, rai::block const &);
+    void process_receive_many (MDB_txn *, rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
+    rai::process_return process_receive_one (MDB_txn *, rai::block const &);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
