@@ -177,6 +177,8 @@ public:
 	void random_fill (std::array <rai::endpoint, 8> &);
 	// List of all peers
 	std::vector <peer_information> list ();
+	// A list of random peers with size the square root of total peer count
+	std::vector <peer_information> list_sqrt ();
 	// List of peers that haven't failed bootstrapping in a while
 	std::vector <peer_information> bootstrap_candidates ();
 	// Purge any peer where last_contact < time_point and return what was left

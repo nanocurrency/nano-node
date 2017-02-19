@@ -131,7 +131,8 @@ void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
             message.serialize (stream);
         }
         auto node_l (node.shared ());
-        for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+		auto sqrt_list (node.peers.list_sqrt ());
+        for (auto i (sqrt_list.begin ()), n (sqrt_list.end ()); i != n; ++i)
         {
 			if (!node.peers.knows_about (i->endpoint, hash))
 			{
@@ -1210,6 +1211,22 @@ rai::process_return rai::node::process (rai::block const & block_a)
 	return result;
 }
 
+// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
+std::vector <rai::peer_information> rai::peer_container::list_sqrt ()
+{
+	auto list_l (list ());
+	std::vector <rai::peer_information> result;
+	auto republish_count (std::ceil (std::sqrt (list_l.size ())));
+	for (auto i (0); i < republish_count; ++i)
+	{
+		auto index (rai::random_pool.GenerateWord32 (0, list_l.size () - 1));
+		result.push_back (list_l [index]);
+		list_l [index] = list_l.back ();
+		list_l.resize (list_l.size () - 1);
+	}
+	return result;
+}
+
 std::vector <rai::peer_information> rai::peer_container::list ()
 {
     std::vector <rai::peer_information> result;
@@ -1853,7 +1870,7 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
 		assert (index >= 0);
 		if (index != peers.size () - 1)
 		{
-				peers [index] = peers [peers.size () - 1];
+			peers [index] = peers [peers.size () - 1];
 		}
         peers.pop_back ();
     }

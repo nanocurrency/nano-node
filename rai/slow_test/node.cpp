@@ -317,7 +317,7 @@ TEST (broadcast, world_broadcast_simulate)
 	printf ("");
 }
 
-TEST (broadcast, log_broadcast_simulate)
+TEST (broadcast, sqrt_broadcast_simulate)
 {
 	auto node_count (200);
 	auto broadcast_count (std::ceil (std::sqrt (node_count)));

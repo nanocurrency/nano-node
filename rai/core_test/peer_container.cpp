@@ -135,3 +135,16 @@ TEST (peer_container, bootstrap_limit)
 	auto list1 (peers.bootstrap_candidates ());
 	ASSERT_EQ (0, list1.size ());
 }
+
+TEST (peer_container, list_sqrt)
+{
+    rai::peer_container peers (rai::endpoint {});
+	auto list1 (peers.list_sqrt ());
+	ASSERT_TRUE (list1.empty ());
+	for (auto i (0); i < 1000; ++i)
+	{
+		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i)));
+	}
+	auto list2 (peers.list_sqrt ());
+	ASSERT_EQ (32, list2.size ());
+}
