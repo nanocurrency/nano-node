@@ -226,7 +226,6 @@ public:
 	void stop ();
 	void refresh_devices ();
 	// Refresh when the lease ends
-	void refresh_mapping_loop ();
 	void refresh_mapping ();
 	// Refresh ocassionally in case router loses mapping
 	void check_mapping_loop ();

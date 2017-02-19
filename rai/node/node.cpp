@@ -3040,28 +3040,30 @@ protocols ({{{ "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, b
 
 void rai::port_mapping::start ()
 {
-	refresh_mapping_loop ();
 	check_mapping_loop ();
 }
 
 void rai::port_mapping::refresh_devices ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	int discover_error = 0;
-	freeUPNPDevlist (devices);
-	devices = upnpDiscover (2000, nullptr, nullptr, UPNP_LOCAL_PORT_ANY, false, 2, &discover_error);
-	std::array <char, 64> local_address;
-	local_address.fill (0);
-	auto igd_error (UPNP_GetValidIGD (devices, &urls, &data, local_address.data (), sizeof (local_address)));
-	if (igd_error == 1 || igd_error == 2)
+	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
-		boost::system::error_code ec;
-		address = boost::asio::ip::address_v4::from_string (local_address.data (), ec);
-	}
-	BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %3%, discovery: %1%, IGD search: %2%") % discover_error % igd_error % local_address.data ());
-	for (auto i (devices); i != nullptr; i = i->pNext)
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+		std::lock_guard <std::mutex> lock (mutex);
+		int discover_error = 0;
+		freeUPNPDevlist (devices);
+		devices = upnpDiscover (2000, nullptr, nullptr, UPNP_LOCAL_PORT_ANY, false, 2, &discover_error);
+		std::array <char, 64> local_address;
+		local_address.fill (0);
+		auto igd_error (UPNP_GetValidIGD (devices, &urls, &data, local_address.data (), sizeof (local_address)));
+		if (igd_error == 1 || igd_error == 2)
+		{
+			boost::system::error_code ec;
+			address = boost::asio::ip::address_v4::from_string (local_address.data (), ec);
+		}
+		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %3%, discovery: %1%, IGD search: %2%") % discover_error % igd_error % local_address.data ());
+		for (auto i (devices); i != nullptr; i = i->pNext)
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+		}
 	}
 }
 
@@ -3069,8 +3071,6 @@ void rai::port_mapping::refresh_mapping ()
 {
 	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
-		// Long discovery time and fast setup/teardown make this impractical for testing
-		refresh_devices ();
 		std::lock_guard <std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
 		
@@ -3093,23 +3093,9 @@ void rai::port_mapping::refresh_mapping ()
 	}
 }
 
-void rai::port_mapping::refresh_mapping_loop ()
-{
-	refresh_mapping ();
-	auto node_l (node.shared ());
-	auto remaining (check_mapping ());
-	// Filter out small durations so we never hammer the router with requests, like when a mapping can't be created
-	int const minimum_duration = 5;
-	auto wait_duration (std::max (remaining, minimum_duration));
-	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l] ()
-	{
-		node_l->port_mapping.refresh_mapping_loop ();
-	});
-}
-
 int rai::port_mapping::check_mapping ()
 {
-	int result (std::numeric_limits <int>::max ());
+	int result (3600);
 	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
@@ -3151,15 +3137,23 @@ int rai::port_mapping::check_mapping ()
 
 void rai::port_mapping::check_mapping_loop ()
 {
-	auto remaining (check_mapping ());
-	// If the mapping is lost, refresh it
-	if (remaining == 0)
+	int wait_duration = check_timeout;
+	refresh_devices ();
+	if (devices != nullptr)
 	{
-		refresh_mapping ();
+		auto remaining (check_mapping ());
+		// If the mapping is lost, refresh it
+		if (remaining == 0)
+		{
+			refresh_mapping ();
+		}
+	}
+	else
+	{
+		wait_duration = 300;
+		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP No IGD devices found"));
 	}
 	auto node_l (node.shared ());
-	int const minimum_duration = 5;
-	auto wait_duration (std::max (std::min (remaining, check_timeout), minimum_duration));
 	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l] ()
 	{
 		node_l->port_mapping.check_mapping_loop ();
