@@ -1766,7 +1766,7 @@ void rai::node::process_unchecked ()
 						node_l->process_confirmed (block_a);
 						node_l->process_unchecked ();
 					});
-					network.broadcast_confirm_req (block_a);
+					this->network.broadcast_confirm_req (block_a);
 					BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
 					break;
 				}
