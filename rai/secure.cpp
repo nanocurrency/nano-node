@@ -2190,6 +2190,12 @@ rai::store_iterator rai::block_store::representation_end ()
 	return result;
 }
 
+void rai::block_store::unchecked_clear (MDB_txn * transaction_a)
+{
+	auto status (mdb_drop (transaction_a, unchecked, 0));
+	assert (status == 0);
+}
+
 void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
     std::vector <uint8_t> vector;

@@ -416,6 +416,11 @@ void rai::frontier_req_client::completed_requests ()
 
 void rai::frontier_req_client::completed_pushes ()
 {
+	rai::transaction transaction (connection->node->store.environment, nullptr, true);
+	if (pulls.empty ())
+	{
+		connection->node->store.unchecked_clear (transaction);
+	}
 }
 
 void rai::bulk_pull_client::request ()

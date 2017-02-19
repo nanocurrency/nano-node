@@ -340,5 +340,32 @@ TEST (pull_synchronization, keep_blocks)
 		system0.poll ();
 		system1.poll ();
 	}
-	
+}
+
+// After a synchronization with no pulls or pushes required, clear blocks out of unchecked
+TEST (pull_synchronization, clear_blocks)
+{
+	rai::system system0 (24000, 1);
+	rai::system system1 (24001, 1);
+	auto & node0 (*system0.nodes [0]);
+	auto & node1 (*system1.nodes [0]);
+	rai::send_block send0 (0, 0, rai::genesis_amount - 1 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	{
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		node1.store.unchecked_put (transaction, send0.hash (), send0);
+	}
+	node1.bootstrap_initiator.bootstrap (node0.network.endpoint ());
+	auto iterations (0);
+	auto done (false);
+	while (!done)
+	{
+		{
+			rai::transaction transaction (node1.store.environment, nullptr, false);
+			done = node1.store.unchecked_get (transaction, send0.hash ()) == nullptr;
+		}
+		++iterations;
+		ASSERT_GT (200, iterations);
+		system0.poll ();
+		system1.poll ();
+	}
 }
