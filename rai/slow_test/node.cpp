@@ -242,3 +242,130 @@ TEST (gap_cache, limit)
     }
     ASSERT_EQ (cache.max, cache.blocks.size ());
 }
+
+namespace
+{
+size_t heard_count (std::vector <uint8_t> const & nodes)
+{
+	auto result (0);
+	for (auto i (nodes.begin ()), n (nodes.end ()); i != n; ++i)
+	{
+		switch (*i)
+		{
+			case 0:
+				break;
+			case 1:
+				++result;
+				break;
+			case 2:
+				++result;
+				break;
+		}
+	}
+	return result;
+}
+}
+
+TEST (broadcast, world_broadcast_simulate)
+{
+	auto node_count (10000);
+	// 0 = starting state
+	// 1 = heard transaction
+	// 2 = repeated transaction
+	std::vector <uint8_t> nodes;
+	nodes.resize (node_count, 0);
+	nodes [0] = 1;
+	auto any_changed (true);
+	auto message_count (0);
+	while (any_changed)
+	{
+		any_changed = false;
+		for (auto i (nodes.begin ()), n (nodes.end ()); i != n; ++i)
+		{
+			switch (*i)
+			{
+				case 0:
+				break;
+				case 1:
+					for (auto j (nodes.begin ()), m (nodes.end ()); j != m; ++j)
+					{
+						++message_count;
+						switch (*j)
+						{
+							case 0:
+								*j = 1;
+								any_changed = true;
+								break;
+							case 1:
+								break;
+							case 2:
+								break;
+						}
+					}
+					*i = 2;
+					any_changed = true;
+					break;
+				case 2:
+					break;
+				default:
+					assert (false);
+					break;
+			}
+		}
+	}
+	auto count (heard_count (nodes));
+	printf ("");
+}
+
+TEST (broadcast, log_broadcast_simulate)
+{
+	auto node_count (200);
+	auto broadcast_count (std::ceil (std::sqrt (node_count)));
+	// 0 = starting state
+	// 1 = heard transaction
+	// 2 = repeated transaction
+	std::vector <uint8_t> nodes;
+	nodes.resize (node_count, 0);
+	nodes [0] = 1;
+	auto any_changed (true);
+	uint64_t message_count (0);
+	while (any_changed)
+	{
+		any_changed = false;
+		for (auto i (nodes.begin ()), n (nodes.end ()); i != n; ++i)
+		{
+			switch (*i)
+			{
+				case 0:
+				break;
+				case 1:
+					for (auto j (0); j != broadcast_count; ++j)
+					{
+						++message_count;
+						auto entry (rai::random_pool.GenerateWord32 (0, node_count - 1));
+						switch (nodes [entry])
+						{
+							case 0:
+								nodes [entry] = 1;
+								any_changed = true;
+								break;
+							case 1:
+								break;
+							case 2:
+								break;
+						}
+					}
+					*i = 2;
+					any_changed = true;
+					break;
+				case 2:
+					break;
+				default:
+					assert (false);
+					break;
+			}
+		}
+	}
+	auto count (heard_count (nodes));
+	printf ("");
+}
