@@ -1221,7 +1221,11 @@ std::vector <rai::peer_information> rai::peer_container::list_sqrt ()
 	{
 		auto index (rai::random_pool.GenerateWord32 (0, list_l.size () - 1));
 		result.push_back (list_l [index]);
-		list_l [index] = list_l.back ();
+		if (index != list_l.size () - 1)
+		{
+			// Don't do an overlapped copy
+			list_l [index] = list_l.back ();
+		}
 		list_l.resize (list_l.size () - 1);
 	}
 	return result;
@@ -1254,6 +1258,7 @@ std::vector <rai::peer_information> rai::peer_container::bootstrap_candidates ()
     }
     return result;
 }
+
 void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
 {
 	rai::transaction transaction (this->store.environment, nullptr, true);
@@ -1276,6 +1281,7 @@ bool rai::parse_port (std::string const & string_a, uint16_t & port_a)
 	result = converted != string_a.size () || converted > std::numeric_limits <uint16_t>::max ();
 	return result;
 }
+
 bool rai::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
 {
     auto result (false);

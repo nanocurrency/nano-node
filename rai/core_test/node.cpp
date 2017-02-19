@@ -1143,7 +1143,7 @@ TEST (node, broadcast_elected)
 		ASSERT_TRUE (node0->ledger.block_exists (fork0.hash ()));
 		ASSERT_TRUE (node1->ledger.block_exists (fork0.hash ()));
 		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_LT (iterations, 1000);
 	}
 }
 
