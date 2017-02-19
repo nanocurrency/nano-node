@@ -3032,7 +3032,8 @@ work (nullptr)
 rai::port_mapping::port_mapping (rai::node & node_a) :
 node (node_a),
 devices (nullptr),
-protocols ({{{ "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 }}})
+protocols ({{{ "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 }}}),
+check_count (0)
 {
 	urls = {0};
 	data = {{0}};
@@ -3059,10 +3060,13 @@ void rai::port_mapping::refresh_devices ()
 			boost::system::error_code ec;
 			address = boost::asio::ip::address_v4::from_string (local_address.data (), ec);
 		}
-		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %3%, discovery: %1%, IGD search: %2%") % discover_error % igd_error % local_address.data ());
-		for (auto i (devices); i != nullptr; i = i->pNext)
+		if (check_count % 15 == 0)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %3%, discovery: %1%, IGD search: %2%") % discover_error % igd_error % local_address.data ());
+			for (auto i (devices); i != nullptr; i = i->pNext)
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+			}
 		}
 	}
 }
@@ -3080,7 +3084,10 @@ void rai::port_mapping::refresh_mapping ()
 			std::array <char, 6> actual_external_port;
 			actual_external_port.fill (0);
 			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol.name % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
+			if (check_count % 15 == 0)
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol.name % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
+			}
 			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
 				protocol.external_port = std::atoi (actual_external_port.data ());
@@ -3129,7 +3136,10 @@ int rai::port_mapping::check_mapping ()
 			{
 				protocol.external_address = boost::asio::ip::address_v4::any ();
 			}
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, external ip response: %6%, external ip: %4%, internal ip: %5%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol.name % external_address.data () % address.to_string () % external_ip_error);
+			if (check_count % 15 == 0)
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, external ip response: %6%, external ip: %4%, internal ip: %5%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol.name % external_address.data () % address.to_string () % external_ip_error);
+			}
 		}
 	}
 	return result;
@@ -3153,6 +3163,7 @@ void rai::port_mapping::check_mapping_loop ()
 		wait_duration = 300;
 		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP No IGD devices found"));
 	}
+	++check_count;
 	auto node_l (node.shared ());
 	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l] ()
 	{

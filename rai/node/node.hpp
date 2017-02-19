@@ -241,6 +241,7 @@ public:
 	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
 	boost::asio::ip::address_v4 address;
 	std::array <mapping_protocol, 2> protocols;
+	uint64_t check_count;
 };
 class network
 {
