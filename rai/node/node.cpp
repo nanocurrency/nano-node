@@ -1767,6 +1767,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 					{
 						// Stop synchronizing and wait for fork resolution
 						block = 0;
+						store.unchecked_del (transaction_a, block_a.hash ());
 						auto node_l (shared_from_this ());
 						auto block (node_l->ledger.forked_block (transaction_a, block_a));
 						node_l->active.start (transaction_a, *block, [node_l, attempt_a] (rai::block & block_a)
