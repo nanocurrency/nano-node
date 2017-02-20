@@ -189,15 +189,15 @@ void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endp
     }
     auto node_l (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
-        {
-            if (node_l->config.logging.network_logging ())
-            {
-                if (ec)
-                {
-                    BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
-                }
-            }
-        });
+	{
+		if (node_l->config.logging.network_logging ())
+		{
+			if (ec)
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+			}
+		}
+	});
 }
 
 namespace
@@ -409,8 +409,13 @@ max_size (16 * 1024 * 1024)
         boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
     }
     boost::log::add_common_attributes ();
-	boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+	static bool already_added = false;
+	if (!already_added)
+	{
+		already_added = true;
+		boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	}
+}
 
 void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 {
@@ -1744,90 +1749,73 @@ public:
 };
 }
 
-void rai::node::process_unchecked ()
+void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> attempt_a)
 {
-	rai::pull_synchronization synchronization (log, [this] (MDB_txn * transaction_a, rai::block const & block_a)
+	assert (attempt_a == nullptr || bootstrap_initiator.in_progress ());
+	static std::atomic_flag unchecked_in_progress = ATOMIC_FLAG_INIT;
+	if (!unchecked_in_progress.test_and_set ())
 	{
-		process_receive_many (transaction_a, block_a, [this, transaction_a] (rai::process_return result_a, rai::block const & block_a)
+		rai::block_hash block (1);  // 1 is a sentinal initial value
+		rai::pull_synchronization synchronization (log, [this, &block, attempt_a] (MDB_txn * transaction_a, rai::block const & block_a)
 		{
-			switch (result_a.code)
+			process_receive_many (transaction_a, block_a, [this, transaction_a, &block, attempt_a] (rai::process_return result_a, rai::block const & block_a)
 			{
-				case rai::process_result::progress:
-				case rai::process_result::old:
-					// It definitely doesn't need to be in unchecked because it's in the ledger
-					store.unchecked_del (transaction_a, block_a.hash ());
-					break;
-				case rai::process_result::fork:
+				switch (result_a.code)
 				{
-					auto node_l (shared_from_this ());
-					auto block (node_l->ledger.forked_block (transaction_a, block_a));
-					node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
+					case rai::process_result::progress:
+					case rai::process_result::old:
+						// It definitely doesn't need to be in unchecked because it's in the ledger
+						store.unchecked_del (transaction_a, block_a.hash ());
+						break;
+					case rai::process_result::fork:
 					{
-						node_l->process_confirmed (block_a);
-						node_l->process_unchecked ();
-					});
-					this->network.broadcast_confirm_req (block_a);
-					BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-					break;
-				}
-				case rai::process_result::gap_previous:
-				case rai::process_result::gap_source:
-					if (config.logging.bulk_pull_logging ())
-					{
-						// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
-						BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+						// Stop synchronizing and wait for fork resolution
+						block = 0;
+						auto node_l (shared_from_this ());
+						auto block (node_l->ledger.forked_block (transaction_a, block_a));
+						node_l->active.start (transaction_a, *block, [node_l, attempt_a] (rai::block & block_a)
+						{
+							node_l->process_confirmed (block_a);
+							// Resume synchronizing after fork resolution
+							node_l->process_unchecked (attempt_a);
+						});
+						this->network.broadcast_confirm_req (block_a);
+						this->network.broadcast_confirm_req (*block);
+						BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+						break;
 					}
-					break;
-				default:
-					BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
-					break;
-			}
-		});
-	}, store);
-	rai::block_hash block (0);
-	{
-		rai::transaction transaction (store.environment, nullptr, false);
-		auto existing (store.unchecked_begin (transaction));
-		if (existing != store.unchecked_end ())
+					case rai::process_result::gap_previous:
+					case rai::process_result::gap_source:
+						if (config.logging.bulk_pull_logging ())
+						{
+							// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
+							BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+						}
+						break;
+					default:
+						BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
+						break;
+				}
+			});
+		}, store);
+		while (!block.is_zero ())
 		{
-			block = rai::block_hash (existing->first);
+			rai::transaction transaction (store.environment, nullptr, true);
+			auto next (store.unchecked_begin (transaction, block.number () + 1));
+			if (next != store.unchecked_end ())
+			{
+				block = rai::block_hash (next->first);
+				BOOST_LOG (log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
+				auto error (synchronization.synchronize (transaction, block));
+			}
+			else
+			{
+				block = 0;
+			}
 		}
+		unchecked_in_progress.clear ();
+		wallets.search_pending_all ();
 	}
-    while (!block.is_zero ())
-    {
-		rai::transaction transaction (store.environment, nullptr, true);
-		BOOST_LOG (log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
-		auto error (synchronization.synchronize (transaction, block));
-		if (error)
-		{
-			while (!synchronization.store.stack_empty (transaction))
-			{
-				std::unique_ptr <rai::block> block;
-				auto hash (synchronization.store.stack_pop (transaction));
-				if (store.block_exists (transaction, hash))
-				{
-					if (config.logging.bulk_pull_logging ())
-					{
-						BOOST_LOG (log) << boost::str (boost::format ("Synchronizing: %1%") % hash.to_string ());
-					}
-					auto block (store.unchecked_get (transaction, hash));
-				}
-				if (block != nullptr)
-				{
-					process_receive_many (transaction, *block);
-				}
-			}
-		}
-		auto next (store.unchecked_begin (transaction, block.number () + 1));
-		if (next != store.unchecked_end ())
-		{
-			block = rai::block_hash (next->first);
-		}
-		else
-		{
-			block = 0;
-		}
-    }
 }
 
 void rai::node::process_confirmed (rai::block const & confirmed_a)

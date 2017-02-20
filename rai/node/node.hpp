@@ -381,7 +381,7 @@ public:
     std::shared_ptr <rai::node> shared ();
 	int store_version ();
     void vote (rai::vote const &);
-	void process_unchecked ();
+	void process_unchecked (std::shared_ptr <rai::bootstrap_attempt>);
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
     void process_confirmation (rai::block const &, rai::endpoint const &);
