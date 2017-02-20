@@ -5,7 +5,7 @@
 
 #include <boost/log/trivial.hpp>
 
-rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 log (log_a),
 target (target_a),
 store (store_a)
@@ -102,7 +102,7 @@ bool rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
         auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
-			target (transaction_a, *block);
+			result = target (transaction_a, *block);
 		}
 		else
 		{
@@ -125,7 +125,7 @@ bool rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::bloc
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
@@ -140,7 +140,7 @@ bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::bloc
     return store.block_exists (transaction_a, hash_a) || attempted.count (hash_a) != 0;
 }
 
-rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <void (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, target_a, store_a)
 {
 }
@@ -598,6 +598,7 @@ connection (connection_a),
 synchronization (connection->connection->node->log, [this] (MDB_txn * transaction_a, rai::block const & block_a)
 {
     push_block (block_a);
+	return false;
 }, connection_a->connection->node->store)
 {
 }

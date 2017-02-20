@@ -14,7 +14,7 @@ namespace rai
 class block_synchronization
 {
 public:
-    block_synchronization (boost::log::sources::logger_mt &, std::function <void (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    block_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
     ~block_synchronization ();
     // Return true if target already has block
     virtual bool synchronized (MDB_txn *, rai::block_hash const &) = 0;
@@ -26,21 +26,21 @@ public:
     bool synchronize (MDB_txn *, rai::block_hash const &);
     std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger_mt & log;
-    std::function <void (MDB_txn *, rai::block const &)> target;
+    std::function <bool (MDB_txn *, rai::block const &)> target;
     rai::block_store & store;
 	std::unordered_set <rai::block_hash> attempted;
 };
 class pull_synchronization : public rai::block_synchronization
 {
 public:
-    pull_synchronization (boost::log::sources::logger_mt &, std::function <void (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    pull_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
 };
 class push_synchronization : public rai::block_synchronization
 {
 public:
-    push_synchronization (boost::log::sources::logger_mt &, std::function <void (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    push_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
 };

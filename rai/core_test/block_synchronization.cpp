@@ -13,6 +13,7 @@ TEST (pull_synchronization, empty)
 	rai::pull_synchronization sync (test_log, [&blocks] (MDB_txn *, rai::block const & block_a)
 	{
 		blocks.push_back (block_a.clone ());
+		return false;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
@@ -37,6 +38,7 @@ TEST (pull_synchronization, one)
 	rai::pull_synchronization sync (test_log, [&blocks] (MDB_txn *, rai::block const & block_a)
 	{
 		blocks.push_back (block_a.clone ());
+		return false;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
@@ -62,10 +64,11 @@ TEST (pull_synchronization, send_dependencies)
 		store.unchecked_put (transaction, block3.hash (), block3);
 	}
 	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-									{
-										store.block_put (transaction_a, block_a.hash (), block_a);
-										blocks.push_back (block_a.clone ());
-									}, store);
+	{
+		store.block_put (transaction_a, block_a.hash (), block_a);
+		blocks.push_back (block_a.clone ());
+		return false;
+	}, store);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_FALSE (sync.synchronize (transaction, block3.hash ()));
 	ASSERT_EQ (2, blocks.size ());
@@ -89,10 +92,11 @@ TEST (pull_synchronization, change_dependencies)
 		store.unchecked_put (transaction, block3.hash (), block3);
 	}
 	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-									{
-										store.block_put (transaction_a, block_a.hash (), block_a);
-										blocks.push_back (block_a.clone ());
-									}, store);
+	{
+		store.block_put (transaction_a, block_a.hash (), block_a);
+		blocks.push_back (block_a.clone ());
+		return false;
+	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		ASSERT_FALSE (sync.synchronize (transaction, block3.hash ()));
@@ -118,10 +122,11 @@ TEST (pull_synchronization, open_dependencies)
 		store.unchecked_put (transaction, block3.hash (), block3);
 	}
 	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-									{
-										store.block_put (transaction_a, block_a.hash (), block_a);
-										blocks.push_back (block_a.clone ());
-									}, store);
+	{
+		store.block_put (transaction_a, block_a.hash (), block_a);
+		blocks.push_back (block_a.clone ());
+		return false;
+	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		ASSERT_FALSE (sync.synchronize (transaction, block3.hash ()));
@@ -151,10 +156,11 @@ TEST (pull_synchronization, receive_dependencies)
 		store.unchecked_put (transaction, block5.hash (), block5);
 	}
 	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-									{
-										store.block_put (transaction_a, block_a.hash (), block_a);
-										blocks.push_back (block_a.clone ());
-									}, store);
+	{
+		store.block_put (transaction_a, block_a.hash (), block_a);
+		blocks.push_back (block_a.clone ());
+		return false;
+	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		ASSERT_FALSE (sync.synchronize (transaction, block5.hash ()));
@@ -190,10 +196,11 @@ TEST (pull_synchronization, ladder_dependencies)
 		store.unchecked_put (transaction, block7.hash (), block7);
 	}
 	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-									{
-										store.block_put (transaction_a, block_a.hash (), block_a);
-										blocks.push_back (block_a.clone ());
-									}, store);
+	{
+		store.block_put (transaction_a, block_a.hash (), block_a);
+		blocks.push_back (block_a.clone ());
+		return false;
+	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		ASSERT_FALSE (sync.synchronize (transaction, block7.hash ()));
@@ -216,6 +223,7 @@ TEST (push_synchronization, empty)
 	rai::push_synchronization sync (test_log, [&blocks] (MDB_txn * transaction_a, rai::block const & block_a)
 	{
 		blocks.push_back (block_a.clone ());
+		return false;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
@@ -238,10 +246,11 @@ TEST (push_synchronization, one)
 		store.block_put (transaction, block2.hash (), block2);
 	}
 	rai::push_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-									{
-										store.block_put (transaction_a, block_a.hash (), block_a);
-										blocks.push_back (block_a.clone ());
-									}, store);
+	{
+		store.block_put (transaction_a, block_a.hash (), block_a);
+		blocks.push_back (block_a.clone ());
+		return false;
+	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		store.unsynced_put (transaction, block2.hash ());
@@ -273,6 +282,7 @@ TEST (pull_synchronization, dependent_fork)
 	store.unchecked_put (transaction, send3.hash (), send3);
 	rai::pull_synchronization sync (test_log, [] (MDB_txn *, rai::block const & block_a)
 	{
+		return false;
 	}, store);
 	ASSERT_FALSE (sync.synchronize (transaction, send3.hash ()));
 }

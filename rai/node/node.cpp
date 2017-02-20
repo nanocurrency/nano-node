@@ -1758,12 +1758,14 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 		rai::block_hash block (1);  // 1 is a sentinal initial value
 		rai::pull_synchronization synchronization (log, [this, &block, attempt_a] (MDB_txn * transaction_a, rai::block const & block_a)
 		{
-			process_receive_many (transaction_a, block_a, [this, transaction_a, &block, attempt_a] (rai::process_return result_a, rai::block const & block_a)
+			auto result (true);
+			process_receive_many (transaction_a, block_a, [this, transaction_a, &block, attempt_a, &result] (rai::process_return result_a, rai::block const & block_a)
 			{
 				switch (result_a.code)
 				{
 					case rai::process_result::progress:
 					case rai::process_result::old:
+						result = false;
 						// It definitely doesn't need to be in unchecked because it's in the ledger
 						store.unchecked_del (transaction_a, block_a.hash ());
 						break;
@@ -1797,6 +1799,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 						break;
 				}
 			});
+			return result;
 		}, store);
 		while (!block.is_zero ())
 		{
