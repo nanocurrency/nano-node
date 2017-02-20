@@ -466,7 +466,7 @@ public:
 class ledger
 {
 public:
-	ledger (rai::block_store &, rai::uint128_t const & = 0, std::function <bool (rai::block const &)> = [] (rai::block const &) { return false; });
+	ledger (rai::block_store &, rai::uint128_t const & = 0);
 	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
@@ -486,7 +486,7 @@ public:
 	std::string block_text (rai::block_hash const &);
 	rai::uint128_t supply (MDB_txn *);
 	rai::process_return process (MDB_txn *, rai::block const &);
-	bool rollback (MDB_txn *, rai::block_hash const &);
+	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
@@ -494,7 +494,6 @@ public:
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 	rai::uint128_t inactive_supply;
-	std::function <bool (rai::block const &)> rollback_predicate;
 };
 extern rai::keypair const & zero_key;
 extern rai::keypair const & test_genesis_key;

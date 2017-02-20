@@ -834,7 +834,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb"),
 gap_cache (*this),
-ledger (store, config_a.inactive_supply.number (), [this] (rai::block const & block_a) { return rollback_predicate (block_a); } ),
+ledger (store, config_a.inactive_supply.number ()),
 active (*this),
 wallets (init_a.block_store_init, *this),
 network (service_a, config.peering_port, *this),
@@ -886,12 +886,6 @@ port_mapping (*this)
             genesis.initialize (transaction, store);
         }
     }
-}
-
-bool rai::node::rollback_predicate (rai::block const & block_a)
-{
-	auto error (bootstrap_initiator.warmed_up && !active.active (block_a));
-	return error;
 }
 
 rai::node::~node ()
@@ -2225,16 +2219,9 @@ bool rai::election::recalculate_winner (MDB_txn * transaction_a)
 			BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
 		}
 		// Replace our block with the winner and roll back any dependent blocks
-		auto error (node.ledger.rollback (transaction_a, last_winner->hash ()));
-		if (!error)
-		{
-			node.ledger.process (transaction_a, *winner->second);
-			last_winner = std::move (winner->second);
-		}
-		else
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Rollback consistency violation rolling back %1% trying to replace with %2%") % last_winner->to_json () % winner->second->to_json ());
-		}
+		node.ledger.rollback (transaction_a, last_winner->hash ());
+		node.ledger.process (transaction_a, *winner->second);
+		last_winner = std::move (winner->second);
 	}
 	// Check if we can do a fast confirm for the usual case of good actors
 	if (tally_l.size () == 1)

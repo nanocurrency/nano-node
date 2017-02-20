@@ -208,10 +208,9 @@ rai::keypair::keypair (std::string const & prv_a)
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
-rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a, std::function <bool (rai::block const &)> rollback_predicate_a) :
+rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a) :
 store (store_a),
-inactive_supply (inactive_supply_a),
-rollback_predicate (rollback_predicate_a)
+inactive_supply (inactive_supply_a)
 {
 }
 
@@ -2606,107 +2605,74 @@ class rollback_visitor : public rai::block_visitor
 public:
     rollback_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a) :
 	transaction (transaction_a),
-    ledger (ledger_a),
-	error (false)
+    ledger (ledger_a)
     {
     }
     void send_block (rai::send_block const & block_a) override
     {
-		if (!ledger.rollback_predicate (block_a))
+		auto hash (block_a.hash ());
+		rai::pending_info pending;
+		rai::pending_key key (block_a.hashables.destination, hash);
+		while (ledger.store.pending_get (transaction, key, pending))
 		{
-			auto hash (block_a.hash ());
-			rai::pending_info pending;
-			rai::pending_key key (block_a.hashables.destination, hash);
-			while (ledger.store.pending_get (transaction, key, pending) && !error)
-			{
-				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
-			}
-			if (!error)
-			{
-				rai::account_info info;
-				auto error (ledger.store.account_get (transaction, pending.source, info));
-				assert (!error);
-				ledger.store.pending_del (transaction, key);
-				ledger.store.representation_add (transaction, ledger.representative (transaction, hash), pending.amount.number ());
-				ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
-				ledger.store.block_del (transaction, hash);
-				ledger.store.frontier_del (transaction, hash);
-				ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
-				ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
-			}
+			ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
 		}
-		else
-		{
-			error = true;
-		}
+		rai::account_info info;
+		auto error (ledger.store.account_get (transaction, pending.source, info));
+		assert (!error);
+		ledger.store.pending_del (transaction, key);
+		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), pending.amount.number ());
+		ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous));
+		ledger.store.block_del (transaction, hash);
+		ledger.store.frontier_del (transaction, hash);
+		ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
+		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
     }
     void receive_block (rai::receive_block const & block_a) override
     {
-		if (!ledger.rollback_predicate (block_a))
-		{
-			auto hash (block_a.hash ());
-			auto representative (ledger.representative (transaction, block_a.hashables.previous));
-			auto amount (ledger.amount (transaction, block_a.hashables.source));
-			auto destination_account (ledger.account (transaction, hash));
-			ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
-			ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (transaction, block_a.hashables.previous));
-			ledger.store.block_del (transaction, hash);
-			ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), {ledger.account (transaction, block_a.hashables.source), amount});
-			ledger.store.frontier_del (transaction, hash);
-			ledger.store.frontier_put (transaction, block_a.hashables.previous, destination_account);
-			ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
-		}
-		else
-		{
-			error = true;
-		}
+		auto hash (block_a.hash ());
+		auto representative (ledger.representative (transaction, block_a.hashables.previous));
+		auto amount (ledger.amount (transaction, block_a.hashables.source));
+		auto destination_account (ledger.account (transaction, hash));
+		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
+		ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (transaction, block_a.hashables.previous));
+		ledger.store.block_del (transaction, hash);
+		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), {ledger.account (transaction, block_a.hashables.source), amount});
+		ledger.store.frontier_del (transaction, hash);
+		ledger.store.frontier_put (transaction, block_a.hashables.previous, destination_account);
+		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
     }
     void open_block (rai::open_block const & block_a) override
     {
-		if (!ledger.rollback_predicate (block_a))
-		{
-			auto hash (block_a.hash ());
-			auto representative (ledger.representative (transaction, block_a.hashables.source));
-			auto amount (ledger.amount (transaction, block_a.hashables.source));
-			auto destination_account (ledger.account (transaction, hash));
-			ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
-			ledger.change_latest (transaction, destination_account, 0, representative, 0);
-			ledger.store.block_del (transaction, hash);
-			ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), {ledger.account (transaction, block_a.hashables.source), amount});
-			ledger.store.frontier_del (transaction, hash);
-		}
-		else
-		{
-			error = true;
-		}
+		auto hash (block_a.hash ());
+		auto representative (ledger.representative (transaction, block_a.hashables.source));
+		auto amount (ledger.amount (transaction, block_a.hashables.source));
+		auto destination_account (ledger.account (transaction, hash));
+		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
+		ledger.change_latest (transaction, destination_account, 0, representative, 0);
+		ledger.store.block_del (transaction, hash);
+		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), {ledger.account (transaction, block_a.hashables.source), amount});
+		ledger.store.frontier_del (transaction, hash);
     }
     void change_block (rai::change_block const & block_a) override
     {
-		if (!ledger.rollback_predicate (block_a))
-		{
-			auto hash (block_a.hash ());
-			auto representative (ledger.representative (transaction, block_a.hashables.previous));
-			auto account (ledger.account (transaction, block_a.hashables.previous));
-			rai::account_info info;
-			auto error (ledger.store.account_get (transaction, account, info));
-			assert (!error);
-			auto balance (ledger.balance (transaction, block_a.hashables.previous));
-			ledger.store.representation_add (transaction, representative, balance);
-			ledger.store.representation_add (transaction, hash, 0 - balance);
-			ledger.store.block_del (transaction, hash);
-			ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance);
-			ledger.store.frontier_del (transaction, hash);
-			ledger.store.frontier_put (transaction, block_a.hashables.previous, account);
-			ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
-		}
-		else
-		{
-			error = true;
-		}
+		auto hash (block_a.hash ());
+		auto representative (ledger.representative (transaction, block_a.hashables.previous));
+		auto account (ledger.account (transaction, block_a.hashables.previous));
+		rai::account_info info;
+		auto error (ledger.store.account_get (transaction, account, info));
+		assert (!error);
+		auto balance (ledger.balance (transaction, block_a.hashables.previous));
+		ledger.store.representation_add (transaction, representative, balance);
+		ledger.store.representation_add (transaction, hash, 0 - balance);
+		ledger.store.block_del (transaction, hash);
+		ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance);
+		ledger.store.frontier_del (transaction, hash);
+		ledger.store.frontier_put (transaction, block_a.hashables.previous, account);
+		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
     }
 	MDB_txn * transaction;
     rai::ledger & ledger;
-	bool error;
 };
 }
 
@@ -2836,20 +2802,19 @@ rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const 
 }
 
 // Rollback blocks until `block_a' doesn't exist
-bool rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & block_a)
+void rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & block_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
     auto account_l (account (transaction_a, block_a));
     rollback_visitor rollback (transaction_a, *this);
     rai::account_info info;
-    while (store.block_exists (transaction_a, block_a) && !rollback.error)
+    while (store.block_exists (transaction_a, block_a))
     {
         auto latest_error (store.account_get (transaction_a, account_l, info));
         assert (!latest_error);
         auto block (store.block_get (transaction_a, info.head));
         block->visit (rollback);
     }
-	return rollback.error;
 }
 
 // Return account containing hash
