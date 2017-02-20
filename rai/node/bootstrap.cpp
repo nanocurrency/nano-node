@@ -116,6 +116,7 @@ bool rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
 bool rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (false);
+	store.stack_clear (transaction_a);
     store.stack_push (transaction_a, hash_a);
     while (!result && !store.stack_empty (transaction_a))
     {
@@ -530,8 +531,7 @@ void rai::bulk_pull_client::received_type ()
 void rai::bulk_pull_client::process_end ()
 {
 	block_flush ();
-	connection->connection->node->process_unchecked ();
-	connection->connection->node->wallets.search_pending_all ();
+	connection->connection->node->process_unchecked (connection->connection->attempt);
 }
 
 void rai::bulk_pull_client::block_flush ()
