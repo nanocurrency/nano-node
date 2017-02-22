@@ -11,6 +11,8 @@
 
 namespace rai
 {
+class bootstrap_attempt;
+class node;
 enum class sync_result
 {
 	success,
@@ -39,11 +41,12 @@ public:
 class pull_synchronization : public rai::block_synchronization
 {
 public:
-    pull_synchronization (boost::log::sources::logger_mt &, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    pull_synchronization (rai::node &, std::shared_ptr <rai::bootstrap_attempt>);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
     rai::sync_result target (MDB_txn *, rai::block const &) override;
-	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
+	rai::node & node;
+	std::shared_ptr <rai::bootstrap_attempt> attempt;
 };
 class push_synchronization : public rai::block_synchronization
 {
@@ -54,7 +57,6 @@ public:
     rai::sync_result target (MDB_txn *, rai::block const &) override;
 	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
 };
-class node;
 class bootstrap_client;
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {

@@ -129,9 +129,10 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
-block_synchronization (log_a, store_a),
-target_m (target_a)
+rai::pull_synchronization::pull_synchronization (rai::node & node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a) :
+block_synchronization (node_a.log, node_a.store),
+node (node_a),
+attempt (attempt_a)
 {
 }
 
@@ -142,7 +143,52 @@ std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * tran
 
 rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
 {
-	return target_m (transaction_a, block_a);
+	auto result (rai::sync_result::error);
+	node.process_receive_many (transaction_a, block_a, [this, transaction_a, &result] (rai::process_return result_a, rai::block const & block_a)
+	{
+		switch (result_a.code)
+		{
+			case rai::process_result::progress:
+			case rai::process_result::old:
+				result = rai::sync_result::success;
+				// It definitely doesn't need to be in unchecked because it's in the ledger
+				store.unchecked_del (transaction_a, block_a.hash ());
+				break;
+			case rai::process_result::fork:
+			{
+				result = rai::sync_result::fork;
+				// Stop synchronizing and wait for fork resolution
+				store.unchecked_del (transaction_a, block_a.hash ());
+				auto node_l (node.shared ());
+				auto block (node_l->ledger.forked_block (transaction_a, block_a));
+				auto attempt_l (attempt);
+				node_l->active.start (transaction_a, *block, [node_l, attempt_l] (rai::block & block_a)
+				{
+					node_l->process_confirmed (block_a);
+					// Resume synchronizing after fork resolution
+					node_l->process_unchecked (attempt_l);
+				});
+				node.network.broadcast_confirm_req (block_a);
+				node.network.broadcast_confirm_req (*block);
+				BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+				break;
+			}
+			case rai::process_result::gap_previous:
+			case rai::process_result::gap_source:
+				result = rai::sync_result::error;
+				if (node.config.logging.bulk_pull_logging ())
+				{
+					// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
+					BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+				}
+				break;
+			default:
+				result = rai::sync_result::error;
+				BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
+				break;
+		}
+	});
+	return result;
 }
 
 bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)

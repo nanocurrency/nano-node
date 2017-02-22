@@ -1749,54 +1749,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 	static std::atomic_flag unchecked_in_progress = ATOMIC_FLAG_INIT;
 	if (!unchecked_in_progress.test_and_set ())
 	{
-		rai::pull_synchronization synchronization (log, [this, attempt_a] (MDB_txn * transaction_a, rai::block const & block_a)
-		{
-			auto result (rai::sync_result::error);
-			process_receive_many (transaction_a, block_a, [this, transaction_a, attempt_a, &result] (rai::process_return result_a, rai::block const & block_a)
-			{
-				switch (result_a.code)
-				{
-					case rai::process_result::progress:
-					case rai::process_result::old:
-						result = rai::sync_result::success;
-						// It definitely doesn't need to be in unchecked because it's in the ledger
-						store.unchecked_del (transaction_a, block_a.hash ());
-						break;
-					case rai::process_result::fork:
-					{
-						result = rai::sync_result::fork;
-						// Stop synchronizing and wait for fork resolution
-						store.unchecked_del (transaction_a, block_a.hash ());
-						auto node_l (shared_from_this ());
-						auto block (node_l->ledger.forked_block (transaction_a, block_a));
-						node_l->active.start (transaction_a, *block, [node_l, attempt_a] (rai::block & block_a)
-						{
-							node_l->process_confirmed (block_a);
-							// Resume synchronizing after fork resolution
-							node_l->process_unchecked (attempt_a);
-						});
-						this->network.broadcast_confirm_req (block_a);
-						this->network.broadcast_confirm_req (*block);
-						BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-						break;
-					}
-					case rai::process_result::gap_previous:
-					case rai::process_result::gap_source:
-						result = rai::sync_result::error;
-						if (config.logging.bulk_pull_logging ())
-						{
-							// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
-							BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-						}
-						break;
-					default:
-						result = rai::sync_result::error;
-						BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
-						break;
-				}
-			});
-			return result;
-		}, store);
+		rai::pull_synchronization synchronization (*this, attempt_a);
 		rai::block_hash block (1);  // 1 is a sentinal initial value
 		while (!block.is_zero ())
 		{

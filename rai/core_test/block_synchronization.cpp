@@ -229,11 +229,8 @@ TEST (pull_synchronization, dependent_fork)
 	ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction, send2).code);
 	node0.store.unchecked_put (transaction, send1.hash (), send1);
 	node0.store.unchecked_put (transaction, send3.hash (), send3);
-	rai::pull_synchronization sync (test_log, [] (MDB_txn *, rai::block const & block_a)
-	{
-		return rai::sync_result::success;
-	}, node0.store);
-	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, send3.hash ()));
+	rai::pull_synchronization sync (node0, nullptr);
+	ASSERT_EQ (rai::sync_result::fork, sync.synchronize (transaction, send3.hash ()));
 }
 
 // Make sure that when synchronizing, if a fork needs to be resolved, don't drop the blocks we downloaded.
