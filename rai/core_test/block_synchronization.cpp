@@ -4,22 +4,37 @@
 
 static boost::log::sources::logger_mt test_log;
 
+class test_synchronization : public rai::block_synchronization
+{
+public:
+	test_synchronization (rai::block_store & store_a) :
+	rai::block_synchronization (test_log, store_a)
+	{
+	}
+    bool synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a) override
+	{
+		return store.block_exists (transaction_a, hash_a);
+	}
+    std::unique_ptr <rai::block> retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a) override
+	{
+		return store.unchecked_get (transaction_a, hash_a);
+	}
+    rai::sync_result target (MDB_txn * transaction_a, rai::block const & block_a) override
+	{
+		store.block_put (transaction_a, block_a.hash (), block_a);
+		return rai::sync_result::success;
+	}
+};
+
 TEST (pull_synchronization, empty)
 {
 	bool init (false);
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	std::vector <std::unique_ptr <rai::block>> blocks;
-	rai::pull_synchronization sync (test_log, [&blocks] (MDB_txn *, rai::block const & block_a)
-	{
-		blocks.push_back (block_a.clone ());
-		return rai::sync_result::success;
-	}, store);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_EQ (rai::sync_result::error, sync.synchronize (transaction, 0));
-	}
-	ASSERT_EQ (0, blocks.size ());
+	test_synchronization sync (store);
+	rai::transaction transaction (store.environment, nullptr, true);
+	ASSERT_EQ (rai::sync_result::error, sync.synchronize (transaction, 0));
+	ASSERT_EQ (0, store.block_count (transaction));
 }
 
 TEST (pull_synchronization, one)
@@ -29,23 +44,13 @@ TEST (pull_synchronization, one)
 	ASSERT_FALSE (init);
 	rai::open_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	rai::send_block block2 (block1.hash (), 0, 1, rai::keypair ().prv, 3, 4);
-	std::vector <std::unique_ptr <rai::block>> blocks;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		store.block_put (transaction, block1.hash (), block1);
-		store.unchecked_put (transaction, block2.hash (), block2);
-	}
-	rai::pull_synchronization sync (test_log, [&blocks] (MDB_txn *, rai::block const & block_a)
-	{
-		blocks.push_back (block_a.clone ());
-		return rai::sync_result::success;
-	}, store);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block2.hash ()));
-	}
-	ASSERT_EQ (1, blocks.size ());
-	ASSERT_EQ (block2, *blocks [0]);
+	rai::transaction transaction (store.environment, nullptr, true);
+	store.block_put (transaction, block1.hash (), block1);
+	store.unchecked_put (transaction, block2.hash (), block2);
+	test_synchronization sync (store);
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block2.hash ()));
+	ASSERT_EQ (2, store.block_count (transaction));
+	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 }
 
 TEST (pull_synchronization, send_dependencies)
@@ -56,24 +61,15 @@ TEST (pull_synchronization, send_dependencies)
 	rai::open_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	rai::send_block block2 (block1.hash (), 0, 1, rai::keypair ().prv, 3, 4);
 	rai::send_block block3 (block2.hash (), 0, 1, rai::keypair ().prv, 3, 4);
-	std::vector <std::unique_ptr <rai::block>> blocks;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		store.block_put (transaction, block1.hash (), block1);
-		store.unchecked_put (transaction, block2.hash (), block2);
-		store.unchecked_put (transaction, block3.hash (), block3);
-	}
-	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-	{
-		store.block_put (transaction_a, block_a.hash (), block_a);
-		blocks.push_back (block_a.clone ());
-		return rai::sync_result::success;
-	}, store);
 	rai::transaction transaction (store.environment, nullptr, true);
+	store.block_put (transaction, block1.hash (), block1);
+	store.unchecked_put (transaction, block2.hash (), block2);
+	store.unchecked_put (transaction, block3.hash (), block3);
+	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
-	ASSERT_EQ (2, blocks.size ());
-	ASSERT_EQ (block2, *blocks [0]);
-	ASSERT_EQ (block3, *blocks [1]);
+	ASSERT_EQ (3, store.block_count (transaction));
+	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 }
 
 TEST (pull_synchronization, change_dependencies)
@@ -84,26 +80,15 @@ TEST (pull_synchronization, change_dependencies)
 	rai::open_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	rai::send_block block2 (block1.hash (), 0, 1, rai::keypair ().prv, 3, 4);
 	rai::change_block block3 (block2.hash (), 0, rai::keypair ().prv, 2, 3);
-	std::vector <std::unique_ptr <rai::block>> blocks;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		store.block_put (transaction, block1.hash (), block1);
-		store.unchecked_put (transaction, block2.hash (), block2);
-		store.unchecked_put (transaction, block3.hash (), block3);
-	}
-	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-	{
-		store.block_put (transaction_a, block_a.hash (), block_a);
-		blocks.push_back (block_a.clone ());
-		return rai::sync_result::success;
-	}, store);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
-	}
-	ASSERT_EQ (2, blocks.size ());
-	ASSERT_EQ (block2, *blocks [0]);
-	ASSERT_EQ (block3, *blocks [1]);
+	rai::transaction transaction (store.environment, nullptr, true);
+	store.block_put (transaction, block1.hash (), block1);
+	store.unchecked_put (transaction, block2.hash (), block2);
+	store.unchecked_put (transaction, block3.hash (), block3);
+	test_synchronization sync (store);
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
+	ASSERT_EQ (3, store.block_count (transaction));
+	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 }
 
 TEST (pull_synchronization, open_dependencies)
@@ -114,26 +99,15 @@ TEST (pull_synchronization, open_dependencies)
 	rai::open_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	rai::send_block block2 (block1.hash (), 0, 1, rai::keypair ().prv, 3, 4);
 	rai::open_block block3 (block2.hash (), 1, 1, rai::keypair ().prv, 4, 5);
-	std::vector <std::unique_ptr <rai::block>> blocks;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		store.block_put (transaction, block1.hash (), block1);
-		store.unchecked_put (transaction, block2.hash (), block2);
-		store.unchecked_put (transaction, block3.hash (), block3);
-	}
-	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-	{
-		store.block_put (transaction_a, block_a.hash (), block_a);
-		blocks.push_back (block_a.clone ());
-		return rai::sync_result::success;
-	}, store);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
-	}
-	ASSERT_EQ (2, blocks.size ());
-	ASSERT_EQ (block2, *blocks [0]);
-	ASSERT_EQ (block3, *blocks [1]);
+	rai::transaction transaction (store.environment, nullptr, true);
+	store.block_put (transaction, block1.hash (), block1);
+	store.unchecked_put (transaction, block2.hash (), block2);
+	store.unchecked_put (transaction, block3.hash (), block3);
+	test_synchronization sync (store);
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
+	ASSERT_EQ (3, store.block_count (transaction));
+	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 }
 
 TEST (pull_synchronization, receive_dependencies)
@@ -146,30 +120,19 @@ TEST (pull_synchronization, receive_dependencies)
 	rai::open_block block3 (block2.hash (), 1, 1, rai::keypair ().prv, 4, 5);
 	rai::send_block block4 (block2.hash (), 0, 1, rai::keypair ().prv, 3, 4);
 	rai::receive_block block5 (block3.hash (), block4.hash (), rai::keypair ().prv, 0, 0);
-	std::vector <std::unique_ptr <rai::block>> blocks;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		store.block_put (transaction, block1.hash (), block1);
-		store.unchecked_put (transaction, block2.hash (), block2);
-		store.unchecked_put (transaction, block3.hash (), block3);
-		store.unchecked_put (transaction, block4.hash (), block4);
-		store.unchecked_put (transaction, block5.hash (), block5);
-	}
-	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-	{
-		store.block_put (transaction_a, block_a.hash (), block_a);
-		blocks.push_back (block_a.clone ());
-		return rai::sync_result::success;
-	}, store);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block5.hash ()));
-	}
-	ASSERT_EQ (4, blocks.size ());
-	ASSERT_EQ (block2, *blocks [0]);
-	ASSERT_EQ (block3, *blocks [1]);
-	ASSERT_EQ (block4, *blocks [2]);
-	ASSERT_EQ (block5, *blocks [3]);
+	rai::transaction transaction (store.environment, nullptr, true);
+	store.block_put (transaction, block1.hash (), block1);
+	store.unchecked_put (transaction, block2.hash (), block2);
+	store.unchecked_put (transaction, block3.hash (), block3);
+	store.unchecked_put (transaction, block4.hash (), block4);
+	store.unchecked_put (transaction, block5.hash (), block5);
+	test_synchronization sync (store);
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block5.hash ()));
+	ASSERT_EQ (5, store.block_count (transaction));
+	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block4.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block5.hash ()));
 }
 
 TEST (pull_synchronization, ladder_dependencies)
@@ -184,34 +147,23 @@ TEST (pull_synchronization, ladder_dependencies)
 	rai::receive_block block5 (block2.hash (), block4.hash (), rai::keypair ().prv, 0, 0);
 	rai::send_block block6 (block5.hash (), 0, 1, rai::keypair ().prv, 3, 4);
 	rai::receive_block block7 (block4.hash (), block6.hash (), rai::keypair ().prv, 0, 0);
-	std::vector <std::unique_ptr <rai::block>> blocks;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		store.block_put (transaction, block1.hash (), block1);
-		store.unchecked_put (transaction, block2.hash (), block2);
-		store.unchecked_put (transaction, block3.hash (), block3);
-		store.unchecked_put (transaction, block4.hash (), block4);
-		store.unchecked_put (transaction, block5.hash (), block5);
-		store.unchecked_put (transaction, block6.hash (), block6);
-		store.unchecked_put (transaction, block7.hash (), block7);
-	}
-	rai::pull_synchronization sync (test_log, [&blocks, &store] (MDB_txn * transaction_a, rai::block const & block_a)
-	{
-		store.block_put (transaction_a, block_a.hash (), block_a);
-		blocks.push_back (block_a.clone ());
-		return rai::sync_result::success;
-	}, store);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block7.hash ()));
-	}
-	ASSERT_EQ (6, blocks.size ());
-	ASSERT_EQ (block2, *blocks [0]);
-	ASSERT_EQ (block3, *blocks [1]);
-	ASSERT_EQ (block4, *blocks [2]);
-	ASSERT_EQ (block5, *blocks [3]);
-	ASSERT_EQ (block6, *blocks [4]);
-	ASSERT_EQ (block7, *blocks [5]);
+	rai::transaction transaction (store.environment, nullptr, true);
+	store.block_put (transaction, block1.hash (), block1);
+	store.unchecked_put (transaction, block2.hash (), block2);
+	store.unchecked_put (transaction, block3.hash (), block3);
+	store.unchecked_put (transaction, block4.hash (), block4);
+	store.unchecked_put (transaction, block5.hash (), block5);
+	store.unchecked_put (transaction, block6.hash (), block6);
+	store.unchecked_put (transaction, block7.hash (), block7);
+	test_synchronization sync (store);
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block7.hash ()));
+	ASSERT_EQ (7, store.block_count (transaction));
+	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block4.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block5.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block6.hash ()));
+	ASSERT_NE (nullptr, store.block_get (transaction, block7.hash ()));
 }
 
 TEST (push_synchronization, empty)
@@ -263,27 +215,24 @@ TEST (push_synchronization, one)
 // Make sure synchronize terminates even with forks
 TEST (pull_synchronization, dependent_fork)
 {
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_FALSE (init);
-	rai::ledger ledger (store);
+	rai::system system0 (24000, 1);
+	auto & node0 (*system0.nodes [0]);
 	rai::keypair key0;
 	rai::keypair key1;
-	rai::transaction transaction (store.environment, nullptr, true);
-	rai::genesis genesis;
-	genesis.initialize (transaction, store);
-	rai::send_block send0 (genesis.hash (), key0.pub, rai::genesis_amount - 1 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::send_block send1 (genesis.hash (), key0.pub, rai::genesis_amount - 2 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::transaction transaction (node0.store.environment, nullptr, true);
+	auto genesis (node0.ledger.latest (transaction, rai::test_genesis_key.pub));
+	rai::send_block send0 (genesis, key0.pub, rai::genesis_amount - 1 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send1 (genesis, key0.pub, rai::genesis_amount - 2 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::send_block send2 (send0.hash (), key0.pub, rai::genesis_amount - 3 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::send_block send3 (send1.hash (), key0.pub, rai::genesis_amount - 4 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send0).code);
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send2).code);
-	store.unchecked_put (transaction, send1.hash (), send1);
-	store.unchecked_put (transaction, send3.hash (), send3);
+	ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction, send0).code);
+	ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction, send2).code);
+	node0.store.unchecked_put (transaction, send1.hash (), send1);
+	node0.store.unchecked_put (transaction, send3.hash (), send3);
 	rai::pull_synchronization sync (test_log, [] (MDB_txn *, rai::block const & block_a)
 	{
 		return rai::sync_result::success;
-	}, store);
+	}, node0.store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, send3.hash ()));
 }
 
