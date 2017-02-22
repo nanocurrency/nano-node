@@ -78,6 +78,7 @@ public:
 	// Call action with confirmed block, may be different than what we started with
     void start (MDB_txn *, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
+	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
     boost::multi_index_container

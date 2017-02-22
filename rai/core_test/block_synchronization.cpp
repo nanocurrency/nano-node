@@ -231,6 +231,11 @@ TEST (pull_synchronization, dependent_fork)
 	node0.store.unchecked_put (transaction, send3.hash (), send3);
 	rai::pull_synchronization sync (node0, nullptr);
 	ASSERT_EQ (rai::sync_result::fork, sync.synchronize (transaction, send3.hash ()));
+	// Voting will either discard this block or commit it.  If it's discarded we don't want to attempt it again
+	ASSERT_EQ (nullptr, node0.store.unchecked_get (transaction, send1.hash ()));
+	// This block will either succeed, if its predecessor is comitted by voting, or will be a gap and will be discarded
+	ASSERT_NE (nullptr, node0.store.unchecked_get (transaction, send3.hash ()));
+	ASSERT_TRUE (node0.active.active (send1));
 }
 
 // Make sure that when synchronizing, if a fork needs to be resolved, don't drop the blocks we downloaded.
