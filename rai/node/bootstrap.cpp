@@ -92,10 +92,11 @@ bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
     return result;
 }
 
-bool rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
+rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
 {
-    auto result (fill_dependencies (transaction_a));
-    if (!result)
+	rai::sync_result result;
+    auto error (fill_dependencies (transaction_a));
+    if (!error)
     {
 		auto hash (store.stack_pop (transaction_a));
         auto block (retrieve (transaction_a, hash));
@@ -106,25 +107,29 @@ bool rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
 		else
 		{
 			BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while synchronizing %1%") % hash.to_string ());
-			result = true;
+			result = rai::sync_result::error;
 		}
     }
+	else
+	{
+		result = rai::sync_result::error;
+	}
     return result;
 }
 
-bool rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    auto result (false);
+    auto result (rai::sync_result::success);
 	store.stack_clear (transaction_a);
     store.stack_push (transaction_a, hash_a);
-    while (!result && !store.stack_empty (transaction_a))
+    while (result == rai::sync_result::success && !store.stack_empty (transaction_a))
     {
         result = synchronize_one (transaction_a);
     }
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a, store_a),
 target_m (target_a)
 {
@@ -135,7 +140,7 @@ std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * tran
     return store.unchecked_get (transaction_a, hash_a);
 }
 
-bool rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
+rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
 {
 	return target_m (transaction_a, block_a);
 }
@@ -145,7 +150,7 @@ bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::bloc
     return store.block_exists (transaction_a, hash_a) || attempted.count (hash_a) != 0;
 }
 
-rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
 block_synchronization (log_a,  store_a),
 target_m (target_a)
 {
@@ -166,7 +171,7 @@ std::unique_ptr <rai::block> rai::push_synchronization::retrieve (MDB_txn * tran
     return store.block_get (transaction_a, hash_a);
 }
 
-bool rai::push_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
+rai::sync_result rai::push_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
 {
 	return target_m (transaction_a, block_a);
 }
@@ -609,7 +614,7 @@ connection (connection_a),
 synchronization (connection->connection->node->log, [this] (MDB_txn * transaction_a, rai::block const & block_a)
 {
     push_block (block_a);
-	return false;
+	return rai::sync_result::success;
 }, connection_a->connection->node->store)
 {
 }

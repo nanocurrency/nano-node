@@ -13,11 +13,11 @@ TEST (pull_synchronization, empty)
 	rai::pull_synchronization sync (test_log, [&blocks] (MDB_txn *, rai::block const & block_a)
 	{
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_TRUE (sync.synchronize (transaction, 0));
+		ASSERT_EQ (rai::sync_result::error, sync.synchronize (transaction, 0));
 	}
 	ASSERT_EQ (0, blocks.size ());
 }
@@ -38,11 +38,11 @@ TEST (pull_synchronization, one)
 	rai::pull_synchronization sync (test_log, [&blocks] (MDB_txn *, rai::block const & block_a)
 	{
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_FALSE (sync.synchronize (transaction, block2.hash ()));
+		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block2.hash ()));
 	}
 	ASSERT_EQ (1, blocks.size ());
 	ASSERT_EQ (block2, *blocks [0]);
@@ -67,10 +67,10 @@ TEST (pull_synchronization, send_dependencies)
 	{
 		store.block_put (transaction_a, block_a.hash (), block_a);
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	rai::transaction transaction (store.environment, nullptr, true);
-	ASSERT_FALSE (sync.synchronize (transaction, block3.hash ()));
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
 	ASSERT_EQ (2, blocks.size ());
 	ASSERT_EQ (block2, *blocks [0]);
 	ASSERT_EQ (block3, *blocks [1]);
@@ -95,11 +95,11 @@ TEST (pull_synchronization, change_dependencies)
 	{
 		store.block_put (transaction_a, block_a.hash (), block_a);
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_FALSE (sync.synchronize (transaction, block3.hash ()));
+		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
 	}
 	ASSERT_EQ (2, blocks.size ());
 	ASSERT_EQ (block2, *blocks [0]);
@@ -125,11 +125,11 @@ TEST (pull_synchronization, open_dependencies)
 	{
 		store.block_put (transaction_a, block_a.hash (), block_a);
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_FALSE (sync.synchronize (transaction, block3.hash ()));
+		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
 	}
 	ASSERT_EQ (2, blocks.size ());
 	ASSERT_EQ (block2, *blocks [0]);
@@ -159,11 +159,11 @@ TEST (pull_synchronization, receive_dependencies)
 	{
 		store.block_put (transaction_a, block_a.hash (), block_a);
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_FALSE (sync.synchronize (transaction, block5.hash ()));
+		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block5.hash ()));
 	}
 	ASSERT_EQ (4, blocks.size ());
 	ASSERT_EQ (block2, *blocks [0]);
@@ -199,11 +199,11 @@ TEST (pull_synchronization, ladder_dependencies)
 	{
 		store.block_put (transaction_a, block_a.hash (), block_a);
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_FALSE (sync.synchronize (transaction, block7.hash ()));
+		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block7.hash ()));
 	}
 	ASSERT_EQ (6, blocks.size ());
 	ASSERT_EQ (block2, *blocks [0]);
@@ -223,11 +223,11 @@ TEST (push_synchronization, empty)
 	rai::push_synchronization sync (test_log, [&blocks] (MDB_txn * transaction_a, rai::block const & block_a)
 	{
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		ASSERT_TRUE (sync.synchronize (transaction, 0));
+		ASSERT_EQ (rai::sync_result::error, sync.synchronize (transaction, 0));
 	}
 	ASSERT_EQ (0, blocks.size ());
 }
@@ -249,12 +249,12 @@ TEST (push_synchronization, one)
 	{
 		store.block_put (transaction_a, block_a.hash (), block_a);
 		blocks.push_back (block_a.clone ());
-		return false;
+		return rai::sync_result::success;
 	}, store);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		store.unsynced_put (transaction, block2.hash ());
-		ASSERT_FALSE (sync.synchronize (transaction, block2.hash ()));
+		ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block2.hash ()));
 	}
 	ASSERT_EQ (1, blocks.size ());
 	ASSERT_EQ (block2, *blocks [0]);
@@ -282,9 +282,9 @@ TEST (pull_synchronization, dependent_fork)
 	store.unchecked_put (transaction, send3.hash (), send3);
 	rai::pull_synchronization sync (test_log, [] (MDB_txn *, rai::block const & block_a)
 	{
-		return false;
+		return rai::sync_result::success;
 	}, store);
-	ASSERT_FALSE (sync.synchronize (transaction, send3.hash ()));
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, send3.hash ()));
 }
 
 // Make sure that when synchronizing, if a fork needs to be resolved, don't drop the blocks we downloaded.

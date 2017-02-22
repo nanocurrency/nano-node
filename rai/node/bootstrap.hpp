@@ -11,6 +11,12 @@
 
 namespace rai
 {
+enum class sync_result
+{
+	success,
+	error,
+	fork
+};
 class block_synchronization
 {
 public:
@@ -19,12 +25,12 @@ public:
     // Return true if target already has block
     virtual bool synchronized (MDB_txn *, rai::block_hash const &) = 0;
     virtual std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) = 0;
-    virtual bool target (MDB_txn *, rai::block const &) = 0;
+    virtual rai::sync_result target (MDB_txn *, rai::block const &) = 0;
     // return true if all dependencies are synchronized
     bool add_dependency (MDB_txn *, rai::block const &);
     bool fill_dependencies (MDB_txn *);
-    bool synchronize_one (MDB_txn *);
-    bool synchronize (MDB_txn *, rai::block_hash const &);
+    rai::sync_result synchronize_one (MDB_txn *);
+    rai::sync_result synchronize (MDB_txn *, rai::block_hash const &);
     std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger_mt & log;
     rai::block_store & store;
@@ -33,20 +39,20 @@ public:
 class pull_synchronization : public rai::block_synchronization
 {
 public:
-    pull_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    pull_synchronization (boost::log::sources::logger_mt &, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const &, rai::block_store &);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
-    bool target (MDB_txn *, rai::block const &) override;
-	std::function <bool (MDB_txn *, rai::block const &)> target_m;
+    rai::sync_result target (MDB_txn *, rai::block const &) override;
+	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
 };
 class push_synchronization : public rai::block_synchronization
 {
 public:
-    push_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    push_synchronization (boost::log::sources::logger_mt &, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const &, rai::block_store &);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
-    bool target (MDB_txn *, rai::block const &) override;
-	std::function <bool (MDB_txn *, rai::block const &)> target_m;
+    rai::sync_result target (MDB_txn *, rai::block const &) override;
+	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
 };
 class node;
 class bootstrap_client;
