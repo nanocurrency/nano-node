@@ -5,9 +5,8 @@
 
 #include <boost/log/trivial.hpp>
 
-rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
+rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, rai::block_store & store_a) :
 log (log_a),
-target (target_a),
 store (store_a)
 {
 }
@@ -126,7 +125,8 @@ bool rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::bloc
 }
 
 rai::pull_synchronization::pull_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
-block_synchronization (log_a, target_a, store_a)
+block_synchronization (log_a, store_a),
+target_m (target_a)
 {
 }
 
@@ -135,13 +135,19 @@ std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * tran
     return store.unchecked_get (transaction_a, hash_a);
 }
 
+bool rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
+{
+	return target_m (transaction_a, block_a);
+}
+
 bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     return store.block_exists (transaction_a, hash_a) || attempted.count (hash_a) != 0;
 }
 
 rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <bool (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
-block_synchronization (log_a, target_a, store_a)
+block_synchronization (log_a,  store_a),
+target_m (target_a)
 {
 }
 
@@ -158,6 +164,11 @@ bool rai::push_synchronization::synchronized (MDB_txn * transaction_a, rai::bloc
 std::unique_ptr <rai::block> rai::push_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     return store.block_get (transaction_a, hash_a);
+}
+
+bool rai::push_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
+{
+	return target_m (transaction_a, block_a);
 }
 
 rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a) :

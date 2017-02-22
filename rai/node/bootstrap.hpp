@@ -14,11 +14,12 @@ namespace rai
 class block_synchronization
 {
 public:
-    block_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    block_synchronization (boost::log::sources::logger_mt &, rai::block_store &);
     ~block_synchronization ();
     // Return true if target already has block
     virtual bool synchronized (MDB_txn *, rai::block_hash const &) = 0;
     virtual std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) = 0;
+    virtual bool target (MDB_txn *, rai::block const &) = 0;
     // return true if all dependencies are synchronized
     bool add_dependency (MDB_txn *, rai::block const &);
     bool fill_dependencies (MDB_txn *);
@@ -26,7 +27,6 @@ public:
     bool synchronize (MDB_txn *, rai::block_hash const &);
     std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger_mt & log;
-    std::function <bool (MDB_txn *, rai::block const &)> target;
     rai::block_store & store;
 	std::unordered_set <rai::block_hash> attempted;
 };
@@ -36,6 +36,8 @@ public:
     pull_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
+    bool target (MDB_txn *, rai::block const &) override;
+	std::function <bool (MDB_txn *, rai::block const &)> target_m;
 };
 class push_synchronization : public rai::block_synchronization
 {
@@ -43,6 +45,8 @@ public:
     push_synchronization (boost::log::sources::logger_mt &, std::function <bool (MDB_txn *, rai::block const &)> const &, rai::block_store &);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
+    bool target (MDB_txn *, rai::block const &) override;
+	std::function <bool (MDB_txn *, rai::block const &)> target_m;
 };
 class node;
 class bootstrap_client;
