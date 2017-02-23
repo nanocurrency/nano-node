@@ -1195,7 +1195,10 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
         }
         case rai::process_result::fork:
         {
-		    BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
+			if (config.logging.ledger_logging ())
+			{
+				BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
+			}
             break;
         }
         case rai::process_result::account_mismatch:
