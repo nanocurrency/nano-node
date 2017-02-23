@@ -870,7 +870,7 @@ void rai::bootstrap_initiator::bootstrap_any ()
 void rai::bootstrap_initiator::begin_attempt (std::shared_ptr <rai::bootstrap_attempt> attempt_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	if (!in_progress ())
+	if (attempt.lock () == nullptr)
 	{
 		attempt = attempt_a;
 		attempt_a->attempt ();
