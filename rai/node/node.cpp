@@ -309,10 +309,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
     }
     else
     {
-        if (node.config.logging.network_logging ())
-        {
-            BOOST_LOG (node.log) << boost::str (boost::format ("Receive error: %1%") % error.message ());
-        }
+		if (node.config.logging.network_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+		}
         node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
     }
 }
