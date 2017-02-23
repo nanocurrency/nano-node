@@ -307,14 +307,20 @@ void rai::network::receive_action (boost::system::error_code const & error, size
         }
         receive ();
     }
-    else
-    {
-		if (node.config.logging.network_logging ())
+	else
+	{
+		if (error)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+			if (node.config.logging.network_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+			}
 		}
-        node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
-    }
+		if (on)
+		{
+			node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] () { receive (); });
+		}
+	}
 }
 
 // Send keepalives to all the peers we've been notified of
