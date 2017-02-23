@@ -159,7 +159,7 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 				result = rai::sync_result::fork;
 				// Stop synchronizing and wait for fork resolution
 				store.unchecked_del (transaction_a, block_a.hash ());
-				auto node_l (node.shared ());
+				auto node_l (this->node.shared ());
 				auto block (node_l->ledger.forked_block (transaction_a, block_a));
 				auto attempt_l (attempt);
 				node_l->active.start (transaction_a, *block, [node_l, attempt_l] (rai::block & block_a)
@@ -168,15 +168,15 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 					// Resume synchronizing after fork resolution
 					node_l->process_unchecked (attempt_l);
 				});
-				node.network.broadcast_confirm_req (block_a);
-				node.network.broadcast_confirm_req (*block);
+				this->node.network.broadcast_confirm_req (block_a);
+				this->node.network.broadcast_confirm_req (*block);
 				BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
 				break;
 			}
 			case rai::process_result::gap_previous:
 			case rai::process_result::gap_source:
 				result = rai::sync_result::error;
-				if (node.config.logging.bulk_pull_logging ())
+				if (this->node.config.logging.bulk_pull_logging ())
 				{
 					// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
 					BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
