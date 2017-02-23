@@ -1,6 +1,10 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (rai)
 
+set (CPACK_PACKAGE_VERSION_MAJOR "7")
+set (CPACK_PACKAGE_VERSION_MINOR "8")
+set (CPACK_PACKAGE_VERSION_PATCH "0")
+
 set (RAIBLOCKS_GUI OFF CACHE BOOL "")
 set (RAIBLOCKS_TEST OFF CACHE BOOL "")
 
@@ -260,10 +264,6 @@ add_executable (rai_node
 	rai/rai_node/daemon.cpp
 	rai/rai_node/daemon.hpp
 	rai/rai_node/entry.cpp)
-
-set (CPACK_PACKAGE_VERSION_MAJOR "7")
-set (CPACK_PACKAGE_VERSION_MINOR "8")
-set (CPACK_PACKAGE_VERSION_PATCH "0")
 
 SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
