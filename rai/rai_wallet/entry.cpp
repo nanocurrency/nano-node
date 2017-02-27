@@ -245,7 +245,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 			{
 				rpc.start ();
 			}
-			std::unique_ptr <rai_qt::wallet> gui (new rai_qt::wallet (application, *node, wallet, config.account));
+			auto gui (std::make_shared <rai_qt::wallet> (application, *node, wallet, config.account));
+			gui->start ();
 			gui->client_window->show ();
 			rai::thread_runner runner (service, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&] ()

@@ -772,159 +772,229 @@ active_status (*this)
     client_layout->setContentsMargins (0, 0, 0, 0);
     client_window->setLayout (client_layout);
     client_window->resize (320, 480);
-
-    QObject::connect (settings_button, &QPushButton::released, [this] ()
-    {
-		this->settings.activate ();
-    });
-    QObject::connect (show_advanced, &QPushButton::released, [this] ()
-    {
-        push_main_stack (advanced.window);
-    });
-    QObject::connect (send_blocks_send, &QPushButton::released, [this] ()
-    {
-		show_line_ok (*send_count);
-		show_line_ok (*send_account);
-		rai::amount amount;
-		if (!amount.decode_dec (send_count->text ().toStdString ()))
-		{
-			rai::uint128_t actual (amount.number () * rendering_ratio);
-			if (actual / rendering_ratio == amount.number ())
-			{
-				QString account_text (send_account->text ());
-				std::string account_text_narrow (account_text.toLocal8Bit ());
-				rai::account account_l;
-				auto parse_error (account_l.decode_account (account_text_narrow));
-				if (!parse_error)
-				{
-					send_blocks_send->setEnabled (false);
-					node.background ([this, account_l, actual] ()
-					{
-						wallet_m->send_async (account, account_l, actual, [this] (std::unique_ptr <rai::block> block_a)
-						{
-							auto succeeded (block_a != nullptr);
-							application.postEvent (&processor, new eventloop_event ([this, succeeded] ()
-							{
-								send_blocks_send->setEnabled (true);
-								if (succeeded)
-								{
-									send_count->clear ();
-									send_account->clear ();
-									this->accounts.refresh ();
-								}
-								else
-								{
-									show_line_error (*send_count);
-								}
-							}));
-						});
-					});
-				}
-				else
-				{
-					show_line_error (*send_account);
-				}
-			}
-			else
-			{
-				show_line_error (*send_account);
-			}
-		}
-		else
-		{
-			show_line_error (*send_count);
-		}
-    });
-    QObject::connect (send_blocks_back, &QPushButton::released, [this] ()
-    {
-        pop_main_stack ();
-    });
-    QObject::connect (send_blocks, &QPushButton::released, [this] ()
-    {
-        push_main_stack (send_blocks_window);
-    });
-    node.observers.blocks.add ([this] (rai::block const &, rai::account const & account_a, rai::amount const &)
-    {
-		application.postEvent (&processor, new eventloop_event ([this, account_a] ()
-		{
-			if (wallet_m->exists (account_a))
-			{
-				this->accounts.refresh ();
-			}
-			if (account_a == account)
-			{
-				this->history.refresh ();
-				self.refresh_balance ();
-			}
-		}));
-    });
-	node.observers.wallet.add ([this] (rai::account const & account_a, bool active_a)
-	{
-		application.postEvent (&processor, new eventloop_event ([this, account_a, active_a] ()
-		{
-			if (account == account_a)
-			{
-				if (active_a)
-				{
-					active_status.insert (rai_qt::status_types::active);
-				}
-				else
-				{
-					active_status.erase (rai_qt::status_types::active);
-				}
-			}
-		}));
-	});
-	node.observers.endpoint.add ([this] (rai::endpoint const &)
-	{
-		application.postEvent (&processor, new eventloop_event ([this] ()
-		{
-			update_connected ();
-		}));
-	});
-	node.observers.disconnect.add ([this] ()
-	{
-		application.postEvent (&processor, new eventloop_event ([this] ()
-		{
-			update_connected ();
-		}));
-	});
-	node.bootstrap_initiator.add_observer ([this] (bool active_a)
-	{
-		application.postEvent (&processor, new eventloop_event ([this, active_a] ()
-		{
-			if (active_a)
-			{
-				active_status.insert (rai_qt::status_types::synchronizing);
-			}
-			else
-			{
-				active_status.erase (rai_qt::status_types::synchronizing);
-			}
-		}));
-	});
-	node.work.work_observers.add ([this] (bool working)
-	{
-		application.postEvent (&processor, new eventloop_event ([this, working] ()
-		{
-			if (working)
-			{
-				this->active_status.insert (rai_qt::status_types::working);
-			}
-			else
-			{
-				this->active_status.erase (rai_qt::status_types::working);
-			}
-		}));
-	});
-	wallet_m->lock_observer = [this] (bool invalid, bool vulnerable)
-	{
-		application.postEvent (&processor, new eventloop_event ([this, invalid, vulnerable] ()
-		{
-			this->settings.update_locked (invalid, vulnerable);
-		}));
-	};
 	refresh ();
+}
+
+void rai_qt::wallet::start ()
+{
+	std::weak_ptr <rai_qt::wallet> this_w (shared_from_this ());
+    QObject::connect (settings_button, &QPushButton::released, [this_w] ()
+    {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->settings.activate ();
+		}
+    });
+    QObject::connect (show_advanced, &QPushButton::released, [this_w] ()
+    {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->push_main_stack (this_l->advanced.window);
+		}
+    });
+    QObject::connect (send_blocks_send, &QPushButton::released, [this_w] ()
+    {
+		if (auto this_l = this_w.lock ())
+		{
+			show_line_ok (*this_l->send_count);
+			show_line_ok (*this_l->send_account);
+			rai::amount amount;
+			if (!amount.decode_dec (this_l->send_count->text ().toStdString ()))
+			{
+				rai::uint128_t actual (amount.number () * this_l->rendering_ratio);
+				if (actual / this_l->rendering_ratio == amount.number ())
+				{
+					QString account_text (this_l->send_account->text ());
+					std::string account_text_narrow (account_text.toLocal8Bit ());
+					rai::account account_l;
+					auto parse_error (account_l.decode_account (account_text_narrow));
+					if (!parse_error)
+					{
+						this_l->send_blocks_send->setEnabled (false);
+						this_l->node.background ([this_w, account_l, actual] ()
+						{
+							if (auto this_l = this_w.lock ())
+							{
+								this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w] (std::unique_ptr <rai::block> block_a)
+								{
+									if (auto this_l = this_w.lock ())
+									{
+										auto succeeded (block_a != nullptr);
+										this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, succeeded] ()
+										{
+											if (auto this_l = this_w.lock ())
+											{
+												this_l->send_blocks_send->setEnabled (true);
+												if (succeeded)
+												{
+													this_l->send_count->clear ();
+													this_l->send_account->clear ();
+													this_l->accounts.refresh ();
+												}
+												else
+												{
+													show_line_error (*this_l->send_count);
+												}
+											}
+										}));
+									}
+								});
+							}
+						});
+					}
+					else
+					{
+						show_line_error (*this_l->send_account);
+					}
+				}
+				else
+				{
+					show_line_error (*this_l->send_account);
+				}
+			}
+			else
+			{
+				show_line_error (*this_l->send_count);
+			}
+		}
+    });
+    QObject::connect (send_blocks_back, &QPushButton::released, [this_w] ()
+    {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->pop_main_stack ();
+		}
+    });
+    QObject::connect (send_blocks, &QPushButton::released, [this_w] ()
+    {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->push_main_stack (this_l->send_blocks_window);
+		}
+    });
+    node.observers.blocks.add ([this_w] (rai::block const &, rai::account const & account_a, rai::amount const &)
+    {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					if (this_l->wallet_m->exists (account_a))
+					{
+						this_l->accounts.refresh ();
+					}
+					if (account_a == this_l->account)
+					{
+						this_l->history.refresh ();
+						this_l->self.refresh_balance ();
+					}
+				}
+			}));
+		}
+    });
+	node.observers.wallet.add ([this_w] (rai::account const & account_a, bool active_a)
+	{
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a, active_a] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					if (this_l->account == account_a)
+					{
+						if (active_a)
+						{
+							this_l->active_status.insert (rai_qt::status_types::active);
+						}
+						else
+						{
+							this_l->active_status.erase (rai_qt::status_types::active);
+						}
+					}
+				}
+			}));
+		}
+	});
+	node.observers.endpoint.add ([this_w] (rai::endpoint const &)
+	{
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					this_l->update_connected ();
+				}
+			}));
+		}
+	});
+	node.observers.disconnect.add ([this_w] ()
+	{
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					this_l->update_connected ();
+				}
+			}));
+		}
+	});
+	node.bootstrap_initiator.add_observer ([this_w] (bool active_a)
+	{
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, active_a] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					if (active_a)
+					{
+						this_l->active_status.insert (rai_qt::status_types::synchronizing);
+					}
+					else
+					{
+						this_l->active_status.erase (rai_qt::status_types::synchronizing);
+					}
+				}
+			}));
+		}
+	});
+	node.work.work_observers.add ([this_w] (bool working)
+	{
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, working] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					if (working)
+					{
+						this_l->active_status.insert (rai_qt::status_types::working);
+					}
+					else
+					{
+						this_l->active_status.erase (rai_qt::status_types::working);
+					}
+				}
+			}));
+		}
+	});
+	wallet_m->lock_observer = [this_w] (bool invalid, bool vulnerable)
+	{
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, invalid, vulnerable] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					this_l->settings.update_locked (invalid, vulnerable);
+				}
+			}));
+		}
+	};
 }
 
 void rai_qt::wallet::refresh ()

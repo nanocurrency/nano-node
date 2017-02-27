@@ -272,10 +272,11 @@ namespace rai_qt {
 		std::set <rai_qt::status_types> active;
 		rai_qt::wallet & wallet;
 	};
-    class wallet
+    class wallet : public std::enable_shared_from_this <rai_qt::wallet>
     {
     public:
         wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account &);
+		void start ();
         void refresh ();
 		void update_connected ();
 		void change_rendering_ratio (rai::uint128_t const &);
