@@ -705,3 +705,38 @@ TEST (wallet, import_locked)
 	system.wallet (0)->store.seed (seed3, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
 	ASSERT_EQ (seed1, seed3);
 }
+
+TEST (wallet, synchronizing)
+{
+    rai::system system0 (24000, 1);
+    rai::system system1 (24001, 1);
+	auto key1 (system0.wallet (0)->deterministic_insert ());
+    auto wallet (std::make_shared <rai_qt::wallet> (*test_application, *system0.nodes [0], system0.wallet (0), key1));
+	wallet->start ();
+	{
+		rai::transaction transaction (system1.nodes [0]->store.environment, nullptr, true);
+		auto latest (system1.nodes [0]->ledger.latest (transaction, rai::genesis_account));
+		rai::send_block send (latest, key1, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.work.generate (latest));
+		system1.nodes [0]->ledger.process (transaction, send);
+	}
+	ASSERT_EQ (0, wallet->active_status.active.count (rai_qt::status_types::synchronizing));
+	system0.nodes [0]->bootstrap_initiator.bootstrap (system1.nodes [0]->network.endpoint ());
+	auto iterations0 (0);
+	while (wallet->active_status.active.count (rai_qt::status_types::synchronizing) == 0)
+	{
+		system0.poll ();
+		system1.poll ();
+		test_application->processEvents();
+		++iterations0;
+		ASSERT_GT (200, iterations0);
+	}
+	auto iterations1 (0);
+	while (wallet->active_status.active.count (rai_qt::status_types::synchronizing) == 1)
+	{
+		system0.poll ();
+		system1.poll ();
+		test_application->processEvents();
+		++iterations1;
+		ASSERT_GT (200, iterations1);
+	}
+}
