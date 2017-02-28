@@ -1692,3 +1692,34 @@ TEST (rpc, account_representative_set)
     ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, hash));
 	ASSERT_EQ (rep.pub, system.nodes [0]->store.block_get (transaction, hash)->representative ());
 }
+
+TEST (rpc, bootstrap)
+{
+    rai::system system0 (24000, 1);
+	rai::system system1 (24001, 1);
+	auto latest (system1.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes [0]->generate_work (latest));
+	{
+		rai::transaction transaction (system1.nodes [0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system1.nodes [0]->ledger.process (transaction, send).code);
+	}
+    rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+	request.put ("action", "bootstrap");
+    request.put ("address", "::ffff:127.0.0.1");
+	request.put ("port", system1.nodes [0]->network.endpoint ().port ());
+	test_response response (request, rpc, system0.service);
+	while (response.status == 0)
+	{
+		system0.poll ();
+	}
+	auto iterations (0);
+	while (system0.nodes [0]->latest (rai::genesis_account) != system1.nodes [0]->latest (rai::genesis_account))
+	{
+		system0.poll ();
+		system1.poll ();
+		++iterations;
+		ASSERT_GT (200, iterations);
+	}
+}

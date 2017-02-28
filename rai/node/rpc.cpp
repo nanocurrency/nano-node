@@ -485,6 +485,33 @@ void rai::rpc_handler::block_count ()
 	response (response_l);
 }
 
+void rai::rpc_handler::bootstrap ()
+{
+	std::string address_text = request.get <std::string> ("address");
+	std::string port_text = request.get <std::string> ("port");
+	boost::system::error_code ec;
+	auto address (boost::asio::ip::address_v6::from_string (address_text, ec));
+	if (!ec)
+	{
+		uint16_t port;
+		if (!rai::parse_port (port_text, port))
+		{
+			node.bootstrap_initiator.bootstrap (rai::endpoint (address, port));
+			boost::property_tree::ptree response_l;
+			response_l.put ("success", "");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Invalid port");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid address");
+	}
+}
+
 void rai::rpc_handler::chain ()
 {
 	std::string block_text (request.get <std::string> ("block"));
@@ -1738,6 +1765,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block_count")
 		{
 			block_count ();
+		}
+		else if (action == "bootstrap")
+		{
+			bootstrap ();
 		}
 		else if (action == "chain")
 		{

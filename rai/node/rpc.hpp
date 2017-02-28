@@ -99,6 +99,7 @@ public:
 	void block ();
 	void block_account ();
 	void block_count ();
+	void bootstrap ();
 	void chain ();
 	void frontiers ();
 	void frontier_count ();
