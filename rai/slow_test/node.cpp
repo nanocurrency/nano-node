@@ -369,3 +369,26 @@ TEST (broadcast, sqrt_broadcast_simulate)
 	auto count (heard_count (nodes));
 	printf ("");
 }
+
+TEST (peer_container, random_set)
+{
+	auto loopback (boost::asio::ip::address_v6::loopback ());
+	rai::peer_container container (rai::endpoint (loopback, 24000));
+	for (auto i (0); i < 200; ++i)
+	{
+		container.contacted (rai::endpoint (loopback, 24001 + i));
+	}
+	auto old (std::chrono::system_clock::now ());
+	for (auto i (0); i < 10000; ++i)
+	{
+		auto list (container.list_sqrt ());
+	}
+	auto current (std::chrono::system_clock::now ());
+	for (auto i (0); i < 10000; ++i)
+	{
+		auto list (container.random_set (15));
+	}
+	auto end (std::chrono::system_clock::now ());
+	auto old_ms (std::chrono::duration_cast <std::chrono::milliseconds> (current - old));
+	auto new_ms (std::chrono::duration_cast <std::chrono::milliseconds> (end - current));
+}

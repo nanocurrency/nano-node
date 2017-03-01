@@ -134,13 +134,13 @@ void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
 		auto sqrt_list (node.peers.list_sqrt ());
         for (auto i (sqrt_list.begin ()), n (sqrt_list.end ()); i != n; ++i)
         {
-			if (!node.peers.knows_about (i->endpoint, hash))
+			if (!node.peers.knows_about (*i, hash))
 			{
 				if (node.config.logging.network_publish_logging ())
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % i->endpoint);
+					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % *i);
 				}
-				send_buffer (bytes->data (), bytes->size (), i->endpoint, rebroadcast_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
+				send_buffer (bytes->data (), bytes->size (), *i, rebroadcast_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
 				{
 					if (node_l->config.logging.network_logging ())
 					{
@@ -1220,21 +1220,14 @@ rai::process_return rai::node::process (rai::block const & block_a)
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::vector <rai::peer_information> rai::peer_container::list_sqrt ()
+std::vector <rai::endpoint> rai::peer_container::list_sqrt ()
 {
-	auto list_l (list ());
-	std::vector <rai::peer_information> result;
-	auto republish_count (std::ceil (std::sqrt (list_l.size ())));
-	for (auto i (0); i < republish_count; ++i)
+	auto peers (random_set (std::ceil (std::sqrt (size ()))));
+	std::vector <rai::endpoint> result;
+	result.reserve (peers.size ());
+	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
-		auto index (rai::random_pool.GenerateWord32 (0, list_l.size () - 1));
-		result.push_back (list_l [index]);
-		if (index != list_l.size () - 1)
-		{
-			// Don't do an overlapped copy
-			list_l [index] = list_l.back ();
-		}
-		list_l.resize (list_l.size () - 1);
+		result.push_back (*i);
 	}
 	return result;
 }
@@ -1820,20 +1813,35 @@ void rai::peer_container::bootstrap_failed (rai::endpoint const & endpoint_a)
 	}
 }
 
+std::unordered_set <rai::endpoint> rai::peer_container::random_set (size_t count_a)
+{
+	std::unordered_set <rai::endpoint> result;
+	result.reserve (count_a);
+	std::lock_guard <std::mutex> lock (mutex);
+	// Stop trying to fill result with random samples after this many attempts
+	auto random_cutoff (count_a * 2);
+	auto peers_size (peers.size ());
+	// Usually count_a will be much smaller than peers.size()
+	// Otherwise make sure we have a cutoff on attempting to randomly fill
+	if (!peers.empty ())
+	{
+		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
+		{
+			auto index (random_pool.GenerateWord32 (0, peers_size - 1));
+			result.insert (peers.get <3> () [index].endpoint);
+		}
+	}
+	// Fill the remainder with most recent contact
+	for (auto i (peers.get <1> ().begin ()), n (peers.get <1> ().end ()); i != n && result.size () < count_a; ++i)
+	{
+		result.insert (i->endpoint);
+	}
+	return result;
+}
+
 void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
 {
-    auto peers (list ());
-    while (peers.size () > target_a.size ())
-    {
-        auto index (random_pool.GenerateWord32 (0, peers.size () - 1));
-        assert (index < peers.size ());
-		assert (index >= 0);
-		if (index != peers.size () - 1)
-		{
-			peers [index] = peers [peers.size () - 1];
-		}
-        peers.pop_back ();
-    }
+    auto peers (random_set (target_a.size ()));
     assert (peers.size () <= target_a.size ());
     auto endpoint (rai::endpoint (boost::asio::ip::address_v6 {}, 0));
     assert (endpoint.address ().is_v6 ());
@@ -1841,9 +1849,9 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
     auto j (target_a.begin ());
     for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
     {
-        assert (i->endpoint.address ().is_v6 ());
+        assert (i->address ().is_v6 ());
         assert (j < target_a.end ());
-        *j = i->endpoint;
+        *j = *i;
     }
 }
 
