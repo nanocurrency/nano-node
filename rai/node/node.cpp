@@ -967,8 +967,8 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
     auto existing (blocks.get <2> ().find (hash));
     if (existing != blocks.get <2> ().end ())
     {
-        auto changed (existing->votes->vote (transaction_a, node.store, vote_a));
-        if (changed)
+        auto vote_result (existing->votes->vote (transaction_a, node.store, vote_a));
+        if (rai::votes::vote_changed (vote_result))
         {
             auto winner (node.ledger.winner (transaction_a, *existing->votes));
             if (winner.first > bootstrap_threshold (transaction_a))
@@ -2227,11 +2227,11 @@ void rai::election::confirm_cutoff ()
 	confirm_once ();
 }
 
-void rai::election::vote (rai::vote const & vote_a)
+rai::vote_result rai::election::vote (rai::vote const & vote_a)
 {
 	rai::transaction transaction (node.store.environment, nullptr, true);
-	auto tally_changed (votes.vote (transaction, node.store, vote_a));
-	if (tally_changed)
+	auto vote_result (votes.vote (transaction, node.store, vote_a));
+	if (rai::votes::vote_changed (vote_result))
 	{
 		if (node.config.logging.vote_logging ())
 		{
@@ -2239,6 +2239,7 @@ void rai::election::vote (rai::vote const & vote_a)
 		}
 		confirm_if_quarum (transaction);
 	}
+	return vote_result;
 }
 
 void rai::active_transactions::announce_votes ()

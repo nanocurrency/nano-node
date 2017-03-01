@@ -125,12 +125,13 @@ bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const
 	return *lhs == *rhs;
 }
 
-bool rai::votes::vote (MDB_txn * transaction_a, rai::block_store & store_a, rai::vote const & vote_a)
+rai::vote_result rai::votes::vote (MDB_txn * transaction_a, rai::block_store & store_a, rai::vote const & vote_a)
 {
-	auto result (false);
+	auto result (rai::vote_result::invalid);
 	// Reject unsigned votes
 	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
 	{
+		result = rai::vote_result::replay;
 		// Make sure this sequence number is > any we've seen from this account before
 		if (store_a.sequence_atomic_observe (transaction_a, vote_a.account, vote_a.sequence) == vote_a.sequence)
 		{
@@ -138,15 +139,19 @@ bool rai::votes::vote (MDB_txn * transaction_a, rai::block_store & store_a, rai:
 			auto existing (rep_votes.find (vote_a.account));
 			if (existing == rep_votes.end ())
 			{
-				result = true;
+				result = rai::vote_result::first;
 				rep_votes.insert (std::make_pair (vote_a.account, vote_a.block->clone ()));
 			}
 			else
 			{
-				result = !(*existing->second == *vote_a.block);
-				if (result)
+				if (!(*existing->second == *vote_a.block))
 				{
+					result = rai::vote_result::changed;
 					existing->second = vote_a.block->clone ();
+				}
+				else
+				{
+					result = rai::vote_result::confirm;
 				}
 			}
 		}
@@ -185,6 +190,11 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 		result [i.second] = i.first->clone ();
 	}
 	return result;
+}
+
+bool rai::votes::vote_changed (rai::vote_result result_a)
+{
+	return result_a == rai::vote_result::first || result_a == rai::vote_result::changed;
 }
 
 rai::votes::votes (rai::block const & block_a) :

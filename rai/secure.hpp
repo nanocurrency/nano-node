@@ -453,11 +453,21 @@ public:
 	// Signature of sequence + block hash
 	rai::signature signature;
 };
+enum class vote_result
+{
+	invalid, // Vote is not signed correctly
+	replay, // Vote does not have the highest sequence number, it's a replay
+	first, // First vote by the rep for this root
+	confirm, // The vote by the rep for this root stayed the same
+	changed // The vote by the rep for this root has change
+};
 class votes
 {
 public:
 	votes (rai::block const &);
-	bool vote (MDB_txn *, rai::block_store &, rai::vote const &);
+	// Has this vote result changed the tally
+	static bool vote_changed (rai::vote_result);
+	rai::vote_result vote (MDB_txn *, rai::block_store &, rai::vote const &);
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account

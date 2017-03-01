@@ -42,7 +42,7 @@ class election : public std::enable_shared_from_this <rai::election>
 	void confirm_once ();
 public:
     election (MDB_txn *, rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
-    void vote (rai::vote const &);
+    rai::vote_result vote (rai::vote const &);
 	// Set last_winner based on our current state of the ledger
 	bool recalculate_winner (MDB_txn *);
 	// Tell the network our view of the winner
