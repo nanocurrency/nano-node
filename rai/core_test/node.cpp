@@ -1226,3 +1226,38 @@ TEST (node, process_unchecked_keep)
 	rai::transaction transaction (node0.store.environment, nullptr, false);
 	ASSERT_NE (node0.store.unchecked_end (), node0.store.unchecked_begin (transaction, send.hash ()));
 }
+
+// Test that if we create a block that isn't confirmed, we sync.
+TEST (node, unconfirmed_send)
+{
+    rai::system system (24000, 2);
+	auto & node0 (*system.nodes [0]);
+	auto & node1 (*system.nodes [1]);
+	auto wallet0 (system.wallet (0));
+	auto wallet1 (system.wallet (1));
+	rai::keypair key0;
+	wallet1->insert_adhoc (key0.prv);
+	wallet0->insert_adhoc (rai::test_genesis_key.prv);
+	auto send1 (wallet0->send_action (rai::genesis_account, key0.pub, 2 * rai::Mrai_ratio));
+	auto iterations0 (0);
+	while (node1.balance (key0.pub) != 2 * rai::Mrai_ratio || node1.bootstrap_initiator.in_progress ())
+	{
+		system.poll ();
+		++iterations0;
+		ASSERT_GT (200, iterations0);
+	}
+	auto latest (node1.latest (key0.pub));
+	rai::send_block send2 (latest, rai::genesis_account, rai::Mrai_ratio, key0.prv, key0.pub, node0.generate_work (latest));
+	{
+		rai::transaction transaction (node1.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send2).code);
+	}
+	auto send3 (wallet1->send_action (key0.pub, rai::genesis_account, rai::Mrai_ratio));
+	auto iterations (0);
+	while (node0.balance (rai::genesis_account) != rai::genesis_amount)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_GT (200, iterations);
+	}
+}

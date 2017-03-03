@@ -66,7 +66,7 @@ public:
 	rai::block_hash root;
 	std::shared_ptr <rai::election> election;
 	// Number of announcements in a row for this fork
-	int announcements;
+	unsigned announcements;
 };
 // Core class for determining concensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -92,9 +92,10 @@ public:
     rai::node & node;
     std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
-	static size_t constexpr announcements_per_interval = 32;
+	static unsigned constexpr announcements_per_interval = 32;
 	// After this many successive vote announcements, block is confirmed
-	static size_t constexpr contigious_announcements = 4;
+	static unsigned constexpr contigious_announcements = 4;
+	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 };
 class operation
 {

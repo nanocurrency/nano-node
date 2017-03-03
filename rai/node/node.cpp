@@ -28,6 +28,7 @@ std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
+unsigned constexpr rai::active_transactions::announce_interval_ms;
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
 socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
@@ -2264,10 +2265,16 @@ void rai::active_transactions::announce_votes ()
 			}
 			else
 			{
-				roots.modify (i, [] (rai::conflict_info & info_a)
+				unsigned announcements;
+				roots.modify (i, [&announcements] (rai::conflict_info & info_a)
 				{
-					++info_a.announcements;
+					announcements = ++info_a.announcements;
 				});
+				// If more than one full announcement interval has passed and no one has voted on this block, we need to synchronize
+				if (announcements > 1 && i->election->votes.rep_votes.size () <= 1)
+				{
+					node.bootstrap_initiator.bootstrap_any ();
+				}
 			}
 		}
 		// Mark remainder as 0 announcements sent
@@ -2289,7 +2296,7 @@ void rai::active_transactions::announce_votes ()
 	}
 	auto now (std::chrono::system_clock::now ());
 	auto node_l (node.shared ());
-	node.alarm.add ((rai::rai_network == rai::rai_networks::rai_test_network) ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (16), [node_l] () {node_l->active.announce_votes ();});
+	node.alarm.add (now + std::chrono::milliseconds (announce_interval_ms), [node_l] () {node_l->active.announce_votes ();});
 }
 
 void rai::active_transactions::start (MDB_txn * transaction_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a)
