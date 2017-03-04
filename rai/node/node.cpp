@@ -1941,7 +1941,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_h
         }
         else
         {
-            peers.insert ({endpoint_a, std::chrono::system_clock::now (), std::chrono::system_clock::now (), std::chrono::system_clock::time_point (), hash_a});
+            peers.insert (rai::peer_information (endpoint_a, hash_a));
 			unknown = true;
         }
     }
@@ -2019,6 +2019,28 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 		result = true;
 	}
 	return result;
+}
+
+rai::peer_information::peer_information (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a) :
+endpoint (endpoint_a),
+last_contact (std::chrono::system_clock::now ()),
+last_attempt (last_contact),
+last_bootstrap_failure (std::chrono::system_clock::time_point ()),
+most_recent (hash_a),
+last_rep_query (std::chrono::system_clock::time_point ()),
+rep_weight (0)
+{
+}
+
+rai::peer_information::peer_information (rai::endpoint const & endpoint_a, std::chrono::system_clock::time_point const & last_contact_a, std::chrono::system_clock::time_point const & last_attempt_a) :
+endpoint (endpoint_a),
+last_contact (last_contact_a),
+last_attempt (last_attempt_a),
+last_bootstrap_failure (std::chrono::system_clock::time_point ()),
+most_recent (0),
+last_rep_query (std::chrono::system_clock::time_point ()),
+rep_weight (0)
+{
 }
 
 rai::peer_container::peer_container (rai::endpoint const & self_a) :

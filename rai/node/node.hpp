@@ -152,13 +152,15 @@ class work_pool;
 class peer_information
 {
 public:
+	peer_information (rai::endpoint const &, rai::block_hash const &);
+	peer_information (rai::endpoint const &, std::chrono::system_clock::time_point const &, std::chrono::system_clock::time_point const &);
 	rai::endpoint endpoint;
 	std::chrono::system_clock::time_point last_contact;
 	std::chrono::system_clock::time_point last_attempt;
 	std::chrono::system_clock::time_point last_bootstrap_failure;
 	rai::block_hash most_recent;
 	std::chrono::system_clock::time_point last_rep_query;
-	rai::amount weight;
+	rai::amount rep_weight;
 };
 class peer_container
 {

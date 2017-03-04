@@ -76,8 +76,8 @@ TEST (peer_container, split)
     auto now (std::chrono::system_clock::now ());
     rai::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 100);
     rai::endpoint endpoint2 (boost::asio::ip::address_v6::any (), 101);
-	peers.peers.insert ({endpoint1, now - std::chrono::seconds (1), now});
-    peers.peers.insert ({endpoint2, now + std::chrono::seconds (1), now});
+	peers.peers.insert (rai::peer_information (endpoint1, now - std::chrono::seconds (1), now));
+    peers.peers.insert (rai::peer_information (endpoint2, now + std::chrono::seconds (1), now));
 	ASSERT_EQ (2, peers.peers.size ());
     auto list (peers.purge_list (now));
 	ASSERT_EQ (1, peers.peers.size ());
