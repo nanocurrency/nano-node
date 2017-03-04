@@ -157,6 +157,8 @@ public:
 	std::chrono::system_clock::time_point last_attempt;
 	std::chrono::system_clock::time_point last_bootstrap_failure;
 	rai::block_hash most_recent;
+	std::chrono::system_clock::time_point last_rep_query;
+	rai::amount weight;
 };
 class peer_container
 {
@@ -363,7 +365,7 @@ class node_observers
 public:
 	rai::observer_set <rai::block const &, rai::account const &, rai::amount const &> blocks;
 	rai::observer_set <rai::account const &, bool> wallet;
-	rai::observer_set <rai::vote const &> vote;
+	rai::observer_set <rai::vote const &, rai::endpoint const &> vote;
 	rai::observer_set <rai::endpoint const &> endpoint;
 	rai::observer_set <> disconnect;
 };
@@ -384,7 +386,7 @@ public:
     void stop ();
     std::shared_ptr <rai::node> shared ();
 	int store_version ();
-    void vote (rai::vote const &);
+    void vote (rai::vote const &, rai::endpoint const &);
 	void process_unchecked (std::shared_ptr <rai::bootstrap_attempt>);
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);

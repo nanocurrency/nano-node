@@ -257,7 +257,7 @@ public:
         node.peers.contacted (sender);
         node.peers.insert (sender, message_a.vote.block->hash ());
         node.process_receive_republish (message_a.vote.block->clone (), 0);
-        node.vote (message_a.vote);
+        node.vote (message_a.vote, sender);
     }
     void bulk_pull (rai::bulk_pull const &) override
     {
@@ -868,11 +868,11 @@ port_mapping (*this)
 		this->network.send_keepalive (endpoint_a);
 		this->bootstrap_initiator.warmup (endpoint_a);
 	});
-    observers.vote.add ([this] (rai::vote const & vote_a)
+    observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
         active.vote (vote_a);
     });
-    observers.vote.add ([this] (rai::vote const & vote_a)
+    observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
 		rai::transaction transaction (store.environment, nullptr, true);
 		this->gap_cache.vote (transaction, vote_a);
@@ -914,9 +914,9 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
     network.send_keepalive (endpoint_l);
 }
 
-void rai::node::vote (rai::vote const & vote_a)
+void rai::node::vote (rai::vote const & vote_a, rai::endpoint const & endpoint_a)
 {
-	observers.vote (vote_a);
+	observers.vote (vote_a, endpoint_a);
 }
 
 rai::gap_cache::gap_cache (rai::node & node_a) :
