@@ -805,7 +805,7 @@ TEST (network, ipv6)
 {
     boost::asio::ip::address_v6 address (boost::asio::ip::address_v6::from_string ("::ffff:127.0.0.1"));
     ASSERT_TRUE (address.is_v4_mapped ());
-    boost::asio::ip::udp::endpoint endpoint1 (address, 16384);
+    rai::endpoint endpoint1 (address, 16384);
     std::vector <uint8_t> bytes1;
     {
         rai::vectorstream stream (bytes1);
@@ -821,26 +821,26 @@ TEST (network, ipv6)
     std::array <uint8_t, 16> bytes2;
     rai::bufferstream stream (bytes1.data (), bytes1.size ());
     rai::read (stream, bytes2);
-    boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
+    rai::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
     ASSERT_EQ (endpoint1, endpoint2);
 }
 
 TEST (network, ipv6_from_ipv4)
 {
-    boost::asio::ip::udp::endpoint endpoint1 (boost::asio::ip::address_v4::loopback(), 16000);
+    rai::endpoint endpoint1 (boost::asio::ip::address_v4::loopback(), 16000);
     ASSERT_TRUE (endpoint1.address ().is_v4 ());
-    boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v6::v4_mapped (endpoint1.address ().to_v4 ()), 16000);
+    rai::endpoint endpoint2 (boost::asio::ip::address_v6::v4_mapped (endpoint1.address ().to_v4 ()), 16000);
     ASSERT_TRUE (endpoint2.address ().is_v6 ());
 }
 
 TEST (network, ipv6_bind_send_ipv4)
 {
     boost::asio::io_service service;
-    boost::asio::ip::udp::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 24000);
-    boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 24001);
+    rai::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 24000);
+    rai::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 24001);
     std::array <uint8_t, 16> bytes1;
     auto finish1 (false);
-    boost::asio::ip::udp::endpoint endpoint3;
+    rai::endpoint endpoint3;
     boost::asio::ip::udp::socket socket1 (service, endpoint1);
     socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1] (boost::system::error_code const & error, size_t size_a)
     {
@@ -849,8 +849,8 @@ TEST (network, ipv6_bind_send_ipv4)
         finish1 = true;
     });
     boost::asio::ip::udp::socket socket2 (service, endpoint2);
-    boost::asio::ip::udp::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), 24000);
-    boost::asio::ip::udp::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), 24001);
+    rai::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), 24000);
+    rai::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), 24001);
     socket2.async_send_to (boost::asio::buffer (std::array <uint8_t, 16> {}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a)
     {
         ASSERT_FALSE (error);
@@ -866,7 +866,7 @@ TEST (network, ipv6_bind_send_ipv4)
     ASSERT_EQ (endpoint6, endpoint3);
     std::array <uint8_t, 16> bytes2;
     auto finish2 (false);
-    boost::asio::ip::udp::endpoint endpoint4;
+    rai::endpoint endpoint4;
     socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [&finish2] (boost::system::error_code const & error, size_t size_a)
     {
         ASSERT_FALSE (!error);

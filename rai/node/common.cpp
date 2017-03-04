@@ -232,7 +232,7 @@ bool rai::message_parser::at_end (rai::bufferstream & stream_a)
 rai::keepalive::keepalive () :
 message (rai::message_type::keepalive)
 {
-    boost::asio::ip::udp::endpoint endpoint (boost::asio::ip::address_v6 {}, 0);
+    rai::endpoint endpoint (boost::asio::ip::address_v6 {}, 0);
     for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
     {
         *i = endpoint;

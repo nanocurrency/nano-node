@@ -31,7 +31,7 @@ int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
 
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
-socket (service_a, boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::any (), port)),
+socket (service_a, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
 resolver (service_a),
 node (node_a),
@@ -106,7 +106,7 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 			    auto endpoint (i->endpoint ());
 			    if (endpoint.address ().is_v4 ())
 			    {
-					endpoint = boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint.address ().to_v4 ()), endpoint.port ());
+					endpoint = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint.address ().to_v4 ()), endpoint.port ());
 			    }
 				node_l->send_keepalive (endpoint);
 			}
@@ -176,7 +176,7 @@ void rai::network::broadcast_confirm_req (rai::block const & block_a)
 	}
 }
 
-void rai::network::send_confirm_req (boost::asio::ip::udp::endpoint const & endpoint_a, rai::block const & block)
+void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::block const & block)
 {
     rai::confirm_req message (block.clone ());
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
