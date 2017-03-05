@@ -202,6 +202,7 @@ public:
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>
 		>
 	> peers;
+	// Called when a new peer is observed
 	std::function <void (rai::endpoint const &)> peer_observer;
 	std::function <void ()> disconnect_observer;
 };
@@ -375,6 +376,16 @@ public:
 	rai::vote_result vote (rai::vote const &, rai::endpoint);
 	rai::node & node;
 };
+// The network is crawled for representatives by ocassionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
+class rep_crawler
+{
+public:
+	void add (rai::block_hash const &);
+	void remove (rai::block_hash const &);
+	bool exists (rai::block_hash const &);
+	std::mutex mutex;
+	std::unordered_set <rai::block_hash> active;
+};
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
@@ -415,6 +426,7 @@ public:
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
 	void add_initial_peers ();
+	void rep_query (rai::endpoint const &);
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
@@ -432,6 +444,7 @@ public:
 	rai::node_observers observers;
 	rai::port_mapping port_mapping;
 	rai::vote_processor vote_processor;
+	rai::rep_crawler rep_crawler;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);

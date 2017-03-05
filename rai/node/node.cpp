@@ -211,6 +211,24 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
 	});
 }
 
+void rai::node::rep_query (rai::endpoint const & endpoint_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	rai::account account;
+	rai::random_pool.GenerateBlock (account.bytes.data (), account.bytes.size ());
+	auto existing (store.frontier_begin (transaction, account));
+	if (existing == store.frontier_end ())
+	{
+		existing = store.frontier_begin (transaction);
+	}
+	assert (existing != store.frontier_end ());
+	rai::block_hash hash (existing->second);
+	auto block (store.block_get (transaction, hash));
+	assert (block != nullptr);
+	rep_crawler.add (hash);
+	network.send_confirm_req (endpoint_a, *block);
+}
+
 namespace
 {
 class network_message_visitor : public rai::message_visitor
@@ -878,6 +896,23 @@ rai::vote_result rai::vote_processor::vote (rai::vote const & vote_a, rai::endpo
 			break;
 	}
 	return result;
+
+void rai::rep_crawler::add (rai::block_hash const & hash_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	active.insert (hash_a);
+}
+
+void rai::rep_crawler::remove (rai::block_hash const & hash_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	active.erase (hash_a);
+}
+
+bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	return active.count (hash_a) != 0;
 }
 
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
@@ -918,6 +953,7 @@ vote_processor (*this)
 	{
 		this->network.send_keepalive (endpoint_a);
 		this->bootstrap_initiator.warmup (endpoint_a);
+		this->rep_query (endpoint_a);
 	});
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
