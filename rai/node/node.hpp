@@ -186,7 +186,7 @@ public:
 	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
-	std::vector <rai::endpoint> purge_rep_crawl (std::chrono::system_clock::time_point const &);
+	std::vector <rai::endpoint> rep_crawl ();
 	size_t size ();
 	bool empty ();
 	std::mutex mutex;

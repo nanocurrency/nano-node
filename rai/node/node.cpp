@@ -2004,7 +2004,7 @@ std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono
     return result;
 }
 
-std::vector <rai::endpoint> rai::peer_container::purge_rep_crawl (std::chrono::system_clock::time_point const & cutoff)
+std::vector <rai::endpoint> rai::peer_container::rep_crawl ()
 {
 	std::vector <rai::endpoint> result;
 	result.reserve (8);
