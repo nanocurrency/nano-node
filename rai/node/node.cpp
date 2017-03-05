@@ -955,9 +955,22 @@ vote_processor (*this)
 		this->bootstrap_initiator.warmup (endpoint_a);
 		this->rep_query (endpoint_a);
 	});
-    observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
+    observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const & endpoint_a)
     {
-        active.vote (vote_a);
+        auto vote_result (active.vote (vote_a));
+		switch (vote_result)
+		{
+			case rai::vote_result::first:
+			case rai::vote_result::confirm:
+			case rai::vote_result::changed:
+				if (this->rep_crawler.exists (vote_a.block->hash ()))
+				{
+					// We see a valid non-replay vote for a block we requested, this node is probably a representative
+					peers.voted (endpoint_a);
+				}
+			default:
+				break;
+		}
     });
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
