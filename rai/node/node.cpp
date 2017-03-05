@@ -1547,7 +1547,7 @@ void rai::node::ongoing_keepalive ()
 void rai::node::ongoing_rep_crawl ()
 {
 	auto now (std::chrono::system_clock::now ());
-	auto peers_l (peers.purge_rep_crawl (now - cutoff));
+	auto peers_l (peers.rep_crawl ());
 	rep_query (peers_l);
 	std::weak_ptr <rai::node> node_w (shared_from_this ());
     alarm.add (now + period, [node_w] ()
