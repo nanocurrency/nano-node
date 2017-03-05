@@ -1500,6 +1500,19 @@ bool rai::store_iterator::operator != (rai::store_iterator const & other_a) cons
     return !(*this == other_a);
 }
 
+rai::block_counts::block_counts () :
+send (0),
+receive (0),
+open (0),
+change (0)
+{
+}
+
+size_t rai::block_counts::sum ()
+{
+	return send + receive + open + change;
+}
+
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a) :
 environment (error_a, path_a),
 frontiers (0),
@@ -1916,8 +1929,9 @@ bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash co
 	return result;
 }
 
-size_t rai::block_store::block_count (MDB_txn * transaction_a)
+rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
 {
+	rai::block_counts result;
 	MDB_stat send_stats;
 	auto status1 (mdb_stat (transaction_a, send_blocks, &send_stats));
 	assert (status1 == 0);
@@ -1930,7 +1944,10 @@ size_t rai::block_store::block_count (MDB_txn * transaction_a)
 	MDB_stat change_stats;
 	auto status4 (mdb_stat (transaction_a, change_blocks, &change_stats));
 	assert (status4 == 0);
-	auto result (send_stats.ms_entries + receive_stats.ms_entries + open_stats.ms_entries + change_stats.ms_entries);
+	result.send = send_stats.ms_entries;
+	result.receive = receive_stats.ms_entries;
+	result.open = open_stats.ms_entries;
+	result.change = change_stats.ms_entries;
 	return result;
 }
 

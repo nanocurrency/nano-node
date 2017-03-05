@@ -1317,7 +1317,7 @@ void rai_qt::advanced_actions::refresh_count ()
 	rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
 	auto size (wallet.wallet_m->node.store.block_count (transaction));
 	auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
-	auto count_string (std::to_string (size));
+	auto count_string (std::to_string (size.sum ()));
 	if (unchecked != 0)
 	{
 		count_string += " (" + std::to_string (unchecked) + ")";

@@ -34,7 +34,7 @@ TEST (pull_synchronization, empty)
 	test_synchronization sync (store);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_EQ (rai::sync_result::error, sync.synchronize (transaction, 0));
-	ASSERT_EQ (0, store.block_count (transaction));
+	ASSERT_EQ (0, store.block_count (transaction).sum ());
 }
 
 TEST (pull_synchronization, one)
@@ -49,7 +49,7 @@ TEST (pull_synchronization, one)
 	store.unchecked_put (transaction, block2.hash (), block2);
 	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block2.hash ()));
-	ASSERT_EQ (2, store.block_count (transaction));
+	ASSERT_EQ (2, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 }
 
@@ -67,7 +67,7 @@ TEST (pull_synchronization, send_dependencies)
 	store.unchecked_put (transaction, block3.hash (), block3);
 	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
-	ASSERT_EQ (3, store.block_count (transaction));
+	ASSERT_EQ (3, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 }
@@ -86,7 +86,7 @@ TEST (pull_synchronization, change_dependencies)
 	store.unchecked_put (transaction, block3.hash (), block3);
 	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
-	ASSERT_EQ (3, store.block_count (transaction));
+	ASSERT_EQ (3, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 }
@@ -105,7 +105,7 @@ TEST (pull_synchronization, open_dependencies)
 	store.unchecked_put (transaction, block3.hash (), block3);
 	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block3.hash ()));
-	ASSERT_EQ (3, store.block_count (transaction));
+	ASSERT_EQ (3, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 }
@@ -128,7 +128,7 @@ TEST (pull_synchronization, receive_dependencies)
 	store.unchecked_put (transaction, block5.hash (), block5);
 	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block5.hash ()));
-	ASSERT_EQ (5, store.block_count (transaction));
+	ASSERT_EQ (5, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block4.hash ()));
@@ -157,7 +157,7 @@ TEST (pull_synchronization, ladder_dependencies)
 	store.unchecked_put (transaction, block7.hash (), block7);
 	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block7.hash ()));
-	ASSERT_EQ (7, store.block_count (transaction));
+	ASSERT_EQ (7, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block4.hash ()));

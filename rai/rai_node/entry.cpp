@@ -137,7 +137,7 @@ int main (int argc, char * const * argv)
 	{
 		rai::inactive_node node;
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
-		std::cout << boost::str (boost::format ("Block count: %1%\n") % node.node->store.block_count (transaction));
+		std::cout << boost::str (boost::format ("Block count: %1%\n") % node.node->store.block_count (transaction).sum ());
 	}
 	else if (vm.count ("debug_bootstrap_generate"))
 	{

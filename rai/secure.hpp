@@ -306,6 +306,16 @@ public:
 	rai::account account;
 	rai::block_hash hash;
 };
+class block_counts
+{
+public:
+	block_counts ();
+	size_t sum ();
+	size_t send;
+	size_t receive;
+	size_t open;
+	size_t change;
+};
 class block_store
 {
 public:
@@ -321,7 +331,7 @@ public:
 	std::unique_ptr <rai::block> block_get (MDB_txn *, rai::block_hash const &);
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
-	size_t block_count (MDB_txn *);
+	rai::block_counts block_count (MDB_txn *);
 	
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);
