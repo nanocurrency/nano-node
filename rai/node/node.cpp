@@ -214,7 +214,8 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
 void rai::node::rep_query (rai::endpoint const & endpoint_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
-	auto block (store.block_random (transaction, hash));
+	auto block (store.block_random (transaction));
+	auto hash (block->hash ());
 	rep_crawler.add (hash);
 	peers.rep_request (endpoint_a);
 	network.send_confirm_req (endpoint_a, *block);
