@@ -214,19 +214,18 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
 void rai::node::rep_query (rai::endpoint const & endpoint_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
-	rai::account account;
-	rai::random_pool.GenerateBlock (account.bytes.data (), account.bytes.size ());
-	auto existing (store.frontier_begin (transaction, account));
-	if (existing == store.frontier_end ())
-	{
-		existing = store.frontier_begin (transaction);
-	}
-	assert (existing != store.frontier_end ());
-	rai::block_hash hash (existing->second);
-	auto block (store.block_get (transaction, hash));
-	assert (block != nullptr);
+	auto block (store.block_random (transaction, hash));
 	rep_crawler.add (hash);
+	peers.rep_request (endpoint_a);
 	network.send_confirm_req (endpoint_a, *block);
+	std::weak_ptr <rai::node> node_w (shared_from_this ());
+	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [node_w, hash] ()
+	{
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->rep_crawler.remove (hash);
+		}
+	});
 }
 
 namespace
@@ -966,7 +965,7 @@ vote_processor (*this)
 				if (this->rep_crawler.exists (vote_a.block->hash ()))
 				{
 					// We see a valid non-replay vote for a block we requested, this node is probably a representative
-					peers.voted (endpoint_a);
+					peers.rep_response (endpoint_a);
 				}
 			default:
 				break;
@@ -2009,6 +2008,44 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a)
         result = true;
     }
     return result;
+}
+
+bool rai::peer_container::knows_about (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    bool result (false);
+    auto existing (peers.find (endpoint_a));
+    if (existing != peers.end ())
+    {
+        result = existing->most_recent == hash_a;
+    }
+    return result;
+}
+
+void rai::peer_container::rep_response (rai::endpoint const & endpoint_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    auto existing (peers.find (endpoint_a));
+    if (existing != peers.end ())
+    {
+		peers.modify (existing, [] (rai::peer_information & info)
+		{
+			info.last_rep_response = std::chrono::system_clock::now ();
+		});
+    }
+}
+
+void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    auto existing (peers.find (endpoint_a));
+    if (existing != peers.end ())
+    {
+		peers.modify (existing, [] (rai::peer_information & info)
+		{
+			info.last_rep_request = std::chrono::system_clock::now ();
+		});
+    }
 }
 
 bool rai::peer_container::insert (rai::endpoint const & endpoint_a)

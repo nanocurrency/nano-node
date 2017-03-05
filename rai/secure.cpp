@@ -2048,24 +2048,6 @@ size_t rai::block_store::frontier_count (MDB_txn * transaction_a)
 	return result;
 }
 
-rai::store_iterator rai::block_store::frontier_begin (MDB_txn * transaction_a, rai::account const & account_a)
-{
-	rai::store_iterator result (transaction_a, frontiers, account_a.val ());
-	return result;
-}
-
-rai::store_iterator rai::block_store::frontier_begin (MDB_txn * transaction_a)
-{
-	rai::store_iterator result (transaction_a, frontiers);
-	return result;
-}
-
-rai::store_iterator rai::block_store::frontier_end ()
-{
-	rai::store_iterator result (nullptr);
-	return result;
-}
-
 void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const & account_a, rai::account_info const & info_a)
 {
     std::vector <uint8_t> vector;
