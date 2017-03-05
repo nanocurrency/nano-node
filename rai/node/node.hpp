@@ -186,6 +186,7 @@ public:
 	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
+	std::vector <rai::endpoint> purge_rep_crawl (std::chrono::system_clock::time_point const &);
 	size_t size ();
 	bool empty ();
 	std::mutex mutex;
@@ -200,11 +201,14 @@ public:
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>,
 			boost::multi_index::random_access <>,
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_rep_request>>
 		>
 	> peers;
 	// Called when a new peer is observed
 	std::function <void (rai::endpoint const &)> peer_observer;
 	std::function <void ()> disconnect_observer;
+	// Number of peers to crawl for being a rep every period
+	static size_t constexpr peers_per_crawl = 8;
 };
 class send_info
 {
@@ -420,6 +424,7 @@ public:
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
     void ongoing_keepalive ();
+	void ongoing_rep_crawl ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);
@@ -427,6 +432,8 @@ public:
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
 	void add_initial_peers ();
 	void rep_query (rai::endpoint const &);
+	template <typename T>
+	void rep_query (T const &);
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;

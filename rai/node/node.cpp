@@ -211,14 +211,18 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
 	});
 }
 
-void rai::node::rep_query (rai::endpoint const & endpoint_a)
+template <typename T>
+void rai::node::rep_query (T const & peers_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
 	auto block (store.block_random (transaction));
 	auto hash (block->hash ());
 	rep_crawler.add (hash);
-	peers.rep_request (endpoint_a);
-	network.send_confirm_req (endpoint_a, *block);
+	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
+	{
+		peers.rep_request (*i);
+		network.send_confirm_req (*i, *block);
+	}
 	std::weak_ptr <rai::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [node_w, hash] ()
 	{
@@ -953,7 +957,9 @@ vote_processor (*this)
 	{
 		this->network.send_keepalive (endpoint_a);
 		this->bootstrap_initiator.warmup (endpoint_a);
-		this->rep_query (endpoint_a);
+		std::array <rai::endpoint, 1> endpoints;
+		endpoints [0] = endpoint_a;
+		this->rep_query (endpoints);
 	});
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const & endpoint_a)
     {
@@ -1449,6 +1455,7 @@ void rai::node::start ()
 {
     network.receive ();
     ongoing_keepalive ();
+	ongoing_rep_crawl ();
     bootstrap.start ();
 	backup_wallet ();
 	active.announce_votes ();
@@ -1533,6 +1540,21 @@ void rai::node::ongoing_keepalive ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_keepalive ();
+		}
+	});
+}
+
+void rai::node::ongoing_rep_crawl ()
+{
+	auto now (std::chrono::system_clock::now ());
+	auto peers_l (peers.purge_rep_crawl (now - cutoff));
+	rep_query (peers_l);
+	std::weak_ptr <rai::node> node_w (shared_from_this ());
+    alarm.add (now + period, [node_w] ()
+	{
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_rep_crawl ();
 		}
 	});
 }
@@ -1980,6 +2002,19 @@ std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono
 		disconnect_observer ();
 	}
     return result;
+}
+
+std::vector <rai::endpoint> rai::peer_container::purge_rep_crawl (std::chrono::system_clock::time_point const & cutoff)
+{
+	std::vector <rai::endpoint> result;
+	result.reserve (8);
+	std::lock_guard <std::mutex> lock (mutex);
+	auto count (0);
+	for (auto i (peers.get <5> ().begin ()), n (peers.get <5> ().end ()); i != n && count < 8; ++i, ++count)
+	{
+		result.push_back (i->endpoint);
+	};
+	return result;
 }
 
 size_t rai::peer_container::size ()
