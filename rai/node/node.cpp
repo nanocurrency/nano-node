@@ -81,14 +81,17 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
     }
-    auto node_l (node.shared ());
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t)
+    std::weak_ptr <rai::node> node_w (node.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_w, endpoint_a] (boost::system::error_code const & ec, size_t)
 	{
-		if (node_l->config.logging.network_keepalive_logging ())
+		if (auto node_l = node_w.lock ())
 		{
-			if (ec)
+			if (node_l->config.logging.network_keepalive_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive to %1% %2%") % endpoint_a % ec.message ());
+				if (ec)
+				{
+					BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive to %1% %2%") % endpoint_a % ec.message ());
+				}
 			}
 		}
 	});
@@ -131,7 +134,7 @@ void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
             rai::vectorstream stream (*bytes);
             message.serialize (stream);
         }
-        auto node_l (node.shared ());
+        std::weak_ptr <rai::node> node_w (node.shared ());
 		auto sqrt_list (node.peers.list_sqrt ());
         for (auto i (sqrt_list.begin ()), n (sqrt_list.end ()); i != n; ++i)
         {
@@ -141,13 +144,16 @@ void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
 				{
 					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % *i);
 				}
-				send_buffer (bytes->data (), bytes->size (), *i, rebroadcast_a, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
+				send_buffer (bytes->data (), bytes->size (), *i, rebroadcast_a, [bytes, node_w] (boost::system::error_code const & ec, size_t size)
 				{
-					if (node_l->config.logging.network_logging ())
+					if (auto node_l = node_w.lock ())
 					{
-						if (ec)
+						if (node_l->config.logging.network_logging ())
 						{
-							BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
+							if (ec)
+							{
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
+							}
 						}
 					}
 				});
@@ -188,14 +194,17 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
     }
-    auto node_l (node.shared ());
-    send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l] (boost::system::error_code const & ec, size_t size)
+    std::weak_ptr <rai::node> node_w (node.shared ());
+    send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_w] (boost::system::error_code const & ec, size_t size)
 	{
-		if (node_l->config.logging.network_logging ())
+		if (auto node_l = node_w.lock ())
 		{
-			if (ec)
+			if (node_l->config.logging.network_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+				if (ec)
+				{
+					BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+				}
 			}
 		}
 	});
@@ -1032,14 +1041,17 @@ void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key cons
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
     }
-    auto node_l (node.shared ());
-    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_l, endpoint_a] (boost::system::error_code const & ec, size_t size_a)
+    std::weak_ptr <rai::node> node_w (node.shared ());
+    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, 0, [bytes, node_w, endpoint_a] (boost::system::error_code const & ec, size_t size_a)
 	{
-		if (node_l->config.logging.network_logging ())
+		if (auto node_l = node_w.lock ())
 		{
-			if (ec)
+			if (node_l->config.logging.network_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ());
+				if (ec)
+				{
+					BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ());
+				}
 			}
 		}
 	});
