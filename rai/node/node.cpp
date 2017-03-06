@@ -1363,7 +1363,7 @@ void rai::node::start ()
 void rai::node::stop ()
 {
     BOOST_LOG (log) << "Node stopping";
-	active.roots.clear ();
+	active.stop ();
     network.stop ();
 	bootstrap_initiator.stop ();
     bootstrap.stop ();
@@ -2325,6 +2325,12 @@ void rai::active_transactions::announce_votes ()
 	auto now (std::chrono::system_clock::now ());
 	auto node_l (node.shared ());
 	node.alarm.add (now + std::chrono::milliseconds (announce_interval_ms), [node_l] () {node_l->active.announce_votes ();});
+}
+
+void rai::active_transactions::stop ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	roots.clear ();
 }
 
 void rai::active_transactions::start (MDB_txn * transaction_a, rai::block const & block_a, std::function <void (rai::block &)> const & confirmation_action_a)

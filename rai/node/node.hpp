@@ -81,6 +81,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
+	void stop ();
     boost::multi_index_container
 	<
 		rai::conflict_info,
