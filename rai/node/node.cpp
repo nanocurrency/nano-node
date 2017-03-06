@@ -1425,8 +1425,14 @@ void rai::node::ongoing_keepalive ()
     {
         network.send_keepalive (i->endpoint);
     }
-	auto node_l (shared_from_this ());
-    alarm.add (std::chrono::system_clock::now () + period, [node_l] () { node_l->ongoing_keepalive ();});
+	std::weak_ptr <rai::node> node_w (shared_from_this ());
+    alarm.add (std::chrono::system_clock::now () + period, [node_w] ()
+	{
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_keepalive ();
+		}
+	});
 }
 
 void rai::node::backup_wallet ()
