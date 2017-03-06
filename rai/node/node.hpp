@@ -77,7 +77,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
     void start (MDB_txn *, rai::block const &, std::function <void (rai::block &)> const &);
-    void vote (rai::vote const &);
+    rai::vote_result vote (rai::vote const &);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
@@ -160,7 +160,8 @@ public:
 	std::chrono::system_clock::time_point last_attempt;
 	std::chrono::system_clock::time_point last_bootstrap_failure;
 	rai::block_hash most_recent;
-	std::chrono::system_clock::time_point last_rep_query;
+	std::chrono::system_clock::time_point last_rep_request;
+	std::chrono::system_clock::time_point last_rep_response;
 	rai::amount rep_weight;
 };
 class peer_container

@@ -2033,7 +2033,8 @@ last_contact (std::chrono::system_clock::now ()),
 last_attempt (last_contact),
 last_bootstrap_failure (std::chrono::system_clock::time_point ()),
 most_recent (hash_a),
-last_rep_query (std::chrono::system_clock::time_point ()),
+last_rep_request (std::chrono::system_clock::time_point ()),
+last_rep_response (std::chrono::system_clock::time_point ()),
 rep_weight (0)
 {
 }
@@ -2044,7 +2045,8 @@ last_contact (last_contact_a),
 last_attempt (last_attempt_a),
 last_bootstrap_failure (std::chrono::system_clock::time_point ()),
 most_recent (0),
-last_rep_query (std::chrono::system_clock::time_point ()),
+last_rep_request (std::chrono::system_clock::time_point ()),
+last_rep_response (std::chrono::system_clock::time_point ()),
 rep_weight (0)
 {
 }
@@ -2346,8 +2348,9 @@ void rai::active_transactions::start (MDB_txn * transaction_a, rai::block const 
 }
 
 // Validate a vote and apply it to the current election if one exists
-void rai::active_transactions::vote (rai::vote const & vote_a)
+rai::vote_result rai::active_transactions::vote (rai::vote const & vote_a)
 {
+	rai::vote_result result (rai::vote_result::invalid);
 	std::shared_ptr <rai::election> election;
 	{
 		std::lock_guard <std::mutex> lock (mutex);
@@ -2360,8 +2363,9 @@ void rai::active_transactions::vote (rai::vote const & vote_a)
 	}
 	if (election)
 	{
-        election->vote (vote_a);
+        result = election->vote (vote_a);
 	}
+	return result;
 }
 
 bool rai::active_transactions::active (rai::block const & block_a)
