@@ -1841,6 +1841,52 @@ MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_has
 	return result;
 }
 
+std::unique_ptr <rai::block> rai::block_store::block_random (MDB_txn * transaction_a, MDB_dbi database)
+{
+	rai::block_hash hash;
+	rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+	rai::store_iterator existing (transaction_a, database, hash.val ());
+	if (existing == rai::store_iterator (nullptr))
+	{
+		existing = rai::store_iterator (transaction_a, database);
+	}
+	assert (existing != rai::store_iterator (nullptr));
+	return block_get (transaction_a, rai::block_hash (existing->first));
+}
+
+std::unique_ptr <rai::block> rai::block_store::block_random (MDB_txn * transaction_a)
+{
+	auto count (block_count (transaction_a));
+	auto region (rai::random_pool.GenerateWord32 (0, count.sum () - 1));
+	std::unique_ptr <rai::block> result;
+	if (region < count.send)
+	{
+		result = block_random (transaction_a, send_blocks);
+	}
+	else
+	{
+		region -= count.send;
+		if (region < count.receive)
+		{
+			result = block_random (transaction_a, receive_blocks);
+		}
+		else
+		{
+			region -= count.receive;
+			if (region < count.open)
+			{
+				result = block_random (transaction_a, open_blocks);
+			}
+			else
+			{
+				// change
+				result = block_random (transaction_a, change_blocks);
+			}
+		}
+	}
+	return result;
+}
+
 rai::block_hash rai::block_store::block_successor (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;

@@ -696,3 +696,16 @@ TEST (block_store, upgrade_v3_v4)
 	ASSERT_EQ (key1.pub, info.source);
 	ASSERT_EQ (rai::amount (100), info.amount);
 }
+
+TEST (block_store, block_random)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
+    rai::genesis genesis;
+	rai::transaction transaction (store.environment, nullptr, true);
+    genesis.initialize (transaction, store);
+	auto block (store.block_random (transaction));
+	ASSERT_NE (nullptr, block);
+	ASSERT_EQ (*block, *genesis.open);
+}
