@@ -174,6 +174,7 @@ public:
 	bool operator == (rai::uint128_union const &) const;
 	bool operator != (rai::uint128_union const &) const;
 	bool operator < (rai::uint128_union const &) const;
+	bool operator > (rai::uint128_union const &) const;
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;

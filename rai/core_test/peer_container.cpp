@@ -120,3 +120,17 @@ TEST (peer_container, list_sqrt)
 	auto list2 (peers.list_sqrt ());
 	ASSERT_EQ (32, list2.size ());
 }
+
+TEST (peer_container, rep_weight)
+{
+    rai::peer_container peers (rai::endpoint {});
+	peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 24001));
+	ASSERT_TRUE (peers.representatives (1).empty ());
+	rai::endpoint endpoint (boost::asio::ip::address_v6::loopback (), 24000);
+	rai::amount amount (100);
+	peers.insert (endpoint);
+	peers.rep_response (endpoint, amount);
+	auto reps (peers.representatives (1));
+	ASSERT_EQ (1, reps.size ());
+	ASSERT_EQ (100, reps [0].rep_weight.number ());
+}

@@ -233,6 +233,14 @@ void rai::node::rep_query (T const & peers_a)
 	});
 }
 
+template <>
+void rai::node::rep_query (rai::endpoint const & peers_a)
+{
+	std::array <rai::endpoint, 1> peers;
+	peers [0] = peers_a;
+	rep_query (peers);
+}
+
 namespace
 {
 class network_message_visitor : public rai::message_visitor
@@ -957,9 +965,7 @@ vote_processor (*this)
 	{
 		this->network.send_keepalive (endpoint_a);
 		this->bootstrap_initiator.warmup (endpoint_a);
-		std::array <rai::endpoint, 1> endpoints;
-		endpoints [0] = endpoint_a;
-		this->rep_query (endpoints);
+		this->rep_query (endpoint_a);
 	});
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const & endpoint_a)
     {
@@ -971,8 +977,9 @@ vote_processor (*this)
 			case rai::vote_result::changed:
 				if (this->rep_crawler.exists (vote_a.block->hash ()))
 				{
+					auto weight_l (weight (vote_a.account));
 					// We see a valid non-replay vote for a block we requested, this node is probably a representative
-					peers.rep_response (endpoint_a);
+					peers.rep_response (endpoint_a, weight_l);
 				}
 			default:
 				break;
@@ -1984,6 +1991,19 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
     }
 }
 
+// Request a list of the top known representatives
+std::vector <rai::peer_information> rai::peer_container::representatives (size_t count_a)
+{
+	std::vector <peer_information> result;
+	result.reserve (count_a);
+	std::lock_guard <std::mutex> lock (mutex);
+	for (auto i (peers.get <6> ().begin ()), n (peers.get <6> ().end ()); i != n && result.size () < count_a && !i->rep_weight.is_zero (); ++i)
+	{
+		result.push_back (*i);
+	}
+	return result;
+}
+
 std::vector <rai::peer_information> rai::peer_container::purge_list (std::chrono::system_clock::time_point const & cutoff)
 {
 	std::vector <rai::peer_information> result;
@@ -2058,15 +2078,16 @@ bool rai::peer_container::knows_about (rai::endpoint const & endpoint_a, rai::bl
     return result;
 }
 
-void rai::peer_container::rep_response (rai::endpoint const & endpoint_a)
+void rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::amount const & weight_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
     auto existing (peers.find (endpoint_a));
     if (existing != peers.end ())
     {
-		peers.modify (existing, [] (rai::peer_information & info)
+		peers.modify (existing, [weight_a] (rai::peer_information & info)
 		{
 			info.last_rep_response = std::chrono::system_clock::now ();
+			info.rep_weight = weight_a;
 		});
     }
 }

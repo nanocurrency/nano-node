@@ -178,6 +178,8 @@ public:
 	bool insert (rai::endpoint const &);
 	std::unordered_set <rai::endpoint> random_set (size_t);
 	void random_fill (std::array <rai::endpoint, 8> &);
+	// Request a list of the top known representatives
+	std::vector <peer_information> representatives (size_t);
 	// List of all peers
 	std::vector <peer_information> list ();
 	// A list of random peers with size the square root of total peer count
@@ -200,8 +202,9 @@ public:
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>,
 			boost::multi_index::random_access <>,
-			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>
-			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_rep_request>>
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_rep_request>>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, rai::amount, &peer_information::rep_weight>, std::greater <rai::amount>>
 		>
 	> peers;
 	// Called when a new peer is observed
