@@ -527,7 +527,7 @@ wallet (wallet_a)
 	QObject::connect (rebroadcast, &QPushButton::released, [this] ()
 	{
 		rai::block_hash block;
-		auto error (block.decode_account (hash->text ().toStdString ()));
+		auto error (block.decode_hex (hash->text ().toStdString ()));
 		if (!error)
 		{
 			rai::transaction transaction (this->wallet.node.store.environment, nullptr, false);
