@@ -254,8 +254,8 @@ namespace rai_qt {
 		not_a_status,
 		disconnected,
 		working,
-		synchronizing,
 		locked,
+		synchronizing,
 		vulnerable,
 		active,
 		nominal
