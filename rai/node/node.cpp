@@ -1779,7 +1779,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 			if (next != store.unchecked_end ())
 			{
 				block = rai::block_hash (next->first);
-				BOOST_LOG (log) << boost::str (boost::format ("Commiting block: %1% and dependencies") % block.to_string ());
+				BOOST_LOG (log) << boost::str (boost::format ("Committing block: %1% and dependencies") % block.to_string ());
 				auto error (synchronization.synchronize (transaction, block));
 				if (error == rai::sync_result::fork)
 				{
