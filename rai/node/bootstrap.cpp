@@ -155,13 +155,13 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 			case rai::process_result::old:
 				result = rai::sync_result::success;
 				// It definitely doesn't need to be in unchecked because it's in the ledger
-				node.store.unchecked_del (transaction_a, block_a.hash ());
+				this->node.store.unchecked_del (transaction_a, block_a.hash ());
 				break;
 			case rai::process_result::fork:
 			{
 				result = rai::sync_result::fork;
 				// Stop synchronizing and wait for fork resolution
-				node.store.unchecked_del (transaction_a, block_a.hash ());
+				this->node.store.unchecked_del (transaction_a, block_a.hash ());
 				auto node_l (this->node.shared ());
 				auto block (node_l->ledger.forked_block (transaction_a, block_a));
 				auto attempt_l (attempt);
