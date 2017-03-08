@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include <boost/log/sources/logger.hpp>
+#include <boost/circular_buffer.hpp>
 
 namespace rai
 {
@@ -22,7 +23,7 @@ enum class sync_result
 class block_synchronization
 {
 public:
-    block_synchronization (boost::log::sources::logger_mt &, rai::block_store &);
+    block_synchronization (boost::log::sources::logger_mt &);
     ~block_synchronization ();
     // Return true if target already has block
     virtual bool synchronized (MDB_txn *, rai::block_hash const &) = 0;
@@ -35,7 +36,7 @@ public:
     rai::sync_result synchronize (MDB_txn *, rai::block_hash const &);
     std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger_mt & log;
-    rai::block_store & store;
+	boost::circular_buffer <rai::block_hash> blocks;
 	std::unordered_set <rai::block_hash> attempted;
 };
 class pull_synchronization : public rai::block_synchronization
@@ -51,11 +52,12 @@ public:
 class push_synchronization : public rai::block_synchronization
 {
 public:
-    push_synchronization (boost::log::sources::logger_mt &, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const &, rai::block_store &);
+    push_synchronization (rai::node &, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const &);
     bool synchronized (MDB_txn *, rai::block_hash const &) override;
     std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
     rai::sync_result target (MDB_txn *, rai::block const &) override;
 	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
+	rai::node & node;
 };
 class bootstrap_client;
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>

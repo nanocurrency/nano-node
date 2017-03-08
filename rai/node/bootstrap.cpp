@@ -5,9 +5,9 @@
 
 #include <boost/log/trivial.hpp>
 
-rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a, rai::block_store & store_a) :
+rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a),
-store (store_a)
+blocks (16384)
 {
 }
 
@@ -50,7 +50,7 @@ public:
         if (!sync.synchronized (transaction, hash_a))
         {
             result = false;
-            sync.store.stack_push (transaction, hash_a);
+            sync.blocks.push_back (hash_a);
 			sync.attempted.insert (hash_a);
         }
 		else
@@ -77,7 +77,7 @@ bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
     auto done (false);
     while (!result && !done)
     {
-		auto hash (store.stack_top (transaction_a));
+		auto hash (blocks.back ());
         auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
@@ -98,7 +98,8 @@ rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transact
     auto error (fill_dependencies (transaction_a));
     if (!error)
     {
-		auto hash (store.stack_pop (transaction_a));
+		auto hash (blocks.back ());
+		blocks.pop_back ();
         auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
@@ -120,9 +121,9 @@ rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transact
 rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (rai::sync_result::success);
-	store.stack_clear (transaction_a);
-    store.stack_push (transaction_a, hash_a);
-    while (result == rai::sync_result::success && !store.stack_empty (transaction_a))
+	blocks.clear ();
+    blocks.push_back (hash_a);
+    while (result == rai::sync_result::success && !blocks.empty ())
     {
         result = synchronize_one (transaction_a);
     }
@@ -130,7 +131,7 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
 }
 
 rai::pull_synchronization::pull_synchronization (rai::node & node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a) :
-block_synchronization (node_a.log, node_a.store),
+block_synchronization (node_a.log),
 node (node_a),
 attempt (attempt_a)
 {
@@ -138,7 +139,7 @@ attempt (attempt_a)
 
 std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    return store.unchecked_get (transaction_a, hash_a);
+    return node.store.unchecked_get (transaction_a, hash_a);
 }
 
 rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
@@ -152,13 +153,13 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 			case rai::process_result::old:
 				result = rai::sync_result::success;
 				// It definitely doesn't need to be in unchecked because it's in the ledger
-				store.unchecked_del (transaction_a, block_a.hash ());
+				node.store.unchecked_del (transaction_a, block_a.hash ());
 				break;
 			case rai::process_result::fork:
 			{
 				result = rai::sync_result::fork;
 				// Stop synchronizing and wait for fork resolution
-				store.unchecked_del (transaction_a, block_a.hash ());
+				node.store.unchecked_del (transaction_a, block_a.hash ());
 				auto node_l (this->node.shared ());
 				auto block (node_l->ledger.forked_block (transaction_a, block_a));
 				auto attempt_l (attempt);
@@ -193,28 +194,29 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 
 bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    return store.block_exists (transaction_a, hash_a) || attempted.count (hash_a) != 0;
+    return node.store.block_exists (transaction_a, hash_a) || attempted.count (hash_a) != 0;
 }
 
-rai::push_synchronization::push_synchronization (boost::log::sources::logger_mt & log_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a, rai::block_store & store_a) :
-block_synchronization (log_a,  store_a),
-target_m (target_a)
+rai::push_synchronization::push_synchronization (rai::node & node_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
+block_synchronization (node.log),
+target_m (target_a),
+node (node_a)
 {
 }
 
 bool rai::push_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    auto result (!store.unsynced_exists (transaction_a, hash_a));
+    auto result (!node.store.unsynced_exists (transaction_a, hash_a));
 	if (!result)
 	{
-		store.unsynced_del (transaction_a, hash_a);
+		node.store.unsynced_del (transaction_a, hash_a);
 	}
 	return result;
 }
 
 std::unique_ptr <rai::block> rai::push_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    return store.block_get (transaction_a, hash_a);
+    return node.store.block_get (transaction_a, hash_a);
 }
 
 rai::sync_result rai::push_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
@@ -657,11 +659,11 @@ rai::bulk_pull_client::~bulk_pull_client ()
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::frontier_req_client> const & connection_a) :
 connection (connection_a),
-synchronization (connection->connection->node->log, [this] (MDB_txn * transaction_a, rai::block const & block_a)
+synchronization (*connection->connection->node, [this] (MDB_txn * transaction_a, rai::block const & block_a)
 {
     push_block (block_a);
 	return rai::sync_result::success;
-}, connection_a->connection->node->store)
+})
 {
 }
 
@@ -707,7 +709,7 @@ void rai::bulk_push_client::push (MDB_txn * transaction_a)
 			if (!hash.is_zero ())
 			{
 				connection->connection->node->store.unsynced_del (transaction_a, hash);
-				synchronization.store.stack_push (transaction_a, hash);
+				synchronization.blocks.push_back (hash);
 				synchronization.synchronize_one (transaction_a);
 			}
 			else
@@ -754,7 +756,7 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		if (!ec)
 		{
 			rai::transaction transaction (this_l->connection->connection->node->store.environment, nullptr, true);
-			if (!this_l->synchronization.store.stack_empty (transaction))
+			if (!this_l->synchronization.blocks.empty ())
 			{
 				this_l->synchronization.synchronize_one (transaction);
 			}
