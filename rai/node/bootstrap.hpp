@@ -34,7 +34,6 @@ public:
     bool fill_dependencies (MDB_txn *);
     rai::sync_result synchronize_one (MDB_txn *);
     rai::sync_result synchronize (MDB_txn *, rai::block_hash const &);
-    std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger_mt & log;
 	std::stack <rai::block_hash> blocks;
 	std::unordered_set <rai::block_hash> attempted;
