@@ -121,6 +121,7 @@ public:
 	std::vector <std::unique_ptr <rai::block>> blocks;
     std::unordered_map <rai::account, rai::block_hash>::iterator current;
     std::unordered_map <rai::account, rai::block_hash>::iterator end;
+	size_t account_count;
 };
 class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>
 {
