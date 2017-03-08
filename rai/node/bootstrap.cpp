@@ -6,8 +6,7 @@
 #include <boost/log/trivial.hpp>
 
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
-log (log_a),
-blocks (16384)
+log (log_a)
 {
 }
 
@@ -50,7 +49,7 @@ public:
         if (!sync.synchronized (transaction, hash_a))
         {
             result = false;
-            sync.blocks.push_back (hash_a);
+            sync.blocks.push (hash_a);
 			sync.attempted.insert (hash_a);
         }
 		else
@@ -77,7 +76,7 @@ bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
     auto done (false);
     while (!result && !done)
     {
-		auto hash (blocks.back ());
+		auto hash (blocks.top ());
         auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
@@ -98,8 +97,8 @@ rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transact
     auto error (fill_dependencies (transaction_a));
     if (!error)
     {
-		auto hash (blocks.back ());
-		blocks.pop_back ();
+		auto hash (blocks.top ());
+		blocks.pop ();
         auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
@@ -121,8 +120,11 @@ rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transact
 rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (rai::sync_result::success);
-	blocks.clear ();
-    blocks.push_back (hash_a);
+	while (!blocks.empty ())
+	{
+		blocks.pop ();
+	}
+    blocks.push (hash_a);
     while (result == rai::sync_result::success && !blocks.empty ())
     {
         result = synchronize_one (transaction_a);
@@ -709,7 +711,7 @@ void rai::bulk_push_client::push (MDB_txn * transaction_a)
 			if (!hash.is_zero ())
 			{
 				connection->connection->node->store.unsynced_del (transaction_a, hash);
-				synchronization.blocks.push_back (hash);
+				synchronization.blocks.push (hash);
 				synchronization.synchronize_one (transaction_a);
 			}
 			else

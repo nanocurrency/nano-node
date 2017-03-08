@@ -377,12 +377,6 @@ public:
 	rai::store_iterator unsynced_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unsynced_begin (MDB_txn *);
 	rai::store_iterator unsynced_end ();
-
-	void stack_clear (MDB_txn *);
-	void stack_push (MDB_txn *, rai::block_hash const &);
-	rai::block_hash stack_pop (MDB_txn *);
-	rai::block_hash stack_top (MDB_txn *);
-	bool stack_empty (MDB_txn *);
 	
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
@@ -421,8 +415,6 @@ public:
 	MDB_dbi unchecked;
 	// block_hash ->                                                // Blocks that haven't been broadcast
 	MDB_dbi unsynced;
-	// uint64_t -> block_hash                                       // Block dependency stack while bootstrapping
-	MDB_dbi stack;
 	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
 	MDB_dbi checksum;
 	// account -> uint64_t											// Highest vote sequence observed for account

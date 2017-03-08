@@ -6,9 +6,9 @@
 #include <atomic>
 #include <queue>
 #include <unordered_set>
+#include <stack>
 
 #include <boost/log/sources/logger.hpp>
-#include <boost/circular_buffer.hpp>
 
 namespace rai
 {
@@ -36,7 +36,7 @@ public:
     rai::sync_result synchronize (MDB_txn *, rai::block_hash const &);
     std::unordered_set <rai::block_hash> sent;
 	boost::log::sources::logger_mt & log;
-	boost::circular_buffer <rai::block_hash> blocks;
+	std::stack <rai::block_hash> blocks;
 	std::unordered_set <rai::block_hash> attempted;
 };
 class pull_synchronization : public rai::block_synchronization

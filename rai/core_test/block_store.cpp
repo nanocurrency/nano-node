@@ -443,40 +443,6 @@ TEST (block_store, latest_exists)
     ASSERT_FALSE (store.account_exists (transaction, one));
 }
 
-TEST (block_store, stack)
-{
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::transaction transaction (store.environment, nullptr, true);
-    rai::block_hash hash1 (1);
-    rai::block_hash hash2 (2);
-    store.stack_push (transaction, hash1);
-    store.stack_push (transaction, hash2);
-	ASSERT_EQ (hash2, store.stack_top (transaction));
-    auto hash3 (store.stack_pop (transaction));
-    ASSERT_EQ (hash2, hash3);
-    auto hash4 (store.stack_pop (transaction));
-    ASSERT_EQ (hash1, hash4);
-}
-
-TEST (block_store, stack_clear)
-{
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::transaction transaction (store.environment, nullptr, true);
-    rai::block_hash hash1 (1);
-    rai::block_hash hash2 (2);
-    store.stack_push (transaction, hash1);
-    store.stack_push (transaction, hash2);
-	ASSERT_FALSE (store.stack_empty (transaction));
-	store.stack_clear (transaction);
-	ASSERT_TRUE (store.stack_empty (transaction));
-	ASSERT_TRUE (store.stack_pop (transaction).is_zero ());
-	ASSERT_TRUE (store.stack_top (transaction).is_zero ());
-}
-
 TEST (block_store, unsynced)
 {
     bool init (false);

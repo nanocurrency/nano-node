@@ -1525,7 +1525,6 @@ pending (0),
 representation (0),
 unchecked (0),
 unsynced (0),
-stack (0),
 checksum (0)
 {
 	if (!error_a)
@@ -1541,7 +1540,6 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &unchecked) != 0;
 		error_a |= mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
-		error_a |= mdb_dbi_open (transaction, "stack", MDB_CREATE, &stack) != 0;
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (transaction, "sequence", MDB_CREATE, &sequence) != 0;
 		error_a |= mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
@@ -2358,53 +2356,6 @@ rai::store_iterator rai::block_store::unsynced_begin (MDB_txn * transaction_a, r
 rai::store_iterator rai::block_store::unsynced_end ()
 {
     return rai::store_iterator (nullptr);
-}
-
-bool rai::block_store::stack_empty (MDB_txn * transaction_a)
-{
-	return rai::store_iterator (transaction_a, stack) == rai::store_iterator (nullptr);
-}
-
-void rai::block_store::stack_clear (MDB_txn * transaction_a)
-{
-	auto status (mdb_drop (transaction_a, stack, 0));
-	assert (status == 0);
-}
-
-void rai::block_store::stack_push (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-	rai::block_hash index (std::numeric_limits <rai::uint256_t>::max ());
-	auto first (rai::store_iterator (transaction_a, stack));
-	if (first != rai::store_iterator (nullptr))
-	{
-		index = rai::block_hash (first->first).number () - 1;
-	}
-	auto status (mdb_put (transaction_a, stack, index.val (), hash_a.val (), 0));
-	assert (status == 0);
-}
-
-rai::block_hash rai::block_store::stack_pop (MDB_txn * transaction_a)
-{
-	rai::block_hash result (0);
-	auto first (rai::store_iterator (transaction_a, stack));
-	if (first != rai::store_iterator (nullptr))
-	{
-		result = rai::block_hash (first->second);
-		auto status2 (mdb_del (transaction_a, stack, &first->first, nullptr));
-		assert (status2 == 0);
-	}
-	return result;
-}
-
-rai::block_hash rai::block_store::stack_top (MDB_txn * transaction_a)
-{
-	rai::block_hash result (0);
-	auto first (rai::store_iterator (transaction_a, stack));
-	if (first != rai::store_iterator (nullptr))
-	{
-		result = rai::block_hash (first->second);
-	}
-	return result;
 }
 
 void rai::block_store::checksum_put (MDB_txn * transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union const & hash_a)
