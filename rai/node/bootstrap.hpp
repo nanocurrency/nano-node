@@ -97,7 +97,7 @@ public:
     void completed_pulls ();
     void completed_pushes ();
 	void next ();
-    std::unordered_map <rai::account, rai::block_hash> pulls;
+    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
     std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
 	rai::account current;
@@ -119,8 +119,8 @@ public:
     std::shared_ptr <rai::frontier_req_client> connection;
 	size_t const block_count = 4096;
 	std::vector <std::unique_ptr <rai::block>> blocks;
-    std::unordered_map <rai::account, rai::block_hash>::iterator current;
-    std::unordered_map <rai::account, rai::block_hash>::iterator end;
+    std::deque <std::pair <rai::account, rai::block_hash>>::iterator current;
+    std::deque <std::pair <rai::account, rai::block_hash>>::iterator end;
 	size_t account_count;
 };
 class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>

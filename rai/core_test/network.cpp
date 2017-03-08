@@ -505,7 +505,7 @@ TEST (bootstrap_processor, DISABLED_process_incomplete)
     auto node1 (std::make_shared <rai::bootstrap_client> (system.nodes [0], nullptr));
     rai::genesis genesis;
     auto frontier_req_client (std::make_shared <rai::frontier_req_client> (node1));
-    frontier_req_client->pulls [rai::test_genesis_key.pub] = genesis.hash ();
+    frontier_req_client->pulls.push_back (std::make_pair (rai::test_genesis_key.pub, genesis.hash ()));
     auto bulk_pull_client (std::make_shared <rai::bulk_pull_client> (frontier_req_client));
     std::unique_ptr <rai::send_block> block1 (new rai::send_block (0, 1, 2, rai::keypair ().prv, 4, 5));
     bulk_pull_client->process_end ();

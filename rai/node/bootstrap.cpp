@@ -357,7 +357,7 @@ void rai::frontier_req_client::receive_frontier ()
 void rai::frontier_req_client::request_account (rai::account const & account_a)
 {
     // Account they know about and we don't.
-    pulls [account_a] = rai::block_hash (0);
+    pulls.push_back (std::make_pair (account_a, rai::block_hash (0)));
 }
 
 void rai::frontier_req_client::completed_pulls ()
@@ -419,7 +419,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						else
 						{
 							// They know about a block we don't.
-							pulls [account] = info.head;
+							pulls.push_back (std::make_pair (account, info.head));
 						}
 					}
 					next ();
