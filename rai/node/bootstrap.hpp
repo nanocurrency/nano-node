@@ -70,24 +70,6 @@ public:
 	std::vector <rai::endpoint> peers;
 	std::atomic_bool connected;
 };
-class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
-{
-public:
-	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>);
-    ~bootstrap_client ();
-    void run (rai::tcp_endpoint const &);
-    void connect_action ();
-    void sent_request (boost::system::error_code const &, size_t);
-    void completed_requests ();
-    void completed_pulls ();
-    void completed_pushes ();
-    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
-    std::shared_ptr <rai::node> node;
-	std::shared_ptr <rai::bootstrap_attempt> attempt;
-    boost::asio::ip::tcp::socket socket;
-    std::array <uint8_t, 200> receive_buffer;
-	bool connected;
-};
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
 public:
@@ -102,23 +84,44 @@ public:
 	rai::account current;
 	rai::account_info info;
 };
-class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
+class bulk_pull_client
 {
 public:
-    bulk_pull_client (std::shared_ptr <rai::bootstrap_client> const &);
+    bulk_pull_client (rai::bootstrap_client &);
     ~bulk_pull_client ();
+	void start_request ();
     void request ();
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
 	void block_flush ();
 	rai::block_hash first ();
-    std::shared_ptr <rai::bootstrap_client> connection;
+    rai::bootstrap_client & connection;
 	size_t const block_count = 4096;
 	std::vector <std::unique_ptr <rai::block>> blocks;
     std::deque <std::pair <rai::account, rai::block_hash>>::iterator current;
     std::deque <std::pair <rai::account, rai::block_hash>>::iterator end;
 	size_t account_count;
+};
+class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
+{
+public:
+	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>);
+    ~bootstrap_client ();
+    void run (rai::tcp_endpoint const &);
+    void connect_action ();
+    void sent_request (boost::system::error_code const &, size_t);
+    void completed_requests ();
+    void completed_pulls ();
+    void completed_pushes ();
+	std::shared_ptr <rai::bootstrap_client> shared ();
+    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
+    std::shared_ptr <rai::node> node;
+	std::shared_ptr <rai::bootstrap_attempt> attempt;
+    boost::asio::ip::tcp::socket socket;
+    std::array <uint8_t, 200> receive_buffer;
+	bool connected;
+	rai::bulk_pull_client pull_client;
 };
 class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>
 {
