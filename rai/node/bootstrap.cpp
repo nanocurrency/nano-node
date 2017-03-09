@@ -226,6 +226,9 @@ rai::bootstrap_client::~bootstrap_client ()
 	{
 		BOOST_LOG (node->log) << "Exiting bootstrap client";
 	}
+	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+	auto erased (attempt->attempts.erase (this));
+	assert (erased == 1);
 }
 
 void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
@@ -788,7 +791,7 @@ void rai::bootstrap_attempt::attempt ()
 		auto node_l (node->shared ());
 		auto this_l (shared_from_this ());
 		auto processor (std::make_shared <rai::bootstrap_client> (node_l, this_l));
-		attempts.push_back (processor);
+		attempts [processor.get ()] = processor;
 		processor->run (rai::tcp_endpoint (endpoint.address (), endpoint.port ()));
 		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (250), [this_l] ()
 		{
@@ -800,9 +803,10 @@ void rai::bootstrap_attempt::attempt ()
 
 void rai::bootstrap_attempt::stop ()
 {
+	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
 	for (auto i: attempts)
 	{
-		auto attempt (i.lock ());
+		auto attempt (i.second.lock ());
 		if (attempt != nullptr)
 		{
 			attempt->socket.close ();
