@@ -111,7 +111,6 @@ public:
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
-    void process_end ();
 	void block_flush ();
 	rai::block_hash first ();
     std::shared_ptr <rai::bootstrap_client> connection;

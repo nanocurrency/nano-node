@@ -327,6 +327,8 @@ void rai::bootstrap_client::completed_requests ()
 
 void rai::bootstrap_client::completed_pulls ()
 {
+	assert (node->bootstrap_initiator.in_progress ());
+	node->process_unchecked (attempt);
     auto this_l (shared_from_this ());
     auto pushes (std::make_shared <rai::bulk_push_client> (this_l));
     pushes->start ();
@@ -515,7 +517,7 @@ void rai::bulk_pull_client::request ()
     }
     else
     {
-        process_end ();
+        block_flush ();
         connection->completed_pulls ();
     }
 }
@@ -585,13 +587,6 @@ void rai::bulk_pull_client::received_type ()
             break;
         }
     }
-}
-
-void rai::bulk_pull_client::process_end ()
-{
-	block_flush ();
-	assert (connection->node->bootstrap_initiator.in_progress ());
-	connection->node->process_unchecked (connection->attempt);
 }
 
 void rai::bulk_pull_client::block_flush ()
