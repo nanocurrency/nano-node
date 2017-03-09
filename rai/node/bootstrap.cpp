@@ -21,7 +21,7 @@ public:
     add_dependency_visitor (MDB_txn * transaction_a, rai::block_synchronization & sync_a) :
 	transaction (transaction_a),
     sync (sync_a),
-    result (true)
+    complete (true)
     {
     }
     void send_block (rai::send_block const & block_a) override
@@ -31,7 +31,7 @@ public:
     void receive_block (rai::receive_block const & block_a) override
     {
         add_dependency (block_a.hashables.previous);
-        if (result)
+        if (complete)
         {
             add_dependency (block_a.hashables.source);
         }
@@ -48,7 +48,7 @@ public:
     {
         if (!sync.synchronized (transaction, hash_a))
         {
-            result = false;
+            complete = false;
             sync.blocks.push (hash_a);
 			sync.attempted.insert (hash_a);
         }
@@ -59,7 +59,7 @@ public:
     }
 	MDB_txn * transaction;
     rai::block_synchronization & sync;
-    bool result;
+    bool complete;
 };
 }
 
@@ -67,7 +67,7 @@ bool rai::block_synchronization::add_dependency (MDB_txn * transaction_a, rai::b
 {
     add_dependency_visitor visitor (transaction_a, *this);
     block_a.visit (visitor);
-    return visitor.result;
+    return visitor.complete;
 }
 
 bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
