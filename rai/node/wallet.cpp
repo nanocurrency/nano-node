@@ -12,13 +12,13 @@
 
 #include <future>
 
-rai::work_pool::work_pool (std::unique_ptr <rai::opencl_work> opencl_a) :
+rai::work_pool::work_pool (unsigned max_threads_a, std::unique_ptr <rai::opencl_work> opencl_a) :
 ticket (0),
 done (false),
 opencl (std::move (opencl_a))
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::max (1u, std::thread::hardware_concurrency ()));
+	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::max (1u, std::min (max_threads_a, std::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (std::thread ([this, i] ()

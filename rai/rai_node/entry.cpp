@@ -147,7 +147,7 @@ int main (int argc, char * const * argv)
 			if (!key.decode_hex (vm ["key"].as <std::string> ()))
 			{
 				rai::keypair genesis (key.to_string ());
-				rai::work_pool work (nullptr);
+				rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
 				std::cout << "Genesis: " << genesis.prv.data.to_string () << std::endl << "Public: " << genesis.pub.to_string () << std::endl << "Account: " << genesis.pub.to_account () << std::endl;
 				rai::keypair landing;
 				std::cout << "Landing: " << landing.prv.data.to_string () << std::endl << "Public: " << landing.pub.to_string () << std::endl << "Account: " << landing.pub.to_account () << std::endl;
@@ -242,7 +242,7 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("debug_profile_generate"))
     {
-		rai::work_pool work (nullptr);
+		rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
         rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
         std::cerr << "Starting generation profiling\n";
         for (uint64_t i (0); true; ++i)
@@ -256,7 +256,7 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("debug_profile_verify"))
     {
-		rai::work_pool work (nullptr);
+		rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
         rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
         std::cerr << "Starting verification profiling\n";
         for (uint64_t i (0); true; ++i)

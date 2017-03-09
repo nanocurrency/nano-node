@@ -20,7 +20,7 @@ TEST (node, block_store_path_failure)
     rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::logging logging (path);
-	rai::work_pool work (nullptr);
+	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
     auto node (std::make_shared <rai::node> (init, *service, 0, path, alarm, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
     node->stop ();
@@ -33,7 +33,7 @@ TEST (node, inactive_supply)
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::node_config config (path);
-	rai::work_pool work (nullptr);
+	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
 	config.inactive_supply = 10;
     auto node (std::make_shared <rai::node> (init, *service, path, alarm, config, work));
 	ASSERT_EQ (10, node->ledger.inactive_supply);
@@ -46,7 +46,7 @@ TEST (node, password_fanout)
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::node_config config (path);
-	rai::work_pool work (nullptr);
+	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
 	config.password_fanout = 10;
     auto node (std::make_shared <rai::node> (init, *service, path, alarm, config, work));
 	auto wallet (node->wallets.create (100));

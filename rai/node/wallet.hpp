@@ -18,7 +18,7 @@ namespace rai
 class work_pool
 {
 public:
-	work_pool (std::unique_ptr <rai::opencl_work>);
+	work_pool (unsigned, std::unique_ptr <rai::opencl_work>);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();

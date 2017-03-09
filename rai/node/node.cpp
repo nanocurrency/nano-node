@@ -3018,7 +3018,7 @@ path (rai::working_path ()),
 service (boost::make_shared <boost::asio::io_service> ()),
 alarm (*service),
 logging (path),
-work (nullptr)
+work (1, nullptr)
 {
 	boost::filesystem::create_directories (path);
 	node = std::make_shared <rai::node> (init, *service, 24000, path, alarm, logging, work);
