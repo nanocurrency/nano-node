@@ -35,7 +35,7 @@ TEST (pull_synchronization, empty)
 	ASSERT_FALSE (init);
 	test_synchronization sync (store);
 	rai::transaction transaction (store.environment, nullptr, true);
-	ASSERT_EQ (rai::sync_result::error, sync.synchronize (transaction, 0));
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, 0));
 	ASSERT_EQ (0, store.block_count (transaction).sum ());
 }
 

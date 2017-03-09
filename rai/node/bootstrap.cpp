@@ -46,11 +46,10 @@ public:
     }
     void add_dependency (rai::block_hash const & hash_a)
     {
-        if (!sync.synchronized (transaction, hash_a))
+        if (!sync.synchronized (transaction, hash_a) && sync.retrieve (transaction, hash_a) != nullptr)
         {
             complete = false;
-            sync.blocks.push (hash_a);
-			sync.attempted.insert (hash_a);
+            sync.blocks.push_back (hash_a);
         }
 		else
 		{
@@ -70,13 +69,12 @@ bool rai::block_synchronization::add_dependency (MDB_txn * transaction_a, rai::b
     return visitor.complete;
 }
 
-bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
+void rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
 {
-    auto result (false);
     auto done (false);
-    while (!result && !done)
+    while (!done)
     {
-		auto hash (blocks.top ());
+		auto hash (blocks.back ());
         auto block (retrieve (transaction_a, hash));
         if (block != nullptr)
         {
@@ -85,34 +83,27 @@ bool rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
         else
         {
 			BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while generating dependencies %1%") % hash.to_string ());
-            result = true;
+            done = true;
         }
     }
-    return result;
 }
 
 rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
 {
-	rai::sync_result result;
-    auto error (fill_dependencies (transaction_a));
-    if (!error)
-    {
-		auto hash (blocks.top ());
-		blocks.pop ();
-        auto block (retrieve (transaction_a, hash));
-        if (block != nullptr)
-        {
-			result = target (transaction_a, *block);
-		}
-		else
-		{
-			BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while synchronizing %1%") % hash.to_string ());
-			result = rai::sync_result::error;
-		}
-    }
+	// Blocks that depend on multiple paths e.g. receive_blocks, need to have their dependencies recalculated each time
+    fill_dependencies (transaction_a);
+	rai::sync_result result (rai::sync_result::success);
+	auto hash (blocks.back ());
+	blocks.pop_back ();
+	auto block (retrieve (transaction_a, hash));
+	if (block != nullptr)
+	{
+		result = target (transaction_a, *block);
+	}
 	else
 	{
-		result = rai::sync_result::error;
+		// A block that can be the dependency of more than one other block, e.g. send blocks, can be added to the dependency list more than once.  Subsequent retrievals won't find the block but this isn't an error
+		BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while synchronizing %1%") % hash.to_string ());
 	}
     return result;
 }
@@ -120,12 +111,9 @@ rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transact
 rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
     auto result (rai::sync_result::success);
-	while (!blocks.empty ())
-	{
-		blocks.pop ();
-	}
-    blocks.push (hash_a);
-    while (result == rai::sync_result::success && !blocks.empty ())
+	blocks.clear ();
+    blocks.push_back (hash_a);
+    while (result != rai::sync_result::fork && !blocks.empty ())
     {
         result = synchronize_one (transaction_a);
     }
@@ -149,19 +137,16 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 	auto result (rai::sync_result::error);
 	node.process_receive_many (transaction_a, block_a, [this, transaction_a, &result] (rai::process_return result_a, rai::block const & block_a)
 	{
+		this->node.store.unchecked_del (transaction_a, block_a.hash ());
 		switch (result_a.code)
 		{
 			case rai::process_result::progress:
 			case rai::process_result::old:
 				result = rai::sync_result::success;
-				// It definitely doesn't need to be in unchecked because it's in the ledger
-				this->node.store.unchecked_del (transaction_a, block_a.hash ());
 				break;
 			case rai::process_result::fork:
 			{
 				result = rai::sync_result::fork;
-				// Stop synchronizing and wait for fork resolution
-				this->node.store.unchecked_del (transaction_a, block_a.hash ());
 				auto node_l (this->node.shared ());
 				auto block (node_l->ledger.forked_block (transaction_a, block_a));
 				auto attempt_l (attempt);
@@ -169,6 +154,7 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 				{
 					node_l->process_confirmed (block_a);
 					// Resume synchronizing after fork resolution
+					assert (node_l->bootstrap_initiator.in_progress ());
 					node_l->process_unchecked (attempt_l);
 				});
 				this->node.network.broadcast_confirm_req (block_a);
@@ -196,7 +182,7 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 
 bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    return node.store.block_exists (transaction_a, hash_a) || attempted.count (hash_a) != 0;
+    return node.store.block_exists (transaction_a, hash_a);
 }
 
 rai::push_synchronization::push_synchronization (rai::node & node_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
@@ -599,6 +585,7 @@ void rai::bulk_pull_client::received_type ()
 void rai::bulk_pull_client::process_end ()
 {
 	block_flush ();
+	assert (connection->connection->node->bootstrap_initiator.in_progress ());
 	connection->connection->node->process_unchecked (connection->connection->attempt);
 }
 
@@ -714,7 +701,7 @@ void rai::bulk_push_client::push (MDB_txn * transaction_a)
 			if (!hash.is_zero ())
 			{
 				connection->connection->node->store.unsynced_del (transaction_a, hash);
-				synchronization.blocks.push (hash);
+				synchronization.blocks.push_back (hash);
 				synchronization.synchronize_one (transaction_a);
 			}
 			else

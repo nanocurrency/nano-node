@@ -31,12 +31,11 @@ public:
     virtual rai::sync_result target (MDB_txn *, rai::block const &) = 0;
     // return true if all dependencies are synchronized
     bool add_dependency (MDB_txn *, rai::block const &);
-    bool fill_dependencies (MDB_txn *);
+    void fill_dependencies (MDB_txn *);
     rai::sync_result synchronize_one (MDB_txn *);
     rai::sync_result synchronize (MDB_txn *, rai::block_hash const &);
 	boost::log::sources::logger_mt & log;
-	std::stack <rai::block_hash> blocks;
-	std::unordered_set <rai::block_hash> attempted;
+	std::deque <rai::block_hash> blocks;
 };
 class pull_synchronization : public rai::block_synchronization
 {
