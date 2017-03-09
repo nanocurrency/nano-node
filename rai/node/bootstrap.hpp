@@ -142,7 +142,7 @@ public:
 	void warmup (rai::endpoint const &);
 	void bootstrap (rai::endpoint const &);
     void bootstrap_any ();
-	void begin_attempt (std::shared_ptr <rai::bootstrap_attempt>);
+	void begin_attempt (std::vector <rai::endpoint> const &);
 	void notify_listeners ();
 	void add_observer (std::function <void (bool)> const &);
 	bool in_progress ();

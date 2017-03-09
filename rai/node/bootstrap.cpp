@@ -256,10 +256,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 			this_l->connected = true;
 			if (!this_l->attempt->connected.exchange (true))
 			{
-				{
-					std::lock_guard <std::mutex> lock (this_l->node->bootstrap_initiator.mutex);
-					this_l->node->bootstrap_initiator.notify_listeners ();
-				}
+				this_l->node->bootstrap_initiator.notify_listeners ();
 				this_l->connect_action ();
 			}
 			else
@@ -789,7 +786,6 @@ connected (false)
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
 {
-	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
 	node->bootstrap_initiator.notify_listeners ();
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
@@ -863,7 +859,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 {
 	std::vector <rai::endpoint> endpoints;
 	endpoints.push_back (endpoint_a);
-	begin_attempt (std::make_shared <rai::bootstrap_attempt> (node.shared (), endpoints));
+	begin_attempt (endpoints);
 }
 
 void rai::bootstrap_initiator::bootstrap_any ()
@@ -875,16 +871,17 @@ void rai::bootstrap_initiator::bootstrap_any ()
 		endpoints.push_back (i.endpoint);
 	}
 	std::random_shuffle (endpoints.begin (), endpoints.end ());
-	begin_attempt (std::make_shared <bootstrap_attempt> (node.shared (), endpoints));
+	begin_attempt (endpoints);
 }
 
-void rai::bootstrap_initiator::begin_attempt (std::shared_ptr <rai::bootstrap_attempt> attempt_a)
+void rai::bootstrap_initiator::begin_attempt (std::vector <rai::endpoint> const & endpoints_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	if (attempt.lock () == nullptr)
 	{
-		attempt = attempt_a;
-		attempt_a->attempt ();
+		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared (), endpoints_a));
+		attempt = attempt_l;
+		attempt_l->attempt ();
 	}
 }
 
@@ -916,10 +913,10 @@ void rai::bootstrap_initiator::stop ()
 
 void rai::bootstrap_initiator::notify_listeners ()
 {
-	assert (!mutex.try_lock());
+	auto in_progress_l (in_progress ());
 	for (auto & i: observers)
 	{
-		i (in_progress ());
+		i (in_progress_l);
 	}
 }
 
