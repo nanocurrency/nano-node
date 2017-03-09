@@ -279,9 +279,10 @@ TEST (pull_synchronization, keep_blocks)
 		ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction0, send2).code);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction1, send1).code);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction1, send3).code);
-		block0 = send1.hash ();
-		block1 = send3.hash ();
+		block0 = send0.hash ();
+		block1 = send2.hash ();
 	}
+	node0.bootstrap_initiator.stop ();
 	node1.send_keepalive (node0.network.endpoint ());
 	node1.bootstrap_initiator.bootstrap (node0.network.endpoint ());
 	auto state (0);
@@ -294,25 +295,23 @@ TEST (pull_synchronization, keep_blocks)
 		ASSERT_EQ (rai::genesis_amount - 4 * rai::Grai_ratio, node0.balance (rai::genesis_account));
 		{
 			rai::transaction transaction (node1.store.environment, nullptr, false);
+			auto have0 (node1.store.unchecked_get (transaction, block0) != nullptr);
+			auto have1 (node1.store.unchecked_get (transaction, block1) != nullptr);
 			switch (state)
 			{
 				case 0:
 					// Bootstrap hasn't started yet
-					if (node0.store.unchecked_get (transaction, block0) == nullptr && node0.store.unchecked_get (transaction, block1) == nullptr)
-					state = 1;
+					if (!have0 && !have1)
+					{
+						state = 1;
+					}
 					break;
 				case 1:
-					// Bootstrap started and both blocks have been downloaded
-					if (node0.store.unchecked_get (transaction, block0) != nullptr && node0.store.unchecked_get (transaction, block1) != nullptr)
-					state = 2;
-					break;
-				case 2:
 					// Bootstrapping stopped but block1 was kept, in case block0 was chosen we don't want to re-download it.
-					if (node0.store.unchecked_get (transaction, block0) == nullptr && node0.store.unchecked_get (transaction, block1) != nullptr)
-					state = 3;
-					break;
-				case 3:
-					ASSERT_FALSE (node0.store.unchecked_get (transaction, block0) != nullptr || node0.store.unchecked_get (transaction, block1) != nullptr);
+					if (!have0 && have1)
+					{
+						state = 2;
+					}
 					break;
 			}
 		}
