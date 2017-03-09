@@ -42,21 +42,6 @@ TEST (peer_container, no_self_contacting)
     ASSERT_TRUE (peers.peers.empty ());
 }
 
-TEST (peer_container, old_known)
-{
-    rai::endpoint self (boost::asio::ip::address_v6::loopback (), 10000);
-    rai::endpoint other (boost::asio::ip::address_v6::loopback (), 10001);
-    rai::peer_container peers (self);
-    ASSERT_FALSE (peers.insert (other));
-    peers.peers.modify (peers.peers.begin (), [] (rai::peer_information & info) {info.last_contact = std::chrono::system_clock::time_point {};});
-    ASSERT_FALSE (peers.known_peer (other));
-    ASSERT_TRUE (peers.insert (other));
-    ASSERT_TRUE (peers.known_peer (other));
-    ASSERT_FALSE (peers.knows_about (other, rai::block_hash (1)));
-    peers.insert (other, rai::block_hash (1));
-    ASSERT_TRUE (peers.knows_about (other, rai::block_hash (1)));
-}
-
 TEST (peer_container, reserved_peers_no_contact)
 {
     rai::peer_container peers (rai::endpoint {});

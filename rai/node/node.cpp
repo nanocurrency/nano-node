@@ -138,26 +138,23 @@ void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
 		auto sqrt_list (node.peers.list_sqrt ());
         for (auto i (sqrt_list.begin ()), n (sqrt_list.end ()); i != n; ++i)
         {
-			if (!node.peers.knows_about (*i, hash))
+			if (node.config.logging.network_publish_logging ())
 			{
-				if (node.config.logging.network_publish_logging ())
+				BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % *i);
+			}
+			send_buffer (bytes->data (), bytes->size (), *i, rebroadcast_a, [bytes, node_w] (boost::system::error_code const & ec, size_t size)
+			{
+				if (auto node_l = node_w.lock ())
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % *i);
-				}
-				send_buffer (bytes->data (), bytes->size (), *i, rebroadcast_a, [bytes, node_w] (boost::system::error_code const & ec, size_t size)
-				{
-					if (auto node_l = node_w.lock ())
+					if (node_l->config.logging.network_logging ())
 					{
-						if (node_l->config.logging.network_logging ())
+						if (ec)
 						{
-							if (ec)
-							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
-							}
+							BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
 						}
 					}
-				});
-			}
+				}
+			});
         }
 		if (node.config.logging.network_logging ())
 		{
@@ -238,7 +235,7 @@ public:
         }
         ++node.network.publish_count;
         node.peers.contacted (sender);
-        node.peers.insert (sender, message_a.block->hash ());
+        node.peers.insert (sender);
         node.process_receive_republish (message_a.block->clone (), 0);
     }
     void confirm_req (rai::confirm_req const & message_a) override
@@ -249,7 +246,7 @@ public:
         }
         ++node.network.confirm_req_count;
         node.peers.contacted (sender);
-        node.peers.insert (sender, message_a.block->hash ());
+        node.peers.insert (sender);
         node.process_receive_republish (message_a.block->clone (), 0);
 		if (node.ledger.block_exists (message_a.block->hash ()))
         {
@@ -264,7 +261,7 @@ public:
         }
         ++node.network.confirm_ack_count;
         node.peers.contacted (sender);
-        node.peers.insert (sender, message_a.vote.block->hash ());
+        node.peers.insert (sender);
         node.process_receive_republish (message_a.vote.block->clone (), 0);
         node.vote (message_a.vote, sender);
     }
@@ -1019,14 +1016,10 @@ bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list
 	node.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, this, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
 		auto sequence (this->node.store.sequence_atomic_inc (transaction, pub_a));
-		auto hash (block_a->hash ());
 		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 		{
-			if (!this->node.peers.knows_about (j->endpoint, hash))
-			{
-				confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
-				result = true;
-			}
+			confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
+			result = true;
 		}
 	});
     return result;
@@ -1780,7 +1773,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 		while (!block.is_zero ())
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
-			auto next (store.unchecked_begin (transaction, block.number ()));
+			auto next (store.unchecked_begin (transaction, block.number () + 1));
 			if (next != store.unchecked_end ())
 			{
 				block = rai::block_hash (next->first);
@@ -1934,23 +1927,6 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a)
 
 bool rai::peer_container::insert (rai::endpoint const & endpoint_a)
 {
-    return insert (endpoint_a, rai::block_hash (0));
-}
-
-bool rai::peer_container::knows_about (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    bool result (false);
-    auto existing (peers.find (endpoint_a));
-    if (existing != peers.end ())
-    {
-        result = existing->most_recent == hash_a;
-    }
-    return result;
-}
-
-bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a)
-{
 	auto unknown (false);
     auto result (not_a_peer (endpoint_a));
     if (!result)
@@ -1959,16 +1935,15 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, rai::block_h
         auto existing (peers.find (endpoint_a));
         if (existing != peers.end ())
         {
-            peers.modify (existing, [&hash_a] (rai::peer_information & info)
+            peers.modify (existing, [] (rai::peer_information & info)
             {
                 info.last_contact = std::chrono::system_clock::now ();
-                info.most_recent = hash_a;
             });
             result = true;
         }
         else
         {
-            peers.insert (rai::peer_information (endpoint_a, hash_a));
+            peers.insert (rai::peer_information (endpoint_a));
 			unknown = true;
         }
     }
@@ -2048,12 +2023,11 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	return result;
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a) :
+rai::peer_information::peer_information (rai::endpoint const & endpoint_a) :
 endpoint (endpoint_a),
 last_contact (std::chrono::system_clock::now ()),
 last_attempt (last_contact),
 last_bootstrap_failure (std::chrono::system_clock::time_point ()),
-most_recent (hash_a),
 last_rep_request (std::chrono::system_clock::time_point ()),
 last_rep_response (std::chrono::system_clock::time_point ()),
 rep_weight (0)
@@ -2065,7 +2039,6 @@ endpoint (endpoint_a),
 last_contact (last_contact_a),
 last_attempt (last_attempt_a),
 last_bootstrap_failure (std::chrono::system_clock::time_point ()),
-most_recent (0),
 last_rep_request (std::chrono::system_clock::time_point ()),
 last_rep_response (std::chrono::system_clock::time_point ()),
 rep_weight (0)

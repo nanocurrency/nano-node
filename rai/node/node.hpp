@@ -153,13 +153,12 @@ class work_pool;
 class peer_information
 {
 public:
-	peer_information (rai::endpoint const &, rai::block_hash const &);
+	peer_information (rai::endpoint const &);
 	peer_information (rai::endpoint const &, std::chrono::system_clock::time_point const &, std::chrono::system_clock::time_point const &);
 	rai::endpoint endpoint;
 	std::chrono::system_clock::time_point last_contact;
 	std::chrono::system_clock::time_point last_attempt;
 	std::chrono::system_clock::time_point last_bootstrap_failure;
-	rai::block_hash most_recent;
 	std::chrono::system_clock::time_point last_rep_request;
 	std::chrono::system_clock::time_point last_rep_response;
 	rai::amount rep_weight;
@@ -176,10 +175,6 @@ public:
 	bool known_peer (rai::endpoint const &);
 	// Notify of peer we received from
 	bool insert (rai::endpoint const &);
-	// Received from a peer and contained a block announcement
-	bool insert (rai::endpoint const &, rai::block_hash const &);
-	// Does this peer probably know about this block
-	bool knows_about (rai::endpoint const &, rai::block_hash const &);
 	// Notify of bootstrap failure
 	void bootstrap_failed (rai::endpoint const &);
 	std::unordered_set <rai::endpoint> random_set (size_t);
