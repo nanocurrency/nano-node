@@ -321,7 +321,21 @@ void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, 
 
 void rai::bootstrap_client::completed_requests ()
 {
-    pull_client.start_request ();
+	pull_next ();
+}
+
+void rai::bootstrap_client::pull_next ()
+{
+	if (!pulls.empty ())
+	{
+		auto top (pulls.front ());
+		pulls.pop_front ();
+		pull_client.request (top.first, top.second);
+	}
+	else
+	{
+		completed_pulls ();
+	}
 }
 
 void rai::bootstrap_client::completed_pulls ()
@@ -335,11 +349,6 @@ void rai::bootstrap_client::completed_pulls ()
 
 void rai::bootstrap_client::completed_pushes ()
 {
-	rai::transaction transaction (node->store.environment, nullptr, true);
-	if (pulls.empty ())
-	{
-		node->store.unchecked_clear (transaction);
-	}
 }
 
 std::shared_ptr <rai::bootstrap_client> rai::bootstrap_client::shared ()
@@ -484,53 +493,37 @@ void rai::frontier_req_client::next ()
 	}
 }
 
-void rai::bulk_pull_client::start_request ()
+void rai::bulk_pull_client::request (rai::account const & account_a, rai::block_hash const & hash_a)
 {
-	current = connection.pulls.begin ();
-	end = connection.pulls.end ();
-	request ();
-}
-
-void rai::bulk_pull_client::request ()
-{
-    if (current != end)
-    {
-        rai::bulk_pull req;
-        req.start = current->first;
-        req.end = current->second;
-        ++current;
-        auto buffer (std::make_shared <std::vector <uint8_t>> ());
-        {
-            rai::vectorstream stream (*buffer);
-            req.serialize (stream);
-        }
-		if (connection.node->config.logging.bulk_pull_logging ())
+	rai::bulk_pull req;
+	req.start = account_a;
+	req.end = hash_a;
+	auto buffer (std::make_shared <std::vector <uint8_t>> ());
+	{
+		rai::vectorstream stream (*buffer);
+		req.serialize (stream);
+	}
+	if (connection.node->config.logging.bulk_pull_logging ())
+	{
+		BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_account () % req.end.to_string ());
+	}
+	else if (connection.node->config.logging.network_logging () && account_count % 256 == 0)
+	{
+		BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_account () % req.end.to_string ());
+	}
+	++account_count;
+	auto connection_l (connection.shared ());
+	boost::asio::async_write (connection.socket, boost::asio::buffer (buffer->data (), buffer->size ()), [connection_l, buffer] (boost::system::error_code const & ec, size_t size_a)
+	{
+		if (!ec)
 		{
-			BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_account () % req.end.to_string ());
+			connection_l->pull_client.receive_block ();
 		}
-		else if (connection.node->config.logging.network_logging () && account_count % 256 == 0)
+		else
 		{
-			BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_account () % req.end.to_string ());
+			BOOST_LOG (connection_l->node->log) << boost::str (boost::format ("Error sending bulk pull request %1%") % ec.message ());
 		}
-		++account_count;
-        auto connection_l (connection.shared ());
-        boost::asio::async_write (connection.socket, boost::asio::buffer (buffer->data (), buffer->size ()), [connection_l, buffer] (boost::system::error_code const & ec, size_t size_a)
-            {
-                if (!ec)
-                {
-                    connection_l->pull_client.receive_block ();
-                }
-                else
-                {
-                    BOOST_LOG (connection_l->node->log) << boost::str (boost::format ("Error sending bulk pull request %1%") % ec.message ());
-                }
-            });
-    }
-    else
-    {
-        block_flush ();
-        connection.completed_pulls ();
-    }
+	});
 }
 
 void rai::bulk_pull_client::receive_block ()
@@ -589,7 +582,8 @@ void rai::bulk_pull_client::received_type ()
         }
         case rai::block_type::not_a_block:
         {
-            request ();
+			block_flush ();
+            connection.pull_next ();
             break;
         }
         default:

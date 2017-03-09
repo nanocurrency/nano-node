@@ -89,8 +89,7 @@ class bulk_pull_client
 public:
     bulk_pull_client (rai::bootstrap_client &);
     ~bulk_pull_client ();
-	void start_request ();
-    void request ();
+    void request (rai::account const &, rai::block_hash const &);
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
@@ -99,8 +98,6 @@ public:
     rai::bootstrap_client & connection;
 	size_t const block_count = 4096;
 	std::vector <std::unique_ptr <rai::block>> blocks;
-    std::deque <std::pair <rai::account, rai::block_hash>>::iterator current;
-    std::deque <std::pair <rai::account, rai::block_hash>>::iterator end;
 	size_t account_count;
 };
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
@@ -112,6 +109,7 @@ public:
     void connect_action ();
     void sent_request (boost::system::error_code const &, size_t);
     void completed_requests ();
+	void pull_next ();
     void completed_pulls ();
     void completed_pushes ();
 	std::shared_ptr <rai::bootstrap_client> shared ();

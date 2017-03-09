@@ -282,6 +282,8 @@ TEST (pull_synchronization, keep_blocks)
 		block0 = send0.hash ();
 		block1 = send2.hash ();
 	}
+	auto string0 (block0.to_string ());
+	auto string1 (block1.to_string ());
 	node0.bootstrap_initiator.stop ();
 	node1.send_keepalive (node0.network.endpoint ());
 	node1.bootstrap_initiator.bootstrap (node0.network.endpoint ());
@@ -320,6 +322,7 @@ TEST (pull_synchronization, keep_blocks)
 		system0.poll ();
 		system1.poll ();
 	}
+	ASSERT_EQ (2, state);
 }
 
 // After a synchronization with no pulls or pushes required, clear blocks out of unchecked
