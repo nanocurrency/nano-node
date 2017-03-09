@@ -78,9 +78,14 @@ public:
     void run (rai::tcp_endpoint const &);
     void connect_action ();
     void sent_request (boost::system::error_code const &, size_t);
+    void completed_requests ();
+    void completed_pulls ();
+    void completed_pushes ();
+    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
     std::shared_ptr <rai::node> node;
 	std::shared_ptr <rai::bootstrap_attempt> attempt;
     boost::asio::ip::tcp::socket socket;
+    std::array <uint8_t, 200> receive_buffer;
 	bool connected;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
@@ -92,12 +97,7 @@ public:
     void received_frontier (boost::system::error_code const &, size_t);
     void request_account (rai::account const &);
 	void unsynced (MDB_txn *, rai::account const &, rai::block_hash const &);
-    void completed_requests ();
-    void completed_pulls ();
-    void completed_pushes ();
 	void next ();
-    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
-    std::array <uint8_t, 200> receive_buffer;
     std::shared_ptr <rai::bootstrap_client> connection;
 	rai::account current;
 	rai::account_info info;
@@ -105,7 +105,7 @@ public:
 class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
 {
 public:
-    bulk_pull_client (std::shared_ptr <rai::frontier_req_client> const &);
+    bulk_pull_client (std::shared_ptr <rai::bootstrap_client> const &);
     ~bulk_pull_client ();
     void request ();
     void receive_block ();
@@ -114,8 +114,7 @@ public:
     void process_end ();
 	void block_flush ();
 	rai::block_hash first ();
-    std::array <uint8_t, 200> receive_buffer;
-    std::shared_ptr <rai::frontier_req_client> connection;
+    std::shared_ptr <rai::bootstrap_client> connection;
 	size_t const block_count = 4096;
 	std::vector <std::unique_ptr <rai::block>> blocks;
     std::deque <std::pair <rai::account, rai::block_hash>>::iterator current;
@@ -125,13 +124,13 @@ public:
 class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>
 {
 public:
-    bulk_push_client (std::shared_ptr <rai::frontier_req_client> const &);
+    bulk_push_client (std::shared_ptr <rai::bootstrap_client> const &);
     ~bulk_push_client ();
     void start ();
     void push (MDB_txn *);
     void push_block (rai::block const &);
     void send_finished ();
-    std::shared_ptr <rai::frontier_req_client> connection;
+    std::shared_ptr <rai::bootstrap_client> connection;
     rai::push_synchronization synchronization;
 };
 class bootstrap_initiator
