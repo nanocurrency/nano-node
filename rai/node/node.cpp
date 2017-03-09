@@ -1766,20 +1766,26 @@ public:
 
 void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> attempt_a)
 {
+	auto block_count (0);
 	assert (attempt_a == nullptr || bootstrap_initiator.in_progress ());
 	static std::atomic_flag unchecked_in_progress = ATOMIC_FLAG_INIT;
 	if (!unchecked_in_progress.test_and_set ())
 	{
+		BOOST_LOG (log) << "Starting to process unchecked blocks";
 		rai::pull_synchronization synchronization (*this, attempt_a);
 		rai::block_hash block (1);  // 1 is a sentinal initial value
 		while (!block.is_zero ())
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
-			auto next (store.unchecked_begin (transaction, block.number () + 1));
+			auto next (store.unchecked_begin (transaction, block.number ()));
 			if (next != store.unchecked_end ())
 			{
 				block = rai::block_hash (next->first);
-				BOOST_LOG (log) << boost::str (boost::format ("Committing block: %1% and dependencies") % block.to_string ());
+				if (block_count % 4096 == 0)
+				{
+					BOOST_LOG (log) << boost::str (boost::format ("Committing block: %1% and dependencies") % block.to_string ());
+				}
+				++block_count;
 				auto error (synchronization.synchronize (transaction, block));
 				if (error == rai::sync_result::fork)
 				{
