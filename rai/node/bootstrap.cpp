@@ -791,6 +791,7 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 {
 	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
 	node->bootstrap_initiator.notify_listeners ();
+	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
 
 void rai::bootstrap_attempt::attempt ()
