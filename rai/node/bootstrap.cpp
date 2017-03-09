@@ -113,9 +113,11 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
     auto result (rai::sync_result::success);
 	blocks.clear ();
     blocks.push_back (hash_a);
-    while (result != rai::sync_result::fork && !blocks.empty ())
+	unsigned block_count (rai::rai_network == rai::rai_networks::rai_test_network ? 2 : 4096);
+    while (block_count > 0 && result != rai::sync_result::fork && !blocks.empty ())
     {
         result = synchronize_one (transaction_a);
+		--block_count;
     }
     return result;
 }
@@ -186,7 +188,7 @@ bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::bloc
 }
 
 rai::push_synchronization::push_synchronization (rai::node & node_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
-block_synchronization (node.log),
+block_synchronization (node_a.log),
 target_m (target_a),
 node (node_a)
 {

@@ -1773,7 +1773,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 		while (!block.is_zero ())
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
-			auto next (store.unchecked_begin (transaction, block.number () + 1));
+			auto next (store.unchecked_begin (transaction, block.number ()));
 			if (next != store.unchecked_end ())
 			{
 				block = rai::block_hash (next->first);

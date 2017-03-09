@@ -130,6 +130,9 @@ TEST (pull_synchronization, receive_dependencies)
 	store.unchecked_put (transaction, block5.hash (), block5);
 	test_synchronization sync (store);
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block5.hash ()));
+	ASSERT_EQ (3, store.block_count (transaction).sum ());
+	// Synchronize 2 per iteration in test mode
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block5.hash ()));
 	ASSERT_EQ (5, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
 	ASSERT_NE (nullptr, store.block_get (transaction, block3.hash ()));
@@ -158,6 +161,12 @@ TEST (pull_synchronization, ladder_dependencies)
 	store.unchecked_put (transaction, block6.hash (), block6);
 	store.unchecked_put (transaction, block7.hash (), block7);
 	test_synchronization sync (store);
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block7.hash ()));
+	ASSERT_EQ (3, store.block_count (transaction).sum ());
+	// Synchronize 2 per iteration in test mode
+	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block7.hash ()));
+	// Synchronize 2 per iteration in test mode
+	ASSERT_EQ (5, store.block_count (transaction).sum ());
 	ASSERT_EQ (rai::sync_result::success, sync.synchronize (transaction, block7.hash ()));
 	ASSERT_EQ (7, store.block_count (transaction).sum ());
 	ASSERT_NE (nullptr, store.block_get (transaction, block2.hash ()));
