@@ -482,6 +482,7 @@ class ledger
 public:
 	ledger (rai::block_store &, rai::uint128_t const & = 0);
 	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
+	// Map of weight -> associated block, ordered greatest to least
 	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);

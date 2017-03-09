@@ -2226,13 +2226,23 @@ bool rai::election::recalculate_winner (MDB_txn * transaction_a)
 		last_winner = std::move (winner->second);
 	}
 	// Check if we can do a fast confirm for the usual case of good actors
-	if (tally_l.size () == 1)
+	auto size (tally_l.size ());
+	if (size != 0)
 	{
-		// No forks detected
-		if (tally_l.begin ()->first > quorum_threshold (transaction_a, node.ledger))
+		if (size == 1)
 		{
-			// We have vote quarum
+			// No other votes
 			result = true;
+		}
+		else
+		{
+			auto first (tally_l.begin ());
+			auto second (++first);
+			if (first->first > quorum_threshold (transaction_a, node.ledger) && second->first.is_zero ())
+			{
+				// Next closest vote total is zero
+				result = true;
+			}
 		}
 	}
 	return result;
