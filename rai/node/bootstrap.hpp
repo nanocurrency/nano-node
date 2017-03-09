@@ -150,6 +150,7 @@ public:
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
 	unsigned warmed_up;
+	bool stopped;
 private:
 	std::vector <std::function <void (bool)>> observers;
 };

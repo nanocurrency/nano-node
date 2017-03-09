@@ -803,7 +803,7 @@ void rai::bootstrap_attempt::attempt ()
 
 void rai::bootstrap_attempt::stop ()
 {
-	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+	assert (!node->bootstrap_initiator.mutex.try_lock ());
 	for (auto i: attempts)
 	{
 		auto attempt (i.second.lock ());
@@ -816,7 +816,8 @@ void rai::bootstrap_attempt::stop ()
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
-warmed_up (false)
+warmed_up (false),
+stopped (false)
 {
 }
 
@@ -868,7 +869,7 @@ void rai::bootstrap_initiator::bootstrap_any ()
 void rai::bootstrap_initiator::begin_attempt (std::vector <rai::endpoint> const & endpoints_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	if (attempt.lock () == nullptr)
+	if (attempt.lock () == nullptr && !stopped)
 	{
 		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared (), endpoints_a));
 		attempt = attempt_l;
@@ -895,6 +896,8 @@ bool rai::bootstrap_initiator::in_progress ()
 
 void rai::bootstrap_initiator::stop ()
 {
+	std::lock_guard <std::mutex> lock (mutex);
+	stopped = true;
 	auto attempt_l (attempt.lock ());
 	if (attempt_l != nullptr)
 	{
