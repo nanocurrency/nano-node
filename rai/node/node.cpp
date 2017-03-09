@@ -990,7 +990,10 @@ void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
 					rai::transaction transaction (node_l->store.environment, nullptr, false);
 					if (!node_l->store.block_exists (transaction, hash))
 					{
-						BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+						if (!node_l->bootstrap_initiator.in_progress ())
+						{
+							BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+						}
 						node_l->bootstrap_initiator.bootstrap_any ();
 					}
 					else
