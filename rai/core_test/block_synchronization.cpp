@@ -265,41 +265,50 @@ TEST (pull_synchronization, keep_blocks)
 		rai::transaction transaction0 (node0.store.environment, nullptr, true);
 		rai::transaction transaction1 (node1.store.environment, nullptr, true);
 		auto genesis (node0.ledger.latest (transaction0, rai::genesis_account));
+		// This is the first block to be kept
 		rai::send_block send0 (genesis, key0.pub, rai::genesis_amount - 1 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		rai::send_block send1 (genesis, key0.pub, rai::genesis_amount - 2 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		rai::send_block send2 (send0.hash (), key0.pub, rai::genesis_amount - 3 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		rai::send_block send3 (send1.hash (), key0.pub, rai::genesis_amount - 4 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		// This is the second block to be kept
+		rai::send_block send2 (send0.hash (), key0.pub, rai::genesis_amount - 4 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::send_block send3 (send1.hash (), key0.pub, rai::genesis_amount - 6 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		node0.generate_work (send0);
 		node0.generate_work (send1);
 		node0.generate_work (send2);
 		node0.generate_work (send3);
-		node0.ledger.process (transaction0, send0);
-		node0.ledger.process (transaction0, send2);
-		node0.ledger.process (transaction1, send1);
-		node0.ledger.process (transaction1, send3);
-		block0 = send0.hash ();
-		block1 = send1.hash ();
+		ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction0, send0).code);
+		ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction0, send2).code);
+		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction1, send1).code);
+		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction1, send3).code);
+		block0 = send1.hash ();
+		block1 = send3.hash ();
 	}
 	node1.send_keepalive (node0.network.endpoint ());
 	node1.bootstrap_initiator.bootstrap (node0.network.endpoint ());
 	auto state (0);
 	auto iterations (0);
+	// Node1 starts out with a different balance and should end up the same, both on what node0 has.
+	ASSERT_EQ (rai::genesis_amount - 6 * rai::Grai_ratio, node1.balance (rai::genesis_account));
 	while (node0.balance (rai::genesis_account) != node1.balance (rai::genesis_account))
 	{
+		// Node0 should never chaneg its mind since it has the genesis rep
+		ASSERT_EQ (rai::genesis_amount - 4 * rai::Grai_ratio, node0.balance (rai::genesis_account));
 		{
 			rai::transaction transaction (node1.store.environment, nullptr, false);
 			switch (state)
 			{
 				case 0:
+					// Bootstrap hasn't started yet
 					if (node0.store.unchecked_get (transaction, block0) == nullptr && node0.store.unchecked_get (transaction, block1) == nullptr)
 					state = 1;
 					break;
 				case 1:
+					// Bootstrap started and both blocks have been downloaded
 					if (node0.store.unchecked_get (transaction, block0) != nullptr && node0.store.unchecked_get (transaction, block1) != nullptr)
 					state = 2;
 					break;
 				case 2:
-					if (node0.store.unchecked_get (transaction, block0) == nullptr && node0.store.unchecked_get (transaction, block1) == nullptr)
+					// Bootstrapping stopped but block1 was kept, in case block0 was chosen we don't want to re-download it.
+					if (node0.store.unchecked_get (transaction, block0) == nullptr && node0.store.unchecked_get (transaction, block1) != nullptr)
 					state = 3;
 					break;
 				case 3:
