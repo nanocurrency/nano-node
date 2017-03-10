@@ -253,7 +253,6 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 			{
 				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ());
 			}
-			this_l->node->peers.bootstrap_failed (rai::endpoint (endpoint_a.address (), endpoint_a.port ()));
 		}
     });
 	std::weak_ptr <rai::bootstrap_client> this_w (this_l);
@@ -726,9 +725,8 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 	});
 }
 
-rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a, std::vector <rai::endpoint> const & peers_a) :
+rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 node (node_a),
-peers (peers_a),
 connected (false)
 {
 }
@@ -739,25 +737,28 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
 
-void rai::bootstrap_attempt::attempt ()
+void rai::bootstrap_attempt::attempt (rai::endpoint const & endpoint_a)
 {
 	assert (!node->bootstrap_initiator.mutex.try_lock ());
-	if (!peers.empty () && !connected)
+	if (!connected)
 	{
-		rai::endpoint endpoint (peers.back ());
-		peers.pop_back ();
-		BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap to: %1%") % endpoint);
+		BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap to: %1%") % endpoint_a);
 		auto node_l (node->shared ());
 		auto this_l (shared_from_this ());
 		auto processor (std::make_shared <rai::bootstrap_client> (node_l, this_l));
 		attempts [processor.get ()] = processor;
-		processor->run (rai::tcp_endpoint (endpoint.address (), endpoint.port ()));
+		processor->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (250), [this_l] ()
 		{
 			std::lock_guard <std::mutex> lock (this_l->node->bootstrap_initiator.mutex);
 			this_l->attempt ();
 		});
 	}
+}
+
+void rai::bootstrap_attempt::attempt ()
+{
+	attempt (node->peers.bootstrap_peer ());
 }
 
 void rai::bootstrap_attempt::stop ()
@@ -846,8 +847,7 @@ void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 		}
 		else
 		{
-			attempt_l->peers.push_back (endpoint_a);
-			attempt_l->attempt ();
+			attempt_l->attempt (endpoint_a);
 		}
 	}
 	if (do_warmup)
@@ -858,29 +858,21 @@ void rai::bootstrap_initiator::warmup (rai::endpoint const & endpoint_a)
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 {
-	std::vector <rai::endpoint> endpoints;
-	endpoints.push_back (endpoint_a);
-	begin_attempt (endpoints);
+	std::lock_guard <std::mutex> lock (mutex);
+	if (attempt.lock () == nullptr && !stopped)
+	{
+		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
+		attempt = attempt_l;
+		attempt_l->attempt (endpoint_a);
+	}
 }
 
 void rai::bootstrap_initiator::bootstrap_any ()
 {
-	auto peers (node.peers.bootstrap_candidates ());
-	std::vector <rai::endpoint> endpoints;
-	for (auto &i: peers)
-	{
-		endpoints.push_back (i.endpoint);
-	}
-	std::random_shuffle (endpoints.begin (), endpoints.end ());
-	begin_attempt (endpoints);
-}
-
-void rai::bootstrap_initiator::begin_attempt (std::vector <rai::endpoint> const & endpoints_a)
-{
 	std::lock_guard <std::mutex> lock (mutex);
 	if (attempt.lock () == nullptr && !stopped)
 	{
-		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared (), endpoints_a));
+		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
 		attempt = attempt_l;
 		attempt_l->attempt ();
 	}

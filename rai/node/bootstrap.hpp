@@ -61,9 +61,10 @@ class bootstrap_client;
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {
 public:
-	bootstrap_attempt (std::shared_ptr <rai::node> node_a, std::vector <rai::endpoint> const & peers_a);
+	bootstrap_attempt (std::shared_ptr <rai::node> node_a);
 	~bootstrap_attempt ();
 	void attempt ();
+	void attempt (rai::endpoint const &);
 	void stop ();
 	void connection_created (std::shared_ptr <rai::bootstrap_client>, boost::asio::ip::tcp::endpoint const &);
 	void connection_ending (rai::bootstrap_client *);
@@ -74,7 +75,6 @@ public:
     std::deque <std::pair <rai::account, rai::block_hash>> pulls;
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> attempts;
 	std::shared_ptr <rai::node> node;
-	std::vector <rai::endpoint> peers;
 	std::atomic_bool connected;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
@@ -142,7 +142,6 @@ public:
 	void warmup (rai::endpoint const &);
 	void bootstrap (rai::endpoint const &);
     void bootstrap_any ();
-	void begin_attempt (std::vector <rai::endpoint> const &);
 	void notify_listeners ();
 	void add_observer (std::function <void (bool)> const &);
 	bool in_progress ();

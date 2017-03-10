@@ -1254,17 +1254,18 @@ std::vector <rai::peer_information> rai::peer_container::list ()
     return result;
 }
 
-std::vector <rai::peer_information> rai::peer_container::bootstrap_candidates ()
+rai::endpoint rai::peer_container::bootstrap_peer ()
 {
-    std::vector <rai::peer_information> result;
+    rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
     std::lock_guard <std::mutex> lock (mutex);
-	auto now (std::chrono::system_clock::now ());
-    for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-    {
-		if (now - i->last_bootstrap_failure > std::chrono::minutes (15))
+	auto first (peers.get <4> ().begin ());
+	if (first != peers.get <4> ().end ())
+	{
+		result = first->endpoint;
+		peers.get <4> ().modify (first, [] (rai::peer_information & peer_a)
 		{
-			result.push_back (*i);
-		}
+			peer_a.last_bootstrap_attempt = std::chrono::system_clock::now ();
+		});
     }
     return result;
 }
@@ -1827,19 +1828,6 @@ rai::endpoint rai::network::endpoint ()
     return rai::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
-void rai::peer_container::bootstrap_failed (rai::endpoint const & endpoint_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
-	if (existing != peers.end ())
-	{
-		peers.modify (existing, [] (rai::peer_information & info_a)
-		{
-			info_a.last_bootstrap_failure = std::chrono::system_clock::now ();
-		});
-	}
-}
-
 std::unordered_set <rai::endpoint> rai::peer_container::random_set (size_t count_a)
 {
 	std::unordered_set <rai::endpoint> result;
@@ -2033,7 +2021,7 @@ rai::peer_information::peer_information (rai::endpoint const & endpoint_a) :
 endpoint (endpoint_a),
 last_contact (std::chrono::system_clock::now ()),
 last_attempt (last_contact),
-last_bootstrap_failure (std::chrono::system_clock::time_point ()),
+last_bootstrap_attempt (std::chrono::system_clock::time_point ()),
 last_rep_request (std::chrono::system_clock::time_point ()),
 last_rep_response (std::chrono::system_clock::time_point ()),
 rep_weight (0)
@@ -2044,7 +2032,7 @@ rai::peer_information::peer_information (rai::endpoint const & endpoint_a, std::
 endpoint (endpoint_a),
 last_contact (last_contact_a),
 last_attempt (last_attempt_a),
-last_bootstrap_failure (std::chrono::system_clock::time_point ()),
+last_bootstrap_attempt (std::chrono::system_clock::time_point ()),
 last_rep_request (std::chrono::system_clock::time_point ()),
 last_rep_response (std::chrono::system_clock::time_point ()),
 rep_weight (0)

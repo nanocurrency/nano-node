@@ -158,7 +158,7 @@ public:
 	rai::endpoint endpoint;
 	std::chrono::system_clock::time_point last_contact;
 	std::chrono::system_clock::time_point last_attempt;
-	std::chrono::system_clock::time_point last_bootstrap_failure;
+	std::chrono::system_clock::time_point last_bootstrap_attempt;
 	std::chrono::system_clock::time_point last_rep_request;
 	std::chrono::system_clock::time_point last_rep_response;
 	rai::amount rep_weight;
@@ -175,16 +175,14 @@ public:
 	bool known_peer (rai::endpoint const &);
 	// Notify of peer we received from
 	bool insert (rai::endpoint const &);
-	// Notify of bootstrap failure
-	void bootstrap_failed (rai::endpoint const &);
 	std::unordered_set <rai::endpoint> random_set (size_t);
 	void random_fill (std::array <rai::endpoint, 8> &);
 	// List of all peers
 	std::vector <peer_information> list ();
 	// A list of random peers with size the square root of total peer count
 	std::vector <rai::endpoint> list_sqrt ();
-	// List of peers that haven't failed bootstrapping in a while
-	std::vector <peer_information> bootstrap_candidates ();
+	// Get the next peer for attempting bootstrap
+	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
 	size_t size ();
@@ -199,7 +197,8 @@ public:
 			boost::multi_index::hashed_unique <boost::multi_index::member <peer_information, rai::endpoint, &peer_information::endpoint>>,
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>,
-			boost::multi_index::random_access <>
+			boost::multi_index::random_access <>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>
 		>
 	> peers;
 	std::function <void (rai::endpoint const &)> peer_observer;
