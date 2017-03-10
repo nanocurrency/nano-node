@@ -937,38 +937,35 @@ TEST (node, fork_open_flip)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::keypair key1;
 	rai::genesis genesis;
-    std::unique_ptr <rai::send_block> send1 (new rai::send_block (genesis.hash (), key1.pub, rai::genesis_amount - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
-    rai::publish publish1;
-    publish1.block = std::move (send1);
-    node1.process_message (publish1, node1.network.endpoint ());
-    node2.process_message (publish1, node2.network.endpoint ());
-    std::unique_ptr <rai::open_block> open1 (new rai::open_block (publish1.block->hash (), 1, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
-    rai::publish publish2;
-    publish2.block = std::move (open1);
-    std::unique_ptr <rai::open_block> open2 (new rai::open_block (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
-    rai::publish publish3;
-    publish3.block = std::move (open2);
-    node1.process_message (publish2, node1.network.endpoint ());
-    node2.process_message (publish3, node2.network.endpoint ());
+	rai::keypair rep1;
+	rai::keypair rep2;
+    rai::send_block send1 (genesis.hash (), key1.pub, rai::genesis_amount - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
+    node1.process_receive_republish (send1.clone (), 0);
+    node2.process_receive_republish (send1.clone (), 0);
+	// We should be keeping this block
+    rai::open_block open1 (send1.hash (), rep1.pub, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub));
+	// This block should be evicted
+    rai::open_block open2 (send1.hash (), rep2.pub, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub));
+	ASSERT_FALSE (open1 == open2);
+	// node1 gets copy that will remain
+    node1.process_receive_republish (open1.clone (), 0);
+	// node2 gets copy that will be evicted
+    node2.process_receive_republish (open2.clone (), 0);
     ASSERT_EQ (2, node1.active.roots.size ());
     ASSERT_EQ (2, node2.active.roots.size ());
-    node1.process_message (publish3, node1.network.endpoint ());
-    node2.process_message (publish2, node2.network.endpoint ());
-    auto conflict (node2.active.roots.find (publish2.block->root ()));
+	// Notify both nodes that a fork exists
+    node1.process_receive_republish (open2.clone (), 0);
+    node2.process_receive_republish (open1.clone (), 0);
+    auto conflict (node2.active.roots.find (open1.root ()));
     ASSERT_NE (node2.active.roots.end (), conflict);
     auto votes1 (conflict->election);
     ASSERT_NE (nullptr, votes1);
     ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		ASSERT_TRUE (node1.store.block_exists (transaction, publish2.block->hash ()));
-	}
-	{
-		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, false);
-		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
-	}
+	ASSERT_TRUE (node1.block (open1.hash ()) != nullptr);
+	ASSERT_TRUE (node2.block (open2.hash ()) != nullptr);
     auto iterations (0);
-    while (votes1->votes.rep_votes.size () == 1)
+	// Node2 should eventually settle on open1
+    while (node2.block (open1.hash ()) == nullptr)
     {
         system.poll ();
         ++iterations;
@@ -976,11 +973,11 @@ TEST (node, fork_open_flip)
     }
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     auto winner (node2.ledger.winner (transaction, votes1->votes));
-    ASSERT_EQ (*publish2.block, *winner.second);
+    ASSERT_EQ (open1, *winner.second);
     ASSERT_EQ (rai::genesis_amount - 1, winner.first);
-    ASSERT_TRUE (node1.store.block_exists (transaction, publish2.block->hash ()));
-    ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
-    ASSERT_FALSE (node2.store.block_exists (transaction, publish3.block->hash ()));
+    ASSERT_TRUE (node1.store.block_exists (transaction, open1.hash ()));
+    ASSERT_TRUE (node2.store.block_exists (transaction, open1.hash ()));
+    ASSERT_FALSE (node2.store.block_exists (transaction, open2.hash ()));
 }
 
 TEST (node, coherent_observer)

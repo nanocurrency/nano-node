@@ -1398,6 +1398,12 @@ rai::uint128_t rai::node::balance (rai::account const & account_a)
 	return ledger.account_balance (transaction, account_a);
 }
 
+std::unique_ptr <rai::block> rai::node::block (rai::block_hash const & hash_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	return store.block_get (transaction, hash_a);
+}
+
 std::pair <rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a)
 {
 	std::pair <rai::uint128_t, rai::uint128_t> result;
