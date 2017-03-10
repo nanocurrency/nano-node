@@ -244,7 +244,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 		if (!ec)
 		{
 			this_l->connected = true;
-			this_l->attempt->connection_created (this_l.get (), endpoint_a);
+			this_l->attempt->connection_created (this_l, endpoint_a);
 			this_l->connect_action ();
 		}
 		else
@@ -310,38 +310,6 @@ void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, 
     }
 }
 
-void rai::bootstrap_client::completed_requests ()
-{
-	pull_next ();
-}
-
-void rai::bootstrap_client::pull_next ()
-{
-	if (!pulls.empty ())
-	{
-		auto top (pulls.front ());
-		pulls.pop_front ();
-		pull_client.request (top.first, top.second);
-	}
-	else
-	{
-		completed_pulls ();
-	}
-}
-
-void rai::bootstrap_client::completed_pulls ()
-{
-	assert (node->bootstrap_initiator.in_progress ());
-	node->process_unchecked (attempt);
-    auto this_l (shared_from_this ());
-    auto pushes (std::make_shared <rai::bulk_push_client> (this_l));
-    pushes->start ();
-}
-
-void rai::bootstrap_client::completed_pushes ()
-{
-}
-
 std::shared_ptr <rai::bootstrap_client> rai::bootstrap_client::shared ()
 {
 	return shared_from_this ();
@@ -374,7 +342,7 @@ void rai::frontier_req_client::receive_frontier ()
 void rai::frontier_req_client::request_account (rai::account const & account_a)
 {
     // Account they know about and we don't.
-    connection->pulls.push_back (std::make_pair (account_a, rai::block_hash (0)));
+    connection->attempt->pulls.push_back (std::make_pair (account_a, rai::block_hash (0)));
 }
 
 void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & ours_a, rai::block_hash const & theirs_a)
@@ -429,7 +397,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						else
 						{
 							// They know about a block we don't.
-							connection->pulls.push_back (std::make_pair (account, info.head));
+							connection->attempt->pulls.push_back (std::make_pair (account, info.head));
 						}
 					}
 					next ();
@@ -457,7 +425,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 					next ();
 				}
 			}
-            connection->completed_requests ();
+            connection->attempt->completed_requests (connection);
         }
     }
     else
@@ -574,7 +542,7 @@ void rai::bulk_pull_client::received_type ()
         case rai::block_type::not_a_block:
         {
 			block_flush ();
-            connection.pull_next ();
+            connection.attempt->completed_pull (connection.shared ());
             break;
         }
         default:
@@ -724,9 +692,9 @@ void rai::bulk_push_client::send_finished ()
     }
     auto this_l (shared_from_this ());
     async_write (connection->socket, boost::asio::buffer (buffer->data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
-        {
-            this_l->connection->completed_pushes ();
-        });
+	{
+		this_l->connection->attempt->completed_pushes (this_l->connection);
+	});
 }
 
 void rai::bulk_push_client::push_block (rai::block const & block_a)
@@ -805,7 +773,7 @@ void rai::bootstrap_attempt::stop ()
 	}
 }
 
-void rai::bootstrap_attempt::connection_created (rai::bootstrap_client * client_a, boost::asio::ip::tcp::endpoint const & endpoint_a)
+void rai::bootstrap_attempt::connection_created (std::shared_ptr <rai::bootstrap_client> client_a, boost::asio::ip::tcp::endpoint const & endpoint_a)
 {
 	if (!connected.exchange (true))
 	{
@@ -822,6 +790,37 @@ void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a
 	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
 	auto erased (attempts.erase (client_a));
 	assert (erased == 1);
+}
+
+void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap_client> client_a)
+{
+	completed_pull (client_a);
+}
+
+void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_client> client_a)
+{
+	if (!pulls.empty ())
+	{
+		auto top (pulls.front ());
+		pulls.pop_front ();
+		client_a->pull_client.request (top.first, top.second);
+	}
+	else
+	{
+		completed_pulls (client_a);
+	}
+}
+
+void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_client> client_a)
+{
+	assert (node->bootstrap_initiator.in_progress ());
+	node->process_unchecked (shared_from_this ());
+    auto pushes (std::make_shared <rai::bulk_push_client> (client_a));
+    pushes->start ();
+}
+
+void rai::bootstrap_attempt::completed_pushes (std::shared_ptr <rai::bootstrap_client> client_a)
+{
 }
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :

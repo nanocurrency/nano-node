@@ -65,8 +65,13 @@ public:
 	~bootstrap_attempt ();
 	void attempt ();
 	void stop ();
-	void connection_created (rai::bootstrap_client *, boost::asio::ip::tcp::endpoint const &);
+	void connection_created (std::shared_ptr <rai::bootstrap_client>, boost::asio::ip::tcp::endpoint const &);
 	void connection_ending (rai::bootstrap_client *);
+    void completed_requests (std::shared_ptr <rai::bootstrap_client>);
+	void completed_pull (std::shared_ptr <rai::bootstrap_client>);
+    void completed_pulls (std::shared_ptr <rai::bootstrap_client>);
+    void completed_pushes (std::shared_ptr <rai::bootstrap_client>);
+    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> attempts;
 	std::shared_ptr <rai::node> node;
 	std::vector <rai::endpoint> peers;
@@ -110,12 +115,7 @@ public:
     void run (rai::tcp_endpoint const &);
     void connect_action ();
     void sent_request (boost::system::error_code const &, size_t);
-    void completed_requests ();
-	void pull_next ();
-    void completed_pulls ();
-    void completed_pushes ();
 	std::shared_ptr <rai::bootstrap_client> shared ();
-    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
     std::shared_ptr <rai::node> node;
 	std::shared_ptr <rai::bootstrap_attempt> attempt;
     boost::asio::ip::tcp::socket socket;
