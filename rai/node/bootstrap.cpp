@@ -229,9 +229,7 @@ rai::bootstrap_client::~bootstrap_client ()
 	{
 		BOOST_LOG (node->log) << "Exiting bootstrap client";
 	}
-	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
-	auto erased (attempt->attempts.erase (this));
-	assert (erased == 1);
+	attempt->connection_ending (this);
 }
 
 void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
@@ -812,6 +810,13 @@ void rai::bootstrap_attempt::stop ()
 			attempt->socket.close ();
 		}
 	}
+}
+
+void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a)
+{
+	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+	auto erased (attempts.erase (client_a));
+	assert (erased == 1);
 }
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :

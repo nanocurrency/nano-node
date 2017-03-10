@@ -65,6 +65,7 @@ public:
 	~bootstrap_attempt ();
 	void attempt ();
 	void stop ();
+	void connection_ending (rai::bootstrap_client *);
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> attempts;
 	std::shared_ptr <rai::node> node;
 	std::vector <rai::endpoint> peers;
