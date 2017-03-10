@@ -74,9 +74,9 @@ public:
     void completed_pushes (std::shared_ptr <rai::bootstrap_client>);
 	void dispatch_work ();
     std::deque <std::pair <rai::account, rai::block_hash>> pulls;
-	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> attempts;
-	std::unordered_map <std::shared_ptr <rai::bootstrap_client>, std::pair <rai::account, rai::block_hash>> in_progress;
-	std::vector <std::shared_ptr <rai::bootstrap_client>> pool;
+	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> connecting;
+	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> active;
+	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::shared_ptr <rai::node> node;
 	bool connected;
 	bool requested;

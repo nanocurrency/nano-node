@@ -746,7 +746,7 @@ void rai::bootstrap_attempt::attempt (rai::endpoint const & endpoint_a)
 		auto node_l (node->shared ());
 		auto this_l (shared_from_this ());
 		auto processor (std::make_shared <rai::bootstrap_client> (node_l, this_l));
-		attempts [processor.get ()] = processor;
+		connecting [processor.get ()] = processor;
 		processor->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (250), [this_l] ()
 		{
@@ -764,7 +764,7 @@ void rai::bootstrap_attempt::attempt ()
 void rai::bootstrap_attempt::stop ()
 {
 	assert (!node->bootstrap_initiator.mutex.try_lock ());
-	for (auto i: attempts)
+	for (auto i: connecting)
 	{
 		auto attempt (i.second.lock ());
 		if (attempt != nullptr)
@@ -772,13 +772,25 @@ void rai::bootstrap_attempt::stop ()
 			attempt->socket.close ();
 		}
 	}
+	for (auto i: active)
+	{
+		auto attempt (i.second.lock ());
+		if (attempt != nullptr)
+		{
+			attempt->socket.close ();
+		}
+	}
+	idle.clear ();
 }
 
 void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_client> client_a)
 {
 	{
 		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
-		pool.push_back (client_a);
+		auto erased_active (active.erase (client_a.get ()));
+		auto erased_connecting (connecting.erase (client_a.get ()));
+		assert (erased_active == 1 || erased_connecting == 1);
+		idle.push_back (client_a);
 	}
 	dispatch_work ();
 }
@@ -786,8 +798,8 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_cl
 void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a)
 {
 	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
-	auto erased (attempts.erase (client_a));
-	assert (erased == 1);
+	auto erased_connecting (connecting.erase (client_a));
+	auto erased_active (active.erase (client_a));
 }
 
 void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap_client> client_a)
@@ -801,11 +813,6 @@ void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap
 
 void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_client> client_a)
 {
-	{
-		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
-		auto erased (in_progress.erase (client_a));
-		assert (erased == 1);
-	}
 	pool_connection (client_a);
 }
 
@@ -819,6 +826,9 @@ void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_cl
 
 void rai::bootstrap_attempt::completed_pushes (std::shared_ptr <rai::bootstrap_client> client_a)
 {
+	std::vector <std::shared_ptr <rai::bootstrap_client>> discard;
+	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+	discard.swap (idle);
 }
 
 void rai::bootstrap_attempt::dispatch_work ()
@@ -826,10 +836,10 @@ void rai::bootstrap_attempt::dispatch_work ()
 	std::function <void ()> action;
 	{
 		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
-		if (!pool.empty ())
+		if (!idle.empty ())
 		{
 			// We have a connection we could do something with
-			auto connection (pool.back ());
+			auto connection (idle.back ());
 			if (requested)
 			{
 				// We already completed the frontier request
@@ -839,13 +849,12 @@ void rai::bootstrap_attempt::dispatch_work ()
 					// There are more things to pull
 					auto pull (pulls.back ());
 					pulls.pop_back ();
-					in_progress [connection] = pull;
 					action = [connection, pull] ()
 					{
 						connection->pull_client.request (pull.first, pull.second);
 					};
 				}
-				else if (in_progress.empty ())
+				else if (active.empty ())
 				{
 					// No one else is still running, we're done with pulls
 					action = [this, connection] ()
@@ -869,7 +878,9 @@ void rai::bootstrap_attempt::dispatch_work ()
 			}
 			if (action)
 			{
-				pool.pop_back ();
+				// If there's an action, move the connection from idle to active.
+				active [connection.get ()] = connection;
+				idle.pop_back ();
 			}
 		}
 	}
