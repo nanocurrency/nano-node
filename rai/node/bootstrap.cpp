@@ -455,6 +455,8 @@ void rai::bulk_pull_client::request (rai::account const & account_a, rai::block_
 	rai::bulk_pull req;
 	req.start = account_a;
 	req.end = hash_a;
+	request_account = account_a;
+	request_hash = hash_a;
 	auto buffer (std::make_shared <std::vector <uint8_t>> ());
 	{
 		rai::vectorstream stream (*buffer);
@@ -539,6 +541,8 @@ void rai::bulk_pull_client::received_type ()
         }
         case rai::block_type::not_a_block:
         {
+			request_account = 0;
+			request_hash = 0;
 			block_flush ();
             connection.attempt->completed_pull (connection.shared ());
             break;
@@ -596,7 +600,9 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 
 rai::bulk_pull_client::bulk_pull_client (rai::bootstrap_client & connection_a) :
 connection (connection_a),
-account_count (0)
+account_count (0),
+request_account (0),
+request_hash (0)
 {
 	blocks.reserve (block_count);
 }
@@ -798,6 +804,11 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_cl
 void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a)
 {
 	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+	if (!client_a->pull_client.request_account.is_zero ())
+	{
+		// If this connection is ending and request_account hasn't been cleared it didn't finish, requeue
+		pulls.push_back (std::make_pair (client_a->pull_client.request_account, client_a->pull_client.request_hash));
+	}
 	auto erased_connecting (connecting.erase (client_a));
 	auto erased_active (active.erase (client_a));
 }

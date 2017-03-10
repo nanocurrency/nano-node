@@ -110,6 +110,8 @@ public:
 	size_t const block_count = 4096;
 	std::vector <std::unique_ptr <rai::block>> blocks;
 	size_t account_count;
+	rai::account request_account;
+	rai::account request_hash;
 };
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
