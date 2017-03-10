@@ -280,10 +280,6 @@ void rai::bootstrap_client::frontier_request ()
 		rai::vectorstream stream (*send_buffer);
 		request->serialize (stream);
 	}
-	if (node->config.logging.network_logging ())
-	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Initiating frontier request for %1% age %2% count %3%") % request->start.to_string () % request->age % request->count);
-	}
 	auto this_l (shared_from_this ());
 	boost::asio::async_write (socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
 	{
@@ -816,6 +812,10 @@ void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a
 
 void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap_client> client_a)
 {
+	if (node->config.logging.network_logging ())
+	{
+		BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request"));
+	}
 	{
 		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
 		requested = true;
@@ -886,6 +886,10 @@ void rai::bootstrap_attempt::dispatch_work ()
 				connected = true;
 				action = [connection, this] ()
 				{
+					if (node->config.logging.network_logging ())
+					{
+						BOOST_LOG (node->log) << boost::str (boost::format ("Initiating frontier request"));
+					}
 					connection->frontier_request ();
 				};
 			}
