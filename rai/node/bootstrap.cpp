@@ -244,15 +244,8 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 		if (!ec)
 		{
 			this_l->connected = true;
-			if (!this_l->attempt->connected.exchange (true))
-			{
-				this_l->node->bootstrap_initiator.notify_listeners ();
-				this_l->connect_action ();
-			}
-			else
-			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because bootstrap in progress") % endpoint_a);
-			}
+			this_l->attempt->connection_created (this_l.get (), endpoint_a);
+			this_l->connect_action ();
 		}
 		else
 		{
@@ -809,6 +802,18 @@ void rai::bootstrap_attempt::stop ()
 		{
 			attempt->socket.close ();
 		}
+	}
+}
+
+void rai::bootstrap_attempt::connection_created (rai::bootstrap_client * client_a, boost::asio::ip::tcp::endpoint const & endpoint_a)
+{
+	if (!connected.exchange (true))
+	{
+		node->bootstrap_initiator.notify_listeners ();
+	}
+	else
+	{
+		BOOST_LOG (node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because bootstrap in progress") % endpoint_a);
 	}
 }
 
