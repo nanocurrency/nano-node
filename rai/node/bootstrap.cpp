@@ -244,8 +244,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 		if (!ec)
 		{
 			this_l->connected = true;
-			this_l->attempt->connection_created (this_l, endpoint_a);
-			this_l->connect_action ();
+			this_l->attempt->pool_connection (this_l);
 		}
 		else
 		{
@@ -270,7 +269,7 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 	});
 }
 
-void rai::bootstrap_client::connect_action ()
+void rai::bootstrap_client::frontier_request ()
 {
 	std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
 	request->start.clear ();
@@ -727,7 +726,8 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 node (node_a),
-connected (false)
+connected (false),
+requested (false)
 {
 }
 
@@ -774,16 +774,13 @@ void rai::bootstrap_attempt::stop ()
 	}
 }
 
-void rai::bootstrap_attempt::connection_created (std::shared_ptr <rai::bootstrap_client> client_a, boost::asio::ip::tcp::endpoint const & endpoint_a)
+void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_client> client_a)
 {
-	if (!connected.exchange (true))
 	{
-		node->bootstrap_initiator.notify_listeners ();
+		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+		pool.push_back (client_a);
 	}
-	else
-	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because bootstrap in progress") % endpoint_a);
-	}
+	dispatch_work ();
 }
 
 void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a)
@@ -795,21 +792,21 @@ void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a
 
 void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap_client> client_a)
 {
-	completed_pull (client_a);
+	{
+		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+		requested = true;
+	}
+	pool_connection (client_a);
 }
 
 void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_client> client_a)
 {
-	if (!pulls.empty ())
 	{
-		auto top (pulls.front ());
-		pulls.pop_front ();
-		client_a->pull_client.request (top.first, top.second);
+		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+		auto erased (in_progress.erase (client_a));
+		assert (erased == 1);
 	}
-	else
-	{
-		completed_pulls (client_a);
-	}
+	pool_connection (client_a);
 }
 
 void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_client> client_a)
@@ -822,6 +819,65 @@ void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_cl
 
 void rai::bootstrap_attempt::completed_pushes (std::shared_ptr <rai::bootstrap_client> client_a)
 {
+}
+
+void rai::bootstrap_attempt::dispatch_work ()
+{
+	std::function <void ()> action;
+	{
+		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+		if (!pool.empty ())
+		{
+			// We have a connection we could do something with
+			auto connection (pool.back ());
+			if (requested)
+			{
+				// We already completed the frontier request
+				assert (connected);
+				if (!pulls.empty ())
+				{
+					// There are more things to pull
+					auto pull (pulls.back ());
+					pulls.pop_back ();
+					in_progress [connection] = pull;
+					action = [connection, pull] ()
+					{
+						connection->pull_client.request (pull.first, pull.second);
+					};
+				}
+				else if (in_progress.empty ())
+				{
+					// No one else is still running, we're done with pulls
+					action = [this, connection] ()
+					{
+						completed_pulls (connection);
+					};
+				}
+			}
+			else if (!connected)
+			{
+				// We're the first connection
+				connected = true;
+				action = [connection, this] ()
+				{
+					connection->frontier_request ();
+				};
+			}
+			else
+			{
+				// We haven't finished requesting yet
+			}
+			if (action)
+			{
+				pool.pop_back ();
+			}
+		}
+	}
+	if (action)
+	{
+		action ();
+		dispatch_work ();
+	}
 }
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :

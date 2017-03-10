@@ -66,16 +66,20 @@ public:
 	void attempt ();
 	void attempt (rai::endpoint const &);
 	void stop ();
-	void connection_created (std::shared_ptr <rai::bootstrap_client>, boost::asio::ip::tcp::endpoint const &);
+	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
 	void connection_ending (rai::bootstrap_client *);
     void completed_requests (std::shared_ptr <rai::bootstrap_client>);
 	void completed_pull (std::shared_ptr <rai::bootstrap_client>);
     void completed_pulls (std::shared_ptr <rai::bootstrap_client>);
     void completed_pushes (std::shared_ptr <rai::bootstrap_client>);
+	void dispatch_work ();
     std::deque <std::pair <rai::account, rai::block_hash>> pulls;
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> attempts;
+	std::unordered_map <std::shared_ptr <rai::bootstrap_client>, std::pair <rai::account, rai::block_hash>> in_progress;
+	std::vector <std::shared_ptr <rai::bootstrap_client>> pool;
 	std::shared_ptr <rai::node> node;
-	std::atomic_bool connected;
+	bool connected;
+	bool requested;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
@@ -113,7 +117,7 @@ public:
 	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>);
     ~bootstrap_client ();
     void run (rai::tcp_endpoint const &);
-    void connect_action ();
+    void frontier_request ();
     void sent_request (boost::system::error_code const &, size_t);
 	std::shared_ptr <rai::bootstrap_client> shared ();
     std::shared_ptr <rai::node> node;
