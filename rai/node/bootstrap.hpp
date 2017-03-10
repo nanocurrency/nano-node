@@ -80,6 +80,7 @@ public:
 	std::shared_ptr <rai::node> node;
 	bool connected;
 	bool requested;
+	bool completed;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {

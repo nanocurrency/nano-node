@@ -733,7 +733,8 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 node (node_a),
 connected (false),
-requested (false)
+requested (false),
+completed (false)
 {
 }
 
@@ -839,6 +840,7 @@ void rai::bootstrap_attempt::completed_pushes (std::shared_ptr <rai::bootstrap_c
 {
 	std::vector <std::shared_ptr <rai::bootstrap_client>> discard;
 	std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+	completed = true;
 	discard.swap (idle);
 }
 
@@ -851,7 +853,11 @@ void rai::bootstrap_attempt::dispatch_work ()
 		{
 			// We have a connection we could do something with
 			auto connection (idle.back ());
-			if (requested)
+			if (completed)
+			{
+				action = [] () {};
+			}
+			else if (requested)
 			{
 				// We already completed the frontier request
 				assert (connected);
