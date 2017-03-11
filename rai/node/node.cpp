@@ -177,6 +177,10 @@ void rai::network::broadcast_confirm_req (rai::block const & block_a)
 	{
 		node.network.send_confirm_req (i->endpoint, block_a);
 	}
+    if (node.config.logging.network_logging ())
+    {
+        BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req to %1% peers") % list.size ());
+    }
 }
 
 void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::block const & block)
@@ -187,7 +191,7 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
         rai::vectorstream stream (*bytes);
         message.serialize (stream);
     }
-    if (node.config.logging.network_logging ())
+    if (node.config.logging.network_message_logging ())
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
     }
