@@ -57,6 +57,18 @@ public:
 	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
 	rai::node & node;
 };
+class bootstrap_pull_cache
+{
+public:
+	bootstrap_pull_cache (rai::bootstrap_attempt &);
+	void add_block (std::unique_ptr <rai::block>);
+	void flush (size_t);
+	size_t const block_count = 16384;
+	bootstrap_attempt & attempt;
+private:
+	std::mutex mutex;
+	std::deque <std::unique_ptr <rai::block>> blocks;
+};
 class bootstrap_client;
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {
@@ -66,16 +78,25 @@ public:
 	void attempt ();
 	void attempt (rai::endpoint const &);
 	void stop ();
-	void connection_created (std::shared_ptr <rai::bootstrap_client>, boost::asio::ip::tcp::endpoint const &);
+	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
 	void connection_ending (rai::bootstrap_client *);
     void completed_requests (std::shared_ptr <rai::bootstrap_client>);
 	void completed_pull (std::shared_ptr <rai::bootstrap_client>);
     void completed_pulls (std::shared_ptr <rai::bootstrap_client>);
     void completed_pushes (std::shared_ptr <rai::bootstrap_client>);
+	void dispatch_work ();
     std::deque <std::pair <rai::account, rai::block_hash>> pulls;
-	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> attempts;
+	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> connecting;
+	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> active;
+	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::shared_ptr <rai::node> node;
-	std::atomic_bool connected;
+	rai::bootstrap_pull_cache cache;
+	bool connected;
+	bool requested;
+	bool completed;
+	bool stopped;
+private:
+	std::mutex mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
@@ -100,12 +121,11 @@ public:
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
-	void block_flush ();
 	rai::block_hash first ();
     rai::bootstrap_client & connection;
-	size_t const block_count = 4096;
-	std::vector <std::unique_ptr <rai::block>> blocks;
 	size_t account_count;
+	rai::account request_account;
+	rai::account request_hash;
 };
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
@@ -113,7 +133,7 @@ public:
 	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>);
     ~bootstrap_client ();
     void run (rai::tcp_endpoint const &);
-    void connect_action ();
+    void frontier_request ();
     void sent_request (boost::system::error_code const &, size_t);
 	std::shared_ptr <rai::bootstrap_client> shared ();
     std::shared_ptr <rai::node> node;
@@ -146,12 +166,12 @@ public:
 	void add_observer (std::function <void (bool)> const &);
 	bool in_progress ();
 	void stop ();
-	std::mutex mutex;
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
 	unsigned warmed_up;
 	bool stopped;
 private:
+	std::mutex mutex;
 	std::vector <std::function <void (bool)>> observers;
 };
 class bootstrap_listener
