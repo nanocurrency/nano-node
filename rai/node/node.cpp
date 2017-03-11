@@ -908,6 +908,7 @@ rai::vote_result rai::vote_processor::vote (rai::vote const & vote_a, rai::endpo
 			break;
 	}
 	return result;
+}
 
 void rai::rep_crawler::add (rai::block_hash const & hash_a)
 {
@@ -967,28 +968,23 @@ vote_processor (*this)
 		this->bootstrap_initiator.warmup (endpoint_a);
 		this->rep_query (endpoint_a);
 	});
-    observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const & endpoint_a)
+    observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
-        auto vote_result (active.vote (vote_a));
-		switch (vote_result)
-		{
-			case rai::vote_result::first:
-			case rai::vote_result::confirm:
-			case rai::vote_result::changed:
-				if (this->rep_crawler.exists (vote_a.block->hash ()))
-				{
-					auto weight_l (weight (vote_a.account));
-					// We see a valid non-replay vote for a block we requested, this node is probably a representative
-					peers.rep_response (endpoint_a, weight_l);
-				}
-			default:
-				break;
-		}
+		active.vote (vote_a);
     });
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
 		this->gap_cache.vote (vote_a);
     });
+	observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const & endpoint_a)
+	{
+		if (this->rep_crawler.exists (vote_a.block->hash ()))
+		{
+			auto weight_l (weight (vote_a.account));
+			// We see a valid non-replay vote for a block we requested, this node is probably a representative
+			peers.rep_response (endpoint_a, weight_l);
+		}
+	});
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
 	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
     if (!init_a.error ())
@@ -2062,18 +2058,6 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a)
     else if (endpoint_a == self)
     {
         result = true;
-    }
-    return result;
-}
-
-bool rai::peer_container::knows_about (rai::endpoint const & endpoint_a, rai::block_hash const & hash_a)
-{
-    std::lock_guard <std::mutex> lock (mutex);
-    bool result (false);
-    auto existing (peers.find (endpoint_a));
-    if (existing != peers.end ())
-    {
-        result = existing->most_recent == hash_a;
     }
     return result;
 }

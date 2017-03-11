@@ -189,6 +189,8 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
 	std::vector <rai::endpoint> rep_crawl ();
+	void rep_response (rai::endpoint const &, rai::amount const &);
+	void rep_request (rai::endpoint const &);
 	size_t size ();
 	bool empty ();
 	std::mutex mutex;
@@ -434,7 +436,6 @@ public:
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
 	void add_initial_peers ();
-	void rep_query (rai::endpoint const &);
 	template <typename T>
 	void rep_query (T const &);
 	rai::node_config config;
