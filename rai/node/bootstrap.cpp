@@ -793,7 +793,10 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_cl
 		auto erased_active (active.erase (client_a.get ()));
 		auto erased_connecting (connecting.erase (client_a.get ()));
 		assert (erased_active == 1 || erased_connecting == 1);
-		idle.push_back (client_a);
+		if (!completed)
+		{
+			idle.push_back (client_a);
+		}
 	}
 	dispatch_work ();
 }
@@ -812,12 +815,12 @@ void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a
 
 void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap_client> client_a)
 {
-	if (node->config.logging.network_logging ())
-	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request"));
-	}
 	{
 		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
+		if (node->config.logging.network_logging ())
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts") % pulls.size ());
+		}
 		requested = true;
 	}
 	pool_connection (client_a);
@@ -851,13 +854,10 @@ void rai::bootstrap_attempt::dispatch_work ()
 		std::lock_guard <std::mutex> lock (node->bootstrap_initiator.mutex);
 		if (!idle.empty ())
 		{
+			assert (!completed);
 			// We have a connection we could do something with
 			auto connection (idle.back ());
-			if (completed)
-			{
-				action = [] () {};
-			}
-			else if (requested)
+			if (requested)
 			{
 				// We already completed the frontier request
 				assert (connected);
