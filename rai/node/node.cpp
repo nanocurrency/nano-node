@@ -2227,7 +2227,7 @@ void rai::election::broadcast_winner ()
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
-	// Threshold over which unanymous voting implies confirmation
+	// Threshold over which unanimous voting implies confirmation
     return ledger_a.supply (transaction_a) / 2;
 }
 
