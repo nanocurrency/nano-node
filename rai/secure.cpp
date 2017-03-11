@@ -125,40 +125,6 @@ bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const
 	return *lhs == *rhs;
 }
 
-rai::vote_result rai::votes::vote (MDB_txn * transaction_a, rai::block_store & store_a, rai::vote const & vote_a)
-{
-	auto result (rai::vote_result::invalid);
-	// Reject unsigned votes
-	if (!rai::validate_message (vote_a.account, vote_a.hash (), vote_a.signature))
-	{
-		result = rai::vote_result::replay;
-		// Make sure this sequence number is > any we've seen from this account before
-		if (store_a.sequence_atomic_observe (transaction_a, vote_a.account, vote_a.sequence) == vote_a.sequence)
-		{
-			// Check if we're adding a new vote entry or modifying an existing one.
-			auto existing (rep_votes.find (vote_a.account));
-			if (existing == rep_votes.end ())
-			{
-				result = rai::vote_result::first;
-				rep_votes.insert (std::make_pair (vote_a.account, vote_a.block->clone ()));
-			}
-			else
-			{
-				if (!(*existing->second == *vote_a.block))
-				{
-					result = rai::vote_result::changed;
-					existing->second = vote_a.block->clone ();
-				}
-				else
-				{
-					result = rai::vote_result::confirm;
-				}
-			}
-		}
-	}
-	return result;
-}
-
 // Sum the weights for each vote and return the winning block with its vote tally
 std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::ledger::winner (MDB_txn * transaction_a, rai::votes const & votes_a)
 {
@@ -192,15 +158,37 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 	return result;
 }
 
-bool rai::votes::vote_changed (rai::vote_result result_a)
-{
-	return result_a == rai::vote_result::first || result_a == rai::vote_result::changed;
-}
-
 rai::votes::votes (rai::block const & block_a) :
 id (block_a.root ())
 {
 	rep_votes.insert (std::make_pair (0, block_a.clone ()));
+}
+
+rai::tally_result rai::votes::vote (rai::vote const & vote_a)
+{
+	rai::tally_result result;
+	auto existing (rep_votes.find (vote_a.account));
+	if (existing == rep_votes.end ())
+	{
+		// Vote on this block hasn't been seen from rep before
+		result = rai::tally_result::vote;
+		rep_votes.insert (std::make_pair (vote_a.account, vote_a.block->clone ()));
+	}
+	else
+	{
+		if (!(*existing->second == *vote_a.block))
+		{
+			// Rep changed their vote
+			result = rai::tally_result::changed;
+			existing->second = vote_a.block->clone ();
+		}
+		else
+		{
+			// Rep vote remained the same
+			result = rai::tally_result::confirm;
+		}
+	}
+	return result;
 }
 
 // Create a new random keypair
@@ -3218,6 +3206,22 @@ rai::uint256_union rai::vote::hash () const
     blake2b_update (&hash, bytes.data (), sizeof (bytes));
     blake2b_final (&hash, result.bytes.data (), sizeof (result.bytes));
     return result;
+}
+
+rai::vote_result rai::vote::validate (MDB_txn * transaction_a, rai::block_store & store_a) const
+{
+	auto result (rai::vote_result::invalid);
+	// Reject unsigned votes
+	if (!rai::validate_message (account, hash (), signature))
+	{
+		result = rai::vote_result::replay;
+		// Make sure this sequence number is > any we've seen from this account before
+		if (store_a.sequence_atomic_observe (transaction_a, account, sequence) == sequence)
+		{
+			result = rai::vote_result::vote;
+		}
+	}
+	return result;
 }
 
 rai::genesis::genesis ()

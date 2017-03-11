@@ -42,7 +42,7 @@ class election : public std::enable_shared_from_this <rai::election>
 	void confirm_once (MDB_txn *);
 public:
     election (MDB_txn *, rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
-    rai::vote_result vote (rai::vote const &);
+    void vote (rai::vote const &);
 	// Set last_winner based on our current state of the ledger
 	bool recalculate_winner (MDB_txn *);
 	// Tell the network our view of the winner
@@ -78,7 +78,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
     void start (MDB_txn *, rai::block const &, std::function <void (rai::block &)> const &);
-    rai::vote_result vote (rai::vote const &);
+    void vote (rai::vote const &);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
@@ -134,7 +134,7 @@ public:
     gap_cache (rai::node &);
     void add (rai::block const &, rai::block_hash);
     std::vector <std::unique_ptr <rai::block>> get (rai::block_hash const &);
-    void vote (MDB_txn *, rai::vote const &);
+    void vote (rai::vote const &);
     rai::uint128_t bootstrap_threshold (MDB_txn *);
     boost::multi_index_container
     <
@@ -368,6 +368,13 @@ public:
 	rai::observer_set <rai::endpoint const &> endpoint;
 	rai::observer_set <> disconnect;
 };
+class vote_processor
+{
+public:
+	vote_processor (rai::node &);
+	rai::vote_result vote (rai::vote const &, rai::endpoint);
+	rai::node & node;
+};
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
@@ -385,7 +392,6 @@ public:
     void stop ();
     std::shared_ptr <rai::node> shared ();
 	int store_version ();
-    void vote (rai::vote const &, rai::endpoint const &);
 	void process_unchecked (std::shared_ptr <rai::bootstrap_attempt>);
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
@@ -408,6 +414,7 @@ public:
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
+	void add_initial_peers ();
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
@@ -424,6 +431,7 @@ public:
 	boost::filesystem::path application_path;
 	rai::node_observers observers;
 	rai::port_mapping port_mapping;
+	rai::vote_processor vote_processor;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);

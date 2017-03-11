@@ -267,7 +267,7 @@ public:
         node.peers.contacted (sender);
         node.peers.insert (sender);
         node.process_receive_republish (message_a.vote.block->clone (), 0);
-        node.vote (message_a.vote, sender);
+        node.vote_processor.vote (message_a.vote, sender);
     }
     void bulk_pull (rai::bulk_pull const &) override
     {
@@ -840,6 +840,46 @@ rai::account rai::node_config::random_representative ()
 	return result;
 }
 
+rai::vote_processor::vote_processor (rai::node & node_a) :
+node (node_a)
+{
+}
+
+rai::vote_result rai::vote_processor::vote (rai::vote const & vote_a, rai::endpoint endpoint_a)
+{
+	rai::vote_result result;
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		result = vote_a.validate (transaction, node.store);
+	}
+	if (node.config.logging.vote_logging ())
+	{
+		char const * status;
+		switch (result)
+		{
+			case rai::vote_result::invalid:
+				status = "Invalid";
+				break;
+			case rai::vote_result::replay:
+				status = "Replay";
+				break;
+			case rai::vote_result::vote:
+				status = "Vote";
+				break;
+		}
+		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3% status: %4%") % vote_a.account.to_account () % std::to_string (vote_a.sequence) % vote_a.block->hash ().to_string () % status);
+	}
+	switch (result)
+	{
+		case rai::vote_result::vote:
+			node.observers.vote (vote_a, endpoint_a);
+		case rai::vote_result::replay:
+		case rai::vote_result::invalid:
+			break;
+	}
+	return result;
+}
+
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
 node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
@@ -859,7 +899,8 @@ bootstrap_initiator (*this),
 bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
-port_mapping (*this)
+port_mapping (*this),
+vote_processor (*this)
 {
 	wallets.observer = [this] (rai::account const & account_a, bool active)
 	{
@@ -884,8 +925,7 @@ port_mapping (*this)
     });
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
-		rai::transaction transaction (store.environment, nullptr, true);
-		this->gap_cache.vote (transaction, vote_a);
+		this->gap_cache.vote (vote_a);
     });
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
 	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
@@ -922,11 +962,6 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
     }
     assert (endpoint_l.address ().is_v6 ());
     network.send_keepalive (endpoint_l);
-}
-
-void rai::node::vote (rai::vote const & vote_a, rai::endpoint const & endpoint_a)
-{
-	observers.vote (vote_a, endpoint_a);
 }
 
 rai::gap_cache::gap_cache (rai::node & node_a) :
@@ -971,40 +1006,38 @@ std::vector <std::unique_ptr <rai::block>> rai::gap_cache::get (rai::block_hash 
     return result;
 }
 
-void rai::gap_cache::vote (MDB_txn * transaction_a, rai::vote const & vote_a)
+void rai::gap_cache::vote (rai::vote const & vote_a)
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    auto hash (vote_a.block->hash ());
-    auto existing (blocks.get <2> ().find (hash));
-    if (existing != blocks.get <2> ().end ())
-    {
-        auto vote_result (existing->votes->vote (transaction_a, node.store, vote_a));
-        if (rai::votes::vote_changed (vote_result))
-        {
-            auto winner (node.ledger.winner (transaction_a, *existing->votes));
-            if (winner.first > bootstrap_threshold (transaction_a))
-            {
-				auto node_l (node.shared ());
-				auto now (std::chrono::system_clock::now ());
-				node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (5), [node_l, hash] ()
+	std::lock_guard <std::mutex> lock (mutex);
+	auto hash (vote_a.block->hash ());
+	auto existing (blocks.get <2> ().find (hash));
+	if (existing != blocks.get <2> ().end ())
+	{
+		existing->votes->vote (vote_a);
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto winner (node.ledger.winner (transaction, *existing->votes));
+		if (winner.first > bootstrap_threshold (transaction))
+		{
+			auto node_l (node.shared ());
+			auto now (std::chrono::system_clock::now ());
+			node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (5), [node_l, hash] ()
+			{
+				rai::transaction transaction (node_l->store.environment, nullptr, false);
+				if (!node_l->store.block_exists (transaction, hash))
 				{
-					rai::transaction transaction (node_l->store.environment, nullptr, false);
-					if (!node_l->store.block_exists (transaction, hash))
+					if (!node_l->bootstrap_initiator.in_progress ())
 					{
-						if (!node_l->bootstrap_initiator.in_progress ())
-						{
-							BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
-						}
-						node_l->bootstrap_initiator.bootstrap_any ();
+						BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
 					}
-					else
-					{
-						BOOST_LOG (node_l->log) << boost::str (boost::format ("Block: %1% was inserted while voting") % hash.to_string ());
-					}
-				});
-            }
-        }
-    }
+					node_l->bootstrap_initiator.bootstrap_any ();
+				}
+				else
+				{
+					BOOST_LOG (node_l->log) << boost::str (boost::format ("Block: %1% was inserted while voting") % hash.to_string ());
+				}
+			});
+		}
+	}
 }
 
 rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
@@ -1371,6 +1404,7 @@ void rai::node::start ()
 	backup_wallet ();
 	active.announce_votes ();
 	port_mapping.start ();
+	add_initial_peers ();
 }
 
 void rai::node::stop ()
@@ -1718,6 +1752,11 @@ uint64_t rai::node::generate_work (rai::uint256_union const & hash_a)
 		promise.set_value (work_a);
 	});
 	return promise.get_future ().get ();
+}
+
+void rai::node::add_initial_peers ()
+{
+	
 }
 
 namespace
@@ -2172,7 +2211,8 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 {
 	node.wallets.foreach_representative (transaction_a, [this, transaction_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 	{
-		this->votes.vote (transaction_a, this->node.store, rai::vote (pub_a, prv_a, this->node.store.sequence_atomic_inc (transaction_a, pub_a), last_winner->clone ()));
+		rai::vote vote (pub_a, prv_a, this->node.store.sequence_atomic_inc (transaction_a, pub_a), last_winner->clone ());
+		this->votes.vote (vote);
 	});
 }
 
@@ -2260,19 +2300,12 @@ void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 	confirm_once (transaction_a);
 }
 
-rai::vote_result rai::election::vote (rai::vote const & vote_a)
+void rai::election::vote (rai::vote const & vote_a)
 {
 	rai::transaction transaction (node.store.environment, nullptr, true);
-	auto vote_result (votes.vote (transaction, node.store, vote_a));
-	if (rai::votes::vote_changed (vote_result))
-	{
-		if (node.config.logging.vote_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3%") % vote_a.account.to_account () % std::to_string (vote_a.sequence) % vote_a.block->hash ().to_string ());
-		}
-		confirm_if_quarum (transaction);
-	}
-	return vote_result;
+	assert (vote_a.validate (transaction, node.store) != rai::vote_result::invalid);
+	votes.vote (vote_a);
+	confirm_if_quarum (transaction);
 }
 
 void rai::active_transactions::announce_votes ()
@@ -2351,9 +2384,8 @@ void rai::active_transactions::start (MDB_txn * transaction_a, rai::block const 
 }
 
 // Validate a vote and apply it to the current election if one exists
-rai::vote_result rai::active_transactions::vote (rai::vote const & vote_a)
+void rai::active_transactions::vote (rai::vote const & vote_a)
 {
-	rai::vote_result result (rai::vote_result::invalid);
 	std::shared_ptr <rai::election> election;
 	{
 		std::lock_guard <std::mutex> lock (mutex);
@@ -2366,9 +2398,8 @@ rai::vote_result rai::active_transactions::vote (rai::vote const & vote_a)
 	}
 	if (election)
 	{
-        result = election->vote (vote_a);
+        election->vote (vote_a);
 	}
-	return result;
 }
 
 bool rai::active_transactions::active (rai::block const & block_a)

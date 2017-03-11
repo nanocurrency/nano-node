@@ -712,34 +712,6 @@ TEST (ledegr, double_receive)
 	ASSERT_EQ (rai::process_result::unreceivable, ledger.process (transaction, receive1).code);
 }
 
-TEST (votes, add_unsigned)
-{
-	rai::system system (24000, 1);
-	auto & node1 (*system.nodes [0]);
-	rai::genesis genesis;
-	rai::keypair key1;
-	rai::send_block send1 (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send1).code);
-	}
-	auto node_l (system.nodes [0]);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (rai::block & block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
-	}
-	auto votes1 (node1.active.roots.find (send1.root ())->election);
-	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-	rai::keypair key2;
-	rai::vote vote1 (0, key2.prv, 1, send1.clone ());
-	ASSERT_EQ (rai::vote_result::invalid, votes1->vote (vote1));
-	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
-}
-
 TEST (votes, add_one)
 {
 	rai::system system (24000, 1);
@@ -762,9 +734,9 @@ TEST (votes, add_one)
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
-	ASSERT_EQ (rai::vote_result::first, votes1->vote (vote1));
+	votes1->vote (vote1);
 	rai::vote vote2 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1.clone ());
-	ASSERT_EQ (rai::vote_result::confirm, votes1->vote (vote1));
+	votes1->vote (vote1);
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	auto existing1 (votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_NE (votes1->votes.rep_votes.end (), existing1);
@@ -796,11 +768,11 @@ TEST (votes, add_two)
 	}
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
-	ASSERT_EQ (rai::vote_result::first, votes1->vote (vote1));
+	votes1->vote (vote1);
 	rai::keypair key2;
 	rai::send_block send2 (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::vote vote2 (key2.pub, key2.prv, 1, send2.clone ());
-	ASSERT_EQ (rai::vote_result::first, votes1->vote (vote2));
+	votes1->vote (vote2);
 	ASSERT_EQ (3, votes1->votes.rep_votes.size ());
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub]);
@@ -833,11 +805,11 @@ TEST (votes, add_existing)
 	}
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1.clone ());
-	ASSERT_EQ (rai::vote_result::first, votes1->vote (vote1));
+	votes1->vote (vote1);
 	rai::keypair key2;
 	rai::send_block send2 (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::vote vote2 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send2.clone ());
-	ASSERT_EQ (rai::vote_result::changed, votes1->vote (vote2));
+	votes1->vote (vote2);
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_EQ (send2, *votes1->votes.rep_votes [rai::test_genesis_key.pub]);
@@ -868,11 +840,11 @@ TEST (votes, add_old)
 	}
 	auto votes1 (node1.active.roots.find (send1.root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1.clone ());
-	ASSERT_EQ (rai::vote_result::first, votes1->vote (vote1));
+	node1.vote_processor.vote (vote1, rai::endpoint ());
 	rai::keypair key2;
 	rai::send_block send2 (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::vote vote2 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send2.clone ());
-	ASSERT_EQ (rai::vote_result::replay, votes1->vote (vote2));
+	node1.vote_processor.vote (vote2, rai::endpoint ());
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_EQ (send1, *votes1->votes.rep_votes [rai::test_genesis_key.pub]);

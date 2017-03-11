@@ -442,6 +442,12 @@ public:
 	rai::account account;
 	rai::amount amount;
 };
+enum class vote_result
+{
+	invalid, // Vote is not signed correctly
+	replay, // Vote does not have the highest sequence number, it's a replay
+	vote // Vote has the highest sequence number
+};
 class vote
 {
 public:
@@ -449,6 +455,7 @@ public:
 	vote (bool &, rai::stream &, rai::block_type);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::unique_ptr <rai::block>);
 	rai::uint256_union hash () const;
+	rai::vote_result validate (MDB_txn *, rai::block_store &) const;
 	// Vote round sequence number
 	uint64_t sequence;
 	std::unique_ptr <rai::block> block;
@@ -457,21 +464,17 @@ public:
 	// Signature of sequence + block hash
 	rai::signature signature;
 };
-enum class vote_result
+enum class tally_result
 {
-	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest sequence number, it's a replay
-	first, // First vote by the rep for this root
-	confirm, // The vote by the rep for this root stayed the same
-	changed // The vote by the rep for this root has change
+	vote,
+	changed,
+	confirm
 };
 class votes
 {
 public:
 	votes (rai::block const &);
-	// Has this vote result changed the tally
-	static bool vote_changed (rai::vote_result);
-	rai::vote_result vote (MDB_txn *, rai::block_store &, rai::vote const &);
+	rai::tally_result vote (rai::vote const &);
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account
