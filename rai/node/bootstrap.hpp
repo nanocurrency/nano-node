@@ -81,6 +81,9 @@ public:
 	bool connected;
 	bool requested;
 	bool completed;
+	bool stopped;
+private:
+	std::mutex mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
@@ -153,12 +156,12 @@ public:
 	void add_observer (std::function <void (bool)> const &);
 	bool in_progress ();
 	void stop ();
-	std::mutex mutex;
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
 	unsigned warmed_up;
 	bool stopped;
 private:
+	std::mutex mutex;
 	std::vector <std::function <void (bool)>> observers;
 };
 class bootstrap_listener
