@@ -2183,14 +2183,42 @@ void rai::election::broadcast_winner ()
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
+	// Threshold over which unanymous voting implies confirmation
     return ledger_a.supply (transaction_a) / 2;
 }
 
-void rai::election::confirm_once ()
+rai::uint128_t rai::election::minimum_treshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
-	auto confirmed_l (confirmed.test_and_set ());
-	if (!confirmed_l)
+	// Minimum number of votes needed to change our ledger, underwhich we're probably disconnected
+	return ledger_a.supply (transaction_a) / 16;
+}
+
+void rai::election::confirm_once (MDB_txn * transaction_a)
+{
+	if (!confirmed.test_and_set ())
 	{
+		auto tally_l (node.ledger.tally (transaction_a, votes));
+		assert (tally_l.size () > 0);
+		auto winner (tally_l.begin ());
+		if (!(*winner->second == *last_winner))
+		{
+			if (winner->first > minimum_treshold (transaction_a, node.ledger))
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % last_winner->hash ().to_string () % winner->second->hash ().to_string ());
+				for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
+				}
+				// Replace our block with the winner and roll back any dependent blocks
+				node.ledger.rollback (transaction_a, last_winner->hash ());
+				node.ledger.process (transaction_a, *winner->second);
+				last_winner = std::move (winner->second);
+			}
+			else
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Retaining %1% with %2% votes") % last_winner->hash ().to_string () % winner->first.convert_to <std::string> ());
+			}
+		}
 		auto winner_l (last_winner);
 		auto confirmation_action_l (confirmation_action);
 		node.background ([winner_l, confirmation_action_l] ()
@@ -2205,39 +2233,11 @@ bool rai::election::recalculate_winner (MDB_txn * transaction_a)
 	auto result (false);
 	auto tally_l (node.ledger.tally (transaction_a, votes));
 	assert (tally_l.size () > 0);
-	auto quorum_threshold_l (quorum_threshold (transaction_a, node.ledger));
 	auto winner (tally_l.begin ());
-	if (!(*winner->second == *last_winner) && (winner->first > quorum_threshold_l))
+	if (winner->first > quorum_threshold (transaction_a, node.ledger))
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % last_winner->hash ().to_string () % winner->second->hash ().to_string ());
-		for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
-		}
-		// Replace our block with the winner and roll back any dependent blocks
-		node.ledger.rollback (transaction_a, last_winner->hash ());
-		node.ledger.process (transaction_a, *winner->second);
-		last_winner = std::move (winner->second);
-	}
-	// Check if we can do a fast confirm for the usual case of good actors
-	auto size (tally_l.size ());
-	if (size != 0)
-	{
-		if (size == 1)
-		{
-			// No other votes
-			result = true;
-		}
-		else
-		{
-			auto first (tally_l.begin ());
-			auto second (++first);
-			if (first->first > quorum_threshold (transaction_a, node.ledger) && second->first.is_zero ())
-			{
-				// Next closest vote total is zero
-				result = true;
-			}
-		}
+		// Check if we can do a fast confirm for the usual case of good actors
+		result = true;
 	}
 	return result;
 }
@@ -2247,13 +2247,13 @@ void rai::election::confirm_if_quarum (MDB_txn * transaction_a)
 	auto quarum (recalculate_winner (transaction_a));
 	if (quarum)
 	{
-		confirm_once ();
+		confirm_once (transaction_a);
 	}
 }
 
-void rai::election::confirm_cutoff ()
+void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 {
-	confirm_once ();
+	confirm_once (transaction_a);
 }
 
 rai::vote_result rai::election::vote (rai::vote const & vote_a)
@@ -2277,6 +2277,7 @@ void rai::active_transactions::announce_votes ()
 	std::lock_guard <std::mutex> lock (mutex);
 	size_t announcements (0);
 	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
 		auto i (roots.begin ());
 		auto n (roots.end ());
 		// Announce our decision for up to `announcements_per_interval' conflicts
@@ -2287,7 +2288,7 @@ void rai::active_transactions::announce_votes ()
 			if (i->announcements >= contigious_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
-				i->election->confirm_cutoff ();
+				i->election->confirm_cutoff (transaction);
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
 			}
