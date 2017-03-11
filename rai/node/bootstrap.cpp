@@ -82,7 +82,6 @@ void rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
         }
         else
         {
-			BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while generating dependencies %1%") % hash.to_string ());
             done = true;
         }
     }
@@ -103,7 +102,6 @@ rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transact
 	else
 	{
 		// A block that can be the dependency of more than one other block, e.g. send blocks, can be added to the dependency list more than once.  Subsequent retrievals won't find the block but this isn't an error
-		BOOST_LOG (log) << boost::str (boost::format ("Unable to retrieve block while synchronizing %1%") % hash.to_string ());
 	}
     return result;
 }
