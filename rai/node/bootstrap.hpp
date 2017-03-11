@@ -57,6 +57,18 @@ public:
 	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
 	rai::node & node;
 };
+class bootstrap_pull_cache
+{
+public:
+	bootstrap_pull_cache (rai::bootstrap_attempt &);
+	void add_block (std::unique_ptr <rai::block>);
+	void flush (size_t);
+	size_t const block_count = 16384;
+	bootstrap_attempt & attempt;
+private:
+	std::mutex mutex;
+	std::deque <std::unique_ptr <rai::block>> blocks;
+};
 class bootstrap_client;
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {
@@ -78,6 +90,7 @@ public:
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> active;
 	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::shared_ptr <rai::node> node;
+	rai::bootstrap_pull_cache cache;
 	bool connected;
 	bool requested;
 	bool completed;
@@ -108,11 +121,8 @@ public:
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
-	void block_flush ();
 	rai::block_hash first ();
     rai::bootstrap_client & connection;
-	size_t const block_count = 4096;
-	std::vector <std::unique_ptr <rai::block>> blocks;
 	size_t account_count;
 	rai::account request_account;
 	rai::account request_hash;

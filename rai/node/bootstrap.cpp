@@ -539,7 +539,6 @@ void rai::bulk_pull_client::received_type ()
         {
 			request_account = 0;
 			request_hash = 0;
-			block_flush ();
             connection.attempt->completed_pull (connection.shared ());
             break;
         }
@@ -549,16 +548,6 @@ void rai::bulk_pull_client::received_type ()
             break;
         }
     }
-}
-
-void rai::bulk_pull_client::block_flush ()
-{
-	rai::transaction transaction (connection.node->store.environment, nullptr, true);
-	for (auto & i: blocks)
-	{
-		connection.node->store.unchecked_put (transaction, i->hash(), *i);
-	}
-	blocks.clear ();
 }
 
 void rai::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a)
@@ -576,11 +565,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
                 block->serialize_json (block_l);
                 BOOST_LOG (connection.node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
             }
-			blocks.emplace_back (std::move (block));
-			if (blocks.size () == block_count)
-			{
-				block_flush ();
-			}
+			connection.attempt->cache.add_block (std::move (block));
             receive_block ();
 		}
         else
@@ -600,7 +585,6 @@ account_count (0),
 request_account (0),
 request_hash (0)
 {
-	blocks.reserve (block_count);
 }
 
 rai::bulk_pull_client::~bulk_pull_client ()
@@ -726,8 +710,42 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 	});
 }
 
+rai::bootstrap_pull_cache::bootstrap_pull_cache (rai::bootstrap_attempt & attempt_a) :
+attempt (attempt_a)
+{
+}
+
+void rai::bootstrap_pull_cache::add_block (std::unique_ptr <rai::block> block_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	blocks.emplace_back (std::move (block_a));
+}
+
+void rai::bootstrap_pull_cache::flush (size_t minimum_a)
+{
+	decltype (blocks) blocks_l;
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		if (blocks.size () > minimum_a)
+		{
+			blocks.swap (blocks_l);
+		}
+	}
+	if (!blocks_l.empty ())
+	{
+		rai::transaction transaction (attempt.node->store.environment, nullptr, true);
+		while (!blocks_l.empty ())
+		{
+			auto & front (blocks_l.front ());
+			attempt.node->store.unchecked_put (transaction, front->hash(), *front);
+			blocks_l.pop_front ();
+		}
+	}
+}
+
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 node (node_a),
+cache (*this),
 connected (false),
 requested (false),
 completed (false),
@@ -833,11 +851,13 @@ void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap
 void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_client> client_a)
 {
 	pool_connection (client_a);
+	cache.flush (cache.block_count);
 }
 
 void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_client> client_a)
 {
 	assert (node->bootstrap_initiator.in_progress ());
+	cache.flush (0);
 	node->process_unchecked (shared_from_this ());
     auto pushes (std::make_shared <rai::bulk_push_client> (client_a));
     pushes->start ();
