@@ -43,8 +43,8 @@ class election : public std::enable_shared_from_this <rai::election>
 public:
     election (MDB_txn *, rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
     void vote (rai::vote const &);
-	// Set last_winner based on our current state of the ledger
-	bool recalculate_winner (MDB_txn *);
+	// Check if we have vote quorum
+	bool have_quorum (MDB_txn *);
 	// Tell the network our view of the winner
 	void broadcast_winner ();
 	// Change our winner to agree with the network

@@ -2272,23 +2272,17 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 	}
 }
 
-bool rai::election::recalculate_winner (MDB_txn * transaction_a)
+bool rai::election::have_quorum (MDB_txn * transaction_a)
 {
-	auto result (false);
 	auto tally_l (node.ledger.tally (transaction_a, votes));
 	assert (tally_l.size () > 0);
-	auto winner (tally_l.begin ());
-	if (winner->first > quorum_threshold (transaction_a, node.ledger))
-	{
-		// Check if we can do a fast confirm for the usual case of good actors
-		result = true;
-	}
+	auto result (tally_l.begin ()->first > quorum_threshold (transaction_a, node.ledger));
 	return result;
 }
 
 void rai::election::confirm_if_quarum (MDB_txn * transaction_a)
 {
-	auto quarum (recalculate_winner (transaction_a));
+	auto quarum (have_quorum (transaction_a));
 	if (quarum)
 	{
 		confirm_once (transaction_a);
