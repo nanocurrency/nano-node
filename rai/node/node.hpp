@@ -189,7 +189,7 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
 	std::vector <rai::endpoint> rep_crawl ();
-	void rep_response (rai::endpoint const &, rai::amount const &);
+	bool rep_response (rai::endpoint const &, rai::amount const &);
 	void rep_request (rai::endpoint const &);
 	size_t size ();
 	size_t size_sqrt ();

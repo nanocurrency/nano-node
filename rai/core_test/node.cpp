@@ -1260,8 +1260,20 @@ TEST (node, rep_list)
 	wallet0->send_action (rai::test_genesis_key.pub, key1.pub, rai::Mrai_ratio);
 	ASSERT_EQ (0, node1.peers.representatives (1).size ());
 	auto iterations (0);
-	while (node1.peers.representatives (1).empty () || node1.peers.representatives (1) [0].endpoint != node0.network.endpoint ())
+	auto done (false);
+	while (!done)
 	{
+		auto reps (node1.peers.representatives (1));
+		if (!reps.empty ())
+		{
+			if (reps [0].endpoint == node0.network.endpoint ())
+			{
+				if (reps [0].rep_weight == rai::genesis_amount - rai::Mrai_ratio)
+				{
+					done = true;
+				}
+			}
+		}
 		system.poll ();
 		++iterations;
 		ASSERT_GT (200, iterations);

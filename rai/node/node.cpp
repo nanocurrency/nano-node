@@ -247,7 +247,7 @@ void rai::node::rep_query (T const & peers_a)
 		network.send_confirm_req (*i, *block);
 	}
 	std::weak_ptr <rai::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [node_w, hash] ()
+	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w, hash] ()
 	{
 		if (auto node_l = node_w.lock ())
 		{
@@ -1005,7 +1005,10 @@ vote_processor (*this)
 		{
 			auto weight_l (weight (vote_a.account));
 			// We see a valid non-replay vote for a block we requested, this node is probably a representative
-			peers.rep_response (endpoint_a, weight_l);
+			if (peers.rep_response (endpoint_a, weight_l))
+			{
+				BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
+			}
 		}
 	});
     BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH;
@@ -2091,18 +2094,24 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a)
     return result;
 }
 
-void rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::amount const & weight_a)
+bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::amount const & weight_a)
 {
+	auto updated (false);
     std::lock_guard <std::mutex> lock (mutex);
     auto existing (peers.find (endpoint_a));
     if (existing != peers.end ())
     {
-		peers.modify (existing, [weight_a] (rai::peer_information & info)
+		peers.modify (existing, [weight_a, &updated] (rai::peer_information & info)
 		{
 			info.last_rep_response = std::chrono::system_clock::now ();
-			info.rep_weight = weight_a;
+			if (info.rep_weight < weight_a)
+			{
+				updated = true;
+				info.rep_weight = weight_a;
+			}
 		});
     }
+	return updated;
 }
 
 void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
