@@ -121,8 +121,47 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
+void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr <std::vector <uint8_t>> buffer_a, rai::endpoint endpoint_a)
+{
+	if (node.config.logging.network_publish_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
+	}
+    std::weak_ptr <rai::node> node_w (node.shared ());
+	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, 0, [buffer_a, node_w, endpoint_a] (boost::system::error_code const & ec, size_t size)
+	{
+		if (auto node_l = node_w.lock ())
+		{
+			if (node_l->config.logging.network_logging ())
+			{
+				if (ec)
+				{
+					BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% to %2%") % ec.message () % endpoint_a);
+				}
+			}
+		}
+	});
+}
+
+void rai::network::rebroadcast_reps (rai::block & block_a)
+{
+	auto hash (block_a.hash ());
+	rai::publish message (block_a.clone ());
+	std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	auto representatives (node.peers.representatives (node.peers.size_sqrt ()));
+	for (auto i : representatives)
+	{
+		republish (hash, bytes, i.endpoint);
+	}
+}
+
 void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
 {
+	rebroadcast_reps (block);
 	auto hash (block.hash ());
     auto list (node.peers.list ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
@@ -134,27 +173,11 @@ void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
             rai::vectorstream stream (*bytes);
             message.serialize (stream);
         }
-        std::weak_ptr <rai::node> node_w (node.shared ());
 		auto sqrt_list (node.peers.list_sqrt ());
+		auto hash (block.hash ());
         for (auto i (sqrt_list.begin ()), n (sqrt_list.end ()); i != n; ++i)
         {
-			if (node.config.logging.network_publish_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Publish %1% to %2%") % hash.to_string () % *i);
-			}
-			send_buffer (bytes->data (), bytes->size (), *i, rebroadcast_a, [bytes, node_w] (boost::system::error_code const & ec, size_t size)
-			{
-				if (auto node_l = node_w.lock ())
-				{
-					if (node_l->config.logging.network_logging ())
-					{
-						if (ec)
-						{
-							BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% from %2%") % ec.message () % node_l->network.endpoint ());
-						}
-					}
-				}
-			});
+			republish (hash, bytes, *i);
         }
 		if (node.config.logging.network_logging ())
 		{
@@ -1326,7 +1349,7 @@ rai::process_return rai::node::process (rai::block const & block_a)
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
 std::vector <rai::endpoint> rai::peer_container::list_sqrt ()
 {
-	auto peers (random_set (std::ceil (std::sqrt (size ()))));
+	auto peers (random_set (size_sqrt ()));
 	std::vector <rai::endpoint> result;
 	result.reserve (peers.size ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
@@ -2037,6 +2060,12 @@ size_t rai::peer_container::size ()
 {
     std::lock_guard <std::mutex> lock (mutex);
     return peers.size ();
+}
+
+size_t rai::peer_container::size_sqrt ()
+{
+	auto result (std::ceil (std::sqrt (size ())));
+	return result;
 }
 
 bool rai::peer_container::empty ()

@@ -192,6 +192,7 @@ public:
 	void rep_response (rai::endpoint const &, rai::amount const &);
 	void rep_request (rai::endpoint const &);
 	size_t size ();
+	size_t size_sqrt ();
 	bool empty ();
 	std::mutex mutex;
 	rai::endpoint self;
@@ -266,7 +267,9 @@ public:
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
+	void rebroadcast_reps (rai::block &);
     void republish_block (rai::block &, size_t);
+	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
     bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, size_t);
 	void confirm_block (rai::raw_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &, size_t);
