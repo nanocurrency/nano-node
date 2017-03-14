@@ -159,7 +159,7 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 				});
 				this->node.network.broadcast_confirm_req (block_a);
 				this->node.network.broadcast_confirm_req (*block);
-				BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap for block: %1%") % block_a.hash ().to_string ());
+				BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
 				break;
 			}
 			case rai::process_result::gap_previous:
