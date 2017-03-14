@@ -235,19 +235,19 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
 }
 
 template <typename T>
-void rai::node::rep_query (T const & peers_a)
+void rep_query (rai::node & node_a, T const & peers_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
-	auto block (store.block_random (transaction));
+	rai::transaction transaction (node_a.store.environment, nullptr, false);
+	auto block (node_a.store.block_random (transaction));
 	auto hash (block->hash ());
-	rep_crawler.add (hash);
+	node_a.rep_crawler.add (hash);
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		peers.rep_request (*i);
-		network.send_confirm_req (*i, *block);
+		node_a.peers.rep_request (*i);
+		node_a.network.send_confirm_req (*i, *block);
 	}
-	std::weak_ptr <rai::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w, hash] ()
+	std::weak_ptr <rai::node> node_w (node_a.shared ());
+	node_a.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w, hash] ()
 	{
 		if (auto node_l = node_w.lock ())
 		{
@@ -257,11 +257,11 @@ void rai::node::rep_query (T const & peers_a)
 }
 
 template <>
-void rai::node::rep_query (rai::endpoint const & peers_a)
+void rep_query (rai::node & node_a, rai::endpoint const & peers_a)
 {
 	std::array <rai::endpoint, 1> peers;
 	peers [0] = peers_a;
-	rep_query (peers);
+	rep_query (node_a, peers);
 }
 
 namespace
@@ -989,7 +989,7 @@ vote_processor (*this)
 	{
 		this->network.send_keepalive (endpoint_a);
 		this->bootstrap_initiator.warmup (endpoint_a);
-		this->rep_query (endpoint_a);
+		rep_query (*this, endpoint_a);
 	});
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
     {
@@ -1604,7 +1604,7 @@ void rai::node::ongoing_rep_crawl ()
 {
 	auto now (std::chrono::system_clock::now ());
 	auto peers_l (peers.rep_crawl ());
-	rep_query (peers_l);
+	rep_query (*this, peers_l);
 	std::weak_ptr <rai::node> node_w (shared_from_this ());
     alarm.add (now + period, [node_w] ()
 	{

@@ -441,8 +441,6 @@ public:
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
 	void add_initial_peers ();
-	template <typename T>
-	void rep_query (T const &);
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
