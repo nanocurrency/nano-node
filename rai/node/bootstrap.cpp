@@ -1495,10 +1495,6 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 			{
 				connection->node->process_receive_republish (std::move (block), 0);
 			}
-			else
-			{
-				BOOST_LOG (connection->node->log) << "Discarding push block during bootstrap";
-			}
             receive ();
         }
         else
