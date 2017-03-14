@@ -2755,9 +2755,9 @@ rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::accou
 
 rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a)
 {
-    ledger_processor processor (*this, transaction_a);
-    block_a.visit (processor);
-    return processor.result;
+	ledger_processor processor (*this, transaction_a);
+	block_a.visit (processor);
+	return processor.result;
 }
 
 // Money supply for heuristically calculating vote percentages

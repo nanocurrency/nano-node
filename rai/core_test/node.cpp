@@ -1244,3 +1244,38 @@ TEST (node, unconfirmed_send)
 		ASSERT_GT (200, iterations);
 	}
 }
+
+// Test that nodes can track nodes that have rep weight for priority broadcasting
+TEST (node, rep_list)
+{
+    rai::system system (24000, 2);
+	auto & node0 (*system.nodes [0]);
+	auto & node1 (*system.nodes [1]);
+	auto wallet0 (system.wallet (0));
+	auto wallet1 (system.wallet (1));
+	// Node0 has a rep
+	wallet0->insert_adhoc (rai::test_genesis_key.prv);
+	rai::keypair key1;
+	// Broadcast a confirm so others should know this is a rep node
+	wallet0->send_action (rai::test_genesis_key.pub, key1.pub, rai::Mrai_ratio);
+	ASSERT_EQ (0, node1.peers.representatives (1).size ());
+	auto iterations (0);
+	auto done (false);
+	while (!done)
+	{
+		auto reps (node1.peers.representatives (1));
+		if (!reps.empty ())
+		{
+			if (reps [0].endpoint == node0.network.endpoint ())
+			{
+				if (reps [0].rep_weight == rai::genesis_amount - rai::Mrai_ratio)
+				{
+					done = true;
+				}
+			}
+		}
+		system.poll ();
+		++iterations;
+		ASSERT_GT (200, iterations);
+	}
+}

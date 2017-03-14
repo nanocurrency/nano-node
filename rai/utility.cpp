@@ -204,6 +204,11 @@ bool rai::uint128_union::operator < (rai::uint128_union const & other_a) const
 	return number () < other_a.number ();
 }
 
+bool rai::uint128_union::operator > (rai::uint128_union const & other_a) const
+{
+	return number () > other_a.number ();
+}
+
 rai::uint128_t rai::uint128_union::number () const
 {
     rai::uint128_t result;

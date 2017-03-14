@@ -136,6 +136,7 @@ public:
     std::vector <std::unique_ptr <rai::block>> get (rai::block_hash const &);
     void vote (rai::vote const &);
     rai::uint128_t bootstrap_threshold (MDB_txn *);
+	void purge_old ();
     boost::multi_index_container
     <
         rai::gap_information,
@@ -146,7 +147,7 @@ public:
             boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>
         >
     > blocks;
-    size_t const max = 16384;
+    size_t const max = 64;
     std::mutex mutex;
     rai::node & node;
 };
@@ -178,6 +179,8 @@ public:
 	bool insert (rai::endpoint const &);
 	std::unordered_set <rai::endpoint> random_set (size_t);
 	void random_fill (std::array <rai::endpoint, 8> &);
+	// Request a list of the top known representatives
+	std::vector <peer_information> representatives (size_t);
 	// List of all peers
 	std::vector <peer_information> list ();
 	// A list of random peers with size the square root of total peer count
@@ -186,7 +189,11 @@ public:
 	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector <rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
+	std::vector <rai::endpoint> rep_crawl ();
+	bool rep_response (rai::endpoint const &, rai::amount const &);
+	void rep_request (rai::endpoint const &);
 	size_t size ();
+	size_t size_sqrt ();
 	bool empty ();
 	std::mutex mutex;
 	rai::endpoint self;
@@ -199,11 +206,16 @@ public:
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater <std::chrono::system_clock::time_point>>,
 			boost::multi_index::random_access <>,
-			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, std::chrono::system_clock::time_point, &peer_information::last_rep_request>>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, rai::amount, &peer_information::rep_weight>, std::greater <rai::amount>>
 		>
 	> peers;
+	// Called when a new peer is observed
 	std::function <void (rai::endpoint const &)> peer_observer;
 	std::function <void ()> disconnect_observer;
+	// Number of peers to crawl for being a rep every period
+	static size_t constexpr peers_per_crawl = 8;
 };
 class send_info
 {
@@ -256,7 +268,9 @@ public:
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
+	void rebroadcast_reps (rai::block &);
     void republish_block (rai::block &, size_t);
+	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
     bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, size_t);
 	void confirm_block (rai::raw_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &, size_t);
@@ -375,6 +389,16 @@ public:
 	rai::vote_result vote (rai::vote const &, rai::endpoint);
 	rai::node & node;
 };
+// The network is crawled for representatives by ocassionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
+class rep_crawler
+{
+public:
+	void add (rai::block_hash const &);
+	void remove (rai::block_hash const &);
+	bool exists (rai::block_hash const &);
+	std::mutex mutex;
+	std::unordered_set <rai::block_hash> active;
+};
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
@@ -409,12 +433,16 @@ public:
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
     void ongoing_keepalive ();
+	void ongoing_rep_crawl ();
+	void ongoing_bootstrap ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
 	void add_initial_peers ();
+	template <typename T>
+	void rep_query (T const &);
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
@@ -432,6 +460,7 @@ public:
 	rai::node_observers observers;
 	rai::port_mapping port_mapping;
 	rai::vote_processor vote_processor;
+	rai::rep_crawler rep_crawler;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
