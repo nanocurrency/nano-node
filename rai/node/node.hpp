@@ -136,6 +136,7 @@ public:
     std::vector <std::unique_ptr <rai::block>> get (rai::block_hash const &);
     void vote (rai::vote const &);
     rai::uint128_t bootstrap_threshold (MDB_txn *);
+	void purge_old ();
     boost::multi_index_container
     <
         rai::gap_information,
@@ -146,7 +147,7 @@ public:
             boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>
         >
     > blocks;
-    size_t const max = 16384;
+    size_t const max = 64;
     std::mutex mutex;
     rai::node & node;
 };
@@ -433,6 +434,7 @@ public:
 	rai::account representative (rai::account const &);
     void ongoing_keepalive ();
 	void ongoing_rep_crawl ();
+	void ongoing_bootstrap ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);

@@ -1077,6 +1077,7 @@ void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
 
 std::vector <std::unique_ptr <rai::block>> rai::gap_cache::get (rai::block_hash const & hash_a)
 {
+	purge_old ();
     std::lock_guard <std::mutex> lock (mutex);
     std::vector <std::unique_ptr <rai::block>> result;
     for (auto i (blocks.find (hash_a)), n (blocks.end ()); i != n && i->required == hash_a; ++i)
@@ -1128,6 +1129,25 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 {
     auto result ((node.ledger.supply (transaction_a) / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
+}
+
+void rai::gap_cache::purge_old ()
+{
+	auto cutoff (std::chrono::system_clock::now () - std::chrono::seconds (10));
+    std::lock_guard <std::mutex> lock (mutex);
+	auto done (false);
+	while (!done && !blocks.empty ())
+	{
+		auto first (blocks.get <1> ().begin ());
+		if (first->arrival < cutoff)
+		{
+			blocks.get <1> ().erase (first);
+		}
+		else
+		{
+			done = true;
+		}
+	}
 }
 
 bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
@@ -1253,8 +1273,11 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
                 BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
             }
             auto previous (block_a.previous ());
-            gap_cache.add (block_a, previous);
-            break;
+			if (!bootstrap_initiator.in_progress ())
+			{
+				gap_cache.add (block_a, previous);
+			}
+			break;
         }
         case rai::process_result::gap_source:
         {
@@ -1263,7 +1286,10 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
                 BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
             }
             auto source (block_a.source ());
-            gap_cache.add (block_a, source);
+			if (!bootstrap_initiator.in_progress ())
+			{
+				gap_cache.add (block_a, source);
+			}
             break;
         }
         case rai::process_result::old:
@@ -1484,6 +1510,7 @@ void rai::node::start ()
 {
     network.receive ();
     ongoing_keepalive ();
+	ongoing_bootstrap ();
 	ongoing_rep_crawl ();
     bootstrap.start ();
 	backup_wallet ();
@@ -1584,6 +1611,19 @@ void rai::node::ongoing_rep_crawl ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_rep_crawl ();
+		}
+	});
+}
+
+void rai::node::ongoing_bootstrap ()
+{
+	bootstrap_initiator.bootstrap_any ();
+	std::weak_ptr <rai::node> node_w (shared_from_this ());
+	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (300), [node_w] ()
+	{
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_bootstrap ();
 		}
 	});
 }
@@ -1927,7 +1967,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 			if (next != store.unchecked_end ())
 			{
 				auto block (rai::block_hash (next->first));
-				if (block_count % 4096 == 0)
+				if (block_count % 64 == 0)
 				{
 					BOOST_LOG (log) << boost::str (boost::format ("Committing block: %1% and dependencies") % block.to_string ());
 				}
@@ -2409,15 +2449,19 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);
 		auto winner (tally_l.begin ());
+		if (tally_l.size () > 1)
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally weight %2% for root %1%") % votes.id.to_string () % winner->first.convert_to <std::string> ());
+			for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
+			}
+		}
 		if (!(*winner->second == *last_winner))
 		{
 			if (winner->first > minimum_treshold (transaction_a, node.ledger))
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % last_winner->hash ().to_string () % winner->second->hash ().to_string ());
-				for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
-				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
-				}
 				// Replace our block with the winner and roll back any dependent blocks
 				node.ledger.rollback (transaction_a, last_winner->hash ());
 				node.ledger.process (transaction_a, *winner->second);
@@ -2425,7 +2469,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 			}
 			else
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Retaining %1% with %2% votes") % last_winner->hash ().to_string () % winner->first.convert_to <std::string> ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Retaining block %1%") % last_winner->hash ().to_string ());
 			}
 		}
 		auto winner_l (last_winner);
