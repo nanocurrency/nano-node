@@ -759,15 +759,21 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 
 void rai::bootstrap_attempt::attempt (rai::endpoint const & endpoint_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	if (!connected)
+	auto this_l (shared_from_this ());
+	std::shared_ptr <rai::bootstrap_client> client;
 	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap to: %1%") % endpoint_a);
-		auto node_l (node->shared ());
-		auto this_l (shared_from_this ());
-		auto processor (std::make_shared <rai::bootstrap_client> (node_l, this_l));
-		connecting [processor.get ()] = processor;
-		processor->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
+		std::lock_guard <std::mutex> lock (mutex);
+		if (!connected)
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap to: %1%") % endpoint_a);
+			auto node_l (node->shared ());
+			client = std::make_shared <rai::bootstrap_client> (node_l, this_l);
+			connecting [client.get ()] = client;
+		}
+	}
+	if (client)
+	{
+		client->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (250), [this_l] ()
 		{
 			this_l->attempt ();
