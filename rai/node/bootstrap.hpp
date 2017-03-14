@@ -63,7 +63,7 @@ public:
 	bootstrap_pull_cache (rai::bootstrap_attempt &);
 	void add_block (std::unique_ptr <rai::block>);
 	void flush (size_t);
-	size_t const block_count = 16384;
+	size_t const block_count = 256;
 	bootstrap_attempt & attempt;
 private:
 	std::mutex mutex;

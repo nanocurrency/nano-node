@@ -111,7 +111,7 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
     auto result (rai::sync_result::success);
 	blocks.clear ();
     blocks.push_back (hash_a);
-	unsigned block_count (rai::rai_network == rai::rai_networks::rai_test_network ? 2 : 4096);
+	unsigned block_count (rai::rai_network == rai::rai_networks::rai_test_network ? 2 : 8192);
     while (block_count > 0 && result != rai::sync_result::fork && !blocks.empty ())
     {
         result = synchronize_one (transaction_a);
@@ -1420,16 +1420,16 @@ void rai::bulk_push_server::receive ()
 {
     auto this_l (shared_from_this ());
     boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
-        {
-            if (!ec)
-            {
-                this_l->received_type ();
-            }
-            else
-            {
-                BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
-            }
-        });
+	{
+		if (!ec)
+		{
+			this_l->received_type ();
+		}
+		else
+		{
+			BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
+		}
+	});
 }
 
 void rai::bulk_push_server::received_type ()
@@ -1441,33 +1441,33 @@ void rai::bulk_push_server::received_type ()
         case rai::block_type::send:
         {
             boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-                                     {
-                                         this_l->received_block (ec, size_a);
-                                     });
+			{
+				this_l->received_block (ec, size_a);
+			});
             break;
         }
         case rai::block_type::receive:
         {
             boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-                                     {
-                                         this_l->received_block (ec, size_a);
-                                     });
+			{
+				this_l->received_block (ec, size_a);
+			});
             break;
         }
         case rai::block_type::open:
         {
             boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-                                     {
-                                         this_l->received_block (ec, size_a);
-                                     });
+			{
+				this_l->received_block (ec, size_a);
+			});
             break;
         }
         case rai::block_type::change:
         {
             boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-                                     {
-                                         this_l->received_block (ec, size_a);
-                                     });
+			{
+				this_l->received_block (ec, size_a);
+			});
             break;
         }
         case rai::block_type::not_a_block:
@@ -1491,7 +1491,14 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
         auto block (rai::deserialize_block (stream));
         if (block != nullptr)
         {
-            connection->node->process_receive_republish (std::move (block), 0);
+			if (!connection->node->bootstrap_initiator.in_progress ())
+			{
+				connection->node->process_receive_republish (std::move (block), 0);
+			}
+			else
+			{
+				BOOST_LOG (connection->node->log) << "Discarding push block during bootstrap";
+			}
             receive ();
         }
         else
