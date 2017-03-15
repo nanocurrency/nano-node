@@ -1040,11 +1040,11 @@ TEST (node, broadcast_elected)
 		rai::transaction transaction0 (node0->store.environment, nullptr, true);
 		rai::transaction transaction1 (node1->store.environment, nullptr, true);
 		rai::transaction transaction2 (node2->store.environment, nullptr, true);
-		rai::send_block fund_big (node0->ledger.latest (transaction0, rai::test_genesis_key.pub), rep_big.pub, 500, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::send_block fund_big (node0->ledger.latest (transaction0, rai::test_genesis_key.pub), rep_big.pub, rai::Grai_ratio * 5, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		rai::open_block open_big (fund_big.hash (), rep_big.pub, rep_big.pub, rep_big.prv, rep_big.pub, 0);
-		rai::send_block fund_small (fund_big.hash (), rep_small.pub, 250, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::send_block fund_small (fund_big.hash (), rep_small.pub, rai::Grai_ratio * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		rai::open_block open_small (fund_small.hash (), rep_small.pub, rep_small.pub, rep_small.prv, rep_small.pub, 0);
-		rai::send_block fund_other (fund_small.hash (), rep_other.pub, 125, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::send_block fund_other (fund_small.hash (), rep_other.pub, rai::Grai_ratio * 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		rai::open_block open_other (fund_other.hash (), rep_other.pub, rep_other.pub, rep_other.prv, rep_other.pub, 0);
 		node0->generate_work (fund_big);
 		node0->generate_work (open_big);
