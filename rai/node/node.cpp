@@ -1621,15 +1621,15 @@ void rai::node::ongoing_bootstrap ()
 	if (warmed_up < 3)
 	{
 		// Re-attempt bootstrapping more aggressively on startup
-		next_wakeup = (30);
-		if (!bootstrap_initiator.in_progress ())
+		next_wakeup = 5;
+		if (!bootstrap_initiator.in_progress () && !peers.empty ())
 		{
 			++warmed_up;
 		}
 	}
 	bootstrap_initiator.bootstrap ();
 	std::weak_ptr <rai::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (300), [node_w] ()
+	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (next_wakeup), [node_w] ()
 	{
 		if (auto node_l = node_w.lock ())
 		{
