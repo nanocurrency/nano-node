@@ -862,9 +862,9 @@ TEST (node, fork_bootstrap_flip)
 	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::block_hash latest (system0.nodes [0]->latest (rai::test_genesis_key.pub));
 	rai::keypair key1;
-	rai::send_block send1 (latest, key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest));
+	rai::send_block send1 (latest, key1.pub, rai::genesis_amount - rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest));
 	rai::keypair key2;
-	rai::send_block send2 (latest, key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest));
+	rai::send_block send2 (latest, key2.pub, rai::genesis_amount - rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest));
 	// Insert but don't rebroadcast, simulating well-established blocks
 	node1.process_receive_many (send1);
 	node2.process_receive_many (send2);
