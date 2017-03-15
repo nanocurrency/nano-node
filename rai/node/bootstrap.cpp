@@ -849,7 +849,7 @@ void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap
 		std::lock_guard <std::mutex> lock (mutex);
 		if (node->config.logging.network_logging ())
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts") % pulls.size ());
+			BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % pulls.size () % client_a->endpoint);
 		}
 		state = rai::attempt_state::requesting_pulls;
 	}
