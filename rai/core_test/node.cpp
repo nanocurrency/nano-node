@@ -207,19 +207,8 @@ TEST (node, auto_bootstrap)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 	node1->start ();
-	ASSERT_EQ (0, node1->bootstrap_initiator.warmed_up);
-	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	ASSERT_EQ (0, system.nodes [0]->bootstrap_initiator.warmed_up);
-	ASSERT_FALSE (system.nodes [0]->bootstrap_initiator.in_progress ());
-	auto iterations2 (0);
-	while (!node1->bootstrap_initiator.in_progress () || !system.nodes [0]->bootstrap_initiator.in_progress ())
-	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
-	}
-	ASSERT_EQ (1, node1->bootstrap_initiator.warmed_up);
-	ASSERT_EQ (1, system.nodes [0]->bootstrap_initiator.warmed_up);
+	ASSERT_EQ (1, node1->warmed_up);
+	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
 	auto iterations3 (0);
 	while (node1->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
 	{
@@ -228,7 +217,7 @@ TEST (node, auto_bootstrap)
 		ASSERT_LT (iterations3, 200);
 	}
 	auto iterations4 (0);
-	while (node1->bootstrap_initiator.in_progress () || system.nodes [0]->bootstrap_initiator.in_progress ())
+	while (node1->bootstrap_initiator.in_progress ())
 	{
 		system.poll ();
 		++iterations4;

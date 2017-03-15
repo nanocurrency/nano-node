@@ -971,7 +971,8 @@ bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
 port_mapping (*this),
-vote_processor (*this)
+vote_processor (*this),
+warmed_up (0)
 {
 	wallets.observer = [this] (rai::account const & account_a, bool active)
 	{
@@ -988,7 +989,6 @@ vote_processor (*this)
 	observers.endpoint.add ([this] (rai::endpoint const & endpoint_a)
 	{
 		this->network.send_keepalive (endpoint_a);
-		this->bootstrap_initiator.warmup (endpoint_a);
 		rep_query (*this, endpoint_a);
 	});
     observers.vote.add ([this] (rai::vote const & vote_a, rai::endpoint const &)
@@ -1114,7 +1114,7 @@ void rai::gap_cache::vote (rai::vote const & vote_a)
 					{
 						BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
 					}
-					node_l->bootstrap_initiator.bootstrap_any ();
+					node_l->bootstrap_initiator.bootstrap ();
 				}
 				else
 				{
@@ -1617,7 +1617,17 @@ void rai::node::ongoing_rep_crawl ()
 
 void rai::node::ongoing_bootstrap ()
 {
-	bootstrap_initiator.bootstrap_any ();
+	auto next_wakeup (300);
+	if (warmed_up < 3)
+	{
+		// Re-attempt bootstrapping more aggressively on startup
+		next_wakeup = (30);
+		if (!bootstrap_initiator.in_progress ())
+		{
+			++warmed_up;
+		}
+	}
+	bootstrap_initiator.bootstrap ();
 	std::weak_ptr <rai::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (300), [node_w] ()
 	{
@@ -2542,7 +2552,7 @@ void rai::active_transactions::announce_votes ()
 				// If more than one full announcement interval has passed and no one has voted on this block, we need to synchronize
 				if (announcements > 1 && i->election->votes.rep_votes.size () <= 1)
 				{
-					node.bootstrap_initiator.bootstrap_any ();
+					node.bootstrap_initiator.bootstrap ();
 				}
 			}
 		}

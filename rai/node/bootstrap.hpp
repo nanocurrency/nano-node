@@ -70,13 +70,21 @@ private:
 	std::deque <std::unique_ptr <rai::block>> blocks;
 };
 class bootstrap_client;
+enum class attempt_state
+{
+	starting,
+	requesting_frontiers,
+	requesting_pulls,
+	pushing,
+	complete
+};
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {
 public:
 	bootstrap_attempt (std::shared_ptr <rai::node> node_a);
 	~bootstrap_attempt ();
-	void attempt ();
-	void attempt (rai::endpoint const &);
+	void populate_connections ();
+	void add_connection (rai::endpoint const &);
 	void stop ();
 	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
 	void connection_ending (rai::bootstrap_client *);
@@ -91,11 +99,9 @@ public:
 	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::shared_ptr <rai::node> node;
 	rai::bootstrap_pull_cache cache;
-	bool connected;
-	bool requested;
-	bool completed;
-	bool stopped;
+	rai::attempt_state state;
 private:
+	void start_connection (rai::endpoint const &);
 	std::mutex mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
@@ -160,16 +166,14 @@ class bootstrap_initiator
 {
 public:
 	bootstrap_initiator (rai::node &);
-	void warmup (rai::endpoint const &);
-	void bootstrap (rai::endpoint const &);
-    void bootstrap_any ();
+    void bootstrap (rai::endpoint const &);
+    void bootstrap ();
 	void notify_listeners ();
 	void add_observer (std::function <void (bool)> const &);
 	bool in_progress ();
 	void stop ();
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
-	unsigned warmed_up;
 	bool stopped;
 private:
 	std::mutex mutex;
