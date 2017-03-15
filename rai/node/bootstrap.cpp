@@ -242,6 +242,7 @@ void rai::bootstrap_client::run ()
     {
 		if (!ec)
 		{
+			BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Connection established to %1%") % this_l->endpoint);
 			this_l->connected = true;
 			this_l->attempt->pool_connection (this_l);
 		}
@@ -459,11 +460,11 @@ void rai::bulk_pull_client::request (rai::account const & account_a, rai::block_
 	}
 	if (connection.node->config.logging.bulk_pull_logging ())
 	{
-		BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_account () % req.end.to_string ());
+		BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2% from %3%") % req.start.to_account () % req.end.to_string () % connection.endpoint);
 	}
 	else if (connection.node->config.logging.network_logging () && account_count % 256 == 0)
 	{
-		BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2%") % req.start.to_account () % req.end.to_string ());
+		BOOST_LOG (connection.node->log) << boost::str (boost::format ("Requesting account %1% down to %2% from %3%") % req.start.to_account () % req.end.to_string () % connection.endpoint);
 	}
 	++account_count;
 	auto connection_l (connection.shared ());
@@ -475,7 +476,7 @@ void rai::bulk_pull_client::request (rai::account const & account_a, rai::block_
 		}
 		else
 		{
-			BOOST_LOG (connection_l->node->log) << boost::str (boost::format ("Error sending bulk pull request %1%") % ec.message ());
+			BOOST_LOG (connection_l->node->log) << boost::str (boost::format ("Error sending bulk pull request %1% to %2%") % ec.message () % connection_l->endpoint);
 		}
 	});
 }
@@ -588,10 +589,6 @@ request_hash (0)
 
 rai::bulk_pull_client::~bulk_pull_client ()
 {
-    if (connection.node->config.logging.network_logging ())
-    {
-        BOOST_LOG (connection.node->log) << "Exiting bulk pull client";
-    }
 }
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::bootstrap_client> const & connection_a) :
@@ -826,7 +823,6 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_cl
 
 void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a)
 {
-	BOOST_LOG (node->log) << "Connection ending";
 	if (!stopped)
 	{
 		std::lock_guard <std::mutex> lock (mutex);

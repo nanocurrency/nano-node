@@ -1105,7 +1105,7 @@ void rai::gap_cache::vote (rai::vote const & vote_a)
 		{
 			auto node_l (node.shared ());
 			auto now (std::chrono::system_clock::now ());
-			node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (10) : now + std::chrono::seconds (5), [node_l, hash] ()
+			node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash] ()
 			{
 				rai::transaction transaction (node_l->store.environment, nullptr, false);
 				if (!node_l->store.block_exists (transaction, hash))
