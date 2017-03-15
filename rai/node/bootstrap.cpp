@@ -756,17 +756,26 @@ void rai::bootstrap_attempt::populate_connections ()
 {
 	std::weak_ptr <rai::bootstrap_attempt> this_w (shared_from_this ());
 	std::lock_guard <std::mutex> lock (mutex);
-	if (connecting.size () + active.size () + idle.size () < 4)
+	if (connecting.size () + active.size () + idle.size () < 16)
 	{
 		start_connection (node->peers.bootstrap_peer ());
 	}
-	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (1), [this_w] ()
+	switch (state)
 	{
-		if (auto this_l = this_w.lock ())
-		{
-			this_l->populate_connections ();
-		}
-	});
+		case rai::attempt_state::starting:
+		case rai::attempt_state::requesting_frontiers:
+		case rai::attempt_state::requesting_pulls:
+			node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (1), [this_w] ()
+			{
+				if (auto this_l = this_w.lock ())
+				{
+					this_l->populate_connections ();
+				}
+			});
+			break;
+		default:
+			break;
+	}
 }
 
 void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
