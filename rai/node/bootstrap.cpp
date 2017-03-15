@@ -212,12 +212,13 @@ rai::sync_result rai::push_synchronization::target (MDB_txn * transaction_a, rai
 	return target_m (transaction_a, block_a);
 }
 
-rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a) :
+rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
 node (node_a),
 attempt (attempt_a),
 socket (node_a->network.service),
 connected (false),
-pull_client (*this)
+pull_client (*this),
+endpoint (endpoint_a)
 {
 }
 
@@ -225,19 +226,19 @@ rai::bootstrap_client::~bootstrap_client ()
 {
 	if (node->config.logging.network_logging ())
 	{
-		BOOST_LOG (node->log) << "Exiting bootstrap client";
+		BOOST_LOG (node->log) << boost::str (boost::format ("Exiting bootstrap client to %1%") % endpoint);
 	}
 	attempt->connection_ending (this);
 }
 
-void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint_a)
+void rai::bootstrap_client::run ()
 {
     if (node->config.logging.network_logging ())
     {
-        BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint_a);
+        BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint);
     }
     auto this_l (shared_from_this ());
-    socket.async_connect (endpoint_a, [this_l, endpoint_a] (boost::system::error_code const & ec)
+    socket.async_connect (endpoint, [this_l] (boost::system::error_code const & ec)
     {
 		if (!ec)
 		{
@@ -248,19 +249,19 @@ void rai::bootstrap_client::run (boost::asio::ip::tcp::endpoint const & endpoint
 		{
 			if (this_l->node->config.logging.network_logging ())
 			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection %1%") % ec.message ());
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %2%: %1%") % ec.message () % this_l->endpoint);
 			}
 		}
     });
 	std::weak_ptr <rai::bootstrap_client> this_w (this_l);
-	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [this_w, endpoint_a] ()
+	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [this_w] ()
 	{
 		auto this_l (this_w.lock ());
 		if (this_l != nullptr)
 		{
 			if (!this_l->connected)
 			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because because of connection timeout") % endpoint_a);
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because because of connection timeout") % this_l->endpoint);
 				this_l->socket.close ();
 			}
 		}
@@ -765,15 +766,14 @@ void rai::bootstrap_attempt::attempt (rai::endpoint const & endpoint_a)
 		std::lock_guard <std::mutex> lock (mutex);
 		if (!connected)
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap to: %1%") % endpoint_a);
 			auto node_l (node->shared ());
-			client = std::make_shared <rai::bootstrap_client> (node_l, this_l);
+			client = std::make_shared <rai::bootstrap_client> (node_l, this_l, rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 			connecting [client.get ()] = client;
 		}
 	}
 	if (client)
 	{
-		client->run (rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
+		client->run ();
 		node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (250), [this_l] ()
 		{
 			this_l->attempt ();
@@ -826,6 +826,7 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_cl
 
 void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a)
 {
+	BOOST_LOG (node->log) << "Connection ending";
 	if (!stopped)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
@@ -860,6 +861,7 @@ void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_cli
 
 void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_client> client_a)
 {
+	BOOST_LOG (node->log) << "Completed pulls";
 	assert (node->bootstrap_initiator.in_progress ());
 	cache.flush (0);
 	node->process_unchecked (shared_from_this ());

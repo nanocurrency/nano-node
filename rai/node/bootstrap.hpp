@@ -130,9 +130,9 @@ public:
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>);
+	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>, rai::tcp_endpoint const &);
     ~bootstrap_client ();
-    void run (rai::tcp_endpoint const &);
+    void run ();
     void frontier_request ();
     void sent_request (boost::system::error_code const &, size_t);
 	std::shared_ptr <rai::bootstrap_client> shared ();
@@ -142,6 +142,7 @@ public:
     std::array <uint8_t, 200> receive_buffer;
 	bool connected;
 	rai::bulk_pull_client pull_client;
+	rai::tcp_endpoint endpoint;
 };
 class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>
 {
