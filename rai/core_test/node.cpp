@@ -207,7 +207,6 @@ TEST (node, auto_bootstrap)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 	node1->start ();
-	ASSERT_EQ (1, node1->warmed_up);
 	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
 	auto iterations3 (0);
 	while (node1->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
@@ -1143,14 +1142,10 @@ TEST (node, bootstrap_no_publish)
 		rai::transaction transaction (node0->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system0.nodes [0]->ledger.process (transaction, send0).code);
 	}
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	while (node1->bootstrap_initiator.in_progress ())
-	{
-		// Poll until TCP connection is established and in_progress goes true
-		system0.poll ();
-	}
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_TRUE (node1->active.roots.empty ());
+	auto iterations1 (0);
 	while (node1->bootstrap_initiator.in_progress ())
 	{
 		// Poll until the TCP connection is torn down and in_progress goes false
@@ -1158,6 +1153,8 @@ TEST (node, bootstrap_no_publish)
 		system1.poll ();
 		// There should never be an active transaction because the only activity is bootstrapping 1 block which shouldn't be publishing.
 		ASSERT_TRUE (node1->active.roots.empty ());
+		++iterations1;
+		ASSERT_GT (200, iterations1);
 	}
 }
 
@@ -1185,13 +1182,8 @@ TEST (node, bootstrap_fork_open)
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open0).code);
 		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, open1).code);
 	}
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	while (node1->bootstrap_initiator.in_progress ())
-	{
-		// Poll until TCP connection is established and in_progress goes true
-		system0.poll ();
-	}
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_TRUE (node1->active.roots.empty ());
 	int iterations (0);
 	while (node1->ledger.block_exists (open1.hash ()))
