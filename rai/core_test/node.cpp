@@ -631,17 +631,17 @@ TEST (node, block_replace)
 {
 	rai::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, 1000));
-	std::unique_ptr <rai::block> block1;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		block1 = system.nodes [0]->store.block_get (transaction, system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
-	}
-	ASSERT_NE (nullptr, block1);
+	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Grai_ratio));
+	auto block3 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Grai_ratio));
+    ASSERT_NE (nullptr, block1);
 	auto initial_work (block1->block_work ());
 	while (system.work.work_value (block1->root (), block1->block_work ()) <= system.work.work_value (block1->root (), initial_work))
 	{
 		system.nodes [1]->generate_work (*block1);
+	}
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_EQ (block3->hash (), system.nodes [0]->store.block_successor (transaction, block1->hash ()));
 	}
 	system.nodes [1]->network.republish_block (*block1, 0);
 	auto iterations1 (0);
@@ -652,11 +652,15 @@ TEST (node, block_replace)
 		++iterations1;
 		ASSERT_LT (iterations1, 200);
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		auto block (system.nodes [0]->store.block_get (transaction, system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub)));
+		auto block (system.nodes [0]->store.block_get (transaction, block1->hash ()));
 		if (block->block_work () != initial_work)
 		{
 			block2 = std::move (block);
 		}
+	}
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		ASSERT_EQ (block3->hash (), system.nodes [0]->store.block_successor(transaction, block1->hash ()));
 	}
 	ASSERT_NE (initial_work, block1->block_work ());
 	ASSERT_EQ (block1->block_work (), block2->block_work ());

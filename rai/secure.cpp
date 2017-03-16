@@ -1773,14 +1773,14 @@ void rai::block_store::block_put_raw (MDB_txn * transaction_a, MDB_dbi database_
 	assert (status2 == 0);
 }
 
-void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
+void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a)
 {
+	assert (successor_a.is_zero () || block_exists (transaction_a, successor_a));
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);
 		block_a.serialize (stream);
-		rai::block_hash successor (0);
-		rai::write (stream, successor.bytes);
+		rai::write (stream, successor_a.bytes);
     }
 	block_put_raw (transaction_a, block_database (block_a.type ()), hash_a, {vector.size (), vector.data ()});
 	set_predecessor predecessor (transaction_a, *this);

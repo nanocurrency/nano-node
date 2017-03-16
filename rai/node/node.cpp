@@ -1303,7 +1303,7 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
 					// Replace block with one that has higher work value
 					if (work.work_value (root, block_a.block_work ()) > work.work_value (root, existing->block_work ()))
 					{
-						store.block_put (transaction_a, hash, block_a);
+						store.block_put (transaction_a, hash, block_a, store.block_successor (transaction_a, hash));
 					}
 				}
 				else
