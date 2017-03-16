@@ -922,9 +922,9 @@ void rai::bootstrap_attempt::dispatch_work ()
 					state = rai::attempt_state::requesting_frontiers;
 					action = [connection, this] ()
 					{
-						if (node->config.logging.network_logging ())
+						if (this->node->config.logging.network_logging ())
 						{
-							BOOST_LOG (node->log) << boost::str (boost::format ("Initiating frontier request"));
+							BOOST_LOG (this->node->log) << boost::str (boost::format ("Initiating frontier request"));
 						}
 						connection->frontier_request ();
 					};
