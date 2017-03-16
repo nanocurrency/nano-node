@@ -167,9 +167,9 @@ void rai::system::generate_receive (rai::node & node_a)
 	auto i (node_a.store.pending_begin (transaction, rai::pending_key (random_block, 0)));
 	if (i != node_a.store.pending_end ())
 	{
-		rai::block_hash send_hash (i->first);
+		rai::pending_key send_hash (i->first);
 		rai::pending_info info (i->second);
-		auto send_block (node_a.store.block_get (transaction, send_hash));
+		auto send_block (node_a.store.block_get (transaction, send_hash.hash));
 		assert (send_block != nullptr);
 		auto receive_error (wallet (0)->receive_sync (static_cast <rai::send_block &> (*send_block), rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
 		(void) receive_error;
