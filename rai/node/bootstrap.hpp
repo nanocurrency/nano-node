@@ -78,6 +78,16 @@ enum class attempt_state
 	pushing,
 	complete
 };
+class pull_info
+{
+public:
+	pull_info ();
+	pull_info (rai::account const &, rai::block_hash const &, rai::block_hash const &);
+	rai::account account;
+	rai::block_hash head;
+	rai::block_hash end;
+	unsigned attempts;
+};
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {
 public:
@@ -93,7 +103,8 @@ public:
     void completed_pulls (std::shared_ptr <rai::bootstrap_client>);
     void completed_pushes (std::shared_ptr <rai::bootstrap_client>);
 	void dispatch_work ();
-    std::deque <std::pair <rai::account, rai::block_hash>> pulls;
+	void requeue_pull (rai::pull_info const &);
+    std::deque <rai::pull_info> pulls;
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> connecting;
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> active;
 	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
@@ -112,7 +123,7 @@ public:
     ~frontier_req_client ();
     void receive_frontier ();
     void received_frontier (boost::system::error_code const &, size_t);
-    void request_account (rai::account const &);
+    void request_account (rai::account const &, rai::block_hash const &);
 	void unsynced (MDB_txn *, rai::account const &, rai::block_hash const &);
 	void next ();
     std::shared_ptr <rai::bootstrap_client> connection;
@@ -124,15 +135,15 @@ class bulk_pull_client
 public:
     bulk_pull_client (rai::bootstrap_client &);
     ~bulk_pull_client ();
-    void request (rai::account const &, rai::block_hash const &);
+    void request (rai::pull_info const &);
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
 	rai::block_hash first ();
     rai::bootstrap_client & connection;
 	size_t account_count;
-	rai::account request_account;
-	rai::account request_hash;
+	rai::block_hash expected;
+	rai::pull_info pull;
 };
 class bootstrap_client : public std::enable_shared_from_this <bootstrap_client>
 {

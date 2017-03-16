@@ -333,10 +333,10 @@ void rai::frontier_req_client::receive_frontier ()
     });
 }
 
-void rai::frontier_req_client::request_account (rai::account const & account_a)
+void rai::frontier_req_client::request_account (rai::account const & account_a, rai::block_hash const & latest_a)
 {
     // Account they know about and we don't.
-    connection->attempt->pulls.push_back (std::make_pair (account_a, rai::block_hash (0)));
+    connection->attempt->pulls.push_back (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
 }
 
 void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & ours_a, rai::block_hash const & theirs_a)
@@ -391,7 +391,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						else
 						{
 							// They know about a block we don't.
-							connection->attempt->pulls.push_back (std::make_pair (account, info.head));
+							connection->attempt->pulls.push_back (rai::pull_info (account, latest, info.head));
 						}
 					}
 					next ();
@@ -399,12 +399,12 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
                 else
                 {
                     assert (account < current);
-                    request_account (account);
+                    request_account (account, latest);
                 }
             }
             else
             {
-                request_account (account);
+                request_account (account, latest);
             }
             receive_frontier ();
         }
@@ -446,13 +446,13 @@ void rai::frontier_req_client::next ()
 	}
 }
 
-void rai::bulk_pull_client::request (rai::account const & account_a, rai::block_hash const & hash_a)
+void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 {
+	pull = pull_a;
+	expected = pull_a.head;
 	rai::bulk_pull req;
-	req.start = account_a;
-	req.end = hash_a;
-	request_account = account_a;
-	request_hash = hash_a;
+	req.start = pull_a.account;
+	req.end = pull_a.end;
 	auto buffer (std::make_shared <std::vector <uint8_t>> ());
 	{
 		rai::vectorstream stream (*buffer);
@@ -537,8 +537,6 @@ void rai::bulk_pull_client::received_type ()
         }
         case rai::block_type::not_a_block:
         {
-			request_account = 0;
-			request_hash = 0;
             connection.attempt->completed_pull (connection.shared ());
             break;
         }
@@ -565,6 +563,10 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
                 block->serialize_json (block_l);
                 BOOST_LOG (connection.node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
             }
+			if (hash == expected)
+			{
+				expected = block->previous ();
+			}
 			connection.attempt->cache.add_block (std::move (block));
             receive_block ();
 		}
@@ -581,9 +583,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 
 rai::bulk_pull_client::bulk_pull_client (rai::bootstrap_client & connection_a) :
 connection (connection_a),
-account_count (0),
-request_account (0),
-request_hash (0)
+account_count (0)
 {
 }
 
@@ -739,6 +739,21 @@ void rai::bootstrap_pull_cache::flush (size_t minimum_a)
 	}
 }
 
+rai::pull_info::pull_info () :
+account (0),
+end (0),
+attempts (0)
+{
+}
+
+rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a) :
+account (account_a),
+head (head_a),
+end (0), //end (end_a), // TODO: Workaround for successor bug b2b0b9b2, remove for boostrap bandwidth savings when nodes widely adopt fix version
+attempts (0)
+{
+}
+
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 node (node_a),
 cache (*this),
@@ -837,10 +852,10 @@ void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a
 	if (state != rai::attempt_state::complete)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
-		if (!client_a->pull_client.request_account.is_zero ())
+		if (!client_a->pull_client.pull.account.is_zero ())
 		{
 			// If this connection is ending and request_account hasn't been cleared it didn't finish, requeue
-			pulls.push_back (std::make_pair (client_a->pull_client.request_account, client_a->pull_client.request_hash));
+			//requeue_pull (client_a->pull_client.pull);
 		}
 		auto erased_connecting (connecting.erase (client_a));
 		auto erased_active (active.erase (client_a));
@@ -862,6 +877,14 @@ void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap
 
 void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_client> client_a)
 {
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		if (client_a->pull_client.expected != client_a->pull_client.pull.end)
+		{
+			//requeue_pull (client_a->pull_client.pull);
+		}
+		client_a->pull_client.pull = rai::pull_info ();
+	}
 	pool_connection (client_a);
 	cache.flush (cache.block_count);
 }
@@ -916,7 +939,7 @@ void rai::bootstrap_attempt::dispatch_work ()
 						pulls.pop_back ();
 						action = [connection, pull] ()
 						{
-							connection->pull_client.request (pull.first, pull.second);
+							connection->pull_client.request (pull);
 						};
 					}
 					else
@@ -947,6 +970,19 @@ void rai::bootstrap_attempt::dispatch_work ()
 	{
 		action ();
 		dispatch_work ();
+	}
+}
+
+void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
+{
+	auto pull (pull_a);
+	if (++pull.attempts < 16)
+	{
+		pulls.push_back (pull);
+	}
+	else
+	{
+		BOOST_LOG (node->log) << boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts") % pull.account.to_account () % pull.end.to_string () % pull.attempts);
 	}
 }
 
