@@ -100,6 +100,7 @@ public:
 	std::shared_ptr <rai::node> node;
 	rai::bootstrap_pull_cache cache;
 	rai::attempt_state state;
+	std::unordered_set <rai::endpoint> attempted;
 private:
 	void start_connection (rai::endpoint const &);
 	std::mutex mutex;

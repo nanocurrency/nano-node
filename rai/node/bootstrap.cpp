@@ -787,10 +787,14 @@ void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
 void rai::bootstrap_attempt::start_connection (rai::endpoint const & endpoint_a)
 {
 	assert (!mutex.try_lock ());
-	auto node_l (node->shared ());
-	auto client (std::make_shared <rai::bootstrap_client> (node_l, shared_from_this (), rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
-	connecting [client.get ()] = client;
-	client->run ();
+	if (attempted.find (endpoint_a) == attempted.end ())
+	{
+		attempted.insert (endpoint_a);
+		auto node_l (node->shared ());
+		auto client (std::make_shared <rai::bootstrap_client> (node_l, shared_from_this (), rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
+		connecting [client.get ()] = client;
+		client->run ();
+	}
 }
 
 void rai::bootstrap_attempt::stop ()
