@@ -771,7 +771,7 @@ void rai::bootstrap_attempt::populate_connections ()
 {
 	std::weak_ptr <rai::bootstrap_attempt> this_w (shared_from_this ());
 	std::lock_guard <std::mutex> lock (mutex);
-	if (connecting.size () + active.size () + idle.size () < 16)
+	if (connecting.size () + active.size () + idle.size () < 1)
 	{
 		start_connection (node->peers.bootstrap_peer ());
 	}
@@ -855,7 +855,7 @@ void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a
 		if (!client_a->pull_client.pull.account.is_zero ())
 		{
 			// If this connection is ending and request_account hasn't been cleared it didn't finish, requeue
-			//requeue_pull (client_a->pull_client.pull);
+			requeue_pull (client_a->pull_client.pull);
 		}
 		auto erased_connecting (connecting.erase (client_a));
 		auto erased_active (active.erase (client_a));
@@ -881,7 +881,7 @@ void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_cli
 		std::lock_guard <std::mutex> lock (mutex);
 		if (client_a->pull_client.expected != client_a->pull_client.pull.end)
 		{
-			//requeue_pull (client_a->pull_client.pull);
+			requeue_pull (client_a->pull_client.pull);
 		}
 		client_a->pull_client.pull = rai::pull_info ();
 	}
@@ -978,7 +978,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	auto pull (pull_a);
 	if (++pull.attempts < 16)
 	{
-		pulls.push_back (pull);
+		pulls.push_front (pull);
 	}
 	else
 	{
