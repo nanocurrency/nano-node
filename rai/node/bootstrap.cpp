@@ -567,7 +567,15 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				expected = block->previous ();
 			}
-			connection.attempt->cache.add_block (std::move (block));
+			auto unchecked (false);
+			{
+				rai::transaction transaction (connection.node->store.environment, nullptr, false);
+				unchecked = connection.node->store.block_exists (transaction, hash);
+			}
+			if (unchecked)
+			{
+				connection.attempt->cache.add_block (std::move (block));
+			}
             receive_block ();
 		}
         else

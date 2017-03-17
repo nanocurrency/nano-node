@@ -147,7 +147,7 @@ public:
             boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>
         >
     > blocks;
-    size_t const max = 64;
+    size_t const max = 256;
     std::mutex mutex;
     rai::node & node;
 };

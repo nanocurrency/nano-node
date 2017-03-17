@@ -1273,10 +1273,7 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
                 BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
             }
             auto previous (block_a.previous ());
-			if (!bootstrap_initiator.in_progress ())
-			{
-				gap_cache.add (block_a, previous);
-			}
+			gap_cache.add (block_a, previous);
 			break;
         }
         case rai::process_result::gap_source:
@@ -1286,10 +1283,7 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
                 BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
             }
             auto source (block_a.source ());
-			if (!bootstrap_initiator.in_progress ())
-			{
-				gap_cache.add (block_a, source);
-			}
+			gap_cache.add (block_a, source);
             break;
         }
         case rai::process_result::old:
@@ -1977,7 +1971,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 			if (next != store.unchecked_end ())
 			{
 				auto block (rai::block_hash (next->first));
-				if (block_count % 64 == 0)
+				if (config.logging.bulk_pull_logging () && block_count % 64 == 0)
 				{
 					BOOST_LOG (log) << boost::str (boost::format ("Committing block: %1% and dependencies") % block.to_string ());
 				}
@@ -1993,6 +1987,7 @@ void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> atte
 				done = true;
 			}
 		}
+		BOOST_LOG (log) << "Completed processing unchecked blocks";
 		unchecked_in_progress.clear ();
 		wallets.search_pending_all ();
 	}
