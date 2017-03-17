@@ -1577,6 +1577,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 3:
 			upgrade_v3_to_v4 (transaction_a);
 		case 4:
+			upgrade_v4_to_v5 (transaction_a);
+		case 5:
 			break;
 		default:
 		assert (false);
@@ -1692,6 +1694,32 @@ void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
 		pending_put (transaction_a, items.front ().first, items.front ().second);
 		items.pop ();
 	}
+}
+
+void rai::block_store::upgrade_v4_to_v5 (MDB_txn * transaction_a)
+{
+	unsigned fixes (0);
+	version_put (transaction_a, 5);
+	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
+	{
+		rai::account account (i->first);
+		rai::account_info info (i->second);
+		rai::block_hash successor (0);
+		auto block (block_get (transaction_a, info.head));
+		while (block != nullptr)
+		{
+			auto hash (block->hash ());
+			if (block_successor (transaction_a, hash).is_zero () && !successor.is_zero ())
+			{
+				//std::cerr << boost::str (boost::format ("Adding successor for account %1%, block %2%, successor %3%\n") % account.to_account () % hash.to_string () % successor.to_string ());
+				++fixes;
+				block_put (transaction_a, hash, *block, successor);
+			}
+			successor = hash;
+			block = block_get (transaction_a, block->previous ());
+		}
+	}
+	//std::cerr << boost::str (boost::format ("Fixed up %1% blocks\n") % fixes);
 }
 
 void rai::block_store::clear (MDB_dbi db_a)

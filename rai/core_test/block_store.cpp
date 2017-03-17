@@ -663,6 +663,38 @@ TEST (block_store, upgrade_v3_v4)
 	ASSERT_EQ (rai::amount (100), info.amount);
 }
 
+TEST (block_store, upgrade_v4_v5)
+{
+	rai::block_hash genesis_hash (0);
+	rai::block_hash hash (0);
+	auto path (rai::unique_path ());
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		ASSERT_FALSE (init);
+		rai::transaction transaction (store.environment, nullptr, true);
+		rai::genesis genesis;;
+		genesis.initialize (transaction, store);
+		rai::ledger ledger (store);
+		store.version_put (transaction, 4);
+		rai::account_info info;
+		store.account_get (transaction, rai::test_genesis_key.pub, info);
+		rai::keypair key0;
+		rai::send_block block0 (info.head, key0.pub, rai::genesis_amount - rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block0).code);
+		hash = block0.hash ();
+		auto original (store.block_get (transaction, info.head));
+		genesis_hash = info.head;
+		store.block_successor_clear (transaction, info.head);
+		ASSERT_TRUE (store.block_successor (transaction, genesis_hash).is_zero ());
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, nullptr, false);
+	ASSERT_EQ (hash, store.block_successor (transaction, genesis_hash));
+}
+
 TEST (block_store, block_random)
 {
     bool init (false);
