@@ -783,7 +783,11 @@ void rai::bootstrap_attempt::populate_connections ()
 		std::lock_guard <std::mutex> lock (mutex);
 		if (connecting.size () + active.size () + idle.size () < 1)
 		{
-			client = start_connection (node->peers.bootstrap_peer ());
+			auto peer (node->peers.bootstrap_peer ());
+			if (peer != rai::endpoint ())
+			{
+				client = start_connection (peer);
+			}
 		}
 		switch (state)
 		{
