@@ -113,7 +113,7 @@ public:
 	rai::attempt_state state;
 	std::unordered_set <rai::endpoint> attempted;
 private:
-	void start_connection (rai::endpoint const &);
+	std::shared_ptr <rai::bootstrap_client> start_connection (rai::endpoint const &);
 	std::mutex mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
