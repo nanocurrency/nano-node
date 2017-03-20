@@ -163,16 +163,19 @@ template <typename T>
 bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
 {
     bool result (false);
-	rai::transaction transaction (node_a.store.environment, nullptr, true);
-	node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+	if (node_a.config.enable_voting)
 	{
-		auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
-		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+		rai::transaction transaction (node_a.store.environment, nullptr, true);
+		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
-			node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
-			result = true;
-		}
-	});
+			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
+			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+			{
+				node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
+				result = true;
+			}
+		});
+	}
     return result;
 }
 
@@ -180,13 +183,16 @@ template <>
 bool confirm_broadcast (rai::node & node_a, rai::endpoint & peer_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
 {
     bool result (false);
-	rai::transaction transaction (node_a.store.environment, nullptr, true);
-	node_a.wallets.foreach_representative (transaction, [&result, &block_a, &peer_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+	if (node_a.config.enable_voting)
 	{
-		auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
-		node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, peer_a, rebroadcast_a);
-		result = true;
-	});
+		rai::transaction transaction (node_a.store.environment, nullptr, true);
+		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &peer_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+		{
+			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
+			node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, peer_a, rebroadcast_a);
+			result = true;
+		});
+	}
     return result;
 }
 
@@ -694,7 +700,8 @@ receive_minimum (rai::rai_ratio),
 inactive_supply (0),
 password_fanout (1024),
 io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
-work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ()))
+work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
+enable_voting (true)
 {
 	switch (rai::rai_network)
 	{
@@ -727,7 +734,7 @@ work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ()))
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "5");
+	tree_a.put ("version", "6");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("packet_delay_microseconds", std::to_string (packet_delay_microseconds));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
@@ -765,6 +772,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("password_fanout", std::to_string (password_fanout));
 	tree_a.put ("io_threads", std::to_string (io_threads));
 	tree_a.put ("work_threads", std::to_string (work_threads));
+	tree_a.put ("enable_voting", enable_voting);
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -815,6 +823,9 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		result = true;
 		break;
 	case 5:
+		tree_a.put ("enable_voting", enable_voting);
+		break;
+	case 6:
 		break;
 	default:
 		throw std::runtime_error ("Unknown node_config version");
@@ -883,6 +894,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto password_fanout_l (tree_a.get <std::string> ("password_fanout"));
 		auto io_threads_l (tree_a.get <std::string> ("io_threads"));
 		auto work_threads_l (tree_a.get <std::string> ("work_threads"));
+		enable_voting = tree_a.get <bool> ("enable_voting");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);

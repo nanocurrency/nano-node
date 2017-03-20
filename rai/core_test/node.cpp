@@ -1264,3 +1264,28 @@ TEST (node, rep_list)
 		ASSERT_GT (200, iterations);
 	}
 }
+
+// Test that nodes can disable representative voting
+TEST (node, no_voting)
+{
+    rai::system system (24000, 2);
+	auto & node0 (*system.nodes [0]);
+	auto & node1 (*system.nodes [1]);
+	auto wallet0 (system.wallet (0));
+	auto wallet1 (system.wallet (1));
+	node0.config.enable_voting = false;
+	// Node0 has a rep
+	wallet0->insert_adhoc (rai::test_genesis_key.prv);
+	rai::keypair key1;
+	wallet1->insert_adhoc (key1.prv);
+	// Broadcast a confirm so others should know this is a rep node
+	wallet0->send_action (rai::test_genesis_key.pub, key1.pub, rai::Mrai_ratio);
+	auto iterations (0);
+	while (node1.balance (key1.pub).is_zero ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_GT (200, iterations);
+	}
+	ASSERT_EQ (0, node1.network.confirm_ack_count);
+}
