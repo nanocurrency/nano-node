@@ -159,13 +159,44 @@ void rai::network::rebroadcast_reps (rai::block & block_a)
 	}
 }
 
+template <typename T>
+bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
+{
+    bool result (false);
+	rai::transaction transaction (node_a.store.environment, nullptr, true);
+	node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+	{
+		auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
+		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+		{
+			node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
+			result = true;
+		}
+	});
+    return result;
+}
+
+template <>
+bool confirm_broadcast (rai::node & node_a, rai::endpoint & peer_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
+{
+    bool result (false);
+	rai::transaction transaction (node_a.store.environment, nullptr, true);
+	node_a.wallets.foreach_representative (transaction, [&result, &block_a, &peer_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+	{
+		auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
+		node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, peer_a, rebroadcast_a);
+		result = true;
+	});
+    return result;
+}
+
 void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
 {
 	rebroadcast_reps (block);
 	auto hash (block.hash ());
     auto list (node.peers.list ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-    if (!confirm_broadcast (list, block.clone (), rebroadcast_a))
+    if (!confirm_broadcast (node, list, block.clone (), rebroadcast_a))
     {
         rai::publish message (block.clone ());
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -307,7 +338,7 @@ public:
         node.process_receive_republish (message_a.block->clone (), 0);
 		if (node.ledger.block_exists (message_a.block->hash ()))
         {
-            node.process_confirmation (*message_a.block, sender);
+            confirm_broadcast (node, sender, message_a.block->clone (), 0);
         }
     }
     void confirm_ack (rai::confirm_ack const & message_a) override
@@ -1150,22 +1181,6 @@ void rai::gap_cache::purge_old ()
 	}
 }
 
-bool rai::network::confirm_broadcast (std::vector <rai::peer_information> & list_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
-{
-    bool result (false);
-	rai::transaction transaction (this->node.store.environment, nullptr, true);
-	node.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, this, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
-	{
-		auto sequence (this->node.store.sequence_atomic_inc (transaction, pub_a));
-		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-		{
-			confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
-			result = true;
-		}
-	});
-    return result;
-}
-
 void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a, size_t rebroadcast_a)
 {
     rai::confirm_ack confirm (pub, prv, sequence_a, std::move (block_a));
@@ -1409,20 +1424,6 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 		});
     }
     return result;
-}
-
-void rai::node::process_confirmation (rai::block const & block_a, rai::endpoint const & sender)
-{
-	rai::transaction transaction (this->store.environment, nullptr, true);
-	wallets.foreach_representative (transaction, [this, &block_a, &sender, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
-	{
-		if (config.logging.network_message_logging ())
-		{
-			BOOST_LOG (log) << boost::str (boost::format ("Sending confirm ack to: %1% for %2%") % sender % block_a.hash ().to_string ());
-		}
-		auto sequence (this->store.sequence_atomic_inc (transaction, pub_a));
-		this->network.confirm_block (prv_a, pub_a, block_a.clone (), sequence, sender, 0);
-	});
 }
 
 bool rai::parse_port (std::string const & string_a, uint16_t & port_a)

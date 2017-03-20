@@ -614,7 +614,7 @@ TEST (node, confirm_locked)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->enter_password ("1");
 	rai::send_block block (0, 0, 0, rai::keypair ().prv, 0, 0);
-	system.nodes [0]->process_confirmation (block, rai::endpoint ());
+	system.nodes [0]->network.republish_block (block, 0);
 }
 
 TEST (node_config, random_rep)

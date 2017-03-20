@@ -272,7 +272,6 @@ public:
     void republish_block (rai::block &, size_t);
 	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
-    bool confirm_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>, size_t);
 	void confirm_block (rai::raw_key const &, rai::public_key const &, std::unique_ptr <rai::block>, uint64_t, rai::endpoint const &, size_t);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);
@@ -419,7 +418,6 @@ public:
 	void process_unchecked (std::shared_ptr <rai::bootstrap_attempt>);
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
-    void process_confirmation (rai::block const &, rai::endpoint const &);
     void process_receive_republish (std::unique_ptr <rai::block>, size_t);
     void process_receive_many (rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
     void process_receive_many (MDB_txn *, rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
