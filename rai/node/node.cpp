@@ -824,6 +824,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		break;
 	case 5:
 		tree_a.put ("enable_voting", enable_voting);
+		tree_a.put ("version", "6");
 		result = true;
 		break;
 	case 6:
