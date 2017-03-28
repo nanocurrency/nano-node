@@ -1873,7 +1873,11 @@ void handle_failure (bool last)
 	{
 		if (!completed.test_and_set ())
 		{
-			callback (node->work.generate (root));
+			auto callback_l (callback);
+			node->work.generate (root, [callback_l] (boost::optional <uint64_t> const & work_a)
+			{
+				callback_l (work_a.value ());
+			});
 		}
 	}
 }

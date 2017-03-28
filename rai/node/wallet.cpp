@@ -99,7 +99,7 @@ void rai::work_pool::loop (uint64_t thread)
 				assert (work_value (current_l.first, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
-				current_l.second->set_value (work);
+				current_l.second (work);
 				pending.pop_front ();
 			}
 			else
@@ -130,7 +130,7 @@ void rai::work_pool::cancel (rai::uint256_union const & root_a)
 		bool result;
 		if (item_a.first == root_a)
 		{
-			item_a.second->set_value (boost::none);
+			item_a.second (boost::none);
 			result = true;
 		}
 		else
@@ -159,7 +159,7 @@ void rai::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union const & root_a)
+void rai::work_pool::generate (rai::uint256_union const & root_a, std::function <void (boost::optional <uint64_t> const &)> callback_a)
 {
 	assert (!root_a.is_zero ());
 	boost::optional <uint64_t> result;
@@ -169,20 +169,25 @@ boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union co
 	}
 	if (!result)
 	{
-		std::promise <boost::optional <uint64_t>> work;
-		{
-			std::lock_guard <std::mutex> lock (mutex);
-			pending.push_back (std::make_pair (root_a, &work));
-			producer_condition.notify_all ();
-		}
-		result = work.get_future ().get ();
+		std::lock_guard <std::mutex> lock (mutex);
+		pending.push_back (std::make_pair (root_a, callback_a));
+		producer_condition.notify_all ();
 	}
-	return result;
+	else
+	{
+		callback_a (result);
+	}
 }
 
-uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
+uint64_t rai::work_pool::generate (rai::uint256_union const & hash_a)
 {
-	return generate_maybe (root_a).value ();
+	std::promise <boost::optional <uint64_t>> work;
+	generate (hash_a, [&work] (boost::optional <uint64_t> work_a)
+	{
+		work.set_value (work_a);
+	});
+	auto result (work.get_future ().get ());
+	return result.value ();
 }
 
 rai::uint256_union rai::wallet_store::check (MDB_txn * transaction_a)
