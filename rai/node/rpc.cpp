@@ -1598,17 +1598,20 @@ void rai::rpc_handler::work_generate ()
 		auto error (hash.decode_hex (hash_text));
 		if (!error)
 		{
-			auto work (node.work.generate_maybe (hash));
-			if (work)
+			auto rpc_l (shared_from_this ());
+			node.work.generate (hash, [rpc_l] (boost::optional <uint64_t> const & work_a)
 			{
-				boost::property_tree::ptree response_l;
-				response_l.put ("work", rai::to_string_hex (work.value ()));
-				response (response_l);
-			}
-			else
-			{
-				error_response (response, "Cancelled");
-			}
+				if (work_a)
+				{
+					boost::property_tree::ptree response_l;
+					response_l.put ("work", rai::to_string_hex (work_a.value ()));
+					rpc_l->response (response_l);
+				}
+				else
+				{
+					error_response (rpc_l->response, "Cancelled");
+				}
+			});
 		}
 		else
 		{

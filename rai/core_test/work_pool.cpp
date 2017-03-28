@@ -25,20 +25,13 @@ TEST (work, cancel)
 {
 	rai::work_pool pool (std::numeric_limits <unsigned>::max (), nullptr);
 	rai::uint256_union key (1);
-	bool exited (false);
-	std::thread thread ([&pool, &key, &exited] ()
+	boost::optional <uint64_t> work (0);
+	pool.generate (key, [&work] (boost::optional <uint64_t> work_a)
 	{
-		auto maybe (pool.generate_maybe (key));
-		exited = true;
+		work = work_a;
 	});
-	auto done (false);
-	while (!done)
-	{
-		std::lock_guard <std::mutex> lock (pool.mutex);
-		done = exited || !pool.pending.empty ();
-	}
 	pool.cancel (key);
-	thread.join ();
+	ASSERT_FALSE (work);
 }
 
 TEST (work, cancel_many)
@@ -50,37 +43,13 @@ TEST (work, cancel_many)
 	rai::uint256_union key4 (1);
 	rai::uint256_union key5 (3);
 	rai::uint256_union key6 (1);
-	std::thread thread1 ([&key1, &pool]()
-	{
-		pool.generate_maybe (key1);
-	});
-	std::thread thread2 ([&key2, &pool]()
-	{
-		pool.generate_maybe (key2);
-	});
-	std::thread thread3 ([&key3, &pool]()
-	{
-		pool.generate_maybe (key3);
-	});
-	std::thread thread4 ([&key4, &pool]()
-	{
-		pool.generate_maybe (key4);
-	});
-	std::thread thread5 ([&key5, &pool]()
-	{
-		pool.generate_maybe (key5);
-	});
-	std::thread thread6 ([&key6, &pool]()
-	{
-		pool.generate_maybe (key6);
-	});
+	pool.generate (key1, [] (boost::optional <uint64_t>) {});
+	pool.generate (key2, [] (boost::optional <uint64_t>) {});
+	pool.generate (key3, [] (boost::optional <uint64_t>) {});
+	pool.generate (key4, [] (boost::optional <uint64_t>) {});
+	pool.generate (key5, [] (boost::optional <uint64_t>) {});
+	pool.generate (key6, [] (boost::optional <uint64_t>) {});
 	pool.cancel (key1);
-	thread1.join ();
-	thread2.join ();
-	thread3.join ();
-	thread4.join ();
-	thread5.join ();
-	thread6.join ();
 }
 
 TEST (work, opencl)

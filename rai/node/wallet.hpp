@@ -23,15 +23,15 @@ public:
 	void loop (uint64_t);
 	void stop ();
 	void cancel (rai::uint256_union const &);
+	void generate (rai::uint256_union const &, std::function <void (boost::optional <uint64_t> const &)>);
 	uint64_t generate (rai::uint256_union const &);
-	boost::optional <uint64_t> generate_maybe (rai::uint256_union const &);
 	uint64_t work_value (rai::block_hash const &, uint64_t);
 	bool work_validate (rai::block &);
 	bool work_validate (rai::block_hash const &, uint64_t);
 	std::atomic <int> ticket;
 	bool done;
 	std::vector <std::thread> threads;
-	std::list <std::pair <rai::uint256_union, std::promise <boost::optional <uint64_t>> *>> pending;
+	std::list <std::pair <rai::uint256_union, std::function <void (boost::optional <uint64_t> const &)>>> pending;
 	std::mutex mutex;
 	std::condition_variable producer_condition;
 	std::unique_ptr <rai::opencl_work> opencl;

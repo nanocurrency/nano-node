@@ -1364,7 +1364,7 @@ TEST (rpc, work_cancel)
 	boost::optional <uint64_t> work;
 	std::thread thread ([&] ()
 	{
-		work = system.work.generate_maybe (hash1);
+		work = system.work.generate (hash1);
 	});
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)

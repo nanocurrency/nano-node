@@ -52,6 +52,7 @@ uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t wo
 
 void rai::work_pool::loop (uint64_t thread)
 {
+	// Quick RNG for work attempts.
     xorshift1024star rng;
 	rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rng.s.data ()),  rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
@@ -64,6 +65,7 @@ void rai::work_pool::loop (uint64_t thread)
 		auto empty (pending.empty ());
 		if (thread == 0)
 		{
+			// Only work thread 0 notifies work observers
 			work_observers (!empty);
 		}
 		if (!empty)
@@ -72,8 +74,12 @@ void rai::work_pool::loop (uint64_t thread)
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
+			// ticket != ticket_l indicates a different thread found a solution and we should stop
 			while (ticket == ticket_l && output < rai::work_pool::publish_threshold)
 			{
+				// Don't query main memory every iteration in order to reduce memory bus traffic
+				// All operations here operate on stack memory
+				// Count iterations down to zero since comparing to zero is easier than comparing to another number
 				unsigned iteration (256);
 				while (iteration && output < rai::work_pool::publish_threshold)
 				{
@@ -86,20 +92,24 @@ void rai::work_pool::loop (uint64_t thread)
 				}
 			}
 			lock.lock ();
-			if (!pending.empty () && pending.front () == current_l && output >= rai::work_pool::publish_threshold)
+			if (ticket == ticket_l)
 			{
+				// If the ticket matches what we started with, we're the ones that found the solution
 				assert (output >= rai::work_pool::publish_threshold);
 				assert (work_value (current_l.first, work) == output);
+				// Signal other threads to stop their work next time they check ticket
 				++ticket;
-				current_l.second->set_value (work);
+				current_l.second (work);
 				pending.pop_front ();
 			}
 			else
 			{
+				// A different thread found a solution
 			}
 		}
 		else
 		{
+			// Wait for a work request
 			producer_condition.wait (lock);
 		}
 	}
@@ -108,12 +118,19 @@ void rai::work_pool::loop (uint64_t thread)
 void rai::work_pool::cancel (rai::uint256_union const & root_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
+	if (!pending.empty ())
+	{
+		if (pending.front ().first == root_a)
+		{
+			++ticket;
+		}
+	}
 	pending.remove_if ([&root_a] (decltype (pending)::value_type const & item_a)
 	{
 		bool result;
 		if (item_a.first == root_a)
 		{
-			item_a.second->set_value (boost::none);
+			item_a.second (boost::none);
 			result = true;
 		}
 		else
@@ -142,7 +159,7 @@ void rai::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union const & root_a)
+void rai::work_pool::generate (rai::uint256_union const & root_a, std::function <void (boost::optional <uint64_t> const &)> callback_a)
 {
 	assert (!root_a.is_zero ());
 	boost::optional <uint64_t> result;
@@ -152,20 +169,25 @@ boost::optional <uint64_t> rai::work_pool::generate_maybe (rai::uint256_union co
 	}
 	if (!result)
 	{
-		std::promise <boost::optional <uint64_t>> work;
-		{
-			std::lock_guard <std::mutex> lock (mutex);
-			pending.push_back (std::make_pair (root_a, &work));
-			producer_condition.notify_all ();
-		}
-		result = work.get_future ().get ();
+		std::lock_guard <std::mutex> lock (mutex);
+		pending.push_back (std::make_pair (root_a, callback_a));
+		producer_condition.notify_all ();
 	}
-	return result;
+	else
+	{
+		callback_a (result);
+	}
 }
 
-uint64_t rai::work_pool::generate (rai::uint256_union const & root_a)
+uint64_t rai::work_pool::generate (rai::uint256_union const & hash_a)
 {
-	return generate_maybe (root_a).value ();
+	std::promise <boost::optional <uint64_t>> work;
+	generate (hash_a, [&work] (boost::optional <uint64_t> work_a)
+	{
+		work.set_value (work_a);
+	});
+	auto result (work.get_future ().get ());
+	return result.value ();
 }
 
 rai::uint256_union rai::wallet_store::check (MDB_txn * transaction_a)
