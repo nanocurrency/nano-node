@@ -108,6 +108,13 @@ void rai::work_pool::loop (uint64_t thread)
 void rai::work_pool::cancel (rai::uint256_union const & root_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
+	if (!pending.empty ())
+	{
+		if (pending.front ().first == root_a)
+		{
+			++ticket;
+		}
+	}
 	pending.remove_if ([&root_a] (decltype (pending)::value_type const & item_a)
 	{
 		bool result;
