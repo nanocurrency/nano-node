@@ -419,7 +419,7 @@ public:
 	void process_unchecked (std::shared_ptr <rai::bootstrap_attempt>);
     void process_confirmed (rai::block const &);
 	void process_message (rai::message &, rai::endpoint const &);
-    void process_receive_republish (std::unique_ptr <rai::block>, size_t);
+    void process_receive_republish (std::unique_ptr <rai::block>);
     void process_receive_many (rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
     void process_receive_many (MDB_txn *, rai::block const &, std::function <void (rai::process_return, rai::block const &)> = [] (rai::process_return, rai::block const &) {});
     rai::process_return process_receive_one (MDB_txn *, rai::block const &);

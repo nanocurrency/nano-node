@@ -330,7 +330,7 @@ public:
         ++node.network.publish_count;
         node.peers.contacted (sender);
         node.peers.insert (sender);
-        node.process_receive_republish (message_a.block->clone (), 0);
+        node.process_receive_republish (message_a.block->clone ());
     }
     void confirm_req (rai::confirm_req const & message_a) override
     {
@@ -341,7 +341,7 @@ public:
         ++node.network.confirm_req_count;
         node.peers.contacted (sender);
         node.peers.insert (sender);
-        node.process_receive_republish (message_a.block->clone (), 0);
+        node.process_receive_republish (message_a.block->clone ());
 		if (node.ledger.block_exists (message_a.block->hash ()))
         {
             confirm_broadcast (node, sender, message_a.block->clone ());
@@ -356,7 +356,7 @@ public:
         ++node.network.confirm_ack_count;
         node.peers.contacted (sender);
         node.peers.insert (sender);
-        node.process_receive_republish (message_a.vote.block->clone (), 0);
+        node.process_receive_republish (message_a.vote.block->clone ());
         node.vote_processor.vote (message_a.vote, sender);
     }
     void bulk_pull (rai::bulk_pull const &) override
@@ -1223,13 +1223,13 @@ void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key cons
 	});
 }
 
-void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming, size_t rebroadcast_a)
+void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming)
 {
 	std::vector <std::tuple <rai::process_return, std::unique_ptr <rai::block>>> completed;
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		assert (incoming != nullptr);
-		process_receive_many (transaction, *incoming, [this, rebroadcast_a, &completed, &transaction] (rai::process_return result_a, rai::block const & block_a)
+		process_receive_many (transaction, *incoming, [this, &completed, &transaction] (rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{

@@ -991,7 +991,7 @@ std::unique_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		node.process_receive_republish (block->clone ());
 		auto hash (block->hash ());
 		auto this_l (shared_from_this ());
 		auto source (send_a.hashables.destination);
@@ -1029,7 +1029,7 @@ std::unique_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		node.process_receive_republish (block->clone ());
 		auto hash (block->hash ());
 		auto this_l (shared_from_this ());
 		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
@@ -1070,7 +1070,7 @@ std::unique_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block->clone (), node.config.creation_rebroadcast);
+		node.process_receive_republish (block->clone ());
 		auto hash (block->hash ());
 		auto this_l (shared_from_this ());
 		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
