@@ -614,7 +614,7 @@ TEST (node, confirm_locked)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->enter_password ("1");
 	rai::send_block block (0, 0, 0, rai::keypair ().prv, 0, 0);
-	system.nodes [0]->network.republish_block (block, 0);
+	system.nodes [0]->network.republish_block (block);
 }
 
 TEST (node_config, random_rep)
@@ -642,7 +642,7 @@ TEST (node, block_replace)
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_EQ (block3->hash (), system.nodes [0]->store.block_successor (transaction, block1->hash ()));
 	}
-	system.nodes [1]->network.republish_block (*block1, 0);
+	system.nodes [1]->network.republish_block (*block1);
 	auto iterations1 (0);
 	std::unique_ptr <rai::block> block2;
 	while (block2 == nullptr)
@@ -1017,7 +1017,7 @@ TEST (node, fork_no_vote_quorum)
 	rai::send_block send2 (block->hash (), key2, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ()));
 	rai::raw_key key3;
 	ASSERT_FALSE (system.wallet (1)->store.fetch (rai::transaction (system.wallet (1)->store.environment, nullptr, false), key1, key3));
-	node2.network.confirm_block (key3, key1, send2.clone (), 0, node3.network.endpoint (), 0);
+	node2.network.confirm_block (key3, key1, send2.clone (), 0, node3.network.endpoint ());
 	while (node3.network.confirm_ack_count < 3)
 	{
 		system.poll ();

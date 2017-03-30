@@ -160,18 +160,18 @@ void rai::network::rebroadcast_reps (rai::block & block_a)
 }
 
 template <typename T>
-bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
+bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::block> block_a)
 {
     bool result (false);
 	if (node_a.config.enable_voting)
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, true);
-		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
 			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint, rebroadcast_a);
+				node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint);
 				result = true;
 			}
 		});
@@ -180,29 +180,29 @@ bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::bl
 }
 
 template <>
-bool confirm_broadcast (rai::node & node_a, rai::endpoint & peer_a, std::unique_ptr <rai::block> block_a, size_t rebroadcast_a)
+bool confirm_broadcast (rai::node & node_a, rai::endpoint & peer_a, std::unique_ptr <rai::block> block_a)
 {
     bool result (false);
 	if (node_a.config.enable_voting)
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, true);
-		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &peer_a, &node_a, rebroadcast_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &peer_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
 			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
-			node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, peer_a, rebroadcast_a);
+			node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, peer_a);
 			result = true;
 		});
 	}
     return result;
 }
 
-void rai::network::republish_block (rai::block & block, size_t rebroadcast_a)
+void rai::network::republish_block (rai::block & block)
 {
 	rebroadcast_reps (block);
 	auto hash (block.hash ());
     auto list (node.peers.list ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-    if (!confirm_broadcast (node, list, block.clone (), rebroadcast_a))
+    if (!confirm_broadcast (node, list, block.clone ()))
     {
         rai::publish message (block.clone ());
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -344,7 +344,7 @@ public:
         node.process_receive_republish (message_a.block->clone (), 0);
 		if (node.ledger.block_exists (message_a.block->hash ()))
         {
-            confirm_broadcast (node, sender, message_a.block->clone (), 0);
+            confirm_broadcast (node, sender, message_a.block->clone ());
         }
     }
     void confirm_ack (rai::confirm_ack const & message_a) override
@@ -1195,7 +1195,7 @@ void rai::gap_cache::purge_old ()
 	}
 }
 
-void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a, size_t rebroadcast_a)
+void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a)
 {
     rai::confirm_ack confirm (pub, prv, sequence_a, std::move (block_a));
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -2451,7 +2451,7 @@ void rai::election::broadcast_winner ()
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		compute_rep_votes (transaction);
 	}
-	node.network.republish_block (*last_winner, 0);
+	node.network.republish_block (*last_winner);
 }
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
