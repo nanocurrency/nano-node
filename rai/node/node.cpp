@@ -168,6 +168,7 @@ bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::bl
 		rai::transaction transaction (node_a.store.environment, nullptr, true);
 		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
+			result = true;
 			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
 			rai::vote vote (pub_a, prv_a, sequence, block_a->clone ());
 			rai::confirm_ack confirm (vote);
@@ -178,8 +179,7 @@ bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::bl
 			}
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.confirm_block (confirm, bytes, j->endpoint);
-				result = true;
+				node_a.network.confirm_block (confirm, bytes, *j);
 			}
 		});
 	}
@@ -189,25 +189,10 @@ bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::bl
 template <>
 bool confirm_broadcast (rai::node & node_a, rai::endpoint & peer_a, std::unique_ptr <rai::block> block_a)
 {
-    bool result (false);
-	if (node_a.config.enable_voting)
-	{
-		rai::transaction transaction (node_a.store.environment, nullptr, true);
-		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &peer_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
-		{
-			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
-			rai::vote vote (pub_a, prv_a, sequence, block_a->clone ());
-			rai::confirm_ack confirm (vote);
-			std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
-			{
-				rai::vectorstream stream (*bytes);
-				confirm.serialize (stream);
-			}
-			node_a.network.confirm_block (confirm, bytes, peer_a);
-			result = true;
-		});
-	}
-    return result;
+	std::array <rai::endpoint, 1> endpoints;
+	endpoints [0] = peer_a;
+	auto result (confirm_broadcast (node_a, endpoints, std::move (block_a)));
+	return result;
 }
 
 void rai::network::republish_block (rai::block & block)
@@ -249,7 +234,7 @@ void rai::network::broadcast_confirm_req (rai::block const & block_a)
 	auto list (node.peers.list ());
 	for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
 	{
-		node.network.send_confirm_req (i->endpoint, block_a);
+		node.network.send_confirm_req (*i, block_a);
 	}
     if (node.config.logging.network_logging ())
     {
@@ -1419,14 +1404,14 @@ std::vector <rai::endpoint> rai::peer_container::list_sqrt ()
 	return result;
 }
 
-std::vector <rai::peer_information> rai::peer_container::list ()
+std::vector <rai::endpoint> rai::peer_container::list ()
 {
-    std::vector <rai::peer_information> result;
+    std::vector <rai::endpoint> result;
     std::lock_guard <std::mutex> lock (mutex);
     result.reserve (peers.size ());
     for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
     {
-        result.push_back (*i);
+        result.push_back (i->endpoint);
     }
 	std::random_shuffle (result.begin (), result.end ());
     return result;

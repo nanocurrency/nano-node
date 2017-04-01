@@ -182,7 +182,7 @@ public:
 	// Request a list of the top known representatives
 	std::vector <peer_information> representatives (size_t);
 	// List of all peers
-	std::vector <peer_information> list ();
+	std::vector <rai::endpoint> list ();
 	// A list of random peers with size the square root of total peer count
 	std::vector <rai::endpoint> list_sqrt ();
 	// Get the next peer for attempting bootstrap

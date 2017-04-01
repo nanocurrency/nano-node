@@ -893,7 +893,7 @@ void rai::rpc_handler::peers ()
 	{
 		boost::property_tree::ptree entry;
 		std::stringstream text;
-		text << i->endpoint;
+		text << *i;
 		entry.put ("", text.str ());
 		peers_l.push_back (std::make_pair ("", entry));
 	}
