@@ -1017,7 +1017,14 @@ TEST (node, fork_no_vote_quorum)
 	rai::send_block send2 (block->hash (), key2, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ()));
 	rai::raw_key key3;
 	ASSERT_FALSE (system.wallet (1)->store.fetch (rai::transaction (system.wallet (1)->store.environment, nullptr, false), key1, key3));
-	node2.network.confirm_block (key3, key1, send2.clone (), 0, node3.network.endpoint ());
+	rai::vote vote (key1, key3, 0, send2.clone ());
+	rai::confirm_ack confirm (vote);
+	std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		confirm.serialize (stream);
+	}
+	node2.network.confirm_block (confirm, bytes, node3.network.endpoint ());
 	while (node3.network.confirm_ack_count < 3)
 	{
 		system.poll ();

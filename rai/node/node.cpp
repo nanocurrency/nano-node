@@ -169,9 +169,16 @@ bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::bl
 		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
 			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
+			rai::vote vote (pub_a, prv_a, sequence, block_a->clone ());
+			rai::confirm_ack confirm (vote);
+			std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+			{
+				rai::vectorstream stream (*bytes);
+				confirm.serialize (stream);
+			}
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, j->endpoint);
+				node_a.network.confirm_block (confirm, bytes, j->endpoint);
 				result = true;
 			}
 		});
@@ -189,7 +196,14 @@ bool confirm_broadcast (rai::node & node_a, rai::endpoint & peer_a, std::unique_
 		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &peer_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
 			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
-			node_a.network.confirm_block (prv_a, pub_a, block_a->clone (), sequence, peer_a);
+			rai::vote vote (pub_a, prv_a, sequence, block_a->clone ());
+			rai::confirm_ack confirm (vote);
+			std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+			{
+				rai::vectorstream stream (*bytes);
+				confirm.serialize (stream);
+			}
+			node_a.network.confirm_block (confirm, bytes, peer_a);
 			result = true;
 		});
 	}
@@ -1195,26 +1209,14 @@ void rai::gap_cache::purge_old ()
 	}
 }
 
-void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a)
+void rai::network::confirm_block (rai::confirm_ack const & confirm_a, std::shared_ptr <std::vector <uint8_t>> bytes_a, rai::endpoint const & endpoint_a)
 {
-	rai::vote vote (pub, prv, sequence_a, std::move (block_a));
-	confirm_block (vote, endpoint_a);
-}
-
-void rai::network::confirm_block (rai::vote & vote_a, rai::endpoint const & endpoint_a)
-{
-    rai::confirm_ack confirm (vote_a);
-    std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
-    {
-        rai::vectorstream stream (*bytes);
-        confirm.serialize (stream);
-    }
     if (node.config.logging.network_publish_logging ())
     {
-        BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2%") % confirm.vote.block->hash ().to_string () % endpoint_a);
+        BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2%") % confirm_a.vote.block->hash ().to_string () % endpoint_a);
     }
     std::weak_ptr <rai::node> node_w (node.shared ());
-    node.network.send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a] (boost::system::error_code const & ec, size_t size_a)
+    node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a] (boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node_w.lock ())
 		{
