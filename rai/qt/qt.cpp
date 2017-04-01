@@ -1343,13 +1343,9 @@ void rai_qt::advanced_actions::refresh_peers ()
     for (auto i: list)
     {
         std::stringstream endpoint;
-        endpoint << i.endpoint.address ().to_string ();
+        endpoint << i.address ().to_string ();
         endpoint << ':';
-        endpoint << i.endpoint.port ();
-        endpoint << ' ';
-        endpoint << i.last_contact;
-        endpoint << ' ';
-        endpoint << i.last_attempt;
+        endpoint << i.port ();
         QString qendpoint (endpoint.str().c_str ());
         peers << qendpoint;
     }

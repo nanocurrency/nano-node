@@ -1024,7 +1024,7 @@ TEST (node, fork_no_vote_quorum)
 		rai::vectorstream stream (*bytes);
 		confirm.serialize (stream);
 	}
-	node2.network.confirm_block (confirm, bytes, node3.network.endpoint ());
+	node2.network.confirm_send (confirm, bytes, node3.network.endpoint ());
 	while (node3.network.confirm_ack_count < 3)
 	{
 		system.poll ();

@@ -160,7 +160,22 @@ void rai::network::rebroadcast_reps (rai::block & block_a)
 }
 
 template <typename T>
-bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::block> block_a)
+void confirm_broadcast (rai::node & node_a, T & list_a, rai::vote & vote_a)
+{
+	rai::confirm_ack confirm (vote_a);
+	std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		confirm.serialize (stream);
+	}
+	for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+	{
+		node_a.network.confirm_send (confirm, bytes, *j);
+	}
+}
+
+template <typename T>
+bool confirm_block (rai::node & node_a, T & list_a, std::unique_ptr <rai::block> block_a)
 {
     bool result (false);
 	if (node_a.config.enable_voting)
@@ -171,27 +186,18 @@ bool confirm_broadcast (rai::node & node_a, T & list_a, std::unique_ptr <rai::bl
 			result = true;
 			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
 			rai::vote vote (pub_a, prv_a, sequence, block_a->clone ());
-			rai::confirm_ack confirm (vote);
-			std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
-			{
-				rai::vectorstream stream (*bytes);
-				confirm.serialize (stream);
-			}
-			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-			{
-				node_a.network.confirm_block (confirm, bytes, *j);
-			}
+			confirm_broadcast (node_a, list_a, vote);
 		});
 	}
     return result;
 }
 
 template <>
-bool confirm_broadcast (rai::node & node_a, rai::endpoint & peer_a, std::unique_ptr <rai::block> block_a)
+bool confirm_block (rai::node & node_a, rai::endpoint & peer_a, std::unique_ptr <rai::block> block_a)
 {
 	std::array <rai::endpoint, 1> endpoints;
 	endpoints [0] = peer_a;
-	auto result (confirm_broadcast (node_a, endpoints, std::move (block_a)));
+	auto result (confirm_block (node_a, endpoints, std::move (block_a)));
 	return result;
 }
 
@@ -201,7 +207,7 @@ void rai::network::republish_block (rai::block & block)
 	auto hash (block.hash ());
     auto list (node.peers.list ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-    if (!confirm_broadcast (node, list, block.clone ()))
+    if (!confirm_block (node, list, block.clone ()))
     {
         rai::publish message (block.clone ());
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -343,7 +349,7 @@ public:
         node.process_receive_republish (message_a.block->clone ());
 		if (node.ledger.block_exists (message_a.block->hash ()))
         {
-            confirm_broadcast (node, sender, message_a.block->clone ());
+            confirm_block (node, sender, message_a.block->clone ());
         }
     }
     void confirm_ack (rai::confirm_ack const & message_a) override
@@ -1194,7 +1200,7 @@ void rai::gap_cache::purge_old ()
 	}
 }
 
-void rai::network::confirm_block (rai::confirm_ack const & confirm_a, std::shared_ptr <std::vector <uint8_t>> bytes_a, rai::endpoint const & endpoint_a)
+void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared_ptr <std::vector <uint8_t>> bytes_a, rai::endpoint const & endpoint_a)
 {
     if (node.config.logging.network_publish_logging ())
     {
