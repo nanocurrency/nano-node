@@ -2356,13 +2356,31 @@ void rai::network::initiate_send ()
 	socket.async_send_to (boost::asio::buffer (front.data, front.size), front.endpoint, [this, front] (boost::system::error_code const & ec, size_t size_a)
 	{
 		rai::send_info self;
+		bool empty;
 		{
 			std::unique_lock <std::mutex> lock (socket_mutex);
 			assert (!sends.empty ());
 			self = sends.front ();
+			sends.pop ();
+			empty = sends.empty ();
 		}
 		self.callback (ec, size_a);
-		send_complete (ec, size_a);
+		if (node.config.logging.network_packet_logging ())
+		{
+			BOOST_LOG (node.log) << "Packet send complete";
+		}
+		if (!empty)
+		{
+			if (node.config.logging.network_packet_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.config.packet_delay_microseconds);
+			}
+			node.alarm.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.config.packet_delay_microseconds), [this] ()
+			{
+				std::unique_lock <std::mutex> lock (socket_mutex);
+				initiate_send ();
+			});
+		}
 	});
 }
 
@@ -2374,29 +2392,6 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	if (initiate)
 	{
 		initiate_send ();
-	}
-}
-
-void rai::network::send_complete (boost::system::error_code const & ec, size_t size_a)
-{
-    if (node.config.logging.network_packet_logging ())
-    {
-        BOOST_LOG (node.log) << "Packet send complete";
-    }
-	std::unique_lock <std::mutex> lock (socket_mutex);
-	assert (!sends.empty ());
-	sends.pop ();
-	if (!sends.empty ())
-	{
-		if (node.config.logging.network_packet_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.config.packet_delay_microseconds);
-		}
-		node.alarm.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.config.packet_delay_microseconds), [this] ()
-		{
-			std::unique_lock <std::mutex> lock (socket_mutex);
-			initiate_send ();
-		});
 	}
 }
 
