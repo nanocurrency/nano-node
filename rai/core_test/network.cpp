@@ -242,7 +242,7 @@ TEST (network, send_insufficient_work)
         publish.serialize (stream);
     }
     auto node1 (system.nodes [1]->shared ());
-    system.nodes [0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes [1]->network.endpoint (), 0, [bytes, node1] (boost::system::error_code const & ec, size_t size) {});
+    system.nodes [0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes [1]->network.endpoint (), [bytes, node1] (boost::system::error_code const & ec, size_t size) {});
     ASSERT_EQ (0, system.nodes [0]->network.insufficient_work_count);
     auto iterations (0);
     while (system.nodes [1]->network.insufficient_work_count == 0)
