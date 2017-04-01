@@ -1197,7 +1197,13 @@ void rai::gap_cache::purge_old ()
 
 void rai::network::confirm_block (rai::raw_key const & prv, rai::public_key const & pub, std::unique_ptr <rai::block> block_a, uint64_t sequence_a, rai::endpoint const & endpoint_a)
 {
-    rai::confirm_ack confirm (pub, prv, sequence_a, std::move (block_a));
+	rai::vote vote (pub, prv, sequence_a, std::move (block_a));
+	confirm_block (vote, endpoint_a);
+}
+
+void rai::network::confirm_block (rai::vote & vote_a, rai::endpoint const & endpoint_a)
+{
+    rai::confirm_ack confirm (vote_a);
     std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
     {
         rai::vectorstream stream (*bytes);

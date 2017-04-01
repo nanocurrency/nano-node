@@ -367,9 +367,9 @@ vote (error_a, stream_a, block_type ())
 {
 }
 
-rai::confirm_ack::confirm_ack (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
+rai::confirm_ack::confirm_ack (rai::vote & vote_a) :
 message (rai::message_type::confirm_ack),
-vote (account_a, prv_a, sequence_a, std::move (block_a))
+vote (std::move (vote_a))
 {
     block_type_set (vote.block->type ());
 }

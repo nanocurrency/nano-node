@@ -270,7 +270,8 @@ TEST (receivable_processor, confirm_insufficient_pos)
 		});
 	}
     rai::keypair key1;
-    rai::confirm_ack con1 (key1.pub, key1.prv, 0, block1.clone ());
+	rai::vote vote (key1.pub, key1.prv, 0, block1.clone ());
+    rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());
 }
 
@@ -289,7 +290,8 @@ TEST (receivable_processor, confirm_sufficient_pos)
 			node_l->process_confirmed (block_a);
 		});
 	}
-    rai::confirm_ack con1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
+	rai::vote vote (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
+    rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());
 }
 
