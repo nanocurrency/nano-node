@@ -160,21 +160,6 @@ void rai::network::rebroadcast_reps (rai::block & block_a)
 }
 
 template <typename T>
-void confirm_broadcast (rai::node & node_a, T & list_a, rai::vote & vote_a)
-{
-	rai::confirm_ack confirm (vote_a);
-	std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		confirm.serialize (stream);
-	}
-	for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-	{
-		node_a.network.confirm_send (confirm, bytes, *j);
-	}
-}
-
-template <typename T>
 bool confirm_block (rai::node & node_a, T & list_a, std::unique_ptr <rai::block> block_a)
 {
     bool result (false);
@@ -186,7 +171,16 @@ bool confirm_block (rai::node & node_a, T & list_a, std::unique_ptr <rai::block>
 			result = true;
 			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
 			rai::vote vote (pub_a, prv_a, sequence, block_a->clone ());
-			confirm_broadcast (node_a, list_a, vote);
+			rai::confirm_ack confirm (vote);
+			std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+			{
+				rai::vectorstream stream (*bytes);
+				confirm.serialize (stream);
+			}
+			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+			{
+				node_a.network.confirm_send (confirm, bytes, *j);
+			}
 		});
 	}
     return result;
@@ -231,6 +225,31 @@ void rai::network::republish_block (rai::block & block)
 		if (node.config.logging.network_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % hash.to_string ());
+		}
+	}
+}
+
+// In order to rate limit network traffic we republish:
+// 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
+// 2) Only if a vote for this block hasn't been received in the previous X second.  This prevents rapid publishing of votes with increasing sequence numbers.
+// 3) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
+void rai::network::republish (std::chrono::system_clock::time_point const & last_vote, rai::vote const & vote_a)
+{
+	if (last_vote < std::chrono::system_clock::now () - std::chrono::seconds (1))
+	{
+		if (node.weight (vote_a.account) > rai::Mrai_ratio * 256)
+		{
+			rai::confirm_ack confirm (vote_a);
+			std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+			{
+				rai::vectorstream stream (*bytes);
+				confirm.serialize (stream);
+			}
+			auto list (node.peers.list_sqrt ());
+			for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
+			{
+				node.network.confirm_send (confirm, bytes, *j);
+			}
 		}
 	}
 }
@@ -2513,6 +2532,8 @@ void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 
 void rai::election::vote (rai::vote const & vote_a)
 {
+	node.network.republish (last_vote, vote_a);
+	last_vote = std::chrono::system_clock::now ();
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	assert (vote_a.validate (transaction, node.store) != rai::vote_result::invalid);
 	votes.vote (vote_a);

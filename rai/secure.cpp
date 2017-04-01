@@ -3191,6 +3191,14 @@ transaction (transaction_a)
 {
 }
 
+rai::vote::vote (rai::vote const & other_a) :
+sequence (other_a.sequence),
+block (other_a.block->clone ()),
+account (other_a.account),
+signature (other_a.signature)
+{
+}
+
 rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 {
 	if (!error_a)

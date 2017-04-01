@@ -268,6 +268,7 @@ public:
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
 	void rebroadcast_reps (rai::block &);
+	void republish (std::chrono::system_clock::time_point const &, rai::vote const &);
     void republish_block (rai::block &);
 	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);

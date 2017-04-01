@@ -171,7 +171,7 @@ class confirm_ack : public message
 {
 public:
 	confirm_ack (bool &, rai::stream &);
-    confirm_ack (rai::vote &);
+    confirm_ack (rai::vote const &);
     bool deserialize (rai::stream &) override;
     void serialize (rai::stream &) override;
     void visit (rai::message_visitor &) const override;
