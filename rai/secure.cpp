@@ -73,8 +73,9 @@ std::string rai_live_genesis;
 rai::account genesis_account;
 std::string genesis_block;
 rai::uint128_t genesis_amount;
+CryptoPP::AutoSeededRandomPool random_pool;
 };
-ledger_constants const globals;
+ledger_constants globals;
 }
 
 size_t constexpr rai::send_block::size;
@@ -94,6 +95,7 @@ std::string const & rai::rai_live_genesis (globals.rai_live_genesis);
 rai::account const & rai::genesis_account (globals.genesis_account);
 std::string const & rai::genesis_block (globals.genesis_block);
 rai::uint128_t const & rai::genesis_amount (globals.genesis_amount);
+CryptoPP::AutoSeededRandomPool & rai::random_pool (globals.random_pool);
 
 boost::filesystem::path rai::working_path ()
 {
