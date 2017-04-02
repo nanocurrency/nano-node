@@ -757,7 +757,7 @@ attempts (0)
 rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a) :
 account (account_a),
 head (head_a),
-end (0), //end (end_a), // TODO: Workaround for successor bug b2b0b9b2, remove for boostrap bandwidth savings when nodes widely adopt fix version
+end (end_a),
 attempts (0)
 {
 }
