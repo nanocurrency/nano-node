@@ -191,19 +191,17 @@ TEST (network, send_valid_confirm_ack)
 	system.wallet (1)->insert_adhoc (key2.prv);
     rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
     rai::send_block block2 (latest1, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1));
-    auto hash2 (block2.hash ());
     rai::block_hash latest2 (system.nodes [1]->latest (rai::test_genesis_key.pub));
 	system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
-    while (system.nodes [1]->network.confirm_ack_count == 0)
+	// Keep polling until latest block changes
+    while (system.nodes [1]->latest (rai::test_genesis_key.pub) == latest2)
     {
         system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    rai::block_hash latest3 (system.nodes [1]->latest (rai::test_genesis_key.pub));
-    ASSERT_NE (latest2, latest3);
-    ASSERT_EQ (hash2, latest3);
+	// Make sure the balance has decreased after procssing the block.
     ASSERT_EQ (50, system.nodes [1]->balance (rai::test_genesis_key.pub));
 }
 

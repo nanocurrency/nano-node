@@ -1260,7 +1260,7 @@ TEST (node, rep_list)
 		{
 			if (reps [0].endpoint == node0.network.endpoint ())
 			{
-				if (reps [0].rep_weight == rai::genesis_amount - rai::Mrai_ratio)
+				if (!reps [0].rep_weight.is_zero ())
 				{
 					done = true;
 				}

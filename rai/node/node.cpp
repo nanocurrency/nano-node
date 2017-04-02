@@ -2101,9 +2101,12 @@ std::vector <rai::peer_information> rai::peer_container::representatives (size_t
 	std::vector <peer_information> result;
 	result.reserve (count_a);
 	std::lock_guard <std::mutex> lock (mutex);
-	for (auto i (peers.get <6> ().begin ()), n (peers.get <6> ().end ()); i != n && result.size () < count_a && !i->rep_weight.is_zero (); ++i)
+	for (auto i (peers.get <6> ().begin ()), n (peers.get <6> ().end ()); i != n && result.size () < count_a; ++i)
 	{
-		result.push_back (*i);
+		if (!i->rep_weight.is_zero ())
+		{
+			result.push_back (*i);
+		}
 	}
 	return result;
 }
@@ -2356,55 +2359,21 @@ std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::
     return stream_a;
 }
 
-void rai::network::initiate_send ()
+void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function <void (boost::system::error_code const &, size_t)> callback_a)
 {
-	assert (!socket_mutex.try_lock ());
-	assert (!sends.empty ());
-	auto & front (sends.front ());
+	std::unique_lock <std::mutex> lock (socket_mutex);
 	if (node.config.logging.network_packet_logging ())
 	{
 		BOOST_LOG (node.log) << "Sending packet";
 	}
-	socket.async_send_to (boost::asio::buffer (front.data, front.size), front.endpoint, [this, front] (boost::system::error_code const & ec, size_t size_a)
+	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a] (boost::system::error_code const & ec, size_t size_a)
 	{
-		rai::send_info self;
-		bool empty;
-		{
-			std::unique_lock <std::mutex> lock (socket_mutex);
-			assert (!sends.empty ());
-			self = sends.front ();
-			sends.pop ();
-			empty = sends.empty ();
-		}
-		self.callback (ec, size_a);
+		callback_a (ec, size_a);
 		if (node.config.logging.network_packet_logging ())
 		{
 			BOOST_LOG (node.log) << "Packet send complete";
 		}
-		if (!empty)
-		{
-			if (node.config.logging.network_packet_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Delaying next packet send %1% microseconds") % node.config.packet_delay_microseconds);
-			}
-			node.alarm.add (std::chrono::system_clock::now () + std::chrono::microseconds (node.config.packet_delay_microseconds), [this] ()
-			{
-				std::unique_lock <std::mutex> lock (socket_mutex);
-				initiate_send ();
-			});
-		}
 	});
-}
-
-void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function <void (boost::system::error_code const &, size_t)> callback_a)
-{
-	std::unique_lock <std::mutex> lock (socket_mutex);
-	auto initiate (sends.empty ());
-	sends.push ({data_a, size_a, endpoint_a, callback_a});
-	if (initiate)
-	{
-		initiate_send ();
-	}
 }
 
 uint64_t rai::block_store::now ()

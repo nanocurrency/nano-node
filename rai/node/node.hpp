@@ -277,7 +277,6 @@ public:
     void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (rai::block const &);
     void send_confirm_req (rai::endpoint const &, rai::block const &);
-	void initiate_send ();
     void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
     rai::endpoint endpoint ();
     rai::endpoint remote;
@@ -288,7 +287,6 @@ public:
     boost::asio::ip::udp::resolver resolver;
     rai::node & node;
     uint64_t bad_sender_count;
-    std::queue <rai::send_info> sends;
     bool on;
     uint64_t keepalive_count;
     uint64_t publish_count;
