@@ -220,6 +220,40 @@ void rai::rpc_handler::account_create ()
 	}
 }
 
+void rai::rpc_handler::account_get ()
+{
+	std::string key_text (request.get <std::string> ("key"));
+	rai::uint256_union pub;
+	auto error (pub.decode_hex (key_text));
+	if (!error)
+	{
+		boost::property_tree::ptree response_l;
+		response_l.put ("account", pub.to_account ());
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad public key");
+	}
+}
+
+void rai::rpc_handler::account_key ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		boost::property_tree::ptree response_l;
+		response_l.put ("key", account.to_string ());
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::account_list ()
 {
 	std::string wallet_text (request.get <std::string> ("wallet"));
@@ -711,6 +745,37 @@ void rai::rpc_handler::keepalive ()
 	else
 	{
 		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::key_create ()
+{
+	boost::property_tree::ptree response_l;
+	rai::keypair pair;
+	response_l.put ("private", pair.prv.data.to_string ());
+	response_l.put ("public", pair.pub.to_string ());
+	response_l.put ("account", pair.pub.to_account ());
+	response (response_l);
+}
+
+void rai::rpc_handler::key_expand ()
+{
+	std::string key_text (request.get <std::string> ("key"));
+	rai::uint256_union prv;
+	auto error (prv.decode_hex (key_text));
+	if (!error)
+	{
+		boost::property_tree::ptree response_l;
+		rai::uint256_union pub;
+		ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+		response_l.put ("private", prv.to_string ());
+		response_l.put ("public", pub.to_string ());
+		response_l.put ("account", pub.to_account ());
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad private key");
 	}
 }
 
@@ -1733,6 +1798,14 @@ void rai::rpc_handler::process_request ()
 		{
 			account_create ();
 		}
+		else if (action == "account_get")
+		{
+			account_get ();
+		}
+		else if (action == "account_key")
+		{
+			account_key ();
+		}
 		else if (action == "account_list")
 		{
 			account_list ();
@@ -1792,6 +1865,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "keepalive")
 		{
 			keepalive ();
+		}
+		else if (action == "key_create")
+		{
+			key_create ();
+		}
+		else if (action == "key_expand")
+		{
+			key_expand ();
 		}
 		else if (action == "krai_from_raw")
 		{
