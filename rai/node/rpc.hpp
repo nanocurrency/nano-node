@@ -90,6 +90,8 @@ public:
 	void process_request ();
 	void account_balance ();
 	void account_create ();
+	void account_get ();
+	void account_key ();
 	void account_list ();
 	void account_move ();
 	void account_representative ();
@@ -105,6 +107,8 @@ public:
 	void frontier_count ();
 	void history ();
 	void keepalive ();
+	void key_create ();
+	void key_expand ();
 	void krai_to_raw ();
 	void krai_from_raw ();
 	void mrai_to_raw ();
