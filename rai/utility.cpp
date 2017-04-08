@@ -45,7 +45,8 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a) :
 open_transactions (0),
 transaction_iteration (0),
-resizing (false)
+resizing (false),
+sizing_action ([this] () { handle_environment_sizing (); })
 {
 	boost::system::error_code error;
 	if (path_a.has_parent_path ())
@@ -57,7 +58,7 @@ resizing (false)
 			assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, 128));
 			assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, 2 * database_size_increment));
+			auto status3 (mdb_env_set_mapsize (environment, 0));
 			assert (status3 == 0);
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR, 00600));
 			error_a = status4 != 0;
@@ -90,38 +91,45 @@ rai::mdb_env::operator MDB_env * () const
 
 void rai::mdb_env::add_transaction ()
 {
+	// Minimize I/O from checking if we need to resive
+	// Too high and the enviroment might overflow
+	// Too low and we're making lots of trips to the disk
+	if ((transaction_iteration++ % rai::database_check_interval) == 0)
+	{
+		sizing_action ();
+	}
 	std::unique_lock <std::mutex> lock_l (lock);
+	// Wait for any resizing operations to complete
 	while (resizing)
 	{
 		resize_notify.wait (lock_l);
 	}
-	if ((transaction_iteration % rai::database_check_interval) == 0)
+	++open_transactions;
+}
+
+void rai::mdb_env::handle_environment_sizing ()
+{
+	MDB_stat stats;
+	mdb_env_stat (environment, &stats);
+	MDB_envinfo info;
+	mdb_env_info (environment, &info);
+	size_t load (info.me_last_pgno * stats.ms_psize);
+	auto slack (info.me_mapsize - load);
+	if (slack < (rai::database_size_increment / 4))
 	{
-		MDB_stat stats;
-		mdb_env_stat (environment, &stats);
-		MDB_envinfo info;
-		mdb_env_info (environment, &info);
-		size_t load (info.me_last_pgno * stats.ms_psize);
-		auto slack (info.me_mapsize - load);
-		if (slack < (rai::database_size_increment / 4))
+		if (!resizing.exchange (true))
 		{
-			resizing = true;
-			auto done (std::chrono::system_clock::now () + std::chrono::milliseconds (500));
-			while (std::chrono::system_clock::now () < done && open_transactions > 0)
+			std::unique_lock <std::mutex> lock_l (lock);
+			while (open_transactions > 0)
 			{
-				open_notify.wait_for (lock_l, std::chrono::milliseconds (50));
+				open_notify.wait (lock_l);
 			}
-			if (open_transactions == 0)
-			{
-				auto next_size (((info.me_mapsize / database_size_increment) + 1) * database_size_increment);
-				mdb_env_set_mapsize (environment, next_size);
-			}
+			auto next_size (((info.me_mapsize / database_size_increment) + 1) * database_size_increment);
+			mdb_env_set_mapsize (environment, next_size);
 			resizing = false;
 			resize_notify.notify_all ();
 		}
 	}
-	++transaction_iteration;
-	++open_transactions;
 }
 
 void rai::mdb_env::remove_transaction ()
