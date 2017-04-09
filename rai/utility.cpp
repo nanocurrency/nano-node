@@ -113,9 +113,11 @@ void rai::mdb_env::handle_environment_sizing ()
 	mdb_env_stat (environment, &stats);
 	MDB_envinfo info;
 	mdb_env_info (environment, &info);
-	size_t load (info.me_last_pgno * stats.ms_psize);
-	auto slack (info.me_mapsize - load);
-	if (slack < (rai::database_size_increment / 4))
+	double used_space (info.me_last_pgno * stats.ms_psize);
+	double needed_space (used_space * 1.25);
+	size_t increments_needed ((needed_space / database_size_increment) + 1);
+	size_t environment_size (increments_needed * database_size_increment);
+	if (info.me_mapsize < environment_size)
 	{
 		if (!resizing.exchange (true))
 		{
@@ -124,8 +126,7 @@ void rai::mdb_env::handle_environment_sizing ()
 			{
 				open_notify.wait (lock_l);
 			}
-			auto next_size (((info.me_mapsize / database_size_increment) + 1) * database_size_increment);
-			mdb_env_set_mapsize (environment, next_size);
+			mdb_env_set_mapsize (environment, environment_size);
 			resizing = false;
 			resize_notify.notify_all ();
 		}
