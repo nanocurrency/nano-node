@@ -199,12 +199,6 @@ wallet (wallet_a)
 		this->wallet.wallet_m->deterministic_insert ();
         refresh ();
 	});
-    QObject::connect (view, &QTableView::clicked, [this] (QModelIndex const & index_a)
-    {
-        auto item (model->item (index_a.row (), 1));
-        assert (item != nullptr);
-		this->wallet.application.clipboard ()->setText (item->text ());
-    });
 	QObject::connect (import_wallet, &QPushButton::released, [this] ()
 	{
 		this->wallet.push_main_stack (this->wallet.import.window);
