@@ -97,6 +97,24 @@ TEST (rpc, account_balance)
 	ASSERT_EQ ("0", pending_text);
 }
 
+TEST (rpc, account_block_count)
+{
+    rai::system system (24000, 1);
+    rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+    request.put ("action", "account_block_count");
+    request.put ("account", rai::test_genesis_key.pub.to_account ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string block_count_text (response.json.get <std::string> ("block_count"));
+	ASSERT_EQ ("1", block_count_text);
+}
+
 TEST (rpc, account_create)
 {
 	rai::system system (24000, 1);

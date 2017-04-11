@@ -89,6 +89,7 @@ public:
 	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::function <void (boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
+	void account_block_count ();
 	void account_create ();
 	void account_get ();
 	void account_key ();

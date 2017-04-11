@@ -180,6 +180,32 @@ void rai::rpc_handler::account_balance ()
 	}
 }
 
+void rai::rpc_handler::account_block_count ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::uint256_union account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::account_info info;
+		if (!node.store.account_get (transaction, account, info))
+		{
+			boost::property_tree::ptree response_l;
+			response_l.put ("block_count", std::to_string (info.block_count));
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Account not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::account_create ()
 {
 	if (rpc.config.enable_control)
@@ -1793,6 +1819,10 @@ void rai::rpc_handler::process_request ()
 		if (action == "account_balance")
 		{
 			account_balance ();
+		}
+		else if (action == "account_block_count")
+		{
+			account_block_count ();
 		}
 		else if (action == "account_create")
 		{
