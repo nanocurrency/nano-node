@@ -33,4 +33,21 @@ public:
 	rai::amount amount;
 	rai::account destination;
 };
+// Latest information about an account
+class account_info_v5
+{
+public:
+	account_info_v5 ();
+	account_info_v5 (MDB_val const &);
+	account_info_v5 (rai::account_info_v5 const &) = default;
+	account_info_v5 (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t);
+	void serialize (rai::stream &) const;
+	bool deserialize (rai::stream &);
+	rai::mdb_val val () const;
+	rai::block_hash head;
+	rai::block_hash rep_block;
+	rai::block_hash open_block;
+	rai::amount balance;
+	uint64_t modified;
+};
 }

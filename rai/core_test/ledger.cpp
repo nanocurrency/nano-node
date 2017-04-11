@@ -100,6 +100,7 @@ TEST (ledger, process_send)
 	rai::send_block send (info1.head, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::block_hash hash1 (send.hash ());
 	ASSERT_EQ (rai::test_genesis_key.pub, store.frontier_get (transaction, info1.head));
+	ASSERT_EQ (1, info1.block_count);
 	// This was a valid block, it should progress.
 	auto return1 (ledger.process (transaction, send));
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.amount (transaction, hash1));
@@ -112,6 +113,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (rai::genesis_amount - 50, ledger.account_pending (transaction, key2.pub));
 	rai::account_info info2;
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info2));
+	ASSERT_EQ (2, info2.block_count);
 	auto latest6 (store.block_get (transaction, info2.head));
 	ASSERT_NE (nullptr, latest6);
 	auto latest7 (dynamic_cast <rai::send_block *> (latest6.get ()));
@@ -167,6 +169,7 @@ TEST (ledger, process_send)
 	ASSERT_TRUE (store.frontier_get (transaction, hash1).is_zero ());
 	rai::account_info info7;
 	ASSERT_FALSE (ledger.store.account_get (transaction, rai::test_genesis_key.pub, info7));
+	ASSERT_EQ (1, info7.block_count);
 	ASSERT_EQ (info1.head, info7.head);
 	rai::pending_info pending2;
 	ASSERT_TRUE (ledger.store.pending_get (transaction, rai::pending_key (key2.pub, hash1), pending2));

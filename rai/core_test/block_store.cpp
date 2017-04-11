@@ -279,7 +279,7 @@ TEST (block_store, frontier_retrieval)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
     rai::account account1 (0);
-    rai::account_info info1 (0, 0, 0, 0, 0);
+    rai::account_info info1 (0, 0, 0, 0, 0, 0);
 	rai::transaction transaction (store.environment, nullptr, true);
     store.account_put (transaction, account1, info1);
     rai::account_info info2;
@@ -295,7 +295,7 @@ TEST (block_store, one_account)
     rai::account account (0);
     rai::block_hash hash (0);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account, {hash, account, hash, 42, 100});
+    store.account_put (transaction, account, {hash, account, hash, 42, 100, 200});
     auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
@@ -304,6 +304,7 @@ TEST (block_store, one_account)
     ASSERT_EQ (hash, info.head);
     ASSERT_EQ (42, info.balance.number ());
     ASSERT_EQ (100, info.modified);
+	ASSERT_EQ (200, info.block_count);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -339,8 +340,8 @@ TEST (block_store, two_account)
     rai::account account2 (3);
     rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account1, {hash1, account1, hash1, 42, 100});
-    store.account_put (transaction, account2, {hash2, account2, hash2, 84, 200});
+    store.account_put (transaction, account1, {hash1, account1, hash1, 42, 100, 300});
+    store.account_put (transaction, account2, {hash2, account2, hash2, 84, 200, 400});
     auto begin (store.latest_begin (transaction));
     auto end (store.latest_end ());
     ASSERT_NE (end, begin);
@@ -349,6 +350,7 @@ TEST (block_store, two_account)
     ASSERT_EQ (hash1, info1.head);
     ASSERT_EQ (42, info1.balance.number ());
     ASSERT_EQ (100, info1.modified);
+	ASSERT_EQ (300, info1.block_count);
     ++begin;
     ASSERT_NE (end, begin);
     ASSERT_EQ (account2, begin->first);
@@ -356,6 +358,7 @@ TEST (block_store, two_account)
     ASSERT_EQ (hash2, info2.head);
     ASSERT_EQ (84, info2.balance.number ());
     ASSERT_EQ (200, info2.modified);
+	ASSERT_EQ (400, info2.block_count);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -370,8 +373,8 @@ TEST (block_store, latest_find)
     rai::account account2 (3);
     rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account1, {hash1, account1, hash1, 100, 0});
-    store.account_put (transaction, account2, {hash2, account2, hash2, 200, 0});
+    store.account_put (transaction, account1, {hash1, account1, hash1, 100, 0, 300});
+    store.account_put (transaction, account2, {hash2, account2, hash2, 200, 0, 400});
     auto first (store.latest_begin (transaction));
     auto second (store.latest_begin (transaction));
     ++second;
@@ -618,7 +621,9 @@ TEST (block_store, upgrade_v2_v3)
 		rai::account_info info;
 		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
 		info.rep_block = 42;
-		store.account_put (transaction, rai::test_genesis_key.pub, info);
+		rai::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
+		auto status (mdb_put (transaction, store.accounts, rai::test_genesis_key.pub.val (), info_old.val (), 0));
+		assert (status == 0);
 	}
 	bool init (false);
 	rai::block_store store (init, path);
@@ -687,6 +692,11 @@ TEST (block_store, upgrade_v4_v5)
 		genesis_hash = info.head;
 		store.block_successor_clear (transaction, info.head);
 		ASSERT_TRUE (store.block_successor (transaction, genesis_hash).is_zero ());
+		rai::account_info info2;
+		store.account_get (transaction, rai::test_genesis_key.pub, info2);
+		rai::account_info_v5 info_old (info2.head, info2.rep_block, info2.open_block, info2.balance, info2.modified);
+		auto status (mdb_put (transaction, store.accounts, rai::test_genesis_key.pub.val (), info_old.val (), 0));
+		assert (status == 0);
 	}
 	bool init (false);
 	rai::block_store store (init, path);
@@ -722,5 +732,31 @@ TEST (vote, validate)
 	ASSERT_EQ (rai::vote_result::invalid, vote1.validate (transaction, store));
 	rai::vote vote2 (key1.pub, key1.prv, 1, send1.clone ());
 	ASSERT_EQ (rai::vote_result::replay, vote2.validate (transaction, store));
+}
+
+TEST (block_store, upgrade_v5_v6)
+{
+	auto path (rai::unique_path ());
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		ASSERT_FALSE (init);
+		rai::transaction transaction (store.environment, nullptr, true);
+		rai::genesis genesis;;
+		genesis.initialize (transaction, store);
+		store.version_put (transaction, 5);
+		rai::account_info info;
+		store.account_get (transaction, rai::test_genesis_key.pub, info);
+		rai::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
+		auto status (mdb_put (transaction, store.accounts, rai::test_genesis_key.pub.val (), info_old.val (), 0));
+		assert (status == 0);
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, nullptr, false);
+	rai::account_info info;
+	store.account_get (transaction, rai::test_genesis_key.pub, info);
+	ASSERT_EQ (1, info.block_count);
 }
 

@@ -241,7 +241,7 @@ public:
 	account_info ();
 	account_info (MDB_val const &);
 	account_info (rai::account_info const &) = default;
-	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t);
+	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator == (rai::account_info const &) const;
@@ -252,6 +252,7 @@ public:
 	rai::block_hash open_block;
 	rai::amount balance;
 	uint64_t modified;
+	uint64_t block_count;
 };
 class store_entry
 {
@@ -392,6 +393,7 @@ public:
 	void upgrade_v2_to_v3 (MDB_txn *);
 	void upgrade_v3_to_v4 (MDB_txn *);
 	void upgrade_v4_to_v5 (MDB_txn *);
+	void upgrade_v5_to_v6 (MDB_txn *);
 	
 	void clear (MDB_dbi);
 	
@@ -507,7 +509,7 @@ public:
 	rai::uint128_t supply (MDB_txn *);
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
-	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &);
+	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
