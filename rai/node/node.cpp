@@ -2377,9 +2377,9 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a] (boost::system::error_code const & ec, size_t size_a)
 	{
 		callback_a (ec, size_a);
-		if (node.config.logging.network_packet_logging ())
+		if (this->node.config.logging.network_packet_logging ())
 		{
-			BOOST_LOG (node.log) << "Packet send complete";
+			BOOST_LOG (this->node.log) << "Packet send complete";
 		}
 	});
 }
