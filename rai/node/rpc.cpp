@@ -374,16 +374,8 @@ void rai::rpc_handler::account_remove ()
 						if (account != wallet->store.end ())
 						{
 							wallet->store.erase (transaction, account_id);
-							auto removed (wallet->store.find (transaction, account_id));
 							boost::property_tree::ptree response_l;
-							if (removed != wallet->store.end ())
-							{
-								response_l.put ("removed", "0");
-							}
-							else
-							{
-								response_l.put ("removed", "1");
-							}
+							response_l.put ("removed", "1");
 							response (response_l);
 						}
 						else
