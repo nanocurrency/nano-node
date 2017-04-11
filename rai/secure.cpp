@@ -2122,23 +2122,12 @@ size_t rai::block_store::frontier_count (MDB_txn * transaction_a)
 
 void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const & account_a, rai::account_info const & info_a)
 {
-    std::vector <uint8_t> vector;
-    {
-        rai::vectorstream stream (vector);
-        info_a.serialize (stream);
-    }
 	auto status (mdb_put (transaction_a, accounts, account_a.val (), info_a.val (), 0));
     assert (status == 0);
 }
 
 void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key const & key_a, rai::pending_info const & pending_a)
 {
-    std::vector <uint8_t> vector;
-    {
-        rai::vectorstream stream (vector);
-        rai::write (stream, pending_a.source);
-        rai::write (stream, pending_a.amount);
-    }
 	auto status (mdb_put (transaction_a, pending, key_a.val (), pending_a.val (), 0));
     assert (status == 0);
 }
