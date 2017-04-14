@@ -28,9 +28,10 @@ cmake_install.cmake
 CMakeCache.txt
 CPackConfig.cmake
 CPackSourceConfig.cmake
-gtest/
 install_manifest.txt
 Makefile
+
+build.sh
 
 qt_system
 qt_test
