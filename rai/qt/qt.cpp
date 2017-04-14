@@ -628,6 +628,11 @@ std::string rai_qt::status::text ()
 {
 	assert (!active.empty ());
 	std::string result;
+    rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
+    auto size (wallet.wallet_m->node.store.block_count (transaction));
+    auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
+    auto count_string (std::to_string (size.sum ()));
+
 	switch (*active.begin ())
 	{
 		case rai_qt::status_types::disconnected:
@@ -637,7 +642,12 @@ std::string rai_qt::status::text ()
 			result = "Status: Generating proof of work";
 			break;
 		case rai_qt::status_types::synchronizing:
-			result = "Status: Synchronizing";
+			result = "Status: Synchronizing, Block: ";
+            if (unchecked != 0)
+            {
+                count_string += " (" + std::to_string (unchecked) + ")";
+            }
+            result += count_string.c_str ();
 			break;
 		case rai_qt::status_types::locked:
 			result = "Status: Wallet locked";
@@ -649,7 +659,12 @@ std::string rai_qt::status::text ()
 			result = "Status: Wallet active";
 			break;
 		case rai_qt::status_types::nominal:
-			result = "Status: Running";
+			result = "Status: Running, Block: ";
+            if (unchecked != 0)
+            {
+                count_string += " (" + std::to_string (unchecked) + ")";
+            }
+            result += count_string.c_str ();
 			break;
 		default:
 			assert (false);
