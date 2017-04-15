@@ -642,12 +642,7 @@ std::string rai_qt::status::text ()
 			result = "Status: Generating proof of work";
 			break;
 		case rai_qt::status_types::synchronizing:
-			result = "Status: Synchronizing, Block: ";
-            if (unchecked != 0)
-            {
-                count_string += " (" + std::to_string (unchecked) + ")";
-            }
-            result += count_string.c_str ();
+			result = "Status: Synchronizing";
 			break;
 		case rai_qt::status_types::locked:
 			result = "Status: Wallet locked";
@@ -659,17 +654,20 @@ std::string rai_qt::status::text ()
 			result = "Status: Wallet active";
 			break;
 		case rai_qt::status_types::nominal:
-			result = "Status: Running, Block: ";
-            if (unchecked != 0)
-            {
-                count_string += " (" + std::to_string (unchecked) + ")";
-            }
-            result += count_string.c_str ();
+			result = "Status: Running";
 			break;
 		default:
 			assert (false);
 			break;
 	}
+    
+    result += ", Block: ";
+    if (unchecked != 0)
+    {
+        count_string += " (" + std::to_string (unchecked) + ")";
+    }
+    result += count_string.c_str ();
+    
 	return result;
 }
 
