@@ -622,6 +622,7 @@ void rai_qt::status::set_text ()
 {
 	wallet.status->setText (text ().c_str ());
 	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
+    wallet.status->setToolTip("Wallet status and wallet block count (blocks remaining to sync)");
 }
 
 std::string rai_qt::status::text ()
