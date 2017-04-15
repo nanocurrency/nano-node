@@ -1087,17 +1087,27 @@ wallet (wallet_a)
 		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
         if (this->wallet.wallet_m->store.valid_password (transaction))
         {
-            if (new_password->text () == retype_password->text ())
+            if (new_password->text ().isEmpty())
             {
-				this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
                 new_password->clear ();
-				retype_password->clear ();
-				retype_password->setPlaceholderText ("Retype password");
+                new_password->setPlaceholderText ("Empty Password - try again: New password");
+                retype_password->clear ();
+                retype_password->setPlaceholderText ("Empty Password - try again: Retype password");
             }
             else
             {
-				retype_password->clear ();
-				retype_password->setPlaceholderText ("Password mismatch");
+                if (new_password->text () == retype_password->text ())
+                {
+                    this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
+                    new_password->clear ();
+                    retype_password->clear ();
+                    retype_password->setPlaceholderText ("Retype password");
+                }
+                else
+                {
+                    retype_password->clear ();
+                    retype_password->setPlaceholderText ("Password mismatch");
+                }
             }
         }
     });
