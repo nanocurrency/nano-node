@@ -622,12 +622,18 @@ void rai_qt::status::set_text ()
 {
 	wallet.status->setText (text ().c_str ());
 	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
+    wallet.status->setToolTip("Wallet status and wallet block count (blocks remaining to sync)");
 }
 
 std::string rai_qt::status::text ()
 {
 	assert (!active.empty ());
 	std::string result;
+    rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
+    auto size (wallet.wallet_m->node.store.block_count (transaction));
+    auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
+    auto count_string (std::to_string (size.sum ()));
+
 	switch (*active.begin ())
 	{
 		case rai_qt::status_types::disconnected:
@@ -655,6 +661,14 @@ std::string rai_qt::status::text ()
 			assert (false);
 			break;
 	}
+    
+    result += ", Block: ";
+    if (unchecked != 0)
+    {
+        count_string += " (" + std::to_string (unchecked) + ")";
+    }
+    result += count_string.c_str ();
+    
 	return result;
 }
 
