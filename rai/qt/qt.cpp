@@ -600,6 +600,7 @@ wallet (wallet_a)
 rai_qt::status::status (rai_qt::wallet & wallet_a) :
 wallet (wallet_a)
 {
+    wallet.status->setToolTip ("Wallet status, block count (blocks downloaded)");
 	active.insert (rai_qt::status_types::nominal);
 	set_text ();
 }
@@ -622,17 +623,20 @@ void rai_qt::status::set_text ()
 {
 	wallet.status->setText (text ().c_str ());
 	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
-    wallet.status->setToolTip("Wallet status and wallet block count (blocks remaining to sync)");
 }
 
 std::string rai_qt::status::text ()
 {
 	assert (!active.empty ());
 	std::string result;
-    rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
-    auto size (wallet.wallet_m->node.store.block_count (transaction));
-    auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
-    auto count_string (std::to_string (size.sum ()));
+	size_t unchecked (0);
+	std::string count_string;
+	{
+		rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
+		auto size (wallet.wallet_m->node.store.block_count (transaction));
+		unchecked = wallet.wallet_m->node.store.unchecked_count (transaction);
+		count_string = std::to_string (size.sum ());
+	}
 
 	switch (*active.begin ())
 	{
@@ -661,14 +665,14 @@ std::string rai_qt::status::text ()
 			assert (false);
 			break;
 	}
-    
+
     result += ", Block: ";
     if (unchecked != 0)
     {
         count_string += " (" + std::to_string (unchecked) + ")";
     }
     result += count_string.c_str ();
-    
+
 	return result;
 }
 
@@ -1101,27 +1105,17 @@ wallet (wallet_a)
 		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
         if (this->wallet.wallet_m->store.valid_password (transaction))
         {
-            if (new_password->text ().isEmpty())
+            if (new_password->text () == retype_password->text ())
             {
+				this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
                 new_password->clear ();
-                new_password->setPlaceholderText ("Empty Password - try again: New password");
-                retype_password->clear ();
-                retype_password->setPlaceholderText ("Empty Password - try again: Retype password");
+				retype_password->clear ();
+				retype_password->setPlaceholderText ("Retype password");
             }
             else
             {
-                if (new_password->text () == retype_password->text ())
-                {
-                    this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
-                    new_password->clear ();
-                    retype_password->clear ();
-                    retype_password->setPlaceholderText ("Retype password");
-                }
-                else
-                {
-                    retype_password->clear ();
-                    retype_password->setPlaceholderText ("Password mismatch");
-                }
+				retype_password->clear ();
+				retype_password->setPlaceholderText ("Password mismatch");
             }
         }
     });
@@ -1328,6 +1322,7 @@ wallet (wallet_a)
 	});
     refresh_ledger ();
 	refresh_count ();
+    block_count->setToolTip ("Block count (blocks downloaded)");
 }
 
 void rai_qt::advanced_actions::refresh_count ()
