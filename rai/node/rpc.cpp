@@ -375,6 +375,66 @@ void rai::rpc_handler::account_move ()
 	}
 }
 
+void rai::rpc_handler::account_remove ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		std::string account_text (request.get <std::string> ("account"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				auto wallet (existing->second);
+				rai::transaction transaction (node.store.environment, nullptr, true);
+				if (existing->second->store.valid_password (transaction))
+					{
+					rai::account account_id;
+					auto error (account_id.decode_account (account_text));
+					if (!error)
+					{
+						auto account (wallet->store.find (transaction, account_id));
+						if (account != wallet->store.end ())
+						{
+							wallet->store.erase (transaction, account_id);
+							boost::property_tree::ptree response_l;
+							response_l.put ("removed", "1");
+							response (response_l);
+						}
+						else
+						{
+							error_response (response, "Account not found in wallet");
+						}
+					}
+					else
+					{
+						error_response (response, "Bad account number");
+					}
+				}
+				else
+				{
+					error_response (response, "Wallet locked");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::account_representative ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -652,6 +712,42 @@ void rai::rpc_handler::frontier_count ()
 	boost::property_tree::ptree response_l;
 	response_l.put ("count", std::to_string (size));
 	response (response_l);
+}
+
+void rai::rpc_handler::frontier_list ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree frontiers;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (existing->second->store.begin (transaction)), j (existing->second->store.end ()); i != j; ++i)
+			{
+				rai::account account(i->first);
+				auto latest (node.ledger.latest (transaction, account));
+				if (!latest.is_zero ())
+				{
+					frontiers.put (account.to_account (), latest.to_string ());
+				}
+			}
+			response_l.add_child ("frontiers", frontiers);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
 }
 
 namespace
@@ -1287,6 +1383,21 @@ void rai::rpc_handler::rai_to_raw ()
 	}
 }
 
+void rai::rpc_handler::representatives ()
+{
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree representatives;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (auto i(node.store.representation_begin(transaction)), n(node.store.representation_end()); i != n; ++i)
+	{
+		rai::account account(i->first);
+		auto amount (node.store.representation_get(transaction, account));
+		representatives.put (account.to_account (), amount.convert_to <std::string> ());
+	}
+	response_l.add_child ("representatives", representatives);
+	response (response_l);
+}
+
 void rai::rpc_handler::search_pending ()
 {
 	if (rpc.config.enable_control)
@@ -1462,6 +1573,57 @@ void rai::rpc_handler::wallet_add ()
 		else
 		{
 			error_response (response, "Bad private key");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::wallet_change_seed ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string seed_text (request.get <std::string> ("seed"));
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::raw_key seed;
+		auto error (seed.data.decode_hex (seed_text));
+		if (!error)
+		{
+			rai::uint256_union wallet;
+			auto error (wallet.decode_hex (wallet_text));
+			if (!error)
+			{
+				auto existing (node.wallets.items.find (wallet));
+				if (existing != node.wallets.items.end ())
+				{
+					rai::transaction transaction (node.store.environment, nullptr, true);
+					if (existing->second->store.valid_password (transaction))
+					{
+						existing->second->store.seed_set (transaction, seed);
+						boost::property_tree::ptree response_l;
+						response_l.put ("success", "");
+						response (response_l);
+					}
+					else
+					{
+						error_response (response, "Wallet locked");
+					}
+				}
+				else
+				{
+					error_response (response, "Wallet not found");
+				}
+			}
+			else
+			{
+				error_response (response, "Bad wallet number");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad seed");
 		}
 	}
 	else
@@ -1844,6 +2006,10 @@ void rai::rpc_handler::process_request ()
 		{
 			account_move ();
 		}
+		else if (action == "account_remove")
+		{
+			account_remove ();
+		}
 		else if (action == "account_representative")
 		{
 			account_representative ();
@@ -1887,6 +2053,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "frontier_count")
 		{
 			frontier_count ();
+		}
+		else if (action == "frontier_list")
+		{
+			frontier_list ();
 		}
 		else if (action == "history")
 		{
@@ -1968,6 +2138,10 @@ void rai::rpc_handler::process_request ()
 		{
 			rai_to_raw ();
 		}
+		else if (action == "representatives")
+		{
+			representatives ();
+		}
 		else if (action == "search_pending")
 		{
 			search_pending ();
@@ -1991,6 +2165,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_add")
 		{
 			wallet_add ();
+		}
+		else if (action == "wallet_change_seed")
+		{
+			wallet_change_seed ();
 		}
 		else if (action == "wallet_contains")
 		{

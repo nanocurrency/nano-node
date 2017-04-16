@@ -95,6 +95,7 @@ public:
 	void account_key ();
 	void account_list ();
 	void account_move ();
+	void account_remove ();
 	void account_representative ();
 	void account_representative_set ();
 	void account_weight ();
@@ -106,6 +107,7 @@ public:
 	void chain ();
 	void frontiers ();
 	void frontier_count ();
+	void frontier_list ();
 	void history ();
 	void keepalive ();
 	void key_create ();
@@ -126,12 +128,14 @@ public:
 	void process ();
 	void rai_to_raw ();
 	void rai_from_raw ();
+	void representatives ();
 	void search_pending ();
 	void send ();
 	void stop ();
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();
+	void wallet_change_seed ();
 	void wallet_contains ();
 	void wallet_create ();
 	void wallet_destroy ();
