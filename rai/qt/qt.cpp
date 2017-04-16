@@ -115,7 +115,7 @@ wallet (wallet_a)
 			this->wallet.change_rendering_ratio (rai::rai_ratio);
         }
     });
-	krai->click ();
+	mrai->click ();
 }
 
 void rai_qt::self_pane::refresh_balance ()
@@ -622,12 +622,18 @@ void rai_qt::status::set_text ()
 {
 	wallet.status->setText (text ().c_str ());
 	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
+    wallet.status->setToolTip("Wallet status and wallet block count (blocks remaining to sync)");
 }
 
 std::string rai_qt::status::text ()
 {
 	assert (!active.empty ());
 	std::string result;
+    rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
+    auto size (wallet.wallet_m->node.store.block_count (transaction));
+    auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
+    auto count_string (std::to_string (size.sum ()));
+
 	switch (*active.begin ())
 	{
 		case rai_qt::status_types::disconnected:
@@ -655,6 +661,14 @@ std::string rai_qt::status::text ()
 			assert (false);
 			break;
 	}
+    
+    result += ", Block: ";
+    if (unchecked != 0)
+    {
+        count_string += " (" + std::to_string (unchecked) + ")";
+    }
+    result += count_string.c_str ();
+    
 	return result;
 }
 
@@ -1087,17 +1101,27 @@ wallet (wallet_a)
 		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
         if (this->wallet.wallet_m->store.valid_password (transaction))
         {
-            if (new_password->text () == retype_password->text ())
+            if (new_password->text ().isEmpty())
             {
-				this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
                 new_password->clear ();
-				retype_password->clear ();
-				retype_password->setPlaceholderText ("Retype password");
+                new_password->setPlaceholderText ("Empty Password - try again: New password");
+                retype_password->clear ();
+                retype_password->setPlaceholderText ("Empty Password - try again: Retype password");
             }
             else
             {
-				retype_password->clear ();
-				retype_password->setPlaceholderText ("Password mismatch");
+                if (new_password->text () == retype_password->text ())
+                {
+                    this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
+                    new_password->clear ();
+                    retype_password->clear ();
+                    retype_password->setPlaceholderText ("Retype password");
+                }
+                else
+                {
+                    retype_password->clear ();
+                    retype_password->setPlaceholderText ("Password mismatch");
+                }
             }
         }
     });
