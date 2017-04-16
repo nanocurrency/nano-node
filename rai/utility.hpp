@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <condition_variable>
 #include <type_traits>
 

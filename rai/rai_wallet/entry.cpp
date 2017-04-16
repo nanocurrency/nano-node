@@ -191,6 +191,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 
 int run_wallet (QApplication & application, int argc, char * const * argv)
 {
+	rai_qt::eventloop_processor processor;
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
 	qt_wallet_config config (working);
@@ -245,7 +246,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 			{
 				rpc.start ();
 			}
-			auto gui (std::make_shared <rai_qt::wallet> (application, *node, wallet, config.account));
+			auto gui (std::make_shared <rai_qt::wallet> (application, processor, *node, wallet, config.account));
 			gui->start ();
 			gui->client_window->show ();
 			rai::thread_runner runner (service, node->config.io_threads);

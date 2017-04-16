@@ -1741,3 +1741,102 @@ TEST (rpc, bootstrap)
 		ASSERT_GT (200, iterations);
 	}
 }
+
+TEST (rpc, account_remove)
+{
+    rai::system system0 (24000, 1);
+	auto key1 (system0.wallet (0)->deterministic_insert ());
+	ASSERT_TRUE (system0.wallet (0)->exists (key1));
+    rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+	request.put ("action", "account_remove");
+    request.put ("wallet", system0.nodes [0]->wallets.items.begin ()->first.to_string ());
+	request.put ("account", key1.to_account ());
+	test_response response (request, rpc, system0.service);
+	while (response.status == 0)
+	{
+		system0.poll ();
+	}
+	ASSERT_FALSE (system0.wallet (0)->exists (key1));
+}
+
+TEST (rpc, representatives)
+{
+    rai::system system0 (24000, 1);
+    rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+	request.put ("action", "representatives");
+	test_response response (request, rpc, system0.service);
+	while (response.status == 0)
+	{
+		system0.poll ();
+	}
+    ASSERT_EQ (200, response.status);
+    auto & representatives_node (response.json.get_child ("representatives"));
+	std::vector <rai::account> representatives;
+	for (auto i (representatives_node.begin ()), n (representatives_node.end ()); i != n; ++i)
+	{
+		rai::account account;
+		ASSERT_FALSE (account.decode_account (i->first));
+		representatives.push_back (account);
+	}
+	ASSERT_EQ (1, representatives.size ());
+	ASSERT_EQ (rai::genesis_account, representatives [0]);
+}
+
+TEST (rpc, wallet_change_seed)
+{
+    rai::system system0 (24000, 1);
+	rai::keypair seed;
+	{
+		rai::transaction transaction (system0.nodes [0]->store.environment, nullptr, false);
+		rai::raw_key seed0;
+		system0.wallet (0)->store.seed (seed0, transaction);
+		ASSERT_NE (seed.pub, seed0.data);
+	}
+    rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+	request.put ("action", "wallet_change_seed");
+    request.put ("wallet", system0.nodes [0]->wallets.items.begin ()->first.to_string ());
+	request.put ("seed", seed.pub.to_string ());
+	test_response response (request, rpc, system0.service);
+	while (response.status == 0)
+	{
+		system0.poll ();
+	}
+    ASSERT_EQ (200, response.status);
+	{
+		rai::transaction transaction (system0.nodes [0]->store.environment, nullptr, false);
+		rai::raw_key seed0;
+		system0.wallet (0)->store.seed (seed0, transaction);
+		ASSERT_EQ (seed.pub, seed0.data);
+	}
+}
+
+TEST (rpc, wallet_frontiers)
+{
+    rai::system system0 (24000, 1);
+	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+    rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+	request.put ("action", "wallet_frontiers");
+    request.put ("wallet", system0.nodes [0]->wallets.items.begin ()->first.to_string ());
+	test_response response (request, rpc, system0.service);
+	while (response.status == 0)
+	{
+		system0.poll ();
+	}
+    ASSERT_EQ (200, response.status);
+    auto & frontiers_node (response.json.get_child ("frontiers"));
+	std::vector <rai::account> frontiers;
+	for (auto i (frontiers_node.begin ()), n (frontiers_node.end ()); i != n; ++i)
+	{
+		frontiers.push_back (rai::block_hash (i->second.get <std::string> ("")));
+	}
+	ASSERT_EQ (1, frontiers.size ());
+	ASSERT_EQ (system0.nodes [0]->latest (rai::genesis_account), frontiers [0]);
+}

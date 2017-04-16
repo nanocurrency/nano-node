@@ -1552,6 +1552,7 @@ void rai::node::start ()
 	active.announce_votes ();
 	port_mapping.start ();
 	add_initial_peers ();
+	observers.started ();
 }
 
 void rai::node::stop ()
