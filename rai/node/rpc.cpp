@@ -391,7 +391,7 @@ void rai::rpc_handler::account_remove ()
 				auto wallet (existing->second);
 				rai::transaction transaction (node.store.environment, nullptr, true);
 				if (existing->second->store.valid_password (transaction))
-					{
+				{
 					rai::account account_id;
 					auto error (account_id.decode_account (account_text));
 					if (!error)
@@ -712,42 +712,6 @@ void rai::rpc_handler::frontier_count ()
 	boost::property_tree::ptree response_l;
 	response_l.put ("count", std::to_string (size));
 	response (response_l);
-}
-
-void rai::rpc_handler::frontier_list ()
-{
-	std::string wallet_text (request.get <std::string> ("wallet"));
-	rai::uint256_union wallet;
-	auto error (wallet.decode_hex (wallet_text));
-	if (!error)
-	{
-		auto existing (node.wallets.items.find (wallet));
-		if (existing != node.wallets.items.end ())
-		{
-			boost::property_tree::ptree response_l;
-			boost::property_tree::ptree frontiers;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			for (auto i (existing->second->store.begin (transaction)), j (existing->second->store.end ()); i != j; ++i)
-			{
-				rai::account account(i->first);
-				auto latest (node.ledger.latest (transaction, account));
-				if (!latest.is_zero ())
-				{
-					frontiers.put (account.to_account (), latest.to_string ());
-				}
-			}
-			response_l.add_child ("frontiers", frontiers);
-			response (response_l);
-		}
-		else
-		{
-			error_response (response, "Wallet not found");
-		}
-	}
-	else
-	{
-		error_response (response, "Bad wallet number");
-	}
 }
 
 namespace
@@ -1388,10 +1352,10 @@ void rai::rpc_handler::representatives ()
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	for (auto i(node.store.representation_begin(transaction)), n(node.store.representation_end()); i != n; ++i)
+	for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 	{
 		rai::account account(i->first);
-		auto amount (node.store.representation_get(transaction, account));
+		auto amount (node.store.representation_get (transaction, account));
 		representatives.put (account.to_account (), amount.convert_to <std::string> ());
 	}
 	response_l.add_child ("representatives", representatives);
@@ -1745,6 +1709,42 @@ void rai::rpc_handler::wallet_export ()
 	}
 }
 
+void rai::rpc_handler::wallet_frontiers ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree frontiers;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+			{
+				rai::account account(i->first);
+				auto latest (node.ledger.latest (transaction, account));
+				if (!latest.is_zero ())
+				{
+					frontiers.put (account.to_account (), latest.to_string ());
+				}
+			}
+			response_l.add_child ("frontiers", frontiers);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
 void rai::rpc_handler::wallet_key_valid ()
 {
 	std::string wallet_text (request.get <std::string> ("wallet"));
@@ -2054,10 +2054,6 @@ void rai::rpc_handler::process_request ()
 		{
 			frontier_count ();
 		}
-		else if (action == "frontier_list")
-		{
-			frontier_list ();
-		}
 		else if (action == "history")
 		{
 			history ();
@@ -2185,6 +2181,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_export")
 		{
 			wallet_export ();
+		}
+		else if (action == "wallet_frontiers")
+		{
+			wallet_frontiers ();
 		}
 		else if (action == "wallet_key_valid")
 		{

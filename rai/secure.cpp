@@ -2299,7 +2299,7 @@ void rai::block_store::representation_put (MDB_txn * transaction_a, rai::account
 
 rai::store_iterator rai::block_store::representation_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result(transaction_a, representation);
+	rai::store_iterator result (transaction_a, representation);
 	return result;
 }
 

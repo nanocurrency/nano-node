@@ -107,7 +107,6 @@ public:
 	void chain ();
 	void frontiers ();
 	void frontier_count ();
-	void frontier_list ();
 	void history ();
 	void keepalive ();
 	void key_create ();
@@ -140,6 +139,7 @@ public:
 	void wallet_create ();
 	void wallet_destroy ();
 	void wallet_export ();
+	void wallet_frontiers ();
 	void wallet_key_valid ();
 	void wallet_representative ();
 	void wallet_representative_set ();
