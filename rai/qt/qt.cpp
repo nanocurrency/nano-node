@@ -115,7 +115,7 @@ wallet (wallet_a)
 			this->wallet.change_rendering_ratio (rai::rai_ratio);
         }
     });
-	krai->click ();
+	mrai->click ();
 }
 
 void rai_qt::self_pane::refresh_balance ()
@@ -600,6 +600,7 @@ wallet (wallet_a)
 rai_qt::status::status (rai_qt::wallet & wallet_a) :
 wallet (wallet_a)
 {
+    wallet.status->setToolTip ("Wallet status, block count (blocks downloaded)");
 	active.insert (rai_qt::status_types::nominal);
 	set_text ();
 }
@@ -628,6 +629,15 @@ std::string rai_qt::status::text ()
 {
 	assert (!active.empty ());
 	std::string result;
+	size_t unchecked (0);
+	std::string count_string;
+	{
+		rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
+		auto size (wallet.wallet_m->node.store.block_count (transaction));
+		unchecked = wallet.wallet_m->node.store.unchecked_count (transaction);
+		count_string = std::to_string (size.sum ());
+	}
+
 	switch (*active.begin ())
 	{
 		case rai_qt::status_types::disconnected:
@@ -655,6 +665,14 @@ std::string rai_qt::status::text ()
 			assert (false);
 			break;
 	}
+
+    result += ", Block: ";
+    if (unchecked != 0)
+    {
+        count_string += " (" + std::to_string (unchecked) + ")";
+    }
+    result += count_string.c_str ();
+
 	return result;
 }
 
@@ -1304,6 +1322,7 @@ wallet (wallet_a)
 	});
     refresh_ledger ();
 	refresh_count ();
+    block_count->setToolTip ("Block count (blocks downloaded)");
 }
 
 void rai_qt::advanced_actions::refresh_count ()
