@@ -191,6 +191,10 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 
 int run_wallet (QApplication & application, int argc, char * const * argv)
 {
+    QPixmap pixmap("logo.png");
+    QSplashScreen splash(pixmap);
+    splash.show();
+    
 	auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
 	qt_wallet_config config (working);
@@ -246,6 +250,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 				rpc.start ();
 			}
 			auto gui (std::make_shared <rai_qt::wallet> (application, *node, wallet, config.account));
+            splash.close();
 			gui->start ();
 			gui->client_window->show ();
 			rai::thread_runner runner (service, node->config.io_threads);
