@@ -95,9 +95,18 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run ()
+void rai_daemon::daemon::run (std::string alt_path)
 {
-    auto working (rai::working_path ());
+    boost::filesystem::path working;
+    if (alt_path == ""){
+        working = (rai::working_path ());
+    }
+    else {
+        working = alt_path;
+    }
+
+    std::cout << "Data Dir: " << working << std::endl;
+    
 	boost::filesystem::create_directories (working);
     rai_daemon::daemon_config config (working);
     auto config_path ((working / "config.json"));

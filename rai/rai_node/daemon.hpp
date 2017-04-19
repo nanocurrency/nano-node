@@ -6,7 +6,7 @@ namespace rai_daemon
     class daemon
     {
     public:
-        void run ();
+        void run (std::string alt_path);
     };
     class daemon_config
     {

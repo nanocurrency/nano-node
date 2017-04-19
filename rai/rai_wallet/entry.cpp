@@ -191,8 +191,18 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 
 int run_wallet (QApplication & application, int argc, char * const * argv)
 {
-	auto working (rai::working_path ());
+    auto working (rai::working_path ());
 	boost::filesystem::create_directories (working);
+    
+    QPixmap pixmap(":/logo.png");
+    QSplashScreen *splash = new QSplashScreen(pixmap);
+    splash->show();
+    
+    application.processEvents();
+    
+    splash->showMessage(QSplashScreen::tr("Remember - Backup Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::black);
+    application.processEvents();
+    
 	qt_wallet_config config (working);
 	auto config_path ((working / "config.json"));
     int result (0);
@@ -246,6 +256,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 				rpc.start ();
 			}
 			auto gui (std::make_shared <rai_qt::wallet> (application, *node, wallet, config.account));
+            splash->close();
 			gui->start ();
 			gui->client_window->show ();
 			rai::thread_runner runner (service, node->config.io_threads);
