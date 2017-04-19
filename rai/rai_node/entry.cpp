@@ -106,11 +106,12 @@ void fill_zero (void * data)
 
 int main (int argc, char * const * argv)
 {
+    std::string str;
 	boost::program_options::options_description description ("Command line options");
 	rai::add_node_options (description);
 	description.add_options ()
 		("help", "Print out options")
-		("daemon", "Start node daemon")
+        ("daemon" ,boost::program_options::value<std::string>(&str)->implicit_value(""), "Start node daemon, use --daemon for default or --daemon=<path> to specify alternative data directory")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -131,7 +132,7 @@ int main (int argc, char * const * argv)
 	else if (vm.count ("daemon") > 0)
 	{
         rai_daemon::daemon daemon;
-        daemon.run ();
+        daemon.run (str);
 	}
 	else if (vm.count ("debug_block_count"))
 	{
