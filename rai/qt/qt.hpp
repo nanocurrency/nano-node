@@ -275,7 +275,7 @@ namespace rai_qt {
     class wallet : public std::enable_shared_from_this <rai_qt::wallet>
     {
     public:
-        wallet (QApplication &, rai::node &, std::shared_ptr <rai::wallet>, rai::account &);
+        wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr <rai::wallet>, rai::account &);
 		void start ();
         void refresh ();
 		void update_connected ();
@@ -284,7 +284,7 @@ namespace rai_qt {
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;
 		rai::account & account;
-		rai_qt::eventloop_processor processor;
+		rai_qt::eventloop_processor & processor;
 		rai_qt::history history;
         rai_qt::accounts accounts;
 		rai_qt::self_pane self;

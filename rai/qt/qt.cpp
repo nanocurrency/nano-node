@@ -710,11 +710,12 @@ std::string rai_qt::status::color ()
 	return result;
 }
 
-rai_qt::wallet::wallet (QApplication & application_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account & account_a) :
+rai_qt::wallet::wallet (QApplication & application_a, rai_qt::eventloop_processor & processor_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account & account_a) :
 rendering_ratio (rai::Mrai_ratio),
 node (node_a),
 wallet_m (wallet_a),
 account (account_a),
+processor (processor_a),
 history (node.ledger, account, rendering_ratio),
 accounts (*this),
 self (*this, account_a),

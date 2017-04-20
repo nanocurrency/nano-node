@@ -6,6 +6,7 @@
 int main (int argc, char ** argv)
 {
     QApplication application (argc, argv);
+	rai_qt::eventloop_processor processor;
     static int count (16);
     rai::system system (24000, count);
     std::unique_ptr <QTabWidget> client_tabs (new QTabWidget);
@@ -17,7 +18,7 @@ int main (int argc, char ** argv)
         auto wallet (system.nodes [i]->wallets.create (wallet_id));
         rai::keypair key;
         wallet->insert_adhoc (key.prv);
-        guis.push_back (std::unique_ptr <rai_qt::wallet> (new rai_qt::wallet (application, *system.nodes [i], wallet, key.pub)));
+        guis.push_back (std::unique_ptr <rai_qt::wallet> (new rai_qt::wallet (application, processor, *system.nodes [i], wallet, key.pub)));
         client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
     }
     client_tabs->show ();
