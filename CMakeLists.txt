@@ -235,13 +235,17 @@ endif (RAIBLOCKS_TEST)
 
 if (RAIBLOCKS_GUI)
 
+    qt5_add_resources(RES resources.qrc)
+
+
 	add_library (qt
 		rai/qt/qt.cpp
 		rai/qt/qt.hpp)
 
 	add_executable (rai_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
-		rai/rai_wallet/entry.cpp)
+		rai/rai_wallet/entry.cpp
+        ${RES})
 
 	add_executable (qt_test
 		rai/qt_test/entry.cpp
