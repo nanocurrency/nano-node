@@ -378,6 +378,7 @@ public:
 	rai::observer_set <rai::vote const &, rai::endpoint const &> vote;
 	rai::observer_set <rai::endpoint const &> endpoint;
 	rai::observer_set <> disconnect;
+	rai::observer_set <> started;
 };
 class vote_processor
 {
