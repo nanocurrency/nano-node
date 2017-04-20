@@ -208,68 +208,76 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 	config_file.close ();
 	if (!error)
 	{
+		std::shared_ptr <rai_qt::wallet> gui;
 		rai::set_application_icon (application);
-		boost::asio::io_service service;
-		rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::alarm alarm (service);
-		rai::node_init init;
-		auto node (std::make_shared <rai::node> (init, service, working, alarm, config.node, work));
-		if (!init.error ())
+		std::thread node_thread ([&] ()
 		{
-			auto wallet (node->wallets.open (config.wallet));
-			if (wallet == nullptr)
+			boost::asio::io_service service;
+			rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+			rai::alarm alarm (service);
+			rai::node_init init;
+			auto node (std::make_shared <rai::node> (init, service, working, alarm, config.node, work));
+			if (!init.error ())
 			{
-				auto existing (node->wallets.items.begin ());
-				if (existing != node->wallets.items.end ())
+				auto wallet (node->wallets.open (config.wallet));
+				if (wallet == nullptr)
 				{
-					wallet = existing->second;
-					config.wallet = existing->first;
+					auto existing (node->wallets.items.begin ());
+					if (existing != node->wallets.items.end ())
+					{
+						wallet = existing->second;
+						config.wallet = existing->first;
+					}
+					else
+					{
+						wallet = node->wallets.create (config.wallet);
+					}
 				}
-				else
+				if (config.account.is_zero () || !wallet->exists (config.account))
 				{
-					wallet = node->wallets.create (config.wallet);
+					rai::transaction transaction (wallet->store.environment, nullptr, true);
+					auto existing (wallet->store.begin (transaction));
+					if (existing != wallet->store.end ())
+					{
+						rai::uint256_union account (existing->first);
+						config.account = account;
+					}
+					else
+					{
+						config.account = wallet->deterministic_insert (transaction);
+					}
 				}
+				assert (wallet->exists (config.account));
+				update_config (config, config_path, config_file);
+				node->start ();
+				rai::rpc rpc (service, *node, config.rpc);
+				if (config.rpc_enable)
+				{
+					rpc.start ();
+				}
+				rai::thread_runner runner (service, node->config.io_threads);
+				QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+				{
+					rpc.stop ();
+					node->stop ();
+				});
+				application.postEvent (&processor, new rai_qt::eventloop_event ([&] ()
+				{
+					gui = std::make_shared <rai_qt::wallet> (application, processor, *node, wallet, config.account);
+					splash->close();
+					gui->start ();
+					gui->client_window->show ();
+				}));
+				runner.join ();
 			}
-			if (config.account.is_zero () || !wallet->exists (config.account))
+			else
 			{
-				rai::transaction transaction (wallet->store.environment, nullptr, true);
-				auto existing (wallet->store.begin (transaction));
-				if (existing != wallet->store.end ())
-				{
-					rai::uint256_union account (existing->first);
-					config.account = account;
-				}
-				else
-				{
-					config.account = wallet->deterministic_insert (transaction);
-				}
+				show_error ("Error initializing node");
 			}
-			assert (wallet->exists (config.account));
-			update_config (config, config_path, config_file);
-			node->start ();
-			rai::rpc rpc (service, *node, config.rpc);
-			if (config.rpc_enable)
-			{
-				rpc.start ();
-			}
-			auto gui (std::make_shared <rai_qt::wallet> (application, *node, wallet, config.account));
-            splash.close();
-			gui->start ();
-			gui->client_window->show ();
-			rai::thread_runner runner (service, node->config.io_threads);
-			QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-			{
-				rpc.stop ();
-				node->stop ();
-			});
-			result = application.exec ();
-			runner.join ();
-			update_config (config, config_path, config_file);
-		}
-		else
-		{
-			show_error ("Error initializing node");
-		}
+		});
+		result = application.exec ();
+		node_thread.join ();
+		update_config (config, config_path, config_file);
 	}
 	else
 	{
