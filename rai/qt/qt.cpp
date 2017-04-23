@@ -1384,12 +1384,12 @@ void rai_qt::advanced_actions::refresh_ledger ()
     {
         QList <QStandardItem *> items;
         items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_account ().c_str ())));
-		auto hash (rai::account_info (i->second).head);
+		rai::account_info info (i->second);
 		std::string balance;
-		rai::amount (wallet.node.ledger.balance (transaction, hash) / wallet.rendering_ratio).encode_dec (balance);
+		rai::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
         items.push_back (new QStandardItem (QString (balance.c_str ())));
         std::string block_hash;
-        hash.encode_hex (block_hash);
+        info.head.encode_hex (block_hash);
         items.push_back (new QStandardItem (QString (block_hash.c_str ())));
         ledger_model->appendRow (items);
     }
