@@ -716,10 +716,7 @@ node_config (rai::network::node_port, rai::logging (application_path_a))
 rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
 peering_port (peering_port_a),
 logging (logging_a),
-packet_delay_microseconds (5000),
 bootstrap_fraction_numerator (1),
-creation_rebroadcast (2),
-rebroadcast_delay (15),
 receive_minimum (rai::rai_ratio),
 inactive_supply (0),
 password_fanout (1024),
@@ -760,10 +757,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 {
 	tree_a.put ("version", "6");
 	tree_a.put ("peering_port", std::to_string (peering_port));
-	tree_a.put ("packet_delay_microseconds", std::to_string (packet_delay_microseconds));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
-	tree_a.put ("creation_rebroadcast", std::to_string (creation_rebroadcast));
-	tree_a.put ("rebroadcast_delay", std::to_string (rebroadcast_delay));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
 	boost::property_tree::ptree logging_l;
 	logging.serialize_json (logging_l);
@@ -848,6 +842,10 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		break;
 	case 5:
 		tree_a.put ("enable_voting", enable_voting);
+		tree_a.erase ("packet_delay_microseconds");
+		tree_a.erase ("rebroadcast_delay");
+		tree_a.erase ("creation_rebroadcast");
+		tree_a.erase ("version");
 		tree_a.put ("version", "6");
 		result = true;
 		break;
@@ -878,10 +876,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		}
 		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
 		auto peering_port_l (tree_a.get <std::string> ("peering_port"));
-		auto packet_delay_microseconds_l (tree_a.get <std::string> ("packet_delay_microseconds"));
 		auto bootstrap_fraction_numerator_l (tree_a.get <std::string> ("bootstrap_fraction_numerator"));
-		auto creation_rebroadcast_l (tree_a.get <std::string> ("creation_rebroadcast"));
-		auto rebroadcast_delay_l (tree_a.get <std::string> ("rebroadcast_delay"));
 		auto receive_minimum_l (tree_a.get <std::string> ("receive_minimum"));
 		auto & logging_l (tree_a.get_child ("logging"));
 		work_peers.clear ();
@@ -924,15 +919,10 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
-			packet_delay_microseconds = std::stoul (packet_delay_microseconds_l);
 			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
-			creation_rebroadcast = std::stoul (creation_rebroadcast_l);
-			rebroadcast_delay = std::stoul (rebroadcast_delay_l);
 			password_fanout = std::stoul (password_fanout_l);
 			io_threads = std::stoul (io_threads_l);
 			work_threads = std::stoul (work_threads_l);
-			result |= creation_rebroadcast > 10;
-			result |= rebroadcast_delay > 300;
 			result |= peering_port > std::numeric_limits <uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);

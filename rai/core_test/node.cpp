@@ -472,37 +472,32 @@ TEST (node_config, serialization)
 	auto path (rai::unique_path ());
 	rai::logging logging1 (path);
 	rai::node_config config1 (100, logging1);
-	config1.packet_delay_microseconds = 10;
 	config1.bootstrap_fraction_numerator = 10;
-	config1.creation_rebroadcast = 10;
-	config1.rebroadcast_delay = 10;
 	config1.receive_minimum = 10;
 	config1.inactive_supply = 10;
 	config1.password_fanout = 10;
+	config1.enable_voting = false;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2 (path);
 	logging2.node_lifetime_tracing_value = !logging2.node_lifetime_tracing_value;
 	rai::node_config config2 (50, logging2);
-	ASSERT_NE (config2.packet_delay_microseconds, config1.packet_delay_microseconds);
 	ASSERT_NE (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
-	ASSERT_NE (config2.creation_rebroadcast, config1.creation_rebroadcast);
-	ASSERT_NE (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_NE (config2.peering_port, config1.peering_port);
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_NE (config2.inactive_supply, config1.inactive_supply);
 	ASSERT_NE (config2.password_fanout, config1.password_fanout);
+	ASSERT_NE (config2.enable_voting, config1.enable_voting);
+	
 	bool upgraded (false);
 	config2.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (config2.packet_delay_microseconds, config1.packet_delay_microseconds);
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
-	ASSERT_EQ (config2.creation_rebroadcast, config1.creation_rebroadcast);
-	ASSERT_EQ (config2.rebroadcast_delay, config1.rebroadcast_delay);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_EQ (config2.inactive_supply, config1.inactive_supply);
 	ASSERT_EQ (config2.password_fanout, config1.password_fanout);
+	ASSERT_EQ (config2.enable_voting, config1.enable_voting);
 }
 
 TEST (node_config, v1_v2_upgrade)

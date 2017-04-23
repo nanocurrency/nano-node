@@ -356,10 +356,7 @@ public:
 	std::vector <std::pair <boost::asio::ip::address, uint16_t>> work_peers;
 	std::vector <std::string> preconfigured_peers;
 	std::vector <rai::account> preconfigured_representatives;
-	unsigned packet_delay_microseconds;
 	unsigned bootstrap_fraction_numerator;
-	unsigned creation_rebroadcast;
-	unsigned rebroadcast_delay;
 	rai::amount receive_minimum;
 	rai::amount inactive_supply;
 	unsigned password_fanout;
