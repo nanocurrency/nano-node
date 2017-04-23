@@ -2699,6 +2699,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("account_create", "Insert next deterministic key in to <wallet>")
 	("account_get", "Get account number for the <key>")
 	("account_key", "Get the public key for <account>")
+	("data_path", boost::program_options::value <std::string> (), "Use the supplied path as the data directory")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")

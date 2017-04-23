@@ -110,7 +110,7 @@ int main (int argc, char * const * argv)
 	rai::add_node_options (description);
 	description.add_options ()
 		("help", "Print out options")
-		("daemon", "Start node daemon")
+        ("daemon", "Start node daemon")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -130,8 +130,17 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("daemon") > 0)
 	{
+		boost::filesystem::path data_path;
+		if (vm.count ("data_path"))
+		{
+			data_path = boost::filesystem::path (vm ["data_path"].as <std::string> ());
+		}
+		else
+		{
+			data_path = rai::working_path ();
+		}
         rai_daemon::daemon daemon;
-        daemon.run ();
+        daemon.run (data_path);
 	}
 	else if (vm.count ("debug_block_count"))
 	{
