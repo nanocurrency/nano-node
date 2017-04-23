@@ -95,21 +95,11 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run (std::string alt_path)
+void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 {
-    boost::filesystem::path working;
-    if (alt_path == ""){
-        working = (rai::working_path ());
-    }
-    else {
-        working = alt_path;
-    }
-
-    std::cout << "Data Dir: " << working << std::endl;
-    
-	boost::filesystem::create_directories (working);
-    rai_daemon::daemon_config config (working);
-    auto config_path ((working / "config.json"));
+	boost::filesystem::create_directories (data_path);
+    rai_daemon::daemon_config config (data_path);
+    auto config_path ((data_path / "config.json"));
     std::fstream config_file;
     std::unique_ptr <rai::thread_runner> runner;
 	auto error (rai::fetch_object (config, config_path, config_file));
@@ -120,7 +110,7 @@ void rai_daemon::daemon::run (std::string alt_path)
 		rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 		rai::alarm alarm (service);
 		rai::node_init init;
-		auto node (std::make_shared <rai::node> (init, service, working, alarm, config.node, work));
+		auto node (std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work));
 		if (!init.error ())
 		{
 			node->start ();

@@ -189,19 +189,18 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
 {
 	rai_qt::eventloop_processor processor;
-	auto working (rai::working_path ());
-	boost::filesystem::create_directories (working);
+	boost::filesystem::create_directories (data_path);
 	QPixmap pixmap(":/logo.png");
 	QSplashScreen *splash = new QSplashScreen(pixmap);
 	splash->show();
 	application.processEvents();
 	splash->showMessage(QSplashScreen::tr("Remember - Backup Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::black);
 	application.processEvents();
-	qt_wallet_config config (working);
-	auto config_path ((working / "config.json"));
+	qt_wallet_config config (data_path);
+	auto config_path ((data_path / "config.json"));
     int result (0);
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
@@ -216,7 +215,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv)
 			rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 			rai::alarm alarm (service);
 			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, service, working, alarm, config.node, work));
+			auto node (std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work));
 			if (!init.error ())
 			{
 				auto wallet (node->wallets.open (config.wallet));
@@ -309,7 +308,17 @@ int main (int argc, char * const * argv)
 		{
 			try
 			{
-				result = run_wallet (application, argc, argv);
+				boost::filesystem::path data_path;
+				if (vm.count ("data_path"))
+				{
+					auto name (vm ["data_path"].as <std::string> ());
+					data_path = boost::filesystem::path (name);
+				}
+				else
+				{
+					data_path = rai::working_path ();
+				}
+				result = run_wallet (application, argc, argv, data_path);
 			}
 			catch (std::exception const & e)
 			{
