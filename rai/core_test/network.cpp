@@ -301,7 +301,7 @@ TEST (receivable_processor, send_with_receive)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (1)->insert_adhoc (key2.prv);
-    auto block1 (new rai::send_block (latest1, key2.pub, amount - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1)));
+    std::unique_ptr <rai::send_block> block1 (new rai::send_block (latest1, key2.pub, amount - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1)));
 	ASSERT_EQ (amount, system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
 	ASSERT_EQ (amount, system.nodes [1]->balance (rai::test_genesis_key.pub));
