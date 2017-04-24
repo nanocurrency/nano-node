@@ -8,6 +8,11 @@ set (CPACK_PACKAGE_VERSION_PATCH "4")
 set (RAIBLOCKS_GUI OFF CACHE BOOL "")
 set (RAIBLOCKS_TEST OFF CACHE BOOL "")
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
+      "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+endif(NOT CMAKE_BUILD_TYPE)
+
 if (WIN32)
 	set (PLATFORM_COMPILE_FLAGS "-DBOOST_SPIRIT_THREADSAFE -D_WIN32_WINNT=0x0600 -DWINVER=0x0600 -DWIN32_LEAN_AND_MEAN -DMINIUPNP_STATICLIB")
 	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
@@ -265,7 +270,7 @@ add_executable (rai_node
 	rai/rai_node/daemon.hpp
 	rai/rai_node/entry.cpp)
 
-SET (ACTIVE_NETWORK rai_active_network CACHE STRING "Selects which network parameters are used")
+SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
 set_target_properties (cryptopp PROPERTIES COMPILE_FLAGS "-DCRYPTOPP_DISABLE_ASM")
