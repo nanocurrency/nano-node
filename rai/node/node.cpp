@@ -722,7 +722,8 @@ inactive_supply (0),
 password_fanout (1024),
 io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
-enable_voting (true)
+enable_voting (true),
+bootstrap_connections (16)
 {
 	switch (rai::rai_network)
 	{
@@ -755,7 +756,7 @@ enable_voting (true)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "6");
+	tree_a.put ("version", "7");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -791,6 +792,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("io_threads", std::to_string (io_threads));
 	tree_a.put ("work_threads", std::to_string (work_threads));
 	tree_a.put ("enable_voting", enable_voting);
+	tree_a.put ("bootstrap_connections", bootstrap_connections);
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -850,6 +852,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		result = true;
 		break;
 	case 6:
+		tree_a.put ("bootstrap_connections", 16);
+		tree_a.erase ("version");
+		tree_a.put ("version", "7");
+		result = true;
+		break;
+	case 7:
 		break;
 	default:
 		throw std::runtime_error ("Unknown node_config version");
@@ -916,6 +924,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto io_threads_l (tree_a.get <std::string> ("io_threads"));
 		auto work_threads_l (tree_a.get <std::string> ("work_threads"));
 		enable_voting = tree_a.get <bool> ("enable_voting");
+		auto bootstrap_connections_l (tree_a.get <std::string> ("bootstrap_connections"));
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -923,6 +932,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			password_fanout = std::stoul (password_fanout_l);
 			io_threads = std::stoul (io_threads_l);
 			work_threads = std::stoul (work_threads_l);
+			bootstrap_connections = std::stoul (bootstrap_connections_l);
 			result |= peering_port > std::numeric_limits <uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);

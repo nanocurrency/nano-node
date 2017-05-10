@@ -111,7 +111,7 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
     auto result (rai::sync_result::success);
 	blocks.clear ();
     blocks.push_back (hash_a);
-	unsigned block_count (rai::rai_network == rai::rai_networks::rai_test_network ? 2 : 8192);
+	unsigned block_count (rai::blocks_per_transaction);
     while (block_count > 0 && result != rai::sync_result::fork && !blocks.empty ())
     {
         result = synchronize_one (transaction_a);
@@ -737,12 +737,17 @@ void rai::bootstrap_pull_cache::flush (size_t minimum_a)
 	}
 	if (!blocks_l.empty ())
 	{
-		rai::transaction transaction (attempt.node->store.environment, nullptr, true);
 		while (!blocks_l.empty ())
 		{
-			auto & front (blocks_l.front ());
-			attempt.node->store.unchecked_put (transaction, front->hash(), *front);
-			blocks_l.pop_front ();
+			auto count (0);
+			while (!blocks_l.empty () && count < rai::blocks_per_transaction)
+			{
+				rai::transaction transaction (attempt.node->store.environment, nullptr, true);
+				auto & front (blocks_l.front ());
+				attempt.node->store.unchecked_put (transaction, front->hash(), *front);
+				blocks_l.pop_front ();
+				++count;
+			}
 		}
 	}
 }
@@ -781,7 +786,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	std::shared_ptr <rai::bootstrap_client> client;
 	{
 		std::lock_guard <std::mutex> lock (mutex);
-		if (connecting.size () + active.size () + idle.size () < 1)
+		if (connecting.size () + active.size () + idle.size () < node->config.bootstrap_connections)
 		{
 			auto peer (node->peers.bootstrap_peer ());
 			if (peer != rai::endpoint ())
@@ -897,15 +902,21 @@ void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap
 
 void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_client> client_a)
 {
+	auto repool (true);
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		if (client_a->pull_client.expected != client_a->pull_client.pull.end)
 		{
 			requeue_pull (client_a->pull_client.pull);
+			BOOST_LOG (node->log) << boost::str (boost::format ("Disconnecting from %1% because it didn't give us what we requested") % client_a->endpoint);
+			repool = false;
 		}
 		client_a->pull_client.pull = rai::pull_info ();
 	}
-	pool_connection (client_a);
+	if (repool)
+	{
+		pool_connection (client_a);
+	}
 	cache.flush (cache.block_count);
 }
 
@@ -964,18 +975,25 @@ void rai::bootstrap_attempt::dispatch_work ()
 					}
 					else
 					{
-						state = rai::attempt_state::pushing;
-						// No one else is still running, we're done with pulls
-						action = [this, connection] ()
+						if (active.empty ())
 						{
-							completed_pulls (connection);
-						};
+							// No one else is still running, we're done with pulls
+							state = rai::attempt_state::pushing;
+							action = [this, connection] ()
+							{
+								completed_pulls (connection);
+							};
+						}
+						else
+						{
+							// Drop this connection
+							break;
+						}
 					}
 					break;
 				case rai::attempt_state::pushing:
 				case rai::attempt_state::complete:
 					// Drop this connection
-					action = [] () {};
 					break;
 			};
 			if (action)
