@@ -103,6 +103,7 @@ public:
 	void block ();
 	void block_account ();
 	void block_count ();
+	void block_successor ();
 	void bootstrap ();
 	void chain ();
 	void frontiers ();
@@ -145,6 +146,7 @@ public:
 	void wallet_representative_set ();
 	void work_generate ();
 	void work_cancel ();
+	void work_validate ();
 	std::string body;
 	rai::node & node;
 	rai::rpc & rpc;

@@ -605,6 +605,33 @@ void rai::rpc_handler::block_count ()
 	response (response_l);
 }
 
+void rai::rpc_handler::block_successor ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::uint256_union hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block (node.store.block_get (transaction, hash));
+		if (block != nullptr)
+		{
+			boost::property_tree::ptree response_l;
+			rai::uint256_union successor (node.store.block_successor (transaction, hash));
+			response_l.put ("successor", successor.to_string ());
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad hash number");
+	}
+}
+
 void rai::rpc_handler::bootstrap ()
 {
 	std::string address_text = request.get <std::string> ("address");
@@ -1901,6 +1928,34 @@ void rai::rpc_handler::work_cancel ()
 	}
 }
 
+void rai::rpc_handler::work_validate ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::block_hash hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		std::string work_text (request.get <std::string> ("work"));
+		uint64_t work;
+		auto work_error (rai::from_string_hex (work_text, work));
+		if (!work_error)
+		{
+			auto validate (node.work.work_validate (hash, work));
+			boost::property_tree::ptree response_l;
+			response_l.put ("valid", validate ? "0" : "1");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Bad work");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad block hash");
+	}
+}
+
 rai::rpc_connection::rpc_connection (rai::node & node_a, rai::rpc & rpc_a) :
 node (node_a.shared ()),
 rpc (rpc_a),
@@ -2037,6 +2092,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block_count")
 		{
 			block_count ();
+		}
+		else if (action == "block_successor")
+		{
+			block_successor ();
 		}
 		else if (action == "bootstrap")
 		{
@@ -2205,6 +2264,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "work_cancel")
 		{
 			work_cancel ();
+		}
+		else if (action == "work_validate")
+		{
+			work_validate ();
 		}
 		else
 		{
