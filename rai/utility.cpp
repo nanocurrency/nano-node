@@ -23,22 +23,30 @@ std::string rai::to_string_hex (uint64_t value_a)
 
 bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
 {
-    auto result (value_a.size () == 8);
-    if (!result)
-    {
-        std::stringstream stream (value_a);
-        stream << std::hex << std::noshowbase;
-        uint64_t number_l;
-        try
-        {
-            stream >> number_l;
-            target_a = number_l;
-        }
-        catch (std::runtime_error &)
-        {
-            result = true;
-        }
-    }
+	auto result (value_a.empty ());
+	if (!result)
+	{
+		result = value_a.size () > 16;
+		if (!result)
+		{
+			std::stringstream stream (value_a);
+			stream << std::hex << std::noshowbase;
+			uint64_t number_l;
+			try
+			{
+				stream >> number_l;
+				target_a = number_l;
+				if (!stream.eof())
+				{
+					result = true;
+				}
+			}
+			catch (std::runtime_error &)
+			{
+				result = true;
+			}
+		}
+	}
     return result;
 }
 

@@ -346,3 +346,19 @@ TEST(json, DISABLED_fetch_write_fail)
 	auto error4(rai::fetch_object(object4, stream4));
 	ASSERT_TRUE(error4);
 }
+
+TEST (uint64_t, parse)
+{
+	uint64_t value0 (1);
+	ASSERT_FALSE (rai::from_string_hex ("0", value0));
+	ASSERT_EQ (0, value0);
+	uint64_t value1 (1);
+	ASSERT_FALSE (rai::from_string_hex ("ffffffffffffffff", value1));
+	ASSERT_EQ (0xffffffffffffffffULL, value1);
+	uint64_t value2 (1);
+	ASSERT_TRUE (rai::from_string_hex ("g", value2));
+	uint64_t value3 (1);
+	ASSERT_TRUE (rai::from_string_hex ("ffffffffffffffff0", value3));
+	uint64_t value4 (1);
+	ASSERT_TRUE (rai::from_string_hex ("", value4));
+}
