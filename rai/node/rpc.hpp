@@ -106,6 +106,7 @@ public:
 	void block_successor ();
 	void bootstrap ();
 	void chain ();
+	void chain_reverse ();
 	void frontiers ();
 	void frontier_count ();
 	void history ();
@@ -129,6 +130,7 @@ public:
 	void rai_to_raw ();
 	void rai_from_raw ();
 	void representatives ();
+	void republish ();
 	void search_pending ();
 	void send ();
 	void stop ();
