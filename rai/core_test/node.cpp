@@ -1310,3 +1310,23 @@ TEST (node, start_observer)
 	ASSERT_TRUE (started);
 	node->stop ();
 }
+
+TEST (node, send_callback)
+{
+    rai::system system (24000, 1);
+    rai::keypair key2;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
+	system.nodes [0]->config.callback_address = "localhost";
+	system.nodes [0]->config.callback_port = 8010;
+	system.nodes [0]->config.callback_target = "/";
+    ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes [0]->config.receive_minimum.number ()));
+    auto iterations (0);
+    while (system.nodes [0]->balance (key2.pub).is_zero ())
+    {
+        system.poll ();
+        ++iterations;
+        ASSERT_LT (iterations, 200);
+    }
+    ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
+}

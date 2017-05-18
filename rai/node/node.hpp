@@ -315,6 +315,7 @@ public:
     bool insufficient_work_logging () const;
     bool log_rpc () const;
     bool bulk_pull_logging () const;
+	bool callback_logging () const;
     bool work_generation_time () const;
     bool log_to_cerr () const;
 	bool ledger_logging_value;
@@ -364,6 +365,9 @@ public:
 	unsigned work_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
+	std::string callback_address;
+	uint16_t callback_port;
+	std::string callback_target;
     static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
     static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

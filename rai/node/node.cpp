@@ -687,6 +687,11 @@ bool rai::logging::bulk_pull_logging () const
 	return network_logging () && bulk_pull_logging_value;
 }
 
+bool rai::logging::callback_logging () const
+{
+	return network_logging ();
+}
+
 bool rai::logging::work_generation_time () const
 {
 	return work_generation_time_value;
@@ -793,6 +798,9 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("work_threads", std::to_string (work_threads));
 	tree_a.put ("enable_voting", enable_voting);
 	tree_a.put ("bootstrap_connections", bootstrap_connections);
+	tree_a.put ("callback_address", callback_address);
+	tree_a.put ("callback_port", std::to_string (callback_port));
+	tree_a.put ("callback_target", callback_target);
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -853,6 +861,9 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		break;
 	case 6:
 		tree_a.put ("bootstrap_connections", 16);
+		tree_a.put ("callback_address", "");
+		tree_a.put ("callback_port", "0");
+		tree_a.put ("callback_target", "");
 		tree_a.erase ("version");
 		tree_a.put ("version", "7");
 		result = true;
@@ -925,6 +936,10 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto work_threads_l (tree_a.get <std::string> ("work_threads"));
 		enable_voting = tree_a.get <bool> ("enable_voting");
 		auto bootstrap_connections_l (tree_a.get <std::string> ("bootstrap_connections"));
+		callback_address = tree_a.get <std::string> ("callback_address");
+		auto callback_port_l (tree_a.get <std::string> ("callback_port"));
+		callback_target = tree_a.get <std::string> ("callback_target");
+		result |= parse_port (callback_port_l, callback_port);
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1063,6 +1078,102 @@ warmed_up (0)
 	{
 		observers.disconnect ();
 	};
+	observers.blocks.add ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
+	{
+		if (!config.callback_address.empty ())
+		{
+			boost::property_tree::ptree event;
+			event.add ("account", account_a.to_account ());
+			event.add ("hash", block_a.hash ().to_string ());
+			std::string block_text;
+			block_a.serialize_json (block_text);
+			event.add ("block", block_text);
+			event.add ("balance", amount_a.to_string ());
+			std::stringstream ostream;
+			boost::property_tree::write_json (ostream, event);
+			ostream.flush ();
+			auto body (std::make_shared <std::string> (ostream.str ()));
+			auto address (config.callback_address);
+			auto port (config.callback_port);
+			auto target (std::make_shared <std::string> (config.callback_target));
+			auto node_l (shared_from_this ());
+			auto resolver (std::make_shared <boost::asio::ip::tcp::resolver> (network.service));
+			resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a)
+			{
+				if (!ec)
+				{
+					for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator {}); i != n; ++i)
+					{
+						auto sock (std::make_shared <boost::asio::ip::tcp::socket> (node_l->network.service));
+						sock->async_connect (i->endpoint(), [node_l, target, body, sock, address, port] (boost::system::error_code const & ec)
+						{
+							if (!ec)
+							{
+								auto req (std::make_shared <beast::http::request<beast::http::string_body>> ());
+								req->method = "POST";
+								req->url = *target;
+								req->version = 11;
+								req->body = *body;
+								beast::http::prepare (*req);
+								beast::http::async_write (*sock, *req, [node_l, sock, address, port, req] (boost::system::error_code & ec)
+								{
+									if (!ec)
+									{
+										auto sb (std::make_shared <beast::streambuf> ());
+										auto resp (std::make_shared <beast::http::response <beast::http::string_body>> ());
+										beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port] (boost::system::error_code & ec)
+										{
+											if (!ec)
+											{
+												if (resp->status == 200)
+												{
+												}
+												else
+												{
+													if (node_l->config.logging.callback_logging ())
+													{
+														BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->status);
+													}
+												}
+											}
+											else
+											{
+												if (node_l->config.logging.callback_logging ())
+												{
+													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2% %3%") % address % port % ec.message ());
+												}
+											};
+										});
+									}
+									else
+									{
+										if (node_l->config.logging.callback_logging ())
+										{
+											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2% %3%") % address % port % ec.message ());
+										}
+									}
+								});
+							}
+							else
+							{
+								if (node_l->config.logging.callback_logging ())
+								{
+									BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%, %3%") % address % port % ec.message ());
+								}
+							}
+						});
+					}
+				}
+				else
+				{
+					if (node_l->config.logging.callback_logging ())
+					{
+						BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%, %3%") % address % port % ec.message ());
+					}
+				}
+			});
+		}
+	});
 	observers.endpoint.add ([this] (rai::endpoint const & endpoint_a)
 	{
 		this->network.send_keepalive (endpoint_a);
