@@ -105,6 +105,7 @@ public:
 	void block_count ();
 	void block_successor ();
 	void bootstrap ();
+	void bootstrap_multi ();
 	void chain ();
 	void chain_reverse ();
 	void frontiers ();

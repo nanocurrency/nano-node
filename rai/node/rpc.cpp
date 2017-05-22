@@ -659,6 +659,14 @@ void rai::rpc_handler::bootstrap ()
 	}
 }
 
+void rai::rpc_handler::bootstrap_multi ()
+{
+	node.bootstrap_initiator.bootstrap ();
+	boost::property_tree::ptree response_l;
+	response_l.put ("success", "");
+	response (response_l);
+}
+
 void rai::rpc_handler::chain ()
 {
 	std::string block_text (request.get <std::string> ("block"));
@@ -2174,6 +2182,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "bootstrap")
 		{
 			bootstrap ();
+		}
+		else if (action == "bootstrap_multi")
+		{
+			bootstrap_multi ();
 		}
 		else if (action == "chain")
 		{
