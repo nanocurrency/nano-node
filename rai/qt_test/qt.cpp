@@ -438,7 +438,7 @@ TEST (history, short_text)
 		rai::change_block change (receive.hash (), key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, change).code);
 	}
-	rai_qt::history history (ledger, rai::test_genesis_key.pub, rai::Grai_ratio);
+	rai_qt::history history (ledger, rai::test_genesis_key.pub, rai::Gxrb_ratio);
 	history.refresh ();
 	ASSERT_EQ (4, history.model->rowCount ());
 }

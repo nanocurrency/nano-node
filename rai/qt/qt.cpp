@@ -51,9 +51,9 @@ balance_window (new QWidget),
 balance_layout (new QHBoxLayout),
 balance_label (new QLabel),
 ratio_group (new QButtonGroup),
-mrai (new QRadioButton ("Mrai")),
-krai (new QRadioButton ("krai")),
-rai (new QRadioButton ("rai")),
+mrai (new QRadioButton ("Mxrb")),
+krai (new QRadioButton ("kxrb")),
+rai (new QRadioButton ("xrb")),
 wallet (wallet_a)
 {
     ratio_group->addButton (mrai);
@@ -98,21 +98,21 @@ wallet (wallet_a)
     {
         if (mrai->isChecked ())
         {
-			this->wallet.change_rendering_ratio (rai::Mrai_ratio);
+			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
         }
     });	
     QObject::connect (krai, &QRadioButton::toggled, [this] ()
     {
         if (krai->isChecked ())
         {
-			this->wallet.change_rendering_ratio (rai::krai_ratio);
+			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
         }
     });	
     QObject::connect (rai, &QRadioButton::toggled, [this] ()
     {
         if (rai->isChecked ())
         {
-			this->wallet.change_rendering_ratio (rai::rai_ratio);
+			this->wallet.change_rendering_ratio (rai::xrb_ratio);
         }
     });
 	mrai->click ();
@@ -711,7 +711,7 @@ std::string rai_qt::status::color ()
 }
 
 rai_qt::wallet::wallet (QApplication & application_a, rai_qt::eventloop_processor & processor_a, rai::node & node_a, std::shared_ptr <rai::wallet> wallet_a, rai::account & account_a) :
-rendering_ratio (rai::Mrai_ratio),
+rendering_ratio (rai::Mxrb_ratio),
 node (node_a),
 wallet_m (wallet_a),
 account (account_a),

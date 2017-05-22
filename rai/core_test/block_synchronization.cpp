@@ -232,10 +232,10 @@ TEST (pull_synchronization, dependent_fork)
 	rai::keypair key1;
 	rai::transaction transaction (node0.store.environment, nullptr, true);
 	auto genesis (node0.ledger.latest (transaction, rai::test_genesis_key.pub));
-	rai::send_block send0 (genesis, key0.pub, rai::genesis_amount - 1 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::send_block send1 (genesis, key0.pub, rai::genesis_amount - 2 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::send_block send2 (send0.hash (), key0.pub, rai::genesis_amount - 3 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::send_block send3 (send1.hash (), key0.pub, rai::genesis_amount - 4 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send0 (genesis, key0.pub, rai::genesis_amount - 1 * rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send1 (genesis, key0.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send2 (send0.hash (), key0.pub, rai::genesis_amount - 3 * rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send3 (send1.hash (), key0.pub, rai::genesis_amount - 4 * rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction, send0).code);
 	ASSERT_EQ (rai::process_result::progress, node0.ledger.process (transaction, send2).code);
 	node0.store.unchecked_put (transaction, send1.hash (), send1);
@@ -256,7 +256,7 @@ TEST (pull_synchronization, clear_blocks)
 	rai::system system1 (24001, 1);
 	auto & node0 (*system0.nodes [0]);
 	auto & node1 (*system1.nodes [0]);
-	rai::send_block send0 (0, 0, rai::genesis_amount - 1 * rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send0 (0, 0, rai::genesis_amount - 1 * rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		node1.store.unchecked_put (transaction, send0.hash (), send0);

@@ -685,7 +685,7 @@ TEST (block_store, upgrade_v4_v5)
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);
 		rai::keypair key0;
-		rai::send_block block0 (info.head, key0.pub, rai::genesis_amount - rai::Grai_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		rai::send_block block0 (info.head, key0.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block0).code);
 		hash = block0.hash ();
 		auto original (store.block_get (transaction, info.head));
