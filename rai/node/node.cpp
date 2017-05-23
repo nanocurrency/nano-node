@@ -3390,7 +3390,8 @@ rai::port_mapping::port_mapping (rai::node & node_a) :
 node (node_a),
 devices (nullptr),
 protocols ({{{ "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 }}}),
-check_count (0)
+check_count (0),
+on (false)
 {
 	urls = {0};
 	data = {{0}};
@@ -3518,18 +3519,25 @@ void rai::port_mapping::check_mapping_loop ()
 	else
 	{
 		wait_duration = 300;
-		BOOST_LOG (node.log) << boost::str (boost::format ("UPnP No IGD devices found"));
+		if (check_count < 10)
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP No IGD devices found"));
+		}
 	}
 	++check_count;
-	auto node_l (node.shared ());
-	node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l] ()
+	if (on)
 	{
-		node_l->port_mapping.check_mapping_loop ();
-	});
+		auto node_l (node.shared ());
+		node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l] ()
+		{
+			node_l->port_mapping.check_mapping_loop ();
+		});
+	}
 }
 
 void rai::port_mapping::stop ()
 {
+	on = false;
 	std::lock_guard <std::mutex> lock (mutex);
 	for (auto & protocol: protocols)
 	{
