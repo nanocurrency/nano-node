@@ -1901,6 +1901,34 @@ void rai::rpc_handler::work_cancel ()
 	}
 }
 
+void rai::rpc_handler::work_validate ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::block_hash hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		std::string work_text (request.get <std::string> ("work"));
+		uint64_t work;
+		auto work_error (rai::from_string_hex (work_text, work));
+		if (!work_error)
+		{
+			auto validate (node.work.work_validate (hash, work));
+			boost::property_tree::ptree response_l;
+			response_l.put ("valid", validate ? "0" : "1");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Bad work");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad block hash");
+	}
+}
+
 rai::rpc_connection::rpc_connection (rai::node & node_a, rai::rpc & rpc_a) :
 node (node_a.shared ()),
 rpc (rpc_a),
@@ -2205,6 +2233,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "work_cancel")
 		{
 			work_cancel ();
+		}
+		else if (action == "work_validate")
+		{
+			work_validate ();
 		}
 		else
 		{

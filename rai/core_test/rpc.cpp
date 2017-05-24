@@ -1840,3 +1840,39 @@ TEST (rpc, wallet_frontiers)
 	ASSERT_EQ (1, frontiers.size ());
 	ASSERT_EQ (system0.nodes [0]->latest (rai::genesis_account), frontiers [0]);
 }
+
+TEST (rpc, work_validate)
+{
+	rai::system system (24000, 1);
+	rai::node_init init1;
+	auto & node1 (*system.nodes [0]);
+	rai::keypair key;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rpc.start ();
+	rai::block_hash hash (1);
+	uint64_t work1 (node1.generate_work (hash));
+	boost::property_tree::ptree request;
+	request.put ("action", "work_validate");
+	request.put ("hash", hash.to_string ());
+	request.put ("work", rai::to_string_hex (work1));
+	test_response response1 (request, rpc, system.service);
+	while (response1.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response1.status);
+	std::string validate_text1 (response1.json.get <std::string> ("valid"));
+	ASSERT_EQ ("1", validate_text1);
+	uint64_t work2;
+	request.put ("work", rai::to_string_hex (work2));
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	std::string validate_text2 (response2.json.get <std::string> ("valid"));
+	ASSERT_EQ ("0", validate_text2);
+}
