@@ -605,6 +605,33 @@ void rai::rpc_handler::block_count ()
 	response (response_l);
 }
 
+void rai::rpc_handler::block_successor ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::uint256_union hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block (node.store.block_get (transaction, hash));
+		if (block != nullptr)
+		{
+			boost::property_tree::ptree response_l;
+			rai::uint256_union successor (node.store.block_successor (transaction, hash));
+			response_l.put ("successor", successor.to_string ());
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad hash number");
+	}
+}
+
 void rai::rpc_handler::bootstrap ()
 {
 	std::string address_text = request.get <std::string> ("address");
@@ -632,6 +659,14 @@ void rai::rpc_handler::bootstrap ()
 	}
 }
 
+void rai::rpc_handler::bootstrap_multi ()
+{
+	node.bootstrap_initiator.bootstrap ();
+	boost::property_tree::ptree response_l;
+	response_l.put ("success", "");
+	response (response_l);
+}
+
 void rai::rpc_handler::chain ()
 {
 	std::string block_text (request.get <std::string> ("block"));
@@ -654,6 +689,48 @@ void rai::rpc_handler::chain ()
 					entry.put ("", block.to_string ());
 					blocks.push_back (std::make_pair ("", entry));
 					block = block_l->previous ();
+				}
+				else
+				{
+					block.clear ();
+				}
+			}
+			response_l.add_child ("blocks", blocks);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Invalid count limit");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
+	}
+}
+
+void rai::rpc_handler::chain_reverse ()
+{
+	std::string block_text (request.get <std::string> ("block"));
+	std::string count_text (request.get <std::string> ("count"));
+	rai::block_hash block;
+	if (!block.decode_hex (block_text))
+	{
+		uint64_t count;
+		if (!decode_unsigned (count_text, count))
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree blocks;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			while (!block.is_zero () && blocks.size () < count)
+			{
+				auto block_l (node.store.block_get (transaction, block));
+				if (block_l != nullptr)
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", block.to_string ());
+					blocks.push_back (std::make_pair ("", entry));
+					block = node.store.block_successor (transaction, block);
 				}
 				else
 				{
@@ -1362,6 +1439,38 @@ void rai::rpc_handler::representatives ()
 	response (response_l);
 }
 
+void rai::rpc_handler::republish ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::uint256_union hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block (node.store.block_get (transaction, hash));
+		if (block != nullptr)
+		{
+			while (!hash.is_zero ())
+			{
+				block = node.store.block_get (transaction, hash);
+				node.network.republish_block (*block);
+				hash = node.store.block_successor (transaction, hash);
+			}
+			boost::property_tree::ptree response_l;
+			response_l.put ("success", "");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad hash number");
+	}
+}
+
 void rai::rpc_handler::search_pending ()
 {
 	if (rpc.config.enable_control)
@@ -2066,13 +2175,25 @@ void rai::rpc_handler::process_request ()
 		{
 			block_count ();
 		}
+		else if (action == "block_successor")
+		{
+			block_successor ();
+		}
 		else if (action == "bootstrap")
 		{
 			bootstrap ();
 		}
+		else if (action == "bootstrap_multi")
+		{
+			bootstrap_multi ();
+		}
 		else if (action == "chain")
 		{
 			chain ();
+		}
+		else if (action == "chain_reverse")
+		{
+			chain_reverse ();
 		}
 		else if (action == "frontiers")
 		{
@@ -2165,6 +2286,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "representatives")
 		{
 			representatives ();
+		}
+		else if (action == "republish")
+		{
+			republish ();
 		}
 		else if (action == "search_pending")
 		{
