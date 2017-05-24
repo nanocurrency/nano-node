@@ -145,6 +145,7 @@ public:
 	void wallet_representative_set ();
 	void work_generate ();
 	void work_cancel ();
+	void work_validate ();
 	std::string body;
 	rai::node & node;
 	rai::rpc & rpc;
