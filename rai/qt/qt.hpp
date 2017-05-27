@@ -59,6 +59,7 @@ namespace rai_qt {
 		QPushButton * show_ledger;
 		QPushButton * show_peers;
 		QPushButton * search_for_receivables;
+		QPushButton * bootstrap;
 		QPushButton * wallet_refresh;
 		QPushButton * create_block;
 		QPushButton * enter_block;

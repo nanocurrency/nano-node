@@ -1199,6 +1199,7 @@ accounts (new QPushButton ("Accounts")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
 search_for_receivables (new QPushButton ("Search for receivables")),
+bootstrap (new QPushButton ("Initiate bootstrap")),
 wallet_refresh (new QPushButton ("Refresh Wallet")),
 create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
@@ -1251,6 +1252,7 @@ wallet (wallet_a)
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
     layout->addWidget (search_for_receivables);
+	layout->addWidget (bootstrap);
     layout->addWidget (wallet_refresh);
     layout->addWidget (create_block);
     layout->addWidget (enter_block);
@@ -1314,6 +1316,10 @@ wallet (wallet_a)
     QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
     {
 		this->wallet.wallet_m->search_pending ();
+    });
+    QObject::connect (bootstrap, &QPushButton::released, [this] ()
+    {
+		this->wallet.node.bootstrap_initiator.bootstrap ();
     });
     QObject::connect (create_block, &QPushButton::released, [this] ()
     {
