@@ -1270,6 +1270,7 @@ wallet (wallet_a)
     });
     QObject::connect (show_peers, &QPushButton::released, [this] ()
     {
+		refresh_peers ();
 		this->wallet.push_main_stack (peers_window);
     });
     QObject::connect (show_ledger, &QPushButton::released, [this] ()
