@@ -173,8 +173,9 @@ static void ucharset (void * dest_a, int val, size_t count)
 /* init xors IV with input parameter block */
 static inline int blake2b_init_param( blake2b_state *S, const blake2b_param *P )
 {
-  uchar *p, *h, *v;
-  v = ( uchar * )( blake2b_IV );
+  uchar *p, *h;
+  __constant uchar *v;
+  v = ( __constant uchar * )( blake2b_IV );
   h = ( uchar * )( S->h );
   p = ( uchar * )( P );
   /* IV XOR ParamBlock */
