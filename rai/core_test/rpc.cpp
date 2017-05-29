@@ -25,8 +25,8 @@ public:
 			{
 				std::stringstream ostream;
 				boost::property_tree::write_json (ostream, request);
-				req.method = "POST";
-				req.url = "/";
+				req.method ("POST");
+				req.target ("/");
 				req.version = 11;
 				ostream.flush ();
 				req.body = ostream.str ();
@@ -71,7 +71,7 @@ public:
 	boost::property_tree::ptree const & request;
 	boost::asio::ip::tcp::socket sock;
 	boost::property_tree::ptree json;
-	beast::streambuf sb;
+	beast::flat_buffer sb;
 	beast::http::request<beast::http::string_body> req;
 	beast::http::response<beast::http::string_body> resp;
 	int status;

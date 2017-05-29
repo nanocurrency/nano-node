@@ -1110,8 +1110,8 @@ warmed_up (0)
 							if (!ec)
 							{
 								auto req (std::make_shared <beast::http::request<beast::http::string_body>> ());
-								req->method = "POST";
-								req->url = *target;
+								req->method ("POST");
+								req->target (*target);
 								req->version = 11;
 								req->fields.replace("Host", address);
 								req->body = *body;
@@ -1120,7 +1120,7 @@ warmed_up (0)
 								{
 									if (!ec)
 									{
-										auto sb (std::make_shared <beast::streambuf> ());
+										auto sb (std::make_shared <beast::flat_buffer> ());
 										auto resp (std::make_shared <beast::http::response <beast::http::string_body>> ());
 										beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port] (boost::system::error_code & ec)
 										{
@@ -1830,7 +1830,7 @@ socket (service_a)
 }
 boost::asio::ip::address address;
 uint16_t port;
-beast::streambuf buffer;
+beast::flat_buffer buffer;
 beast::http::response <beast::http::string_body> response;
 boost::asio::ip::tcp::socket socket;
 };
@@ -1875,8 +1875,8 @@ void start ()
 							request_string = ostream.str ();
 						}
 						beast::http::request <beast::http::string_body> request;
-						request.method = "POST";
-						request.url = "/";
+						request.method ("POST");
+						request.target ("/");
 						request.version = 11;
 						request.body = request_string;
 						beast::http::prepare (request);
@@ -1946,8 +1946,8 @@ void stop ()
 				request_string = ostream.str ();
 			}
 			beast::http::request <beast::http::string_body> request;
-			request.method = "POST";
-			request.url = "/";
+			request.method ("POST");
+			request.target ("/");
 			request.version = 11;
 			request.body = request_string;
 			beast::http::prepare (request);

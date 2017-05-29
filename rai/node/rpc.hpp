@@ -3,6 +3,7 @@
 #include <rai/utility.hpp>
 
 #include <beast/http.hpp>
+#include <beast/core/flat_buffer.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -62,7 +63,7 @@ public:
 	std::shared_ptr <rai::node> node;
 	rai::rpc & rpc;
 	boost::asio::ip::tcp::socket socket;
-	beast::streambuf buffer;
+	beast::flat_buffer buffer;
 	beast::http::request <beast::http::string_body> request;
 	beast::http::response <beast::http::string_body> res;
 };

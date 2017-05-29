@@ -2042,7 +2042,7 @@ void rai::rpc_connection::parse_connection ()
 				{
 				});
 			});
-			if (this_l->request.method == "POST")
+			if (this_l->request.method () == "POST")
 			{
 				auto handler (std::make_shared <rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body, response_handler));
 				handler->process_request ();
