@@ -131,6 +131,7 @@ public:
 	void search_pending ();
 	void send ();
 	void stop ();
+	void successors ();
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();
