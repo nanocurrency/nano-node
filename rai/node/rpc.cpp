@@ -2052,10 +2052,6 @@ void rai::rpc_connection::parse_connection ()
 				{
 					auto handler (std::make_shared <rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body, response_handler));
 					handler->process_request ();
-					if (this_l->node->config.logging.log_rpc ())
-					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% serviced in: %1% microseconds") % std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast <uintptr_t> (this_l.get ())));
-					}
 				}
 				else
 				{
