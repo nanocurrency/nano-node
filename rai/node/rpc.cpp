@@ -1412,6 +1412,38 @@ void rai::rpc_handler::representatives ()
 	response (response_l);
 }
 
+void rai::rpc_handler::republish ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::uint256_union hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block (node.store.block_get (transaction, hash));
+		if (block != nullptr)
+		{
+			while (!hash.is_zero ())
+			{
+				block = node.store.block_get (transaction, hash);
+				node.network.republish_block (*block);
+				hash = node.store.block_successor (transaction, hash);
+			}
+			boost::property_tree::ptree response_l;
+			response_l.put ("success", "");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad hash number");
+	}
+}
+
 void rai::rpc_handler::search_pending ()
 {
 	if (rpc.config.enable_control)
@@ -2223,6 +2255,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "representatives")
 		{
 			representatives ();
+		}
+		else if (action == "republish")
+		{
+			republish ();
 		}
 		else if (action == "search_pending")
 		{

@@ -1931,3 +1931,31 @@ TEST (rpc, bootstrap_any)
 	std::string success (response.json.get <std::string> ("success"));
 	ASSERT_TRUE (success.empty());
 }
+
+TEST (rpc, republish)
+{
+    rai::system system (24000, 2);
+	rai::keypair key;
+	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	auto & node1 (*system.nodes [0]);
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	system.nodes [0]->process (send);
+    rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+    request.put ("action", "republish");
+	request.put ("hash", send.hash ().to_string ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+    ASSERT_EQ (200, response.status);
+	auto iterations (0);
+	while (system.nodes[1]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_GT (200, iterations);
+	}
+}

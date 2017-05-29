@@ -129,6 +129,7 @@ public:
 	void rai_to_raw ();
 	void rai_from_raw ();
 	void representatives ();
+	void republish ();
 	void search_pending ();
 	void send ();
 	void stop ();
