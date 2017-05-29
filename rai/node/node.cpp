@@ -1088,7 +1088,7 @@ warmed_up (0)
 			std::string block_text;
 			block_a.serialize_json (block_text);
 			event.add ("block", block_text);
-			event.add ("balance", amount_a.to_string ());
+			event.add ("amount", amount_a.to_string_dec ());
 			std::stringstream ostream;
 			boost::property_tree::write_json (ostream, event);
 			ostream.flush ();
@@ -1113,6 +1113,7 @@ warmed_up (0)
 								req->method = "POST";
 								req->url = *target;
 								req->version = 11;
+								req->fields.replace("Host", address);
 								req->body = *body;
 								beast::http::prepare (*req);
 								beast::http::async_write (*sock, *req, [node_l, sock, address, port, req] (boost::system::error_code & ec)
