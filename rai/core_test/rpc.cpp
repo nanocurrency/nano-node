@@ -1908,3 +1908,26 @@ TEST (rpc, successors)
 	ASSERT_EQ (genesis, blocks [0]);
 	ASSERT_EQ (block->hash(), blocks [1]);
 }
+
+TEST (rpc, bootstrap_any)
+{
+    rai::system system0 (24000, 1);
+	rai::system system1 (24001, 1);
+	auto latest (system1.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes [0]->generate_work (latest));
+	{
+		rai::transaction transaction (system1.nodes [0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system1.nodes [0]->ledger.process (transaction, send).code);
+	}
+    rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+    boost::property_tree::ptree request;
+	request.put ("action", "bootstrap_any");
+	test_response response (request, rpc, system0.service);
+	while (response.status == 0)
+	{
+		system0.poll ();
+	}
+	std::string success (response.json.get <std::string> ("success"));
+	ASSERT_TRUE (success.empty());
+}

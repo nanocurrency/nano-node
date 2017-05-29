@@ -104,6 +104,7 @@ public:
 	void block_account ();
 	void block_count ();
 	void bootstrap ();
+	void bootstrap_any ();
 	void chain ();
 	void frontiers ();
 	void frontier_count ();
