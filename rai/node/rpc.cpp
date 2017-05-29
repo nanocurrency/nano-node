@@ -605,6 +605,48 @@ void rai::rpc_handler::block_count ()
 	response (response_l);
 }
 
+void rai::rpc_handler::successors ()
+{
+	std::string block_text (request.get <std::string> ("block"));
+	std::string count_text (request.get <std::string> ("count"));
+	rai::block_hash block;
+	if (!block.decode_hex (block_text))
+	{
+		uint64_t count;
+		if (!decode_unsigned (count_text, count))
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree blocks;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			while (!block.is_zero () && blocks.size () < count)
+			{
+				auto block_l (node.store.block_get (transaction, block));
+				if (block_l != nullptr)
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", block.to_string ());
+					blocks.push_back (std::make_pair ("", entry));
+					block = node.store.block_successor (transaction, block);
+				}
+				else
+				{
+					block.clear ();
+				}
+			}
+			response_l.add_child ("blocks", blocks);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Invalid count limit");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
+	}
+}
+
 void rai::rpc_handler::bootstrap ()
 {
 	std::string address_text = request.get <std::string> ("address");
@@ -2065,6 +2107,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block_count")
 		{
 			block_count ();
+		}
+		else if (action == "successors")
+		{
+			successors ();
 		}
 		else if (action == "bootstrap")
 		{
