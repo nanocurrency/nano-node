@@ -50,19 +50,8 @@ copy_button (new QPushButton ("Copy")),
 balance_window (new QWidget),
 balance_layout (new QHBoxLayout),
 balance_label (new QLabel),
-ratio_group (new QButtonGroup),
-mrai (new QRadioButton ("Mxrb")),
-krai (new QRadioButton ("kxrb")),
-rai (new QRadioButton ("xrb")),
 wallet (wallet_a)
 {
-    ratio_group->addButton (mrai);
-    ratio_group->addButton (krai);
-    ratio_group->addButton (rai);
-    ratio_group->setId (mrai, 0);
-    ratio_group->setId (krai, 1);
-    ratio_group->setId (rai, 2);
-
 	version = new QLabel (boost::str (boost::format ("Version %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH).c_str ());
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
@@ -81,9 +70,6 @@ wallet (wallet_a)
 	layout->addWidget (account_window);
 	balance_layout->addWidget (balance_label);
 	balance_layout->addStretch ();
-	balance_layout->addWidget (mrai);
-	balance_layout->addWidget (krai);
-	balance_layout->addWidget (rai);
 	balance_layout->setContentsMargins (0, 0, 0, 0);
 	balance_window->setLayout (balance_layout);
 	layout->addWidget (balance_window);
@@ -93,35 +79,13 @@ wallet (wallet_a)
 	QObject::connect (copy_button, &QPushButton::clicked, [this] ()
 	{
 		this->wallet.application.clipboard ()->setText (QString (this->wallet.account.to_account ().c_str ()));
-	});	
-    QObject::connect (mrai, &QRadioButton::toggled, [this] ()
-    {
-        if (mrai->isChecked ())
-        {
-			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
-        }
-    });	
-    QObject::connect (krai, &QRadioButton::toggled, [this] ()
-    {
-        if (krai->isChecked ())
-        {
-			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
-        }
-    });	
-    QObject::connect (rai, &QRadioButton::toggled, [this] ()
-    {
-        if (rai->isChecked ())
-        {
-			this->wallet.change_rendering_ratio (rai::xrb_ratio);
-        }
-    });
-	mrai->click ();
+	});
 }
 
 void rai_qt::self_pane::refresh_balance ()
 {
 	auto balance (wallet.node.balance_pending (wallet.account));
-	auto final_text (std::string ("Balance: ") + (balance.first / wallet.rendering_ratio).convert_to <std::string> ());
+	auto final_text (std::string ("Balance (XRB): ") + (balance.first / wallet.rendering_ratio).convert_to <std::string> ());
 	if (!balance.second.is_zero ())
 	{
 		final_text += "\nPending: " + (balance.second / wallet.rendering_ratio).convert_to <std::string> ();
@@ -1205,6 +1169,13 @@ create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 block_viewer (new QPushButton ("Block Viewer")),
 account_viewer (new QPushButton ("Account Viewer")),
+scale_window (new QWidget),
+scale_layout (new QHBoxLayout),
+scale_label (new QLabel ("Scale:")),
+ratio_group (new QButtonGroup),
+mrai (new QRadioButton ("Mxrb")),
+krai (new QRadioButton ("kxrb")),
+rai (new QRadioButton ("xrb")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1223,6 +1194,18 @@ peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
+    ratio_group->addButton (mrai);
+    ratio_group->addButton (krai);
+    ratio_group->addButton (rai);
+    ratio_group->setId (mrai, 0);
+    ratio_group->setId (krai, 1);
+    ratio_group->setId (rai, 2);
+	scale_layout->addWidget(scale_label);
+	scale_layout->addWidget(mrai);
+	scale_layout->addWidget(krai);
+	scale_layout->addWidget(rai);
+	scale_window->setLayout(scale_layout);
+	
     ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
     ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
     ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
@@ -1258,10 +1241,33 @@ wallet (wallet_a)
     layout->addWidget (enter_block);
 	layout->addWidget (block_viewer);
 	layout->addWidget (account_viewer);
+	layout->addWidget (scale_window);
     layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
 
+    QObject::connect (mrai, &QRadioButton::toggled, [this] ()
+    {
+        if (mrai->isChecked ())
+        {
+			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
+        }
+    });	
+    QObject::connect (krai, &QRadioButton::toggled, [this] ()
+    {
+        if (krai->isChecked ())
+        {
+			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
+        }
+    });	
+    QObject::connect (rai, &QRadioButton::toggled, [this] ()
+    {
+        if (rai->isChecked ())
+        {
+			this->wallet.change_rendering_ratio (rai::xrb_ratio);
+        }
+    });
+	mrai->click ();
     QObject::connect (accounts, &QPushButton::released, [this] ()
     {
 		this->wallet.push_main_stack (wallet.accounts.window);

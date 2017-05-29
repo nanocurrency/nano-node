@@ -65,6 +65,13 @@ namespace rai_qt {
 		QPushButton * enter_block;
 		QPushButton * block_viewer;
 		QPushButton * account_viewer;
+		QWidget * scale_window;
+		QHBoxLayout * scale_layout;
+		QLabel * scale_label;
+		QButtonGroup * ratio_group;
+		QRadioButton * mrai;
+		QRadioButton * krai;
+		QRadioButton * rai;
 		QPushButton * back;
 
 		QWidget * ledger_window;
@@ -156,10 +163,6 @@ namespace rai_qt {
 		QWidget * balance_window;
 		QHBoxLayout * balance_layout;
         QLabel * balance_label;
-		QButtonGroup * ratio_group;
-		QRadioButton * mrai;
-		QRadioButton * krai;
-		QRadioButton * rai;
         rai_qt::wallet & wallet;
     };
     class accounts
