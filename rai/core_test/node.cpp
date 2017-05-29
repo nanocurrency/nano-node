@@ -477,6 +477,9 @@ TEST (node_config, serialization)
 	config1.inactive_supply = 10;
 	config1.password_fanout = 10;
 	config1.enable_voting = false;
+	config1.callback_address = "test";
+	config1.callback_port = 10;
+	config1.callback_target = "test";
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2 (path);
@@ -488,6 +491,9 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.inactive_supply, config1.inactive_supply);
 	ASSERT_NE (config2.password_fanout, config1.password_fanout);
 	ASSERT_NE (config2.enable_voting, config1.enable_voting);
+	ASSERT_NE (config2.callback_address, config1.callback_address);
+	ASSERT_NE (config2.callback_port, config1.callback_port);
+	ASSERT_NE (config2.callback_target, config1.callback_target);
 	
 	bool upgraded (false);
 	config2.deserialize_json (upgraded, tree);
@@ -498,6 +504,9 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.inactive_supply, config1.inactive_supply);
 	ASSERT_EQ (config2.password_fanout, config1.password_fanout);
 	ASSERT_EQ (config2.enable_voting, config1.enable_voting);
+	ASSERT_EQ (config2.callback_address, config1.callback_address);
+	ASSERT_EQ (config2.callback_port, config1.callback_port);
+	ASSERT_EQ (config2.callback_target, config1.callback_target);
 }
 
 TEST (node_config, v1_v2_upgrade)
