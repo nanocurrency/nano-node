@@ -2025,40 +2025,43 @@ void rai::rpc_connection::parse_connection ()
 	{
 		if (!ec)
 		{
-			auto start (std::chrono::system_clock::now ());
-			auto version (this_l->request.version);
-			auto response_handler ([this_l, version, start] (boost::property_tree::ptree const & tree_a)
+			this_l->node->background ([this_l] ()
 			{
-				std::stringstream ostream;
-				boost::property_tree::write_json (ostream, tree_a);
-				ostream.flush ();
-				auto body (ostream.str ());
-				this_l->res.fields.insert ("content-type", "application/json");
-				this_l->res.fields.insert ("Access-Control-Allow-Origin",  "*");
-				this_l->res.status = 200;
-				this_l->res.body = body;
-				this_l->res.version = version;
-				beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec)
+				auto start (std::chrono::system_clock::now ());
+				auto version (this_l->request.version);
+				auto response_handler ([this_l, version, start] (boost::property_tree::ptree const & tree_a)
 				{
+					std::stringstream ostream;
+					boost::property_tree::write_json (ostream, tree_a);
+					ostream.flush ();
+					auto body (ostream.str ());
+					this_l->res.fields.insert ("content-type", "application/json");
+					this_l->res.fields.insert ("Access-Control-Allow-Origin",  "*");
+					this_l->res.status = 200;
+					this_l->res.body = body;
+					this_l->res.version = version;
+					beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec)
+					{
+					});
+					if (this_l->node->config.logging.log_rpc ())
+					{
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast <uintptr_t> (this_l.get ())));
+					}
 				});
-				if (this_l->node->config.logging.log_rpc ())
+				if (this_l->request.method () == "POST")
 				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast <uintptr_t> (this_l.get ())));
+					auto handler (std::make_shared <rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body, response_handler));
+					handler->process_request ();
+					if (this_l->node->config.logging.log_rpc ())
+					{
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% serviced in: %1% microseconds") % std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast <uintptr_t> (this_l.get ())));
+					}
+				}
+				else
+				{
+					error_response (response_handler, "Can only POST requests");
 				}
 			});
-			if (this_l->request.method () == "POST")
-			{
-				auto handler (std::make_shared <rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body, response_handler));
-				handler->process_request ();
-				if (this_l->node->config.logging.log_rpc ())
-				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% serviced in: %1% microseconds") % std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast <uintptr_t> (this_l.get ())));
-				}
-			}
-			else
-			{
-				error_response (response_handler, "Can only POST requests");
-			}
 		}
 	});
 }
