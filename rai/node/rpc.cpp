@@ -2040,6 +2040,7 @@ void rai::rpc_connection::parse_connection ()
 					this_l->res.status = 200;
 					this_l->res.body = body;
 					this_l->res.version = version;
+					beast::http::prepare (this_l->res);
 					beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec)
 					{
 					});
