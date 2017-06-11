@@ -724,6 +724,43 @@ void rai::rpc_handler::chain ()
 	}
 }
 
+void rai::rpc_handler::deterministic_key ()
+{
+	std::string seed_text (request.get <std::string> ("seed"));
+	std::string index_text (request.get <std::string> ("index"));
+	rai::raw_key seed;
+	auto error (seed.data.decode_hex (seed_text));
+	if (!error)
+	{
+		uint64_t index_a;
+		if (!decode_unsigned (index_text, index_a))
+		{
+			rai::uint256_union index (index_a);
+			rai::uint256_union prv;
+			blake2b_state hash;
+			blake2b_init (&hash, prv.bytes.size ());
+			blake2b_update (&hash, seed.data.bytes.data (), seed.data.bytes.size ());
+			blake2b_update (&hash, reinterpret_cast <uint8_t *> (&index.dwords [7]), sizeof (uint32_t));
+			blake2b_final (&hash, prv.bytes.data (), prv.bytes.size ());
+			boost::property_tree::ptree response_l;
+			rai::uint256_union pub;
+			ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+			response_l.put ("private", prv.to_string ());
+			response_l.put ("public", pub.to_string ());
+			response_l.put ("account", pub.to_account ());
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Invalid index");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad seed");
+	}
+}
+
 void rai::rpc_handler::frontiers ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -2171,6 +2208,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "chain")
 		{
 			chain ();
+		}
+		else if (action == "deterministic_key")
+		{
+			deterministic_key ();
 		}
 		else if (action == "frontiers")
 		{

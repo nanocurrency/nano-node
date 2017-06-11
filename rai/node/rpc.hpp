@@ -107,6 +107,7 @@ public:
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
+	void deterministic_key ();
 	void frontiers ();
 	void frontier_count ();
 	void history ();

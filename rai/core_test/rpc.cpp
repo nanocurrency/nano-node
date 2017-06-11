@@ -1959,3 +1959,40 @@ TEST (rpc, republish)
 		ASSERT_GT (200, iterations);
 	}
 }
+
+TEST (rpc, deterministic_key)
+{
+	rai::system system0 (24000, 1);
+	rai::raw_key seed;
+	{
+		rai::transaction transaction (system0.nodes [0]->store.environment, nullptr, false);
+		system0.wallet (0)->store.seed (seed, transaction);
+	}
+	rai::account account0 (system0.wallet (0)->deterministic_insert ());
+	rai::account account1 (system0.wallet (0)->deterministic_insert ());
+	rai::account account2 (system0.wallet (0)->deterministic_insert ());
+	rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "deterministic_key");
+	request.put ("seed", seed.data.to_string ());
+	request.put ("index", "0");
+	test_response response0 (request, rpc, system0.service);
+	while (response0.status == 0)
+	{
+		system0.poll ();
+	}
+	ASSERT_EQ (200, response0.status);
+	std::string validate_text (response0.json.get <std::string> ("account"));
+	ASSERT_EQ (account0.to_account (), validate_text);
+	request.put ("index", "2");
+	test_response response1 (request, rpc, system0.service);
+	while (response1.status == 0)
+	{
+		system0.poll ();
+	}
+	ASSERT_EQ (200, response1.status);
+	validate_text = response1.json.get <std::string> ("account");
+	ASSERT_NE (account1.to_account (), validate_text);
+	ASSERT_EQ (account2.to_account (), validate_text);
+}
