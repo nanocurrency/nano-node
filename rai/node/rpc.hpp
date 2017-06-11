@@ -100,6 +100,9 @@ public:
 	void account_representative ();
 	void account_representative_set ();
 	void account_weight ();
+	void accounts_balances ();
+	void accounts_frontiers ();
+	void accounts_pending ();
 	void available_supply ();
 	void block ();
 	void block_account ();

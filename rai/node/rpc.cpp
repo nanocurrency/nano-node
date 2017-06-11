@@ -532,6 +532,105 @@ void rai::rpc_handler::account_weight ()
 	}
 }
 
+void rai::rpc_handler::accounts_balances ()
+{
+	std::vector <std::string> accounts;
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree balances;
+	for (boost::property_tree::ptree::value_type &accounts : request.get_child("accounts"))
+	{
+		std::string account_text = accounts.second.data();
+		rai::uint256_union account;
+		auto error (account.decode_account (account_text));
+		if (!error)
+		{
+			boost::property_tree::ptree entry;
+			auto balance (node.balance_pending (account));
+			entry.put ("balance", balance.first.convert_to <std::string> ());
+			entry.put ("pending", balance.second.convert_to <std::string> ());
+			balances.push_back (std::make_pair (account.to_account (), entry));
+		}
+		else
+		{
+			error_response (response, "Bad account number");
+		}
+	}
+	response_l.add_child ("balances", balances);
+	response (response_l);
+}
+
+
+void rai::rpc_handler::accounts_frontiers ()
+{
+	std::vector <std::string> accounts;
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree frontiers;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (boost::property_tree::ptree::value_type &accounts : request.get_child("accounts"))
+	{
+		std::string account_text = accounts.second.data();
+		rai::uint256_union account;
+		auto error (account.decode_account (account_text));
+		if (!error)
+		{
+			auto latest (node.ledger.latest (transaction, account));
+			if (!latest.is_zero ())
+			{
+				frontiers.put (account.to_account (), latest.to_string ());
+			}
+		}
+		else
+		{
+			error_response (response, "Bad account number");
+		}
+	}
+	response_l.add_child ("frontiers", frontiers);
+	response (response_l);
+}
+
+void rai::rpc_handler::accounts_pending ()
+{
+	std::string count_text (request.get <std::string> ("count"));
+	uint64_t count;
+	if (!decode_unsigned (count_text, count))
+	{
+		std::vector <std::string> accounts;
+		boost::property_tree::ptree response_l;
+		boost::property_tree::ptree pending;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (boost::property_tree::ptree::value_type &accounts : request.get_child("accounts"))
+		{
+			std::string account_text = accounts.second.data();
+			rai::uint256_union account;
+			if (!account.decode_account(account_text))
+			{
+				boost::property_tree::ptree peers_l;
+				{
+					rai::account end (account.number () + 1);
+					for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size ()< count; ++i)
+					{
+						rai::pending_key key (i->first);
+						boost::property_tree::ptree entry;
+						entry.put ("", key.hash.to_string ());
+						peers_l.push_back (std::make_pair ("", entry));
+					}
+				}
+				pending.add_child (account.to_account (), peers_l);
+			}
+			else
+			{
+				error_response (response, "Bad account number");
+			}
+		}
+		response_l.add_child ("pending", pending);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Invalid count");
+	}
+}
+
 void rai::rpc_handler::available_supply ()
 {
 	auto genesis_balance (node.balance (rai::genesis_account)); // Cold storage genesis
@@ -2176,6 +2275,18 @@ void rai::rpc_handler::process_request ()
 		else if (action == "account_weight")
 		{
 			account_weight ();
+		}
+		if (action == "accounts_balances")
+		{
+			accounts_balances ();
+		}
+		if (action == "accounts_frontiers")
+		{
+			accounts_frontiers ();
+		}
+		if (action == "accounts_pending")
+		{
+			accounts_pending ();
 		}
 		else if (action == "available_supply")
 		{
