@@ -622,7 +622,7 @@ void rai::rpc_handler::accounts_pending ()
 				error_response (response, "Bad account number");
 			}
 		}
-		response_l.add_child ("pending", pending);
+		response_l.add_child ("blocks", pending);
 		response (response_l);
 	}
 	else
@@ -2276,15 +2276,15 @@ void rai::rpc_handler::process_request ()
 		{
 			account_weight ();
 		}
-		if (action == "accounts_balances")
+		else if (action == "accounts_balances")
 		{
 			accounts_balances ();
 		}
-		if (action == "accounts_frontiers")
+		else if (action == "accounts_frontiers")
 		{
 			accounts_frontiers ();
 		}
-		if (action == "accounts_pending")
+		else if (action == "accounts_pending")
 		{
 			accounts_pending ();
 		}

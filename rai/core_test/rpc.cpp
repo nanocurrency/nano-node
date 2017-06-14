@@ -1996,3 +1996,94 @@ TEST (rpc, deterministic_key)
 	ASSERT_NE (account1.to_account (), validate_text);
 	ASSERT_EQ (account2.to_account (), validate_text);
 }
+
+TEST (rpc, accounts_balances)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "accounts_balances");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree peers_l;
+	entry.put ("", rai::test_genesis_key.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("accounts", peers_l);
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::vector <std::string> balances;
+	for (boost::property_tree::ptree::value_type &balances : response.json.get_child("balances"))
+	{
+		std::string account_text (balances.first);
+		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
+		std::string balance_text (balances.second.get <std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+		std::string pending_text (balances.second.get <std::string> ("pending"));
+		ASSERT_EQ ("0", pending_text);
+	}
+}
+
+TEST (rpc, accounts_frontiers)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "accounts_frontiers");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree peers_l;
+	entry.put ("", rai::test_genesis_key.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("accounts", peers_l);
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::vector <std::string> frontiers;
+	for (boost::property_tree::ptree::value_type &frontiers : response.json.get_child("frontiers"))
+	{
+		std::string account_text (frontiers.first);
+		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
+		std::string frontier_text (frontiers.second.get <std::string> (""));
+		ASSERT_EQ (system.nodes [0]->latest (rai::genesis_account), frontier_text);
+	}
+}
+
+TEST (rpc, accounts_pending)
+{
+	rai::system system (24000, 1);
+	rai::keypair key1;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "accounts_pending");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree peers_l;
+	entry.put ("", key1.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("accounts", peers_l);
+	request.put ("count", "100");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::vector <std::string> blocks;
+	for (boost::property_tree::ptree::value_type &blocks : response.json.get_child("blocks"))
+	{
+		std::string account_text (blocks.first);
+		ASSERT_EQ (key1.pub.to_account (), account_text);
+		rai::block_hash hash1 (blocks.second.begin ()->second.get <std::string> (""));
+		ASSERT_EQ (block1->hash (), hash1);
+	}
+}
