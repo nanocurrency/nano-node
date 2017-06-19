@@ -1754,14 +1754,17 @@ void rai::node::ongoing_rep_crawl ()
 	auto now (std::chrono::system_clock::now ());
 	auto peers_l (peers.rep_crawl ());
 	rep_query (*this, peers_l);
-	std::weak_ptr <rai::node> node_w (shared_from_this ());
-    alarm.add (now + period, [node_w] ()
+	if (network.on)
 	{
-		if (auto node_l = node_w.lock ())
+		std::weak_ptr <rai::node> node_w (shared_from_this ());
+		alarm.add (now + period, [node_w] ()
 		{
-			node_l->ongoing_rep_crawl ();
-		}
-	});
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->ongoing_rep_crawl ();
+			}
+		});
+	}
 }
 
 void rai::node::ongoing_bootstrap ()
