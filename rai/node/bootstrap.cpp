@@ -739,10 +739,10 @@ void rai::bootstrap_pull_cache::flush (size_t minimum_a)
 	{
 		while (!blocks_l.empty ())
 		{
+			rai::transaction transaction (attempt.node->store.environment, nullptr, true);
 			auto count (0);
 			while (!blocks_l.empty () && count < rai::blocks_per_transaction)
 			{
-				rai::transaction transaction (attempt.node->store.environment, nullptr, true);
 				auto & front (blocks_l.front ());
 				attempt.node->store.unchecked_put (transaction, front->hash(), *front);
 				blocks_l.pop_front ();
