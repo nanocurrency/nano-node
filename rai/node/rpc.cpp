@@ -1431,13 +1431,13 @@ void rai::rpc_handler::receive ()
 									auto response_a (response);
 									existing->second->receive_async (static_cast <rai::send_block &>(*block), account, rai::genesis_amount, [response_a] (std::unique_ptr <rai::block> block_a)
 									{
-										rai::uint256_union hash (0);
+										rai::uint256_union hash_a (0);
 										if (block_a != nullptr)
 										{
-											hash = block_a->hash ();
+											hash_a = block_a->hash ();
 										}
 										boost::property_tree::ptree response_l;
-										response_l.put ("block", hash.to_string ());
+										response_l.put ("block", hash_a.to_string ());
 										response_a (response_l);
 									});
 								}
