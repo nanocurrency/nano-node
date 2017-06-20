@@ -670,41 +670,38 @@ void rai::bootstrap_pull_cache::flush (size_t minimum_a)
 			blocks.swap (blocks_l);
 		}
 	}
-	if (!blocks_l.empty ())
+	while (!blocks_l.empty ())
 	{
-		while (!blocks_l.empty ())
+		auto count (0);
+		while (!blocks_l.empty () && count < rai::blocks_per_transaction)
 		{
-			auto count (0);
-			while (!blocks_l.empty () && count < rai::blocks_per_transaction)
+			auto & front (blocks_l.front ());
+			attempt.node->process_receive_many (*front, [this] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
 			{
-				auto & front (blocks_l.front ());
-				attempt.node->process_receive_many (*front, [this] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
+				switch (result_a.code)
 				{
-					switch (result_a.code)
+					case rai::process_result::progress:
+					case rai::process_result::old:
+						break;
+					case rai::process_result::fork:
 					{
-						case rai::process_result::progress:
-						case rai::process_result::old:
-							break;
-						case rai::process_result::fork:
+						auto node_l (attempt.node);
+						auto block (node_l->ledger.forked_block (transaction_a, block_a));
+						node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
 						{
-							auto node_l (attempt.node);
-							auto block (node_l->ledger.forked_block (transaction_a, block_a));
-							node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
-							{
-								node_l->process_confirmed (block_a);
-							});
-							attempt.node->network.broadcast_confirm_req (block_a);
-							attempt.node->network.broadcast_confirm_req (*block);
-							BOOST_LOG (attempt.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
-							break;
-						}
-						default:
-							break;
+							node_l->process_confirmed (block_a);
+						});
+						attempt.node->network.broadcast_confirm_req (block_a);
+						attempt.node->network.broadcast_confirm_req (*block);
+						BOOST_LOG (attempt.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
+						break;
 					}
-				});
-				blocks_l.pop_front ();
-				++count;
-			}
+					default:
+						break;
+				}
+			});
+			blocks_l.pop_front ();
+			++count;
 		}
 	}
 }
