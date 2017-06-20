@@ -6,8 +6,9 @@ TEST (gap_cache, add_new)
     rai::system system (24000, 1);
     rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
-    cache.add (rai::send_block (block1), block1.previous ());
-    ASSERT_NE (cache.blocks.end (), cache.blocks.find (block1.previous ()));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    cache.add (transaction, rai::send_block (block1), block1.previous ());
+    ASSERT_NE (system.nodes [0]->store.unchecked_end (), system.nodes [0]->store.unchecked_begin (transaction, block1.previous ()));
 }
 
 TEST (gap_cache, add_existing)
@@ -15,16 +16,16 @@ TEST (gap_cache, add_existing)
     rai::system system (24000, 1);
     rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
-    auto previous (block1.previous ());
-    cache.add (block1, previous);
-    auto existing1 (cache.blocks.find (previous));
-    ASSERT_NE (cache.blocks.end (), existing1);
+    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    cache.add (transaction, block1, block1.previous ());
+    auto existing1 (cache.blocks.get <1> ().find (block1.hash ()));
+    ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
     auto arrival (existing1->arrival);
     while (arrival == std::chrono::system_clock::now ());
-    cache.add (block1, previous);
+    cache.add (transaction, block1, block1.previous ());
     ASSERT_EQ (1, cache.blocks.size ());
-    auto existing2 (cache.blocks.find (previous));
-    ASSERT_NE (cache.blocks.end (), existing2);
+    auto existing2 (cache.blocks.get <1> ().find (block1.hash ()));
+    ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
     ASSERT_GT (existing2->arrival, arrival);
 }
 
@@ -33,18 +34,17 @@ TEST (gap_cache, comparison)
     rai::system system (24000, 1);
     rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1 (1, 0, 2, rai::keypair ().prv, 4, 5);
-    auto previous1 (block1.previous ());
-    cache.add (rai::send_block (block1), previous1);
-    auto existing1 (cache.blocks.find (previous1));
-    ASSERT_NE (cache.blocks.end (), existing1);
+    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+    cache.add (transaction, block1, block1.previous ());
+    auto existing1 (cache.blocks.get <1> ().find (block1.hash ()));
+    ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
     auto arrival (existing1->arrival);
     while (std::chrono::system_clock::now () == arrival);
     rai::send_block block3 (0, 42, 1, rai::keypair ().prv, 3, 4);
-    auto previous2 (block3.previous ());
-    cache.add (rai::send_block (block3), previous2);
+    cache.add (transaction, block3, block3.previous ());
     ASSERT_EQ (2, cache.blocks.size ());
-    auto existing2 (cache.blocks.find (previous2));
-    ASSERT_NE (cache.blocks.end (), existing2);
+    auto existing2 (cache.blocks.get <1> ().find (block3.hash ()));
+    ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
     ASSERT_GT (existing2->arrival, arrival);
     ASSERT_EQ (arrival, cache.blocks.get <1> ().begin ()->arrival);
 }
@@ -84,20 +84,11 @@ TEST (gap_cache, two_dependencies)
 	rai::send_block send2 (send1.hash (), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
 	rai::open_block open (send1.hash (), key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub));
 	ASSERT_EQ (0, system.nodes [0]->gap_cache.blocks.size ());
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.nodes [0]->process_receive_many (transaction, send2);
-	}
+	system.nodes [0]->process_receive_many (send2);
 	ASSERT_EQ (1, system.nodes [0]->gap_cache.blocks.size ());
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.nodes [0]->process_receive_many (transaction, open);
-	}
+	system.nodes [0]->process_receive_many (open);
 	ASSERT_EQ (2, system.nodes [0]->gap_cache.blocks.size ());
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		system.nodes [0]->process_receive_many (transaction, send1);
-	}
+	system.nodes [0]->process_receive_many (send1);
 	ASSERT_EQ (0, system.nodes [0]->gap_cache.blocks.size ());
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, send1.hash ()));

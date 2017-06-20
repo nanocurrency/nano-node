@@ -120,71 +120,6 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (rai::node & node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a) :
-block_synchronization (node_a.log),
-node (node_a),
-attempt (attempt_a)
-{
-}
-
-std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-    return node.store.unchecked_get (transaction_a, hash_a);
-}
-
-rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
-{
-	auto result (rai::sync_result::error);
-	node.process_receive_many (transaction_a, block_a, [this, transaction_a, &result] (rai::process_return result_a, rai::block const & block_a)
-	{
-		this->node.store.unchecked_del (transaction_a, block_a.hash ());
-		switch (result_a.code)
-		{
-			case rai::process_result::progress:
-			case rai::process_result::old:
-				result = rai::sync_result::success;
-				break;
-			case rai::process_result::fork:
-			{
-				result = rai::sync_result::fork;
-				auto node_l (this->node.shared ());
-				auto block (node_l->ledger.forked_block (transaction_a, block_a));
-				auto attempt_l (attempt);
-				node_l->active.start (transaction_a, *block, [node_l, attempt_l] (rai::block & block_a)
-				{
-					node_l->process_confirmed (block_a);
-					// Resume synchronizing after fork resolution
-					assert (node_l->bootstrap_initiator.in_progress ());
-					node_l->process_unchecked (attempt_l);
-				});
-				this->node.network.broadcast_confirm_req (block_a);
-				this->node.network.broadcast_confirm_req (*block);
-				BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
-				break;
-			}
-			case rai::process_result::gap_previous:
-			case rai::process_result::gap_source:
-				result = rai::sync_result::error;
-				if (this->node.config.logging.bulk_pull_logging ())
-				{
-					// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
-					BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-				}
-				break;
-			default:
-				result = rai::sync_result::error;
-				BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
-				break;
-		}
-	});
-	return result;
-}
-
-bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-    return node.store.block_exists (transaction_a, hash_a);
-}
-
 rai::push_synchronization::push_synchronization (rai::node & node_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
 block_synchronization (node_a.log),
 target_m (target_a),
@@ -224,19 +159,11 @@ endpoint (endpoint_a)
 
 rai::bootstrap_client::~bootstrap_client ()
 {
-	if (node->config.logging.network_logging ())
-	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Exiting bootstrap client to %1%") % endpoint);
-	}
 	attempt->connection_ending (this);
 }
 
 void rai::bootstrap_client::run ()
 {
-    if (node->config.logging.network_logging ())
-    {
-        BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint);
-    }
     auto this_l (shared_from_this ());
     socket.async_connect (endpoint, [this_l] (boost::system::error_code const & ec)
     {
@@ -250,7 +177,16 @@ void rai::bootstrap_client::run ()
 		{
 			if (this_l->node->config.logging.network_logging ())
 			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %2%: %1%") % ec.message () % this_l->endpoint);
+				switch (ec.value())
+				{
+					default:
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %2%: %1%") % ec.message () % this_l->endpoint);
+						break;
+					case boost::system::errc::connection_refused:
+					case boost::system::errc::operation_canceled:
+					case boost::system::errc::timed_out:
+						break;
+				}
 			}
 		}
     });
@@ -262,7 +198,6 @@ void rai::bootstrap_client::run ()
 		{
 			if (!this_l->connected)
 			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because because of connection timeout") % this_l->endpoint);
 				this_l->socket.close ();
 			}
 		}
@@ -739,12 +674,34 @@ void rai::bootstrap_pull_cache::flush (size_t minimum_a)
 	{
 		while (!blocks_l.empty ())
 		{
-			rai::transaction transaction (attempt.node->store.environment, nullptr, true);
 			auto count (0);
 			while (!blocks_l.empty () && count < rai::blocks_per_transaction)
 			{
 				auto & front (blocks_l.front ());
-				attempt.node->store.unchecked_put (transaction, front->hash(), *front);
+				attempt.node->process_receive_many (*front, [this] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
+				{
+					switch (result_a.code)
+					{
+						case rai::process_result::progress:
+						case rai::process_result::old:
+							break;
+						case rai::process_result::fork:
+						{
+							auto node_l (attempt.node);
+							auto block (node_l->ledger.forked_block (transaction_a, block_a));
+							node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
+							{
+								node_l->process_confirmed (block_a);
+							});
+							attempt.node->network.broadcast_confirm_req (block_a);
+							attempt.node->network.broadcast_confirm_req (*block);
+							BOOST_LOG (attempt.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
+							break;
+						}
+						default:
+							break;
+					}
+				});
 				blocks_l.pop_front ();
 				++count;
 			}
@@ -776,6 +733,7 @@ state (rai::attempt_state::starting)
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
 {
+	cache.flush (0);
 	node->bootstrap_initiator.notify_listeners ();
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
@@ -910,11 +868,11 @@ void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_cli
 		}
 		client_a->pull_client.pull = rai::pull_info ();
 	}
+	cache.flush (cache.block_count);
 	if (repool)
 	{
 		pool_connection (client_a);
 	}
-	cache.flush (cache.block_count);
 }
 
 void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_client> client_a)
@@ -922,7 +880,6 @@ void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_cl
 	BOOST_LOG (node->log) << "Completed pulls";
 	assert (node->bootstrap_initiator.in_progress ());
 	cache.flush (0);
-	node->process_unchecked (shared_from_this ());
     auto pushes (std::make_shared <rai::bulk_push_client> (client_a));
     pushes->start ();
 }

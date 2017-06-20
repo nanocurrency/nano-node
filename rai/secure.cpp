@@ -1542,7 +1542,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "change", MDB_CREATE, &change_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "pending", MDB_CREATE, &pending) != 0;
 		error_a |= mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
-		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &unchecked) != 0;
+		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked) != 0;
 		error_a |= mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (transaction, "sequence", MDB_CREATE, &sequence) != 0;
@@ -1597,6 +1597,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 5:
 			upgrade_v5_to_v6 (transaction_a);
 		case 6:
+			upgrade_v6_to_v7 (transaction_a);
+		case 7:
 			break;
 		default:
 		assert (false);
@@ -1764,6 +1766,12 @@ void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)
 	{
 		account_put (transaction_a, i->first, i->second);
 	}
+}
+
+void rai::block_store::upgrade_v6_to_v7 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 7);
+	mdb_drop (transaction_a, unchecked, 0);
 }
 
 void rai::block_store::clear (MDB_dbi db_a)
@@ -2326,24 +2334,25 @@ void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash c
 	assert (status == 0);
 }
 
-std::unique_ptr <rai::block> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+std::vector <std::unique_ptr <rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	MDB_val value;
-	auto status (mdb_get (transaction_a, unchecked, hash_a.val (), &value));
-	assert (status == 0 || status == MDB_NOTFOUND);
-    std::unique_ptr <rai::block> result;
-    if (status == 0)
-    {
-        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
-        result = rai::deserialize_block (stream);
-        assert (result != nullptr);
-    }
-    return result;
+	std::vector <std::unique_ptr <rai::block>> result;
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; ++i)
+	{
+        rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+        result.push_back (rai::deserialize_block (stream));
+	}
+	return result;
 }
 
-void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
-	auto status (mdb_del (transaction_a, unchecked, hash_a.val (), nullptr));
+    std::vector <uint8_t> vector;
+    {
+        rai::vectorstream stream (vector);
+        rai::serialize_block (stream, block_a);
+    }
+	auto status (mdb_del (transaction_a, unchecked, hash_a.val (), rai::mdb_val (vector.size (), vector.data ())));
 	assert (status == 0 || status == MDB_NOTFOUND);
 }
 

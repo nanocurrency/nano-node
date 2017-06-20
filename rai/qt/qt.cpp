@@ -631,7 +631,7 @@ std::string rai_qt::status::text ()
 	}
 
     result += ", Block: ";
-    if (unchecked != 0)
+    if (unchecked != 0 && wallet.wallet_m->node.bootstrap_initiator.in_progress ())
     {
         count_string += " (" + std::to_string (unchecked) + ")";
     }
@@ -1355,7 +1355,7 @@ void rai_qt::advanced_actions::refresh_count ()
 	auto size (wallet.wallet_m->node.store.block_count (transaction));
 	auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
 	auto count_string (std::to_string (size.sum ()));
-	if (unchecked != 0)
+	if (unchecked != 0 && wallet.wallet_m->node.bootstrap_initiator.in_progress ())
 	{
 		count_string += " (" + std::to_string (unchecked) + ")";
 	}

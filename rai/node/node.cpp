@@ -1243,50 +1243,35 @@ node (node_a)
 {
 }
 
-void rai::gap_cache::add (rai::block const & block_a, rai::block_hash needed_a)
+void rai::gap_cache::add (MDB_txn * transaction_a, rai::block const & block_a, rai::block_hash const & hash_a)
 {
 	auto hash (block_a.hash ());
     std::lock_guard <std::mutex> lock (mutex);
-    auto existing (blocks.get <2>().find (hash));
-    if (existing != blocks.get <2> ().end ())
+    auto existing (blocks.get <1>().find (hash));
+    if (existing != blocks.get <1> ().end ())
     {
-        blocks.get <2> ().modify (existing, [&block_a] (rai::gap_information & info)
+        blocks.get <1> ().modify (existing, [&block_a] (rai::gap_information & info)
 		{
 			info.arrival = std::chrono::system_clock::now ();
 		});
     }
     else
     {
-		blocks.insert ({std::chrono::system_clock::now (), needed_a, hash, std::unique_ptr <rai::votes> (new rai::votes (block_a)), block_a.clone ()});
+		node.store.unchecked_put (transaction_a, hash_a, block_a);
+		blocks.insert ({std::chrono::system_clock::now (), hash, std::unique_ptr <rai::votes> (new rai::votes (block_a))});
         if (blocks.size () > max)
         {
-            blocks.get <1> ().erase (blocks.get <1> ().begin ());
+            blocks.get <0> ().erase (blocks.get <0> ().begin ());
         }
     }
-}
-
-std::vector <std::unique_ptr <rai::block>> rai::gap_cache::get (rai::block_hash const & hash_a)
-{
-	purge_old ();
-    std::lock_guard <std::mutex> lock (mutex);
-    std::vector <std::unique_ptr <rai::block>> result;
-    for (auto i (blocks.find (hash_a)), n (blocks.end ()); i != n && i->required == hash_a; ++i)
-    {
-        blocks.modify (i, [&result] (rai::gap_information & info)
-		{
-			result.push_back (std::move (info.block));
-		});
-    }
-	blocks.erase (hash_a);
-    return result;
 }
 
 void rai::gap_cache::vote (rai::vote const & vote_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	auto hash (vote_a.block->hash ());
-	auto existing (blocks.get <2> ().find (hash));
-	if (existing != blocks.get <2> ().end ())
+	auto existing (blocks.get <1> ().find (hash));
+	if (existing != blocks.get <1> ().end ())
 	{
 		existing->votes->vote (vote_a);
 		rai::transaction transaction (node.store.environment, nullptr, false);
@@ -1305,10 +1290,6 @@ void rai::gap_cache::vote (rai::vote const & vote_a)
 						BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
 					}
 					node_l->bootstrap_initiator.bootstrap ();
-				}
-				else
-				{
-					BOOST_LOG (node_l->log) << boost::str (boost::format ("Block: %1% was inserted while voting") % hash.to_string ());
 				}
 			});
 		}
@@ -1366,16 +1347,15 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 {
 	std::vector <std::tuple <rai::process_return, std::unique_ptr <rai::block>>> completed;
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
 		assert (incoming != nullptr);
-		process_receive_many (transaction, *incoming, [this, &completed, &transaction] (rai::process_return result_a, rai::block const & block_a)
+		process_receive_many (*incoming, [this, &completed] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
 		{
 			switch (result_a.code)
 			{
 				case rai::process_result::progress:
 				{
 					auto node_l (shared_from_this ());
-					active.start (transaction, block_a, [node_l] (rai::block & block_a)
+					active.start (transaction_a, block_a, [node_l] (rai::block & block_a)
 					{
 						node_l->process_confirmed (block_a);
 					});
@@ -1395,26 +1375,41 @@ void rai::node::process_receive_republish (std::unique_ptr <rai::block> incoming
 	}
 }
 
-void rai::node::process_receive_many (rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
-{
-	rai::transaction transaction (store.environment, nullptr, true);
-	process_receive_many (transaction, block_a, completed_a);
-}
-
-void rai::node::process_receive_many (MDB_txn * transaction_a, rai::block const & block_a, std::function <void (rai::process_return, rai::block const &)> completed_a)
+void rai::node::process_receive_many (rai::block const & block_a, std::function <void (MDB_txn *, rai::process_return, rai::block const &)> completed_a)
 {
 	std::vector <std::unique_ptr <rai::block>> blocks;
 	blocks.push_back (block_a.clone ());
     while (!blocks.empty ())
     {
-		auto block (std::move (blocks.back ()));
-		blocks.pop_back ();
-        auto hash (block->hash ());
-        auto process_result (process_receive_one (transaction_a, *block));
-		completed_a (process_result, *block);
-		auto cached (gap_cache.get (hash));
-		blocks.resize (blocks.size () + cached.size ());
-		std::move (cached.begin (), cached.end (), blocks.end () - cached.size ());
+		rai::transaction transaction (store.environment, nullptr, true);
+		auto count (0);
+		while (!blocks.empty () && count < rai::blocks_per_transaction)
+		{
+			auto block (std::move (blocks.back ()));
+			blocks.pop_back ();
+			auto hash (block->hash ());
+			auto process_result (process_receive_one (transaction, *block));
+			completed_a (transaction, process_result, *block);
+			switch (process_result.code)
+			{
+				case rai::process_result::progress:
+				case rai::process_result::old:
+				{
+					auto cached (store.unchecked_get (transaction, hash));
+					for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+					{
+						store.unchecked_del (transaction, hash, **i);
+						blocks.push_back (std::move (*i));
+					}
+					std::lock_guard <std::mutex> lock (gap_cache.mutex);
+					gap_cache.blocks.get <1> ().erase (hash);
+					break;
+				}
+				default:
+					break;
+			}
+			++count;
+		}
     }
 }
 
@@ -1440,8 +1435,7 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
             }
-            auto previous (block_a.previous ());
-			gap_cache.add (block_a, previous);
+			gap_cache.add (transaction_a, block_a, block_a.previous ());
 			break;
         }
         case rai::process_result::gap_source:
@@ -1450,8 +1444,7 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
             }
-            auto source (block_a.source ());
-			gap_cache.add (block_a, source);
+			gap_cache.add (transaction_a, block_a, block_a.source ());
             break;
         }
         case rai::process_result::old:
@@ -2114,45 +2107,6 @@ public:
     }
     rai::node & node;
 };
-}
-
-void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> attempt_a)
-{
-	auto block_count (0);
-	assert (attempt_a == nullptr || bootstrap_initiator.in_progress ());
-	static std::atomic_flag unchecked_in_progress = ATOMIC_FLAG_INIT;
-	if (!unchecked_in_progress.test_and_set ())
-	{
-		BOOST_LOG (log) << "Starting to process unchecked blocks";
-		rai::pull_synchronization synchronization (*this, attempt_a);
-		auto done (false);
-		while (!done)
-		{
-			rai::transaction transaction (store.environment, nullptr, true);
-			auto next (store.unchecked_begin (transaction));
-			if (next != store.unchecked_end ())
-			{
-				auto block (rai::block_hash (next->first));
-				if (config.logging.bulk_pull_logging () && block_count % 64 == 0)
-				{
-					BOOST_LOG (log) << boost::str (boost::format ("Committing block: %1% and dependencies") % block.to_string ());
-				}
-				++block_count;
-				auto error (synchronization.synchronize (transaction, block));
-				if (error == rai::sync_result::fork)
-				{
-					done = true;
-				}
-			}
-			else
-			{
-				done = true;
-			}
-		}
-		BOOST_LOG (log) << "Completed processing unchecked blocks";
-		unchecked_in_progress.clear ();
-		wallets.search_pending_all ();
-	}
 }
 
 void rai::node::process_confirmed (rai::block const & confirmed_a)
