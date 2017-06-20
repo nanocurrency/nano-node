@@ -733,6 +733,7 @@ state (rai::attempt_state::starting)
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
 {
+	cache.flush (0);
 	node->bootstrap_initiator.notify_listeners ();
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
