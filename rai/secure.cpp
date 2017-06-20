@@ -1597,6 +1597,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 5:
 			upgrade_v5_to_v6 (transaction_a);
 		case 6:
+			upgrade_v6_to_v7 (transaction_a);
+		case 7:
 			break;
 		default:
 		assert (false);
@@ -1764,6 +1766,12 @@ void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)
 	{
 		account_put (transaction_a, i->first, i->second);
 	}
+}
+
+void rai::block_store::upgrade_v6_to_v7 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 7);
+	mdb_drop (transaction_a, unchecked, 0);
 }
 
 void rai::block_store::clear (MDB_dbi db_a)

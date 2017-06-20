@@ -760,3 +760,25 @@ TEST (block_store, upgrade_v5_v6)
 	ASSERT_EQ (1, info.block_count);
 }
 
+TEST (block_store, upgrade_v6_v7)
+{
+	auto path (rai::unique_path ());
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		ASSERT_FALSE (init);
+		rai::transaction transaction (store.environment, nullptr, true);
+		rai::genesis genesis;;
+		genesis.initialize (transaction, store);
+		store.version_put (transaction, 6);
+		rai::send_block send1 (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		store.unchecked_put (transaction, send1.hash (), send1);
+		ASSERT_NE (store.unchecked_end (), store.unchecked_begin (transaction));
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, nullptr, false);
+	ASSERT_EQ (store.unchecked_end (), store.unchecked_begin (transaction));
+}
+

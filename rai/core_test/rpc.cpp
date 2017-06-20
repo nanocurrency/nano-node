@@ -1331,7 +1331,7 @@ TEST (rpc, version)
     ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get <std::string> ("rpc_version"));
     ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("6", response1.json.get <std::string> ("store_version"));
+	ASSERT_EQ ("7", response1.json.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.json.get <std::string> ("node_vendor"));
 	auto & headers (response1.resp.fields);
 	auto access_control (std::find_if (headers.begin (), headers.end (), [] (decltype (*headers.begin ()) & header_a) { return boost::iequals (header_a.first, "Access-Control-Allow-Origin"); }));
