@@ -159,19 +159,11 @@ endpoint (endpoint_a)
 
 rai::bootstrap_client::~bootstrap_client ()
 {
-	if (node->config.logging.network_logging ())
-	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Exiting bootstrap client to %1%") % endpoint);
-	}
 	attempt->connection_ending (this);
 }
 
 void rai::bootstrap_client::run ()
 {
-    if (node->config.logging.network_logging ())
-    {
-        BOOST_LOG (node->log) << boost::str (boost::format ("Initiating bootstrap connection to %1%") % endpoint);
-    }
     auto this_l (shared_from_this ());
     socket.async_connect (endpoint, [this_l] (boost::system::error_code const & ec)
     {
@@ -185,7 +177,16 @@ void rai::bootstrap_client::run ()
 		{
 			if (this_l->node->config.logging.network_logging ())
 			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %2%: %1%") % ec.message () % this_l->endpoint);
+				switch (ec.value())
+				{
+					default:
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %2%: %1%") % ec.message () % this_l->endpoint);
+						break;
+					case boost::system::errc::connection_refused:
+					case boost::system::errc::operation_canceled:
+					case boost::system::errc::timed_out:
+						break;
+				}
 			}
 		}
     });
@@ -197,7 +198,6 @@ void rai::bootstrap_client::run ()
 		{
 			if (!this_l->connected)
 			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Bootstrap disconnecting from: %1% because because of connection timeout") % this_l->endpoint);
 				this_l->socket.close ();
 			}
 		}

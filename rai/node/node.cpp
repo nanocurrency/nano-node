@@ -1291,10 +1291,6 @@ void rai::gap_cache::vote (rai::vote const & vote_a)
 					}
 					node_l->bootstrap_initiator.bootstrap ();
 				}
-				else
-				{
-					BOOST_LOG (node_l->log) << boost::str (boost::format ("Block: %1% was inserted while voting") % hash.to_string ());
-				}
 			});
 		}
 	}
