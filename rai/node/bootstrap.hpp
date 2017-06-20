@@ -47,18 +47,6 @@ public:
 	std::function <rai::sync_result (MDB_txn *, rai::block const &)> target_m;
 	rai::node & node;
 };
-class bootstrap_pull_cache
-{
-public:
-	bootstrap_pull_cache (rai::bootstrap_attempt &);
-	void add_block (std::unique_ptr <rai::block>);
-	void flush (size_t);
-	size_t const block_count = 256;
-	bootstrap_attempt & attempt;
-private:
-	std::mutex mutex;
-	std::deque <std::unique_ptr <rai::block>> blocks;
-};
 class bootstrap_client;
 enum class attempt_state
 {
@@ -99,7 +87,6 @@ public:
 	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> active;
 	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::shared_ptr <rai::node> node;
-	rai::bootstrap_pull_cache cache;
 	rai::attempt_state state;
 	std::unordered_set <rai::endpoint> attempted;
 private:

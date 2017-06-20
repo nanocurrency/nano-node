@@ -502,15 +502,30 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				expected = block->previous ();
 			}
-			auto already_exists (false);
+			connection.node->process_receive_many (*block, [this] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
 			{
-				rai::transaction transaction (connection.node->store.environment, nullptr, false);
-				already_exists = connection.node->store.block_exists (transaction, hash);
-			}
-			if (!already_exists)
-			{
-				connection.attempt->cache.add_block (std::move (block));
-			}
+				switch (result_a.code)
+				{
+					case rai::process_result::progress:
+					case rai::process_result::old:
+						break;
+					case rai::process_result::fork:
+					{
+						auto node_l (connection.node);
+						auto block (node_l->ledger.forked_block (transaction_a, block_a));
+						node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
+						{
+							node_l->process_confirmed (block_a);
+						});
+						connection.node->network.broadcast_confirm_req (block_a);
+						connection.node->network.broadcast_confirm_req (*block);
+						BOOST_LOG (connection.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
+						break;
+					}
+					default:
+						break;
+				}
+			});
             receive_block ();
 		}
         else
@@ -649,63 +664,6 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 	});
 }
 
-rai::bootstrap_pull_cache::bootstrap_pull_cache (rai::bootstrap_attempt & attempt_a) :
-attempt (attempt_a)
-{
-}
-
-void rai::bootstrap_pull_cache::add_block (std::unique_ptr <rai::block> block_a)
-{
-	std::lock_guard <std::mutex> lock (mutex);
-	blocks.emplace_back (std::move (block_a));
-}
-
-void rai::bootstrap_pull_cache::flush (size_t minimum_a)
-{
-	decltype (blocks) blocks_l;
-	{
-		std::lock_guard <std::mutex> lock (mutex);
-		if (blocks.size () > minimum_a)
-		{
-			blocks.swap (blocks_l);
-		}
-	}
-	while (!blocks_l.empty ())
-	{
-		auto count (0);
-		while (!blocks_l.empty () && count < rai::blocks_per_transaction)
-		{
-			auto & front (blocks_l.front ());
-			attempt.node->process_receive_many (*front, [this] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
-			{
-				switch (result_a.code)
-				{
-					case rai::process_result::progress:
-					case rai::process_result::old:
-						break;
-					case rai::process_result::fork:
-					{
-						auto node_l (attempt.node);
-						auto block (node_l->ledger.forked_block (transaction_a, block_a));
-						node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
-						{
-							node_l->process_confirmed (block_a);
-						});
-						attempt.node->network.broadcast_confirm_req (block_a);
-						attempt.node->network.broadcast_confirm_req (*block);
-						BOOST_LOG (attempt.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
-						break;
-					}
-					default:
-						break;
-				}
-			});
-			blocks_l.pop_front ();
-			++count;
-		}
-	}
-}
-
 rai::pull_info::pull_info () :
 account (0),
 end (0),
@@ -723,14 +681,12 @@ attempts (0)
 
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 node (node_a),
-cache (*this),
 state (rai::attempt_state::starting)
 {
 }
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
 {
-	cache.flush (0);
 	node->bootstrap_initiator.notify_listeners ();
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
@@ -865,7 +821,6 @@ void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_cli
 		}
 		client_a->pull_client.pull = rai::pull_info ();
 	}
-	cache.flush (cache.block_count);
 	if (repool)
 	{
 		pool_connection (client_a);
@@ -876,7 +831,6 @@ void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_cl
 {
 	BOOST_LOG (node->log) << "Completed pulls";
 	assert (node->bootstrap_initiator.in_progress ());
-	cache.flush (0);
     auto pushes (std::make_shared <rai::bulk_push_client> (client_a));
     pushes->start ();
 }
