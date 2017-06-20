@@ -18,7 +18,8 @@ public:
 	}
     std::unique_ptr <rai::block> retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a) override
 	{
-		return store.unchecked_get (transaction_a, hash_a);
+		//return store.unchecked_get (transaction_a, hash_a);
+		return nullptr;
 	}
     rai::sync_result target (MDB_txn * transaction_a, rai::block const & block_a) override
 	{
@@ -243,9 +244,9 @@ TEST (pull_synchronization, dependent_fork)
 	rai::pull_synchronization sync (node0, nullptr);
 	ASSERT_EQ (rai::sync_result::fork, sync.synchronize (transaction, send3.hash ()));
 	// Voting will either discard this block or commit it.  If it's discarded we don't want to attempt it again
-	ASSERT_EQ (nullptr, node0.store.unchecked_get (transaction, send1.hash ()));
+	ASSERT_FALSE (node0.store.unchecked_get (transaction, send1.hash ()).empty ());
 	// This block will either succeed, if its predecessor is comitted by voting, or will be a gap and will be discarded
-	ASSERT_NE (nullptr, node0.store.unchecked_get (transaction, send3.hash ()));
+	ASSERT_FALSE (node0.store.unchecked_get (transaction, send3.hash ()).empty ());
 	ASSERT_TRUE (node0.active.active (send1));
 }
 
@@ -268,7 +269,7 @@ TEST (pull_synchronization, clear_blocks)
 	{
 		{
 			rai::transaction transaction (node1.store.environment, nullptr, false);
-			done = node1.store.unchecked_get (transaction, send0.hash ()) == nullptr;
+			done = node1.store.unchecked_get (transaction, send0.hash ()).empty ();
 		}
 		++iterations;
 		ASSERT_GT (200, iterations);

@@ -129,15 +129,16 @@ attempt (attempt_a)
 
 std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    return node.store.unchecked_get (transaction_a, hash_a);
+    //return node.store.unchecked_get (transaction_a, hash_a);
+	return nullptr;
 }
 
 rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
 {
 	auto result (rai::sync_result::error);
-	node.process_receive_many (transaction_a, block_a, [this, transaction_a, &result] (rai::process_return result_a, rai::block const & block_a)
+	/*node.process_receive_many (block_a, [this, &result] (rai::process_return result_a, rai::block const & block_a)
 	{
-		this->node.store.unchecked_del (transaction_a, block_a.hash ());
+		this->node.store.unchecked_del (transaction_a, block_a.hash (), block_a);
 		switch (result_a.code)
 		{
 			case rai::process_result::progress:
@@ -176,7 +177,7 @@ rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai
 				BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
 				break;
 		}
-	});
+	});*/
 	return result;
 }
 
@@ -739,12 +740,34 @@ void rai::bootstrap_pull_cache::flush (size_t minimum_a)
 	{
 		while (!blocks_l.empty ())
 		{
-			rai::transaction transaction (attempt.node->store.environment, nullptr, true);
 			auto count (0);
 			while (!blocks_l.empty () && count < rai::blocks_per_transaction)
 			{
 				auto & front (blocks_l.front ());
-				attempt.node->store.unchecked_put (transaction, front->hash(), *front);
+				attempt.node->process_receive_many (*front, [this] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
+				{
+					switch (result_a.code)
+					{
+						case rai::process_result::progress:
+						case rai::process_result::old:
+							break;
+						case rai::process_result::fork:
+						{
+							auto node_l (attempt.node);
+							auto block (node_l->ledger.forked_block (transaction_a, block_a));
+							node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
+							{
+								node_l->process_confirmed (block_a);
+							});
+							attempt.node->network.broadcast_confirm_req (block_a);
+							attempt.node->network.broadcast_confirm_req (*block);
+							BOOST_LOG (attempt.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
+							break;
+						}
+						default:
+							break;
+					}
+				});
 				blocks_l.pop_front ();
 				++count;
 			}
@@ -910,11 +933,11 @@ void rai::bootstrap_attempt::completed_pull (std::shared_ptr <rai::bootstrap_cli
 		}
 		client_a->pull_client.pull = rai::pull_info ();
 	}
+	cache.flush (cache.block_count);
 	if (repool)
 	{
 		pool_connection (client_a);
 	}
-	cache.flush (cache.block_count);
 }
 
 void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_client> client_a)

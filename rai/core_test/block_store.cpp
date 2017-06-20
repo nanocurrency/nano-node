@@ -183,14 +183,14 @@ TEST (bootstrap, simple)
     rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	rai::transaction transaction (store.environment, nullptr, true);
     auto block2 (store.unchecked_get (transaction, block1.previous ()));
-    ASSERT_EQ (nullptr, block2);
+    ASSERT_TRUE (block2.empty ());
     store.unchecked_put (transaction, block1.previous (), block1);
     auto block3 (store.unchecked_get (transaction, block1.previous ()));
-    ASSERT_NE (nullptr, block3);
-    ASSERT_EQ (block1, *block3);
-    store.unchecked_del (transaction, block1.previous ());
+    ASSERT_FALSE (block3.empty ());
+    ASSERT_EQ (block1, *block3 [0]);
+    store.unchecked_del (transaction, block1.previous (), block1);
     auto block4 (store.unchecked_get (transaction, block1.previous ()));
-    ASSERT_EQ (nullptr, block4);
+    ASSERT_TRUE (block4.empty ());
 }
 
 TEST (checksum, simple)
