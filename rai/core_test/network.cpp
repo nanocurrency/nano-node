@@ -867,25 +867,6 @@ TEST (network, ipv6_bind_send_ipv4)
     });
 }
 
-TEST (bootstrap_processor, unchecked_only)
-{
-	rai::system system (24000, 1);
-	rai::node_init init1;
-	auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
-	rai::send_block block1 (node1->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	node1->store.unchecked_put (rai::transaction (node1->store.environment, nullptr, true), block1.hash (), block1);
-	node1->bootstrap_initiator.bootstrap (system.nodes [0]->network.endpoint ());
-	ASSERT_EQ (block1.previous (), node1->latest (rai::test_genesis_key.pub));
-	auto iterations (0);
-	while (node1->latest (rai::test_genesis_key.pub) == block1.previous ())
-	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
-	}
-    node1->stop ();
-}
-
 TEST (network, endpoint_bad_fd)
 {
 	rai::system system (24000, 1);
