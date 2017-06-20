@@ -944,6 +944,7 @@ void rai::bootstrap_attempt::dispatch_work ()
 		{
 			// We have a connection we could do something with
 			auto connection (idle.back ());
+			idle.pop_back ();
 			switch (state)
 			{
 				case rai::attempt_state::starting:
@@ -997,7 +998,6 @@ void rai::bootstrap_attempt::dispatch_work ()
 			{
 				// If there's an action, move the connection from idle to active.
 				active [connection.get ()] = connection;
-				idle.pop_back ();
 			}
 		}
 	}
