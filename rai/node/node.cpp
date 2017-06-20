@@ -2113,47 +2113,6 @@ public:
 };
 }
 
-void rai::node::process_unchecked (std::shared_ptr <rai::bootstrap_attempt> attempt_a)
-{
-	/*
-	auto block_count (0);
-	assert (attempt_a == nullptr || bootstrap_initiator.in_progress ());
-	static std::atomic_flag unchecked_in_progress = ATOMIC_FLAG_INIT;
-	if (!unchecked_in_progress.test_and_set ())
-	{
-		BOOST_LOG (log) << "Starting to process unchecked blocks";
-		rai::pull_synchronization synchronization (*this, attempt_a);
-		auto done (false);
-		while (!done)
-		{
-			rai::transaction transaction (store.environment, nullptr, true);
-			auto next (store.unchecked_begin (transaction));
-			if (next != store.unchecked_end ())
-			{
-				auto block (rai::block_hash (next->first));
-				if (config.logging.bulk_pull_logging () && block_count % 64 == 0)
-				{
-					BOOST_LOG (log) << boost::str (boost::format ("Committing block: %1% and dependencies") % block.to_string ());
-				}
-				++block_count;
-				auto error (synchronization.synchronize (transaction, block));
-				if (error == rai::sync_result::fork)
-				{
-					done = true;
-				}
-			}
-			else
-			{
-				done = true;
-			}
-		}
-		BOOST_LOG (log) << "Completed processing unchecked blocks";
-		unchecked_in_progress.clear ();
-		wallets.search_pending_all ();
-	}
-	*/
-}
-
 void rai::node::process_confirmed (rai::block const & confirmed_a)
 {
     confirmed_visitor visitor (*this);

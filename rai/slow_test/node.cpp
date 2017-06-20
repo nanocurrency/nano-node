@@ -230,19 +230,6 @@ TEST (node, fork_storm)
 	ASSERT_TRUE (true);
 }
 
-TEST (gap_cache, limit)
-{
-    rai::system system (24000, 1);
-    rai::gap_cache cache (*system.nodes [0]);
-    for (auto i (0); i < cache.max * 2; ++i)
-    {
-        rai::send_block block1 (i, 0, 1, rai::keypair ().prv, 3, 4);
-        auto previous (block1.previous ());
-        cache.add (rai::send_block (block1), previous);
-    }
-    ASSERT_EQ (cache.max, cache.blocks.size ());
-}
-
 namespace
 {
 size_t heard_count (std::vector <uint8_t> const & nodes)

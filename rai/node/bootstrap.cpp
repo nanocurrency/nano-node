@@ -120,72 +120,6 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
     return result;
 }
 
-rai::pull_synchronization::pull_synchronization (rai::node & node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a) :
-block_synchronization (node_a.log),
-node (node_a),
-attempt (attempt_a)
-{
-}
-
-std::unique_ptr <rai::block> rai::pull_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-    //return node.store.unchecked_get (transaction_a, hash_a);
-	return nullptr;
-}
-
-rai::sync_result rai::pull_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
-{
-	auto result (rai::sync_result::error);
-	/*node.process_receive_many (block_a, [this, &result] (rai::process_return result_a, rai::block const & block_a)
-	{
-		this->node.store.unchecked_del (transaction_a, block_a.hash (), block_a);
-		switch (result_a.code)
-		{
-			case rai::process_result::progress:
-			case rai::process_result::old:
-				result = rai::sync_result::success;
-				break;
-			case rai::process_result::fork:
-			{
-				result = rai::sync_result::fork;
-				auto node_l (this->node.shared ());
-				auto block (node_l->ledger.forked_block (transaction_a, block_a));
-				auto attempt_l (attempt);
-				node_l->active.start (transaction_a, *block, [node_l, attempt_l] (rai::block & block_a)
-				{
-					node_l->process_confirmed (block_a);
-					// Resume synchronizing after fork resolution
-					assert (node_l->bootstrap_initiator.in_progress ());
-					node_l->process_unchecked (attempt_l);
-				});
-				this->node.network.broadcast_confirm_req (block_a);
-				this->node.network.broadcast_confirm_req (*block);
-				BOOST_LOG (log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
-				break;
-			}
-			case rai::process_result::gap_previous:
-			case rai::process_result::gap_source:
-				result = rai::sync_result::error;
-				if (this->node.config.logging.bulk_pull_logging ())
-				{
-					// Any activity while bootstrapping can cause gaps so these aren't as noteworthy
-					BOOST_LOG (log) << boost::str (boost::format ("Gap received in bootstrap for block: %1%") % block_a.hash ().to_string ());
-				}
-				break;
-			default:
-				result = rai::sync_result::error;
-				BOOST_LOG (log) << boost::str (boost::format ("Error inserting block in bootstrap: %1%") % block_a.hash ().to_string ());
-				break;
-		}
-	});*/
-	return result;
-}
-
-bool rai::pull_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-    return node.store.block_exists (transaction_a, hash_a);
-}
-
 rai::push_synchronization::push_synchronization (rai::node & node_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
 block_synchronization (node_a.log),
 target_m (target_a),
@@ -945,7 +879,6 @@ void rai::bootstrap_attempt::completed_pulls (std::shared_ptr <rai::bootstrap_cl
 	BOOST_LOG (node->log) << "Completed pulls";
 	assert (node->bootstrap_initiator.in_progress ());
 	cache.flush (0);
-	node->process_unchecked (shared_from_this ());
     auto pushes (std::make_shared <rai::bulk_push_client> (client_a));
     pushes->start ();
 }

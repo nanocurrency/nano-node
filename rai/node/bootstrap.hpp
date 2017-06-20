@@ -37,16 +37,6 @@ public:
 	boost::log::sources::logger_mt & log;
 	std::deque <rai::block_hash> blocks;
 };
-class pull_synchronization : public rai::block_synchronization
-{
-public:
-    pull_synchronization (rai::node &, std::shared_ptr <rai::bootstrap_attempt>);
-    bool synchronized (MDB_txn *, rai::block_hash const &) override;
-    std::unique_ptr <rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
-    rai::sync_result target (MDB_txn *, rai::block const &) override;
-	rai::node & node;
-	std::shared_ptr <rai::bootstrap_attempt> attempt;
-};
 class push_synchronization : public rai::block_synchronization
 {
 public:
