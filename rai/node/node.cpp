@@ -153,7 +153,7 @@ void rai::network::rebroadcast_reps (rai::block & block_a)
 		rai::vectorstream stream (*bytes);
 		message.serialize (stream);
 	}
-	auto representatives (node.peers.representatives (node.peers.size_sqrt ()));
+	auto representatives (node.peers.representatives (2 * node.peers.size_sqrt ()));
 	for (auto i : representatives)
 	{
 		republish (hash, bytes, i.endpoint);
@@ -1534,7 +1534,7 @@ rai::process_return rai::node::process (rai::block const & block_a)
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
 std::vector <rai::endpoint> rai::peer_container::list_sqrt ()
 {
-	auto peers (random_set (size_sqrt ()));
+	auto peers (random_set (2 * size_sqrt ()));
 	std::vector <rai::endpoint> result;
 	result.reserve (peers.size ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
