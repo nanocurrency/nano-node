@@ -545,6 +545,7 @@ wallet (wallet_a)
 			}
 		}
 	});
+	rebroadcast->setToolTip ("Rebroadcast block into the network");
 }
 
 void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a)
@@ -1018,6 +1019,7 @@ void rai_qt::wallet::start ()
 			}));
 		}
 	};
+	settings_button->setToolTip ("Unlock wallet, set password, change representative");
 }
 
 void rai_qt::wallet::refresh ()
@@ -1393,6 +1395,10 @@ wallet (wallet_a)
 	refresh_ledger ();
 	refresh_count ();
 	block_count->setToolTip ("Block count (blocks downloaded)");
+	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
+	search_for_receivables->setToolTip ("Search for pending blocks");
+	create_block->setToolTip ("Create block in JSON format");
+	enter_block->setToolTip ("Enter block in JSON format");
 }
 
 void rai_qt::advanced_actions::refresh_count ()
