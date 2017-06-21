@@ -1606,6 +1606,91 @@ void rai::rpc_handler::rai_to_raw ()
 	}
 }
 
+void rai::rpc_handler::receive ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				std::string account_text (request.get <std::string> ("account"));
+				rai::account account;
+				auto error (account.decode_account (account_text));
+				if (!error)
+				{
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto account_check (existing->second->store.find (transaction, account));
+					if (account_check != existing->second->store.end ())
+					{
+						std::string hash_text (request.get <std::string> ("block"));
+						rai::uint256_union hash;
+						auto error (hash.decode_hex (hash_text));
+						if (!error)
+						{
+							auto block (node.store.block_get (transaction, hash));
+							if (block != nullptr)
+							{
+								if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
+								{
+									auto response_a (response);
+									existing->second->receive_async (static_cast <rai::send_block &>(*block), account, rai::genesis_amount, [response_a] (std::unique_ptr <rai::block> block_a)
+									{
+										rai::uint256_union hash_a (0);
+										if (block_a != nullptr)
+										{
+											hash_a = block_a->hash ();
+										}
+										boost::property_tree::ptree response_l;
+										response_l.put ("block", hash_a.to_string ());
+										response_a (response_l);
+									});
+								}
+								else
+								{
+									error_response (response, "Block is not available to receive");
+								}
+							}
+							else
+							{
+								error_response (response, "Block not found");
+							}
+						}
+						else
+						{
+							error_response (response, "Bad block number");
+						}
+					}
+					else
+					{
+						error_response (response, "Account not found in wallet");
+					}
+				}
+				else
+				{
+					error_response (response, "Bad account number");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::representatives ()
 {
 	boost::property_tree::ptree response_l;
@@ -2564,6 +2649,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "rai_to_raw")
 		{
 			rai_to_raw ();
+		}
+		else if (action == "receive")
+		{
+			receive ();
 		}
 		else if (action == "representatives")
 		{
