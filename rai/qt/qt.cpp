@@ -578,6 +578,9 @@ layout (new QVBoxLayout),
 account_label (new QLabel ("Account:")),
 account_line (new QLineEdit),
 refresh (new QPushButton ("Refresh")),
+balance_window (new QWidget),
+balance_layout (new QHBoxLayout),
+balance_label (new QLabel),
 history (wallet_a.wallet_m->node.ledger, account, wallet_a.rendering_ratio),
 back (new QPushButton ("Back")),
 account (wallet_a.account),
@@ -586,6 +589,11 @@ wallet (wallet_a)
 	layout->addWidget (account_label);
 	layout->addWidget (account_line);
 	layout->addWidget (refresh);
+	balance_layout->addWidget (balance_label);
+	balance_layout->addStretch ();
+	balance_layout->setContentsMargins (0, 0, 0, 0);
+	balance_window->setLayout (balance_layout);
+	layout->addWidget (balance_window);
 	layout->addWidget (history.window);
 	layout->addWidget (back);
 	window->setLayout (layout);
@@ -600,10 +608,18 @@ wallet (wallet_a)
 		{
 			show_line_ok (*account_line);
 			this->history.refresh ();
+			auto balance (wallet.node.balance_pending (account));
+			auto final_text (std::string ("Balance (XRB): ") + (balance.first / wallet.rendering_ratio).convert_to <std::string> ());
+			if (!balance.second.is_zero ())
+			{
+				final_text += "\nPending: " + (balance.second / wallet.rendering_ratio).convert_to <std::string> ();
+			}
+			balance_label->setText (QString (final_text.c_str ()));
 		}
 		else
 		{
 			show_line_error (*account_line);
+			balance_label->clear ();
 		}
 	});
 }
