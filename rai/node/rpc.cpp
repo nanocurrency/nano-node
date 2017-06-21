@@ -665,6 +665,40 @@ void rai::rpc_handler::block ()
 	}
 }
 
+void rai::rpc_handler::blocks ()
+{
+	std::vector <std::string> hashes;
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree blocks;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (boost::property_tree::ptree::value_type &hashes : request.get_child("hashes"))
+	{
+		std::string hash_text = hashes.second.data();
+		rai::uint256_union hash;
+		auto error (hash.decode_hex (hash_text));
+		if (!error)
+		{
+			auto block (node.store.block_get (transaction, hash));
+			if (block != nullptr)
+			{
+				std::string contents;
+				block->serialize_json (contents);
+				blocks.put (hash_text, contents);
+			}
+			else
+			{
+				error_response (response, "Block not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad hash number");
+		}
+	}
+	response_l.add_child ("blocks", blocks);
+	response (response_l);
+}
+
 void rai::rpc_handler::block_account ()
 {
 	std::string hash_text (request.get <std::string> ("hash"));
@@ -988,6 +1022,50 @@ void rai::rpc_handler::history ()
 	else
 	{
 		error_response (response, "Invalid block hash");
+	}
+}
+
+void rai::rpc_handler::account_history ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	std::string count_text (request.get <std::string> ("count"));
+	rai::uint256_union account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		uint64_t count;
+		if (!decode_unsigned (count_text, count))
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree history;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			auto hash (node.ledger.latest (transaction, account));
+			auto block (node.store.block_get (transaction, hash));
+			while (block != nullptr && count > 0)
+			{
+				boost::property_tree::ptree entry;
+				history_visitor visitor (*this, transaction, entry, hash);
+				block->visit (visitor);
+				if (!entry.empty ())
+				{
+					entry.put ("hash", hash.to_string ());
+					history.push_back (std::make_pair ("", entry));
+				}
+				hash = block->previous ();
+				block = node.store.block_get (transaction, hash);
+				--count;
+			}
+			response_l.add_child ("history", history);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Invalid count limit");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -1758,6 +1836,78 @@ void rai::rpc_handler::wallet_add ()
 	}
 }
 
+void rai::rpc_handler::wallet_balance_total ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			rai::uint128_t balance (0);
+			rai::uint128_t pending (0);
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+			{
+				rai::account account(i->first);
+				balance = balance + node.ledger.account_balance (transaction, account);
+				pending = pending + node.ledger.account_pending (transaction, account);
+			}
+			boost::property_tree::ptree response_l;
+			response_l.put ("balance", balance.convert_to <std::string> ());
+			response_l.put ("pending", pending.convert_to <std::string> ());
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
+void rai::rpc_handler::wallet_balances ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree balances;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+			{
+				rai::account account(i->first);
+				boost::property_tree::ptree entry;
+				rai::uint128_t balance = node.ledger.account_balance (transaction, account);
+				rai::uint128_t pending = node.ledger.account_pending (transaction, account);
+				entry.put ("balance", balance.convert_to <std::string> ());
+				entry.put ("pending", pending.convert_to <std::string> ());
+				balances.push_back (std::make_pair (account.to_account (), entry));
+			}
+			response_l.add_child ("balances", balances);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
 void rai::rpc_handler::wallet_change_seed ()
 {
 	if (rpc.config.enable_control)
@@ -2243,6 +2393,10 @@ void rai::rpc_handler::process_request ()
 		{
 			account_get ();
 		}
+		else if (action == "account_history")
+		{
+			account_history ();
+		}
 		else if (action == "account_key")
 		{
 			account_key ();
@@ -2290,6 +2444,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block")
 		{
 			block ();
+		}
+		else if (action == "blocks")
+		{
+			blocks ();
 		}
 		else if (action == "block_account")
 		{
@@ -2438,6 +2596,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_add")
 		{
 			wallet_add ();
+		}
+		else if (action == "wallet_balance_total")
+		{
+			wallet_balance_total ();
+		}
+		else if (action == "wallet_balances")
+		{
+			wallet_balances ();
 		}
 		else if (action == "wallet_change_seed")
 		{
