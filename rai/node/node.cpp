@@ -256,14 +256,14 @@ void rai::network::republish (std::chrono::system_clock::time_point const & last
 
 void rai::network::broadcast_confirm_req (rai::block const & block_a)
 {
-	auto list (node.peers.list ());
+	auto list (node.peers.representatives (std::numeric_limits <size_t>::max ()));
 	for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
 	{
-		node.network.send_confirm_req (*i, block_a);
+		node.network.send_confirm_req (i->endpoint, block_a);
 	}
     if (node.config.logging.network_logging ())
     {
-        BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req to %1% peers") % list.size ());
+        BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req to %1% representatives") % list.size ());
     }
 }
 
