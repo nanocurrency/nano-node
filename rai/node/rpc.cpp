@@ -534,12 +534,11 @@ void rai::rpc_handler::account_weight ()
 
 void rai::rpc_handler::accounts_balances ()
 {
-	std::vector <std::string> accounts;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree balances;
-	for (boost::property_tree::ptree::value_type &accounts : request.get_child("accounts"))
+	for (auto &accounts : request.get_child ("accounts"))
 	{
-		std::string account_text = accounts.second.data();
+		std::string account_text = accounts.second.data ();
 		rai::uint256_union account;
 		auto error (account.decode_account (account_text));
 		if (!error)
@@ -562,13 +561,12 @@ void rai::rpc_handler::accounts_balances ()
 
 void rai::rpc_handler::accounts_frontiers ()
 {
-	std::vector <std::string> accounts;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree frontiers;
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	for (boost::property_tree::ptree::value_type &accounts : request.get_child("accounts"))
+	for (auto &accounts : request.get_child("accounts"))
 	{
-		std::string account_text = accounts.second.data();
+		std::string account_text = accounts.second.data ();
 		rai::uint256_union account;
 		auto error (account.decode_account (account_text));
 		if (!error)
@@ -594,26 +592,23 @@ void rai::rpc_handler::accounts_pending ()
 	uint64_t count;
 	if (!decode_unsigned (count_text, count))
 	{
-		std::vector <std::string> accounts;
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree pending;
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		for (boost::property_tree::ptree::value_type &accounts : request.get_child("accounts"))
+		for (auto &accounts : request.get_child("accounts"))
 		{
-			std::string account_text = accounts.second.data();
+			std::string account_text = accounts.second.data ();
 			rai::uint256_union account;
-			if (!account.decode_account(account_text))
+			if (!account.decode_account (account_text))
 			{
 				boost::property_tree::ptree peers_l;
+				rai::account end (account.number () + 1);
+				for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 				{
-					rai::account end (account.number () + 1);
-					for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size ()< count; ++i)
-					{
-						rai::pending_key key (i->first);
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
-					}
+					rai::pending_key key (i->first);
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
 				}
 				pending.add_child (account.to_account (), peers_l);
 			}
