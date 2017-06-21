@@ -614,6 +614,9 @@ TEST (bootstrap_processor, push_diamond)
 	rai::node_init init1;
 	auto node1 (std::make_shared <rai::node> (init1, system.service, 24002, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
+	auto wallet1 (node1->wallets.create (100));
+	wallet1->insert_adhoc (rai::test_genesis_key.prv);
+	wallet1->insert_adhoc (key.prv);
 	std::unique_ptr <rai::send_block> send1 (new rai::send_block (system.nodes [0]->latest (rai::test_genesis_key.pub), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (system.nodes [0]->latest (rai::test_genesis_key.pub))));
 	ASSERT_EQ (rai::process_result::progress, node1->process (*send1).code);
 	std::unique_ptr <rai::open_block> open (new rai::open_block (send1->hash (), 1, key.pub, key.prv, key.pub, system.work.generate (key.pub)));

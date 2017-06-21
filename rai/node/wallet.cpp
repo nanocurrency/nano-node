@@ -1499,6 +1499,16 @@ void rai::wallets::foreach_representative (MDB_txn * transaction_a, std::functio
     }
 }
 
+bool rai::wallets::exists (MDB_txn * transaction_a, rai::public_key const & account_a)
+{
+	auto result (false);
+	for (auto i (items.begin ()), n (items.end ()); !result && i != n; ++i)
+	{
+		result = i->second->store.exists (transaction_a, account_a);
+	}
+	return result;
+}
+
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits <rai::uint128_t>::max ();
 rai::uint128_t const rai::wallets::high_priority = std::numeric_limits <rai::uint128_t>::max () - 1;
 

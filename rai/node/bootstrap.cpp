@@ -302,9 +302,12 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         {
             while (!current.is_zero () && current < account)
             {
-				rai::transaction transaction (connection->node->store.environment, nullptr, true);
                 // We know about an account they don't.
-				unsynced (transaction, info.head, 0);
+				rai::transaction transaction (connection->node->store.environment, nullptr, true);
+				if (connection->node->wallets.exists (transaction, current))
+				{
+					unsynced (transaction, info.head, 0);
+				}
 				next ();
             }
             if (!current.is_zero ())
@@ -321,7 +324,10 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
-							unsynced (transaction, info.head, latest);
+							if (connection->node->wallets.exists (transaction, current))
+							{
+								unsynced (transaction, info.head, latest);
+							}
 						}
 						else
 						{
@@ -350,7 +356,10 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 				while (!current.is_zero ())
 				{
 					// We know about an account they don't.
-					unsynced (transaction, info.head, 0);
+					if (connection->node->wallets.exists (transaction, current))
+					{
+						unsynced (transaction, info.head, 0);
+					}
 					next ();
 				}
 			}
