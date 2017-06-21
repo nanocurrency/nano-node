@@ -2015,8 +2015,7 @@ TEST (rpc, accounts_balances)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	std::vector <std::string> balances;
-	for (boost::property_tree::ptree::value_type &balances : response.json.get_child("balances"))
+	for (auto & balances : response.json.get_child ("balances"))
 	{
 		std::string account_text (balances.first);
 		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
@@ -2046,8 +2045,7 @@ TEST (rpc, accounts_frontiers)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	std::vector <std::string> frontiers;
-	for (boost::property_tree::ptree::value_type &frontiers : response.json.get_child("frontiers"))
+	for (auto & frontiers : response.json.get_child ("frontiers"))
 	{
 		std::string account_text (frontiers.first);
 		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
@@ -2078,12 +2076,89 @@ TEST (rpc, accounts_pending)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	std::vector <std::string> blocks;
-	for (boost::property_tree::ptree::value_type &blocks : response.json.get_child("blocks"))
+	for (auto & blocks : response.json.get_child("blocks"))
 	{
 		std::string account_text (blocks.first);
 		ASSERT_EQ (key1.pub.to_account (), account_text);
 		rai::block_hash hash1 (blocks.second.begin ()->second.get <std::string> (""));
 		ASSERT_EQ (block1->hash (), hash1);
+	}
+}
+
+TEST (rpc, blocks)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service,  *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "blocks");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree peers_l;
+	entry.put ("", system.nodes [0]->latest (rai::genesis_account).to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", peers_l);
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	for (auto & blocks : response.json.get_child ("blocks"))
+	{
+		std::string hash_text (blocks.first);
+		ASSERT_EQ (system.nodes [0]->latest (rai::genesis_account).to_string (), hash_text);
+		std::string blocks_text (blocks.second.get <std::string> (""));
+		ASSERT_FALSE (blocks_text.empty ());
+	}
+}
+
+TEST (rpc, wallet_balance_total)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::keypair key;
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_balance_total");
+	request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string balance_text (response.json.get <std::string> ("balance"));
+	ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
+	std::string pending_text (response.json.get <std::string> ("pending"));
+	ASSERT_EQ ("1", pending_text);
+}
+
+TEST (rpc, wallet_balances)
+{
+	rai::system system0 (24000, 1);
+	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_balances");
+	request.put ("wallet", system0.nodes [0]->wallets.items.begin ()->first.to_string ());
+	test_response response (request, rpc, system0.service);
+	while (response.status == 0)
+	{
+		system0.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::vector <std::string> balances;
+	for (auto & balances : response.json.get_child("balances"))
+	{
+		std::string account_text (balances.first);
+		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
+		std::string balance_text (balances.second.get <std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+		std::string pending_text (balances.second.get <std::string> ("pending"));
+		ASSERT_EQ ("0", pending_text);
 	}
 }

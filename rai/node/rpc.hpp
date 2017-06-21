@@ -93,6 +93,7 @@ public:
 	void account_block_count ();
 	void account_create ();
 	void account_get ();
+	void account_history ();
 	void account_key ();
 	void account_list ();
 	void account_move ();
@@ -105,6 +106,7 @@ public:
 	void accounts_pending ();
 	void available_supply ();
 	void block ();
+	void blocks ();
 	void block_account ();
 	void block_count ();
 	void bootstrap ();
@@ -142,6 +144,8 @@ public:
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();
+	void wallet_balance_total ();
+	void wallet_balances ();
 	void wallet_change_seed ();
 	void wallet_contains ();
 	void wallet_create ();
