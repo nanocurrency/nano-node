@@ -14,6 +14,10 @@ void show_line_ok (QLineEdit & line)
 {
 	line.setStyleSheet ("QLineEdit { color: black }");
 }
+void show_line_success (QLineEdit & line)
+{
+	line.setStyleSheet ("QLineEdit { color: blue }");
+}
 void show_label_error (QLabel & label)
 {
 	label.setStyleSheet ("QLabel { color: red }");
@@ -169,8 +173,6 @@ wallet (wallet_a)
     QObject::connect (back, &QPushButton::clicked, [this] ()
     {
 		this->wallet.pop_main_stack ();
-		show_button_ok (*backup_seed);
-		backup_seed->setText ("Backup/Clipboard wallet seed");
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] ()
 	{
@@ -191,12 +193,22 @@ wallet (wallet_a)
 			this->wallet.application.clipboard ()->setText (QString (seed.data.to_string ().c_str ()));
 			show_button_success (*backup_seed);
 			backup_seed->setText ("Seed was copied to clipboard");
+			wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_button_ok (*backup_seed);
+				backup_seed->setText ("Backup/Clipboard wallet seed");
+			});
 		}
 		else
 		{
 			this->wallet.application.clipboard ()->setText ("");
 			show_button_error (*backup_seed);
 			backup_seed->setText ("Wallet is locked, unlock it to enable the backup");
+			wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_button_ok (*backup_seed);
+				backup_seed->setText ("Backup/Clipboard wallet seed");
+			});
 		}
 	});
 }
@@ -300,7 +312,6 @@ wallet (wallet_a)
 	QObject::connect (back, &QPushButton::released, [this] ()
 	{
 		this->wallet.pop_main_stack ();
-		seed->clear ();
 	});
 	QObject::connect (import_seed, &QPushButton::released, [this] ()
 	{
@@ -321,7 +332,14 @@ wallet (wallet_a)
 					else
 					{
 						show_line_error (*seed);
-						seed->setText ("Wallet is locked, unlock it to enable the import");
+						show_button_error (*import_seed);
+						import_seed->setText ("Wallet is locked, unlock it to enable the import");
+						wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (10), [this] ()
+						{
+							show_line_ok (*seed);
+							show_button_ok (*import_seed);
+							import_seed->setText ("Import seed");
+						});
 					}
 				}
 				if (successful)
@@ -330,7 +348,14 @@ wallet (wallet_a)
 					seed->clear ();
 					clear_line->clear ();
 					show_line_ok (*seed);
+					show_button_success (*import_seed);
+					import_seed->setText ("Successful import of seed");
 					this->wallet.refresh ();
+					wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+					{
+						show_button_ok (*import_seed);
+						import_seed->setText ("Import seed");
+					});
 				}
 			}
 			else
@@ -1329,34 +1354,34 @@ wallet (wallet_a)
 			show_line_error (*bootstrap_line);
 		}
 	});
-    QObject::connect (peers_refresh, &QPushButton::released, [this] ()
-    {
-        refresh_peers ();
-    });
-    QObject::connect (ledger_refresh, &QPushButton::released, [this] ()
-    {
-        refresh_ledger ();
-    });
-    QObject::connect (ledger_back, &QPushButton::released, [this] ()
-    {
+	QObject::connect (peers_refresh, &QPushButton::released, [this] ()
+	{
+		refresh_peers ();
+	});
+	QObject::connect (ledger_refresh, &QPushButton::released, [this] ()
+	{
+		refresh_ledger ();
+	});
+	QObject::connect (ledger_back, &QPushButton::released, [this] ()
+	{
 		this->wallet.pop_main_stack ();
-    });
-    QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
-    {
+	});
+	QObject::connect (search_for_receivables, &QPushButton::released, [this] ()
+	{
 		this->wallet.wallet_m->search_pending ();
-    });
-    QObject::connect (bootstrap, &QPushButton::released, [this] ()
-    {
+	});
+	QObject::connect (bootstrap, &QPushButton::released, [this] ()
+	{
 		this->wallet.node.bootstrap_initiator.bootstrap ();
-    });
-    QObject::connect (create_block, &QPushButton::released, [this] ()
-    {
+	});
+	QObject::connect (create_block, &QPushButton::released, [this] ()
+	{
 		this->wallet.push_main_stack (this->wallet.block_creation.window);
-    });
-    QObject::connect (enter_block, &QPushButton::released, [this] ()
-    {
+	});
+	QObject::connect (enter_block, &QPushButton::released, [this] ()
+	{
 		this->wallet.push_main_stack (this->wallet.block_entry.window);
-    });
+	});
 	QObject::connect (block_viewer, &QPushButton::released, [this] ()
 	{
 		this->wallet.push_main_stack (this->wallet.block_viewer.window);
@@ -1365,9 +1390,9 @@ wallet (wallet_a)
 	{
 		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
-    refresh_ledger ();
+	refresh_ledger ();
 	refresh_count ();
-    block_count->setToolTip ("Block count (blocks downloaded)");
+	block_count->setToolTip ("Block count (blocks downloaded)");
 }
 
 void rai_qt::advanced_actions::refresh_count ()
