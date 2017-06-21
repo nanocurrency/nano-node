@@ -683,6 +683,7 @@ rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 node (node_a),
 state (rai::attempt_state::starting)
 {
+	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 }
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
@@ -785,14 +786,21 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_cl
 
 void rai::bootstrap_attempt::connection_ending (rai::bootstrap_client * client_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	if (!client_a->pull_client.pull.account.is_zero ())
+	if (client_a->node->network.on)
 	{
-		// If this connection is ending and request_account hasn't been cleared it didn't finish, requeue
-		requeue_pull (client_a->pull_client.pull);
+		std::lock_guard <std::mutex> lock (mutex);
+		if (!client_a->pull_client.pull.account.is_zero ())
+		{
+			// If this connection is ending and request_account hasn't been cleared it didn't finish, requeue
+			requeue_pull (client_a->pull_client.pull);
+		}
+		auto erased_connecting (connecting.erase (client_a));
+		auto erased_active (active.erase (client_a));
 	}
-	auto erased_connecting (connecting.erase (client_a));
-	auto erased_active (active.erase (client_a));
+	else
+	{
+		// If we're stopping, just exit
+	}
 }
 
 void rai::bootstrap_attempt::completed_requests (std::shared_ptr <rai::bootstrap_client> client_a)
