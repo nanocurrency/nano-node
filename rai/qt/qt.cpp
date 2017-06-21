@@ -22,6 +22,18 @@ void show_label_ok (QLabel & label)
 {
 	label.setStyleSheet ("QLabel { color: black }");
 }
+void show_button_error (QPushButton & button)
+{
+	button.setStyleSheet ("QPushButton { color: red }");
+}
+void show_button_ok (QPushButton & button)
+{
+	button.setStyleSheet ("QPushButton { color: black }");
+}
+void show_button_success (QPushButton & button)
+{
+	button.setStyleSheet ("QPushButton { color: blue }");
+}
 }
 
 bool rai_qt::eventloop_processor::event (QEvent * event_a)
@@ -157,6 +169,8 @@ wallet (wallet_a)
     QObject::connect (back, &QPushButton::clicked, [this] ()
     {
 		this->wallet.pop_main_stack ();
+		show_button_ok (*backup_seed);
+		backup_seed->setText ("Backup/Clipboard wallet seed");
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] ()
 	{
@@ -175,10 +189,14 @@ wallet (wallet_a)
 		{
 			this->wallet.wallet_m->store.seed (seed, transaction);
 			this->wallet.application.clipboard ()->setText (QString (seed.data.to_string ().c_str ()));
+			show_button_success (*backup_seed);
+			backup_seed->setText ("Seed was copied to clipboard");
 		}
 		else
 		{
 			this->wallet.application.clipboard ()->setText ("");
+			show_button_error (*backup_seed);
+			backup_seed->setText ("Wallet is locked, unlock it to enable the backup");
 		}
 	});
 }
@@ -242,6 +260,7 @@ wallet (wallet_a)
 	layout->addWidget (seed);
 	layout->addWidget (clear_label);
 	layout->addWidget (clear_line);
+	clear_line->setPlaceholderText ("clear keys");
 	layout->addWidget (import_seed);
 	layout->addWidget (separator);
 	layout->addWidget (filename_label);
@@ -281,6 +300,7 @@ wallet (wallet_a)
 	QObject::connect (back, &QPushButton::released, [this] ()
 	{
 		this->wallet.pop_main_stack ();
+		seed->clear ();
 	});
 	QObject::connect (import_seed, &QPushButton::released, [this] ()
 	{
@@ -301,6 +321,7 @@ wallet (wallet_a)
 					else
 					{
 						show_line_error (*seed);
+						seed->setText ("Wallet is locked, unlock it to enable the import");
 					}
 				}
 				if (successful)
