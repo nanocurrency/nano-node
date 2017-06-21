@@ -3,6 +3,7 @@
 #include <rai/node/common.hpp>
 #include <rai/node/rpc.hpp>
 
+#include <algorithm>
 #include <future>
 #include <memory>
 #include <sstream>
@@ -2178,7 +2179,7 @@ void rai::peer_container::random_fill (std::array <rai::endpoint, 8> & target_a)
 std::vector <rai::peer_information> rai::peer_container::representatives (size_t count_a)
 {
 	std::vector <peer_information> result;
-	result.reserve (count_a);
+	result.reserve (std::min (count_a, size_t (16)));
 	std::lock_guard <std::mutex> lock (mutex);
 	for (auto i (peers.get <6> ().begin ()), n (peers.get <6> ().end ()); i != n && result.size () < count_a; ++i)
 	{
