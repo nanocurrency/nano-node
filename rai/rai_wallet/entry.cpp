@@ -207,6 +207,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	config_file.close ();
 	if (!error)
 	{
+		std::shared_ptr <rai::node> node;
 		std::shared_ptr <rai_qt::wallet> gui;
 		rai::set_application_icon (application);
 		std::thread node_thread ([&] ()
@@ -215,7 +216,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 			rai::alarm alarm (service);
 			rai::node_init init;
-			auto node (std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work));
+			node = std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work);
 			if (!init.error ())
 			{
 				auto wallet (node->wallets.open (config.wallet));
