@@ -273,6 +273,7 @@ public:
 	store_iterator (rai::store_iterator const &) = delete;
 	~store_iterator ();
 	rai::store_iterator & operator ++ ();
+	void next_dup();
 	rai::store_iterator & operator = (rai::store_iterator &&);
 	rai::store_iterator & operator = (rai::store_iterator const &) = delete;
 	rai::store_entry & operator -> ();

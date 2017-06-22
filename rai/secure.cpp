@@ -1477,6 +1477,16 @@ rai::store_iterator & rai::store_iterator::operator ++ ()
     return *this;
 }
 
+void rai::store_iterator::next_dup ()
+{
+	assert (cursor != nullptr);
+	auto status (mdb_cursor_get (cursor, &current.first, &current.second, MDB_NEXT_DUP));
+	if (status == MDB_NOTFOUND)
+	{
+		current.clear ();
+	}
+}
+
 rai::store_iterator & rai::store_iterator::operator = (rai::store_iterator && other_a)
 {
 	if (cursor != nullptr)
@@ -2346,7 +2356,7 @@ void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash c
 std::vector <std::unique_ptr <rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector <std::unique_ptr <rai::block>> result;
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_begin (transaction_a, hash_a.number () + 1)); i != n && rai::block_hash (i->first) == hash_a; ++i)
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.next_dup ())
 	{
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
         result.push_back (rai::deserialize_block (stream));
