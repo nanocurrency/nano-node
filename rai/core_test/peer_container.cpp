@@ -118,7 +118,7 @@ TEST (peer_container, list_sqrt)
 		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i)));
 	}
 	auto list2 (peers.list_sqrt ());
-	ASSERT_EQ (32, list2.size ());
+	ASSERT_EQ (64, list2.size ());
 }
 
 TEST (peer_container, rep_weight)
