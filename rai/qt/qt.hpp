@@ -248,6 +248,9 @@ namespace rai_qt {
 		QLabel * account_label;
 		QLineEdit * account_line;
 		QPushButton * refresh;
+		QWidget * balance_window;
+		QHBoxLayout * balance_layout;
+		QLabel * balance_label;
 		rai_qt::history history;
 		QPushButton * back;
 		rai::account account;
