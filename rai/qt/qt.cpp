@@ -193,7 +193,7 @@ wallet (wallet_a)
 			this->wallet.application.clipboard ()->setText (QString (seed.data.to_string ().c_str ()));
 			show_button_success (*backup_seed);
 			backup_seed->setText ("Seed was copied to clipboard");
-			wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 			{
 				show_button_ok (*backup_seed);
 				backup_seed->setText ("Backup/Clipboard wallet seed");
@@ -204,7 +204,7 @@ wallet (wallet_a)
 			this->wallet.application.clipboard ()->setText ("");
 			show_button_error (*backup_seed);
 			backup_seed->setText ("Wallet is locked, unlock it to enable the backup");
-			wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 			{
 				show_button_ok (*backup_seed);
 				backup_seed->setText ("Backup/Clipboard wallet seed");
@@ -334,7 +334,7 @@ wallet (wallet_a)
 						show_line_error (*seed);
 						show_button_error (*import_seed);
 						import_seed->setText ("Wallet is locked, unlock it to enable the import");
-						wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (10), [this] ()
+						this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (10), [this] ()
 						{
 							show_line_ok (*seed);
 							show_button_ok (*import_seed);
@@ -351,7 +351,7 @@ wallet (wallet_a)
 					show_button_success (*import_seed);
 					import_seed->setText ("Successful import of seed");
 					this->wallet.refresh ();
-					wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+					this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 					{
 						show_button_ok (*import_seed);
 						import_seed->setText ("Import seed");
@@ -608,11 +608,11 @@ wallet (wallet_a)
 		{
 			show_line_ok (*account_line);
 			this->history.refresh ();
-			auto balance (wallet.node.balance_pending (account));
-			auto final_text (std::string ("Balance (XRB): ") + (balance.first / wallet.rendering_ratio).convert_to <std::string> ());
+			auto balance (this->wallet.node.balance_pending (account));
+			auto final_text (std::string ("Balance (XRB): ") + (balance.first / this->wallet.rendering_ratio).convert_to <std::string> ());
 			if (!balance.second.is_zero ())
 			{
-				final_text += "\nPending: " + (balance.second / wallet.rendering_ratio).convert_to <std::string> ();
+				final_text += "\nPending: " + (balance.second / this->wallet.rendering_ratio).convert_to <std::string> ();
 			}
 			balance_label->setText (QString (final_text.c_str ()));
 		}
