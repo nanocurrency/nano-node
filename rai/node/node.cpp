@@ -1244,7 +1244,7 @@ node (node_a)
 {
 }
 
-void rai::gap_cache::add (MDB_txn * transaction_a, rai::block const & block_a, rai::block_hash const & hash_a)
+void rai::gap_cache::add (MDB_txn * transaction_a, rai::block const & block_a)
 {
 	auto hash (block_a.hash ());
     std::lock_guard <std::mutex> lock (mutex);
@@ -1258,7 +1258,6 @@ void rai::gap_cache::add (MDB_txn * transaction_a, rai::block const & block_a, r
     }
     else
     {
-		node.store.unchecked_put (transaction_a, hash_a, block_a);
 		blocks.insert ({std::chrono::system_clock::now (), hash, std::unique_ptr <rai::votes> (new rai::votes (block_a))});
         if (blocks.size () > max)
         {
@@ -1436,7 +1435,8 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a.hash ().to_string ());
             }
-			gap_cache.add (transaction_a, block_a, block_a.previous ());
+			store.unchecked_put (transaction_a, block_a.previous (), block_a);
+			gap_cache.add (transaction_a, block_a);
 			break;
         }
         case rai::process_result::gap_source:
@@ -1445,7 +1445,8 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, rai
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a.hash ().to_string ());
             }
-			gap_cache.add (transaction_a, block_a, block_a.source ());
+			store.unchecked_put (transaction_a, block_a.source (), block_a);
+			gap_cache.add (transaction_a, block_a);
             break;
         }
         case rai::process_result::old:

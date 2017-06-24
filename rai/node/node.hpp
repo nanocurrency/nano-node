@@ -130,7 +130,7 @@ class gap_cache
 {
 public:
     gap_cache (rai::node &);
-    void add (MDB_txn *, rai::block const &, rai::block_hash const &);
+    void add (MDB_txn *, rai::block const &);
     void vote (rai::vote const &);
     rai::uint128_t bootstrap_threshold (MDB_txn *);
 	void purge_old ();

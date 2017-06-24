@@ -7,8 +7,7 @@ TEST (gap_cache, add_new)
     rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    cache.add (transaction, rai::send_block (block1), block1.previous ());
-    ASSERT_NE (system.nodes [0]->store.unchecked_end (), system.nodes [0]->store.unchecked_begin (transaction, block1.previous ()));
+    cache.add (transaction, rai::send_block (block1));
 }
 
 TEST (gap_cache, add_existing)
@@ -17,12 +16,12 @@ TEST (gap_cache, add_existing)
     rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
     rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    cache.add (transaction, block1, block1.previous ());
+    cache.add (transaction, block1);
     auto existing1 (cache.blocks.get <1> ().find (block1.hash ()));
     ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
     auto arrival (existing1->arrival);
     while (arrival == std::chrono::system_clock::now ());
-    cache.add (transaction, block1, block1.previous ());
+    cache.add (transaction, block1);
     ASSERT_EQ (1, cache.blocks.size ());
     auto existing2 (cache.blocks.get <1> ().find (block1.hash ()));
     ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
@@ -35,13 +34,13 @@ TEST (gap_cache, comparison)
     rai::gap_cache cache (*system.nodes [0]);
     rai::send_block block1 (1, 0, 2, rai::keypair ().prv, 4, 5);
     rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    cache.add (transaction, block1, block1.previous ());
+    cache.add (transaction, block1);
     auto existing1 (cache.blocks.get <1> ().find (block1.hash ()));
     ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
     auto arrival (existing1->arrival);
     while (std::chrono::system_clock::now () == arrival);
     rai::send_block block3 (0, 42, 1, rai::keypair ().prv, 3, 4);
-    cache.add (transaction, block3, block3.previous ());
+    cache.add (transaction, block3);
     ASSERT_EQ (2, cache.blocks.size ());
     auto existing2 (cache.blocks.get <1> ().find (block3.hash ()));
     ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
