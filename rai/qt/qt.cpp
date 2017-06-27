@@ -1221,8 +1221,7 @@ void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
 rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-block_count_text (new QLabel ("Block count:")),
-block_count (new QLabel),
+wallet_balance_label (new QLabel),
 accounts (new QPushButton ("Accounts")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
@@ -1293,8 +1292,7 @@ wallet (wallet_a)
     peers_layout->setContentsMargins (0, 0, 0, 0);
     peers_window->setLayout (peers_layout);
 
-	layout->addWidget (block_count_text);
-	layout->addWidget (block_count);
+	layout->addWidget (wallet_balance_label);
     layout->addWidget (accounts);
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
@@ -1339,6 +1337,7 @@ wallet (wallet_a)
     QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
     {
 		this->wallet.accounts.refresh ();
+		refresh_wallet_balance ();
     });
     QObject::connect (show_peers, &QPushButton::released, [this] ()
     {
@@ -1409,30 +1408,35 @@ wallet (wallet_a)
 		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
 	refresh_ledger ();
-	refresh_count ();
-	block_count->setToolTip ("Block count (blocks downloaded)");
+	refresh_wallet_balance ();
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
 	search_for_receivables->setToolTip ("Search for pending blocks");
 	create_block->setToolTip ("Create block in JSON format");
 	enter_block->setToolTip ("Enter block in JSON format");
 }
 
-void rai_qt::advanced_actions::refresh_count ()
+void rai_qt::advanced_actions::refresh_wallet_balance ()
 {
-	rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
-	auto size (wallet.wallet_m->node.store.block_count (transaction));
-	auto unchecked (wallet.wallet_m->node.store.unchecked_count (transaction));
-	auto count_string (std::to_string (size.sum ()));
-	if (unchecked != 0 && wallet.wallet_m->node.bootstrap_initiator.in_progress ())
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+	rai::uint128_t balance (0);
+	rai::uint128_t pending (0);
+	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		count_string += " (" + std::to_string (unchecked) + ")";
+		rai::public_key key (i->first);
+		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
+		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
 	}
-	block_count->setText (QString (count_string.c_str ()));
-	wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+	auto final_text (std::string ("Wallet balance (XRB): ") + (balance / this->wallet.rendering_ratio).convert_to <std::string> ());
+	if (!pending.is_zero ())
+	{
+		final_text += "\nWallet pending: " + (pending / this->wallet.rendering_ratio).convert_to <std::string> ();
+	}
+	wallet_balance_label->setText (QString (final_text.c_str ()));
+	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this] ()
 	{
 		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] ()
 		{
-			refresh_count ();
+			refresh_wallet_balance ();
 		}));
 	});
 }
