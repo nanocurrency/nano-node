@@ -1158,6 +1158,16 @@ wallet (wallet_a)
                 }
             }
         }
+		else
+		{
+			show_button_error (*change);
+			change->setText ("Wallet is locked, unlock it");
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_button_ok (*change);
+				change->setText ("Set/Change password");
+			});
+		}
     });
 	QObject::connect (change_rep, &QPushButton::released, [this] ()
 	{
@@ -1216,6 +1226,18 @@ wallet (wallet_a)
 		if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
 		{
 			password->clear ();
+		}
+		else
+		{
+			show_line_error (*password);
+			show_button_error (*unlock);
+			unlock->setText ("Invalid password");
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_line_ok (*password);
+				show_button_ok (*unlock);
+				unlock->setText ("Unlock");
+			});
 		}
     });
     QObject::connect (lock, &QPushButton::released, [this] ()
