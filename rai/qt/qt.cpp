@@ -1049,6 +1049,7 @@ void rai_qt::wallet::refresh ()
     accounts.refresh ();
     history.refresh ();
 	account_viewer.history.refresh ();
+	settings.refresh_representative ();
 }
 
 void rai_qt::wallet::update_connected ()
@@ -1096,7 +1097,7 @@ new_password (new QLineEdit),
 retype_password (new QLineEdit),
 change (new QPushButton ("Set/Change password")),
 sep2 (new QFrame),
-representative (new QLabel),
+representative (new QLabel ("Account representative:")),
 new_representative (new QLineEdit),
 change_rep (new QPushButton ("Change representative")),
 back (new QPushButton ("Back")),
@@ -1163,13 +1164,46 @@ wallet (wallet_a)
 		rai::account representative_l;
 		if (!representative_l.decode_account (new_representative->text ().toStdString ()))
 		{
-			change_rep->setEnabled (false);
+			rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+			if (this->wallet.wallet_m->store.valid_password (transaction))
 			{
-				rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-				this->wallet.wallet_m->store.representative_set (transaction, representative_l);
+				change_rep->setEnabled (false);
+				{
+					rai::transaction transaction_l (this->wallet.wallet_m->store.environment, nullptr, true);
+					this->wallet.wallet_m->store.representative_set (transaction_l, representative_l);
+				}
+				auto block (this->wallet.wallet_m->change_sync (this->wallet.account, representative_l));
+				change_rep->setEnabled (true);
+				show_button_success (*change_rep);
+				change_rep->setText ("Represenative was changed");
+				this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+				{
+					show_button_ok (*change_rep);
+					change_rep->setText ("Change representative");
+				});
 			}
-			auto block (this->wallet.wallet_m->change_sync (this->wallet.account, representative_l));
-			change_rep->setEnabled (true);
+			else
+			{
+				show_button_error (*change_rep);
+				change_rep->setText ("Wallet is locked, unlock it");
+				this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+				{
+					show_button_ok (*change_rep);
+					change_rep->setText ("Change representative");
+				});
+			}
+		}
+		else
+		{
+			show_line_error (*new_representative);
+			show_button_error (*change_rep);
+			change_rep->setText ("Invalid account");
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_line_ok (*new_representative);
+				show_button_ok (*change_rep);
+				change_rep->setText ("Change representative");
+			});
 		}
 	});
     QObject::connect (back, &QPushButton::released, [this] ()
@@ -1191,6 +1225,25 @@ wallet (wallet_a)
 		this->wallet.wallet_m->store.password.value_set (empty);
         update_locked (true, true);
     });
+	representative->setToolTip ("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.");
+	refresh_representative ();
+}
+
+void rai_qt::settings::refresh_representative ()
+{
+	rai::transaction transaction (this->wallet.wallet_m->node.store.environment, nullptr, false);
+	rai::account_info info;
+	auto error (this->wallet.wallet_m->node.store.account_get (transaction, this->wallet.account, info));
+	if (!error)
+	{
+		auto block (this->wallet.wallet_m->node.store.block_get (transaction, info.rep_block));
+		assert (block != nullptr);
+		new_representative->setText (block->representative ().to_account ().c_str ());
+	}
+	else
+	{
+		new_representative->setText (this->wallet.wallet_m->store.representative (transaction).to_account ().c_str ());
+	}
 }
 
 void rai_qt::settings::activate ()

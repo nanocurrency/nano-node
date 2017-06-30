@@ -26,6 +26,7 @@ namespace rai_qt {
     {
     public:
         settings (rai_qt::wallet &);
+		void refresh_representative ();
         void activate ();
         void update_locked (bool, bool);
         QWidget * window;
