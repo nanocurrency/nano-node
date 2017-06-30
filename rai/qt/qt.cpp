@@ -1130,34 +1130,41 @@ wallet (wallet_a)
     layout->addStretch ();
     layout->addWidget (back);
     window->setLayout (layout);
-    QObject::connect (change, &QPushButton::released, [this] ()
-    {
+	QObject::connect (change, &QPushButton::released, [this] ()
+	{
 		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-        if (this->wallet.wallet_m->store.valid_password (transaction))
-        {
-            if (new_password->text ().isEmpty())
-            {
-                new_password->clear ();
-                new_password->setPlaceholderText ("Empty Password - try again: New password");
-                retype_password->clear ();
-                retype_password->setPlaceholderText ("Empty Password - try again: Retype password");
-            }
-            else
-            {
-                if (new_password->text () == retype_password->text ())
-                {
-                    this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
-                    new_password->clear ();
-                    retype_password->clear ();
-                    retype_password->setPlaceholderText ("Retype password");
-                }
-                else
-                {
-                    retype_password->clear ();
-                    retype_password->setPlaceholderText ("Password mismatch");
-                }
-            }
-        }
+		if (this->wallet.wallet_m->store.valid_password (transaction))
+		{
+			if (new_password->text ().isEmpty())
+			{
+				new_password->clear ();
+				new_password->setPlaceholderText ("Empty Password - try again: New password");
+				retype_password->clear ();
+				retype_password->setPlaceholderText ("Empty Password - try again: Retype password");
+			}
+			else
+			{
+				if (new_password->text () == retype_password->text ())
+				{
+					this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
+					new_password->clear ();
+					retype_password->clear ();
+					retype_password->setPlaceholderText ("Retype password");
+					show_button_success (*change);
+					change->setText ("Password was changed");
+					this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+					{
+						show_button_ok (*change);
+						change->setText ("Set/Change password");
+					});
+				}
+				else
+				{
+					retype_password->clear ();
+					retype_password->setPlaceholderText ("Password mismatch");
+				}
+			}
+		}
 		else
 		{
 			show_button_error (*change);
@@ -1168,7 +1175,7 @@ wallet (wallet_a)
 				change->setText ("Set/Change password");
 			});
 		}
-    });
+	});
 	QObject::connect (change_rep, &QPushButton::released, [this] ()
 	{
 		rai::account representative_l;
