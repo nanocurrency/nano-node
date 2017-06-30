@@ -1223,13 +1223,13 @@ wallet (wallet_a)
 			});
 		}
 	});
-    QObject::connect (back, &QPushButton::released, [this] ()
-    {
-        assert (this->wallet.main_stack->currentWidget () == window);
+	QObject::connect (back, &QPushButton::released, [this] ()
+	{
+		assert (this->wallet.main_stack->currentWidget () == window);
 		this->wallet.pop_main_stack ();
-    });
-    QObject::connect (unlock, &QPushButton::released, [this] ()
-    {
+	});
+	QObject::connect (unlock, &QPushButton::released, [this] ()
+	{
 		if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
 		{
 			password->clear ();
@@ -1246,13 +1246,33 @@ wallet (wallet_a)
 				unlock->setText ("Unlock");
 			});
 		}
-    });
-    QObject::connect (lock, &QPushButton::released, [this] ()
-    {
-        rai::raw_key empty;
-        empty.data.clear ();
-		this->wallet.wallet_m->store.password.value_set (empty);
-        update_locked (true, true);
+	});
+	QObject::connect (lock, &QPushButton::released, [this] ()
+	{
+		if (password->text ().isEmpty())
+		{
+			rai::raw_key empty;
+			empty.data.clear ();
+			this->wallet.wallet_m->store.password.value_set (empty);
+			update_locked (true, true);
+		}
+		else
+		{
+			show_line_error (*password);
+			show_button_error (*lock);
+			lock->setText ("Error");
+			show_line_success (*new_password);
+			show_button_success (*change);
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_line_ok (*password);
+				password->clear ();
+				show_button_ok (*lock);
+				lock->setText ("Lock");
+				show_line_ok (*new_password);
+				show_button_ok (*change);
+			});
+		}
     });
 	representative->setToolTip ("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.");
 	refresh_representative ();
