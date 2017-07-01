@@ -131,6 +131,8 @@ public:
     void frontier_request ();
     void sent_request (boost::system::error_code const &, size_t);
 	std::shared_ptr <rai::bootstrap_client> shared ();
+	void start_timeout ();
+	void stop_timeout ();
     std::shared_ptr <rai::node> node;
 	std::shared_ptr <rai::bootstrap_attempt> attempt;
     boost::asio::ip::tcp::socket socket;
@@ -138,6 +140,7 @@ public:
 	bool connected;
 	rai::bulk_pull_client pull_client;
 	rai::tcp_endpoint endpoint;
+	boost::asio::deadline_timer timeout;
 };
 class bulk_push_client : public std::enable_shared_from_this <rai::bulk_push_client>
 {
