@@ -191,7 +191,7 @@ void rai::bootstrap_client::run ()
 		}
     });
 	std::weak_ptr <rai::bootstrap_client> this_w (this_l);
-	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(5), [this_w] ()
+	node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds(10), [this_w] ()
 	{
 		auto this_l (this_w.lock ());
 		if (this_l != nullptr)
