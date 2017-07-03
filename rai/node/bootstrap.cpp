@@ -895,7 +895,7 @@ void rai::bootstrap_client::work ()
 			lock.unlock ();
 			if (this->node->config.logging.network_logging ())
 			{
-				BOOST_LOG (this->node->log) << boost::str (boost::format ("Initiating frontier request"));
+				BOOST_LOG (this->node->log) << boost::str (boost::format ("Initiating frontier request to %1%") % endpoint);
 			}
 			frontier_request ();
 			break;
@@ -939,7 +939,7 @@ void rai::bootstrap_client::work ()
 void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 {
 	auto pull (pull_a);
-	if (++pull.attempts < 16)
+	if (++pull.attempts < 4)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		pulls.push_front (pull);
