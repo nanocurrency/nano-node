@@ -267,7 +267,8 @@ std::shared_ptr <rai::bootstrap_client> rai::bootstrap_client::shared ()
 rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_client> const & connection_a) :
 connection (connection_a),
 current (0),
-count (0)
+count (0),
+next_report (std::chrono::system_clock::now () + std::chrono::seconds (15))
 {
 	next ();
 }
@@ -334,8 +335,10 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         auto error2 (rai::read (latest_stream, latest));
         assert (!error2);
 		++count;
-		if (count % 16384 == 0)
+		auto now (std::chrono::system_clock::now ());
+		if (next_report < now)
 		{
+			next_report = now + std::chrono::seconds (15);
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->socket.remote_endpoint ());
 		}
         if (!account.is_zero ())

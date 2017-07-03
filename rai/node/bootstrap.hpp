@@ -97,6 +97,7 @@ public:
 	rai::account current;
 	rai::account_info info;
 	unsigned count;
+	std::chrono::system_clock::time_point next_report;
 };
 class bulk_pull_client
 {
