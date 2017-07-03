@@ -234,7 +234,7 @@ void rai::network::republish_block (rai::block & block)
 // 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
 // 2) Only if a vote for this block hasn't been received in the previous X second.  This prevents rapid publishing of votes with increasing sequence numbers.
 // 3) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
-void rai::network::republish (std::chrono::system_clock::time_point const & last_vote, rai::vote const & vote_a)
+void rai::network::republish_vote (std::chrono::system_clock::time_point const & last_vote, rai::vote const & vote_a)
 {
 	if (last_vote < std::chrono::system_clock::now () - std::chrono::seconds (1))
 	{
@@ -2582,7 +2582,7 @@ void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 
 void rai::election::vote (rai::vote const & vote_a)
 {
-	node.network.republish (last_vote, vote_a);
+	node.network.republish_vote (last_vote, vote_a);
 	last_vote = std::chrono::system_clock::now ();
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	assert (vote_a.validate (transaction, node.store) != rai::vote_result::invalid);
