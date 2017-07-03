@@ -224,6 +224,13 @@ void rai::bootstrap_client::run ()
 
 void rai::bootstrap_client::frontier_request ()
 {
+	auto this_l (shared_from_this ());
+	auto client_l (std::make_shared <rai::frontier_req_client> (this_l));
+	client_l->run ();
+}
+
+void rai::frontier_req_client::run ()
+{
 	std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
 	request->start.clear ();
 	request->age = std::numeric_limits <decltype (request->age)>::max ();
@@ -234,29 +241,22 @@ void rai::bootstrap_client::frontier_request ()
 		request->serialize (stream);
 	}
 	auto this_l (shared_from_this ());
-	start_timeout ();
-	boost::asio::async_write (socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
+	connection->start_timeout ();
+	boost::asio::async_write (connection->socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
 	{
-		this_l->stop_timeout ();
-		this_l->sent_request (ec, size_a);
+		this_l->connection->stop_timeout ();
+		if (!ec)
+		{
+			this_l->receive_frontier ();
+		}
+		else
+		{
+			if (this_l->connection->node->config.logging.network_logging ())
+			{
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ());
+			}
+		}
 	});
-}
-
-void rai::bootstrap_client::sent_request (boost::system::error_code const & ec, size_t size_a)
-{
-    if (!ec)
-    {
-        auto this_l (shared_from_this ());
-        auto client_l (std::make_shared <rai::frontier_req_client> (this_l));
-        client_l->receive_frontier ();
-    }
-    else
-    {
-        if (node->config.logging.network_logging ())
-        {
-            BOOST_LOG (node->log) << boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ());
-        }
-    }
 }
 
 std::shared_ptr <rai::bootstrap_client> rai::bootstrap_client::shared ()
@@ -283,6 +283,7 @@ rai::frontier_req_client::~frontier_req_client ()
 			BOOST_LOG (connection->node->log) << "frontier_req failed, reattempting";
 		}
 		connection->attempt->state = rai::attempt_state::starting;
+		connection->attempt->pulls.clear ();
 	}
 	else
 	{

@@ -88,6 +88,7 @@ class frontier_req_client : public std::enable_shared_from_this <rai::frontier_r
 public:
     frontier_req_client (std::shared_ptr <rai::bootstrap_client> const &);
     ~frontier_req_client ();
+	void run ();
     void receive_frontier ();
     void received_frontier (boost::system::error_code const &, size_t);
     void request_account (rai::account const &, rai::block_hash const &);
