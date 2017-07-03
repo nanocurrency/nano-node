@@ -274,10 +274,22 @@ count (0)
 
 rai::frontier_req_client::~frontier_req_client ()
 {
-    if (connection->node->config.logging.network_logging ())
-    {
-        BOOST_LOG (connection->node->log) << "Exiting frontier_req initiator";
-    }
+	std::lock_guard <std::mutex> lock (connection->attempt->mutex);
+	if (connection->attempt->state == rai::attempt_state::requesting_frontiers)
+	{
+		if (connection->node->config.logging.network_logging ())
+		{
+			BOOST_LOG (connection->node->log) << "frontier_req failed, reattempting";
+		}
+		connection->attempt->state = rai::attempt_state::starting;
+	}
+	else
+	{
+		if (connection->node->config.logging.network_logging ())
+		{
+			BOOST_LOG (connection->node->log) << "Exiting frontier_req initiator";
+		}
+	}
 }
 
 void rai::frontier_req_client::receive_frontier ()
@@ -619,10 +631,22 @@ synchronization (*connection->node, [this] (MDB_txn * transaction_a, rai::block 
 
 rai::bulk_push_client::~bulk_push_client ()
 {
-    if (connection->node->config.logging.network_logging ())
-    {
-        BOOST_LOG (connection->node->log) << "Exiting bulk push client";
-    }
+	std::lock_guard <std::mutex> lock (connection->attempt->mutex);
+	if (connection->attempt->state == rai::attempt_state::pushing)
+	{
+		if (connection->node->config.logging.network_logging ())
+		{
+			BOOST_LOG (connection->node->log) << "Bulk push client failed";
+		}
+		connection->attempt->state = rai::attempt_state::complete;
+	}
+	else
+	{
+		if (connection->node->config.logging.network_logging ())
+		{
+			BOOST_LOG (connection->node->log) << "Exiting bulk push client";
+		}
+	}
 }
 
 void rai::bulk_push_client::start ()
