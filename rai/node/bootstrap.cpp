@@ -324,7 +324,7 @@ void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_has
 
 void rai::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
 {
-    if (!ec)
+    if (!ec && connection->attempt->state != rai::attempt_state::complete)
     {
         assert (size_a == sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
         rai::account account;
