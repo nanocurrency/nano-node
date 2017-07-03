@@ -74,23 +74,13 @@ public:
 	void populate_connections ();
 	void add_connection (rai::endpoint const &);
 	void stop ();
-	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
-	void connection_ending (rai::bootstrap_client *);
-    void completed_requests (std::shared_ptr <rai::bootstrap_client>);
-	void completed_pull (std::shared_ptr <rai::bootstrap_client>);
-    void completed_pulls (std::shared_ptr <rai::bootstrap_client>);
-    void completed_pushes (std::shared_ptr <rai::bootstrap_client>);
-	void dispatch_work ();
 	void requeue_pull (rai::pull_info const &);
     std::deque <rai::pull_info> pulls;
-	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> connecting;
-	std::unordered_map <rai::bootstrap_client *, std::weak_ptr <rai::bootstrap_client>> active;
-	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
+	std::atomic <unsigned> connections;
+	unsigned pulling;
 	std::shared_ptr <rai::node> node;
 	rai::attempt_state state;
 	std::unordered_set <rai::endpoint> attempted;
-private:
-	std::shared_ptr <rai::bootstrap_client> start_connection (rai::endpoint const &);
 	std::mutex mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
@@ -106,6 +96,7 @@ public:
     std::shared_ptr <rai::bootstrap_client> connection;
 	rai::account current;
 	rai::account_info info;
+	unsigned count;
 };
 class bulk_pull_client
 {
@@ -129,7 +120,13 @@ public:
     ~bootstrap_client ();
     void run ();
     void frontier_request ();
+	void work ();
+	void poll ();
+	void completed_frontier_request ();
     void sent_request (boost::system::error_code const &, size_t);
+	void completed_pull ();
+	void completed_pulls ();
+	void completed_pushes ();
 	std::shared_ptr <rai::bootstrap_client> shared ();
 	void start_timeout ();
 	void stop_timeout ();
@@ -137,7 +134,6 @@ public:
 	std::shared_ptr <rai::bootstrap_attempt> attempt;
     boost::asio::ip::tcp::socket socket;
     std::array <uint8_t, 200> receive_buffer;
-	bool connected;
 	rai::bulk_pull_client pull_client;
 	rai::tcp_endpoint endpoint;
 	boost::asio::deadline_timer timeout;
