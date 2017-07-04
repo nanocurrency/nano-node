@@ -1029,7 +1029,7 @@ TEST (node, fork_no_vote_quorum)
 		confirm.serialize (stream);
 	}
 	node2.network.confirm_send (confirm, bytes, node3.network.endpoint ());
-	while (node3.network.confirm_ack_count < 3)
+	while (node3.network.incoming.confirm_ack < 3)
 	{
 		system.poll ();
 	}
@@ -1298,7 +1298,7 @@ TEST (node, no_voting)
 		++iterations;
 		ASSERT_GT (200, iterations);
 	}
-	ASSERT_EQ (0, node1.network.confirm_ack_count);
+	ASSERT_EQ (0, node1.network.incoming.confirm_ack);
 }
 
 TEST (node, start_observer)

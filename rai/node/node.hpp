@@ -256,6 +256,15 @@ public:
 	uint64_t check_count;
 	bool on;
 };
+class message_statistics
+{
+public:
+	message_statistics ();
+    std::atomic <uint64_t> keepalive;
+    std::atomic <uint64_t> publish;
+    std::atomic <uint64_t> confirm_req;
+    std::atomic <uint64_t> confirm_ack;
+};
 class network
 {
 public:
@@ -285,12 +294,10 @@ public:
     rai::node & node;
     uint64_t bad_sender_count;
     bool on;
-    uint64_t keepalive_count;
-    uint64_t publish_count;
-    uint64_t confirm_req_count;
-    uint64_t confirm_ack_count;
     uint64_t insufficient_work_count;
     uint64_t error_count;
+	rai::message_statistics incoming;
+	rai::message_statistics outgoing;
     static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
 };
 class logging

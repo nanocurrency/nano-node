@@ -31,6 +31,14 @@ int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
 
+rai::message_statistics::message_statistics () :
+keepalive (0),
+publish (0),
+confirm_req (0),
+confirm_ack (0)
+{
+}
+
 rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
 socket (service_a, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 service (service_a),
@@ -38,10 +46,6 @@ resolver (service_a),
 node (node_a),
 bad_sender_count (0),
 on (true),
-keepalive_count (0),
-publish_count (0),
-confirm_req_count (0),
-confirm_ack_count (0),
 insufficient_work_count (0),
 error_count (0)
 {
@@ -54,11 +58,10 @@ void rai::network::receive ()
         BOOST_LOG (node.log) << "Receiving packet";
     }
     std::unique_lock <std::mutex> lock (socket_mutex);
-    socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote,
-        [this] (boost::system::error_code const & error, size_t size_a)
-        {
-            receive_action (error, size_a);
-        });
+    socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote, [this] (boost::system::error_code const & error, size_t size_a)
+	{
+		receive_action (error, size_a);
+	});
 }
 
 void rai::network::stop ()
@@ -82,7 +85,8 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
     {
         BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
     }
-    std::weak_ptr <rai::node> node_w (node.shared ());
+    ++outgoing.keepalive;
+	std::weak_ptr <rai::node> node_w (node.shared ());
     send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a] (boost::system::error_code const & ec, size_t)
 	{
 		if (auto node_l = node_w.lock ())
@@ -124,6 +128,7 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 
 void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr <std::vector <uint8_t>> buffer_a, rai::endpoint endpoint_a)
 {
+	++outgoing.publish;
 	if (node.config.logging.network_publish_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
@@ -281,6 +286,7 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, rai::bloc
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
     }
     std::weak_ptr <rai::node> node_w (node.shared ());
+	++outgoing.confirm_req;
     send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w] (boost::system::error_code const & ec, size_t size)
 	{
 		if (auto node_l = node_w.lock ())
@@ -342,7 +348,7 @@ public:
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
         }
-        ++node.network.keepalive_count;
+        ++node.network.incoming.keepalive;
         node.peers.contacted (sender);
         node.network.merge_peers (message_a.peers);
     }
@@ -352,7 +358,7 @@ public:
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
         }
-        ++node.network.publish_count;
+        ++node.network.incoming.publish;
         node.peers.contacted (sender);
         node.peers.insert (sender);
         node.process_receive_republish (message_a.block->clone ());
@@ -363,7 +369,7 @@ public:
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
         }
-        ++node.network.confirm_req_count;
+        ++node.network.incoming.confirm_req;
         node.peers.contacted (sender);
         node.peers.insert (sender);
         node.process_receive_republish (message_a.block->clone ());
@@ -378,7 +384,7 @@ public:
         {
             BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%") % sender % message_a.vote.block->hash ().to_string ());
         }
-        ++node.network.confirm_ack_count;
+        ++node.network.incoming.confirm_ack;
         node.peers.contacted (sender);
         node.peers.insert (sender);
         node.process_receive_republish (message_a.vote.block->clone ());
@@ -1328,6 +1334,7 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
         BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2%") % confirm_a.vote.block->hash ().to_string () % endpoint_a);
     }
     std::weak_ptr <rai::node> node_w (node.shared ());
+	++outgoing.confirm_ack;
     node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a] (boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node_w.lock ())

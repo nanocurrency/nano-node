@@ -70,11 +70,11 @@ TEST (network, send_keepalive)
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
     node1->start ();
     system.nodes [0]->network.send_keepalive (node1->network.endpoint ());
-    auto initial (system.nodes [0]->network.keepalive_count);
+    auto initial (system.nodes [0]->network.incoming.keepalive.load ());
     ASSERT_EQ (0, system.nodes [0]->peers.list ().size ());
     ASSERT_EQ (0, node1->peers.list ().size ());
     auto iterations (0);
-    while (system.nodes [0]->network.keepalive_count == initial)
+    while (system.nodes [0]->network.incoming.keepalive == initial)
     {
         system.poll ();
         ++iterations;
@@ -98,9 +98,9 @@ TEST (network, keepalive_ipv4)
     auto node1 (std::make_shared <rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
     node1->start ();
     node1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
-    auto initial (system.nodes [0]->network.keepalive_count);
+    auto initial (system.nodes [0]->network.incoming.keepalive.load ());
     auto iterations (0);
-    while (system.nodes [0]->network.keepalive_count == initial)
+    while (system.nodes [0]->network.incoming.keepalive == initial)
     {
         system.poll ();
         ++iterations;
@@ -154,7 +154,7 @@ TEST (network, send_discarded_publish)
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
     auto iterations (0);
-    while (system.nodes [1]->network.publish_count == 0)
+    while (system.nodes [1]->network.incoming.publish == 0)
     {
         system.poll ();
         ++iterations;
@@ -173,7 +173,7 @@ TEST (network, send_invalid_publish)
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
     auto iterations (0);
-    while (system.nodes [1]->network.publish_count == 0)
+    while (system.nodes [1]->network.incoming.publish == 0)
     {
         system.poll ();
         ++iterations;
@@ -217,7 +217,7 @@ TEST (network, send_valid_publish)
     rai::block_hash latest2 (system.nodes [1]->latest (rai::test_genesis_key.pub));
     system.nodes [1]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (block2)));
     auto iterations (0);
-    while (system.nodes [0]->network.publish_count == 0)
+    while (system.nodes [0]->network.incoming.publish == 0)
     {
         system.poll ();
         ++iterations;
