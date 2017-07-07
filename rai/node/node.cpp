@@ -525,7 +525,7 @@ void rai::alarm::add (std::chrono::system_clock::time_point const & wakeup_a, st
 	condition.notify_all ();
 }
 
-rai::logging::logging (boost::filesystem::path const & application_path_a) :
+rai::logging::logging () :
 ledger_logging_value (false),
 ledger_duplicate_logging_value (false),
 vote_logging_value (false),
@@ -542,15 +542,18 @@ work_generation_time_value (true),
 log_to_cerr_value (false),
 max_size (16 * 1024 * 1024)
 {
-	if (log_to_cerr ())
-    {
-        boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-    }
-    boost::log::add_common_attributes ();
-	static bool already_added = false;
-	if (!already_added)
+}
+
+void rai::logging::init (boost::filesystem::path const & application_path_a)
+{
+	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
+	if (!logging_already_added.test_and_set ())
 	{
-		already_added = true;
+		boost::log::add_common_attributes ();
+		if (log_to_cerr ())
+		{
+			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+		}
 		boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = true, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	}
 }
@@ -720,8 +723,8 @@ bool rai::node_init::error ()
     return block_store_init || wallet_init;
 }
 
-rai::node_config::node_config (boost::filesystem::path const & application_path_a) :
-node_config (rai::network::node_port, rai::logging (application_path_a))
+rai::node_config::node_config () :
+node_config (rai::network::node_port, rai::logging ())
 {
 }
 
@@ -3349,10 +3352,10 @@ rai::inactive_node::inactive_node () :
 path (rai::working_path ()),
 service (boost::make_shared <boost::asio::io_service> ()),
 alarm (*service),
-logging (path),
 work (1, nullptr)
 {
 	boost::filesystem::create_directories (path);
+	logging.init (path);
 	node = std::make_shared <rai::node> (init, *service, 24000, path, alarm, logging, work);
 }
 

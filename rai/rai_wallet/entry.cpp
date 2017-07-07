@@ -15,7 +15,6 @@ class qt_wallet_config
 public:
 	qt_wallet_config (boost::filesystem::path const & application_path_a) :
 	account (0),
-	node (application_path_a),
 	rpc_enable (false),
 	opencl_enable (false)
 	{
@@ -207,6 +206,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	config_file.close ();
 	if (!error)
 	{
+		config.node.logging.init (data_path);
 		std::shared_ptr <rai::node> node;
 		std::shared_ptr <rai_qt::wallet> gui;
 		rai::set_application_icon (application);

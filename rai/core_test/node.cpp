@@ -19,7 +19,8 @@ TEST (node, block_store_path_failure)
     auto service (boost::make_shared <boost::asio::io_service> ());
     rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
-	rai::logging logging (path);
+	rai::logging logging;
+	logging.init (path);
 	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
     auto node (std::make_shared <rai::node> (init, *service, 0, path, alarm, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
@@ -32,7 +33,8 @@ TEST (node, inactive_supply)
     auto service (boost::make_shared <boost::asio::io_service> ());
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
-	rai::node_config config (path);
+	rai::node_config config;
+	config.logging.init (path);
 	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
 	config.inactive_supply = 10;
     auto node (std::make_shared <rai::node> (init, *service, path, alarm, config, work));
@@ -45,7 +47,8 @@ TEST (node, password_fanout)
     auto service (boost::make_shared <boost::asio::io_service> ());
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
-	rai::node_config config (path);
+	rai::node_config config;
+	config.logging.init (path);
 	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
 	config.password_fanout = 10;
     auto node (std::make_shared <rai::node> (init, *service, path, alarm, config, work));
@@ -401,7 +404,8 @@ TEST (node, working)
 TEST (logging, serialization)
 {
 	auto path (rai::unique_path ());
-	rai::logging logging1 (path);
+	rai::logging logging1;
+	logging1.init (path);
 	logging1.ledger_logging_value = !logging1.ledger_logging_value;
 	logging1.ledger_duplicate_logging_value = !logging1.ledger_duplicate_logging_value;
 	logging1.network_logging_value = !logging1.network_logging_value;
@@ -418,7 +422,8 @@ TEST (logging, serialization)
 	logging1.max_size = 10;
 	boost::property_tree::ptree tree;
 	logging1.serialize_json (tree);
-	rai::logging logging2 (path);
+	rai::logging logging2;
+	logging2.init (path);
 	bool upgraded (false);
 	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
 	ASSERT_FALSE (upgraded);
@@ -442,8 +447,10 @@ TEST (logging, upgrade_v1_v2)
 {
 	auto path1 (rai::unique_path ());
 	auto path2 (rai::unique_path ());
-	rai::logging logging1 (path1);
-	rai::logging logging2 (path2);
+	rai::logging logging1;
+	logging1.init (path1);
+	rai::logging logging2;
+	logging2.init (path2);
 	boost::property_tree::ptree tree;
 	logging1.serialize_json (tree);
 	tree.erase ("version");
@@ -470,7 +477,8 @@ TEST (node, price)
 TEST (node_config, serialization)
 {
 	auto path (rai::unique_path ());
-	rai::logging logging1 (path);
+	rai::logging logging1;
+	logging1.init (path);
 	rai::node_config config1 (100, logging1);
 	config1.bootstrap_fraction_numerator = 10;
 	config1.receive_minimum = 10;
@@ -482,7 +490,8 @@ TEST (node_config, serialization)
 	config1.callback_target = "test";
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
-	rai::logging logging2 (path);
+	rai::logging logging2;
+	logging2.init (path);
 	logging2.node_lifetime_tracing_value = !logging2.node_lifetime_tracing_value;
 	rai::node_config config2 (50, logging2);
 	ASSERT_NE (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
@@ -512,7 +521,8 @@ TEST (node_config, serialization)
 TEST (node_config, v1_v2_upgrade)
 {
 	auto path (rai::unique_path ());
-	rai::logging logging1 (path);
+	rai::logging logging1;
+	logging1.init (path);
 	boost::property_tree::ptree tree;
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
@@ -528,7 +538,8 @@ TEST (node_config, v1_v2_upgrade)
 	boost::property_tree::ptree preconfigured_representatives_l;
 	tree.add_child ("preconfigured_representatives", preconfigured_representatives_l);
 	bool upgraded (false);
-	rai::node_config config1 (path);
+	rai::node_config config1;
+	config1.logging.init (path);
 	ASSERT_FALSE (tree.get_child_optional ("work_peers"));
 	config1.deserialize_json (upgraded, tree);
 	ASSERT_TRUE (upgraded);
@@ -538,7 +549,8 @@ TEST (node_config, v1_v2_upgrade)
 TEST (node_config, unversioned_v2_upgrade)
 {
 	auto path (rai::unique_path ());
-	rai::logging logging1 (path);
+	rai::logging logging1;
+	logging1.init (path);
 	boost::property_tree::ptree tree;
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
@@ -559,7 +571,8 @@ TEST (node_config, unversioned_v2_upgrade)
 	boost::property_tree::ptree work_peers_l;
 	tree.add_child ("work_peers", work_peers_l);
 	bool upgraded (false);
-	rai::node_config config1 (path);
+	rai::node_config config1;
+	config1.logging.init (path);
 	ASSERT_FALSE (tree.get_optional <std::string> ("version"));
 	config1.deserialize_json (upgraded, tree);
 	ASSERT_TRUE (upgraded);
@@ -575,7 +588,8 @@ TEST (node_config, unversioned_v2_upgrade)
 TEST (node_config, v2_v3_upgrade)
 {
 	auto path (rai::unique_path ());
-	rai::logging logging1 (path);
+	rai::logging logging1;
+	logging1.init (path);
 	boost::property_tree::ptree tree;
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
@@ -597,7 +611,8 @@ TEST (node_config, v2_v3_upgrade)
 	boost::property_tree::ptree work_peers_l;
 	tree.add_child ("work_peers", work_peers_l);
 	bool upgraded (false);
-	rai::node_config config1 (path);
+	rai::node_config config1;
+	config1.logging.init (path);
 	ASSERT_FALSE (tree.get_optional <std::string> ("inactive_supply"));
 	ASSERT_FALSE (tree.get_optional <std::string> ("password_fanout"));
 	ASSERT_FALSE (tree.get_optional <std::string> ("io_threads"));
@@ -624,7 +639,8 @@ TEST (node, confirm_locked)
 TEST (node_config, random_rep)
 {
 	auto path (rai::unique_path ());
-	rai::logging logging1 (path);
+	rai::logging logging1;
+	logging1.init (path);
 	rai::node_config config1 (100, logging1);
 	auto rep (config1.random_representative ());
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
@@ -1307,7 +1323,8 @@ TEST (node, start_observer)
     auto service (boost::make_shared <boost::asio::io_service> ());
     rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
-	rai::logging logging (path);
+	rai::logging logging;
+	logging.init (path);
 	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
     auto node (std::make_shared <rai::node> (init, *service, 0, path, alarm, logging, work));
 	auto started (false);

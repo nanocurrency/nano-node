@@ -54,7 +54,8 @@ TEST (work, cancel_many)
 
 TEST (work, opencl)
 {
-	rai::logging logging (rai::unique_path ());
+	rai::logging logging;
+	logging.init (rai::unique_path ());
 	auto work (rai::opencl_work::create (true, {0, 1, 1024 * 1024}, logging));
 	if (work != nullptr)
 	{

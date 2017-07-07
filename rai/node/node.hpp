@@ -303,7 +303,7 @@ public:
 class logging
 {
 public:
-	logging (boost::filesystem::path const &);
+	logging ();
     void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (bool &, boost::property_tree::ptree &);
 	bool upgrade_json (unsigned, boost::property_tree::ptree &);
@@ -322,6 +322,8 @@ public:
 	bool callback_logging () const;
     bool work_generation_time () const;
     bool log_to_cerr () const;
+	void init (boost::filesystem::path const &);
+	
 	bool ledger_logging_value;
 	bool ledger_duplicate_logging_value;
 	bool vote_logging_value;
@@ -350,7 +352,7 @@ public:
 class node_config
 {
 public:
-	node_config (boost::filesystem::path const &);
+	node_config ();
 	node_config (uint16_t, rai::logging const &);
     void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (bool &, boost::property_tree::ptree &);

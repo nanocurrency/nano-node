@@ -7,7 +7,6 @@
 
 rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
 rpc_enable (false),
-node (application_path_a),
 opencl_enable (false)
 {
 }
@@ -105,6 +104,7 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 	auto error (rai::fetch_object (config, config_path, config_file));
 	if (!error)
 	{
+		config.node.logging.init (data_path);
 		config_file.close ();
 		boost::asio::io_service service;
 		rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
