@@ -365,7 +365,28 @@ wallet (wallet_a)
 				}
 				if (successful)
 				{
-					this->wallet.account = this->wallet.wallet_m->deterministic_insert ();
+					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+					this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
+					auto count (0);
+					for (uint32_t i (1), n (32); i < n; ++i)
+					{
+						rai::raw_key prv;
+						this->wallet.wallet_m->store.deterministic_key (prv, transaction, i);
+						rai::keypair pair (prv.data.to_string ());
+						auto latest (this->wallet.node.ledger.latest (transaction, pair.pub));
+						if (!latest.is_zero ())
+						{
+							count = i;
+							n = i + 32;
+						}
+					}
+					for (uint32_t i (0); i < count; ++i)
+					{
+						this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
+					}
+				}
+				if (successful)
+				{
 					seed->clear ();
 					clear_line->clear ();
 					show_line_ok (*seed);
@@ -1065,10 +1086,10 @@ void rai_qt::wallet::refresh ()
 		rai::transaction transaction (wallet_m->store.environment, nullptr, false);
 		assert (wallet_m->store.exists (transaction, account));
 	}
-    self.account_text->setText (QString (account.to_account_split ().c_str ()));
+	self.account_text->setText (QString (account.to_account_split ().c_str ()));
 	self.refresh_balance ();
-    accounts.refresh ();
-    history.refresh ();
+	accounts.refresh ();
+	history.refresh ();
 	account_viewer.history.refresh ();
 }
 
