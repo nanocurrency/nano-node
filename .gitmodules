@@ -4,3 +4,6 @@
 [submodule "miniupnp"]
 	path = miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
+[submodule "cryptopp"]
+	path = cryptopp
+	url = https://github.com/weidai11/cryptopp.git
