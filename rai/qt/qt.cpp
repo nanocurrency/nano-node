@@ -176,8 +176,29 @@ wallet (wallet_a)
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] ()
 	{
-		this->wallet.wallet_m->deterministic_insert ();
-        refresh ();
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+		if (this->wallet.wallet_m->store.valid_password (transaction))
+		{
+			this->wallet.wallet_m->deterministic_insert (transaction);
+			show_button_success (*create_account);
+			create_account->setText ("New account was created");
+			refresh ();
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_button_ok (*create_account);
+				create_account->setText ("Create account");
+			});
+		}
+		else
+		{
+			show_button_error (*create_account);
+			create_account->setText ("Wallet is locked, unlock it to create account");
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_button_ok (*create_account);
+				create_account->setText ("Create account");
+			});
+		}
 	});
 	QObject::connect (import_wallet, &QPushButton::released, [this] ()
 	{
