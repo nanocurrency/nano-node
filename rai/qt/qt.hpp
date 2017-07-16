@@ -42,6 +42,7 @@ namespace rai_qt {
         QPushButton * change;
 		QFrame * sep2;
 		QLabel * representative;
+		QLabel * current_representative;
 		QLineEdit * new_representative;
 		QPushButton * change_rep;
         QPushButton * back;

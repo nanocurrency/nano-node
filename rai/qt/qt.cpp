@@ -78,6 +78,7 @@ wallet (wallet_a)
 	auto font (QFontDatabase::systemFont (QFontDatabase::FixedFont));
 	font.setPointSize (account_text->font().pointSize());
 	account_text->setFont (font);
+	account_text->setTextInteractionFlags(Qt::TextSelectableByMouse);
 	account_layout->addWidget (account_text);
 	account_layout->addWidget (copy_button);
 	account_layout->setContentsMargins (0, 0, 0, 0);
@@ -1180,6 +1181,7 @@ retype_password (new QLineEdit),
 change (new QPushButton ("Set/Change password")),
 sep2 (new QFrame),
 representative (new QLabel ("Account representative:")),
+current_representative (new QLabel),
 new_representative (new QLineEdit),
 change_rep (new QPushButton ("Change representative")),
 back (new QPushButton ("Back")),
@@ -1206,6 +1208,8 @@ wallet (wallet_a)
 	sep2->setFrameShadow (QFrame::Sunken);
 	layout->addWidget (sep2);
 	layout->addWidget (representative);
+	current_representative->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	layout->addWidget (current_representative);
 	new_representative->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
 	layout->addWidget (new_representative);
 	layout->addWidget (change_rep);
@@ -1275,6 +1279,8 @@ wallet (wallet_a)
 				change_rep->setEnabled (true);
 				show_button_success (*change_rep);
 				change_rep->setText ("Represenative was changed");
+				current_representative->setText (QString (representative_l.to_account_split ().c_str ()));
+				new_representative->clear ();
 				this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 				{
 					show_button_ok (*change_rep);
@@ -1369,11 +1375,11 @@ void rai_qt::settings::refresh_representative ()
 	{
 		auto block (this->wallet.wallet_m->node.store.block_get (transaction, info.rep_block));
 		assert (block != nullptr);
-		new_representative->setText (block->representative ().to_account ().c_str ());
+		current_representative->setText (QString (block->representative ().to_account_split ().c_str ()));
 	}
 	else
 	{
-		new_representative->setText (this->wallet.wallet_m->store.representative (transaction).to_account ().c_str ());
+		current_representative->setText (this->wallet.wallet_m->store.representative (transaction).to_account_split ().c_str ());
 	}
 }
 
