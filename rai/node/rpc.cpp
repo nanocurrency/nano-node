@@ -626,6 +626,50 @@ void rai::rpc_handler::accounts_pending ()
 	}
 }
 
+void rai::rpc_handler::accounts_pending_threshold ()
+{
+	std::string threshold_text (request.get <std::string> ("threshold"));
+	rai::uint128_union threshold;
+	if (!threshold.decode_dec (threshold_text))
+	{
+		boost::property_tree::ptree response_l;
+		boost::property_tree::ptree pending;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto &accounts : request.get_child("accounts"))
+		{
+			std::string account_text = accounts.second.data ();
+			rai::uint256_union account;
+			if (!account.decode_account (account_text))
+			{
+				boost::property_tree::ptree peers_l;
+				rai::account end (account.number () + 1);
+				for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n; ++i)
+				{
+					rai::pending_key key (i->first);
+					rai::pending_info info (i->second);
+					if (info.amount.number () >= threshold.number ())
+					{
+						boost::property_tree::ptree entry;
+						entry.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+						peers_l.push_back (std::make_pair ("", entry));
+					}
+				}
+				pending.add_child (account.to_account (), peers_l);
+			}
+			else
+			{
+				error_response (response, "Bad account number");
+			}
+		}
+		response_l.add_child ("blocks", pending);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad threshold number");
+	}
+}
+
 void rai::rpc_handler::available_supply ()
 {
 	auto genesis_balance (node.balance (rai::genesis_account)); // Cold storage genesis
@@ -1336,6 +1380,51 @@ void rai::rpc_handler::pending ()
 			}
 			response_l.add_child ("blocks", peers_l);
 			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Invalid count");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
+void rai::rpc_handler::pending_threshold ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	if (!account.decode_account(account_text))
+	{
+		std::string threshold_text (request.get <std::string> ("threshold"));
+		rai::uint128_union threshold;
+		if (!threshold.decode_dec (threshold_text))
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree peers_l;
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				rai::account end (account.number () + 1);
+				for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n; ++i)
+				{
+					rai::pending_key key (i->first);
+					rai::pending_info info (i->second);
+					if (info.amount.number () >= threshold.number ())
+					{
+						boost::property_tree::ptree entry;
+						entry.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+						peers_l.push_back (std::make_pair ("", entry));
+					}
+				}
+			}
+			response_l.add_child ("blocks", peers_l);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Bad threshold number");
 		}
 	}
 	else
@@ -2522,6 +2611,10 @@ void rai::rpc_handler::process_request ()
 		{
 			accounts_pending ();
 		}
+		else if (action == "accounts_pending_threshold")
+		{
+			accounts_pending_threshold ();
+		}
 		else if (action == "available_supply")
 		{
 			available_supply ();
@@ -2637,6 +2730,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "pending")
 		{
 			pending ();
+		}
+		else if (action == "pending_threshold")
+		{
+			pending_threshold ();
 		}
 		else if (action == "process")
 		{

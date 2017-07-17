@@ -104,6 +104,7 @@ public:
 	void accounts_balances ();
 	void accounts_frontiers ();
 	void accounts_pending ();
+	void accounts_pending_threshold ();
 	void available_supply ();
 	void block ();
 	void blocks ();
@@ -132,6 +133,7 @@ public:
 	void payment_wait ();
 	void peers ();
 	void pending ();
+	void pending_threshold ();
 	void process ();
 	void rai_to_raw ();
 	void rai_from_raw ();
