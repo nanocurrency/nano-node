@@ -2309,6 +2309,116 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
+void rai::rpc_handler::wallet_pending ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			std::string count_text (request.get <std::string> ("count"));
+			uint64_t count;
+			if (!decode_unsigned (count_text, count))
+			{
+				boost::property_tree::ptree response_l;
+				boost::property_tree::ptree pending;
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+				{
+					rai::account account(i->first);
+					boost::property_tree::ptree peers_l;
+					rai::account end (account.number () + 1);
+					for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size ()< count; ++ii)
+					{
+						rai::pending_key key (ii->first);
+						boost::property_tree::ptree entry;
+						entry.put ("", key.hash.to_string ());
+						peers_l.push_back (std::make_pair ("", entry));
+					}
+					if (!peers_l.empty ())
+					{
+						pending.add_child (account.to_account (), peers_l);
+					}
+				}
+				response_l.add_child ("pending", pending);
+				response (response_l);
+			}
+			else
+			{
+				error_response (response, "Invalid count");
+			}
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
+void rai::rpc_handler::wallet_pending_threshold ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			std::string threshold_text (request.get <std::string> ("threshold"));
+			rai::uint128_union threshold;
+			if (!threshold.decode_dec (threshold_text))
+			{
+				boost::property_tree::ptree response_l;
+				boost::property_tree::ptree pending;
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+				{
+					rai::account account(i->first);
+					boost::property_tree::ptree peers_l;
+					rai::account end (account.number () + 1);
+					for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn; ++ii)
+					{
+						rai::pending_key key (ii->first);
+						rai::pending_info info (ii->second);
+						if (info.amount.number () >= threshold.number ())
+						{
+							boost::property_tree::ptree entry;
+							entry.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+							peers_l.push_back (std::make_pair ("", entry));
+						}
+					}
+					if (!peers_l.empty ())
+					{
+						pending.add_child (account.to_account (), peers_l);
+					}
+				}
+				response_l.add_child ("pending", pending);
+				response (response_l);
+			}
+			else
+			{
+				error_response (response, "Bad threshold number");
+			}
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
 void rai::rpc_handler::wallet_representative ()
 {
 	std::string wallet_text (request.get <std::string> ("wallet"));
@@ -2818,6 +2928,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_key_valid")
 		{
 			wallet_key_valid ();
+		}
+		else if (action == "wallet_pending")
+		{
+			wallet_pending ();
+		}
+		else if (action == "wallet_pending_threshold")
+		{
+			wallet_pending_threshold ();
 		}
 		else if (action == "wallet_representative")
 		{

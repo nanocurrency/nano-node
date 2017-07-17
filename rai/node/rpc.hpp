@@ -156,6 +156,8 @@ public:
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_key_valid ();
+	void wallet_pending ();
+	void wallet_pending_threshold ();
 	void wallet_representative ();
 	void wallet_representative_set ();
 	void work_generate ();
