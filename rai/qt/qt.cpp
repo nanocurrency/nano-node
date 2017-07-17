@@ -851,6 +851,7 @@ send_blocks_back (new QPushButton ("Back")),
 active_status (*this)
 {
 	update_connected ();
+	empty_password ();
 	settings.update_locked (true, true);
 	send_blocks_layout->addWidget (send_account_label);
 	send_account->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
@@ -1147,6 +1148,13 @@ void rai_qt::wallet::update_connected ()
 	}
 }
 
+void rai_qt::wallet::empty_password ()
+{
+	rai::raw_key empty;
+	empty.data.clear ();
+	wallet_m->store.password.value_set (empty);
+}
+
 void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a] ()
@@ -1238,6 +1246,7 @@ wallet (wallet_a)
 					retype_password->setPlaceholderText ("Retype password");
 					show_button_success (*change);
 					change->setText ("Password was changed");
+					update_locked (false, false);
 					this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 					{
 						show_button_ok (*change);

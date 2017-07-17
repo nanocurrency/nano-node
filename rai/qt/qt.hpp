@@ -286,6 +286,7 @@ namespace rai_qt {
 		void start ();
 		void refresh ();
 		void update_connected ();
+		void empty_password ();
 		void change_rendering_ratio (rai::uint128_t const &);
 		rai::uint128_t rendering_ratio;
 		rai::node & node;
