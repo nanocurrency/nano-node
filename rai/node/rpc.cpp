@@ -1780,6 +1780,37 @@ void rai::rpc_handler::receive ()
 	}
 }
 
+void rai::rpc_handler::receive_minimum ()
+{
+	boost::property_tree::ptree response_l;
+	response_l.put ("amount", node.config.receive_minimum.to_string_dec ());
+	response (response_l);
+}
+
+void rai::rpc_handler::receive_minimum_set ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string amount_text (request.get <std::string> ("amount"));
+		rai::uint128_union amount;
+		if (!amount.decode_dec (amount_text))
+		{
+			node.config.receive_minimum = amount;
+			boost::property_tree::ptree response_l;
+			response_l.put ("success", "");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Bad amount number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::representatives ()
 {
 	boost::property_tree::ptree response_l;
@@ -2860,6 +2891,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "receive")
 		{
 			receive ();
+		}
+		else if (action == "receive_minimum")
+		{
+			receive_minimum ();
+		}
+		else if (action == "receive_minimum_set")
+		{
+			receive_minimum_set ();
 		}
 		else if (action == "representatives")
 		{

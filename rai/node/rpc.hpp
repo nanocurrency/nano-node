@@ -138,6 +138,8 @@ public:
 	void rai_to_raw ();
 	void rai_from_raw ();
 	void receive ();
+	void receive_minimum ();
+	void receive_minimum_set ();
 	void representatives ();
 	void republish ();
 	void search_pending ();
