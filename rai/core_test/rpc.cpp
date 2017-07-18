@@ -2171,7 +2171,7 @@ TEST (rpc, pending_threshold)
 	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "pending_threshold");
+	request.put ("action", "pending");
 	request.put ("account", key1.pub.to_account ());
 	request.put ("threshold", "100");
 	test_response response0 (request, rpc, system.service);
@@ -2204,7 +2204,7 @@ TEST (rpc, accounts_pending_threshold)
 	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "accounts_pending_threshold");
+	request.put ("action", "accounts_pending");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
 	entry.put ("", key1.pub.to_account ());
@@ -2295,7 +2295,7 @@ TEST (rpc, wallet_pending_threshold)
 	rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "wallet_pending_threshold");
+	request.put ("action", "wallet_pending");
 	request.put ("wallet", system0.nodes [0]->wallets.items.begin ()->first.to_string ());
 	request.put ("threshold", "100");
 	test_response response0 (request, rpc, system0.service);
