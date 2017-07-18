@@ -2623,6 +2623,121 @@ void rai::rpc_handler::work_cancel ()
 	}
 }
 
+void rai::rpc_handler::work_get ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				std::string account_text (request.get <std::string> ("account"));
+				rai::account account;
+				auto error (account.decode_account (account_text));
+				if (!error)
+				{
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto account_check (existing->second->store.find (transaction, account));
+					if (account_check != existing->second->store.end ())
+					{
+						uint64_t work (0);
+						auto error (existing->second->store.work_get (transaction, account, work));
+						boost::property_tree::ptree response_l;
+						response_l.put ("work", rai::to_string_hex (work));
+						response (response_l);
+					}
+					else
+					{
+						error_response (response, "Account not found in wallet");
+					}
+				}
+				else
+				{
+					error_response (response, "Bad account number");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::work_set ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				std::string account_text (request.get <std::string> ("account"));
+				rai::account account;
+				auto error (account.decode_account (account_text));
+				if (!error)
+				{
+					rai::transaction transaction (node.store.environment, nullptr, true);
+					auto account_check (existing->second->store.find (transaction, account));
+					if (account_check != existing->second->store.end ())
+					{
+						std::string work_text (request.get <std::string> ("work"));
+						uint64_t work;
+						auto work_error (rai::from_string_hex (work_text, work));
+						if (!work_error)
+						{
+							existing->second->store.work_put (transaction, account, work);
+							boost::property_tree::ptree response_l;
+							response_l.put ("success", "");
+							response (response_l);
+						}
+						else
+						{
+							error_response (response, "Bad work");
+						}
+					}
+					else
+					{
+						error_response (response, "Account not found in wallet");
+					}
+				}
+				else
+				{
+					error_response (response, "Bad account number");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::work_validate ()
 {
 	std::string hash_text (request.get <std::string> ("hash"));
@@ -3043,6 +3158,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "work_cancel")
 		{
 			work_cancel ();
+		}
+		else if (action == "work_get")
+		{
+			work_get ();
+		}
+		else if (action == "work_set")
+		{
+			work_set ();
 		}
 		else if (action == "work_validate")
 		{
