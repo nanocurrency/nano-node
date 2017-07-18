@@ -2564,6 +2564,40 @@ void rai::rpc_handler::wallet_representative_set ()
 	}
 }
 
+void rai::rpc_handler::wallet_work_get ()
+{
+	std::string wallet_text (request.get <std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree works;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+			{
+				rai::account account(i->first);
+				uint64_t work (0);
+				auto error_work (existing->second->store.work_get (transaction, account, work));
+				works.put (account.to_account (), rai::to_string_hex (work));
+			}
+			response_l.add_child ("works", works);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
 void rai::rpc_handler::work_generate ()
 {
 	if (rpc.config.enable_control)
@@ -2645,7 +2679,7 @@ void rai::rpc_handler::work_get ()
 					if (account_check != existing->second->store.end ())
 					{
 						uint64_t work (0);
-						auto error (existing->second->store.work_get (transaction, account, work));
+						auto error_work (existing->second->store.work_get (transaction, account, work));
 						boost::property_tree::ptree response_l;
 						response_l.put ("work", rai::to_string_hex (work));
 						response (response_l);
@@ -3150,6 +3184,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_representative_set")
 		{
 			wallet_representative_set ();
+		}
+		else if (action == "wallet_work_get")
+		{
+			wallet_work_get ();
 		}
 		else if (action == "work_generate")
 		{

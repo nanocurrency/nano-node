@@ -164,6 +164,7 @@ public:
 	void wallet_pending_threshold ();
 	void wallet_representative ();
 	void wallet_representative_set ();
+	void wallet_work_get ();
 	void work_generate ();
 	void work_cancel ();
 	void work_get ();
