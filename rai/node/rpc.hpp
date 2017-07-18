@@ -133,6 +133,7 @@ public:
 	void payment_wait ();
 	void peers ();
 	void pending ();
+	void pending_exists ();
 	void pending_threshold ();
 	void process ();
 	void rai_to_raw ();

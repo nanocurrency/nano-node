@@ -1392,6 +1392,35 @@ void rai::rpc_handler::pending ()
 	}
 }
 
+void rai::rpc_handler::pending_exists ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::uint256_union hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block (node.store.block_get (transaction, hash));
+		if (block != nullptr)
+		{
+			auto block_l (static_cast <rai::send_block *> (block.release ()));
+			auto account (block_l->hashables.destination);
+			boost::property_tree::ptree response_l;
+			auto exists (node.store.pending_exists (transaction, rai::pending_key (account, hash)));
+			response_l.put ("exists", exists ? "1" : "0");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad hash number");
+	}
+}
+
 void rai::rpc_handler::pending_threshold ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -2871,6 +2900,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "pending")
 		{
 			pending ();
+		}
+		else if (action == "pending_exists")
+		{
+			pending_exists ();
 		}
 		else if (action == "pending_threshold")
 		{
