@@ -1916,6 +1916,21 @@ void rai::rpc_handler::search_pending ()
 	}
 }
 
+void rai::rpc_handler::search_pending_all ()
+{
+	if (rpc.config.enable_control)
+	{
+		node.wallets.search_pending_all ();
+		boost::property_tree::ptree response_l;
+		response_l.put ("success", "");
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::send ()
 {
 	if (rpc.config.enable_control)
@@ -2944,6 +2959,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "search_pending")
 		{
 			search_pending ();
+		}
+		else if (action == "search_pending_all")
+		{
+			search_pending_all ();
 		}
 		else if (action == "send")
 		{

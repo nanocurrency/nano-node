@@ -144,6 +144,7 @@ public:
 	void representatives ();
 	void republish ();
 	void search_pending ();
+	void search_pending_all ();
 	void send ();
 	void stop ();
 	void successors ();
