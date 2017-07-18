@@ -2324,7 +2324,6 @@ TEST (rpc, wallet_pending_threshold)
 	ASSERT_EQ (0, pending1.size ());
 }
 
-
 TEST (rpc, receive_minimum)
 {
 	rai::system system (24000, 1);
@@ -2360,4 +2359,106 @@ TEST (rpc, receive_minimum_set)
 	std::string success (response.json.get <std::string> ("success"));
 	ASSERT_TRUE (success.empty());
 	ASSERT_EQ (system.nodes [0]->config.receive_minimum.to_string_dec (), "100");
+}
+
+TEST (rpc, work_get)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "work_get");
+	request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
+	request.put ("account", rai::test_genesis_key.pub.to_account ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string work_text (response.json.get <std::string> ("work"));
+	uint64_t work (1);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	system.nodes [0]->wallets.items.begin ()->second->store.work_get (transaction, rai::genesis_account, work);
+	ASSERT_EQ (rai::to_string_hex (work), work_text);
+}
+
+TEST (rpc, wallet_work_get)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_work_get");
+	request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	for (auto & works : response.json.get_child("works"))
+	{
+		std::string account_text (works.first);
+		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
+		std::string work_text (works.second.get <std::string> (""));
+		uint64_t work (1);
+		system.nodes [0]->wallets.items.begin ()->second->store.work_get (transaction, rai::genesis_account, work);
+		ASSERT_EQ (rai::to_string_hex (work), work_text);
+	}
+}
+
+TEST (rpc, work_set)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	uint64_t work0 (100);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "work_set");
+	request.put ("wallet", system.nodes [0]->wallets.items.begin ()->first.to_string ());
+	request.put ("account", rai::test_genesis_key.pub.to_account ());
+	request.put ("work", rai::to_string_hex (work0));
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string success (response.json.get <std::string> ("success"));
+	ASSERT_TRUE (success.empty());
+	uint64_t work1 (1);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	system.nodes [0]->wallets.items.begin ()->second->store.work_get (transaction, rai::genesis_account, work1);
+	ASSERT_EQ (work1, work0);
+}
+
+TEST (rpc, search_pending_all)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto wallet (system.nodes [0]->wallets.items.begin ()->first.to_string ());
+	rai::send_block block (system.nodes [0]->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (rai::transaction (system.nodes [0]->store.environment, nullptr, true), block).code);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "search_pending_all");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto iterations (0);
+	while (system.nodes [0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 }
