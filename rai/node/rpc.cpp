@@ -2522,6 +2522,73 @@ void rai::rpc_handler::wallet_representative_set ()
 	}
 }
 
+
+void rai::rpc_handler::wallet_republish ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				uint64_t count;
+				std::string count_text (request.get <std::string> ("count"));
+				auto error (decode_unsigned (count_text, count));
+				if (!error)
+				{
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					boost::property_tree::ptree response_l;
+					boost::property_tree::ptree blocks;
+					for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+					{
+						rai::account account(i->first);
+						auto latest (node.ledger.latest (transaction, account));
+						std::unique_ptr <rai::block> block;
+						std::vector <rai::block_hash> hashes;
+						while (!latest.is_zero () && hashes.size () < count)
+						{
+							hashes.push_back (latest);
+							block = node.store.block_get (transaction, latest);
+							latest = block->previous ();
+						}
+						std::reverse (hashes.begin (), hashes.end ());  
+						for (auto & hash : hashes)
+						{
+							block = node.store.block_get (transaction, hash);
+							node.network.republish_block (*block);
+							boost::property_tree::ptree entry;
+							entry.put ("", hash.to_string ());
+							blocks.push_back (std::make_pair ("", entry));
+						}
+					}
+					response_l.add_child ("blocks", blocks);
+					response (response_l);
+				}
+				else
+				{
+					error_response (response, "Invalid count");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::wallet_work_get ()
 {
 	if (rpc.config.enable_control)
@@ -3137,6 +3204,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_representative_set")
 		{
 			wallet_representative_set ();
+		}
+		else if (action == "wallet_republish")
+		{
+			wallet_republish ();
 		}
 		else if (action == "wallet_work_get")
 		{
