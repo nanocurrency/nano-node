@@ -13,10 +13,7 @@ TEST (conflicts, start_stop)
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send1);
 	}
     ASSERT_EQ (1, node1.active.roots.size ());
     auto root1 (send1->root ());
@@ -38,19 +35,13 @@ TEST (conflicts, add_existing)
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send1);
 	}
     rai::keypair key2;
     auto send2 (std::make_shared <rai::send_block> (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send2, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send2);
 	}
     ASSERT_EQ (1, node1.active.roots.size ());
     rai::vote vote1 (key2.pub, key2.prv, 0, send2);
@@ -73,20 +64,14 @@ TEST (conflicts, add_two)
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send1);
 	}
     rai::keypair key2;
     auto send2 (std::make_shared <rai::send_block> (send1->hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	ASSERT_EQ (rai::process_result::progress, node1.process (*send2).code);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send2, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send2);
 	}
     ASSERT_EQ (2, node1.active.roots.size ());
 }

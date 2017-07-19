@@ -729,10 +729,7 @@ TEST (votes, add_one)
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send1);
 	}
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
@@ -764,10 +761,7 @@ TEST (votes, add_two)
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send1);
 	}
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1);
@@ -801,10 +795,7 @@ TEST (votes, add_existing)
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send1);
 	}
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1);
@@ -836,10 +827,7 @@ TEST (votes, add_old)
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, send1, [node_l] (std::shared_ptr <rai::block> block_a)
-		{
-			node_l->process_confirmed (block_a);
-		});
+		node1.active.start (transaction, send1);
 	}
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	rai::vote vote1 (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1);

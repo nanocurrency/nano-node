@@ -77,7 +77,7 @@ public:
     active_transactions (rai::node &);
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-    void start (MDB_txn *, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const &);
+    void start (MDB_txn *, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const & = [] (std::shared_ptr <rai::block>) {});
     void vote (rai::vote const &);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);

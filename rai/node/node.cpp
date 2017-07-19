@@ -1365,10 +1365,7 @@ void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming
 				case rai::process_result::progress:
 				{
 					auto node_l (shared_from_this ());
-					active.start (transaction_a, block_a, [node_l] (std::shared_ptr <rai::block> block_a)
-					{
-						node_l->process_confirmed (block_a);
-					});
+					active.start (transaction_a, block_a);
 					completed.push_back (std::make_tuple (result_a, block_a));
 					break;
 				}
@@ -2564,9 +2561,11 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 			}
 		}
 		auto winner_l (last_winner);
+		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
-		node.background ([winner_l, confirmation_action_l] ()
+		node.background ([winner_l, confirmation_action_l, node_l] ()
 		{
+			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
 	}
