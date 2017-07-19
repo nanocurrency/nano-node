@@ -1846,6 +1846,8 @@ void rai::rpc_handler::republish ()
 	auto error (hash.decode_hex (hash_text));
 	if (!error)
 	{
+		boost::property_tree::ptree response_l;
+		boost::property_tree::ptree blocks;
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
@@ -1854,10 +1856,13 @@ void rai::rpc_handler::republish ()
 			{
 				block = node.store.block_get (transaction, hash);
 				node.network.republish_block (*block);
+				boost::property_tree::ptree entry;
+				entry.put ("", hash.to_string ());
+				blocks.push_back (std::make_pair ("", entry));
 				hash = node.store.block_successor (transaction, hash);
 			}
-			boost::property_tree::ptree response_l;
-			response_l.put ("success", "");
+			response_l.put ("success", ""); // obsolete
+			response_l.add_child ("blocks", blocks);
 			response (response_l);
 		}
 		else
@@ -2522,7 +2527,6 @@ void rai::rpc_handler::wallet_representative_set ()
 	}
 }
 
-
 void rai::rpc_handler::wallet_republish ()
 {
 	if (rpc.config.enable_control)
@@ -2540,9 +2544,9 @@ void rai::rpc_handler::wallet_republish ()
 				auto error (decode_unsigned (count_text, count));
 				if (!error)
 				{
-					rai::transaction transaction (node.store.environment, nullptr, false);
 					boost::property_tree::ptree response_l;
 					boost::property_tree::ptree blocks;
+					rai::transaction transaction (node.store.environment, nullptr, false);
 					for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 					{
 						rai::account account(i->first);
