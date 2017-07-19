@@ -149,23 +149,23 @@ class publish : public message
 {
 public:
     publish ();
-    publish (std::unique_ptr <rai::block>);
+    publish (std::shared_ptr <rai::block>);
     void visit (rai::message_visitor &) const override;
     bool deserialize (rai::stream &) override;
     void serialize (rai::stream &) override;
     bool operator == (rai::publish const &) const;
-    std::unique_ptr <rai::block> block;
+    std::shared_ptr <rai::block> block;
 };
 class confirm_req : public message
 {
 public:
     confirm_req ();
-    confirm_req (std::unique_ptr <rai::block>);
+    confirm_req (std::shared_ptr <rai::block>);
     bool deserialize (rai::stream &) override;
     void serialize (rai::stream &) override;
     void visit (rai::message_visitor &) const override;
     bool operator == (rai::confirm_req const &) const;
-    std::unique_ptr <rai::block> block;
+    std::shared_ptr <rai::block> block;
 };
 class confirm_ack : public message
 {

@@ -179,7 +179,7 @@ TEST (wallet, send_async)
 		}
 	});
 	bool success (false);
-    system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), [&success] (std::unique_ptr <rai::block> block_a) { ASSERT_NE (nullptr, block_a); success = true; });
+    system.wallet (0)->send_async (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), [&success] (std::shared_ptr <rai::block> block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
 	ASSERT_TRUE (success);
 }

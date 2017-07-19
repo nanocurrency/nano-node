@@ -576,7 +576,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				expected = block->previous ();
 			}
-			connection.node->process_receive_many (*block, [this] (MDB_txn * transaction_a, rai::process_return result_a, rai::block const & block_a)
+			connection.node->process_receive_many (std::move (block), [this] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
 			{
 				switch (result_a.code)
 				{
@@ -586,14 +586,14 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 					case rai::process_result::fork:
 					{
 						auto node_l (connection.node);
-						auto block (node_l->ledger.forked_block (transaction_a, block_a));
-						node_l->active.start (transaction_a, *block, [node_l] (rai::block & block_a)
+						std::shared_ptr <rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
+						node_l->active.start (transaction_a, block, [node_l] (std::shared_ptr <rai::block> block_a)
 						{
 							node_l->process_confirmed (block_a);
 						});
 						connection.node->network.broadcast_confirm_req (block_a);
-						connection.node->network.broadcast_confirm_req (*block);
-						BOOST_LOG (connection.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a.hash ().to_string () % block->hash ().to_string () % block_a.root ().to_string ());
+						connection.node->network.broadcast_confirm_req (block);
+						BOOST_LOG (connection.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
 						break;
 					}
 					default:

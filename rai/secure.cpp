@@ -122,36 +122,36 @@ boost::filesystem::path rai::working_path ()
 	return result;
 }
 
-size_t rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const & block_a) const
+size_t rai::shared_ptr_block_hash::operator () (std::shared_ptr <rai::block> const & block_a) const
 {
 	auto hash (block_a->hash ());
 	auto result (static_cast <size_t> (hash.qwords [0]));
 	return result;
 }
 
-bool rai::unique_ptr_block_hash::operator () (std::unique_ptr <rai::block> const & lhs, std::unique_ptr <rai::block> const & rhs) const
+bool rai::shared_ptr_block_hash::operator () (std::shared_ptr <rai::block> const & lhs, std::shared_ptr <rai::block> const & rhs) const
 {
 	return *lhs == *rhs;
 }
 
 // Sum the weights for each vote and return the winning block with its vote tally
-std::pair <rai::uint128_t, std::unique_ptr <rai::block>> rai::ledger::winner (MDB_txn * transaction_a, rai::votes const & votes_a)
+std::pair <rai::uint128_t, std::shared_ptr <rai::block>> rai::ledger::winner (MDB_txn * transaction_a, rai::votes const & votes_a)
 {
 	auto tally_l (tally (transaction_a, votes_a));
 	auto existing (tally_l.begin ());
-	return std::make_pair (existing->first, existing->second->clone ());
+	return std::make_pair (existing->first, existing->second);
 }
 
-std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> rai::ledger::tally (MDB_txn * transaction_a, rai::votes const & votes_a)
+std::map <rai::uint128_t, std::shared_ptr <rai::block>, std::greater <rai::uint128_t>> rai::ledger::tally (MDB_txn * transaction_a, rai::votes const & votes_a)
 {
-	std::unordered_map <std::unique_ptr <block>, rai::uint128_t, rai::unique_ptr_block_hash, rai::unique_ptr_block_hash> totals;
+	std::unordered_map <std::shared_ptr <block>, rai::uint128_t, rai::shared_ptr_block_hash, rai::shared_ptr_block_hash> totals;
 	// Construct a map of blocks -> vote total.
 	for (auto & i: votes_a.rep_votes)
 	{
 		auto existing (totals.find (i.second));
 		if (existing == totals.end ())
 		{
-			totals.insert (std::make_pair (i.second->clone (), 0));
+			totals.insert (std::make_pair (i.second, 0));
 			existing = totals.find (i.second);
 			assert (existing != totals.end ());
 		}
@@ -159,18 +159,18 @@ std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint1
 		existing->second += weight_l;
 	}
 	// Construction a map of vote total -> block in decreasing order.
-	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> result;
+	std::map <rai::uint128_t, std::shared_ptr <rai::block>, std::greater <rai::uint128_t>> result;
 	for (auto & i: totals)
 	{
-		result [i.second] = i.first->clone ();
+		result [i.second] = i.first;
 	}
 	return result;
 }
 
-rai::votes::votes (rai::block const & block_a) :
-id (block_a.root ())
+rai::votes::votes (std::shared_ptr <rai::block> block_a) :
+id (block_a->root ())
 {
-	rep_votes.insert (std::make_pair (rai::not_an_account, block_a.clone ()));
+	rep_votes.insert (std::make_pair (rai::not_an_account, block_a));
 }
 
 rai::tally_result rai::votes::vote (rai::vote const & vote_a)
@@ -181,7 +181,7 @@ rai::tally_result rai::votes::vote (rai::vote const & vote_a)
 	{
 		// Vote on this block hasn't been seen from rep before
 		result = rai::tally_result::vote;
-		rep_votes.insert (std::make_pair (vote_a.account, vote_a.block->clone ()));
+		rep_votes.insert (std::make_pair (vote_a.account, vote_a.block));
 	}
 	else
 	{
@@ -189,7 +189,7 @@ rai::tally_result rai::votes::vote (rai::vote const & vote_a)
 		{
 			// Rep changed their vote
 			result = rai::tally_result::changed;
-			existing->second = vote_a.block->clone ();
+			existing->second = vote_a.block;
 		}
 		else
 		{
@@ -558,11 +558,6 @@ rai::account rai::receive_block::representative () const
 	return 0;
 }
 
-std::unique_ptr <rai::block> rai::receive_block::clone () const
-{
-    return std::unique_ptr <rai::block> (new rai::receive_block (*this));
-}
-
 rai::block_type rai::receive_block::type () const
 {
     return rai::block_type::receive;
@@ -805,11 +800,6 @@ bool rai::send_block::operator == (rai::block const & other_a) const
     return result;
 }
 
-std::unique_ptr <rai::block> rai::send_block::clone () const
-{
-    return std::unique_ptr <rai::block> (new rai::send_block (*this));
-}
-
 rai::block_type rai::send_block::type () const
 {
     return rai::block_type::send;
@@ -1050,11 +1040,6 @@ void rai::open_block::visit (rai::block_visitor & visitor_a) const
     visitor_a.open_block (*this);
 }
 
-std::unique_ptr <rai::block> rai::open_block::clone () const
-{
-    return std::unique_ptr <rai::block> (new rai::open_block (*this));
-}
-
 rai::block_type rai::open_block::type () const
 {
     return rai::block_type::open;
@@ -1267,11 +1252,6 @@ bool rai::change_block::deserialize_json (boost::property_tree::ptree const & tr
 void rai::change_block::visit (rai::block_visitor & visitor_a) const
 {
     visitor_a.change_block (*this);
-}
-
-std::unique_ptr <rai::block> rai::change_block::clone () const
-{
-    return std::unique_ptr <rai::block> (new rai::change_block (*this));
 }
 
 rai::block_type rai::change_block::type () const
@@ -3258,7 +3238,7 @@ transaction (transaction_a)
 
 rai::vote::vote (rai::vote const & other_a) :
 sequence (other_a.sequence),
-block (other_a.block->clone ()),
+block (other_a.block),
 account (other_a.account),
 signature (other_a.signature)
 {
@@ -3285,9 +3265,9 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 	}
 }
 
-rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::unique_ptr <rai::block> block_a) :
+rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr <rai::block> block_a) :
 sequence (sequence_a),
-block (std::move (block_a)),
+block (block_a),
 account (account_a),
 signature (rai::sign_message (prv_a, account_a, hash ()))
 {

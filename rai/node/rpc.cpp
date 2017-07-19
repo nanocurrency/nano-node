@@ -488,7 +488,7 @@ void rai::rpc_handler::account_representative_set ()
 					if (!error)
 					{
 						auto response_a (response);
-						wallet->change_async (account, representative, [response_a] (std::unique_ptr <rai::block> block)
+						wallet->change_async (account, representative, [response_a] (std::shared_ptr <rai::block> block)
 						{
 							rai::block_hash hash (0);
 							if (block != nullptr)
@@ -1638,7 +1638,7 @@ void rai::rpc_handler::receive ()
 								if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
 								{
 									auto response_a (response);
-									existing->second->receive_async (static_cast <rai::send_block &>(*block), account, rai::genesis_amount, [response_a] (std::unique_ptr <rai::block> block_a)
+									existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a] (std::shared_ptr <rai::block> block_a)
 									{
 										rai::uint256_union hash_a (0);
 										if (block_a != nullptr)
@@ -1720,7 +1720,7 @@ void rai::rpc_handler::republish ()
 			while (!hash.is_zero ())
 			{
 				block = node.store.block_get (transaction, hash);
-				node.network.republish_block (*block);
+				node.network.republish_block (std::move (block));
 				hash = node.store.block_successor (transaction, hash);
 			}
 			boost::property_tree::ptree response_l;
@@ -1796,7 +1796,7 @@ void rai::rpc_handler::send ()
 						{
 							auto rpc_l (shared_from_this ());
 							auto response_a (response);
-							existing->second->send_async (source, destination, amount.number (), [response_a] (std::unique_ptr <rai::block> block_a)
+							existing->second->send_async (source, destination, amount.number (), [response_a] (std::shared_ptr <rai::block> block_a)
 							{
 								rai::uint256_union hash (0);
 								if (block_a != nullptr)

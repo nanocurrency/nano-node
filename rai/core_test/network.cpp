@@ -148,8 +148,8 @@ TEST (network, multi_keepalive)
 TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
-    std::unique_ptr <rai::send_block> block (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
-    system.nodes [0]->network.republish_block (*block);
+    auto block (std::make_shared <rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
+    system.nodes [0]->network.republish_block (block);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
@@ -167,8 +167,8 @@ TEST (network, send_discarded_publish)
 TEST (network, send_invalid_publish)
 {
     rai::system system (24000, 2);
-    std::unique_ptr <rai::send_block> block (new rai::send_block (1, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (1)));
-    system.nodes [0]->network.republish_block (*block);
+    auto block (std::make_shared <rai::send_block> (1, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (1)));
+    system.nodes [0]->network.republish_block (block);
     rai::genesis genesis;
     ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
@@ -257,18 +257,18 @@ TEST (receivable_processor, confirm_insufficient_pos)
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
-    rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
+    auto block1 (std::make_shared <rai::send_block> (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, block1, [node_l] (rai::block & block_a)
+		node1.active.start (transaction, block1, [node_l] (std::shared_ptr <rai::block> block_a)
 		{
 			node_l->process_confirmed (block_a);
 		});
 	}
     rai::keypair key1;
-	rai::vote vote (key1.pub, key1.prv, 0, block1.clone ());
+	rai::vote vote (key1.pub, key1.prv, 0, block1);
     rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());
 }
@@ -278,17 +278,17 @@ TEST (receivable_processor, confirm_sufficient_pos)
     rai::system system (24000, 1);
     auto & node1 (*system.nodes [0]);
     rai::genesis genesis;
-    rai::send_block block1 (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, node1.process (block1).code);
+    auto block1 (std::make_shared <rai::send_block> (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes [0]);
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, block1, [node_l] (rai::block & block_a)
+		node1.active.start (transaction, block1, [node_l] (std::shared_ptr <rai::block> block_a)
 		{
 			node_l->process_confirmed (block_a);
 		});
 	}
-	rai::vote vote (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1.clone ());
+	rai::vote vote (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1);
     rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());
 }
@@ -301,13 +301,13 @@ TEST (receivable_processor, send_with_receive)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
     rai::block_hash latest1 (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (1)->insert_adhoc (key2.prv);
-    std::unique_ptr <rai::send_block> block1 (new rai::send_block (latest1, key2.pub, amount - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1)));
+    auto block1 (std::make_shared <rai::send_block> (latest1, key2.pub, amount - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1)));
 	ASSERT_EQ (amount, system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
 	ASSERT_EQ (amount, system.nodes [1]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [1]->balance (key2.pub));
-    system.nodes [0]->process_receive_republish (block1->clone ());
-    system.nodes [1]->process_receive_republish (block1->clone ());
+    system.nodes [0]->process_receive_republish (block1);
+    system.nodes [1]->process_receive_republish (block1);
 	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
 	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [1]->balance (rai::test_genesis_key.pub));
