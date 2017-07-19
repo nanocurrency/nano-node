@@ -1841,6 +1841,34 @@ void rai::rpc_handler::representatives ()
 
 void rai::rpc_handler::republish ()
 {
+	uint64_t count (2048U);
+	uint64_t sources (0);
+	try
+	{
+		std::string count_text (request.get <std::string> ("count"));
+		auto error (decode_unsigned (count_text, count));
+		if (error)
+		{
+			error_response (response, "Invalid count");
+		}
+	}
+	catch (std::runtime_error &)
+	{
+		// If there is no "count" in request
+	}
+	try
+	{
+		std::string sources_text (request.get <std::string> ("sources"));
+		auto error (decode_unsigned (sources_text, sources));
+		if (error)
+		{
+			error_response (response, "Invalid sources number");
+		}
+	}
+	catch (std::runtime_error &)
+	{
+		// If there is no "sources" in request
+	}
 	std::string hash_text (request.get <std::string> ("hash"));
 	rai::uint256_union hash;
 	auto error (hash.decode_hex (hash_text));
@@ -1852,10 +1880,31 @@ void rai::rpc_handler::republish ()
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
-			while (!hash.is_zero ())
+			for (auto i (0); !hash.is_zero () && i < count; ++i)
 			{
 				block = node.store.block_get (transaction, hash);
-				node.network.republish_block (*block);
+				if (sources != 0) // Republish source chain
+				{
+					std::unique_ptr <rai::block> block_a;
+					rai::block_hash source (block->source ());
+					std::vector <rai::block_hash> hashes;
+					while (!source.is_zero () && hashes.size () < sources)
+					{
+						hashes.push_back (source);
+						block_a = node.store.block_get (transaction, source);
+						source = block_a->previous ();
+					}
+					std::reverse (hashes.begin (), hashes.end ());  
+					for (auto & hash_l : hashes)
+					{
+						block_a = node.store.block_get (transaction, hash_l);
+						node.network.republish_block (*block_a);
+						boost::property_tree::ptree entry_l;
+						entry_l.put ("", hash_l.to_string ());
+						blocks.push_back (std::make_pair ("", entry_l));
+					}
+				}
+				node.network.republish_block (*block); // Republish block
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
 				blocks.push_back (std::make_pair ("", entry));
