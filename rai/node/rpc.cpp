@@ -488,7 +488,7 @@ void rai::rpc_handler::account_representative_set ()
 					if (!error)
 					{
 						auto response_a (response);
-						wallet->change_async (account, representative, [response_a] (std::unique_ptr <rai::block> block)
+						wallet->change_async (account, representative, [response_a] (std::shared_ptr <rai::block> block)
 						{
 							rai::block_hash hash (0);
 							if (block != nullptr)
@@ -1733,7 +1733,7 @@ void rai::rpc_handler::receive ()
 								if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
 								{
 									auto response_a (response);
-									existing->second->receive_async (static_cast <rai::send_block &>(*block), account, rai::genesis_amount, [response_a] (std::unique_ptr <rai::block> block_a)
+									existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a] (std::shared_ptr <rai::block> block_a)
 									{
 										rai::uint256_union hash_a (0);
 										if (block_a != nullptr)
@@ -1883,6 +1883,8 @@ void rai::rpc_handler::republish ()
 			for (auto i (0); !hash.is_zero () && i < count; ++i)
 			{
 				block = node.store.block_get (transaction, hash);
+				node.network.republish_block (std::move (block));
+				hash = node.store.block_successor (transaction, hash);
 				if (sources != 0) // Republish source chain
 				{
 					std::unique_ptr <rai::block> block_a;
@@ -1898,17 +1900,16 @@ void rai::rpc_handler::republish ()
 					for (auto & hash_l : hashes)
 					{
 						block_a = node.store.block_get (transaction, hash_l);
-						node.network.republish_block (*block_a);
+						node.network.republish_block (std::move (block_a));
 						boost::property_tree::ptree entry_l;
 						entry_l.put ("", hash_l.to_string ());
 						blocks.push_back (std::make_pair ("", entry_l));
 					}
 				}
-				node.network.republish_block (*block); // Republish block
+				// Republish block
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
 				blocks.push_back (std::make_pair ("", entry));
-				hash = node.store.block_successor (transaction, hash);
 			}
 			response_l.put ("success", ""); // obsolete
 			response_l.add_child ("blocks", blocks);
@@ -1998,7 +1999,7 @@ void rai::rpc_handler::send ()
 						{
 							auto rpc_l (shared_from_this ());
 							auto response_a (response);
-							existing->second->send_async (source, destination, amount.number (), [response_a] (std::unique_ptr <rai::block> block_a)
+							existing->second->send_async (source, destination, amount.number (), [response_a] (std::shared_ptr <rai::block> block_a)
 							{
 								rai::uint256_union hash (0);
 								if (block_a != nullptr)
@@ -2612,7 +2613,7 @@ void rai::rpc_handler::wallet_republish ()
 						for (auto & hash : hashes)
 						{
 							block = node.store.block_get (transaction, hash);
-							node.network.republish_block (*block);
+							node.network.republish_block (std::move (block));;
 							boost::property_tree::ptree entry;
 							entry.put ("", hash.to_string ());
 							blocks.push_back (std::make_pair ("", entry));
