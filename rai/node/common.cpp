@@ -282,9 +282,9 @@ message (rai::message_type::publish)
 {
 }
 
-rai::publish::publish (std::unique_ptr <rai::block> block_a) :
+rai::publish::publish (std::shared_ptr <rai::block> block_a) :
 message (rai::message_type::publish),
-block (std::move (block_a))
+block (block_a)
 {
     block_type_set (block->type ());
 }
@@ -324,9 +324,9 @@ message (rai::message_type::confirm_req)
 {
 }
 
-rai::confirm_req::confirm_req (std::unique_ptr <rai::block> block_a) :
+rai::confirm_req::confirm_req (std::shared_ptr <rai::block> block_a) :
 message (rai::message_type::confirm_req),
-block (std::move (block_a))
+block (block_a)
 {
     block_type_set (block->type ());
 }

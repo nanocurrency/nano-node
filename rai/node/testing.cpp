@@ -161,7 +161,7 @@ void rai::system::generate_rollback (rai::node & node_a, std::vector <rai::accou
 
 void rai::system::generate_receive (rai::node & node_a)
 {
-	std::unique_ptr <rai::block> send_block;
+	std::shared_ptr <rai::send_block> send_block;
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
 		rai::uint256_union random_block;
@@ -171,13 +171,14 @@ void rai::system::generate_receive (rai::node & node_a)
 		{
 			rai::pending_key send_hash (i->first);
 			rai::pending_info info (i->second);
-			send_block = node_a.store.block_get (transaction, send_hash.hash);
-			assert (send_block != nullptr);
+			auto block (node_a.store.block_get (transaction, send_hash.hash));
+			assert (dynamic_cast <rai::send_block *> (block.get ()) != nullptr);
+			send_block.reset (static_cast <rai::send_block *> (block.release ()));
 		}
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (static_cast <rai::send_block &> (*send_block), rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (std::move (send_block), rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
 		(void) receive_error;
 	}
 }

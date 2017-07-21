@@ -38,10 +38,10 @@ namespace rai
 class node;
 class election : public std::enable_shared_from_this <rai::election>
 {
-	std::function <void (rai::block &)> confirmation_action;
+	std::function <void (std::shared_ptr <rai::block>)> confirmation_action;
 	void confirm_once (MDB_txn *);
 public:
-    election (MDB_txn *, rai::node &, rai::block const &, std::function <void (rai::block &)> const &);
+    election (MDB_txn *, rai::node &, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const &);
     void vote (rai::vote const &);
 	// Check if we have vote quorum
 	bool have_quorum (MDB_txn *);
@@ -77,7 +77,7 @@ public:
     active_transactions (rai::node &);
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-    void start (MDB_txn *, rai::block const &, std::function <void (rai::block &)> const &);
+    void start (MDB_txn *, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const & = [] (std::shared_ptr <rai::block>) {});
     void vote (rai::vote const &);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
@@ -130,7 +130,7 @@ class gap_cache
 {
 public:
     gap_cache (rai::node &);
-    void add (MDB_txn *, rai::block const &);
+    void add (MDB_txn *, std::shared_ptr <rai::block>);
     void vote (rai::vote const &);
     rai::uint128_t bootstrap_threshold (MDB_txn *);
 	void purge_old ();
@@ -273,16 +273,16 @@ public:
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
-	void rebroadcast_reps (rai::block &);
+	void rebroadcast_reps (std::shared_ptr <rai::block>);
 	void republish_vote (std::chrono::system_clock::time_point const &, rai::vote const &);
-    void republish_block (rai::block &);
+    void republish_block (std::shared_ptr <rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint const &);
     void merge_peers (std::array <rai::endpoint, 8> const &);
     void send_keepalive (rai::endpoint const &);
-	void broadcast_confirm_req (rai::block const &);
-    void send_confirm_req (rai::endpoint const &, rai::block const &);
+	void broadcast_confirm_req (std::shared_ptr <rai::block>);
+    void send_confirm_req (rai::endpoint const &, std::shared_ptr <rai::block>);
     void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
     rai::endpoint endpoint ();
     rai::endpoint remote;
@@ -422,11 +422,11 @@ public:
     void stop ();
     std::shared_ptr <rai::node> shared ();
 	int store_version ();
-    void process_confirmed (rai::block const &);
+    void process_confirmed (std::shared_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
-    void process_receive_republish (std::unique_ptr <rai::block>);
-    void process_receive_many (rai::block const &, std::function <void (MDB_txn *, rai::process_return, rai::block const &)> = [] (MDB_txn *, rai::process_return, rai::block const &) {});
-    rai::process_return process_receive_one (MDB_txn *, rai::block const &);
+    void process_receive_republish (std::shared_ptr <rai::block>);
+    void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
+    rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);

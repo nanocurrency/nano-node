@@ -724,13 +724,13 @@ TEST (vote, validate)
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
 	rai::keypair key1;
-	rai::send_block send1 (0, key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::vote vote1 (key1.pub, key1.prv, 2, send1.clone ());
+	auto send1 (std::make_shared <rai::send_block> (0, key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	rai::vote vote1 (key1.pub, key1.prv, 2, send1);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_EQ (rai::vote_result::vote, vote1.validate (transaction, store));
 	vote1.signature.bytes [8] ^= 1;
 	ASSERT_EQ (rai::vote_result::invalid, vote1.validate (transaction, store));
-	rai::vote vote2 (key1.pub, key1.prv, 1, send1.clone ());
+	rai::vote vote2 (key1.pub, key1.prv, 1, send1);
 	ASSERT_EQ (rai::vote_result::replay, vote2.validate (transaction, store));
 }
 

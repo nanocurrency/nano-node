@@ -189,9 +189,9 @@ TEST (node, fork_storm)
 			auto send_result (system.nodes [i]->process (send));
 			ASSERT_EQ (rai::process_result::progress, send_result.code);
 			rai::keypair rep;
-			rai::open_block open (previous, rep.pub, key.pub, key.prv, key.pub, 0);
-			system.nodes [i]->generate_work (open);
-			auto open_result (system.nodes [i]->process (open));
+			auto open (std::make_shared <rai::open_block> (previous, rep.pub, key.pub, key.prv, key.pub, 0));
+			system.nodes [i]->generate_work (*open);
+			auto open_result (system.nodes [i]->process (*open));
 			ASSERT_EQ (rai::process_result::progress, open_result.code);
 			system.nodes [i]->network.republish_block (open);
 		}

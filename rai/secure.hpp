@@ -57,14 +57,13 @@ public:
 	virtual void serialize_json (std::string &) const = 0;
 	virtual void visit (rai::block_visitor &) const = 0;
 	virtual bool operator == (rai::block const &) const = 0;
-	virtual std::unique_ptr <rai::block> clone () const = 0;
 	virtual rai::block_type type () const = 0;
 };
-class unique_ptr_block_hash
+class shared_ptr_block_hash
 {
 public:
-	size_t operator () (std::unique_ptr <rai::block> const &) const;
-	bool operator () (std::unique_ptr <rai::block> const &, std::unique_ptr <rai::block> const &) const;
+	size_t operator () (std::shared_ptr <rai::block> const &) const;
+	bool operator () (std::shared_ptr <rai::block> const &, std::shared_ptr <rai::block> const &) const;
 };
 std::unique_ptr <rai::block> deserialize_block (MDB_val const &);
 std::unique_ptr <rai::block> deserialize_block (rai::stream &);
@@ -101,7 +100,6 @@ public:
 	bool deserialize (rai::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
-	std::unique_ptr <rai::block> clone () const override;
 	rai::block_type type () const override;
 	bool operator == (rai::block const &) const override;
 	bool operator == (rai::send_block const &) const;
@@ -139,7 +137,6 @@ public:
 	bool deserialize (rai::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
-	std::unique_ptr <rai::block> clone () const override;
 	rai::block_type type () const override;
 	bool operator == (rai::block const &) const override;
 	bool operator == (rai::receive_block const &) const;
@@ -179,7 +176,6 @@ public:
 	bool deserialize (rai::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
-	std::unique_ptr <rai::block> clone () const override;
 	rai::block_type type () const override;
 	bool operator == (rai::block const &) const override;
 	bool operator == (rai::open_block const &) const;
@@ -217,7 +213,6 @@ public:
 	bool deserialize (rai::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
-	std::unique_ptr <rai::block> clone () const override;
 	rai::block_type type () const override;
 	bool operator == (rai::block const &) const override;
 	bool operator == (rai::change_block const &) const;
@@ -460,12 +455,12 @@ public:
 	vote () = default;
 	vote (rai::vote const &);
 	vote (bool &, rai::stream &, rai::block_type);
-	vote (rai::account const &, rai::raw_key const &, uint64_t, std::unique_ptr <rai::block>);
+	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr <rai::block>);
 	rai::uint256_union hash () const;
 	rai::vote_result validate (MDB_txn *, rai::block_store &) const;
 	// Vote round sequence number
 	uint64_t sequence;
-	std::unique_ptr <rai::block> block;
+	std::shared_ptr <rai::block> block;
 	// Account that's voting
 	rai::account account;
 	// Signature of sequence + block hash
@@ -480,20 +475,20 @@ enum class tally_result
 class votes
 {
 public:
-	votes (rai::block const &);
+	votes (std::shared_ptr <rai::block>);
 	rai::tally_result vote (rai::vote const &);
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account
-	std::unordered_map <rai::account, std::unique_ptr <rai::block>> rep_votes;
+	std::unordered_map <rai::account, std::shared_ptr <rai::block>> rep_votes;
 };
 class ledger
 {
 public:
 	ledger (rai::block_store &, rai::uint128_t const & = 0);
-	std::pair <rai::uint128_t, std::unique_ptr <rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
+	std::pair <rai::uint128_t, std::shared_ptr <rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
 	// Map of weight -> associated block, ordered greatest to least
-	std::map <rai::uint128_t, std::unique_ptr <rai::block>, std::greater <rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
+	std::map <rai::uint128_t, std::shared_ptr <rai::block>, std::greater <rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);
