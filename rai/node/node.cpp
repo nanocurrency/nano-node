@@ -306,13 +306,13 @@ template <typename T>
 void rep_query (rai::node & node_a, T const & peers_a)
 {
 	rai::transaction transaction (node_a.store.environment, nullptr, false);
-	auto block (node_a.store.block_random (transaction));
+	std::shared_ptr <rai::block> block (node_a.store.block_random (transaction));
 	auto hash (block->hash ());
 	node_a.rep_crawler.add (hash);
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
 		node_a.peers.rep_request (*i);
-		node_a.network.send_confirm_req (*i, std::move (block));
+		node_a.network.send_confirm_req (*i, block);
 	}
 	std::weak_ptr <rai::node> node_w (node_a.shared ());
 	node_a.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w, hash] ()
