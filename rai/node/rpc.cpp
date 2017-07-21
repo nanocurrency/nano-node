@@ -1883,8 +1883,6 @@ void rai::rpc_handler::republish ()
 			for (auto i (0); !hash.is_zero () && i < count; ++i)
 			{
 				block = node.store.block_get (transaction, hash);
-				node.network.republish_block (std::move (block));
-				hash = node.store.block_successor (transaction, hash);
 				if (sources != 0) // Republish source chain
 				{
 					std::unique_ptr <rai::block> block_a;
@@ -1906,10 +1904,11 @@ void rai::rpc_handler::republish ()
 						blocks.push_back (std::make_pair ("", entry_l));
 					}
 				}
-				// Republish block
+				node.network.republish_block (std::move (block)); // Republish block
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
 				blocks.push_back (std::make_pair ("", entry));
+				hash = node.store.block_successor (transaction, hash);
 			}
 			response_l.put ("success", ""); // obsolete
 			response_l.add_child ("blocks", blocks);
