@@ -852,6 +852,64 @@ void rai::rpc_handler::chain ()
 	}
 }
 
+void rai::rpc_handler::delegators ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		boost::property_tree::ptree response_l;
+		boost::property_tree::ptree delegators;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+		{
+			rai::account_info info (i->second);
+			auto block (node.store.block_get (transaction, info.rep_block));
+			assert (block != nullptr);
+			if (block->representative() == account) {
+				rai::account account_l (i->first);
+				auto balance (node.ledger.account_balance (transaction, account_l));
+				delegators.put (account_l.to_account (), balance.convert_to <std::string> ());
+			}
+		}
+		response_l.add_child ("delegators", delegators);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
+void rai::rpc_handler::delegators_count ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		uint64_t count (0);
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+		{
+			rai::account_info info (i->second);
+			auto block (node.store.block_get (transaction, info.rep_block));
+			assert (block != nullptr);
+			if (block->representative() == account) {
+				++count;
+			}
+		}
+		boost::property_tree::ptree response_l;
+		response_l.put ("count", std::to_string (count));
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::deterministic_key ()
 {
 	std::string seed_text (request.get <std::string> ("seed"));
@@ -2557,6 +2615,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "chain")
 		{
 			chain ();
+		}
+		else if (action == "delegators")
+		{
+			delegators ();
+		}
+		else if (action == "delegators_count")
+		{
+			delegators_count ();
 		}
 		else if (action == "deterministic_key")
 		{

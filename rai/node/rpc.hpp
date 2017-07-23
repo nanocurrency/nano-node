@@ -112,6 +112,8 @@ public:
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
+	void delegators ();
+	void delegators_count ();
 	void deterministic_key ();
 	void frontiers ();
 	void frontier_count ();
