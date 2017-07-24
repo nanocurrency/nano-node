@@ -868,9 +868,9 @@ void rai::rpc_handler::delegators ()
 			auto block (node.store.block_get (transaction, info.rep_block));
 			assert (block != nullptr);
 			if (block->representative() == account) {
-				rai::account account_l (i->first);
-				auto balance (node.ledger.account_balance (transaction, account_l));
-				delegators.put (account_l.to_account (), balance.convert_to <std::string> ());
+				std::string balance;
+				rai::uint128_union (info.balance).encode_dec (balance);
+				delegators.put (rai::account (i->first).to_account (), balance);
 			}
 		}
 		response_l.add_child ("delegators", delegators);
