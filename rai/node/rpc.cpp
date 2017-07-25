@@ -630,9 +630,9 @@ void rai::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				boost::property_tree::ptree entry;
 				if (threshold.is_zero ())
 				{
+					boost::property_tree::ptree entry;
 					entry.put ("", key.hash.to_string ());
 					peers_l.push_back (std::make_pair ("", entry));
 				}
@@ -641,8 +641,7 @@ void rai::rpc_handler::accounts_pending ()
 					rai::pending_info info (i->second);
 					if (info.amount.number () >= threshold.number ())
 					{
-						entry.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
-						peers_l.push_back (std::make_pair ("", entry));
+						peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
 					}
 				}
 			}
@@ -1384,9 +1383,9 @@ void rai::rpc_handler::pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size ()< count; ++i)
 			{
 				rai::pending_key key (i->first);
-				boost::property_tree::ptree entry;
 				if (threshold.is_zero ())
 				{
+					boost::property_tree::ptree entry;
 					entry.put ("", key.hash.to_string ());
 					peers_l.push_back (std::make_pair ("", entry));
 				}
@@ -1395,8 +1394,7 @@ void rai::rpc_handler::pending ()
 					rai::pending_info info (i->second);
 					if (info.amount.number () >= threshold.number ())
 					{
-						entry.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
-						peers_l.push_back (std::make_pair ("", entry));
+						peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
 					}
 				}
 			}
@@ -2471,9 +2469,9 @@ void rai::rpc_handler::wallet_pending ()
 				for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size ()< count; ++ii)
 				{
 					rai::pending_key key (ii->first);
-					boost::property_tree::ptree entry;
 					if (threshold.is_zero ())
 					{
+						boost::property_tree::ptree entry;
 						entry.put ("", key.hash.to_string ());
 						peers_l.push_back (std::make_pair ("", entry));
 					}
@@ -2482,8 +2480,7 @@ void rai::rpc_handler::wallet_pending ()
 						rai::pending_info info (ii->second);
 						if (info.amount.number () >= threshold.number ())
 						{
-							entry.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
-							peers_l.push_back (std::make_pair ("", entry));
+							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
 						}
 					}
 				}
@@ -2492,7 +2489,7 @@ void rai::rpc_handler::wallet_pending ()
 					pending.add_child (account.to_account (), peers_l);
 				}
 			}
-			response_l.add_child ("pending", pending);
+			response_l.add_child ("blocks", pending);
 			response (response_l);
 		}
 		else

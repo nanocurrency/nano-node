@@ -1267,8 +1267,16 @@ TEST (rpc, pending)
 	ASSERT_EQ (200, response0.status);
 	blocks_node = response0.json.get_child ("blocks");
 	ASSERT_EQ (1, blocks_node.size ());
-	auto amount (blocks_node.begin ()->second.get <std::string> (block1->hash ().to_string ()));
-	ASSERT_EQ ("100", amount);
+	std::unordered_map <rai::block_hash, rai::uint128_union> blocks;
+	for (auto i (blocks_node.begin ()), j (blocks_node.end ()); i != j; ++i)
+	{
+		rai::block_hash hash;
+		hash.decode_hex (i->first);
+		rai::uint128_union amount;
+		amount.decode_dec (i->second.get <std::string> (""));
+		blocks [hash] = amount;
+	}
+	ASSERT_EQ (blocks[block1->hash ()], 100);
 	request.put ("threshold", "101");
 	test_response response1 (request, rpc, system.service);
 	while (response1.status == 0)
@@ -2157,12 +2165,20 @@ TEST (rpc, accounts_pending)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
-	for (auto & blocks : response1.json.get_child("blocks"))
+	for (auto & pending : response1.json.get_child("blocks"))
 	{
-		std::string account_text (blocks.first);
+		std::string account_text (pending.first);
 		ASSERT_EQ (key1.pub.to_account (), account_text);
-		auto amount (blocks.second.begin ()->second.get <std::string> (block1->hash ().to_string ()));
-		ASSERT_EQ ("100", amount);
+		std::unordered_map <rai::block_hash, rai::uint128_union> blocks;
+		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+		{
+			rai::block_hash hash;
+			hash.decode_hex (i->first);
+			rai::uint128_union amount;
+			amount.decode_dec (i->second.get <std::string> (""));
+			blocks [hash] = amount;
+		}
+		ASSERT_EQ (blocks[block1->hash ()], 100);
 	}
 }
 
@@ -2292,7 +2308,7 @@ TEST (rpc, wallet_pending)
 		system0.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	for (auto & pending : response.json.get_child("pending"))
+	for (auto & pending : response.json.get_child("blocks"))
 	{
 		std::string account_text (pending.first);
 		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
@@ -2308,14 +2324,20 @@ TEST (rpc, wallet_pending)
 		system0.poll ();
 	}
 	ASSERT_EQ (200, response0.status);
-	for (auto & pending : response0.json.get_child("pending"))
+	for (auto & pending : response0.json.get_child("blocks"))
 	{
 		std::string account_text (pending.first);
 		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
-		auto & blocks_node (pending.second.get_child (rai::test_genesis_key.pub.to_account ()));
-		ASSERT_EQ (1, blocks_node.size ());
-		rai::block_hash hash1 (blocks_node.begin ()->second.get <std::string> (""));
-		ASSERT_EQ (block1->hash (), hash1);
+		std::unordered_map <rai::block_hash, rai::uint128_union> blocks;
+		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+		{
+			rai::block_hash hash;
+			hash.decode_hex (i->first);
+			rai::uint128_union amount;
+			amount.decode_dec (i->second.get <std::string> (""));
+			blocks [hash] = amount;
+		}
+		ASSERT_EQ (blocks[block1->hash ()], 100);
 	}
 	request.put ("threshold", "101");
 	test_response response1 (request, rpc, system0.service);
@@ -2324,7 +2346,7 @@ TEST (rpc, wallet_pending)
 		system0.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
-	auto & pending1 (response1.json.get_child ("pending"));
+	auto & pending1 (response1.json.get_child ("blocks"));
 	ASSERT_EQ (0, pending1.size ());
 }
 
