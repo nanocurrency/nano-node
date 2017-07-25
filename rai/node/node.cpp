@@ -205,7 +205,7 @@ void rai::network::republish_block (std::shared_ptr <rai::block> block)
 {
 	rebroadcast_reps (block);
 	auto hash (block->hash ());
-    auto list (node.peers.list ());
+    auto list (node.peers.list_sqrt ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
     if (!confirm_block (node, list, block))
     {
@@ -215,9 +215,8 @@ void rai::network::republish_block (std::shared_ptr <rai::block> block)
             rai::vectorstream stream (*bytes);
             message.serialize (stream);
         }
-		auto sqrt_list (node.peers.list_sqrt ());
 		auto hash (block->hash ());
-        for (auto i (sqrt_list.begin ()), n (sqrt_list.end ()); i != n; ++i)
+        for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
         {
 			republish (hash, bytes, *i);
         }
