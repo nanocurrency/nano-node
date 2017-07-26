@@ -263,6 +263,39 @@ void rai::rpc_handler::account_get ()
 	}
 }
 
+void rai::rpc_handler::account_info ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::uint256_union account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::account_info info;
+		if (!node.store.account_get (transaction, account, info))
+		{
+			boost::property_tree::ptree response_l;
+			response_l.put ("frontier", info.head.to_string ());
+			response_l.put ("open_block", info.open_block.to_string ());
+			response_l.put ("representative_block", info.rep_block.to_string ());
+			std::string balance;
+			rai::uint128_union (info.balance).encode_dec (balance);
+			response_l.put ("balance", balance);
+			response_l.put ("modified_timestamp", std::to_string (info.modified));
+			response_l.put ("block_count", std::to_string (info.block_count));
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Account not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::account_key ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -684,6 +717,46 @@ void rai::rpc_handler::blocks ()
 				std::string contents;
 				block->serialize_json (contents);
 				blocks.put (hash_text, contents);
+			}
+			else
+			{
+				error_response (response, "Block not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad hash number");
+		}
+	}
+	response_l.add_child ("blocks", blocks);
+	response (response_l);
+}
+
+void rai::rpc_handler::blocks_info ()
+{
+	std::vector <std::string> hashes;
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree blocks;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (boost::property_tree::ptree::value_type &hashes : request.get_child("hashes"))
+	{
+		std::string hash_text = hashes.second.data();
+		rai::uint256_union hash;
+		auto error (hash.decode_hex (hash_text));
+		if (!error)
+		{
+			auto block (node.store.block_get (transaction, hash));
+			if (block != nullptr)
+			{
+				boost::property_tree::ptree entry;
+				auto account (node.ledger.account (transaction, hash));
+				entry.put ("block_account", account.to_account ());
+				auto amount (node.ledger.amount (transaction, hash));
+				entry.put ("amount", amount.convert_to <std::string> ());
+				std::string contents;
+				block->serialize_json (contents);
+				entry.put ("contents", contents);
+				blocks.push_back (std::make_pair (hash_text, entry));
 			}
 			else
 			{
@@ -2540,6 +2613,10 @@ void rai::rpc_handler::process_request ()
 		{
 			account_history ();
 		}
+		else if (action == "account_info")
+		{
+			account_info ();
+		}
 		else if (action == "account_key")
 		{
 			account_key ();
@@ -2591,6 +2668,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "blocks")
 		{
 			blocks ();
+		}
+		else if (action == "blocks_info")
+		{
+			blocks_info ();
 		}
 		else if (action == "block_account")
 		{
