@@ -205,7 +205,7 @@ void rai::network::republish_block (std::shared_ptr <rai::block> block)
 {
 	rebroadcast_reps (block);
 	auto hash (block->hash ());
-    auto list (node.peers.list_sqrt ());
+	auto list (node.peers.list_sqrt ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
     if (!confirm_block (node, list, block))
     {
@@ -1443,7 +1443,7 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, std
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a->hash ().to_string ());
             }
-			store.unchecked_put (transaction_a, block_a->previous (), *block_a);
+			store.unchecked_put (transaction_a, block_a->previous (), block_a);
 			gap_cache.add (transaction_a, block_a);
 			break;
         }
@@ -1453,7 +1453,7 @@ rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, std
             {
                 BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a->hash ().to_string ());
             }
-			store.unchecked_put (transaction_a, block_a->source (), *block_a);
+			store.unchecked_put (transaction_a, block_a->source (), block_a);
 			gap_cache.add (transaction_a, block_a);
             break;
         }

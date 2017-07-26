@@ -180,16 +180,16 @@ TEST (bootstrap, simple)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
+    auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
 	rai::transaction transaction (store.environment, nullptr, true);
-    auto block2 (store.unchecked_get (transaction, block1.previous ()));
+    auto block2 (store.unchecked_get (transaction, block1->previous ()));
     ASSERT_TRUE (block2.empty ());
-    store.unchecked_put (transaction, block1.previous (), block1);
-    auto block3 (store.unchecked_get (transaction, block1.previous ()));
+    store.unchecked_put (transaction, block1->previous (), block1);
+    auto block3 (store.unchecked_get (transaction, block1->previous ()));
     ASSERT_FALSE (block3.empty ());
-    ASSERT_EQ (block1, *block3 [0]);
-    store.unchecked_del (transaction, block1.previous (), block1);
-    auto block4 (store.unchecked_get (transaction, block1.previous ()));
+    ASSERT_EQ (*block1, *block3 [0]);
+    store.unchecked_del (transaction, block1->previous (), *block1);
+    auto block4 (store.unchecked_get (transaction, block1->previous ()));
     ASSERT_TRUE (block4.empty ());
 }
 
@@ -249,16 +249,17 @@ TEST (block_store, one_bootstrap)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
     ASSERT_TRUE (!init);
-    rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
+    auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.unchecked_put (transaction, block1.hash (), block1);
+    store.unchecked_put (transaction, block1->hash (), block1);
+	store.unchecked_cache_flush (transaction);
     auto begin (store.unchecked_begin (transaction));
     auto end (store.unchecked_end ());
     ASSERT_NE (end, begin);
     auto hash1 (begin->first);
-    ASSERT_EQ (block1.hash (), hash1);
+    ASSERT_EQ (block1->hash (), hash1);
     auto block2 (rai::deserialize_block (begin->second));
-    ASSERT_EQ (block1, *block2);
+    ASSERT_EQ (*block1, *block2);
     ++begin;
     ASSERT_EQ (end, begin);
 }
@@ -771,8 +772,9 @@ TEST (block_store, upgrade_v6_v7)
 		rai::genesis genesis;;
 		genesis.initialize (transaction, store);
 		store.version_put (transaction, 6);
-		rai::send_block send1 (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		store.unchecked_put (transaction, send1.hash (), send1);
+		auto send1 (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+		store.unchecked_put (transaction, send1->hash (), send1);
+		store.unchecked_cache_flush (transaction);
 		ASSERT_NE (store.unchecked_end (), store.unchecked_begin (transaction));
 	}
 	bool init (false);
@@ -791,11 +793,12 @@ TEST (block_store, change_dupsort)
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 1));
 	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &store.unchecked));
-	rai::send_block send1 (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::send_block send2 (1, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_NE (send1.hash (), send2.hash ());
-	store.unchecked_put (transaction, send1.hash (), send1);
-	store.unchecked_put (transaction, send1.hash (), send2);
+	auto send1 (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared <rai::send_block> (1, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	ASSERT_NE (send1->hash (), send2->hash ());
+	store.unchecked_put (transaction, send1->hash (), send1);
+	store.unchecked_put (transaction, send1->hash (), send2);
+	store.unchecked_cache_flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -804,8 +807,9 @@ TEST (block_store, change_dupsort)
 	ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 0));
 	mdb_dbi_close (store.environment, store.unchecked);
 	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
-	store.unchecked_put (transaction, send1.hash (), send1);
-	store.unchecked_put (transaction, send1.hash (), send2);
+	store.unchecked_put (transaction, send1->hash (), send1);
+	store.unchecked_put (transaction, send1->hash (), send2);
+	store.unchecked_cache_flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -813,8 +817,9 @@ TEST (block_store, change_dupsort)
 	}
 	ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 1));
 	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
-	store.unchecked_put (transaction, send1.hash (), send1);
-	store.unchecked_put (transaction, send1.hash (), send2);
+	store.unchecked_put (transaction, send1->hash (), send1);
+	store.unchecked_put (transaction, send1->hash (), send2);
+	store.unchecked_cache_flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -839,10 +844,11 @@ TEST (block_store, upgrade_v7_v8)
 	rai::block_store store (init, path);
 	ASSERT_FALSE (init);
 	rai::transaction transaction (store.environment, nullptr, true);
-	rai::send_block send1 (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::send_block send2 (1, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	store.unchecked_put (transaction, send1.hash (), send1);
-	store.unchecked_put (transaction, send1.hash (), send2);
+	auto send1 (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared <rai::send_block> (1, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	store.unchecked_put (transaction, send1->hash (), send1);
+	store.unchecked_put (transaction, send1->hash (), send2);
+	store.unchecked_cache_flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;

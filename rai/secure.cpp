@@ -2322,20 +2322,37 @@ void rai::block_store::unchecked_clear (MDB_txn * transaction_a)
 	assert (status == 0);
 }
 
-void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
+void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, std::shared_ptr <rai::block> const & block_a)
 {
-    std::vector <uint8_t> vector;
-    {
-        rai::vectorstream stream (vector);
-        rai::serialize_block (stream, block_a);
-    }
-	auto status (mdb_put (transaction_a, unchecked, hash_a.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
-	assert (status == 0);
+	unchecked_cache.insert (std::make_pair (hash_a, block_a));
+	if (unchecked_cache.size () > unchecked_cache_max)
+	{
+		unchecked_cache_flush (transaction_a);
+	}
 }
 
-std::vector <std::unique_ptr <rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+void rai::block_store::unchecked_cache_flush (MDB_txn * transaction_a)
 {
-	std::vector <std::unique_ptr <rai::block>> result;
+	for (auto &i: unchecked_cache)
+	{
+		std::vector <uint8_t> vector;
+		{
+			rai::vectorstream stream (vector);
+			rai::serialize_block (stream, *i.second);
+		}
+		auto status (mdb_put (transaction_a, unchecked, i.first.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
+		assert (status == 0);
+	}
+	unchecked_cache.clear ();
+}
+
+std::vector <std::shared_ptr <rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	std::vector <std::shared_ptr <rai::block>> result;
+	for (auto i (unchecked_cache.begin ()), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
+	{
+		result.push_back (i->second);
+	}
 	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.next_dup ())
 	{
         rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
@@ -2346,6 +2363,17 @@ std::vector <std::unique_ptr <rai::block>> rai::block_store::unchecked_get (MDB_
 
 void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
+	for (auto i (unchecked_cache.begin ()), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
+	{
+		if (*i->second == block_a)
+		{
+			i = unchecked_cache.erase (i);
+		}
+		else
+		{
+			++i;
+		}
+	}
     std::vector <uint8_t> vector;
     {
         rai::vectorstream stream (vector);

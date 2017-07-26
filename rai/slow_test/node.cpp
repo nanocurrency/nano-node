@@ -379,3 +379,18 @@ TEST (peer_container, random_set)
 	auto old_ms (std::chrono::duration_cast <std::chrono::milliseconds> (current - old));
 	auto new_ms (std::chrono::duration_cast <std::chrono::milliseconds> (end - current));
 }
+
+TEST (store, unchecked_load)
+{
+    rai::system system (24000, 1);
+	auto & node (*system.nodes [0]);
+	auto block (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	for (auto i (0); i < 1000000; ++i)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		node.store.unchecked_put (transaction, i, block);
+	}
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	auto count (node.store.unchecked_count(transaction));
+	std::cerr << count << std::endl;
+}
