@@ -2508,6 +2508,76 @@ void rai::rpc_handler::work_validate ()
 	}
 }
 
+void rai::rpc_handler::work_peer_add ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string address_text = request.get <std::string> ("address");
+		std::string port_text = request.get <std::string> ("port");
+		boost::system::error_code ec;
+		auto address (boost::asio::ip::address_v6::from_string (address_text, ec));
+		if (!ec)
+		{
+			uint16_t port;
+			if (!rai::parse_port (port_text, port))
+			{
+				node.config.work_peers.push_back (std::make_pair (address, port));
+				boost::property_tree::ptree response_l;
+				response_l.put ("success", "");
+				response (response_l);
+			}
+			else
+			{
+				error_response (response, "Invalid port");
+			}
+		}
+		else
+		{
+			error_response (response, "Invalid address");
+		}
+		}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::work_peers ()
+{
+	if (rpc.config.enable_control)
+	{
+		boost::property_tree::ptree work_peers_l;
+		for (auto i (node.config.work_peers.begin ()), n (node.config.work_peers.end ()); i != n; ++i)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
+			work_peers_l.push_back (std::make_pair ("", entry));
+		}
+		boost::property_tree::ptree response_l;
+		response_l.add_child ("work_peers", work_peers_l);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::work_peers_clear ()
+{
+	if (rpc.config.enable_control)
+	{
+		node.config.work_peers.clear ();
+		boost::property_tree::ptree response_l;
+		response_l.put ("success", "");
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 rai::rpc_connection::rpc_connection (rai::node & node_a, rai::rpc & rpc_a) :
 node (node_a.shared ()),
 rpc (rpc_a),
@@ -2888,6 +2958,18 @@ void rai::rpc_handler::process_request ()
 		else if (action == "work_validate")
 		{
 			work_validate ();
+		}
+		else if (action == "work_peer_add")
+		{
+			work_peer_add ();
+		}
+		else if (action == "work_peers")
+		{
+			work_peers ();
+		}
+		else if (action == "work_peers_clear")
+		{
+			work_peers_clear ();
 		}
 		else
 		{

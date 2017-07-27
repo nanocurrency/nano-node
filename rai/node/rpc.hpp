@@ -163,6 +163,9 @@ public:
 	void work_generate ();
 	void work_cancel ();
 	void work_validate ();
+	void work_peer_add ();
+	void work_peers ();
+	void work_peers_clear ();
 	std::string body;
 	rai::node & node;
 	rai::rpc & rpc;
