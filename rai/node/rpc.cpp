@@ -588,7 +588,7 @@ void rai::rpc_handler::accounts_frontiers ()
 
 void rai::rpc_handler::accounts_pending ()
 {
-	uint64_t count (18446744073709551615U);
+	uint64_t count (std::numeric_limits <uint64_t>::max ());
 	rai::uint128_union threshold (0);
 	try
 	{
@@ -1347,7 +1347,7 @@ void rai::rpc_handler::pending ()
 	rai::account account;
 	if (!account.decode_account(account_text))
 	{
-		uint64_t count (18446744073709551615U);
+		uint64_t count (std::numeric_limits <uint64_t>::max ());
 		rai::uint128_union threshold (0);
 		try
 		{
@@ -2430,7 +2430,7 @@ void rai::rpc_handler::wallet_pending ()
 		auto existing (node.wallets.items.find (wallet));
 		if (existing != node.wallets.items.end ())
 		{
-			uint64_t count (18446744073709551615U);
+			uint64_t count (std::numeric_limits <uint64_t>::max ());
 			rai::uint128_union threshold (0);
 			try
 			{
