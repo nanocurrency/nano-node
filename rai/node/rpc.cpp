@@ -2387,7 +2387,7 @@ socket (node_a.network.service)
 void rai::rpc_connection::parse_connection ()
 {
 	auto this_l (shared_from_this ());
-	beast::http::async_read (socket, buffer, request, [this_l] (boost::system::error_code const & ec)
+	boost::beast::http::async_read (socket, buffer, request, [this_l] (boost::system::error_code const & ec)
 	{
 		if (!ec)
 		{
@@ -2401,13 +2401,14 @@ void rai::rpc_connection::parse_connection ()
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
 					auto body (ostream.str ());
-					this_l->res.fields.insert ("content-type", "application/json");
-					this_l->res.fields.insert ("Access-Control-Allow-Origin",  "*");
-					this_l->res.status = 200;
+					this_l->res.set ("content-type", "application/json");
+					this_l->res.set ("Access-Control-Allow-Origin",  "*");
+					this_l->res.result(boost::beast::http::status::ok);
 					this_l->res.body = body;
 					this_l->res.version = version;
-					beast::http::prepare (this_l->res);
-					beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec)
+					this_l->res.prepare_payload();
+					//boost::beast::http::prepare (this_l->res);
+					boost::beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec)
 					{
 					});
 					if (this_l->node->config.logging.log_rpc ())
@@ -2415,7 +2416,7 @@ void rai::rpc_connection::parse_connection ()
 						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast <std::chrono::microseconds> (std::chrono::system_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast <uintptr_t> (this_l.get ())));
 					}
 				});
-				if (this_l->request.method () == "POST")
+				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
 					auto handler (std::make_shared <rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body, response_handler));
 					handler->process_request ();

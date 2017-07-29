@@ -2,8 +2,9 @@
 
 #include <rai/utility.hpp>
 
-#include <beast/http.hpp>
-#include <beast/core/flat_buffer.hpp>
+//#include <boost/beast/http.hpp>
+//#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -63,9 +64,9 @@ public:
 	std::shared_ptr <rai::node> node;
 	rai::rpc & rpc;
 	boost::asio::ip::tcp::socket socket;
-	beast::flat_buffer buffer;
-	beast::http::request <beast::http::string_body> request;
-	beast::http::response <beast::http::string_body> res;
+	boost::beast::flat_buffer buffer;
+	boost::beast::http::request <boost::beast::http::string_body> request;
+	boost::beast::http::response <boost::beast::http::string_body> res;
 };
 class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
 {
