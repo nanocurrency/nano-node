@@ -117,27 +117,27 @@ void rai::mdb_env::add_transaction ()
 
 void rai::mdb_env::handle_environment_sizing ()
 {
-	MDB_stat stats;
-	mdb_env_stat (environment, &stats);
-	MDB_envinfo info;
-	mdb_env_info (environment, &info);
-	double used_space (info.me_last_pgno * stats.ms_psize);
-	double needed_space (used_space * 1.25);
-	size_t increments_needed ((needed_space / database_size_increment) + 1);
-	size_t environment_size (increments_needed * database_size_increment);
-	if (info.me_mapsize < environment_size)
+	if (!resizing.exchange (true))
 	{
-		if (!resizing.exchange (true))
+		MDB_stat stats;
+		mdb_env_stat (environment, &stats);
+		MDB_envinfo info;
+		mdb_env_info (environment, &info);
+		double used_space (info.me_last_pgno * stats.ms_psize);
+		double needed_space (used_space * 1.25);
+		size_t increments_needed ((needed_space / database_size_increment) + 1);
+		size_t environment_size (increments_needed * database_size_increment);
+		if (info.me_mapsize < environment_size)
 		{
-			std::unique_lock <std::mutex> lock_l (lock);
-			while (open_transactions > 0)
-			{
-				open_notify.wait (lock_l);
-			}
-			mdb_env_set_mapsize (environment, environment_size);
-			resizing = false;
-			resize_notify.notify_all ();
+				std::unique_lock <std::mutex> lock_l (lock);
+				while (open_transactions > 0)
+				{
+					open_notify.wait (lock_l);
+				}
+				mdb_env_set_mapsize (environment, environment_size);
+				resize_notify.notify_all ();
 		}
+		resizing = false;
 	}
 }
 
