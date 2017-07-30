@@ -391,6 +391,16 @@ TEST (store, unchecked_load)
 		node.store.unchecked_put (transaction, i, block);
 	}
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	auto count (node.store.unchecked_count(transaction));
-	std::cerr << count << std::endl;
+	auto count (node.store.unchecked_count (transaction));
+}
+
+TEST (store, vote_load)
+{
+    rai::system system (24000, 1);
+	auto & node (*system.nodes [0]);
+	for (auto i (0); i < 1000000; ++i)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		node.store.sequence_atomic_observe (transaction, 0, i);
+	}
 }

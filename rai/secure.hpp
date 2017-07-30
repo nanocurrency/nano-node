@@ -390,6 +390,17 @@ public:
 	
 	uint64_t sequence_atomic_inc (MDB_txn *, rai::account const &);
 	uint64_t sequence_atomic_observe (MDB_txn *, rai::account const &, uint64_t);
+	uint64_t sequence_current (MDB_txn *, rai::account const &);
+	void sequence_flush (MDB_txn *);
+	std::unordered_map <rai::account, uint64_t> sequence_cache;
+	size_t sequence_cache_count;
+	static size_t const sequence_cache_max = 256;
+	// IO per sequence_atomic_max profiled with store.vote_load
+	// 1 - 1,900,000
+	// 16 - 235,000
+	// 128 - 27,000
+	// 256 - 14,000
+	// 1024 - 3,200
 	
 	void version_put (MDB_txn *, int);
 	int version_get (MDB_txn *);
