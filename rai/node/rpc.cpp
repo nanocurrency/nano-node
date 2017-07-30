@@ -25,9 +25,9 @@ chain_request_limit (16384)
 
 void rai::rpc_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-    tree_a.put ("address", address.to_string ());
-    tree_a.put ("port", std::to_string (port));
-    tree_a.put ("enable_control", enable_control);
+	tree_a.put ("address", address.to_string ());
+	tree_a.put ("port", std::to_string (port));
+	tree_a.put ("enable_control", enable_control);
 	tree_a.put ("frontier_request_limit", frontier_request_limit);
 	tree_a.put ("chain_request_limit", chain_request_limit);
 }
@@ -730,6 +730,18 @@ void rai::rpc_handler::block_count ()
 	boost::property_tree::ptree response_l;
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
 	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
+	response (response_l);
+}
+
+void rai::rpc_handler::block_count_type ()
+{
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::block_counts count (node.store.block_count (transaction));
+	boost::property_tree::ptree response_l;
+	response_l.put ("send", std::to_string (count.send));
+	response_l.put ("receive", std::to_string (count.receive));
+	response_l.put ("open", std::to_string (count.open));
+	response_l.put ("change", std::to_string (count.change));
 	response (response_l);
 }
 
@@ -1852,6 +1864,68 @@ void rai::rpc_handler::stop ()
 	}
 }
 
+void rai::rpc_handler::unchecked ()
+{
+	uint64_t count (std::numeric_limits <uint64_t>::max ());
+	try
+	{
+		std::string count_text (request.get <std::string> ("count"));
+		auto error (decode_unsigned (count_text, count));
+		if (error)
+		{
+			error_response (response, "Invalid count");
+		}
+	}
+	catch (std::runtime_error &)
+	{
+		// If there is no "count" in request
+	}
+	rai::uint256_union hash (0);
+	try
+	{
+		std::string hash_text (request.get <std::string> ("hash"));
+		auto error_hash (hash.decode_hex (hash_text));
+		if (error_hash)
+		{
+			error_response (response, "Bad hash number");
+		}
+	}
+	catch (std::runtime_error &)
+	{
+		// If there is no "hash" in request
+	}
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree unchecked;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (auto i (node.store.unchecked_begin (transaction, hash)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
+	{
+		rai::block_hash hash (i->first);
+		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+		auto block (rai::deserialize_block (stream));
+		std::string contents;
+		block->serialize_json (contents);
+		unchecked.put(hash.to_string (), contents);
+	}
+	response_l.add_child ("blocks", unchecked);
+	response (response_l);
+}
+
+void rai::rpc_handler::unchecked_clear ()
+{
+	if (rpc.config.enable_control)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		node.store.unchecked_clear (transaction);
+		boost::property_tree::ptree response_l;
+		response_l.put ("success", "");
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::version ()
 {
 	boost::property_tree::ptree response_l;
@@ -2542,6 +2616,10 @@ void rai::rpc_handler::process_request ()
 		{
 			block_count ();
 		}
+		else if (action == "block_count_type")
+		{
+			block_count_type ();
+		}
 		else if (action == "successors")
 		{
 			successors ();
@@ -2673,6 +2751,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "stop")
 		{
 			stop ();
+		}
+		else if (action == "unchecked")
+		{
+			unchecked ();
+		}
+		else if (action == "unchecked_clear")
+		{
+			unchecked_clear ();
 		}
 		else if (action == "validate_account_number")
 		{
