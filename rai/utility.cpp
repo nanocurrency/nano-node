@@ -135,9 +135,9 @@ void rai::mdb_env::handle_environment_sizing ()
 					open_notify.wait (lock_l);
 				}
 				mdb_env_set_mapsize (environment, environment_size);
-				resize_notify.notify_all ();
 		}
 		resizing = false;
+		resize_notify.notify_all ();
 	}
 }
 
