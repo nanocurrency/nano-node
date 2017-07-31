@@ -7,3 +7,7 @@
 [submodule "cryptopp"]
 	path = cryptopp
 	url = https://github.com/weidai11/cryptopp.git
+[submodule "lmdb"]
+	path = lmdb
+	url = https://github.com/LMDB/lmdb.git
+	branch = mdb.RE/0.9
