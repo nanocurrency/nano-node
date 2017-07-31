@@ -1911,6 +1911,42 @@ void rai::rpc_handler::unchecked_clear ()
 	}
 }
 
+void rai::rpc_handler::unchecked_get ()
+{
+	std::string hash_text (request.get <std::string> ("hash"));
+	rai::uint256_union hash;
+	auto error (hash.decode_hex (hash_text));
+	if (!error)
+	{
+		boost::property_tree::ptree response_l;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
+		{
+			rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+			auto block (rai::deserialize_block (stream));
+			if (block->hash () == hash)
+			{
+				std::string contents;
+				block->serialize_json (contents);
+				response_l.put ("contents", contents);
+				break;
+			}
+		}
+		if (!response_l.empty ())
+		{
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Unchecked block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad hash number");
+	}
+}
+
 void rai::rpc_handler::unchecked_keys ()
 {
 	uint64_t count (std::numeric_limits <uint64_t>::max ());
@@ -2793,6 +2829,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "unchecked_clear")
 		{
 			unchecked_clear ();
+		}
+		else if (action == "unchecked_get")
+		{
+			unchecked_get ();
 		}
 		else if (action == "unchecked_keys")
 		{
