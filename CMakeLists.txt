@@ -233,9 +233,14 @@ if (RAIBLOCKS_TEST)
 	add_executable (slow_test
 		rai/slow_test/node.cpp)
 
+	SET (ACTIVE_NETWORK rai_test_network CACHE STRING "Selects which network parameters are used")
+	
 	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1 -DRAIBLOCKS_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}")
 	set_target_properties (core_test slow_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 endif (RAIBLOCKS_TEST)
+
+SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
 if (RAIBLOCKS_GUI)
 
@@ -268,9 +273,6 @@ add_executable (rai_node
 	rai/rai_node/daemon.cpp
 	rai/rai_node/daemon.hpp
 	rai/rai_node/entry.cpp)
-
-SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
-set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
 set_target_properties (cryptopp PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
 set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS}")

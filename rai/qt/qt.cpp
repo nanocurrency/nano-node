@@ -78,6 +78,7 @@ wallet (wallet_a)
 	auto font (QFontDatabase::systemFont (QFontDatabase::FixedFont));
 	font.setPointSize (account_text->font().pointSize());
 	account_text->setFont (font);
+	account_text->setTextInteractionFlags(Qt::TextSelectableByMouse);
 	account_layout->addWidget (account_text);
 	account_layout->addWidget (copy_button);
 	account_layout->setContentsMargins (0, 0, 0, 0);
@@ -112,6 +113,7 @@ void rai_qt::self_pane::refresh_balance ()
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
+wallet_balance_label (new QLabel),
 model (new QStandardItemModel),
 view (new QTableView),
 use_account (new QPushButton ("Use account")),
@@ -132,6 +134,7 @@ wallet (wallet_a)
     view->setModel (model);
     view->verticalHeader ()->hide ();
     view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
+	layout->addWidget (wallet_balance_label);
 	layout->addWidget (view);
 	layout->addWidget (use_account);
 	layout->addWidget (create_account);
@@ -163,6 +166,7 @@ wallet (wallet_a)
 			account_key_line->clear ();
 			this->wallet.wallet_m->insert_adhoc (key);
 			this->wallet.accounts.refresh ();
+			this->wallet.accounts.refresh_wallet_balance ();
 			this->wallet.history.refresh ();
 		}
 		else
@@ -231,6 +235,34 @@ wallet (wallet_a)
 				backup_seed->setText ("Backup/Clipboard wallet seed");
 			});
 		}
+	});
+	refresh_wallet_balance ();
+}
+
+
+void rai_qt::accounts::refresh_wallet_balance ()
+{
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+	rai::uint128_t balance (0);
+	rai::uint128_t pending (0);
+	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
+	{
+		rai::public_key key (i->first);
+		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
+		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
+	}
+	auto final_text (std::string ("Wallet balance (XRB): ") + (balance / this->wallet.rendering_ratio).convert_to <std::string> ());
+	if (!pending.is_zero ())
+	{
+		final_text += "\nWallet pending: " + (pending / this->wallet.rendering_ratio).convert_to <std::string> ();
+	}
+	wallet_balance_label->setText (QString (final_text.c_str ()));
+	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this] ()
+	{
+		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] ()
+		{
+			refresh_wallet_balance ();
+		}));
 	});
 }
 
@@ -806,6 +838,7 @@ separator (new QFrame),
 account_history_label (new QLabel ("Account history:")),
 send_blocks (new QPushButton ("Send")),
 settings_button (new QPushButton ("Settings")),
+accounts_button (new QPushButton ("Accounts")),
 show_advanced (new QPushButton ("Advanced")),
 send_blocks_window (new QWidget),
 send_blocks_layout (new QVBoxLayout),
@@ -818,42 +851,44 @@ send_blocks_back (new QPushButton ("Back")),
 active_status (*this)
 {
 	update_connected ();
-    settings.update_locked (true, true);
-    send_blocks_layout->addWidget (send_account_label);
+	empty_password ();
+	settings.update_locked (true, true);
+	send_blocks_layout->addWidget (send_account_label);
 	send_account->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
-    send_blocks_layout->addWidget (send_account);
-    send_blocks_layout->addWidget (send_count_label);
+	send_blocks_layout->addWidget (send_account);
+	send_blocks_layout->addWidget (send_count_label);
 	send_count->setPlaceholderText ("0");
-    send_blocks_layout->addWidget (send_count);
-    send_blocks_layout->addWidget (send_blocks_send);
-    send_blocks_layout->addStretch ();
-    send_blocks_layout->addWidget (send_blocks_back);
-    send_blocks_layout->setContentsMargins (0, 0, 0, 0);
-    send_blocks_window->setLayout (send_blocks_layout);
+	send_blocks_layout->addWidget (send_count);
+	send_blocks_layout->addWidget (send_blocks_send);
+	send_blocks_layout->addStretch ();
+	send_blocks_layout->addWidget (send_blocks_back);
+	send_blocks_layout->setContentsMargins (0, 0, 0, 0);
+	send_blocks_window->setLayout (send_blocks_layout);
 	
 	entry_window_layout->addWidget (account_history_label);
 	entry_window_layout->addWidget (history.window);
-    entry_window_layout->addWidget (send_blocks);
+	entry_window_layout->addWidget (send_blocks);
 	entry_window_layout->addWidget (settings_button);
-    entry_window_layout->addWidget (show_advanced);
-    entry_window_layout->setContentsMargins (0, 0, 0, 0);
-    entry_window_layout->setSpacing (5);
-    entry_window->setLayout (entry_window_layout);
+	entry_window_layout->addWidget (accounts_button);
+	entry_window_layout->addWidget (show_advanced);
+	entry_window_layout->setContentsMargins (0, 0, 0, 0);
+	entry_window_layout->setSpacing (5);
+	entry_window->setLayout (entry_window_layout);
 
-    main_stack->addWidget (entry_window);
+	main_stack->addWidget (entry_window);
 
 	status->setAlignment (Qt::AlignHCenter);
 	separator->setFrameShape (QFrame::HLine);
 	separator->setFrameShadow (QFrame::Sunken);
 	
 	client_layout->addWidget (status);
-    client_layout->addWidget (self.window);
+	client_layout->addWidget (self.window);
 	client_layout->addWidget (separator);
-    client_layout->addWidget (main_stack);
-    client_layout->setSpacing (0);
-    client_layout->setContentsMargins (0, 0, 0, 0);
-    client_window->setLayout (client_layout);
-    client_window->resize (320, 480);
+	client_layout->addWidget (main_stack);
+	client_layout->setSpacing (0);
+	client_layout->setContentsMargins (0, 0, 0, 0);
+	client_window->setLayout (client_layout);
+	client_window->resize (320, 480);
 	refresh ();
 }
 
@@ -865,6 +900,13 @@ void rai_qt::wallet::start ()
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->settings.activate ();
+		}
+    });
+    QObject::connect (accounts_button, &QPushButton::released, [this_w] ()
+    {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->push_main_stack (this_l->accounts.window);
 		}
     });
     QObject::connect (show_advanced, &QPushButton::released, [this_w] ()
@@ -1106,6 +1148,13 @@ void rai_qt::wallet::update_connected ()
 	}
 }
 
+void rai_qt::wallet::empty_password ()
+{
+	rai::raw_key empty;
+	empty.data.clear ();
+	wallet_m->store.password.value_set (empty);
+}
+
 void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a] ()
@@ -1140,6 +1189,7 @@ retype_password (new QLineEdit),
 change (new QPushButton ("Set/Change password")),
 sep2 (new QFrame),
 representative (new QLabel ("Account representative:")),
+current_representative (new QLabel),
 new_representative (new QLineEdit),
 change_rep (new QPushButton ("Change representative")),
 back (new QPushButton ("Back")),
@@ -1166,6 +1216,8 @@ wallet (wallet_a)
 	sep2->setFrameShadow (QFrame::Sunken);
 	layout->addWidget (sep2);
 	layout->addWidget (representative);
+	current_representative->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	layout->addWidget (current_representative);
 	new_representative->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
 	layout->addWidget (new_representative);
 	layout->addWidget (change_rep);
@@ -1194,6 +1246,7 @@ wallet (wallet_a)
 					retype_password->setPlaceholderText ("Retype password");
 					show_button_success (*change);
 					change->setText ("Password was changed");
+					update_locked (false, false);
 					this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 					{
 						show_button_ok (*change);
@@ -1235,6 +1288,8 @@ wallet (wallet_a)
 				change_rep->setEnabled (true);
 				show_button_success (*change_rep);
 				change_rep->setText ("Represenative was changed");
+				current_representative->setText (QString (representative_l.to_account_split ().c_str ()));
+				new_representative->clear ();
 				this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 				{
 					show_button_ok (*change_rep);
@@ -1329,11 +1384,11 @@ void rai_qt::settings::refresh_representative ()
 	{
 		auto block (this->wallet.wallet_m->node.store.block_get (transaction, info.rep_block));
 		assert (block != nullptr);
-		new_representative->setText (block->representative ().to_account ().c_str ());
+		current_representative->setText (QString (block->representative ().to_account_split ().c_str ()));
 	}
 	else
 	{
-		new_representative->setText (this->wallet.wallet_m->store.representative (transaction).to_account ().c_str ());
+		current_representative->setText (this->wallet.wallet_m->store.representative (transaction).to_account_split ().c_str ());
 	}
 }
 
@@ -1365,8 +1420,6 @@ void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
 rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-wallet_balance_label (new QLabel),
-accounts (new QPushButton ("Accounts")),
 show_ledger (new QPushButton ("Ledger")),
 show_peers (new QPushButton ("Peers")),
 search_for_receivables (new QPushButton ("Search for receivables")),
@@ -1436,8 +1489,6 @@ wallet (wallet_a)
     peers_layout->setContentsMargins (0, 0, 0, 0);
     peers_window->setLayout (peers_layout);
 
-	layout->addWidget (wallet_balance_label);
-    layout->addWidget (accounts);
     layout->addWidget (show_ledger);
     layout->addWidget (show_peers);
     layout->addWidget (search_for_receivables);
@@ -1474,14 +1525,10 @@ wallet (wallet_a)
         }
     });
 	mrai->click ();
-    QObject::connect (accounts, &QPushButton::released, [this] ()
-    {
-		this->wallet.push_main_stack (wallet.accounts.window);
-    });
     QObject::connect (wallet_refresh, &QPushButton::released, [this] ()
     {
 		this->wallet.accounts.refresh ();
-		refresh_wallet_balance ();
+		this->wallet.accounts.refresh_wallet_balance ();
     });
     QObject::connect (show_peers, &QPushButton::released, [this] ()
     {
@@ -1552,37 +1599,10 @@ wallet (wallet_a)
 		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
 	refresh_ledger ();
-	refresh_wallet_balance ();
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
 	search_for_receivables->setToolTip ("Search for pending blocks");
 	create_block->setToolTip ("Create block in JSON format");
 	enter_block->setToolTip ("Enter block in JSON format");
-}
-
-void rai_qt::advanced_actions::refresh_wallet_balance ()
-{
-	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
-	rai::uint128_t balance (0);
-	rai::uint128_t pending (0);
-	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
-	{
-		rai::public_key key (i->first);
-		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
-		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
-	}
-	auto final_text (std::string ("Wallet balance (XRB): ") + (balance / this->wallet.rendering_ratio).convert_to <std::string> ());
-	if (!pending.is_zero ())
-	{
-		final_text += "\nWallet pending: " + (pending / this->wallet.rendering_ratio).convert_to <std::string> ();
-	}
-	wallet_balance_label->setText (QString (final_text.c_str ()));
-	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this] ()
-	{
-		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] ()
-		{
-			refresh_wallet_balance ();
-		}));
-	});
 }
 
 void rai_qt::advanced_actions::refresh_peers ()
