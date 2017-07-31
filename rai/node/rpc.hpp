@@ -94,6 +94,7 @@ public:
 	void account_create ();
 	void account_get ();
 	void account_history ();
+	void account_info ();
 	void account_key ();
 	void account_list ();
 	void account_move ();
@@ -107,11 +108,14 @@ public:
 	void available_supply ();
 	void block ();
 	void blocks ();
+	void blocks_info ();
 	void block_account ();
 	void block_count ();
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
+	void delegators ();
+	void delegators_count ();
 	void deterministic_key ();
 	void frontiers ();
 	void frontier_count ();
@@ -168,6 +172,9 @@ public:
 	void work_get ();
 	void work_set ();
 	void work_validate ();
+	void work_peer_add ();
+	void work_peers ();
+	void work_peers_clear ();
 	std::string body;
 	rai::node & node;
 	rai::rpc & rpc;

@@ -263,6 +263,39 @@ void rai::rpc_handler::account_get ()
 	}
 }
 
+void rai::rpc_handler::account_info ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::uint256_union account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::account_info info;
+		if (!node.store.account_get (transaction, account, info))
+		{
+			boost::property_tree::ptree response_l;
+			response_l.put ("frontier", info.head.to_string ());
+			response_l.put ("open_block", info.open_block.to_string ());
+			response_l.put ("representative_block", info.rep_block.to_string ());
+			std::string balance;
+			rai::uint128_union (info.balance).encode_dec (balance);
+			response_l.put ("balance", balance);
+			response_l.put ("modified_timestamp", std::to_string (info.modified));
+			response_l.put ("block_count", std::to_string (info.block_count));
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Account not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::account_key ()
 {
 	std::string account_text (request.get <std::string> ("account"));
@@ -729,6 +762,46 @@ void rai::rpc_handler::blocks ()
 	response (response_l);
 }
 
+void rai::rpc_handler::blocks_info ()
+{
+	std::vector <std::string> hashes;
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree blocks;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (boost::property_tree::ptree::value_type &hashes : request.get_child("hashes"))
+	{
+		std::string hash_text = hashes.second.data();
+		rai::uint256_union hash;
+		auto error (hash.decode_hex (hash_text));
+		if (!error)
+		{
+			auto block (node.store.block_get (transaction, hash));
+			if (block != nullptr)
+			{
+				boost::property_tree::ptree entry;
+				auto account (node.ledger.account (transaction, hash));
+				entry.put ("block_account", account.to_account ());
+				auto amount (node.ledger.amount (transaction, hash));
+				entry.put ("amount", amount.convert_to <std::string> ());
+				std::string contents;
+				block->serialize_json (contents);
+				entry.put ("contents", contents);
+				blocks.push_back (std::make_pair (hash_text, entry));
+			}
+			else
+			{
+				error_response (response, "Block not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad hash number");
+		}
+	}
+	response_l.add_child ("blocks", blocks);
+	response (response_l);
+}
+
 void rai::rpc_handler::block_account ()
 {
 	std::string hash_text (request.get <std::string> ("hash"));
@@ -879,6 +952,64 @@ void rai::rpc_handler::chain ()
 	else
 	{
 		error_response (response, "Invalid block hash");
+	}
+}
+
+void rai::rpc_handler::delegators ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		boost::property_tree::ptree response_l;
+		boost::property_tree::ptree delegators;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+		{
+			rai::account_info info (i->second);
+			auto block (node.store.block_get (transaction, info.rep_block));
+			assert (block != nullptr);
+			if (block->representative() == account) {
+				std::string balance;
+				rai::uint128_union (info.balance).encode_dec (balance);
+				delegators.put (rai::account (i->first).to_account (), balance);
+			}
+		}
+		response_l.add_child ("delegators", delegators);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
+void rai::rpc_handler::delegators_count ()
+{
+	std::string account_text (request.get <std::string> ("account"));
+	rai::account account;
+	auto error (account.decode_account (account_text));
+	if (!error)
+	{
+		uint64_t count (0);
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+		{
+			rai::account_info info (i->second);
+			auto block (node.store.block_get (transaction, info.rep_block));
+			assert (block != nullptr);
+			if (block->representative() == account) {
+				++count;
+			}
+		}
+		boost::property_tree::ptree response_l;
+		response_l.put ("count", std::to_string (count));
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Bad account number");
 	}
 }
 
@@ -2882,6 +3013,76 @@ void rai::rpc_handler::work_validate ()
 	}
 }
 
+void rai::rpc_handler::work_peer_add ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string address_text = request.get <std::string> ("address");
+		std::string port_text = request.get <std::string> ("port");
+		boost::system::error_code ec;
+		auto address (boost::asio::ip::address_v6::from_string (address_text, ec));
+		if (!ec)
+		{
+			uint16_t port;
+			if (!rai::parse_port (port_text, port))
+			{
+				node.config.work_peers.push_back (std::make_pair (address, port));
+				boost::property_tree::ptree response_l;
+				response_l.put ("success", "");
+				response (response_l);
+			}
+			else
+			{
+				error_response (response, "Invalid port");
+			}
+		}
+		else
+		{
+			error_response (response, "Invalid address");
+		}
+		}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::work_peers ()
+{
+	if (rpc.config.enable_control)
+	{
+		boost::property_tree::ptree work_peers_l;
+		for (auto i (node.config.work_peers.begin ()), n (node.config.work_peers.end ()); i != n; ++i)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
+			work_peers_l.push_back (std::make_pair ("", entry));
+		}
+		boost::property_tree::ptree response_l;
+		response_l.add_child ("work_peers", work_peers_l);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::work_peers_clear ()
+{
+	if (rpc.config.enable_control)
+	{
+		node.config.work_peers.clear ();
+		boost::property_tree::ptree response_l;
+		response_l.put ("success", "");
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 rai::rpc_connection::rpc_connection (rai::node & node_a, rai::rpc & rpc_a) :
 node (node_a.shared ()),
 rpc (rpc_a),
@@ -2987,6 +3188,10 @@ void rai::rpc_handler::process_request ()
 		{
 			account_history ();
 		}
+		else if (action == "account_info")
+		{
+			account_info ();
+		}
 		else if (action == "account_key")
 		{
 			account_key ();
@@ -3039,6 +3244,10 @@ void rai::rpc_handler::process_request ()
 		{
 			blocks ();
 		}
+		else if (action == "blocks_info")
+		{
+			blocks_info ();
+		}
 		else if (action == "block_account")
 		{
 			block_account ();
@@ -3062,6 +3271,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "chain")
 		{
 			chain ();
+		}
+		else if (action == "delegators")
+		{
+			delegators ();
+		}
+		else if (action == "delegators_count")
+		{
+			delegators_count ();
 		}
 		else if (action == "deterministic_key")
 		{
@@ -3282,6 +3499,18 @@ void rai::rpc_handler::process_request ()
 		else if (action == "work_validate")
 		{
 			work_validate ();
+		}
+		else if (action == "work_peer_add")
+		{
+			work_peer_add ();
+		}
+		else if (action == "work_peers")
+		{
+			work_peers ();
+		}
+		else if (action == "work_peers_clear")
+		{
+			work_peers_clear ();
 		}
 		else
 		{

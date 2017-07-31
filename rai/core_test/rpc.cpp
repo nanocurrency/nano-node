@@ -2529,3 +2529,188 @@ TEST (rpc, wallet_republish)
 	ASSERT_EQ (send.hash (), blocks [0]);
 	ASSERT_EQ (open.hash (), blocks [1]);
 }
+
+TEST (rpc, delegators)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes [0]);
+	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	system.nodes [0]->process (send);
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open).code);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "delegators");
+	request.put ("account", rai::test_genesis_key.pub.to_account ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto & delegators_node (response.json.get_child ("delegators"));
+	boost::property_tree::ptree delegators;
+	for (auto i (delegators_node.begin ()), n (delegators_node.end ()); i != n; ++i)
+	{
+		delegators.put ((i->first), (i->second.get <std::string> ("")));
+	}
+	ASSERT_EQ (2, delegators.size ());
+	ASSERT_EQ ("100", delegators.get <std::string> (rai::test_genesis_key.pub.to_account ()));
+	ASSERT_EQ ("340282366920938463463374607431768211355", delegators.get <std::string> (key.pub.to_account ()));
+}
+
+TEST (rpc, delegators_count)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes [0]);
+	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	system.nodes [0]->process (send);
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open).code);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "delegators_count");
+	request.put ("account", rai::test_genesis_key.pub.to_account ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string count (response.json.get <std::string> ("count"));
+	ASSERT_EQ ("2", count);
+}
+
+TEST (rpc, account_info)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes [0]);
+	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	system.nodes [0]->process (send);
+	auto time (std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "account_info");
+	request.put ("account", rai::test_genesis_key.pub.to_account ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string frontier (response.json.get <std::string> ("frontier"));
+	ASSERT_EQ (send.hash ().to_string (), frontier);
+	std::string open_block (response.json.get <std::string> ("open_block"));
+	ASSERT_EQ (genesis.hash ().to_string (), open_block);
+	std::string representative_block (response.json.get <std::string> ("representative_block"));
+	ASSERT_EQ (genesis.hash ().to_string (), representative_block);
+	std::string balance (response.json.get <std::string> ("balance"));
+	ASSERT_EQ ("100", balance);
+	std::string modified_timestamp (response.json.get <std::string> ("modified_timestamp"));
+	ASSERT_EQ (std::to_string (time), modified_timestamp);
+	std::string block_count (response.json.get <std::string> ("block_count"));
+	ASSERT_EQ ("2", block_count);
+}
+
+TEST (rpc, blocks_info)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service,  *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "blocks_info");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree peers_l;
+	entry.put ("", system.nodes [0]->latest (rai::genesis_account).to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", peers_l);
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	for (auto & blocks : response.json.get_child ("blocks"))
+	{
+		std::string hash_text (blocks.first);
+		ASSERT_EQ (system.nodes [0]->latest (rai::genesis_account).to_string (), hash_text);
+		std::string account_text (blocks.second.get <std::string> ("block_account"));
+		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
+		std::string amount_text (blocks.second.get <std::string> ("amount"));
+		ASSERT_EQ (rai::genesis_amount.convert_to <std::string> (), amount_text);
+		std::string blocks_text (blocks.second.get <std::string> ("contents"));
+		ASSERT_FALSE (blocks_text.empty ());
+	}
+}
+
+TEST (rpc, work_peers_all)
+{
+	rai::system system (24000, 1);
+	rai::node_init init1;
+	auto & node1 (*system.nodes [0]);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "work_peer_add");
+	request.put ("address", "::1");
+	request.put ("port", "0");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string success (response.json.get <std::string> ("success"));
+	ASSERT_TRUE (success.empty());
+	boost::property_tree::ptree request1;
+	request1.put ("action", "work_peers");
+	test_response response1 (request1, rpc, system.service);
+	while (response1.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response1.status);
+	auto & peers_node (response1.json.get_child ("work_peers"));
+	std::vector <std::string> peers;
+	for (auto i (peers_node.begin ()), n (peers_node.end ()); i != n; ++i)
+	{
+		peers.push_back (i->second.get <std::string> (""));
+	}
+	ASSERT_EQ (1, peers.size ());
+	ASSERT_EQ ("::1:0", peers[0]);
+	boost::property_tree::ptree request2;
+	request2.put ("action", "work_peers_clear");
+	test_response response2 (request2, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	success = response2.json.get <std::string> ("success");
+	ASSERT_TRUE (success.empty());
+	test_response response3 (request1, rpc, system.service);
+	while (response3.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response3.status);
+	peers_node = response3.json.get_child ("work_peers");
+	ASSERT_EQ (0, peers_node.size ());
+}
