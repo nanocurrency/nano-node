@@ -145,6 +145,7 @@ public:
 	void successors ();
 	void unchecked ();
 	void unchecked_clear ();
+	void unchecked_keys ();
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();

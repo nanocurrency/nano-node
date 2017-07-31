@@ -1880,31 +1880,16 @@ void rai::rpc_handler::unchecked ()
 	{
 		// If there is no "count" in request
 	}
-	rai::uint256_union hash (0);
-	try
-	{
-		std::string hash_text (request.get <std::string> ("hash"));
-		auto error_hash (hash.decode_hex (hash_text));
-		if (error_hash)
-		{
-			error_response (response, "Bad hash number");
-		}
-	}
-	catch (std::runtime_error &)
-	{
-		// If there is no "hash" in request
-	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree unchecked;
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	for (auto i (node.store.unchecked_begin (transaction, hash)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
+	for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 	{
-		rai::block_hash hash (i->first);
 		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
 		auto block (rai::deserialize_block (stream));
 		std::string contents;
 		block->serialize_json (contents);
-		unchecked.put(hash.to_string (), contents);
+		unchecked.put(block->hash ().to_string (), contents);
 	}
 	response_l.add_child ("blocks", unchecked);
 	response (response_l);
@@ -1924,6 +1909,55 @@ void rai::rpc_handler::unchecked_clear ()
 	{
 		error_response (response, "RPC control is disabled");
 	}
+}
+
+void rai::rpc_handler::unchecked_keys ()
+{
+	uint64_t count (std::numeric_limits <uint64_t>::max ());
+	try
+	{
+		std::string count_text (request.get <std::string> ("count"));
+		auto error (decode_unsigned (count_text, count));
+		if (error)
+		{
+			error_response (response, "Invalid count");
+		}
+	}
+	catch (std::runtime_error &)
+	{
+		// If there is no "count" in request
+	}
+	rai::uint256_union key (0);
+	try
+	{
+		std::string hash_text (request.get <std::string> ("key"));
+		auto error_hash (key.decode_hex (hash_text));
+		if (error_hash)
+		{
+			error_response (response, "Bad key hash number");
+		}
+	}
+	catch (std::runtime_error &)
+	{
+		// If there is no "key" in request
+	}
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree unchecked;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (auto i (node.store.unchecked_begin (transaction, key)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
+	{
+		boost::property_tree::ptree entry;
+		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+		auto block (rai::deserialize_block (stream));
+		std::string contents;
+		block->serialize_json (contents);
+		entry.put ("key", rai::block_hash (i->first).to_string ());
+		entry.put ("hash", block->hash ().to_string ());
+		entry.put ("contents", contents);
+		unchecked.push_back (std::make_pair ("", entry));
+	}
+	response_l.add_child ("unchecked", unchecked);
+	response (response_l);
 }
 
 void rai::rpc_handler::version ()
@@ -2759,6 +2793,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "unchecked_clear")
 		{
 			unchecked_clear ();
+		}
+		else if (action == "unchecked_keys")
+		{
+			unchecked_keys ();
 		}
 		else if (action == "validate_account_number")
 		{
