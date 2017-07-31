@@ -112,6 +112,7 @@ public:
 	void blocks_info ();
 	void block_account ();
 	void block_count ();
+	void block_count_type ();
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
@@ -151,6 +152,10 @@ public:
 	void send ();
 	void stop ();
 	void successors ();
+	void unchecked ();
+	void unchecked_clear ();
+	void unchecked_get ();
+	void unchecked_keys ();
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();
