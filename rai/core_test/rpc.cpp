@@ -3,8 +3,7 @@
 #include <rai/node/testing.hpp>
 #include <rai/node/rpc.hpp>
 
-#include <beast/http.hpp>
-#include <beast/http/string_body.hpp>
+#include <boost/beast.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -25,17 +24,17 @@ public:
 			{
 				std::stringstream ostream;
 				boost::property_tree::write_json (ostream, request);
-				req.method ("POST");
+				req.method (boost::beast::http::verb::post);
 				req.target ("/");
 				req.version = 11;
 				ostream.flush ();
 				req.body = ostream.str ();
-				beast::http::prepare(req);
-				beast::http::async_write (sock, req, [this] (boost::system::error_code & ec)
+				req.prepare_payload ();
+				boost::beast::http::async_write (sock, req, [this] (boost::system::error_code const & ec)
 				{
 					if (!ec)
 					{
-						beast::http::async_read(sock, sb, resp, [this] (boost::system::error_code & ec)
+						boost::beast::http::async_read(sock, sb, resp, [this] (boost::system::error_code const & ec)
 						{
 							if (!ec)
 							{
@@ -71,9 +70,9 @@ public:
 	boost::property_tree::ptree const & request;
 	boost::asio::ip::tcp::socket sock;
 	boost::property_tree::ptree json;
-	beast::flat_buffer sb;
-	beast::http::request<beast::http::string_body> req;
-	beast::http::response<beast::http::string_body> resp;
+	boost::beast::flat_buffer sb;
+	boost::beast::http::request<boost::beast::http::string_body> req;
+	boost::beast::http::response<boost::beast::http::string_body> resp;
 	int status;
 };
 
@@ -1361,10 +1360,9 @@ TEST (rpc, version)
     ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("8", response1.json.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH), response1.json.get <std::string> ("node_vendor"));
-	auto & headers (response1.resp.fields);
-	auto access_control (std::find_if (headers.begin (), headers.end (), [] (decltype (*headers.begin ()) & header_a) { return boost::iequals (header_a.first, "Access-Control-Allow-Origin"); }));
-	ASSERT_NE (headers.end (), access_control);
-	ASSERT_EQ ("*", access_control->second);
+	auto headers (response1.resp.find ("Access-Control-Allow-Origin"));
+	ASSERT_NE (response1.resp.end (), headers);
+	ASSERT_EQ ("*", headers->value ());
 }
 
 TEST (rpc, work_generate)

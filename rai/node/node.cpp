@@ -1119,31 +1119,33 @@ warmed_up (0)
 						{
 							if (!ec)
 							{
-								auto req (std::make_shared <beast::http::request<beast::http::string_body>> ());
-								req->method ("POST");
+								auto req (std::make_shared <boost::beast::http::request<boost::beast::http::string_body>> ());
+								req->method (boost::beast::http::verb::post);
 								req->target (*target);
 								req->version = 11;
-								req->fields.replace("Host", address);
+								req->insert(boost::beast::http::field::host, address);
 								req->body = *body;
-								beast::http::prepare (*req);
-								beast::http::async_write (*sock, *req, [node_l, sock, address, port, req] (boost::system::error_code & ec)
+								//req->prepare (*req);
+								//boost::beast::http::prepare(req);
+								req->prepare_payload();
+								boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req] (boost::system::error_code const & ec)
 								{
 									if (!ec)
 									{
-										auto sb (std::make_shared <beast::flat_buffer> ());
-										auto resp (std::make_shared <beast::http::response <beast::http::string_body>> ());
-										beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port] (boost::system::error_code & ec)
+										auto sb (std::make_shared <boost::beast::flat_buffer> ());
+										auto resp (std::make_shared <boost::beast::http::response <boost::beast::http::string_body>> ());
+										boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port] (boost::system::error_code const & ec)
 										{
 											if (!ec)
 											{
-												if (resp->status == 200)
+												if (resp->result() == boost::beast::http::status::ok)
 												{
 												}
 												else
 												{
 													if (node_l->config.logging.callback_logging ())
 													{
-														BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->status);
+														BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result());
 													}
 												}
 											}
@@ -1837,8 +1839,8 @@ socket (service_a)
 }
 boost::asio::ip::address address;
 uint16_t port;
-beast::flat_buffer buffer;
-beast::http::response <beast::http::string_body> response;
+boost::beast::flat_buffer buffer;
+boost::beast::http::response <boost::beast::http::string_body> response;
 boost::asio::ip::tcp::socket socket;
 };
 class distributed_work : public std::enable_shared_from_this <distributed_work>
@@ -1881,21 +1883,21 @@ void start ()
 							boost::property_tree::write_json (ostream, request);
 							request_string = ostream.str ();
 						}
-						beast::http::request <beast::http::string_body> request;
-						request.method ("POST");
-						request.target ("/");
-						request.version = 11;
-						request.body = request_string;
-						beast::http::prepare (request);
-						beast::http::async_write (connection->socket, request, [this_l, connection] (boost::system::error_code const & ec)
+						auto request (std::make_shared <boost::beast::http::request <boost::beast::http::string_body>> ());
+						request->method (boost::beast::http::verb::post);
+						request->target ("/");
+						request->version = 11;
+						request->body = request_string;
+						request->prepare_payload ();
+						boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request] (boost::system::error_code const & ec)
 						{
 							if (!ec)
 							{
-								beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection] (boost::system::error_code const & ec)
+								boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection] (boost::system::error_code const & ec)
 								{
 									if (!ec)
 									{
-										if (connection->response.status == 200)
+										if (connection->response.result() == boost::beast::http::status::ok)
 										{
 											this_l->success (connection->response.body, connection->address);
 										}
@@ -1952,14 +1954,15 @@ void stop ()
 				boost::property_tree::write_json (ostream, request);
 				request_string = ostream.str ();
 			}
-			beast::http::request <beast::http::string_body> request;
-			request.method ("POST");
+			boost::beast::http::request <boost::beast::http::string_body> request;
+			request.method (boost::beast::http::verb::post);
 			request.target ("/");
 			request.version = 11;
 			request.body = request_string;
-			beast::http::prepare (request);
+			//boost::beast::http::prepare (request);
+			request.prepare_payload();
 			auto socket (std::make_shared <boost::asio::ip::tcp::socket> (this_l->node->network.service));
-			beast::http::async_write (*socket, request, [socket] (boost::system::error_code const & ec)
+			boost::beast::http::async_write (*socket, request, [socket] (boost::system::error_code const & ec)
 			{
 			});
 		});

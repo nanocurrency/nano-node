@@ -1,6 +1,6 @@
 [submodule "beast"]
 	path = beast
-	url = https://github.com/vinniefalco/Beast.git
+	url = https://github.com/boostorg/beast.git
 [submodule "miniupnp"]
 	path = miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
