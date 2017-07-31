@@ -15,7 +15,7 @@
 
 #include <cryptopp/osrng.h>
 
-#include <liblmdb/lmdb.h>
+#include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <rai/config.hpp>
 
