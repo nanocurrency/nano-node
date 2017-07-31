@@ -42,6 +42,7 @@ namespace rai_qt {
         QPushButton * change;
 		QFrame * sep2;
 		QLabel * representative;
+		QLabel * current_representative;
 		QLineEdit * new_representative;
 		QPushButton * change_rep;
         QPushButton * back;
@@ -51,11 +52,8 @@ namespace rai_qt {
     {
     public:
 		advanced_actions (rai_qt::wallet &);
-		void refresh_wallet_balance ();
-		QLabel * wallet_balance_label;
 		QWidget * window;
 		QVBoxLayout * layout;
-		QPushButton * accounts;
 		QPushButton * show_ledger;
 		QPushButton * show_peers;
 		QPushButton * search_for_receivables;
@@ -168,21 +166,23 @@ namespace rai_qt {
     class accounts
     {
     public:
-        accounts (rai_qt::wallet &);
-        void refresh ();
-        QWidget * window;
-        QVBoxLayout * layout;
-        QStandardItemModel * model;
+		accounts (rai_qt::wallet &);
+		void refresh ();
+		void refresh_wallet_balance ();
+		QLabel * wallet_balance_label;
+		QWidget * window;
+		QVBoxLayout * layout;
+		QStandardItemModel * model;
 		QTableView * view;
 		QPushButton * use_account;
 		QPushButton * create_account;
 		QPushButton * import_wallet;
 		QPushButton * backup_seed;
 		QFrame * separator;
-        QLineEdit * account_key_line;
-        QPushButton * account_key_button;
-        QPushButton * back;
-        rai_qt::wallet & wallet;
+		QLineEdit * account_key_line;
+		QPushButton * account_key_button;
+		QPushButton * back;
+		rai_qt::wallet & wallet;
     };
 	class import
 	{
@@ -279,13 +279,14 @@ namespace rai_qt {
 		std::set <rai_qt::status_types> active;
 		rai_qt::wallet & wallet;
 	};
-    class wallet : public std::enable_shared_from_this <rai_qt::wallet>
-    {
-    public:
-        wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr <rai::wallet>, rai::account &);
+	class wallet : public std::enable_shared_from_this <rai_qt::wallet>
+	{
+	public:
+		wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr <rai::wallet>, rai::account &);
 		void start ();
-        void refresh ();
+		void refresh ();
 		void update_connected ();
+		void empty_password ();
 		void change_rendering_ratio (rai::uint128_t const &);
 		rai::uint128_t rendering_ratio;
 		rai::node & node;
@@ -293,42 +294,43 @@ namespace rai_qt {
 		rai::account & account;
 		rai_qt::eventloop_processor & processor;
 		rai_qt::history history;
-        rai_qt::accounts accounts;
+		rai_qt::accounts accounts;
 		rai_qt::self_pane self;
-        rai_qt::settings settings;
-        rai_qt::advanced_actions advanced;
-        rai_qt::block_creation block_creation;
-        rai_qt::block_entry block_entry;
+		rai_qt::settings settings;
+		rai_qt::advanced_actions advanced;
+		rai_qt::block_creation block_creation;
+		rai_qt::block_entry block_entry;
 		rai_qt::block_viewer block_viewer;
 		rai_qt::account_viewer account_viewer;
 		rai_qt::import import;
-    
-        QApplication & application;
+		
+		QApplication & application;
 		QLabel * status;
-        QStackedWidget * main_stack;
-        
-        QWidget * client_window;
-        QVBoxLayout * client_layout;
-        
-        QWidget * entry_window;
-        QVBoxLayout * entry_window_layout;
+		QStackedWidget * main_stack;
+		
+		QWidget * client_window;
+		QVBoxLayout * client_layout;
+		
+		QWidget * entry_window;
+		QVBoxLayout * entry_window_layout;
 		QFrame * separator;
 		QLabel * account_history_label;
-        QPushButton * send_blocks;
+		QPushButton * send_blocks;
 		QPushButton * settings_button;
-        QPushButton * show_advanced;
-        
-        QWidget * send_blocks_window;
-        QVBoxLayout * send_blocks_layout;
-        QLabel * send_account_label;
-        QLineEdit * send_account;
-        QLabel * send_count_label;
-        QLineEdit * send_count;
-        QPushButton * send_blocks_send;
-        QPushButton * send_blocks_back;
+		QPushButton * accounts_button;
+		QPushButton * show_advanced;
+		
+		QWidget * send_blocks_window;
+		QVBoxLayout * send_blocks_layout;
+		QLabel * send_account_label;
+		QLineEdit * send_account;
+		QLabel * send_count_label;
+		QLineEdit * send_count;
+		QPushButton * send_blocks_send;
+		QPushButton * send_blocks_back;
 		
 		rai_qt::status active_status;
-        void pop_main_stack ();
-        void push_main_stack (QWidget *);
-    };
+		void pop_main_stack ();
+		void push_main_stack (QWidget *);
+	};
 }
