@@ -5,7 +5,7 @@
 
 #include <ed25519-donna/ed25519.h>
 
-#include <liblmdb/lmdb.h>
+#include <lmdb/libraries/liblmdb/lmdb.h>
 
 boost::filesystem::path rai::unique_path ()
 {

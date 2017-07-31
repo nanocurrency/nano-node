@@ -150,9 +150,9 @@ add_library (xxhash
 	xxhash/xxhash.h)
 
 add_library (lmdb
-	liblmdb/lmdb.h
-	liblmdb/mdb.c
-	liblmdb/midl.c)
+	lmdb/libraries/liblmdb/lmdb.h
+	lmdb/libraries/liblmdb/mdb.c
+	lmdb/libraries/liblmdb/midl.c)
 
 add_library (blake2
 	blake2/blake2-config.h
