@@ -72,7 +72,7 @@ TEST (wallet, select_account)
 	wallet->start ();
 	ASSERT_EQ (key1, wallet->account);
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	wallet->accounts.view->selectionModel ()->setCurrentIndex (wallet->accounts.model->index (0, 0), QItemSelectionModel::SelectionFlag::Select);
 	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
 	auto key3 (wallet->account);
@@ -461,7 +461,7 @@ TEST (wallet, startup_work)
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_TRUE (wallet->wallet_m->store.work_get (transaction, rai::test_genesis_key.pub, work1));
 	}
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	QTest::keyClicks (wallet->accounts.account_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
     QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
     auto iterations1 (0);
@@ -522,7 +522,7 @@ TEST (wallet, import)
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet->import.window, wallet->main_stack->currentWidget ());
@@ -573,7 +573,7 @@ TEST (wallet, ignore_empty_adhoc)
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::keyClicks (wallet->accounts.account_key_line, rai::test_genesis_key.prv.data.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
@@ -600,7 +600,7 @@ TEST (wallet, change_seed)
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet->import.window, wallet->main_stack->currentWidget ());
@@ -641,7 +641,7 @@ TEST (wallet, seed_work_generation)
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet->import.window, wallet->main_stack->currentWidget ());
@@ -672,7 +672,7 @@ TEST (wallet, backup_seed)
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.backup_seed, Qt::LeftButton);
 	rai::raw_key seed;
@@ -689,7 +689,7 @@ TEST (wallet, import_locked)
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->advanced.accounts, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	rai::raw_key seed1;
 	seed1.data.clear ();
