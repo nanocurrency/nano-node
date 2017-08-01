@@ -443,6 +443,16 @@ void rai::frontier_req_client::next ()
 	}
 }
 
+rai::bulk_pull_client::bulk_pull_client (rai::bootstrap_client & connection_a) :
+connection (connection_a),
+account_count (0)
+{
+}
+
+rai::bulk_pull_client::~bulk_pull_client ()
+{
+}
+
 void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 {
 	pull = pull_a;
@@ -608,16 +618,6 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 	{
 		BOOST_LOG (connection.node->log) << boost::str (boost::format ("Error bulk receiving block: %1%") % ec.message ());
 	}
-}
-
-rai::bulk_pull_client::bulk_pull_client (rai::bootstrap_client & connection_a) :
-connection (connection_a),
-account_count (0)
-{
-}
-
-rai::bulk_pull_client::~bulk_pull_client ()
-{
 }
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::bootstrap_client> const & connection_a) :
