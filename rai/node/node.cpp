@@ -348,7 +348,7 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
         }
         ++node.network.incoming.keepalive;
-        node.peers.contacted (sender);
+        node.peers.contacted (sender, message_a.version_using);
         node.network.merge_peers (message_a.peers);
     }
     void publish (rai::publish const & message_a) override
@@ -358,8 +358,8 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
         }
         ++node.network.incoming.publish;
-        node.peers.contacted (sender);
-        node.peers.insert (sender);
+        node.peers.contacted (sender, message_a.version_using);
+        node.peers.insert (sender, message_a.version_using);
         node.process_receive_republish (message_a.block);
     }
     void confirm_req (rai::confirm_req const & message_a) override
@@ -369,8 +369,8 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
         }
         ++node.network.incoming.confirm_req;
-        node.peers.contacted (sender);
-        node.peers.insert (sender);
+        node.peers.contacted (sender, message_a.version_using);
+        node.peers.insert (sender, message_a.version_using);
         node.process_receive_republish (message_a.block);
 		if (node.ledger.block_exists (message_a.block->hash ()))
         {
@@ -384,8 +384,8 @@ public:
             BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%") % sender % message_a.vote.block->hash ().to_string ());
         }
         ++node.network.incoming.confirm_ack;
-        node.peers.contacted (sender);
-        node.peers.insert (sender);
+        node.peers.contacted (sender, message_a.version_using);
+        node.peers.insert (sender, message_a.version_using);
         node.process_receive_republish (message_a.vote.block);
         node.vote_processor.vote (message_a.vote, sender);
     }
@@ -2306,7 +2306,7 @@ void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
     }
 }
 
-bool rai::peer_container::insert (rai::endpoint const & endpoint_a)
+bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
 {
 	auto unknown (false);
     auto result (not_a_peer (endpoint_a));
@@ -2324,7 +2324,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a)
         }
         else
         {
-            peers.insert (rai::peer_information (endpoint_a));
+            peers.insert (rai::peer_information (endpoint_a, version_a));
 			unknown = true;
         }
     }
@@ -2404,14 +2404,15 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	return result;
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a) :
+rai::peer_information::peer_information (rai::endpoint const & endpoint_a, unsigned network_version_a) :
 endpoint (endpoint_a),
 last_contact (std::chrono::system_clock::now ()),
 last_attempt (last_contact),
 last_bootstrap_attempt (std::chrono::system_clock::time_point ()),
 last_rep_request (std::chrono::system_clock::time_point ()),
 last_rep_response (std::chrono::system_clock::time_point ()),
-rep_weight (0)
+rep_weight (0),
+network_version (network_version_a)
 {
 }
 
@@ -2433,7 +2434,7 @@ disconnect_observer ([] () {})
 {
 }
 
-void rai::peer_container::contacted (rai::endpoint const & endpoint_a)
+void rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned version_a)
 {
     auto endpoint_l (endpoint_a);
     if (endpoint_l.address ().is_v4 ())
@@ -2441,7 +2442,7 @@ void rai::peer_container::contacted (rai::endpoint const & endpoint_a)
         endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
     }
     assert (endpoint_l.address ().is_v6 ());
-	insert (endpoint_l);
+	insert (endpoint_l, version_a);
 }
 
 std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::time_point const & time_a)

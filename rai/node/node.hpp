@@ -151,7 +151,7 @@ class work_pool;
 class peer_information
 {
 public:
-	peer_information (rai::endpoint const &);
+	peer_information (rai::endpoint const &, unsigned);
 	peer_information (rai::endpoint const &, std::chrono::system_clock::time_point const &, std::chrono::system_clock::time_point const &);
 	rai::endpoint endpoint;
 	std::chrono::system_clock::time_point last_contact;
@@ -160,19 +160,20 @@ public:
 	std::chrono::system_clock::time_point last_rep_request;
 	std::chrono::system_clock::time_point last_rep_response;
 	rai::amount rep_weight;
+	unsigned network_version;
 };
 class peer_container
 {
 public:
 	peer_container (rai::endpoint const &);
 	// We were contacted by endpoint, update peers
-    void contacted (rai::endpoint const &);
+    void contacted (rai::endpoint const &, unsigned);
 	// Unassigned, reserved, self
 	bool not_a_peer (rai::endpoint const &);
 	// Returns true if peer was already known
 	bool known_peer (rai::endpoint const &);
 	// Notify of peer we received from
-	bool insert (rai::endpoint const &);
+	bool insert (rai::endpoint const &, unsigned);
 	std::unordered_set <rai::endpoint> random_set (size_t);
 	void random_fill (std::array <rai::endpoint, 8> &);
 	// Request a list of the top known representatives

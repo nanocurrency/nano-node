@@ -1608,9 +1608,9 @@ wallet (wallet_a)
 void rai_qt::advanced_actions::refresh_peers ()
 {
 	auto list (wallet.node.peers.list ());
-	std::sort (list.begin (), list.end (), [] (rai::peer_information const & lhs, rai::peer_information const & rhs)
+	std::sort (list.begin (), list.end (), [] (rai::endpoint const & lhs, rai::endpoint const & rhs)
 	{
-		return lhs.endpoint < rhs.endpoint;
+		return lhs < rhs;
 	});
     QStringList peers;
     for (auto i: list)
