@@ -384,12 +384,19 @@ unsigned const rai::wallet_store::version_1 (1);
 unsigned const rai::wallet_store::version_2 (2);
 unsigned const rai::wallet_store::version_3 (3);
 unsigned const rai::wallet_store::version_current (version_3);
+// Wallet version number
 rai::uint256_union const rai::wallet_store::version_special (0);
+// Random number used to salt private key encription
 rai::uint256_union const rai::wallet_store::salt_special (1);
+// Key used to encrypt wallet keys, encrypted itself by the user password
 rai::uint256_union const rai::wallet_store::wallet_key_special (2);
+// Check value used to see if password is valid
 rai::uint256_union const rai::wallet_store::check_special (3);
+// Representative account to be used if we open a new account
 rai::uint256_union const rai::wallet_store::representative_special (4);
+// Wallet seed for deterministic key generation
 rai::uint256_union const rai::wallet_store::seed_special (5);
+// Current key index for deterministic keys
 rai::uint256_union const rai::wallet_store::deterministic_index_special (6);
 int const rai::wallet_store::special_count (7);
 
