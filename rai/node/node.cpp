@@ -1389,34 +1389,36 @@ void rai::node::process_receive_many (std::shared_ptr <rai::block> block_a, std:
 	blocks.push_back (block_a);
     while (!blocks.empty ())
     {
-		rai::transaction transaction (store.environment, nullptr, true);
-		auto count (0);
-		while (!blocks.empty () && count < rai::blocks_per_transaction)
 		{
-			auto block (blocks.back ());
-			blocks.pop_back ();
-			auto hash (block->hash ());
-			auto process_result (process_receive_one (transaction, block));
-			completed_a (transaction, process_result, block);
-			switch (process_result.code)
+			rai::transaction transaction (store.environment, nullptr, true);
+			auto count (0);
+			while (!blocks.empty () && count < rai::blocks_per_transaction)
 			{
-				case rai::process_result::progress:
-				case rai::process_result::old:
+				auto block (blocks.back ());
+				blocks.pop_back ();
+				auto hash (block->hash ());
+				auto process_result (process_receive_one (transaction, block));
+				completed_a (transaction, process_result, block);
+				switch (process_result.code)
 				{
-					auto cached (store.unchecked_get (transaction, hash));
-					for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+					case rai::process_result::progress:
+					case rai::process_result::old:
 					{
-						store.unchecked_del (transaction, hash, **i);
-						blocks.push_back (std::move (*i));
+						auto cached (store.unchecked_get (transaction, hash));
+						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+						{
+							store.unchecked_del (transaction, hash, **i);
+							blocks.push_back (std::move (*i));
+						}
+						std::lock_guard <std::mutex> lock (gap_cache.mutex);
+						gap_cache.blocks.get <1> ().erase (hash);
+						break;
 					}
-					std::lock_guard <std::mutex> lock (gap_cache.mutex);
-					gap_cache.blocks.get <1> ().erase (hash);
-					break;
+					default:
+						break;
 				}
-				default:
-					break;
+				++count;
 			}
-			++count;
 		}
 		// Let other threads get an opportunity to transaction lock
 		std::this_thread::yield ();
