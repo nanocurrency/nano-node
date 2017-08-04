@@ -1445,8 +1445,8 @@ ledger_refresh (new QPushButton ("Refresh")),
 ledger_back (new QPushButton ("Back")),
 peers_window (new QWidget),
 peers_layout (new QVBoxLayout),
-peers_model (new QStringListModel),
-peers_view (new QListView),
+peers_model (new QStandardItemModel),
+peers_view (new QTableView),
 bootstrap_label (new QLabel ("IPV6:port \"::ffff:192.168.0.1:7075\"")),
 bootstrap_line (new QLineEdit),
 peers_bootstrap (new QPushButton ("Initiate Bootstrap")),
@@ -1478,8 +1478,13 @@ wallet (wallet_a)
     ledger_layout->setContentsMargins (0, 0, 0, 0);
     ledger_window->setLayout (ledger_layout);
     
+    peers_model->setHorizontalHeaderItem (0, new QStandardItem ("IPv6 address:port"));
+    peers_model->setHorizontalHeaderItem (1, new QStandardItem ("Net version"));
     peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
+    peers_view->verticalHeader ()->hide ();
     peers_view->setModel (peers_model);
+	peers_view->setColumnWidth(0,220);
+	peers_view->setSortingEnabled(true);
     peers_layout->addWidget (peers_view);
 	peers_layout->addWidget (bootstrap_label);
 	peers_layout->addWidget (bootstrap_line);
@@ -1607,22 +1612,20 @@ wallet (wallet_a)
 
 void rai_qt::advanced_actions::refresh_peers ()
 {
-	auto list (wallet.node.peers.list ());
-	std::sort (list.begin (), list.end (), [] (rai::endpoint const & lhs, rai::endpoint const & rhs)
+	peers_model->removeRows (0, peers_model->rowCount ());
+	auto list (wallet.node.peers.list_version ());
+	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		return lhs < rhs;
-	});
-    QStringList peers;
-    for (auto i: list)
-    {
-        std::stringstream endpoint;
-        endpoint << i.address ().to_string ();
-        endpoint << ':';
-        endpoint << i.port ();
-        QString qendpoint (endpoint.str().c_str ());
-        peers << qendpoint;
-    }
-    peers_model->setStringList (peers);
+		std::stringstream endpoint;
+		endpoint << i->first.address ().to_string ();
+		endpoint << ':';
+		endpoint << i->first.port ();
+		QString qendpoint (endpoint.str().c_str ());
+		QList <QStandardItem *> items;
+		items.push_back (new QStandardItem (qendpoint));
+		items.push_back (new QStandardItem (QString (std::to_string (i->second).c_str ())));
+		peers_model->appendRow (items);
+	}
 }
 
 void rai_qt::advanced_actions::refresh_ledger ()

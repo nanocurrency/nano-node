@@ -1471,7 +1471,7 @@ void rai::rpc_handler::peers ()
 {
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree peers_l;
-	auto peers_list (node.peers.list_version());
+	auto peers_list (node.peers.list_version ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
