@@ -193,6 +193,23 @@ TEST (bootstrap, simple)
     ASSERT_TRUE (block4.empty ());
 }
 
+TEST (unchecked, multiple)
+{
+    bool init (false);
+    rai::block_store store (init, rai::unique_path ());
+    ASSERT_TRUE (!init);
+    auto block1 (std::make_shared <rai::send_block> (4, 1, 2, rai::keypair ().prv, 4, 5));
+	rai::transaction transaction (store.environment, nullptr, true);
+    auto block2 (store.unchecked_get (transaction, block1->previous ()));
+    ASSERT_TRUE (block2.empty ());
+    store.unchecked_put (transaction, block1->previous (), block1);
+    store.unchecked_put (transaction, block1->source (), block1);
+    auto block3 (store.unchecked_get (transaction, block1->previous ()));
+    ASSERT_FALSE (block3.empty ());
+	auto block4 (store.unchecked_get (transaction, block1->source ()));
+    ASSERT_FALSE (block4.empty ());
+}
+
 TEST (checksum, simple)
 {
     bool init (false);

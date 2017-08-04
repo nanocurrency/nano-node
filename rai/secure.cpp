@@ -2350,7 +2350,7 @@ void rai::block_store::unchecked_cache_flush (MDB_txn * transaction_a)
 std::vector <std::shared_ptr <rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector <std::shared_ptr <rai::block>> result;
-	for (auto i (unchecked_cache.begin ()), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
+	for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
 	{
 		result.push_back (i->second);
 	}
