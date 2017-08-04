@@ -2364,7 +2364,7 @@ std::vector <std::shared_ptr <rai::block>> rai::block_store::unchecked_get (MDB_
 
 void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
-	for (auto i (unchecked_cache.begin ()), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
+	for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
 	{
 		if (*i->second == block_a)
 		{
