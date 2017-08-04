@@ -1471,14 +1471,12 @@ void rai::rpc_handler::peers ()
 {
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree peers_l;
-	auto peers_list (node.peers.list());
+	auto peers_list (node.peers.list_version());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
-		boost::property_tree::ptree entry;
 		std::stringstream text;
-		text << *i;
-		entry.put ("", text.str ());
-		peers_l.push_back (std::make_pair ("", entry));
+		text << i->first;
+		peers_l.push_back(boost::property_tree::ptree::value_type(text.str (), std::to_string (i->second)));
 	}
 	response_l.add_child ("peers", peers_l);
 	response (response_l);

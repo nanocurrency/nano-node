@@ -1568,6 +1568,17 @@ std::vector <rai::endpoint> rai::peer_container::list ()
     return result;
 }
 
+std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
+{
+	std::map<rai::endpoint, unsigned> result;
+	std::lock_guard <std::mutex> lock (mutex);
+	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+	{
+		result.insert (std::pair<rai::endpoint, unsigned> (i->endpoint, i->network_version));
+	}
+	return result;
+}
+
 rai::endpoint rai::peer_container::bootstrap_peer ()
 {
     rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
