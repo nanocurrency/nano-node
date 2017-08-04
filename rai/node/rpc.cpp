@@ -2026,14 +2026,14 @@ void rai::rpc_handler::republish ()
 				block = node.store.block_get (transaction, hash);
 				if (sources != 0) // Republish source chain
 				{
-					std::unique_ptr <rai::block> block_a;
 					rai::block_hash source (block->source ());
+					std::unique_ptr <rai::block> block_a (node.store.block_get (transaction, source));
 					std::vector <rai::block_hash> hashes;
-					while (!source.is_zero () && hashes.size () < sources)
+					while (block_a != nullptr && hashes.size () < sources)
 					{
 						hashes.push_back (source);
-						block_a = node.store.block_get (transaction, source);
 						source = block_a->previous ();
+						block_a = node.store.block_get (transaction, source);
 					}
 					std::reverse (hashes.begin (), hashes.end ());  
 					for (auto & hash_l : hashes)
