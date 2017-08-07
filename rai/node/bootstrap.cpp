@@ -270,7 +270,8 @@ current (0),
 count (0),
 next_report (std::chrono::system_clock::now () + std::chrono::seconds (15))
 {
-	next ();
+	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	next (transaction);
 }
 
 rai::frontier_req_client::~frontier_req_client ()
@@ -346,27 +347,25 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
         {
             while (!current.is_zero () && current < account)
             {
+				// We know about an account they don't.
+				rai::transaction transaction (connection->node->store.environment, nullptr, true);
+				if (connection->node->wallets.exists (transaction, current))
 				{
-					// We know about an account they don't.
-					rai::transaction transaction (connection->node->store.environment, nullptr, true);
-					if (connection->node->wallets.exists (transaction, current))
-					{
-						unsynced (transaction, info.head, 0);
-					}
+					unsynced (transaction, info.head, 0);
 				}
-				next ();
+				next (transaction);
             }
             if (!current.is_zero ())
             {
                 if (account == current)
                 {
+					rai::transaction transaction (connection->node->store.environment, nullptr, true);
                     if (latest == info.head)
                     {
                         // In sync
                     }
                     else
 					{
-						rai::transaction transaction (connection->node->store.environment, nullptr, true);
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
@@ -390,7 +389,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 							}
 						}
 					}
-					next ();
+					next (transaction);
                 }
                 else
                 {
@@ -415,7 +414,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 					{
 						unsynced (transaction, info.head, 0);
 					}
-					next ();
+					next (transaction);
 				}
 			}
             connection->completed_frontier_request ();
@@ -430,10 +429,9 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
     }
 }
 
-void rai::frontier_req_client::next ()
+void rai::frontier_req_client::next (MDB_txn * transaction_a)
 {
-	rai::transaction transaction (connection->node->store.environment, nullptr, false);
-	auto iterator (connection->node->store.latest_begin (transaction, rai::uint256_union (current.number () + 1)));
+	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::account (iterator->first);

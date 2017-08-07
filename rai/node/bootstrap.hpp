@@ -93,7 +93,7 @@ public:
     void received_frontier (boost::system::error_code const &, size_t);
     void request_account (rai::account const &, rai::block_hash const &);
 	void unsynced (MDB_txn *, rai::account const &, rai::block_hash const &);
-	void next ();
+	void next (MDB_txn *);
     std::shared_ptr <rai::bootstrap_client> connection;
 	rai::account current;
 	rai::account_info info;
