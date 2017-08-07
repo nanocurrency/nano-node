@@ -2558,6 +2558,12 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 				// Replace our block with the winner and roll back any dependent blocks
 				node.ledger.rollback (transaction_a, last_winner->hash ());
 				node.ledger.process (transaction_a, *winner->second);
+				auto block_l (winner->second);
+				auto node_l (node.shared ());
+				node.background ([block_l, node_l] ()
+				{
+					node_l->process_receive_many (block_l);
+				});
 				last_winner = std::move (winner->second);
 			}
 			else
