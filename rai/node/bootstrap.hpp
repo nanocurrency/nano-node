@@ -77,7 +77,7 @@ public:
 	void requeue_pull (rai::pull_info const &);
     std::deque <rai::pull_info> pulls;
 	std::atomic <unsigned> connections;
-	unsigned pulling;
+	std::atomic <unsigned> pulling;
 	std::shared_ptr <rai::node> node;
 	rai::attempt_state state;
 	std::unordered_set <rai::endpoint> attempted;
