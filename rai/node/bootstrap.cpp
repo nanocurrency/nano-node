@@ -572,7 +572,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 	if (!ec)
 	{
 		rai::bufferstream stream (connection.receive_buffer.data (), 1 + size_a);
-		auto block (rai::deserialize_block (stream));
+		std::shared_ptr <rai::block> block (rai::deserialize_block (stream));
 		if (block != nullptr)
 		{
             auto hash (block->hash ());
@@ -586,26 +586,32 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				expected = block->previous ();
 			}
-			connection.node->process_receive_many (std::move (block), [this] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
-			{
-				switch (result_a.code)
+			auto attempt (connection.attempt);
+			// Process the block asynchronously from making the next network requests since this is a potentially long operation
+			// Hold a reference to the current attempt so we don't start another one while blocks are being processed.
+			attempt->node->background ([attempt, block] ()
+			{			
+				attempt->node->process_receive_many (block, [attempt] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
 				{
-					case rai::process_result::progress:
-					case rai::process_result::old:
-						break;
-					case rai::process_result::fork:
+					switch (result_a.code)
 					{
-						auto node_l (connection.node);
-						std::shared_ptr <rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
-						node_l->active.start (transaction_a, block);
-						connection.node->network.broadcast_confirm_req (block_a);
-						connection.node->network.broadcast_confirm_req (block);
-						BOOST_LOG (connection.node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
-						break;
+						case rai::process_result::progress:
+						case rai::process_result::old:
+							break;
+						case rai::process_result::fork:
+						{
+							auto node_l (attempt->node);
+							std::shared_ptr <rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
+							node_l->active.start (transaction_a, block);
+							attempt->node->network.broadcast_confirm_req (block_a);
+							attempt->node->network.broadcast_confirm_req (block);
+							BOOST_LOG (attempt->node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
+							break;
+						}
+						default:
+							break;
 					}
-					default:
-						break;
-				}
+				});
 			});
             receive_block ();
 		}
