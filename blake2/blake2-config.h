@@ -31,6 +31,10 @@
 #define HAVE_AVX
 #endif
 
+#if defined(__AVX2__)
+#define HAVE_AVX2
+#endif
+
 #if defined(__XOP__)
 #define HAVE_XOP
 #endif
