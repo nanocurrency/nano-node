@@ -82,11 +82,12 @@ public:
 	rai::attempt_state state;
 	std::unordered_set <rai::endpoint> attempted;
 	std::mutex mutex;
+	std::atomic <unsigned> account_count;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
 public:
-    frontier_req_client (std::shared_ptr <rai::bootstrap_client> const &);
+    frontier_req_client (std::shared_ptr <rai::bootstrap_client>);
     ~frontier_req_client ();
 	void run ();
     void receive_frontier ();
@@ -100,18 +101,17 @@ public:
 	unsigned count;
 	std::chrono::system_clock::time_point next_report;
 };
-class bulk_pull_client
+class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
 {
 public:
-    bulk_pull_client (rai::bootstrap_client &);
+    bulk_pull_client (std::shared_ptr <rai::bootstrap_client>);
     ~bulk_pull_client ();
     void request (rai::pull_info const &);
     void receive_block ();
     void received_type ();
     void received_block (boost::system::error_code const &, size_t);
 	rai::block_hash first ();
-    rai::bootstrap_client & connection;
-	size_t account_count;
+    std::shared_ptr <rai::bootstrap_client> connection;
 	rai::block_hash expected;
 	rai::pull_info pull;
 };
@@ -126,7 +126,6 @@ public:
 	void poll ();
 	void completed_frontier_request ();
     void sent_request (boost::system::error_code const &, size_t);
-	void completed_pull ();
 	void completed_pulls ();
 	void completed_pushes ();
 	std::shared_ptr <rai::bootstrap_client> shared ();
@@ -136,7 +135,6 @@ public:
 	std::shared_ptr <rai::bootstrap_attempt> attempt;
     boost::asio::ip::tcp::socket socket;
     std::array <uint8_t, 200> receive_buffer;
-	rai::bulk_pull_client pull_client;
 	rai::tcp_endpoint endpoint;
 	boost::asio::deadline_timer timeout;
 };
