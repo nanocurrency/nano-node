@@ -440,10 +440,12 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr <rai::bootstrap_client> connection_a) :
 connection (connection_a)
 {
+	++connection->attempt->pulling;
 }
 
 rai::bulk_pull_client::~bulk_pull_client ()
 {
+	--connection->attempt->pulling;
 }
 
 void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
@@ -551,7 +553,6 @@ void rai::bulk_pull_client::received_type ()
 			if (expected == pull.end)
 			{
 				pull = rai::pull_info ();
-				--connection->attempt->pulling;
 				connection->work ();
 			}
 			else
@@ -892,9 +893,8 @@ void rai::bootstrap_client::work ()
 				// There are more things to pull
 				auto pull (attempt->pulls.front ());
 				attempt->pulls.pop_front ();
-				++attempt->pulling;
-				lock.unlock ();
 				auto pull_client (std::make_shared <rai::bulk_pull_client> (shared_from_this ()));
+				lock.unlock ();
 				pull_client->request (pull);
 			}
 			else
