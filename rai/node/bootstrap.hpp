@@ -80,7 +80,6 @@ public:
 	std::atomic <unsigned> pulling;
 	std::shared_ptr <rai::node> node;
 	rai::attempt_state state;
-	std::unordered_set <rai::endpoint> attempted;
 	std::mutex mutex;
 	std::atomic <unsigned> account_count;
 };
