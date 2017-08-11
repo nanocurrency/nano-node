@@ -210,7 +210,10 @@ TEST (node, auto_bootstrap)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 	node1->start ();
-	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
+	while (!node1->bootstrap_initiator.in_progress ())
+    {
+        system.poll ();
+    }
 	auto iterations3 (0);
 	while (node1->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
 	{
