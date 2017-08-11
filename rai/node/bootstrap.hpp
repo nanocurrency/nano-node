@@ -68,6 +68,8 @@ public:
 	std::shared_ptr <rai::bootstrap_client> connection (std::unique_lock <std::mutex> &);
 	void populate_connections ();
     bool request_frontier (std::unique_lock <std::mutex> &);
+    void request_pull (std::unique_lock <std::mutex> &);
+    bool request_push (std::unique_lock <std::mutex> &);
 	void add_connection (rai::endpoint const &);
 	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
 	void stop ();

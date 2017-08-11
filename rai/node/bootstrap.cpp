@@ -802,6 +802,41 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock <std::mutex> & l
     return result;
 }
 
+void rai::bootstrap_attempt::request_pull (std::unique_lock <std::mutex> & lock_a)
+{
+    auto connection_l (connection (lock_a));
+    if (connection_l)
+    {
+        auto pull (pulls.back ());
+        pulls.pop_back ();
+        auto client (std::make_shared <rai::bulk_pull_client> (connection_l));
+        client->request (pull);
+    }
+}
+
+bool rai::bootstrap_attempt::request_push (std::unique_lock <std::mutex> & lock_a)
+{
+    auto result (true);
+    auto connection_l (connection (lock_a));
+    if (connection_l)
+    {
+        auto client (std::make_shared <rai::bulk_push_client> (connection_l));
+        client->start ();
+        lock_a.unlock ();
+        result = client->finish ();
+        lock_a.lock ();
+        if (node->config.logging.network_logging ())
+        {
+            BOOST_LOG (node->log) << "Exiting bulk push client";
+            if (result)
+            {
+                BOOST_LOG (node->log) << "Bulk push client failed";
+            }
+        }
+    }
+    return result;
+}
+
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
@@ -813,29 +848,17 @@ void rai::bootstrap_attempt::run ()
 	}
 	while (!stopped && !pulls.empty ())
 	{
-		auto pull (pulls.back ());
-		pulls.pop_back ();
-		auto client (std::make_shared <rai::bulk_pull_client> (connection (lock)));
-		client->request (pull);
-		condition.wait (lock);
+        request_pull (lock);
+        condition.wait (lock);
 	}
-	BOOST_LOG (node->log) << "Completed pulls";
+    if (!stopped)
+    {
+        BOOST_LOG (node->log) << "Completed pulls";
+    }
 	auto push_failure (true);
 	while (!stopped && push_failure)
 	{
-		auto client (std::make_shared <rai::bulk_push_client> (connection (lock)));
-		client->start ();
-		lock.unlock ();
-		push_failure = client->finish ();
-		lock.lock ();
-		if (node->config.logging.network_logging ())
-		{
-			BOOST_LOG (node->log) << "Exiting bulk push client";
-			if (push_failure)
-			{
-				BOOST_LOG (node->log) << "Bulk push client failed";
-			}
-		}
+        push_failure = request_push (lock);
 	}
 }
 
