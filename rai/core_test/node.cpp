@@ -1176,7 +1176,7 @@ TEST (node, bootstrap_no_publish)
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_TRUE (node1->active.roots.empty ());
 	auto iterations1 (0);
-	while (node1->bootstrap_initiator.in_progress ())
+    while (node1->block (send0.hash ()) == nullptr)
 	{
 		// Poll until the TCP connection is torn down and in_progress goes false
 		system0.poll ();
