@@ -4,6 +4,7 @@
 #include <rai/node/common.hpp>
 
 #include <atomic>
+#include <future>
 #include <queue>
 #include <unordered_set>
 #include <stack>
@@ -48,14 +49,6 @@ public:
 	rai::node & node;
 };
 class bootstrap_client;
-enum class attempt_state
-{
-	starting,
-	requesting_frontiers,
-	requesting_pulls,
-	pushing,
-	complete
-};
 class pull_info
 {
 public:
@@ -71,17 +64,21 @@ class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt
 public:
 	bootstrap_attempt (std::shared_ptr <rai::node> node_a);
 	~bootstrap_attempt ();
+	void run ();
+	std::shared_ptr <rai::bootstrap_client> connection (std::unique_lock <std::mutex> &);
 	void populate_connections ();
 	void add_connection (rai::endpoint const &);
+	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
 	void stop ();
 	void requeue_pull (rai::pull_info const &);
     std::deque <rai::pull_info> pulls;
+	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::atomic <unsigned> connections;
-	std::atomic <unsigned> pulling;
 	std::shared_ptr <rai::node> node;
-	rai::attempt_state state;
-	std::mutex mutex;
 	std::atomic <unsigned> account_count;
+	bool stopped;
+	std::mutex mutex;
+	std::condition_variable condition;
 };
 class frontier_req_client : public std::enable_shared_from_this <rai::frontier_req_client>
 {
@@ -89,6 +86,7 @@ public:
     frontier_req_client (std::shared_ptr <rai::bootstrap_client>);
     ~frontier_req_client ();
 	void run ();
+	bool finish ();
     void receive_frontier ();
     void received_frontier (boost::system::error_code const &, size_t);
     void request_account (rai::account const &, rai::block_hash const &);
@@ -99,6 +97,7 @@ public:
 	rai::account_info info;
 	unsigned count;
 	std::chrono::system_clock::time_point next_report;
+	std::promise <bool> promise;
 };
 class bulk_pull_client : public std::enable_shared_from_this <rai::bulk_pull_client>
 {
@@ -120,13 +119,6 @@ public:
 	bootstrap_client (std::shared_ptr <rai::node>, std::shared_ptr <rai::bootstrap_attempt>, rai::tcp_endpoint const &);
     ~bootstrap_client ();
     void run ();
-    void frontier_request ();
-	void work ();
-	void poll ();
-	void completed_frontier_request ();
-    void sent_request (boost::system::error_code const &, size_t);
-	void completed_pulls ();
-	void completed_pushes ();
 	std::shared_ptr <rai::bootstrap_client> shared ();
 	void start_timeout ();
 	void stop_timeout ();
@@ -143,16 +135,19 @@ public:
     bulk_push_client (std::shared_ptr <rai::bootstrap_client> const &);
     ~bulk_push_client ();
     void start ();
+	bool finish ();
     void push (MDB_txn *);
     void push_block (rai::block const &);
     void send_finished ();
     std::shared_ptr <rai::bootstrap_client> connection;
     rai::push_synchronization synchronization;
+	std::promise <bool> promise;
 };
 class bootstrap_initiator
 {
 public:
 	bootstrap_initiator (rai::node &);
+	~bootstrap_initiator ();
     void bootstrap (rai::endpoint const &);
     void bootstrap ();
 	void notify_listeners ();
@@ -161,6 +156,7 @@ public:
 	void stop ();
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
+	std::unique_ptr <std::thread> attempt_thread;
 	bool stopped;
 private:
 	std::mutex mutex;
