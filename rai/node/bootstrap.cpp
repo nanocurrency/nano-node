@@ -779,6 +779,29 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
 
+bool rai::bootstrap_attempt::request_frontier (std::unique_lock <std::mutex> & lock_a)
+{
+    auto result (true);
+    auto connection_l (connection (lock_a));
+    if (connection_l)
+    {
+        auto client (std::make_shared <rai::frontier_req_client> (connection_l));
+        client->run ();
+        lock_a.unlock ();
+        result = client->finish ();
+        lock_a.lock ();
+        if (node->config.logging.network_logging ())
+        {
+            BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % pulls.size () % client->connection->endpoint);
+            if (result)
+            {
+                BOOST_LOG (node->log) << "frontier_req failed, reattempting";
+            }
+        }
+    }
+    return result;
+}
+
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
@@ -786,19 +809,7 @@ void rai::bootstrap_attempt::run ()
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
 	{
-		auto client (std::make_shared <rai::frontier_req_client> (connection (lock)));
-		client->run ();
-		lock.unlock ();
-		frontier_failure = client->finish ();
-		lock.lock ();
-		if (node->config.logging.network_logging ())
-		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % pulls.size () % client->connection->endpoint);
-			if (frontier_failure)
-			{
-				BOOST_LOG (node->log) << "frontier_req failed, reattempting";
-			}
-		}
+        frontier_failure = request_frontier (lock);
 	}
 	while (!stopped && !pulls.empty ())
 	{
@@ -832,10 +843,14 @@ std::shared_ptr <rai::bootstrap_client> rai::bootstrap_attempt::connection (std:
 {
 	while (!stopped && idle.empty ())
 	{
-		condition.wait (lock_a);
+        condition.wait (lock_a);
 	}
-	auto result (idle.back ());
-	idle.pop_back ();
+    std::shared_ptr <rai::bootstrap_client> result;
+    if (!idle.empty ())
+    {
+        result = idle.back ();
+        idle.pop_back ();
+    }
 	return result;
 }
 
@@ -846,7 +861,6 @@ void rai::bootstrap_attempt::populate_connections ()
 		auto peer (node->peers.bootstrap_peer ());
 		if (peer != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
 		{
-			std::cerr << peer << rai::endpoint () << std::endl;
 			auto client (std::make_shared <rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
 			client->run ();
 		}
@@ -917,21 +931,25 @@ void rai::bootstrap_initiator::bootstrap ()
 	{
 		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
 		attempt = attempt_l;
+        if (attempt_thread)
+        {
+            attempt_thread->join ();
+        }
 		attempt_thread.reset (new std::thread ([attempt_l] () { attempt_l->run (); }));
 	}
 }
 
 rai::bootstrap_initiator::~bootstrap_initiator ()
 {
-	if (auto attempt_l = attempt.lock ())
-	{
-		attempt_l->stop ();
-	}
-	attempt_thread->join ();
+    if (attempt_thread)
+    {
+        attempt_thread->join ();
+    }
 }
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 {
+    node.peers.insert (endpoint_a, 0);
 	bootstrap ();
 	std::lock_guard <std::mutex> lock (mutex);
 	if (auto attempt_l = attempt.lock ())
