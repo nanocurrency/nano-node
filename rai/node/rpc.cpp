@@ -629,7 +629,7 @@ void rai::rpc_handler::accounts_pending ()
 		auto error (decode_unsigned (count_text, count));
 		if (error)
 		{
-			error_response (response, "Invalid count");
+			error_response (response, "Invalid count limit");
 		}
 	}
 	catch (std::runtime_error &)
@@ -1297,6 +1297,90 @@ void rai::rpc_handler::key_expand ()
 	}
 }
 
+void rai::rpc_handler::ledger ()
+{
+	if (rpc.config.enable_control)
+	{
+		rai::account start (0);
+		uint64_t count (std::numeric_limits <uint64_t>::max ());
+		bool sorting (false);
+		boost::optional <std::string> account_text (request.get_optional <std::string> ("account"));
+		if (account_text.is_initialized())
+		{
+			auto error (start.decode_account (account_text.get ()));
+			if (error)
+			{
+				error_response (response, "Invalid starting account");
+			}
+		}
+		boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+		if (count_text.is_initialized())
+		{
+			auto error_count (decode_unsigned (count_text.get (), count));
+			if (error_count)
+			{
+				error_response (response, "Invalid count limit");
+			}
+		}
+		boost::optional <bool> sorting_text (request.get_optional <bool> ("sorting"));
+		if (count_text.is_initialized())
+		{
+			sorting = sorting_text.get ();
+		}
+		boost::property_tree::ptree response_l;
+		boost::property_tree::ptree accounts;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		if (!sorting) // Simple
+		{
+			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
+			{
+				rai::account_info info (i->second);
+				boost::property_tree::ptree response_l;
+				response_l.put ("frontier", info.head.to_string ());
+				response_l.put ("open_block", info.open_block.to_string ());
+				response_l.put ("representative_block", info.rep_block.to_string ());
+				std::string balance;
+				rai::uint128_union (info.balance).encode_dec (balance);
+				response_l.put ("balance", balance);
+				response_l.put ("modified_timestamp", std::to_string (info.modified));
+				response_l.put ("block_count", std::to_string (info.block_count));
+				accounts.push_back (std::make_pair (rai::account (i->first).to_account (), response_l));
+			}
+		}
+		else // Sorting
+		{
+			std::vector <std::pair <rai::uint128_union, rai::account>> ledger_l;
+			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
+			{
+				rai::uint128_union balance (rai::account_info (i->second).balance);
+				ledger_l.push_back (std::make_pair (balance, rai::account (i->first)));
+			}
+			std::sort (ledger_l.begin (), ledger_l.end ());
+			std::reverse (ledger_l.begin (), ledger_l.end ());
+			rai::account_info info;
+			for (auto i (ledger_l.begin ()), n (ledger_l.end ()); i != n && accounts.size () < count; ++i)
+			{
+				node.store.account_get (transaction, i->second, info);
+				response_l.put ("frontier", info.head.to_string ());
+				response_l.put ("open_block", info.open_block.to_string ());
+				response_l.put ("representative_block", info.rep_block.to_string ());
+				std::string balance;
+				(i->first).encode_dec (balance);
+				response_l.put ("balance", balance);
+				response_l.put ("modified_timestamp", std::to_string (info.modified));
+				response_l.put ("block_count", std::to_string (info.block_count));
+				accounts.push_back (std::make_pair (rai::account (i->second).to_account (), response_l));
+			}
+		}
+		response_l.add_child ("accounts", accounts);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::mrai_from_raw ()
 {
 	std::string amount_text (request.get <std::string> ("amount"));
@@ -1498,7 +1582,7 @@ void rai::rpc_handler::pending ()
 			auto error (decode_unsigned (count_text, count));
 			if (error)
 			{
-				error_response (response, "Invalid count");
+				error_response (response, "Invalid count limit");
 			}
 		}
 		catch (std::runtime_error &)
@@ -1967,14 +2051,49 @@ void rai::rpc_handler::receive_minimum_set ()
 
 void rai::rpc_handler::representatives ()
 {
+	uint64_t count (std::numeric_limits <uint64_t>::max ());
+	bool sorting (false);
+	boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+	if (count_text.is_initialized())
+	{
+		auto error (decode_unsigned (count_text.get (), count));
+		if (error)
+		{
+			error_response (response, "Invalid count limit");
+		}
+	}
+	boost::optional <bool> sorting_text (request.get_optional <bool> ("sorting"));
+	if (count_text.is_initialized())
+	{
+		sorting = sorting_text.get ();
+	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+	if (!sorting) // Simple
 	{
-		rai::account account(i->first);
-		auto amount (node.store.representation_get (transaction, account));
-		representatives.put (account.to_account (), amount.convert_to <std::string> ());
+		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n && representatives.size () < count; ++i)
+		{
+			rai::account account(i->first);
+			auto amount (node.store.representation_get (transaction, account));
+			representatives.put (account.to_account (), amount.convert_to <std::string> ());
+		}
+	}
+	else // Sorting
+	{
+		std::vector <std::pair <rai::uint128_union, std::string>> representation;
+		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+		{
+			rai::account account(i->first);
+			auto amount (node.store.representation_get (transaction, account));
+			representation.push_back (std::make_pair (amount, account.to_account ()));
+		}
+		std::sort (representation.begin (), representation.end ());
+		std::reverse (representation.begin (), representation.end ());
+		for (auto i (representation.begin ()), n (representation.end ()); i != n && representatives.size () < count; ++i)
+		{
+			representatives.put (i->second, (i->first).number ().convert_to <std::string> ());
+		}
 	}
 	response_l.add_child ("representatives", representatives);
 	response (response_l);
@@ -1990,7 +2109,7 @@ void rai::rpc_handler::republish ()
 		auto error (decode_unsigned (count_text, count));
 		if (error)
 		{
-			error_response (response, "Invalid count");
+			error_response (response, "Invalid count limit");
 		}
 	}
 	catch (std::runtime_error &)
@@ -2204,7 +2323,7 @@ void rai::rpc_handler::unchecked ()
 		auto error (decode_unsigned (count_text, count));
 		if (error)
 		{
-			error_response (response, "Invalid count");
+			error_response (response, "Invalid count limit");
 		}
 	}
 	catch (std::runtime_error &)
@@ -2287,7 +2406,7 @@ void rai::rpc_handler::unchecked_keys ()
 		auto error (decode_unsigned (count_text, count));
 		if (error)
 		{
-			error_response (response, "Invalid count");
+			error_response (response, "Invalid count limit");
 		}
 	}
 	catch (std::runtime_error &)
@@ -2713,7 +2832,7 @@ void rai::rpc_handler::wallet_pending ()
 				auto error_count (decode_unsigned (count_text, count));
 				if (error_count)
 				{
-					error_response (response, "Invalid count");
+					error_response (response, "Invalid count limit");
 				}
 			}
 			catch (std::runtime_error &)
@@ -2895,7 +3014,7 @@ void rai::rpc_handler::wallet_republish ()
 				}
 				else
 				{
-					error_response (response, "Invalid count");
+					error_response (response, "Invalid count limit");
 				}
 			}
 			else
@@ -3464,6 +3583,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "krai_to_raw")
 		{
 			krai_to_raw ();
+		}
+		else if (action == "ledger")
+		{
+			ledger ();
 		}
 		else if (action == "mrai_from_raw")
 		{
