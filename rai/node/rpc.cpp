@@ -623,31 +623,23 @@ void rai::rpc_handler::accounts_pending ()
 {
 	uint64_t count (std::numeric_limits <uint64_t>::max ());
 	rai::uint128_union threshold (0);
-	try
+	boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+	if (count_text.is_initialized ())
 	{
-		std::string count_text (request.get <std::string> ("count"));
-		auto error (decode_unsigned (count_text, count));
+		auto error (decode_unsigned (count_text.get (), count));
 		if (error)
 		{
 			error_response (response, "Invalid count limit");
 		}
 	}
-	catch (std::runtime_error &)
+	boost::optional <std::string> threshold_text (request.get_optional <std::string> ("threshold"));
+	if (threshold_text.is_initialized ())
 	{
-		// If there is no "count" in request
-	}
-	try
-	{
-		std::string threshold_text (request.get <std::string> ("threshold"));
-		auto error_threshold (threshold.decode_dec (threshold_text));
+		auto error_threshold (threshold.decode_dec (threshold_text.get ()));
 		if (error_threshold)
 		{
 			error_response (response, "Bad threshold number");
 		}
-	}
-	catch (std::runtime_error &)
-	{
-		// If there is no "threshold" in request
 	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree pending;
@@ -1305,7 +1297,7 @@ void rai::rpc_handler::ledger ()
 		uint64_t count (std::numeric_limits <uint64_t>::max ());
 		bool sorting (false);
 		boost::optional <std::string> account_text (request.get_optional <std::string> ("account"));
-		if (account_text.is_initialized())
+		if (account_text.is_initialized ())
 		{
 			auto error (start.decode_account (account_text.get ()));
 			if (error)
@@ -1314,7 +1306,7 @@ void rai::rpc_handler::ledger ()
 			}
 		}
 		boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
-		if (count_text.is_initialized())
+		if (count_text.is_initialized ())
 		{
 			auto error_count (decode_unsigned (count_text.get (), count));
 			if (error_count)
@@ -1322,10 +1314,10 @@ void rai::rpc_handler::ledger ()
 				error_response (response, "Invalid count limit");
 			}
 		}
-		boost::optional <bool> sorting_text (request.get_optional <bool> ("sorting"));
-		if (count_text.is_initialized())
+		boost::optional <bool> sorting_optional (request.get_optional <bool> ("sorting"));
+		if (sorting_optional.is_initialized ())
 		{
-			sorting = sorting_text.get ();
+			sorting = sorting_optional.get ();
 		}
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree accounts;
@@ -1576,31 +1568,23 @@ void rai::rpc_handler::pending ()
 	{
 		uint64_t count (std::numeric_limits <uint64_t>::max ());
 		rai::uint128_union threshold (0);
-		try
+		boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+		if (count_text.is_initialized ())
 		{
-			std::string count_text (request.get <std::string> ("count"));
-			auto error (decode_unsigned (count_text, count));
+			auto error (decode_unsigned (count_text.get (), count));
 			if (error)
 			{
 				error_response (response, "Invalid count limit");
 			}
 		}
-		catch (std::runtime_error &)
+		boost::optional <std::string> threshold_text (request.get_optional <std::string> ("threshold"));
+		if (threshold_text.is_initialized ())
 		{
-			// If there is no "count" in request
-		}
-		try
-		{
-			std::string threshold_text (request.get <std::string> ("threshold"));
-			auto error_threshold (threshold.decode_dec (threshold_text));
+			auto error_threshold (threshold.decode_dec (threshold_text.get ()));
 			if (error_threshold)
 			{
 				error_response (response, "Bad threshold number");
 			}
-		}
-		catch (std::runtime_error &)
-		{
-			// If there is no "threshold" in request
 		}
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree peers_l;
@@ -2054,7 +2038,7 @@ void rai::rpc_handler::representatives ()
 	uint64_t count (std::numeric_limits <uint64_t>::max ());
 	bool sorting (false);
 	boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
-	if (count_text.is_initialized())
+	if (count_text.is_initialized ())
 	{
 		auto error (decode_unsigned (count_text.get (), count));
 		if (error)
@@ -2062,10 +2046,10 @@ void rai::rpc_handler::representatives ()
 			error_response (response, "Invalid count limit");
 		}
 	}
-	boost::optional <bool> sorting_text (request.get_optional <bool> ("sorting"));
-	if (count_text.is_initialized())
+	boost::optional <bool> sorting_optional (request.get_optional <bool> ("sorting"));
+	if (sorting_optional.is_initialized ())
 	{
-		sorting = sorting_text.get ();
+		sorting = sorting_optional.get ();
 	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
@@ -2317,18 +2301,14 @@ void rai::rpc_handler::stop ()
 void rai::rpc_handler::unchecked ()
 {
 	uint64_t count (std::numeric_limits <uint64_t>::max ());
-	try
+	boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+	if (count_text.is_initialized ())
 	{
-		std::string count_text (request.get <std::string> ("count"));
-		auto error (decode_unsigned (count_text, count));
+		auto error (decode_unsigned (count_text.get (), count));
 		if (error)
 		{
 			error_response (response, "Invalid count limit");
 		}
-	}
-	catch (std::runtime_error &)
-	{
-		// If there is no "count" in request
 	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree unchecked;
@@ -2400,32 +2380,24 @@ void rai::rpc_handler::unchecked_get ()
 void rai::rpc_handler::unchecked_keys ()
 {
 	uint64_t count (std::numeric_limits <uint64_t>::max ());
-	try
+	rai::uint256_union key (0);
+	boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+	if (count_text.is_initialized ())
 	{
-		std::string count_text (request.get <std::string> ("count"));
-		auto error (decode_unsigned (count_text, count));
+		auto error (decode_unsigned (count_text.get (), count));
 		if (error)
 		{
 			error_response (response, "Invalid count limit");
 		}
 	}
-	catch (std::runtime_error &)
+	boost::optional <std::string> hash_text (request.get_optional <std::string> ("key"));
+	if (hash_text.is_initialized ())
 	{
-		// If there is no "count" in request
-	}
-	rai::uint256_union key (0);
-	try
-	{
-		std::string hash_text (request.get <std::string> ("key"));
-		auto error_hash (key.decode_hex (hash_text));
+		auto error_hash (key.decode_hex (hash_text.get ()));
 		if (error_hash)
 		{
 			error_response (response, "Bad key hash number");
 		}
-	}
-	catch (std::runtime_error &)
-	{
-		// If there is no "key" in request
 	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree unchecked;
@@ -2826,31 +2798,23 @@ void rai::rpc_handler::wallet_pending ()
 		{
 			uint64_t count (std::numeric_limits <uint64_t>::max ());
 			rai::uint128_union threshold (0);
-			try
+			boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+			if (count_text.is_initialized ())
 			{
-				std::string count_text (request.get <std::string> ("count"));
-				auto error_count (decode_unsigned (count_text, count));
-				if (error_count)
+				auto error (decode_unsigned (count_text.get (), count));
+				if (error)
 				{
 					error_response (response, "Invalid count limit");
 				}
 			}
-			catch (std::runtime_error &)
+			boost::optional <std::string> threshold_text (request.get_optional <std::string> ("threshold"));
+			if (threshold_text.is_initialized ())
 			{
-				// If there is no "count" in request
-			}
-			try
-			{
-				std::string threshold_text (request.get <std::string> ("threshold"));
-				auto error_threshold (threshold.decode_dec (threshold_text));
+				auto error_threshold (threshold.decode_dec (threshold_text.get ()));
 				if (error_threshold)
 				{
 					error_response (response, "Bad threshold number");
 				}
-			}
-			catch (std::runtime_error &)
-			{
-				// If there is no "threshold" in request
 			}
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree pending;
