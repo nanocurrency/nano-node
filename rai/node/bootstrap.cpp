@@ -181,7 +181,7 @@ void rai::bootstrap_client::start_timeout ()
 
 void rai::bootstrap_client::stop_timeout ()
 {
-	auto killed (timeout.expires_from_now ());
+	size_t killed (timeout.cancel ());
 	(void) killed;
 }
 
