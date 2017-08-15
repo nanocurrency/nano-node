@@ -1982,33 +1982,35 @@ void rai::rpc_handler::representatives ()
 
 void rai::rpc_handler::republish ()
 {
-	uint64_t count (2048U);
+	uint64_t count (1024U);
 	uint64_t sources (0);
-	try
+	uint64_t destinations (0);
+	boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
+	if (count_text.is_initialized ())
 	{
-		std::string count_text (request.get <std::string> ("count"));
-		auto error (decode_unsigned (count_text, count));
+		auto error (decode_unsigned (count_text.get (), count));
 		if (error)
 		{
-			error_response (response, "Invalid count");
+			error_response (response, "Invalid count limit");
 		}
 	}
-	catch (std::runtime_error &)
+	boost::optional <std::string> sources_text (request.get_optional <std::string> ("sources"));
+	if (sources_text.is_initialized ())
 	{
-		// If there is no "count" in request
-	}
-	try
-	{
-		std::string sources_text (request.get <std::string> ("sources"));
-		auto error (decode_unsigned (sources_text, sources));
-		if (error)
+		auto sources_error (decode_unsigned (sources_text.get (), sources));
+		if (sources_error)
 		{
 			error_response (response, "Invalid sources number");
 		}
 	}
-	catch (std::runtime_error &)
+	boost::optional <std::string> destinations_text (request.get_optional <std::string> ("destinations"));
+	if (destinations_text.is_initialized ())
 	{
-		// If there is no "sources" in request
+		auto destinations_error (decode_unsigned (destinations_text.get (), destinations));
+		if (destinations_error)
+		{
+			error_response (response, "Invalid destinations number");
+		}
 	}
 	std::string hash_text (request.get <std::string> ("hash"));
 	rai::uint256_union hash;
@@ -2035,7 +2037,7 @@ void rai::rpc_handler::republish ()
 						source = block_a->previous ();
 						block_a = node.store.block_get (transaction, source);
 					}
-					std::reverse (hashes.begin (), hashes.end ());  
+					std::reverse (hashes.begin (), hashes.end ());
 					for (auto & hash_l : hashes)
 					{
 						block_a = node.store.block_get (transaction, hash_l);
@@ -2049,6 +2051,40 @@ void rai::rpc_handler::republish ()
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
 				blocks.push_back (std::make_pair ("", entry));
+				if (destinations != 0) // Republish destination chain
+				{
+					auto block_b (node.store.block_get (transaction, hash));
+					auto block_s (static_cast <rai::send_block *> (block_b.release ()));
+					auto destination (block_s->hashables.destination);
+					auto exists (node.store.pending_exists (transaction, rai::pending_key (destination, hash)));
+					if (!exists)
+					{
+						rai::block_hash previous (node.ledger.latest (transaction, destination));
+						std::unique_ptr <rai::block> block_d (node.store.block_get (transaction, previous));
+						rai::block_hash source;
+						std::vector <rai::block_hash> hashes;
+						while (block_d != nullptr && hash != source)
+						{
+							hashes.push_back (previous);
+							source = block_d->source ();
+							previous = block_d->previous ();
+							block_d = node.store.block_get (transaction, previous);
+						}
+						std::reverse (hashes.begin (), hashes.end ());
+						if (hashes.size () > destinations)
+						{
+							hashes.resize(destinations);
+						}
+						for (auto & hash_l : hashes)
+						{
+							block_d = node.store.block_get (transaction, hash_l);
+							node.network.republish_block (std::move (block_d));
+							boost::property_tree::ptree entry_l;
+							entry_l.put ("", hash_l.to_string ());
+							blocks.push_back (std::make_pair ("", entry_l));
+						}
+					}
+				}
 				hash = node.store.block_successor (transaction, hash);
 			}
 			response_l.put ("success", ""); // obsolete
