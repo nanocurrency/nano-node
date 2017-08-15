@@ -1789,18 +1789,18 @@ TEST (rpc, account_remove)
 
 TEST (rpc, representatives)
 {
-    rai::system system0 (24000, 1);
-    rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
+	rai::system system0 (24000, 1);
+	rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
 	rpc.start ();
-    boost::property_tree::ptree request;
+	boost::property_tree::ptree request;
 	request.put ("action", "representatives");
 	test_response response (request, rpc, system0.service);
 	while (response.status == 0)
 	{
 		system0.poll ();
 	}
-    ASSERT_EQ (200, response.status);
-    auto & representatives_node (response.json.get_child ("representatives"));
+	ASSERT_EQ (200, response.status);
+	auto & representatives_node (response.json.get_child ("representatives"));
 	std::vector <rai::account> representatives;
 	for (auto i (representatives_node.begin ()), n (representatives_node.end ()); i != n; ++i)
 	{
@@ -2711,4 +2711,76 @@ TEST (rpc, work_peers_all)
 	ASSERT_EQ (200, response3.status);
 	peers_node = response3.json.get_child ("work_peers");
 	ASSERT_EQ (0, peers_node.size ());
+}
+
+TEST (rpc, block_count_type)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, system.nodes [0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send);
+	auto receive (system.wallet (0)->receive_action (static_cast <rai::send_block &>(*send), rai::test_genesis_key.pub, system.nodes [0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, receive);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_count_type");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string send_count (response.json.get <std::string> ("send"));
+	ASSERT_EQ ("1", send_count);
+	std::string receive_count (response.json.get <std::string> ("receive"));
+	ASSERT_EQ ("1", receive_count);
+	std::string open_count (response.json.get <std::string> ("open"));
+	ASSERT_EQ ("1", open_count);
+	std::string change_count (response.json.get <std::string> ("change"));
+	ASSERT_EQ ("0", change_count);
+}
+
+TEST (rpc, ledger)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes [0]);
+	auto latest (system.nodes [0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	system.nodes [0]->process (send);
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process (open).code);
+	auto time (std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "ledger");
+	request.put ("sorting", "1");
+	request.put ("count", "1");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	for (auto & accounts : response.json.get_child("accounts"))
+	{
+		std::string account_text (accounts.first);
+		ASSERT_EQ (key.pub.to_account (), account_text);
+		std::string frontier (accounts.second.get <std::string> ("frontier"));
+		ASSERT_EQ (open.hash ().to_string (), frontier);
+		std::string open_block (accounts.second.get <std::string> ("open_block"));
+		ASSERT_EQ (open.hash ().to_string (), open_block);
+		std::string representative_block (accounts.second.get <std::string> ("representative_block"));
+		ASSERT_EQ (open.hash ().to_string (), representative_block);
+		std::string balance_text (accounts.second.get <std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211355", balance_text);
+		std::string modified_timestamp (accounts.second.get <std::string> ("modified_timestamp"));
+		ASSERT_EQ (std::to_string (time), modified_timestamp);
+		std::string block_count (accounts.second.get <std::string> ("block_count"));
+		ASSERT_EQ ("1", block_count);
+	}
 }
