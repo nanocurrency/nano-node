@@ -66,6 +66,7 @@ public:
 	~bootstrap_attempt ();
 	void run ();
 	std::shared_ptr <rai::bootstrap_client> connection (std::unique_lock <std::mutex> &);
+    bool consume_future (std::future <bool> &);
 	void populate_connections ();
     bool request_frontier (std::unique_lock <std::mutex> &);
     void request_pull (std::unique_lock <std::mutex> &);
@@ -77,6 +78,7 @@ public:
     std::deque <rai::pull_info> pulls;
 	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::atomic <unsigned> connections;
+    std::atomic <unsigned> pulling;
 	std::shared_ptr <rai::node> node;
 	std::atomic <unsigned> account_count;
 	bool stopped;
@@ -89,7 +91,6 @@ public:
     frontier_req_client (std::shared_ptr <rai::bootstrap_client>);
     ~frontier_req_client ();
 	void run ();
-	bool finish ();
     void receive_frontier ();
     void received_frontier (boost::system::error_code const &, size_t);
     void request_account (rai::account const &, rai::block_hash const &);
@@ -138,7 +139,6 @@ public:
     bulk_push_client (std::shared_ptr <rai::bootstrap_client> const &);
     ~bulk_push_client ();
     void start ();
-	bool finish ();
     void push (MDB_txn *);
     void push_block (rai::block const &);
     void send_finished ();
