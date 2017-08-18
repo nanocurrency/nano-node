@@ -432,6 +432,11 @@ connection (connection_a)
 rai::bulk_pull_client::~bulk_pull_client ()
 {
     --connection->attempt->pulling;
+	if (!pull.account.is_zero ())
+	{
+		connection->attempt->requeue_pull (pull);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Disconnecting from %1% because it didn't give us what we requested") % connection->endpoint);
+	}
 }
 
 void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
@@ -540,11 +545,6 @@ void rai::bulk_pull_client::received_type ()
 			{
 				pull = rai::pull_info ();
 				connection->attempt->pool_connection (connection);
-			}
-			else
-			{
-				connection->attempt->requeue_pull (pull);
-				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Disconnecting from %1% because it didn't give us what we requested") % connection->endpoint);
 			}
             break;
         }
@@ -753,6 +753,7 @@ attempts (0)
 
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
 connections (0),
+pulling (0),
 node (node_a),
 account_count (0),
 stopped (false)
@@ -989,6 +990,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	{
 		std::lock_guard <std::mutex> lock (mutex);
 		pulls.push_front (pull);
+		condition.notify_all ();
 	}
 	else
 	{
