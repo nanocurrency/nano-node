@@ -389,7 +389,13 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 				}
 			}
 			{
-				promise.set_value (false);
+				try
+				{
+					promise.set_value (false);
+				}
+				catch (std::future_error &)
+				{
+				}
 				connection->attempt->pool_connection (connection);
 			}
         }
@@ -689,7 +695,13 @@ void rai::bulk_push_client::send_finished ()
     auto this_l (shared_from_this ());
     async_write (connection->socket, boost::asio::buffer (buffer->data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
 	{
-		this_l->promise.set_value (false);
+		try
+		{
+			this_l->promise.set_value (false);
+		}
+		catch (std::future_error &)
+		{
+		}
 	});
 }
 
@@ -764,6 +776,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock <std::mutex> & l
         {
             auto client (std::make_shared <rai::frontier_req_client> (connection_l));
             client->run ();
+			frontiers = client;
             future = client->promise.get_future ();
         }
         lock_a.unlock ();
@@ -810,6 +823,7 @@ bool rai::bootstrap_attempt::request_push (std::unique_lock <std::mutex> & lock_
         {
             auto client (std::make_shared <rai::bulk_push_client> (connection_l));
             client->start ();
+			push = client;
             future = client->promise.get_future ();
         }
         lock_a.unlock ();
@@ -898,6 +912,8 @@ void rai::bootstrap_attempt::populate_connections ()
 		{
 			auto client (std::make_shared <rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
 			client->run ();
+			std::lock_guard <std::mutex> lock (mutex);
+			clients.push_back (client);
 		}
 		else
 		{
@@ -937,6 +953,33 @@ void rai::bootstrap_attempt::stop ()
 	std::lock_guard <std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
+	for (auto i : clients)
+	{
+		if (auto client = i.lock ())
+		{
+			client->socket.close ();
+		}
+	}
+	if (auto i = frontiers.lock ())
+	{
+		try
+		{
+			i->promise.set_value (true);
+		}
+		catch (std::future_error &)
+		{
+		}
+	}
+	if (auto i = push.lock ())
+	{
+		try
+		{
+			i->promise.set_value (true);
+		}
+		catch (std::future_error &)
+		{
+		}
+	}
 }
 
 void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
@@ -961,16 +1004,7 @@ stopped (false)
 
 rai::bootstrap_initiator::~bootstrap_initiator ()
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    if (auto attempt_l = attempt.lock ())
-    {
-        attempt_l->stopped = true;
-        attempt_l->condition.notify_all ();
-    }
-    if (attempt_thread)
-    {
-        attempt_thread->join ();
-    }
+	stop_attempt ();
 }
 
 void rai::bootstrap_initiator::bootstrap ()
@@ -978,13 +1012,12 @@ void rai::bootstrap_initiator::bootstrap ()
 	std::lock_guard <std::mutex> lock (mutex);
 	if (attempt.lock () == nullptr && !stopped)
 	{
+		stop_attempt ();
 		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
         attempt = attempt_l;
-        if (attempt_thread)
-        {
-            attempt_thread->join ();
-        }
 		attempt_thread.reset (new std::thread ([attempt_l] () { attempt_l->run (); }));
+		assert (attempt_thread);
+		assert (attempt_thread->joinable ());
 	}
 }
 
@@ -1015,12 +1048,21 @@ bool rai::bootstrap_initiator::in_progress ()
 
 void rai::bootstrap_initiator::stop ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
 	stopped = true;
+	stop_attempt ();
+}
+
+void rai::bootstrap_initiator::stop_attempt ()
+{
 	auto attempt_l (attempt.lock ());
 	if (attempt_l != nullptr)
 	{
 		attempt_l->stop ();
+	}
+	if (attempt_thread)
+	{
+		attempt_thread->join ();
+		attempt_thread.reset ();
 	}
 }
 

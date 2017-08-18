@@ -536,9 +536,9 @@ network_keepalive_logging_value (false),
 node_lifetime_tracing_value (false),
 insufficient_work_logging_value (true),
 log_rpc_value (true),
-bulk_pull_logging_value (false),
+bulk_pull_logging_value (true),
 work_generation_time_value (true),
-log_to_cerr_value (true),
+log_to_cerr_value (false),
 max_size (16 * 1024 * 1024)
 {
 }

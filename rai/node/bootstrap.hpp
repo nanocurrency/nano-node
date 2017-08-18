@@ -59,6 +59,8 @@ public:
 	rai::block_hash end;
 	unsigned attempts;
 };
+class frontier_req_client;
+class bulk_push_client;
 class bootstrap_attempt : public std::enable_shared_from_this <bootstrap_attempt>
 {
 public:
@@ -75,6 +77,9 @@ public:
 	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
 	void stop ();
 	void requeue_pull (rai::pull_info const &);
+	std::deque <std::weak_ptr <rai::bootstrap_client>> clients;
+	std::weak_ptr <rai::frontier_req_client> frontiers;
+	std::weak_ptr <rai::bulk_push_client> push;
     std::deque <rai::pull_info> pulls;
 	std::vector <std::shared_ptr <rai::bootstrap_client>> idle;
 	std::atomic <unsigned> connections;
