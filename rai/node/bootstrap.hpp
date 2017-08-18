@@ -157,6 +157,7 @@ public:
 	void add_observer (std::function <void (bool)> const &);
 	bool in_progress ();
 	void stop ();
+    void stop_attempt ();
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
 	std::unique_ptr <std::thread> attempt_thread;

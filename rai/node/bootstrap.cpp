@@ -959,27 +959,33 @@ stopped (false)
 {
 }
 
+rai::bootstrap_initiator::~bootstrap_initiator ()
+{
+    std::lock_guard <std::mutex> lock (mutex);
+    if (auto attempt_l = attempt.lock ())
+    {
+        attempt_l->stopped = true;
+        attempt_l->condition.notify_all ();
+    }
+    if (attempt_thread)
+    {
+        attempt_thread->join ();
+    }
+}
+
 void rai::bootstrap_initiator::bootstrap ()
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	if (attempt.lock () == nullptr && !stopped)
 	{
 		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
-		attempt = attempt_l;
+        attempt = attempt_l;
         if (attempt_thread)
         {
             attempt_thread->join ();
         }
 		attempt_thread.reset (new std::thread ([attempt_l] () { attempt_l->run (); }));
 	}
-}
-
-rai::bootstrap_initiator::~bootstrap_initiator ()
-{
-    if (attempt_thread)
-    {
-        attempt_thread->join ();
-    }
 }
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
