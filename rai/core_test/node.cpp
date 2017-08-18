@@ -210,7 +210,10 @@ TEST (node, auto_bootstrap)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes [0]->network.endpoint ());
 	node1->start ();
-	ASSERT_TRUE (node1->bootstrap_initiator.in_progress ());
+	while (!node1->bootstrap_initiator.in_progress ())
+    {
+        system.poll ();
+    }
 	auto iterations3 (0);
 	while (node1->balance (key2.pub) != system.nodes [0]->config.receive_minimum.number ())
 	{
@@ -1173,7 +1176,7 @@ TEST (node, bootstrap_no_publish)
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_TRUE (node1->active.roots.empty ());
 	auto iterations1 (0);
-	while (node1->bootstrap_initiator.in_progress ())
+    while (node1->block (send0.hash ()) == nullptr)
 	{
 		// Poll until the TCP connection is torn down and in_progress goes false
 		system0.poll ();
