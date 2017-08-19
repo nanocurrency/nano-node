@@ -412,11 +412,12 @@ class block_processor
 {
 public:
 	block_processor (rai::node &);
-	void stop ();
-	void add (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
-private:
-    void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>);
+    ~block_processor ();
+    void stop ();
+    void add (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
+    void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
     rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
+private:
 	void process_blocks ();
 	bool stopped;
 	std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks;

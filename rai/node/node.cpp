@@ -1052,6 +1052,12 @@ thread ([this] () { process_blocks (); })
 {
 }
 
+rai::block_processor::~block_processor ()
+{
+    stop ();
+    thread.join ();
+}
+
 void rai::block_processor::stop ()
 {
 	std::lock_guard <std::mutex> lock (mutex);
@@ -1061,9 +1067,9 @@ void rai::block_processor::stop ()
 
 void rai::block_processor::add (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> action_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
-	blocks.push_back (std::make_pair (block_a, action_a));
-	condition.notify_all ();
+    std::lock_guard <std::mutex> lock (mutex);
+    blocks.push_back (std::make_pair (block_a, action_a));
+    condition.notify_all ();
 }
 
 void rai::block_processor::process_blocks ()
@@ -1550,7 +1556,7 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 	});
 }
 
-void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming)
+void rai::block_processor::process_receive_republish (std::shared_ptr <rai::block> incoming)
 {
     assert (incoming != nullptr);
     auto node_l (shared_from_this ());

@@ -67,7 +67,6 @@ public:
 	bootstrap_attempt (std::shared_ptr <rai::node> node_a);
 	~bootstrap_attempt ();
 	void run ();
-	void process_blocks ();
 	std::shared_ptr <rai::bootstrap_client> connection (std::unique_lock <std::mutex> &);
     bool consume_future (std::future <bool> &);
 	void populate_connections ();

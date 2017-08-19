@@ -1014,7 +1014,6 @@ void rai::bootstrap_initiator::bootstrap ()
 		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
         attempt = attempt_l;
 		attempt_thread.reset (new std::thread ([attempt_l] () { attempt_l->run (); }));
-		block_thread.reset (new std::thread ([attempt_l] () { attempt_l->process_blocks (); }));
 	}
 }
 
