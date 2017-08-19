@@ -1356,31 +1356,27 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 
 void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming)
 {
-	std::vector <std::tuple <rai::process_return, std::shared_ptr <rai::block>>> completed;
-	{
-		assert (incoming != nullptr);
-		process_receive_many (incoming, [this, &completed] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
-		{
-			switch (result_a.code)
-			{
-				case rai::process_result::progress:
-				{
-					auto node_l (shared_from_this ());
-					active.start (transaction_a, block_a);
-					completed.push_back (std::make_tuple (result_a, block_a));
-					break;
-				}
-				default:
-				{
-					break;
-				}
-			}
-		});
-	}
-	for (auto & i: completed)
-	{
-		observers.blocks (*std::get <1> (i), std::get <0> (i).account, std::get <0>(i).amount);
-	}
+    assert (incoming != nullptr);
+    auto node_l (shared_from_this ());
+    process_receive_many (incoming, [node_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
+    {
+        switch (result_a.code)
+        {
+            case rai::process_result::progress:
+            {
+                node_l->active.start (transaction_a, block_a);
+                node_l->background ([node_l, block_a, result_a] ()
+                {
+                    node_l->observers.blocks (*block_a, result_a.account, result_a.amount);
+                });
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
+    });
 }
 
 void rai::node::process_receive_many (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> completed_a)
