@@ -575,32 +575,27 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				expected = block->previous ();
 			}
-			auto attempt (connection->attempt);
-			// Process the block asynchronously from making the next network requests since this is a potentially long operation
-			// Hold a reference to the current attempt so we don't start another one while blocks are being processed.
-			attempt->node->background ([attempt, block] ()
-			{			
-				attempt->node->process_receive_many (block, [attempt] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
+			auto attempt_l (connection->attempt);
+			attempt_l->node->block_processor.add (block, [attempt_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
+			{
+				switch (result_a.code)
 				{
-					switch (result_a.code)
+					case rai::process_result::progress:
+					case rai::process_result::old:
+						break;
+					case rai::process_result::fork:
 					{
-						case rai::process_result::progress:
-						case rai::process_result::old:
-							break;
-						case rai::process_result::fork:
-						{
-							auto node_l (attempt->node);
-							std::shared_ptr <rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
-							node_l->active.start (transaction_a, block);
-							attempt->node->network.broadcast_confirm_req (block_a);
-							attempt->node->network.broadcast_confirm_req (block);
-							BOOST_LOG (attempt->node->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
-							break;
-						}
-						default:
-							break;
+						auto node_l (attempt_l->node);
+						std::shared_ptr <rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
+						node_l->active.start (transaction_a, block);
+						node_l->network.broadcast_confirm_req (block_a);
+						node_l->network.broadcast_confirm_req (block);
+						BOOST_LOG (node_l->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
+						break;
 					}
-				});
+					default:
+						break;
+				}
 			});
             receive_block ();
 		}
@@ -872,6 +867,7 @@ void rai::bootstrap_attempt::run ()
         push_failure = request_push (lock);
 	}
     stopped = true;
+	condition.notify_all ();
     idle.clear ();
 }
 
@@ -1018,8 +1014,6 @@ void rai::bootstrap_initiator::bootstrap ()
 		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
         attempt = attempt_l;
 		attempt_thread.reset (new std::thread ([attempt_l] () { attempt_l->run (); }));
-		assert (attempt_thread);
-		assert (attempt_thread->joinable ());
 	}
 }
 
@@ -1065,6 +1059,11 @@ void rai::bootstrap_initiator::stop_attempt ()
 	{
 		attempt_thread->join ();
 		attempt_thread.reset ();
+	}
+	if (block_thread)
+	{
+		block_thread->join ();
+		block_thread.reset ();
 	}
 }
 
