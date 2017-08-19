@@ -1045,6 +1045,201 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 	return active.count (hash_a) != 0;
 }
 
+rai::block_processor::block_processor (rai::node & node_a) :
+stopped (false),
+node (node_a),
+thread ([this] () { process_blocks (); })
+{
+}
+
+void rai::block_processor::stop ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	stopped = true;
+	condition.notify_all ();
+}
+
+void rai::block_processor::add (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> action_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	blocks.push_back (std::make_pair (block_a, action_a));
+	condition.notify_all ();
+}
+
+void rai::block_processor::process_blocks ()
+{
+	std::unique_lock <std::mutex> lock (mutex);
+	while (!stopped)
+	{
+		if (!blocks.empty ())
+		{
+			auto info (blocks.front ());
+			blocks.pop_front ();
+			lock.unlock ();
+			process_receive_many (info.first, info.second);
+			// Let other threads get an opportunity to transaction lock
+			std::this_thread::yield ();
+			lock.lock ();
+		}
+		else
+		{
+			condition.wait (lock);
+		}
+	}
+}
+
+void rai::block_processor::process_receive_many (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> completed_a)
+{
+	std::vector <std::shared_ptr <rai::block>> blocks;
+	blocks.push_back (block_a);
+    while (!blocks.empty ())
+    {
+		{
+			rai::transaction transaction (node.store.environment, nullptr, true);
+			auto count (0);
+			while (!blocks.empty () && count < rai::blocks_per_transaction)
+			{
+				auto block (blocks.back ());
+				blocks.pop_back ();
+				auto hash (block->hash ());
+				auto process_result (process_receive_one (transaction, block));
+				completed_a (transaction, process_result, block);
+				switch (process_result.code)
+				{
+					case rai::process_result::progress:
+					case rai::process_result::old:
+					{
+						auto cached (node.store.unchecked_get (transaction, hash));
+						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+						{
+							node.store.unchecked_del (transaction, hash, **i);
+							blocks.push_back (std::move (*i));
+						}
+						std::lock_guard <std::mutex> lock (node.gap_cache.mutex);
+						node.gap_cache.blocks.get <1> ().erase (hash);
+						break;
+					}
+					default:
+						break;
+				}
+				++count;
+			}
+		}
+    }
+}
+
+rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr <rai::block> block_a)
+{
+	rai::process_return result;
+	result = node.ledger.process (transaction_a, *block_a);
+    switch (result.code)
+    {
+        case rai::process_result::progress:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                std::string block;
+                block_a->serialize_json (block);
+                BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a->hash ().to_string () % block);
+            }
+            break;
+        }
+        case rai::process_result::gap_previous:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % block_a->hash ().to_string ());
+            }
+			node.store.unchecked_put (transaction_a, block_a->previous (), block_a);
+			node.gap_cache.add (transaction_a, block_a);
+			break;
+        }
+        case rai::process_result::gap_source:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % block_a->hash ().to_string ());
+            }
+			node.store.unchecked_put (transaction_a, block_a->source (), block_a);
+			node.gap_cache.add (transaction_a, block_a);
+            break;
+        }
+        case rai::process_result::old:
+        {
+			{
+				auto root (block_a->root ());
+				auto hash (block_a->hash ());
+				auto existing (node.store.block_get (transaction_a, hash));
+				if (existing != nullptr)
+				{
+					// Replace block with one that has higher work value
+					if (node.work.work_value (root, block_a->block_work ()) > node.work.work_value (root, existing->block_work ()))
+					{
+						node.store.block_put (transaction_a, hash, *block_a, node.store.block_successor (transaction_a, hash));
+					}
+				}
+				else
+				{
+					// Could have been rolled back, maybe
+				}
+			}
+            if (node.config.logging.ledger_duplicate_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
+            }
+            break;
+        }
+        case rai::process_result::bad_signature:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % block_a->hash ().to_string ());
+            }
+            break;
+        }
+        case rai::process_result::overspend:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Overspend for: %1%") % block_a->hash ().to_string ());
+            }
+            break;
+        }
+        case rai::process_result::unreceivable:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a->hash ().to_string ());
+            }
+            break;
+        }
+        case rai::process_result::not_receive_from_send:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Not receive from send for: %1%") % block_a->hash ().to_string ());
+            }
+            break;
+        }
+        case rai::process_result::fork:
+        {
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a->hash ().to_string () % block_a->root ().to_string ());
+			}
+            break;
+        }
+        case rai::process_result::account_mismatch:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a->hash ().to_string ());
+            }
+        }
+    }
+    return result;
+}
+
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
 node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
@@ -1066,7 +1261,8 @@ peers (network.endpoint ()),
 application_path (application_path_a),
 port_mapping (*this),
 vote_processor (*this),
-warmed_up (0)
+warmed_up (0),
+block_processor (*this)
 {
 	store.environment.sizing_action = [this] ()
 	{
@@ -1377,160 +1573,7 @@ void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming
             }
         }
     });
-}
 
-void rai::node::process_receive_many (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> completed_a)
-{
-	std::vector <std::shared_ptr <rai::block>> blocks;
-	blocks.push_back (block_a);
-    while (!blocks.empty ())
-    {
-		{
-			rai::transaction transaction (store.environment, nullptr, true);
-			auto count (0);
-			while (!blocks.empty () && count < rai::blocks_per_transaction)
-			{
-				auto block (blocks.back ());
-				blocks.pop_back ();
-				auto hash (block->hash ());
-				auto process_result (process_receive_one (transaction, block));
-				completed_a (transaction, process_result, block);
-				switch (process_result.code)
-				{
-					case rai::process_result::progress:
-					case rai::process_result::old:
-					{
-						auto cached (store.unchecked_get (transaction, hash));
-						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
-						{
-							store.unchecked_del (transaction, hash, **i);
-							blocks.push_back (std::move (*i));
-						}
-						std::lock_guard <std::mutex> lock (gap_cache.mutex);
-						gap_cache.blocks.get <1> ().erase (hash);
-						break;
-					}
-					default:
-						break;
-				}
-				++count;
-			}
-		}
-		// Let other threads get an opportunity to transaction lock
-		std::this_thread::yield ();
-    }
-}
-
-rai::process_return rai::node::process_receive_one (MDB_txn * transaction_a, std::shared_ptr <rai::block> block_a)
-{
-	rai::process_return result;
-	result = ledger.process (transaction_a, *block_a);
-    switch (result.code)
-    {
-        case rai::process_result::progress:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                std::string block;
-                block_a->serialize_json (block);
-                BOOST_LOG (log) << boost::str (boost::format ("Processing block %1% %2%") % block_a->hash ().to_string () % block);
-            }
-            break;
-        }
-        case rai::process_result::gap_previous:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Gap previous for: %1%") % block_a->hash ().to_string ());
-            }
-			store.unchecked_put (transaction_a, block_a->previous (), block_a);
-			gap_cache.add (transaction_a, block_a);
-			break;
-        }
-        case rai::process_result::gap_source:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Gap source for: %1%") % block_a->hash ().to_string ());
-            }
-			store.unchecked_put (transaction_a, block_a->source (), block_a);
-			gap_cache.add (transaction_a, block_a);
-            break;
-        }
-        case rai::process_result::old:
-        {
-			{
-				auto root (block_a->root ());
-				auto hash (block_a->hash ());
-				auto existing (store.block_get (transaction_a, hash));
-				if (existing != nullptr)
-				{
-					// Replace block with one that has higher work value
-					if (work.work_value (root, block_a->block_work ()) > work.work_value (root, existing->block_work ()))
-					{
-						store.block_put (transaction_a, hash, *block_a, store.block_successor (transaction_a, hash));
-					}
-				}
-				else
-				{
-					// Could have been rolled back, maybe
-				}
-			}
-            if (config.logging.ledger_duplicate_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::bad_signature:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Bad signature for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::overspend:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Overspend for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::unreceivable:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::not_receive_from_send:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Not receive from send for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::fork:
-        {
-			if (config.logging.ledger_logging ())
-			{
-				BOOST_LOG (log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a->hash ().to_string () % block_a->root ().to_string ());
-			}
-            break;
-        }
-        case rai::process_result::account_mismatch:
-        {
-            if (config.logging.ledger_logging ())
-            {
-                BOOST_LOG (log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a->hash ().to_string ());
-            }
-        }
-    }
-    return result;
 }
 
 rai::process_return rai::node::process (rai::block const & block_a)
@@ -1674,6 +1717,7 @@ void rai::node::start ()
 void rai::node::stop ()
 {
     BOOST_LOG (log) << "Node stopping";
+	block_processor.stop ();
 	active.stop ();
     network.stop ();
 	bootstrap_initiator.stop ();
@@ -2554,12 +2598,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 				// Replace our block with the winner and roll back any dependent blocks
 				node.ledger.rollback (transaction_a, last_winner->hash ());
 				node.ledger.process (transaction_a, *winner->second);
-				auto block_l (winner->second);
-				auto node_l (node.shared ());
-				node.background ([block_l, node_l] ()
-				{
-					node_l->process_receive_many (block_l);
-				});
+				node.block_processor.add (winner->second);
 				last_winner = std::move (winner->second);
 			}
 			else

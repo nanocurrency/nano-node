@@ -406,6 +406,25 @@ public:
 	std::mutex mutex;
 	std::unordered_set <rai::block_hash> active;
 };
+// Processing blocks is a potentially long IO operation
+// This class isolates block insertion from other operations like servicing network operations
+class block_processor
+{
+public:
+	block_processor (rai::node &);
+	void stop ();
+	void add (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
+private:
+    void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>);
+    rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
+	void process_blocks ();
+	bool stopped;
+	std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks;
+	std::mutex mutex;
+	std::condition_variable condition;
+	rai::node & node;
+	std::thread thread;
+};
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
@@ -426,8 +445,6 @@ public:
     void process_confirmed (std::shared_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
     void process_receive_republish (std::shared_ptr <rai::block>);
-    void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
-    rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
@@ -464,6 +481,7 @@ public:
 	rai::vote_processor vote_processor;
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
+	rai::block_processor block_processor;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
