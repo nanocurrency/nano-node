@@ -1560,7 +1560,7 @@ void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming
 {
     assert (incoming != nullptr);
     auto node_l (shared_from_this ());
-    block_processor.add (incoming, [node_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
+    block_processor.process_receive_many (incoming, [node_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
     {
         switch (result_a.code)
         {
