@@ -1068,7 +1068,7 @@ void rai::block_processor::stop ()
 void rai::block_processor::flush ()
 {
     std::unique_lock <std::mutex> lock (mutex);
-    while (!blocks.empty () || !idle)
+    while (!stopped && (!blocks.empty () || !idle))
     {
         condition.wait (lock);
     }
