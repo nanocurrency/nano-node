@@ -1046,6 +1046,7 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
+idle (true),
 node (node_a),
 thread ([this] () { process_blocks (); })
 {
@@ -1064,6 +1065,15 @@ void rai::block_processor::stop ()
 	condition.notify_all ();
 }
 
+void rai::block_processor::flush ()
+{
+    std::unique_lock <std::mutex> lock (mutex);
+    while (!blocks.empty () || !idle)
+    {
+        condition.wait (lock);
+    }
+}
+
 void rai::block_processor::add (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> action_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
@@ -1078,17 +1088,22 @@ void rai::block_processor::process_blocks ()
 	{
 		if (!blocks.empty ())
 		{
-			auto info (blocks.front ());
-			blocks.pop_front ();
-			lock.unlock ();
-			process_receive_many (info.first, info.second);
-			// Let other threads get an opportunity to transaction lock
-			std::this_thread::yield ();
+            {
+                auto info (blocks.front ());
+                blocks.pop_front ();
+                lock.unlock ();
+                process_receive_many (info.first, info.second);
+            }
+            // Let other threads get an opportunity to transaction lock
+            std::this_thread::yield ();
 			lock.lock ();
 		}
 		else
 		{
+            idle = true;
+            condition.notify_all ();
 			condition.wait (lock);
+            idle = false;
 		}
 	}
 }
@@ -1560,7 +1575,7 @@ void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming
 {
     assert (incoming != nullptr);
     auto node_l (shared_from_this ());
-    block_processor.process_receive_many (incoming, [node_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
+    block_processor.add (incoming, [node_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
     {
         switch (result_a.code)
         {
@@ -1579,7 +1594,10 @@ void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming
             }
         }
     });
-
+    if (rai::rai_network == rai::rai_networks::rai_test_network)
+    {
+        block_processor.flush ();
+    }
 }
 
 rai::process_return rai::node::process (rai::block const & block_a)
