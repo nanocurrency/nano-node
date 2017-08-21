@@ -269,7 +269,7 @@ public:
 class network
 {
 public:
-    network (boost::asio::io_service &, uint16_t, rai::node &);
+    network (rai::node &, uint16_t);
     void receive ();
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
@@ -290,7 +290,6 @@ public:
     std::array <uint8_t, 512> buffer;
     boost::asio::ip::udp::socket socket;
     std::mutex socket_mutex;
-    boost::asio::io_service & service;
     boost::asio::ip::udp::resolver resolver;
     rai::node & node;
     uint64_t bad_sender_count;
@@ -462,7 +461,8 @@ public:
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
-	void add_initial_peers ();
+    void add_initial_peers ();
+    boost::asio::io_service & service;
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
@@ -482,7 +482,7 @@ public:
 	rai::vote_processor vote_processor;
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
-	rai::block_processor block_processor;
+    rai::block_processor block_processor;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);

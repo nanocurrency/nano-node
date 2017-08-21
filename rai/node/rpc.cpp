@@ -3230,7 +3230,7 @@ void rai::rpc_handler::work_peers_clear ()
 rai::rpc_connection::rpc_connection (rai::node & node_a, rai::rpc & rpc_a) :
 node (node_a.shared ()),
 rpc (rpc_a),
-socket (node_a.network.service)
+socket (node_a.service)
 {
 }
 

@@ -150,9 +150,9 @@ rai::sync_result rai::push_synchronization::target (MDB_txn * transaction_a, rai
 rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
 node (node_a),
 attempt (attempt_a),
-socket (node_a->network.service),
+socket (node_a->service),
 endpoint (endpoint_a),
-timeout (node_a->network.service)
+timeout (node_a->service)
 {
 	++attempt->connections;
 }

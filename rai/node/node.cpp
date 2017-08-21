@@ -39,10 +39,9 @@ confirm_ack (0)
 {
 }
 
-rai::network::network (boost::asio::io_service & service_a, uint16_t port, rai::node & node_a) :
-socket (service_a, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
-service (service_a),
-resolver (service_a),
+rai::network::network (rai::node & node_a, uint16_t port) :
+socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
+resolver (node_a.service),
 node (node_a),
 bad_sender_count (0),
 on (true),
@@ -1252,6 +1251,7 @@ node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_
 }
 
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+service (service_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
@@ -1260,7 +1260,7 @@ gap_cache (*this),
 ledger (store, config_a.inactive_supply.number ()),
 active (*this),
 wallets (init_a.block_store_init, *this),
-network (service_a, config.peering_port, *this),
+network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
@@ -1309,14 +1309,14 @@ block_processor (*this)
 			auto port (config.callback_port);
 			auto target (std::make_shared <std::string> (config.callback_target));
 			auto node_l (shared_from_this ());
-			auto resolver (std::make_shared <boost::asio::ip::tcp::resolver> (network.service));
+			auto resolver (std::make_shared <boost::asio::ip::tcp::resolver> (service));
 			resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a)
 			{
 				if (!ec)
 				{
 					for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator {}); i != n; ++i)
 					{
-						auto sock (std::make_shared <boost::asio::ip::tcp::socket> (node_l->network.service));
+						auto sock (std::make_shared <boost::asio::ip::tcp::socket> (node_l->service));
 						sock->async_connect (i->endpoint(), [node_l, target, body, sock, address, port] (boost::system::error_code const & ec)
 						{
 							if (!ec)
@@ -1917,7 +1917,7 @@ void start ()
 			auto service (i.second);
 			node->background ([this_l, host, service] ()
 			{
-				auto connection (std::make_shared <work_request> (this_l->node->network.service, host, service));
+				auto connection (std::make_shared <work_request> (this_l->node->service, host, service));
 				connection->socket.async_connect (rai::tcp_endpoint (host, service), [this_l, connection] (boost::system::error_code const & ec)
 				{
 					if (!ec)
@@ -2007,9 +2007,8 @@ void stop ()
 			request.target ("/");
 			request.version = 11;
 			request.body = request_string;
-			//boost::beast::http::prepare (request);
 			request.prepare_payload();
-			auto socket (std::make_shared <boost::asio::ip::tcp::socket> (this_l->node->network.service));
+			auto socket (std::make_shared <boost::asio::ip::tcp::socket> (this_l->node->service));
 			boost::beast::http::async_write (*socket, request, [socket] (boost::system::error_code const & ec)
 			{
 			});
