@@ -166,7 +166,6 @@ public:
 	rai::node & node;
 	std::weak_ptr <rai::bootstrap_attempt> attempt;
 	std::unique_ptr <std::thread> attempt_thread;
-	std::unique_ptr <std::thread> block_thread;
 	bool stopped;
 private:
 	std::mutex mutex;

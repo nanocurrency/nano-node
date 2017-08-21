@@ -1060,11 +1060,6 @@ void rai::bootstrap_initiator::stop_attempt ()
 		attempt_thread->join ();
 		attempt_thread.reset ();
 	}
-	if (block_thread)
-	{
-		block_thread->join ();
-		block_thread.reset ();
-	}
 }
 
 void rai::bootstrap_initiator::notify_listeners ()
