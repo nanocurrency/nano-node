@@ -1015,6 +1015,7 @@ void rai::bootstrap_initiator::bootstrap ()
 		attempt_thread.reset (new std::thread ([this] ()
         {
             attempt->run ();
+			node.block_processor.flush ();
             attempt.reset ();
         }));
 	}
