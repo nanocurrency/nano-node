@@ -164,7 +164,7 @@ public:
 	void stop ();
     void stop_attempt ();
 	rai::node & node;
-	std::weak_ptr <rai::bootstrap_attempt> attempt;
+	std::shared_ptr <rai::bootstrap_attempt> attempt;
 	std::unique_ptr <std::thread> attempt_thread;
 	bool stopped;
 private:

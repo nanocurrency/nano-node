@@ -1002,18 +1002,21 @@ stopped (false)
 
 rai::bootstrap_initiator::~bootstrap_initiator ()
 {
-	stop_attempt ();
+    stop ();
 }
 
 void rai::bootstrap_initiator::bootstrap ()
 {
 	std::lock_guard <std::mutex> lock (mutex);
-	if (attempt.lock () == nullptr && !stopped)
+	if (attempt == nullptr && !stopped)
 	{
-		stop_attempt ();
-		auto attempt_l (std::make_shared <rai::bootstrap_attempt> (node.shared ()));
-        attempt = attempt_l;
-		attempt_thread.reset (new std::thread ([attempt_l] () { attempt_l->run (); }));
+        stop_attempt ();
+        attempt = std::make_shared <rai::bootstrap_attempt> (node.shared ());
+		attempt_thread.reset (new std::thread ([this] ()
+        {
+            attempt->run ();
+            attempt.reset ();
+        }));
 	}
 }
 
@@ -1022,12 +1025,9 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
     node.peers.insert (endpoint_a, 0);
 	bootstrap ();
 	std::lock_guard <std::mutex> lock (mutex);
-	if (auto attempt_l = attempt.lock ())
+	if (attempt != nullptr)
 	{
-		if (!stopped)
-		{
-			attempt_l->add_connection (endpoint_a);
-		}
+        attempt->add_connection (endpoint_a);
 	}
 }
 
@@ -1039,21 +1039,22 @@ void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const &
 
 bool rai::bootstrap_initiator::in_progress ()
 {
-	return attempt.lock () != nullptr;
+    std::lock_guard <std::mutex> lock (mutex);
+	return attempt != nullptr;
 }
 
 void rai::bootstrap_initiator::stop ()
 {
+    std::lock_guard <std::mutex> lock (mutex);
 	stopped = true;
 	stop_attempt ();
 }
 
 void rai::bootstrap_initiator::stop_attempt ()
 {
-	auto attempt_l (attempt.lock ());
-	if (attempt_l != nullptr)
+	if (attempt != nullptr)
 	{
-		attempt_l->stop ();
+		attempt->stop ();
 	}
 	if (attempt_thread)
 	{
