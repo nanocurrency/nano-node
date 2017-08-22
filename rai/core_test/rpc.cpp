@@ -1958,7 +1958,7 @@ TEST (rpc, bootstrap_any)
 	ASSERT_TRUE (success.empty());
 }
 
-TEST (rpc, republish)
+TEST (rpc, DISABLED_republish)
 {
 	rai::system system (24000, 2);
 	rai::keypair key;
@@ -2486,7 +2486,7 @@ TEST (rpc, search_pending_all)
 	}
 }
 
-TEST (rpc, wallet_republish)
+TEST (rpc, DISABLED_wallet_republish)
 {
 	rai::system system (24000, 1);
 	rai::genesis genesis;

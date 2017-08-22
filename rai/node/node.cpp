@@ -170,7 +170,7 @@ bool confirm_block (rai::node & node_a, T & list_a, std::shared_ptr <rai::block>
     bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		rai::transaction transaction (node_a.store.environment, nullptr, true);
+		rai::transaction transaction (node_a.store.environment, nullptr, false);
 		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
 			result = true;
