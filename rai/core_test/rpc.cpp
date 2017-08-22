@@ -290,7 +290,7 @@ TEST (rpc, send_fail)
 	request.put ("source", rai::test_genesis_key.pub.to_account ());
     request.put ("destination", rai::test_genesis_key.pub.to_account ());
     request.put ("amount", "100");
-	auto done (false);
+	std::atomic <bool> done (false);
 	std::thread thread2 ([&system, &done] ()
 	{
 		auto iterations (0);
