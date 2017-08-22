@@ -995,7 +995,7 @@ rai::vote_result rai::vote_processor::vote (rai::vote const & vote_a, rai::endpo
 {
 	rai::vote_result result;
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, nullptr, false);
 		result = vote_a.validate (transaction, node.store);
 	}
 	if (node.config.logging.vote_logging ())
