@@ -1508,7 +1508,6 @@ size_t rai::block_counts::sum ()
 }
 
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a) :
-sequence_cache_count (0),
 environment (error_a, path_a),
 frontiers (0),
 accounts (0),
@@ -2489,7 +2488,6 @@ void rai::block_store::sequence_flush (MDB_txn * transaction_a)
 		auto status1 (mdb_put (transaction_a, sequence, i->first.val (), rai::mdb_val (sizeof (i->second), &i->second), 0));
 		assert (status1 == 0);
 	}
-	sequence_cache_count = 0;
 	sequence_cache.clear ();
 }
 
@@ -2521,11 +2519,6 @@ uint64_t rai::block_store::sequence_atomic_inc (MDB_txn * transaction_a, rai::ac
 	auto result (sequence_current (transaction_a, account_a));
 	result += 1;
 	sequence_cache [account_a] = result;
-	++sequence_cache_count;
-	if (sequence_cache_count > sequence_cache_max)
-	{
-		sequence_flush (transaction_a);
-	}
 	return result;
 }
 
@@ -2536,11 +2529,6 @@ uint64_t rai::block_store::sequence_atomic_observe (MDB_txn * transaction_a, rai
 	if (sequence_a > current)
 	{
 		sequence_cache [account_a] = sequence_a;
-		++sequence_cache_count;
-		if (sequence_cache_count > sequence_cache_max)
-		{
-			sequence_flush (transaction_a);
-		}
 	}
 	return result;
 }
