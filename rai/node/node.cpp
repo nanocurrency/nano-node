@@ -2800,36 +2800,6 @@ int rai::node::store_version ()
 	return store.version_get (transaction);
 }
 
-rai::fan::fan (rai::uint256_union const & key, size_t count_a)
-{
-    std::unique_ptr <rai::uint256_union> first (new rai::uint256_union (key));
-    for (auto i (1); i < count_a; ++i)
-    {
-        std::unique_ptr <rai::uint256_union> entry (new rai::uint256_union);
-        random_pool.GenerateBlock (entry->bytes.data (), entry->bytes.size ());
-        *first ^= *entry;
-        values.push_back (std::move (entry));
-    }
-    values.push_back (std::move (first));
-}
-
-void rai::fan::value (rai::raw_key & prv_a)
-{
-    prv_a.data.clear ();
-    for (auto & i: values)
-    {
-        prv_a.data ^= *i;
-    }
-}
-
-void rai::fan::value_set (rai::raw_key const & value_a)
-{
-    rai::raw_key value_l;
-	value (value_l);
-    *(values [0]) ^= value_l.data;
-    *(values [0]) ^= value_a.data;
-}
-
 rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
 {
 	for (auto i (0); i < service_threads_a; ++i)
