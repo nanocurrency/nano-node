@@ -388,10 +388,12 @@ public:
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
 	
+	uint64_t sequence_get (MDB_txn *, rai::account const &);
 	uint64_t sequence_atomic_inc (MDB_txn *, rai::account const &);
 	uint64_t sequence_atomic_observe (MDB_txn *, rai::account const &, uint64_t);
 	uint64_t sequence_current (MDB_txn *, rai::account const &);
 	void sequence_flush (MDB_txn *);
+	std::mutex sequence_mutex;
 	std::unordered_map <rai::account, uint64_t> sequence_cache;
 	
 	void version_put (MDB_txn *, int);
