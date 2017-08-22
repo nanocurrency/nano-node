@@ -1432,7 +1432,7 @@ TEST (rpc, work_peer_bad)
 	rpc.start ();
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any (), 0));
 	rai::block_hash hash1 (1);
-	uint64_t work (0);
+	std::atomic <uint64_t> work (0);
 	node2.generate_work (hash1, [&work] (uint64_t work_a)
 	{
 		work = work_a;
