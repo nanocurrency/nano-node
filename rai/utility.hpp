@@ -21,7 +21,7 @@
 
 namespace rai
 {
-extern CryptoPP::AutoSeededRandomPool & random_pool;
+extern thread_local CryptoPP::AutoSeededRandomPool random_pool;
 // We operate on streams of uint8_t by convention
 using stream = std::basic_streambuf <uint8_t>;
 using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
