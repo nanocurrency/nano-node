@@ -1040,6 +1040,7 @@ void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const &
 
 bool rai::bootstrap_initiator::in_progress ()
 {
+	std::lock_guard <std::mutex> lock (mutex);
 	return attempt != nullptr;
 }
 
