@@ -170,7 +170,7 @@ bool confirm_block (rai::node & node_a, T & list_a, std::shared_ptr <rai::block>
     bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		rai::transaction transaction (node_a.store.environment, nullptr, true);
+		rai::transaction transaction (node_a.store.environment, nullptr, false);
 		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
 			result = true;
@@ -995,7 +995,7 @@ rai::vote_result rai::vote_processor::vote (rai::vote const & vote_a, rai::endpo
 {
 	rai::vote_result result;
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, nullptr, false);
 		result = vote_a.validate (transaction, node.store);
 	}
 	if (node.config.logging.vote_logging ())
@@ -1729,6 +1729,7 @@ void rai::node::start ()
     network.receive ();
     ongoing_keepalive ();
 	ongoing_bootstrap ();
+	ongoing_vote_flush ();
 	ongoing_rep_crawl ();
     bootstrap.start ();
 	backup_wallet ();
@@ -1857,6 +1858,22 @@ void rai::node::ongoing_bootstrap ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
+		}
+	});
+}
+
+void rai::node::ongoing_vote_flush ()
+{
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		store.sequence_flush (transaction);
+	}
+	std::weak_ptr <rai::node> node_w (shared_from_this ());
+	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w] ()
+	{
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_vote_flush ();
 		}
 	});
 }

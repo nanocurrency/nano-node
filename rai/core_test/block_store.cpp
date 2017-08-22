@@ -874,3 +874,19 @@ TEST (block_store, upgrade_v7_v8)
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
 }
+
+TEST (block_store, sequence_flush)
+{
+	auto path (rai::unique_path ());
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, nullptr, true);
+	rai::account account (0);
+	auto seq1 (store.sequence_atomic_inc (transaction, account));
+	auto seq2 (store.sequence_get (transaction, account));
+	ASSERT_NE (seq2, seq1);
+	store.sequence_flush(transaction);
+	auto seq3 (store.sequence_get (transaction, account));
+	ASSERT_EQ (seq3, seq1);
+}
