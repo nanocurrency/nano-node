@@ -1562,10 +1562,14 @@ void rai::rpc_handler::pending_exists ()
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
-			auto block_l (static_cast <rai::send_block *> (block.release ()));
-			auto account (block_l->hashables.destination);
+			auto block_l (dynamic_cast <rai::send_block *> (block.get ()));
+			auto exists (false);
+			if (block_l != nullptr)
+			{
+				auto account (block_l->hashables.destination);
+				exists = node.store.pending_exists (transaction, rai::pending_key (account, hash));
+			}
 			boost::property_tree::ptree response_l;
-			auto exists (node.store.pending_exists (transaction, rai::pending_key (account, hash)));
 			response_l.put ("exists", exists ? "1" : "0");
 			response (response_l);
 		}
