@@ -758,6 +758,7 @@ stopped (false)
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
 {
+	node->bootstrap_initiator.notify_listeners ();
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 }
 
@@ -1006,22 +1007,18 @@ rai::bootstrap_initiator::~bootstrap_initiator ()
 
 void rai::bootstrap_initiator::bootstrap ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
-	if (!stopped)
+	std::lock_guard <std::mutex> lock (mutex);
+	if (attempt == nullptr && !stopped)
 	{
-        stop_attempt (lock);
-		assert (attempt == nullptr);
+        stop_attempt ();
         attempt = std::make_shared <rai::bootstrap_attempt> (node.shared ());
 		attempt_thread.reset (new std::thread ([this] ()
         {
             attempt->run ();
 			node.block_processor.flush ();
-			std::lock_guard <std::mutex> lock (mutex);
-			attempt.reset ();
-			condition.notify_all ();
+            attempt.reset ();
         }));
 	}
-	notify_listeners (attempt != nullptr);
 }
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
@@ -1049,35 +1046,30 @@ bool rai::bootstrap_initiator::in_progress ()
 
 void rai::bootstrap_initiator::stop ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
+    std::lock_guard <std::mutex> lock (mutex);
 	stopped = true;
-	stop_attempt (lock);
+	stop_attempt ();
 }
 
-void rai::bootstrap_initiator::stop_attempt (std::unique_lock <std::mutex> & lock_a)
+void rai::bootstrap_initiator::stop_attempt ()
 {
-	assert (!mutex.try_lock ());
 	if (attempt != nullptr)
 	{
 		attempt->stop ();
-	}
-	while (attempt != nullptr)
-	{
-		condition.wait (lock_a);
 	}
 	if (attempt_thread)
 	{
 		attempt_thread->join ();
 		attempt_thread.reset ();
 	}
-	notify_listeners (false);
 }
 
-void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
+void rai::bootstrap_initiator::notify_listeners ()
 {
+	auto in_progress_l (in_progress ());
 	for (auto & i: observers)
 	{
-		i (in_progress_a);
+		i (in_progress_l);
 	}
 }
 
