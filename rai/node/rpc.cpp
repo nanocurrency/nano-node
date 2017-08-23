@@ -2058,34 +2058,37 @@ void rai::rpc_handler::republish ()
 				if (destinations != 0) // Republish destination chain
 				{
 					auto block_b (node.store.block_get (transaction, hash));
-					auto block_s (static_cast <rai::send_block *> (block_b.release ()));
-					auto destination (block_s->hashables.destination);
-					auto exists (node.store.pending_exists (transaction, rai::pending_key (destination, hash)));
-					if (!exists)
+					auto block_s (dynamic_cast <rai::send_block *> (block_b.get ()));
+					if (block_s != nullptr)
 					{
-						rai::block_hash previous (node.ledger.latest (transaction, destination));
-						std::unique_ptr <rai::block> block_d (node.store.block_get (transaction, previous));
-						rai::block_hash source;
-						std::vector <rai::block_hash> hashes;
-						while (block_d != nullptr && hash != source)
+						auto destination (block_s->hashables.destination);
+						auto exists (node.store.pending_exists (transaction, rai::pending_key (destination, hash)));
+						if (!exists)
 						{
-							hashes.push_back (previous);
-							source = block_d->source ();
-							previous = block_d->previous ();
-							block_d = node.store.block_get (transaction, previous);
-						}
-						std::reverse (hashes.begin (), hashes.end ());
-						if (hashes.size () > destinations)
-						{
-							hashes.resize(destinations);
-						}
-						for (auto & hash_l : hashes)
-						{
-							block_d = node.store.block_get (transaction, hash_l);
-							node.network.republish_block (std::move (block_d));
-							boost::property_tree::ptree entry_l;
-							entry_l.put ("", hash_l.to_string ());
-							blocks.push_back (std::make_pair ("", entry_l));
+							rai::block_hash previous (node.ledger.latest (transaction, destination));
+							std::unique_ptr <rai::block> block_d (node.store.block_get (transaction, previous));
+							rai::block_hash source;
+							std::vector <rai::block_hash> hashes;
+							while (block_d != nullptr && hash != source)
+							{
+								hashes.push_back (previous);
+								source = block_d->source ();
+								previous = block_d->previous ();
+								block_d = node.store.block_get (transaction, previous);
+							}
+							std::reverse (hashes.begin (), hashes.end ());
+							if (hashes.size () > destinations)
+							{
+								hashes.resize(destinations);
+							}
+							for (auto & hash_l : hashes)
+							{
+								block_d = node.store.block_get (transaction, hash_l);
+								node.network.republish_block (std::move (block_d));
+								boost::property_tree::ptree entry_l;
+								entry_l.put ("", hash_l.to_string ());
+								blocks.push_back (std::make_pair ("", entry_l));
+							}
 						}
 					}
 				}
