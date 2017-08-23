@@ -1014,7 +1014,7 @@ void rai::bootstrap_initiator::bootstrap ()
 		attempt_thread.reset (new std::thread ([this] ()
         {
             attempt->run ();
-			node.block_processor.flush ();
+			this->node.block_processor.flush ();
 			std::lock_guard <std::mutex> lock (mutex);
 			attempt.reset ();
 			condition.notify_all ();
