@@ -100,7 +100,7 @@ std::string const & rai::rai_live_genesis (globals.rai_live_genesis);
 rai::account const & rai::genesis_account (globals.genesis_account);
 std::string const & rai::genesis_block (globals.genesis_block);
 rai::uint128_t const & rai::genesis_amount (globals.genesis_amount);
-thread_local CryptoPP::AutoSeededRandomPool rai::random_pool;
+thread_local CryptoPP::AutoSeededRandomPool & rai::random_pool (globals.random_pool);
 rai::block_hash const & rai::not_a_block (globals.not_a_block);
 rai::block_hash const & rai::not_an_account (globals.not_an_account);
 
