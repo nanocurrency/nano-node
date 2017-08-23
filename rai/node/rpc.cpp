@@ -2045,13 +2045,13 @@ void rai::rpc_handler::republish ()
 					for (auto & hash_l : hashes)
 					{
 						block_a = node.store.block_get (transaction, hash_l);
-						node.network.republish_block (std::move (block_a));
+						node.network.republish_block (transaction, std::move (block_a));
 						boost::property_tree::ptree entry_l;
 						entry_l.put ("", hash_l.to_string ());
 						blocks.push_back (std::make_pair ("", entry_l));
 					}
 				}
-				node.network.republish_block (std::move (block)); // Republish block
+				node.network.republish_block (transaction, std::move (block)); // Republish block
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
 				blocks.push_back (std::make_pair ("", entry));
@@ -2084,7 +2084,7 @@ void rai::rpc_handler::republish ()
 							for (auto & hash_l : hashes)
 							{
 								block_d = node.store.block_get (transaction, hash_l);
-								node.network.republish_block (std::move (block_d));
+								node.network.republish_block (transaction, std::move (block_d));
 								boost::property_tree::ptree entry_l;
 								entry_l.put ("", hash_l.to_string ());
 								blocks.push_back (std::make_pair ("", entry_l));
@@ -2927,7 +2927,7 @@ void rai::rpc_handler::wallet_republish ()
 						for (auto & hash : hashes)
 						{
 							block = node.store.block_get (transaction, hash);
-							node.network.republish_block (std::move (block));;
+							node.network.republish_block (transaction, std::move (block));;
 							boost::property_tree::ptree entry;
 							entry.put ("", hash.to_string ());
 							blocks.push_back (std::make_pair ("", entry));

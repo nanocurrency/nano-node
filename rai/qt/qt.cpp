@@ -629,7 +629,7 @@ void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a
 	auto block (wallet.node.store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
-		wallet.node.network.republish_block (std::move (block));
+		wallet.node.network.republish_block (transaction, std::move (block));
 		auto successor (wallet.node.store.block_successor (transaction, hash_a));
 		if (!successor.is_zero ())
 		{

@@ -149,9 +149,10 @@ TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
     auto block (std::make_shared <rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
-    system.nodes [0]->network.republish_block (block);
+    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    system.nodes [0]->network.republish_block (transaction, block);
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
     auto iterations (0);
     while (system.nodes [1]->network.incoming.publish == 0)
@@ -160,7 +161,7 @@ TEST (network, send_discarded_publish)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
 }
 
@@ -168,9 +169,10 @@ TEST (network, send_invalid_publish)
 {
     rai::system system (24000, 2);
     auto block (std::make_shared <rai::send_block> (1, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (1)));
-    system.nodes [0]->network.republish_block (block);
+    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+    system.nodes [0]->network.republish_block (transaction, block);
     rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
     auto iterations (0);
     while (system.nodes [1]->network.incoming.publish == 0)
@@ -179,7 +181,7 @@ TEST (network, send_invalid_publish)
         ++iterations;
         ASSERT_LT (iterations, 200);
     }
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->latest (rai::test_genesis_key.pub));
+    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
 }
 
