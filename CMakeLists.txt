@@ -99,8 +99,8 @@ set (IPHLPAPI_LIBRARY iphlpapi CACHE STRING "")
 add_subdirectory (miniupnp/miniupnpc)
 include_directories (miniupnp/miniupnpc)
 
-set (BUILD_SHARED "Build shared library" OFF)
-set (BUILD_TESTING "Build library tests" OFF)
+set (BUILD_SHARED OFF CACHE BOOL "")
+set (BUILD_TESTING OFF CACHE BOOL "")
 add_subdirectory (cryptopp)
 
 add_library (argon2
