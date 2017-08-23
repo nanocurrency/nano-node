@@ -99,43 +99,9 @@ set (IPHLPAPI_LIBRARY iphlpapi CACHE STRING "")
 add_subdirectory (miniupnp/miniupnpc)
 include_directories (miniupnp/miniupnpc)
 
-add_library (cryptopp
-	cryptopp/algparam.cpp
-	cryptopp/asn.cpp
-	cryptopp/basecode.cpp
-	cryptopp/cpu.cpp
-	cryptopp/cryptlib.cpp
-	cryptopp/default.cpp
-	cryptopp/des.cpp
-	cryptopp/dessp.cpp
-	cryptopp/dll.cpp
-	cryptopp/ec2n.cpp
-	cryptopp/ecp.cpp
-	cryptopp/filters.cpp
-	cryptopp/fips140.cpp
-	cryptopp/gcm.cpp
-	cryptopp/gf2n.cpp
-	cryptopp/gfpcrypt.cpp
-	cryptopp/hex.cpp
-	cryptopp/hmac.cpp
-	cryptopp/hrtimer.cpp
-	cryptopp/integer.cpp
-	cryptopp/iterhash.cpp
-	cryptopp/misc.cpp
-	cryptopp/modes.cpp
-	cryptopp/mqueue.cpp
-	cryptopp/nbtheory.cpp
-	cryptopp/oaep.cpp
-	cryptopp/osrng.cpp
-	cryptopp/pubkey.cpp
-	cryptopp/queue.cpp
-	cryptopp/randpool.cpp
-	cryptopp/rdtables.cpp
-	cryptopp/rijndael.cpp
-	cryptopp/rng.cpp
-	cryptopp/sha.cpp
-	cryptopp/simple.cpp
-	cryptopp/winpipes.cpp)
+set (BUILD_SHARED "Build shared library" OFF)
+set (BUILD_TESTING "Build library tests" OFF)
+add_subdirectory (cryptopp)
 
 add_library (argon2
 	Argon2/Source/Argon2/argon2.cpp
@@ -273,7 +239,7 @@ add_executable (rai_node
 	rai/rai_node/daemon.hpp
 	rai/rai_node/entry.cpp)
 
-set_target_properties (cryptopp PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
+set_target_properties (cryptopp-static PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
 set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
 set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -D__SSE2__")
 set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
