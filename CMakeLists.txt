@@ -101,6 +101,7 @@ include_directories (miniupnp/miniupnpc)
 
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
+set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
 add_subdirectory (cryptopp)
 
 add_library (argon2
