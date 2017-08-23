@@ -193,7 +193,8 @@ TEST (node, fork_storm)
 			system.nodes [i]->generate_work (*open);
 			auto open_result (system.nodes [i]->process (*open));
 			ASSERT_EQ (rai::process_result::progress, open_result.code);
-			system.nodes [i]->network.republish_block (open);
+			rai::transaction transaction (system.nodes [i]->store.environment, nullptr, false);
+			system.nodes [i]->network.republish_block (transaction, open);
 		}
 	}
 	auto again (true);

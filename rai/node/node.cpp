@@ -165,16 +165,15 @@ void rai::network::rebroadcast_reps (std::shared_ptr <rai::block> block_a)
 }
 
 template <typename T>
-bool confirm_block (rai::node & node_a, T & list_a, std::shared_ptr <rai::block> block_a)
+bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std::shared_ptr <rai::block> block_a)
 {
     bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		rai::transaction transaction (node_a.store.environment, nullptr, false);
-		node_a.wallets.foreach_representative (transaction, [&result, &block_a, &list_a, &node_a, &transaction] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
+		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
 		{
 			result = true;
-			auto sequence (node_a.store.sequence_atomic_inc (transaction, pub_a));
+			auto sequence (node_a.store.sequence_atomic_inc (transaction_a, pub_a));
 			rai::vote vote (pub_a, prv_a, sequence, block_a);
 			rai::confirm_ack confirm (vote);
 			std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -192,21 +191,21 @@ bool confirm_block (rai::node & node_a, T & list_a, std::shared_ptr <rai::block>
 }
 
 template <>
-bool confirm_block (rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr <rai::block> block_a)
+bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr <rai::block> block_a)
 {
 	std::array <rai::endpoint, 1> endpoints;
 	endpoints [0] = peer_a;
-	auto result (confirm_block (node_a, endpoints, std::move (block_a)));
+	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a)));
 	return result;
 }
 
-void rai::network::republish_block (std::shared_ptr <rai::block> block)
+void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr <rai::block> block)
 {
 	rebroadcast_reps (block);
 	auto hash (block->hash ());
 	auto list (node.peers.list_sqrt ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-    if (!confirm_block (node, list, block))
+    if (!confirm_block (transaction, node, list, block))
     {
         rai::publish message (block);
         std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
@@ -371,9 +370,10 @@ public:
         node.peers.contacted (sender, message_a.version_using);
         node.peers.insert (sender, message_a.version_using);
         node.process_receive_republish (message_a.block);
-		if (node.ledger.block_exists (message_a.block->hash ()))
+		rai::transaction transaction_a (node.store.environment, nullptr, false);
+		if (node.store.block_exists (transaction_a, message_a.block->hash ()))
         {
-            confirm_block (node, sender, message_a.block);
+            confirm_block (transaction_a, node, sender, message_a.block);
         }
     }
     void confirm_ack (rai::confirm_ack const & message_a) override
@@ -2600,7 +2600,8 @@ void rai::election::broadcast_winner ()
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		compute_rep_votes (transaction);
 	}
-	node.network.republish_block (last_winner);
+	rai::transaction transaction_a (node.store.environment, nullptr, false);
+	node.network.republish_block (transaction_a, last_winner);
 }
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)

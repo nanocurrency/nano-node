@@ -636,7 +636,8 @@ TEST (node, confirm_locked)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->enter_password ("1");
 	auto block (std::make_shared <rai::send_block> (0, 0, 0, rai::keypair ().prv, 0, 0));
-	system.nodes [0]->network.republish_block (block);
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	system.nodes [0]->network.republish_block (transaction, block);
 }
 
 TEST (node_config, random_rep)
@@ -655,7 +656,7 @@ TEST (node, block_replace)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Gxrb_ratio));
 	auto block3 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Gxrb_ratio));
-    ASSERT_NE (nullptr, block1);
+	ASSERT_NE (nullptr, block1);
 	auto initial_work (block1->block_work ());
 	while (system.work.work_value (block1->root (), block1->block_work ()) <= system.work.work_value (block1->root (), initial_work))
 	{
@@ -665,7 +666,11 @@ TEST (node, block_replace)
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		ASSERT_EQ (block3->hash (), system.nodes [0]->store.block_successor (transaction, block1->hash ()));
 	}
-	system.nodes [1]->network.republish_block (block1);
+	for (auto i (0); i < 1; ++i)
+	{
+		rai::transaction transaction_a (system.nodes [1]->store.environment, nullptr, false);
+		system.nodes [1]->network.republish_block (transaction_a, block1);
+	}
 	auto iterations1 (0);
 	std::unique_ptr <rai::block> block2;
 	while (block2 == nullptr)
