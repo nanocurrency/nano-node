@@ -180,6 +180,7 @@ public:
 	std::vector <peer_information> representatives (size_t);
 	// List of all peers
 	std::vector <rai::endpoint> list ();
+	std::map <rai::endpoint, unsigned> list_version ();
 	// A list of random peers with size the square root of total peer count
 	std::vector <rai::endpoint> list_sqrt ();
 	// Get the next peer for attempting bootstrap
