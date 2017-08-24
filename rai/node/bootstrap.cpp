@@ -754,11 +754,13 @@ account_count (0),
 stopped (false)
 {
 	BOOST_LOG (node->log) << "Starting bootstrap attempt";
+	node->bootstrap_initiator.notify_listeners (true);
 }
 
 rai::bootstrap_attempt::~bootstrap_attempt ()
 {
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
+	node->bootstrap_initiator.notify_listeners (false);
 }
 
 bool rai::bootstrap_attempt::request_frontier (std::unique_lock <std::mutex> & lock_a)
@@ -1020,7 +1022,6 @@ void rai::bootstrap_initiator::bootstrap ()
 			condition.notify_all ();
         }));
 	}
-	notify_listeners (attempt != nullptr);
 }
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
@@ -1069,7 +1070,6 @@ void rai::bootstrap_initiator::stop_attempt (std::unique_lock <std::mutex> & loc
 		attempt_thread->join ();
 		attempt_thread.reset ();
 	}
-	notify_listeners (false);
 }
 
 void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
