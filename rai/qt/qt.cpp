@@ -790,7 +790,7 @@ std::string rai_qt::status::color ()
 			result = "color: blue";
 			break;
 		case rai_qt::status_types::synchronizing:
-			result = "color: red";
+			result = "color: blue";
 			break;
 		case rai_qt::status_types::locked:
 			result = "color: orange";
