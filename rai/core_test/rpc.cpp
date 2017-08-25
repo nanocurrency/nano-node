@@ -1221,6 +1221,7 @@ TEST (rpc, DISABLED_payment_wait)
 TEST (rpc, peers)
 {
     rai::system system (24000, 2);
+	system.nodes [0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::from_string ("::ffff:80.80.80.80"), 4000), 1);
     rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
 	rpc.start ();
     boost::property_tree::ptree request;

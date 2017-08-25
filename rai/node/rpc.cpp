@@ -1476,9 +1476,7 @@ void rai::rpc_handler::peers ()
 	{
 		std::stringstream text;
 		text << i->first;
-		boost::property_tree::ptree entry;
-		entry.put (text.str (), std::to_string (i->second));
-		peers_l.push_back (std::make_pair ("", entry));
+		peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->second))));
 	}
 	response_l.add_child ("peers", peers_l);
 	response (response_l);
