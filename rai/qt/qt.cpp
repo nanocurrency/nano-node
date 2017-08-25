@@ -1603,7 +1603,6 @@ wallet (wallet_a)
 	{
 		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
-	refresh_ledger ();
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
 	search_for_receivables->setToolTip ("Search for pending blocks");
 	create_block->setToolTip ("Create block in JSON format");
