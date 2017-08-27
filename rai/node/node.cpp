@@ -1134,6 +1134,20 @@ void rai::block_processor::process_receive_many (std::shared_ptr <rai::block> bl
 						{
 							node.store.unchecked_del (transaction, hash, **i);
 							blocks.push_back (std::move (*i));
+							// open blocks deletion
+							auto block_o (dynamic_cast <rai::open_block *> ((*i).get ()));
+							if (block_o != nullptr)
+							{
+								rai::account account_o (block_o->hashables.account);
+								if (account_o != 0)
+								{
+									auto cached_open (node.store.unchecked_get (transaction, account_o));
+									for (auto ii (cached_open.begin ()), nn (cached_open.end ()); ii != nn; ++ii)
+									{
+										node.store.unchecked_del (transaction, account_o, **ii);
+									}
+								}
+							}
 						}
 						std::lock_guard <std::mutex> lock (node.gap_cache.mutex);
 						node.gap_cache.blocks.get <1> ().erase (hash);
@@ -1182,6 +1196,16 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
             }
 			node.store.unchecked_put (transaction_a, block_a->source (), block_a);
 			node.gap_cache.add (transaction_a, block_a);
+			// open blocks storing
+			auto block_o (dynamic_cast <rai::open_block *> (block_a.get ()));
+			if (block_o != nullptr)
+			{
+				rai::account account_o (block_o->hashables.account);
+				if (account_o != 0)
+				{
+					node.store.unchecked_put (transaction_a, account_o, block_a);
+				}
+			}
             break;
         }
         case rai::process_result::old:

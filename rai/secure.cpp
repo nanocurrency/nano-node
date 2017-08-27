@@ -2382,6 +2382,49 @@ void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash c
 	assert (status == 0 || status == MDB_NOTFOUND);
 }
 
+rai::block_hash rai::block_store::unchecked_head (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	rai::block_hash head_a (hash_a);
+	if (unchecked_count (transaction_a) > 256)
+	{
+		for (auto i (0); i < unchecked_count (transaction_a) && head_a != 0; ++i)
+		{
+			rai::block_hash current (std::move (head_a));
+			auto cached (unchecked_get (transaction_a, head_a));
+			for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+			{
+				if ((*i)->previous () == head_a) {
+					head_a = (*i)->hash ();
+					break;
+				}
+			}
+			if (head_a == current)
+			{
+				break;
+			}
+		}
+	}
+	return head_a;
+}
+
+rai::block_hash rai::block_store::unchecked_open (MDB_txn * transaction_a, rai::account const & account_a)
+{
+	rai::block_hash open_a (0);
+	if (unchecked_count (transaction_a) > 256)
+	{
+		auto cached (unchecked_get (transaction_a, account_a));
+		for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+		{
+			open_a = (*i)->hash ();
+		}
+		if (open_a != 0)
+		{
+			open_a = unchecked_head (transaction_a, open_a);
+		}
+	}
+	return open_a;
+}
+
 rai::store_iterator rai::block_store::unchecked_begin (MDB_txn * transaction_a)
 {
     rai::store_iterator result (transaction_a, unchecked);
