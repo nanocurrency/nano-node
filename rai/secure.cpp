@@ -2387,7 +2387,7 @@ rai::block_hash rai::block_store::unchecked_head (MDB_txn * transaction_a, rai::
 	rai::block_hash head_a (hash_a);
 	if (unchecked_count (transaction_a) > 128)
 	{
-		while (head_a != 0)
+		for (auto i (0); i < unchecked_count (transaction_a) && head_a != 0; ++i)
 		{
 			rai::block_hash current (std::move (head_a));
 			auto cached (unchecked_get (transaction_a, head_a));
