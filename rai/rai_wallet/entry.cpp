@@ -205,14 +205,14 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
 	if (!error)
-	{
+    {
+        boost::asio::io_service service;
 		config.node.logging.init (data_path);
 		std::shared_ptr <rai::node> node;
 		std::shared_ptr <rai_qt::wallet> gui;
 		rai::set_application_icon (application);
 		std::thread node_thread ([&] ()
 		{
-			boost::asio::io_service service;
 			rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 			rai::alarm alarm (service);
 			rai::node_init init;
