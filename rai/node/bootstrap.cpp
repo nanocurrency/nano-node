@@ -279,8 +279,13 @@ void rai::frontier_req_client::receive_frontier ()
 
 void rai::frontier_req_client::request_account (rai::account const & account_a, rai::block_hash const & latest_a)
 {
-    // Account they know about and we don't.
-    connection->attempt->pulls.push_back (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
+	// Account they know about and we don't.
+	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	rai::block_hash open_a (connection->node->store.unchecked_open (transaction, account_a)); // check unsynched head by account open block
+	if (latest_a != open_a)
+	{
+		connection->attempt->pulls.push_back (rai::pull_info (account_a, latest_a, open_a));
+	}
 }
 
 void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & ours_a, rai::block_hash const & theirs_a)

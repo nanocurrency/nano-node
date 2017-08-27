@@ -364,6 +364,7 @@ public:
 	std::vector <std::shared_ptr <rai::block>> unchecked_get (MDB_txn *, rai::block_hash const &);
 	void unchecked_del (MDB_txn *, rai::block_hash const &, rai::block const &);
 	rai::block_hash unchecked_head (MDB_txn *, rai::block_hash const &);
+	rai::block_hash unchecked_open (MDB_txn *, rai::account const &);
 	rai::store_iterator unchecked_begin (MDB_txn *);
 	rai::store_iterator unchecked_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unchecked_end ();
