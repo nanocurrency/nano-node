@@ -256,6 +256,8 @@ rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_c
 connection (connection_a),
 current (0),
 count (0),
+landing ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"),
+faucet ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"),
 next_report (std::chrono::system_clock::now () + std::chrono::seconds (15))
 {
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
@@ -279,8 +281,15 @@ void rai::frontier_req_client::receive_frontier ()
 
 void rai::frontier_req_client::request_account (rai::account const & account_a, rai::block_hash const & latest_a)
 {
-    // Account they know about and we don't.
-    connection->attempt->pulls.push_back (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
+	// Account they know about and we don't.
+	if (account_a != landing && account_a != faucet)
+	{
+		connection->attempt->pulls.push_back (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
+	}
+	else
+	{
+		connection->attempt->pulls.push_front (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
+	}
 }
 
 void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & ours_a, rai::block_hash const & theirs_a)
@@ -348,8 +357,6 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						else
 						{
 							// They know about a block we don't.
-							rai::account landing ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5");
-							rai::account faucet ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B");
 							if (account != rai::genesis_account && account != landing && account != faucet)
 							{
 								connection->attempt->pulls.push_back (rai::pull_info (account, latest, info.head));

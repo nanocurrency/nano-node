@@ -105,6 +105,8 @@ public:
 	rai::account current;
 	rai::account_info info;
 	unsigned count;
+	rai::account landing;
+	rai::account faucet;
 	std::chrono::system_clock::time_point next_report;
 	std::promise <bool> promise;
 };
