@@ -1041,7 +1041,7 @@ void rai_qt::wallet::start ()
 				{
 					show_line_error (*this_l->send_count);
 					show_button_error (*this_l->send_blocks_send);
-					this_l->send_blocks_send->setText ("Invalid amount");
+					this_l->send_blocks_send->setText ("Amount too big");
 					this_l->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
 					{
 						if (auto this_l = this_w.lock ())
@@ -1057,7 +1057,7 @@ void rai_qt::wallet::start ()
 			{
 				show_line_error (*this_l->send_count);
 				show_button_error (*this_l->send_blocks_send);
-				this_l->send_blocks_send->setText ("Invalid amount");
+				this_l->send_blocks_send->setText ("Bad amount number");
 				this_l->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
 				{
 					if (auto this_l = this_w.lock ())
