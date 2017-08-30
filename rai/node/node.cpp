@@ -1305,15 +1305,15 @@ block_processor (*this)
 	{
 		observers.disconnect ();
 	};
-	observers.blocks.add ([this] (rai::block const & block_a, rai::account const & account_a, rai::amount const & amount_a)
+	observers.blocks.add ([this] (std::shared_ptr <rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a)
 	{
 		if (!config.callback_address.empty ())
 		{
 			boost::property_tree::ptree event;
 			event.add ("account", account_a.to_account ());
-			event.add ("hash", block_a.hash ().to_string ());
+			event.add ("hash", block_a->hash ().to_string ());
 			std::string block_text;
-			block_a.serialize_json (block_text);
+			block_a->serialize_json (block_text);
 			event.add ("block", block_text);
 			event.add ("amount", amount_a.to_string_dec ());
 			std::stringstream ostream;
@@ -1584,7 +1584,7 @@ void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming
                 node_l->active.start (transaction_a, block_a);
                 node_l->background ([node_l, block_a, result_a] ()
                 {
-                    node_l->observers.blocks (*block_a, result_a.account, result_a.amount);
+                    node_l->observers.blocks (block_a, result_a.account, result_a.amount);
                 });
                 break;
             }

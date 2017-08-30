@@ -996,7 +996,7 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
     });
-    node.observers.blocks.add ([this_w] (rai::block const &, rai::account const & account_a, rai::amount const &)
+	node.observers.blocks.add ([this_w] (std::shared_ptr <rai::block>, rai::account const & account_a, rai::amount const &)
     {
 		if (auto this_l = this_w.lock ())
 		{
