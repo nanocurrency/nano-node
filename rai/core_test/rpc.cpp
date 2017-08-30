@@ -1233,7 +1233,7 @@ TEST (rpc, peers)
 	}
     ASSERT_EQ (200, response.status);
     auto & peers_node (response.json.get_child ("peers"));
-	ASSERT_EQ (1, peers_node.size ());
+	ASSERT_EQ (2, peers_node.size ());
 }
 
 TEST (rpc, pending)
