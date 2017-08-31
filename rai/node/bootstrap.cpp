@@ -282,7 +282,9 @@ void rai::frontier_req_client::receive_frontier ()
 void rai::frontier_req_client::request_account (rai::account const & account_a, rai::block_hash const & latest_a)
 {
 	// Account they know about and we don't.
-	if (account_a != landing && account_a != faucet)
+	rai::account account_1 ("6B31E80CABDD2FEE6F54A7BDBF91B666010418F4438EF0B48168F93CD79DBC85"); // xrb_1tsjx18cqqbhxsqobbxxqyauesi31iehaiwgy4ta4t9s9mdsuh671npo1st9
+	rai::account account_2 ("FD6EE9E0E107A6A8584DB94A3F154799DD5C2A7D6ABED0889DA3B837B0E61663"); // xrb_3zdgx9ig43x8o3e6ugcc9wcnh8gxdio9ttoyt46buaxr8yrge7m5331qdwhk
+	if (account_a != landing && account_a != faucet && account_a != account_1 && account_a != account_2)
 	{
 		connection->attempt->pulls.push_back (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
 	}
