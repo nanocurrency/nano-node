@@ -2570,6 +2570,16 @@ void rai::rpc_handler::wallet_balances ()
 	auto error (wallet.decode_hex (wallet_text));
 	if (!error)
 	{
+		rai::uint128_union threshold (0);
+		boost::optional <std::string> threshold_text (request.get_optional <std::string> ("threshold"));
+		if (threshold_text.is_initialized ())
+		{
+			auto error_threshold (threshold.decode_dec (threshold_text.get ()));
+			if (error_threshold)
+			{
+				error_response (response, "Bad threshold number");
+			}
+		}
 		auto existing (node.wallets.items.find (wallet));
 		if (existing != node.wallets.items.end ())
 		{
@@ -2579,12 +2589,26 @@ void rai::rpc_handler::wallet_balances ()
 			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 			{
 				rai::account account(i->first);
-				boost::property_tree::ptree entry;
 				rai::uint128_t balance = node.ledger.account_balance (transaction, account);
-				rai::uint128_t pending = node.ledger.account_pending (transaction, account);
-				entry.put ("balance", balance.convert_to <std::string> ());
-				entry.put ("pending", pending.convert_to <std::string> ());
-				balances.push_back (std::make_pair (account.to_account (), entry));
+				if (threshold.is_zero ())
+				{
+					boost::property_tree::ptree entry;
+					rai::uint128_t pending = node.ledger.account_pending (transaction, account);
+					entry.put ("balance", balance.convert_to <std::string> ());
+					entry.put ("pending", pending.convert_to <std::string> ());
+					balances.push_back (std::make_pair (account.to_account (), entry));
+				}
+				else
+				{
+					if (balance >= threshold.number ())
+					{
+						boost::property_tree::ptree entry;
+						rai::uint128_t pending = node.ledger.account_pending (transaction, account);
+						entry.put ("balance", balance.convert_to <std::string> ());
+						entry.put ("pending", pending.convert_to <std::string> ());
+						balances.push_back (std::make_pair (account.to_account (), entry));
+					}
+				}
 			}
 			response_l.add_child ("balances", balances);
 			response (response_l);
