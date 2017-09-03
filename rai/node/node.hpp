@@ -267,6 +267,30 @@ public:
     std::atomic <uint64_t> confirm_req;
     std::atomic <uint64_t> confirm_ack;
 };
+class block_arrival_info
+{
+public:
+    std::chrono::system_clock::time_point arrival;
+    rai::block_hash hash;
+};
+// This class tracks blocks that are probably live because they arrived in a UDP packet
+// This gives a fairly reliable way to differentiate between blocks being inserted via bootstrap or new, live blocks.
+class block_arrival
+{
+public:
+    void add (rai::block_hash const &);
+    bool recent (rai::block_hash const &);
+    boost::multi_index_container
+    <
+        rai::block_arrival_info,
+        boost::multi_index::indexed_by
+        <
+            boost::multi_index::ordered_non_unique <boost::multi_index::member <rai::block_arrival_info, std::chrono::system_clock::time_point, &rai::block_arrival_info::arrival>>,
+            boost::multi_index::hashed_unique <boost::multi_index::member <rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>
+        >
+    > arrival;
+    std::mutex mutex;
+};
 class network
 {
 public:
@@ -487,6 +511,7 @@ public:
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
     rai::block_processor block_processor;
+    rai::block_arrival block_arrival;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);
