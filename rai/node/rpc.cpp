@@ -591,6 +591,58 @@ void rai::rpc_handler::accounts_balances ()
 	response (response_l);
 }
 
+void rai::rpc_handler::accounts_create ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			uint64_t count;
+			std::string count_text (request.get <std::string> ("count"));
+			auto count_error (decode_unsigned (count_text, count));
+			if (!count_error && count != 0)
+			{
+				auto existing (node.wallets.items.find (wallet));
+				if (existing != node.wallets.items.end ())
+				{
+					boost::property_tree::ptree response_l;
+					boost::property_tree::ptree accounts;
+					for (auto i(0); accounts.size ()< count; ++i)
+					{
+						rai::account new_key (existing->second->deterministic_insert ());
+						if (!new_key.is_zero ())
+						{
+							boost::property_tree::ptree entry;
+							entry.put ("", new_key.to_account ());
+							accounts.push_back (std::make_pair ("", entry));
+						}
+					}
+					response_l.add_child ("accounts", accounts);
+					response (response_l);
+				}
+				else
+				{
+					error_response (response, "Wallet not found");
+				}
+			}
+			else
+			{
+				error_response (response, "Invalid count limit");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
 
 void rai::rpc_handler::accounts_frontiers ()
 {
@@ -3516,6 +3568,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "accounts_balances")
 		{
 			accounts_balances ();
+		}
+		else if (action == "accounts_create")
+		{
+			accounts_create ();
 		}
 		else if (action == "accounts_frontiers")
 		{
