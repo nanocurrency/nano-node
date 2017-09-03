@@ -127,6 +127,7 @@ public:
 	void key_expand ();
 	void krai_to_raw ();
 	void krai_from_raw ();
+	void ledger ();
 	void mrai_to_raw ();
 	void mrai_from_raw ();
 	void password_change ();
