@@ -114,6 +114,7 @@ public:
 	void block_account ();
 	void block_count ();
 	void block_count_type ();
+	void block_create ();
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
