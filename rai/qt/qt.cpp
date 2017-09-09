@@ -1083,7 +1083,7 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
     });
-    node.observers.blocks.add ([this_w] (rai::block const &, rai::account const & account_a, rai::amount const &)
+	node.observers.blocks.add ([this_w] (std::shared_ptr <rai::block>, rai::account const & account_a, rai::amount const &)
     {
 		if (auto this_l = this_w.lock ())
 		{
@@ -1237,9 +1237,10 @@ void rai_qt::wallet::update_connected ()
 
 void rai_qt::wallet::empty_password ()
 {
-	rai::raw_key empty;
-	empty.data.clear ();
-	wallet_m->store.password.value_set (empty);
+	this->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (3), [this] ()
+	{
+		wallet_m->enter_password (std::string (""));
+	});
 }
 
 void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
