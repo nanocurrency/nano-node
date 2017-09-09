@@ -134,7 +134,7 @@ public:
 	void mrai_from_raw ();
 	void password_change ();
 	void password_enter ();
-	void password_valid ();
+	void password_valid (bool wallet_locked);
 	void payment_begin ();
 	void payment_init ();
 	void payment_end ();
@@ -171,6 +171,7 @@ public:
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_key_valid ();
+	void wallet_lock ();
 	void wallet_pending ();
 	void wallet_representative ();
 	void wallet_representative_set ();

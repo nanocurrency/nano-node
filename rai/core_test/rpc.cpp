@@ -2956,3 +2956,45 @@ TEST (rpc, block_create)
 	latest = system.nodes [0]->latest (key.pub);
 	ASSERT_EQ (receive_hash, latest.to_string ());
 }
+
+TEST (rpc, wallet_lock)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	std::string wallet;
+	system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
+	ASSERT_TRUE (system.wallet (0)->valid_password ());
+	request.put ("wallet", wallet);
+	request.put ("action", "wallet_lock");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string account_text1 (response.json.get <std::string> ("locked"));
+	ASSERT_EQ (account_text1, "1");
+	ASSERT_FALSE (system.wallet (0)->valid_password ());
+}
+
+TEST (rpc, wallet_locked)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes [0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	std::string wallet;
+	system.nodes [0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	request.put ("action", "wallet_locked");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string account_text1 (response.json.get <std::string> ("locked"));
+	ASSERT_EQ (account_text1, "0");
+}

@@ -1782,7 +1782,7 @@ void rai::rpc_handler::password_change ()
 		}
 		else
 		{
-			error_response (response, "Bad account number");
+			error_response (response, "Bad wallet number");
 		}
 	}
 	else
@@ -1814,11 +1814,11 @@ void rai::rpc_handler::password_enter ()
 	}
 	else
 	{
-		error_response (response, "Bad account number");
+		error_response (response, "Bad wallet number");
 	}
 }
 
-void rai::rpc_handler::password_valid ()
+void rai::rpc_handler::password_valid (bool wallet_locked = false)
 {
 	std::string wallet_text (request.get <std::string> ("wallet"));
 	rai::uint256_union wallet;
@@ -1830,7 +1830,15 @@ void rai::rpc_handler::password_valid ()
 		{
 			rai::transaction transaction (node.store.environment, nullptr, false);
 			boost::property_tree::ptree response_l;
-			response_l.put ("valid", existing->second->store.valid_password (transaction) ? "1" : "0");
+			auto valid (existing->second->store.valid_password (transaction));
+			if (!wallet_locked)
+			{
+				response_l.put ("valid", valid ? "1" : "0");
+			}
+			else 
+			{
+				response_l.put ("locked", valid ? "0" : "1");
+			}
 			response (response_l);
 		}
 		else
@@ -1840,7 +1848,7 @@ void rai::rpc_handler::password_valid ()
 	}
 	else
 	{
-		error_response (response, "Bad account number");
+		error_response (response, "Bad wallet number");
 	}
 }
 
@@ -3157,6 +3165,41 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
+void rai::rpc_handler::wallet_lock ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get <std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				boost::property_tree::ptree response_l;
+				rai::raw_key empty;
+				empty.data.clear ();
+				existing->second->store.password.value_set (empty);
+				response_l.put ("locked", "1");
+				response (response_l);
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::wallet_pending ()
 {
 	std::string wallet_text (request.get <std::string> ("wallet"));
@@ -3763,6 +3806,12 @@ void rai::rpc_handler::process_request ()
 			request.erase ("password");
 			reprocess_body (body, request);
 		}
+		else if (action == "wallet_unlock")
+		{
+			password_enter ();
+			request.erase ("password");
+			reprocess_body (body, request);
+		}
 		if (node.config.logging.log_rpc ())
 		{
 			BOOST_LOG (node.log) << body;
@@ -4091,6 +4140,14 @@ void rai::rpc_handler::process_request ()
 		{
 			wallet_key_valid ();
 		}
+		else if (action == "wallet_lock")
+		{
+			wallet_lock ();
+		}
+		else if (action == "wallet_locked")
+		{
+			password_valid (true);
+		}
 		else if (action == "wallet_pending")
 		{
 			wallet_pending ();
@@ -4106,6 +4163,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_republish")
 		{
 			wallet_republish ();
+		}
+		else if (action == "wallet_unlock")
+		{
+			// Processed before logging
 		}
 		else if (action == "wallet_work_get")
 		{
