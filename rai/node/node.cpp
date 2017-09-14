@@ -1318,7 +1318,7 @@ block_processor (*this)
 	};
 	observers.blocks.add ([this] (std::shared_ptr <rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a)
 	{
-		if (block_arrival.recent (block_a->hash ()))
+		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			auto node_l (shared_from_this ());
 			background ([node_l, block_a, account_a, amount_a] ()
@@ -2664,14 +2664,6 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);
 		auto winner (tally_l.begin ());
-		if (tally_l.size () > 1)
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally weight %2% for root %1%") % votes.id.to_string () % winner->first.convert_to <std::string> ());
-			for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
-			}
-		}
 		if (!(*winner->second == *last_winner))
 		{
 			if (winner->first > minimum_treshold (transaction_a, node.ledger))
@@ -2718,6 +2710,14 @@ void rai::election::confirm_if_quarum (MDB_txn * transaction_a)
 
 void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 {
+	//if (tally_l.size () > 1)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally weight %2% for root %1%") % votes.id.to_string () % last_winner->root ().to_string ());
+		for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
+		}
+	}
 	confirm_once (transaction_a);
 }
 
