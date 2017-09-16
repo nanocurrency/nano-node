@@ -439,8 +439,8 @@ public:
     ~block_processor ();
     void stop ();
     void flush ();
-    void add (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
-    void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
+	void add (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
+	void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
     rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
 private:
 	void process_blocks ();
@@ -471,7 +471,7 @@ public:
 	int store_version ();
     void process_confirmed (std::shared_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
-    void process_receive_republish (std::shared_ptr <rai::block>);
+	void process_active (std::shared_ptr <rai::block>);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);

@@ -358,8 +358,7 @@ public:
         ++node.network.incoming.publish;
         node.peers.contacted (sender, message_a.version_using);
         node.peers.insert (sender, message_a.version_using);
-        node.block_arrival.add (message_a.block->hash ());
-        node.process_receive_republish (message_a.block);
+        node.process_active (message_a.block);
     }
     void confirm_req (rai::confirm_req const & message_a) override
     {
@@ -370,8 +369,7 @@ public:
         ++node.network.incoming.confirm_req;
         node.peers.contacted (sender, message_a.version_using);
         node.peers.insert (sender, message_a.version_using);
-        node.block_arrival.add (message_a.block->hash ());
-        node.process_receive_republish (message_a.block);
+        node.process_active (message_a.block);
 		rai::transaction transaction_a (node.store.environment, nullptr, false);
 		if (node.store.block_exists (transaction_a, message_a.block->hash ()))
         {
@@ -387,8 +385,7 @@ public:
         ++node.network.incoming.confirm_ack;
         node.peers.contacted (sender, message_a.version_using);
         node.peers.insert (sender, message_a.version_using);
-        node.block_arrival.add (message_a.vote.block->hash ());
-        node.process_receive_republish (message_a.vote.block);
+        node.process_active (message_a.vote.block);
         node.vote_processor.vote (message_a.vote, sender);
     }
     void bulk_pull (rai::bulk_pull const &) override
@@ -1320,6 +1317,14 @@ block_processor (*this)
 	{
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
+			rai::transaction transaction (store.environment, nullptr, true);
+			active.start (transaction, block_a);
+		}
+	});
+	observers.blocks.add ([this] (std::shared_ptr <rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a)
+	{
+		if (this->block_arrival.recent (block_a->hash ()))
+		{
 			auto node_l (shared_from_this ());
 			background ([node_l, block_a, account_a, amount_a] ()
 			{
@@ -1588,29 +1593,14 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 	});
 }
 
-void rai::node::process_receive_republish (std::shared_ptr <rai::block> incoming)
+void rai::node::process_active (std::shared_ptr <rai::block> incoming)
 {
-    assert (incoming != nullptr);
-    auto node_l (shared_from_this ());
-    block_processor.add (incoming, [node_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
-    {
-        switch (result_a.code)
-        {
-            case rai::process_result::progress:
-            {
-                node_l->active.start (transaction_a, block_a);
-                break;
-            }
-            default:
-            {
-                break;
-            }
-        }
-    });
-    if (rai::rai_network == rai::rai_networks::rai_test_network)
-    {
-        block_processor.flush ();
-    }
+	block_arrival.add (incoming->hash ());
+	block_processor.process_receive_many (incoming);
+	if (rai::rai_network == rai::rai_networks::rai_test_network)
+	{
+		block_processor.flush ();
+	}
 }
 
 rai::process_return rai::node::process (rai::block const & block_a)
@@ -2258,15 +2248,16 @@ void rai::block_arrival::add (rai::block_hash const & hash_a)
     std::lock_guard <std::mutex> lock (mutex);
     auto now (std::chrono::system_clock::now ());
     arrival.insert (rai::block_arrival_info {now, hash_a});
-    while (!arrival.empty () && arrival.begin ()->arrival + std::chrono::seconds (60) < now)
-    {
-        arrival.erase (arrival.begin ());
-    }
 }
 
 bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 {
-    std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard <std::mutex> lock (mutex);
+	auto now (std::chrono::system_clock::now ());
+	while (!arrival.empty () && arrival.begin ()->arrival + std::chrono::seconds (60) < now)
+	{
+		arrival.erase (arrival.begin ());
+	}
     return arrival.get <1> ().find (hash_a) != arrival.get <1> ().end ();
 }
 

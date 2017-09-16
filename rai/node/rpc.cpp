@@ -1788,7 +1788,7 @@ void rai::rpc_handler::process ()
 	{
 		if (!node.work.work_validate (*block))
 		{
-			node.process_receive_republish (std::move (block));
+			node.process_active (std::move (block));
 			boost::property_tree::ptree response_l;
 			response (response_l);
 		}
