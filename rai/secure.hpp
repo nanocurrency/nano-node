@@ -369,7 +369,7 @@ public:
 	size_t unchecked_count (MDB_txn *);
 	void unchecked_cache_flush (MDB_txn *);
 	std::unordered_multimap <rai::block_hash, std::shared_ptr <rai::block>> unchecked_cache;
-	static size_t const unchecked_cache_max = 256;
+	static size_t unchecked_cache_max;
 	// IO per unchecked_cache_max profiled with store.unchecked_load
 	// 1 - 3,600,000
 	// 16 - 339,000

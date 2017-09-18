@@ -2315,6 +2315,8 @@ rai::store_iterator rai::block_store::representation_end ()
 	return result;
 }
 
+size_t rai::block_store::unchecked_cache_max = 256;
+
 void rai::block_store::unchecked_clear (MDB_txn * transaction_a)
 {
 	auto status (mdb_drop (transaction_a, unchecked, 0));

@@ -379,7 +379,7 @@ class node_config
 public:
 	node_config ();
 	node_config (uint16_t, rai::logging const &);
-    void serialize_json (boost::property_tree::ptree &) const;
+	void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (bool &, boost::property_tree::ptree &);
 	bool upgrade_json (unsigned, boost::property_tree::ptree &);
 	rai::account random_representative ();
@@ -399,8 +399,9 @@ public:
 	std::string callback_address;
 	uint16_t callback_port;
 	std::string callback_target;
-    static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
-    static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
+	unsigned unchecked_cache;
+	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
+	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 };
 class node_observers
