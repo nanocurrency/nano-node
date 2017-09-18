@@ -882,7 +882,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 	case 7:
 		tree_a.put ("unchecked_cache", std::to_string (unchecked_cache));
 		tree_a.erase ("version");
-		tree_a.put ("version", "7");
+		tree_a.put ("version", "8");
 		result = true;
 		break;
 	case 8:
