@@ -332,6 +332,7 @@ public:
 	bool operator == (rai::vote const &) const;
 	bool operator != (rai::vote const &) const;
 	void serialize (rai::stream &);
+	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
 	std::shared_ptr <rai::block> block;
@@ -425,6 +426,8 @@ public:
 	// Return latest vote for an account considering the vote cache
 	std::shared_ptr <rai::vote> vote_current (MDB_txn *, rai::account const &);
 	void vote_flush (MDB_txn *);
+	rai::store_iterator vote_begin (MDB_txn *);
+	rai::store_iterator vote_end ();
 	std::mutex vote_mutex;
 	std::unordered_map <rai::account, std::shared_ptr <rai::vote>> vote_cache;
 	

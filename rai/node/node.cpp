@@ -2886,6 +2886,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
+	("vote_dump", "Dump most recent votes from representatives")
 	("account", boost::program_options::value <std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value <std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value <std::string> (), "Defines the <key> for other commands, hex")
@@ -3428,6 +3429,19 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		{
 			std::cerr << "wallet_representative_set requires one <wallet> option\n";
 			result = true;
+		}
+	}
+	else if (vm.count ("vote_dump") == 1)
+	{
+		inactive_node node;
+		rai::transaction transaction (node.node->store.environment, nullptr, false);
+		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
+		{
+			bool error (false);
+			rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+			auto vote (std::make_shared <rai::vote> (error, stream));
+			assert (!error);
+			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
 		}
 	}
 	else

@@ -2528,6 +2528,16 @@ void rai::block_store::vote_flush (MDB_txn * transaction_a)
 	}
 }
 
+rai::store_iterator rai::block_store::vote_begin (MDB_txn * transaction_a)
+{
+	return rai::store_iterator (transaction_a, vote);
+}
+
+rai::store_iterator rai::block_store::vote_end ()
+{
+	return rai::store_iterator (nullptr);
+}
+
 std::shared_ptr <rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, rai::account const & account_a)
 {
 	std::shared_ptr <rai::vote> result;
@@ -2612,6 +2622,18 @@ bool rai::vote::operator == (rai::vote const & other_a) const
 bool rai::vote::operator != (rai::vote const & other_a) const
 {
 	return ! (*this == other_a);
+}
+
+std::string rai::vote::to_json () const
+{
+	std::stringstream stream;
+	boost::property_tree::ptree tree;
+	tree.put ("account", account.to_account ());
+	tree.put ("signature", signature.number ());
+	tree.put ("sequence", std::to_string (sequence));
+	tree.put ("block", block->to_json ());
+	boost::property_tree::write_json (stream, tree);
+	return stream.str ();
 }
 
 namespace
