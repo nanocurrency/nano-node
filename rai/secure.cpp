@@ -1534,7 +1534,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked) != 0;
 		error_a |= mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
-		error_a |= mdb_dbi_open (transaction, "sequence", MDB_CREATE, &vote) != 0;
+		error_a |= mdb_dbi_open (transaction, "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
@@ -1590,6 +1590,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 7:
 			upgrade_v7_to_v8 (transaction_a);
 		case 8:
+			upgrade_v8_to_v9 (transaction_a);
+		case 9:
 			break;
 		default:
 		assert (false);
@@ -1770,6 +1772,33 @@ void rai::block_store::upgrade_v7_to_v8 (MDB_txn * transaction_a)
 	version_put (transaction_a, 8);
 	mdb_drop (transaction_a, unchecked, 1);
 	mdb_dbi_open (transaction_a, "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked);
+}
+
+void rai::block_store::upgrade_v8_to_v9 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 9);
+	MDB_dbi sequence;
+	mdb_dbi_open (transaction_a, "sequence", MDB_CREATE | MDB_DUPSORT, &sequence);
+	rai::genesis genesis;
+	std::shared_ptr <rai::block> block (std::move (genesis.open));
+	rai::keypair junk;
+	for (rai::store_iterator i (transaction_a, sequence), n (nullptr); i != n; ++i)
+	{
+		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+		uint64_t sequence;
+		auto error (rai::read (stream, sequence));
+		// Create a dummy vote with the same sequence number for easy upgrading.  This won't have a valid signature.
+		auto dummy (std::make_shared <rai::vote> (rai::account (i->first), junk.prv, sequence, block));
+		std::vector <uint8_t> vector;
+		{
+			rai::vectorstream stream (vector);
+			dummy->serialize (stream);
+		}
+		auto status1 (mdb_put (transaction_a, vote, &i->first, rai::mdb_val (vector.size (), vector.data ()), 0));
+		assert (status1 == 0);
+		assert (!error);
+	}
+	mdb_drop (transaction_a, sequence, 1);
 }
 
 void rai::block_store::clear (MDB_dbi db_a)

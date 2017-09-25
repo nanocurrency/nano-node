@@ -438,6 +438,7 @@ public:
 	void upgrade_v5_to_v6 (MDB_txn *);
 	void upgrade_v6_to_v7 (MDB_txn *);
 	void upgrade_v7_to_v8 (MDB_txn *);
+	void upgrade_v8_to_v9 (MDB_txn *);
 	
 	void clear (MDB_dbi);
 	

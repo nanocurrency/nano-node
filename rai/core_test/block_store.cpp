@@ -894,3 +894,28 @@ TEST (block_store, sequence_flush)
 	auto seq3 (store.vote_get (transaction, vote1->account));
 	ASSERT_EQ (*seq3, *vote1);
 }
+
+// Upgrading tracking block sequence numbers to whole vote.
+TEST (block_store, upgrade_v8_v9)
+{
+	auto path (rai::unique_path ());
+	rai::keypair key;
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		rai::transaction transaction (store.environment, nullptr, true);
+		ASSERT_EQ (0, mdb_drop (transaction, store.vote, 1));
+		ASSERT_EQ (0, mdb_dbi_open (transaction, "sequence", MDB_CREATE, &store.vote));
+		uint64_t sequence (10);
+		ASSERT_EQ (0, mdb_put (transaction, store.vote, key.pub.val (), rai::mdb_val (sizeof (sequence), &sequence), 0));
+		store.version_put (transaction, 8);
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, nullptr, false);
+	ASSERT_EQ (9, store.version_get (transaction));
+	auto vote (store.vote_get (transaction, key.pub));
+	ASSERT_NE (nullptr, vote);
+	ASSERT_EQ (10, vote->sequence);
+}

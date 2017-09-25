@@ -170,20 +170,23 @@ TEST (network, send_discarded_publish)
 
 TEST (network, send_invalid_publish)
 {
-    rai::system system (24000, 2);
+	rai::system system (24000, 2);
+	rai::genesis genesis;
     auto block (std::make_shared <rai::send_block> (1, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (1)));
-    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    system.nodes [0]->network.republish_block (transaction, block);
-    rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
-    ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		system.nodes [0]->network.republish_block (transaction, block);
+		ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+		ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
+	}
     auto iterations (0);
     while (system.nodes [1]->network.incoming.publish == 0)
     {
         system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
-    }
+	}
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
 }
