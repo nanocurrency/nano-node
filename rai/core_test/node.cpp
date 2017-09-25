@@ -1045,7 +1045,7 @@ TEST (node, fork_no_vote_quorum)
 	auto send2 (std::make_shared <rai::send_block> (block->hash (), key2, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ())));
 	rai::raw_key key3;
 	ASSERT_FALSE (system.wallet (1)->store.fetch (rai::transaction (system.wallet (1)->store.environment, nullptr, false), key1, key3));
-	rai::vote vote (key1, key3, 0, send2);
+	auto vote (std::make_shared <rai::vote> (key1, key3, 0, send2));
 	rai::confirm_ack confirm (vote);
 	std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
 	{

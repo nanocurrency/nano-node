@@ -42,7 +42,7 @@ class election : public std::enable_shared_from_this <rai::election>
 	void confirm_once (MDB_txn *);
 public:
     election (MDB_txn *, rai::node &, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const &);
-    void vote (rai::vote const &);
+	void vote (std::shared_ptr <rai::vote>);
 	// Check if we have vote quorum
 	bool have_quorum (MDB_txn *);
 	// Tell the network our view of the winner
@@ -78,7 +78,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
     void start (MDB_txn *, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const & = [] (std::shared_ptr <rai::block>) {});
-    void vote (rai::vote const &);
+    void vote (std::shared_ptr <rai::vote>);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
@@ -131,7 +131,7 @@ class gap_cache
 public:
     gap_cache (rai::node &);
     void add (MDB_txn *, std::shared_ptr <rai::block>);
-    void vote (rai::vote const &);
+    void vote (std::shared_ptr <rai::vote>);
     rai::uint128_t bootstrap_threshold (MDB_txn *);
 	void purge_old ();
     boost::multi_index_container
@@ -300,7 +300,7 @@ public:
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
 	void rebroadcast_reps (std::shared_ptr <rai::block>);
-	void republish_vote (std::chrono::system_clock::time_point const &, rai::vote const &);
+	void republish_vote (std::chrono::system_clock::time_point const &, std::shared_ptr <rai::vote>);
     void republish_block (MDB_txn *, std::shared_ptr <rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
@@ -408,7 +408,7 @@ class node_observers
 public:
 	rai::observer_set <std::shared_ptr <rai::block>, rai::account const &, rai::amount const &> blocks;
 	rai::observer_set <rai::account const &, bool> wallet;
-	rai::observer_set <rai::vote const &, rai::endpoint const &> vote;
+	rai::observer_set <std::shared_ptr <rai::vote>, rai::endpoint const &> vote;
 	rai::observer_set <rai::endpoint const &> endpoint;
 	rai::observer_set <> disconnect;
 	rai::observer_set <> started;
@@ -417,7 +417,7 @@ class vote_processor
 {
 public:
 	vote_processor (rai::node &);
-	rai::vote_result vote (rai::vote const &, rai::endpoint);
+	rai::vote_result vote (std::shared_ptr <rai::vote>, rai::endpoint);
 	rai::node & node;
 };
 // The network is crawled for representatives by ocassionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.

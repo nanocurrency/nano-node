@@ -207,7 +207,7 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
     rai::confirm_ack incoming (error_l, stream);
     if (!error_l && at_end (stream))
     {
-        if (!pool.work_validate (*incoming.vote.block))
+        if (!pool.work_validate (*incoming.vote->block))
         {
             visitor.confirm_ack (incoming);
         }
@@ -363,15 +363,15 @@ bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
 
 rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a) :
 message (error_a, stream_a),
-vote (error_a, stream_a, block_type ())
+vote (std::make_shared <rai::vote> (error_a, stream_a))
 {
 }
 
-rai::confirm_ack::confirm_ack (rai::vote const & vote_a) :
+rai::confirm_ack::confirm_ack (std::shared_ptr <rai::vote> vote_a) :
 message (rai::message_type::confirm_ack),
 vote (vote_a)
 {
-    block_type_set (vote.block->type ());
+    block_type_set (vote->block->type ());
 }
 
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
@@ -381,17 +381,17 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
     assert (type == rai::message_type::confirm_ack);
     if (!result)
     {
-        result = read (stream_a, vote.account);
+        result = read (stream_a, vote->account);
         if (!result)
         {
-            result = read (stream_a, vote.signature);
+            result = read (stream_a, vote->signature);
             if (!result)
             {
-                result = read (stream_a, vote.sequence);
+                result = read (stream_a, vote->sequence);
                 if (!result)
                 {
-                    vote.block = rai::deserialize_block (stream_a, block_type ());
-                    result = vote.block == nullptr;
+                    vote->block = rai::deserialize_block (stream_a, block_type ());
+                    result = vote->block == nullptr;
                 }
             }
         }
@@ -401,17 +401,14 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 
 void rai::confirm_ack::serialize (rai::stream & stream_a)
 {
-    assert (block_type () == rai::block_type::send || block_type () == rai::block_type::receive || block_type () == rai::block_type::open || block_type () == rai::block_type::change);
+	assert (block_type () == rai::block_type::send || block_type () == rai::block_type::receive || block_type () == rai::block_type::open || block_type () == rai::block_type::change);
 	write_header (stream_a);
-    write (stream_a, vote.account);
-    write (stream_a, vote.signature);
-    write (stream_a, vote.sequence);
-    vote.block->serialize (stream_a);
+	vote->serialize (stream_a);
 }
 
 bool rai::confirm_ack::operator == (rai::confirm_ack const & other_a) const
 {
-    auto result (vote.account == other_a.vote.account && *vote.block == *other_a.vote.block && vote.signature == other_a.vote.signature && vote.sequence == other_a.vote.sequence);
+    auto result (*vote == *other_a.vote);
     return result;
 }
 

@@ -171,12 +171,12 @@ class confirm_ack : public message
 {
 public:
 	confirm_ack (bool &, rai::stream &);
-    confirm_ack (rai::vote const &);
+	confirm_ack (std::shared_ptr <rai::vote>);
     bool deserialize (rai::stream &) override;
     void serialize (rai::stream &) override;
     void visit (rai::message_visitor &) const override;
     bool operator == (rai::confirm_ack const &) const;
-    rai::vote vote;
+	std::shared_ptr <rai::vote> vote;
 };
 class frontier_req : public message
 {

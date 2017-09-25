@@ -148,19 +148,22 @@ TEST (network, multi_keepalive)
 TEST (network, send_discarded_publish)
 {
     rai::system system (24000, 2);
-    auto block (std::make_shared <rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
-    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    system.nodes [0]->network.republish_block (transaction, block);
-    rai::genesis genesis;
-    ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
-    ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
+	auto block (std::make_shared <rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
+	rai::genesis genesis;
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		system.nodes [0]->network.republish_block (transaction, block);
+		ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
+		ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
+	}
     auto iterations (0);
     while (system.nodes [1]->network.incoming.publish == 0)
     {
         system.poll ();
         ++iterations;
         ASSERT_LT (iterations, 200);
-    }
+	}
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
     ASSERT_EQ (genesis.hash (), system.nodes [0]->ledger.latest (transaction, rai::test_genesis_key.pub));
     ASSERT_EQ (genesis.hash (), system.nodes [1]->latest (rai::test_genesis_key.pub));
 }
@@ -267,7 +270,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 		node1.active.start (transaction, block1);
 	}
     rai::keypair key1;
-	rai::vote vote (key1.pub, key1.prv, 0, block1);
+	auto vote (std::make_shared <rai::vote> (key1.pub, key1.prv, 0, block1));
     rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());
 }
@@ -284,7 +287,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		node1.active.start (transaction, block1);
 	}
-	rai::vote vote (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1);
+	auto vote (std::make_shared <rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1));
     rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());
 }
