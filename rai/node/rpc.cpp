@@ -2165,8 +2165,7 @@ void rai::rpc_handler::process ()
 	{
 		if (!node.work.work_validate (*block))
 		{
-			auto hash (block->hash ());
-			node.process_receive_republish (std::move (block));
+			node.process_active (std::move (block));
 			boost::property_tree::ptree response_l;
 			response_l.put ("hash", hash.to_string ());
 			response (response_l);
