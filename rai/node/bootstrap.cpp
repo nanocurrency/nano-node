@@ -1548,7 +1548,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
         {
 			if (!connection->node->bootstrap_initiator.in_progress ())
 			{
-				connection->node->process_receive_republish (std::move (block));
+				connection->node->process_active (std::move (block));
 			}
             receive ();
         }

@@ -163,8 +163,8 @@ TEST (node, send_out_of_order)
     rai::genesis genesis;
     rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
     rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
-    system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send2)));
-    system.nodes [0]->process_receive_republish (std::unique_ptr <rai::block> (new rai::send_block (send1)));
+    system.nodes [0]->process_active (std::unique_ptr <rai::block> (new rai::send_block (send2)));
+    system.nodes [0]->process_active (std::unique_ptr <rai::block> (new rai::send_block (send1)));
     auto iterations (0);
     while (std::any_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr <rai::node> const & node_a) {return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - system.nodes [0]->config.receive_minimum.number () * 2;}))
     {
@@ -181,7 +181,7 @@ TEST (node, quick_confirm)
 	rai::block_hash previous (system.nodes [0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
     auto send (std::make_shared <rai::send_block> (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
-	system.nodes [0]->process_receive_republish (send);
+	system.nodes [0]->process_active (send);
     auto iterations (0);
     while (system.nodes [0]->balance (key.pub).is_zero ())
     {
@@ -707,13 +707,13 @@ TEST (node, fork_publish)
         auto send1 (std::make_shared <rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
         rai::keypair key2;
         auto send2 (std::make_shared <rai::send_block> (genesis.hash (), key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-        node1.process_receive_republish (send1);
+        node1.process_active (send1);
         ASSERT_EQ (1, node1.active.roots.size ());
 		auto existing (node1.active.roots.find (send1->root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		ASSERT_EQ (2, election->votes.rep_votes.size ());
-        node1.process_receive_republish (send2);
+        node1.process_active (send2);
         auto existing1 (election->votes.rep_votes.find (rai::test_genesis_key.pub));
         ASSERT_NE (election->votes.rep_votes.end (), existing1);
         ASSERT_EQ (*send1, *existing1->second);
@@ -738,12 +738,12 @@ TEST (node, fork_keep)
 	// send1 and send2 fork to different accounts
     auto send1 (std::make_shared <rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
     auto send2 (std::make_shared <rai::send_block> (genesis.hash (), key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
-    node1.process_receive_republish (send1);
-	node2.process_receive_republish (send1);
+    node1.process_active (send1);
+	node2.process_active (send1);
     ASSERT_EQ (1, node1.active.roots.size ());
     ASSERT_EQ (1, node2.active.roots.size ());
-    node1.process_receive_republish (send2);
-	node2.process_receive_republish (send2);
+    node1.process_active (send2);
+	node2.process_active (send2);
     auto conflict (node2.active.roots.find (genesis.hash ()));
     ASSERT_NE (node2.active.roots.end (), conflict);
     auto votes1 (conflict->election);
@@ -960,22 +960,22 @@ TEST (node, fork_open_flip)
 	rai::keypair rep1;
 	rai::keypair rep2;
     auto send1 (std::make_shared <rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
-    node1.process_receive_republish (send1);
-    node2.process_receive_republish (send1);
+    node1.process_active (send1);
+    node2.process_active (send1);
 	// We should be keeping this block
     auto open1 (std::make_shared <rai::open_block> (send1->hash (), rep1.pub, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	// This block should be evicted
     auto open2 (std::make_shared <rai::open_block> (send1->hash (), rep2.pub, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	ASSERT_FALSE (*open1 == *open2);
 	// node1 gets copy that will remain
-    node1.process_receive_republish (open1);
+    node1.process_active (open1);
 	// node2 gets copy that will be evicted
-    node2.process_receive_republish (open2);
+    node2.process_active (open2);
     ASSERT_EQ (2, node1.active.roots.size ());
     ASSERT_EQ (2, node2.active.roots.size ());
 	// Notify both nodes that a fork exists
-    node1.process_receive_republish (open2);
-    node2.process_receive_republish (open1);
+    node1.process_active (open2);
+    node2.process_active (open1);
     auto conflict (node2.active.roots.find (open1->root ()));
     ASSERT_NE (node2.active.roots.end (), conflict);
     auto votes1 (conflict->election);
@@ -1112,12 +1112,12 @@ TEST (node, broadcast_elected)
 	system.wallet (2)->insert_adhoc (rep_other.prv);
 	auto fork0 (std::make_shared <rai::send_block> (node2->latest (rai::test_genesis_key.pub), rep_small.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	node0->generate_work (*fork0);
-	node0->process_receive_republish (fork0);
-	node1->process_receive_republish (fork0);
+	node0->process_active (fork0);
+	node1->process_active (fork0);
 	auto fork1 (std::make_shared <rai::send_block> (node2->latest (rai::test_genesis_key.pub), rep_big.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	node0->generate_work (*fork1);
 	system.wallet (2)->insert_adhoc (rep_small.prv);
-	node2->process_receive_republish (fork1);
+	node2->process_active (fork1);
 	//std::cerr << "fork0: " << fork_hash.to_string () << std::endl;
 	//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 	auto iterations (0);

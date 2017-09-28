@@ -1673,7 +1673,7 @@ wallet (wallet_a)
             {
 				show_label_ok (*status);
 				this->status->setText ("");
-				this->wallet.node.process_receive_republish (std::move (block_l));
+				this->wallet.node.process_active (std::move (block_l));
             }
             else
             {
