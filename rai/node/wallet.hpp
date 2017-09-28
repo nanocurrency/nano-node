@@ -160,9 +160,13 @@ public:
 	bool valid_password ();
 	bool enter_password (std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &);
+	rai::public_key insert_adhoc (rai::raw_key const &, bool const &);
 	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &);
+	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &, bool const &);
 	rai::public_key deterministic_insert (MDB_txn *);
+	rai::public_key deterministic_insert (MDB_txn *, bool const &);
 	rai::public_key deterministic_insert ();
+	rai::public_key deterministic_insert (bool const &);
 	bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);

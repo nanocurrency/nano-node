@@ -218,7 +218,13 @@ void rai::rpc_handler::account_create ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				rai::account new_key (existing->second->deterministic_insert ());
+				bool generate_work (true);
+				boost::optional <bool> work (request.get_optional <bool> ("work"));
+				if (work.is_initialized ())
+				{
+					generate_work = work.get ();
+				}
+				rai::account new_key (existing->second->deterministic_insert (generate_work));
 				if (!new_key.is_zero ())
 				{
 					boost::property_tree::ptree response_l;
@@ -638,11 +644,17 @@ void rai::rpc_handler::accounts_create ()
 				auto existing (node.wallets.items.find (wallet));
 				if (existing != node.wallets.items.end ())
 				{
+					bool generate_work (true);
+					boost::optional <bool> work (request.get_optional <bool> ("work"));
+					if (work.is_initialized ())
+					{
+						generate_work = work.get ();
+					}
 					boost::property_tree::ptree response_l;
 					boost::property_tree::ptree accounts;
 					for (auto i(0); accounts.size ()< count; ++i)
 					{
-						rai::account new_key (existing->second->deterministic_insert ());
+						rai::account new_key (existing->second->deterministic_insert (generate_work));
 						if (!new_key.is_zero ())
 						{
 							boost::property_tree::ptree entry;
@@ -2912,7 +2924,13 @@ void rai::rpc_handler::wallet_add ()
 				auto existing (node.wallets.items.find (wallet));
 				if (existing != node.wallets.items.end ())
 				{
-					auto pub (existing->second->insert_adhoc (key));
+					bool generate_work (true);
+					boost::optional <bool> work (request.get_optional <bool> ("work"));
+					if (work.is_initialized ())
+					{
+						generate_work = work.get ();
+					}
+					auto pub (existing->second->insert_adhoc (key, generate_work));
 					if (!pub.is_zero ())
 					{
 						boost::property_tree::ptree response_l;

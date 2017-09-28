@@ -909,37 +909,67 @@ bool rai::wallet::enter_password (std::string const & password_a)
 
 rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a)
 {
+	auto result (deterministic_insert(transaction_a, true));
+	return result;
+}
+
+rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool const & generate_work_a)
+{
 	rai::public_key key (0);
 	if (store.valid_password (transaction_a))
 	{
 		key = store.deterministic_insert (transaction_a);
-		work_ensure (transaction_a, key);
+		if (generate_work_a)
+		{
+			work_ensure (transaction_a, key);
+		}
 	}
 	return key;
 }
 
 rai::public_key rai::wallet::deterministic_insert ()
 {
+	auto result (deterministic_insert (true));
+	return result;
+}
+
+rai::public_key rai::wallet::deterministic_insert (bool const & generate_work_a)
+{
 	rai::transaction transaction (store.environment, nullptr, true);
-	auto result (deterministic_insert (transaction));
+	auto result (deterministic_insert (transaction, generate_work_a));
 	return result;
 }
 
 rai::public_key rai::wallet::insert_adhoc (MDB_txn * transaction_a, rai::raw_key const & key_a)
 {
+	auto result (insert_adhoc (transaction_a, key_a, true));
+	return result;
+}
+
+rai::public_key rai::wallet::insert_adhoc (MDB_txn * transaction_a, rai::raw_key const & key_a, bool const & generate_work_a)
+{
 	rai::public_key key (0);
 	if (store.valid_password (transaction_a))
 	{
 		key = store.insert_adhoc (transaction_a, key_a);
-		work_ensure (transaction_a, key);
+		if (generate_work_a)
+		{
+			work_ensure (transaction_a, key);
+		}
 	}
 	return key;
 }
 
 rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & account_a)
 {
+	auto result (insert_adhoc (account_a, true));
+	return result;
+}
+
+rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & account_a, bool const & generate_work_a)
+{
 	rai::transaction transaction (store.environment, nullptr, true);
-	auto result (insert_adhoc (transaction, account_a));
+	auto result (insert_adhoc (transaction, account_a, generate_work_a));
 	return result;
 }
 
