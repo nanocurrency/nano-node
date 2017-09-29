@@ -850,7 +850,7 @@ void rai::wallet_store::upgrade_v2_v3 ()
 void rai::kdf::phs (rai::raw_key & result_a, std::string const & password_a, rai::uint256_union const & salt_a)
 {
 	std::lock_guard <std::mutex> lock (mutex);
-    auto success (PHS (result_a.data.bytes.data (), result_a.data.bytes.size (), password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), 1, rai::wallet_store::kdf_work));
+	auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.data.bytes.data (), result_a.data.bytes.size (), NULL, 0, Argon2_d, 0x10));
 	assert (success == 0); (void) success;
 }
 
