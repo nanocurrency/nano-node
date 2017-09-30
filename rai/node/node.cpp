@@ -1000,26 +1000,26 @@ rai::vote_result rai::vote_processor::vote (std::shared_ptr <rai::vote> vote_a, 
 	if (node.config.logging.vote_logging ())
 	{
 		char const * status;
-		switch (result)
+		switch (result.code)
 		{
-			case rai::vote_result::invalid:
+			case rai::vote_code::invalid:
 				status = "Invalid";
 				break;
-			case rai::vote_result::replay:
+			case rai::vote_code::replay:
 				status = "Replay";
 				break;
-			case rai::vote_result::vote:
+			case rai::vote_code::vote:
 				status = "Vote";
 				break;
 		}
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->block->hash ().to_string () % status);
 	}
-	switch (result)
+	switch (result.code)
 	{
-		case rai::vote_result::vote:
+		case rai::vote_code::vote:
 			node.observers.vote (vote_a, endpoint_a);
-		case rai::vote_result::replay:
-		case rai::vote_result::invalid:
+		case rai::vote_code::replay:
+		case rai::vote_code::invalid:
 			break;
 	}
 	return result;
@@ -2716,7 +2716,7 @@ void rai::election::vote (std::shared_ptr <rai::vote> vote_a)
 	node.network.republish_vote (last_vote, vote_a);
 	last_vote = std::chrono::system_clock::now ();
 	rai::transaction transaction (node.store.environment, nullptr, true);
-	assert (node.store.vote_validate (transaction, vote_a) != rai::vote_result::invalid);
+	assert (node.store.vote_validate (transaction, vote_a).code != rai::vote_code::invalid);
 	votes.vote (vote_a);
 	confirm_if_quarum (transaction);
 }

@@ -313,12 +313,6 @@ public:
 	size_t open;
 	size_t change;
 };
-enum class vote_result
-{
-	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest sequence number, it's a replay
-	vote // Vote has the highest sequence number
-};
 class vote
 {
 public:
@@ -340,6 +334,18 @@ public:
 	rai::account account;
 	// Signature of sequence + block hash
 	rai::signature signature;
+};
+enum class vote_code
+{
+	invalid, // Vote is not signed correctly
+	replay, // Vote does not have the highest sequence number, it's a replay
+	vote // Vote has the highest sequence number
+};
+class vote_result
+{
+public:
+	rai::vote_code code;
+	std::shared_ptr <rai::vote> vote;
 };
 class block_store
 {

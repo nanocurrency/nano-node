@@ -2600,15 +2600,15 @@ std::shared_ptr <rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a,
 
 rai::vote_result rai::block_store::vote_validate (MDB_txn * transaction_a, std::shared_ptr <rai::vote> vote_a)
 {
-	auto result (rai::vote_result::invalid);
+	rai::vote_result result ({rai::vote_code::invalid, 0});
 	// Reject unsigned votes
 	if (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
 	{
-		result = rai::vote_result::replay;
-		// Make sure this sequence number is > any we've seen from this account before
-		if (vote_max (transaction_a, vote_a) == vote_a)
+		result.code = rai::vote_code::replay;
+		result.vote = vote_max (transaction_a, vote_a);		// Make sure this sequence number is > any we've seen from this account before
+		if (result.vote == vote_a)
 		{
-			result = rai::vote_result::vote;
+			result.code = rai::vote_code::vote;
 		}
 	}
 	return result;
