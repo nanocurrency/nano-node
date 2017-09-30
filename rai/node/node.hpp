@@ -180,6 +180,7 @@ public:
 	std::vector <peer_information> representatives (size_t);
 	// List of all peers
 	std::vector <rai::endpoint> list ();
+	std::map <rai::endpoint, unsigned> list_version ();
 	// A list of random peers with size the square root of total peer count
 	std::vector <rai::endpoint> list_sqrt ();
 	// Get the next peer for attempting bootstrap
@@ -266,17 +267,41 @@ public:
     std::atomic <uint64_t> confirm_req;
     std::atomic <uint64_t> confirm_ack;
 };
+class block_arrival_info
+{
+public:
+    std::chrono::system_clock::time_point arrival;
+    rai::block_hash hash;
+};
+// This class tracks blocks that are probably live because they arrived in a UDP packet
+// This gives a fairly reliable way to differentiate between blocks being inserted via bootstrap or new, live blocks.
+class block_arrival
+{
+public:
+    void add (rai::block_hash const &);
+    bool recent (rai::block_hash const &);
+    boost::multi_index_container
+    <
+        rai::block_arrival_info,
+        boost::multi_index::indexed_by
+        <
+            boost::multi_index::ordered_non_unique <boost::multi_index::member <rai::block_arrival_info, std::chrono::system_clock::time_point, &rai::block_arrival_info::arrival>>,
+            boost::multi_index::hashed_unique <boost::multi_index::member <rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>
+        >
+    > arrival;
+    std::mutex mutex;
+};
 class network
 {
 public:
-    network (boost::asio::io_service &, uint16_t, rai::node &);
+    network (rai::node &, uint16_t);
     void receive ();
     void stop ();
     void receive_action (boost::system::error_code const &, size_t);
     void rpc_action (boost::system::error_code const &, size_t);
 	void rebroadcast_reps (std::shared_ptr <rai::block>);
 	void republish_vote (std::chrono::system_clock::time_point const &, rai::vote const &);
-    void republish_block (std::shared_ptr <rai::block>);
+    void republish_block (MDB_txn *, std::shared_ptr <rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
     void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint const &);
@@ -290,7 +315,6 @@ public:
     std::array <uint8_t, 512> buffer;
     boost::asio::ip::udp::socket socket;
     std::mutex socket_mutex;
-    boost::asio::io_service & service;
     boost::asio::ip::udp::resolver resolver;
     rai::node & node;
     uint64_t bad_sender_count;
@@ -382,7 +406,7 @@ public:
 class node_observers
 {
 public:
-	rai::observer_set <rai::block const &, rai::account const &, rai::amount const &> blocks;
+	rai::observer_set <std::shared_ptr <rai::block>, rai::account const &, rai::amount const &> blocks;
 	rai::observer_set <rai::account const &, bool> wallet;
 	rai::observer_set <rai::vote const &, rai::endpoint const &> vote;
 	rai::observer_set <rai::endpoint const &> endpoint;
@@ -406,6 +430,28 @@ public:
 	std::mutex mutex;
 	std::unordered_set <rai::block_hash> active;
 };
+// Processing blocks is a potentially long IO operation
+// This class isolates block insertion from other operations like servicing network operations
+class block_processor
+{
+public:
+	block_processor (rai::node &);
+    ~block_processor ();
+    void stop ();
+    void flush ();
+	void add (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
+	void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
+    rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
+private:
+	void process_blocks ();
+	bool stopped;
+    bool idle;
+	std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks;
+	std::mutex mutex;
+	std::condition_variable condition;
+	rai::node & node;
+	std::thread thread;
+};
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
@@ -425,9 +471,7 @@ public:
 	int store_version ();
     void process_confirmed (std::shared_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
-    void process_receive_republish (std::shared_ptr <rai::block>);
-    void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
-    rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
+	void process_active (std::shared_ptr <rai::block>);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
@@ -439,12 +483,14 @@ public:
     void ongoing_keepalive ();
 	void ongoing_rep_crawl ();
 	void ongoing_bootstrap ();
+	void ongoing_vote_flush ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
-	void add_initial_peers ();
+    void add_initial_peers ();
+    boost::asio::io_service & service;
 	rai::node_config config;
     rai::alarm & alarm;
 	rai::work_pool & work;
@@ -464,6 +510,8 @@ public:
 	rai::vote_processor vote_processor;
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
+    rai::block_processor block_processor;
+    rai::block_arrival block_arrival;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
     static std::chrono::seconds constexpr period = std::chrono::seconds (60);

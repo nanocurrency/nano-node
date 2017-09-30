@@ -68,7 +68,7 @@ balance_layout (new QHBoxLayout),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
-	version = new QLabel (boost::str (boost::format ("Version %1%.%2%.%3%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR % RAIBLOCKS_VERSION_PATCH).c_str ());
+	version = new QLabel (boost::str (boost::format ("Version %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR).c_str ());
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
 	self_layout->addWidget (version);
@@ -629,7 +629,7 @@ void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a
 	auto block (wallet.node.store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
-		wallet.node.network.republish_block (std::move (block));
+		wallet.node.network.republish_block (transaction, std::move (block));
 		auto successor (wallet.node.store.block_successor (transaction, hash_a));
 		if (!successor.is_zero ())
 		{
@@ -790,7 +790,7 @@ std::string rai_qt::status::color ()
 			result = "color: blue";
 			break;
 		case rai_qt::status_types::synchronizing:
-			result = "color: red";
+			result = "color: blue";
 			break;
 		case rai_qt::status_types::locked:
 			result = "color: orange";
@@ -996,7 +996,7 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
     });
-    node.observers.blocks.add ([this_w] (rai::block const &, rai::account const & account_a, rai::amount const &)
+	node.observers.blocks.add ([this_w] (std::shared_ptr <rai::block>, rai::account const & account_a, rai::amount const &)
     {
 		if (auto this_l = this_w.lock ())
 		{
@@ -1445,8 +1445,8 @@ ledger_refresh (new QPushButton ("Refresh")),
 ledger_back (new QPushButton ("Back")),
 peers_window (new QWidget),
 peers_layout (new QVBoxLayout),
-peers_model (new QStringListModel),
-peers_view (new QListView),
+peers_model (new QStandardItemModel),
+peers_view (new QTableView),
 bootstrap_label (new QLabel ("IPV6:port \"::ffff:192.168.0.1:7075\"")),
 bootstrap_line (new QLineEdit),
 peers_bootstrap (new QPushButton ("Initiate Bootstrap")),
@@ -1478,8 +1478,13 @@ wallet (wallet_a)
     ledger_layout->setContentsMargins (0, 0, 0, 0);
     ledger_window->setLayout (ledger_layout);
     
+    peers_model->setHorizontalHeaderItem (0, new QStandardItem ("IPv6 address:port"));
+    peers_model->setHorizontalHeaderItem (1, new QStandardItem ("Net version"));
     peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
+    peers_view->verticalHeader ()->hide ();
     peers_view->setModel (peers_model);
+	peers_view->setColumnWidth(0,220);
+	peers_view->setSortingEnabled(true);
     peers_layout->addWidget (peers_view);
 	peers_layout->addWidget (bootstrap_label);
 	peers_layout->addWidget (bootstrap_line);
@@ -1598,7 +1603,6 @@ wallet (wallet_a)
 	{
 		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
-	refresh_ledger ();
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
 	search_for_receivables->setToolTip ("Search for pending blocks");
 	create_block->setToolTip ("Create block in JSON format");
@@ -1607,22 +1611,20 @@ wallet (wallet_a)
 
 void rai_qt::advanced_actions::refresh_peers ()
 {
-	auto list (wallet.node.peers.list ());
-	std::sort (list.begin (), list.end (), [] (rai::endpoint const & lhs, rai::endpoint const & rhs)
+	peers_model->removeRows (0, peers_model->rowCount ());
+	auto list (wallet.node.peers.list_version ());
+	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		return lhs < rhs;
-	});
-    QStringList peers;
-    for (auto i: list)
-    {
-        std::stringstream endpoint;
-        endpoint << i.address ().to_string ();
-        endpoint << ':';
-        endpoint << i.port ();
-        QString qendpoint (endpoint.str().c_str ());
-        peers << qendpoint;
-    }
-    peers_model->setStringList (peers);
+		std::stringstream endpoint;
+		endpoint << i->first.address ().to_string ();
+		endpoint << ':';
+		endpoint << i->first.port ();
+		QString qendpoint (endpoint.str().c_str ());
+		QList <QStandardItem *> items;
+		items.push_back (new QStandardItem (qendpoint));
+		items.push_back (new QStandardItem (QString (std::to_string (i->second).c_str ())));
+		peers_model->appendRow (items);
+	}
 }
 
 void rai_qt::advanced_actions::refresh_ledger ()
@@ -1671,7 +1673,7 @@ wallet (wallet_a)
             {
 				show_label_ok (*status);
 				this->status->setText ("");
-				this->wallet.node.process_receive_republish (std::move (block_l));
+				this->wallet.node.process_active (std::move (block_l));
             }
             else
             {

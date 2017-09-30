@@ -49,6 +49,9 @@ public:
     void value (rai::raw_key &);
     void value_set (rai::raw_key const &);
     std::vector <std::unique_ptr <rai::uint256_union>> values;
+private:
+	std::mutex mutex;
+	void value_get (rai::raw_key &);
 };
 class wallet_value
 {

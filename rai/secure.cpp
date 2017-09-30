@@ -61,9 +61,10 @@ genesis_account (rai::rai_network == rai::rai_networks::rai_test_network ? rai_t
 genesis_block (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_genesis : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis),
 genesis_amount (std::numeric_limits <rai::uint128_t>::max ())
 {
+	CryptoPP::AutoSeededRandomPool random_pool;
 	// Randomly generating these mean no two nodes will ever have the same sentinal values which protects against some insecure algorithms
-	rai::random_pool.GenerateBlock (not_a_block.bytes.data (), not_a_block.bytes.size ());
-	rai::random_pool.GenerateBlock (not_an_account.bytes.data (), not_an_account.bytes.size ());
+	random_pool.GenerateBlock (not_a_block.bytes.data (), not_a_block.bytes.size ());
+	random_pool.GenerateBlock (not_an_account.bytes.data (), not_an_account.bytes.size ());
 }
 rai::keypair zero_key;
 rai::keypair test_genesis_key;
@@ -76,7 +77,6 @@ std::string rai_live_genesis;
 rai::account genesis_account;
 std::string genesis_block;
 rai::uint128_t genesis_amount;
-CryptoPP::AutoSeededRandomPool random_pool;
 rai::block_hash not_a_block;
 rai::account not_an_account;
 };
@@ -100,7 +100,6 @@ std::string const & rai::rai_live_genesis (globals.rai_live_genesis);
 rai::account const & rai::genesis_account (globals.genesis_account);
 std::string const & rai::genesis_block (globals.genesis_block);
 rai::uint128_t const & rai::genesis_amount (globals.genesis_amount);
-CryptoPP::AutoSeededRandomPool & rai::random_pool (globals.random_pool);
 rai::block_hash const & rai::not_a_block (globals.not_a_block);
 rai::block_hash const & rai::not_an_account (globals.not_an_account);
 
@@ -1508,7 +1507,6 @@ size_t rai::block_counts::sum ()
 }
 
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a) :
-sequence_cache_count (0),
 environment (error_a, path_a),
 frontiers (0),
 accounts (0),
@@ -2484,17 +2482,36 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
 
 void rai::block_store::sequence_flush (MDB_txn * transaction_a)
 {
-	for (auto i (sequence_cache.begin ()), n (sequence_cache.end ()); i != n; ++i)
+	std::unordered_map <rai::account, uint64_t> sequence_cache_l;
+	{
+		std::lock_guard <std::mutex> lock (sequence_mutex);
+		sequence_cache_l.swap (sequence_cache);
+	}
+	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
 	{
 		auto status1 (mdb_put (transaction_a, sequence, i->first.val (), rai::mdb_val (sizeof (i->second), &i->second), 0));
 		assert (status1 == 0);
 	}
-	sequence_cache_count = 0;
-	sequence_cache.clear ();
+}
+
+uint64_t rai::block_store::sequence_get (MDB_txn * transaction_a, rai::account const & account_a)
+{
+	uint64_t result (0);
+	MDB_val value;
+	auto status (mdb_get (transaction_a, sequence, account_a.val (), &value));
+	assert (status == 0 || status == MDB_NOTFOUND);
+	if (status == 0)
+	{
+		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
+		auto error (rai::read (stream, result));
+		assert (!error);
+	}
+	return result;
 }
 
 uint64_t rai::block_store::sequence_current (MDB_txn * transaction_a, rai::account const & account_a)
 {
+	assert (!sequence_mutex.try_lock ());
 	uint64_t result (0);
 	auto existing (sequence_cache.find (account_a));
 	if (existing != sequence_cache.end ())
@@ -2503,44 +2520,28 @@ uint64_t rai::block_store::sequence_current (MDB_txn * transaction_a, rai::accou
 	}
 	else
 	{
-		MDB_val value;
-		auto status (mdb_get (transaction_a, sequence, account_a.val (), &value));
-		assert (status == 0 || status == MDB_NOTFOUND);
-		if (status == 0)
-		{
-			rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
-			auto error (rai::read (stream, result));
-			assert (!error);
-		}
+		result = sequence_get (transaction_a, account_a);
 	}
 	return result;
 }
 	
 uint64_t rai::block_store::sequence_atomic_inc (MDB_txn * transaction_a, rai::account const & account_a)
 {
+	std::lock_guard <std::mutex> lock (sequence_mutex);
 	auto result (sequence_current (transaction_a, account_a));
 	result += 1;
 	sequence_cache [account_a] = result;
-	++sequence_cache_count;
-	if (sequence_cache_count > sequence_cache_max)
-	{
-		sequence_flush (transaction_a);
-	}
 	return result;
 }
 
 uint64_t rai::block_store::sequence_atomic_observe (MDB_txn * transaction_a, rai::account const & account_a, uint64_t sequence_a)
 {
+	std::lock_guard <std::mutex> lock (sequence_mutex);
 	auto current (sequence_current (transaction_a, account_a));
 	auto result (std::max (current, sequence_a));
 	if (sequence_a > current)
 	{
 		sequence_cache [account_a] = sequence_a;
-		++sequence_cache_count;
-		if (sequence_cache_count > sequence_cache_max)
-		{
-			sequence_flush (transaction_a);
-		}
 	}
 	return result;
 }

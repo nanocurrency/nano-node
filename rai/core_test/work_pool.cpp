@@ -52,7 +52,7 @@ TEST (work, cancel_many)
 	pool.cancel (key1);
 }
 
-TEST (work, opencl)
+TEST (work, DISABLED_opencl)
 {
 	rai::logging logging;
 	logging.init (rai::unique_path ());

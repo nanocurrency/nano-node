@@ -205,78 +205,74 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
 	if (!error)
-	{
+    {
+        boost::asio::io_service service;
 		config.node.logging.init (data_path);
 		std::shared_ptr <rai::node> node;
 		std::shared_ptr <rai_qt::wallet> gui;
 		rai::set_application_icon (application);
-		std::thread node_thread ([&] ()
+		rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		rai::alarm alarm (service);
+		rai::node_init init;
+		node = std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work);
+		if (!init.error ())
 		{
-			boost::asio::io_service service;
-			rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-			rai::alarm alarm (service);
-			rai::node_init init;
-			node = std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work);
-			if (!init.error ())
+			auto wallet (node->wallets.open (config.wallet));
+			if (wallet == nullptr)
 			{
-				auto wallet (node->wallets.open (config.wallet));
-				if (wallet == nullptr)
+				auto existing (node->wallets.items.begin ());
+				if (existing != node->wallets.items.end ())
 				{
-					auto existing (node->wallets.items.begin ());
-					if (existing != node->wallets.items.end ())
-					{
-						wallet = existing->second;
-						config.wallet = existing->first;
-					}
-					else
-					{
-						wallet = node->wallets.create (config.wallet);
-					}
+					wallet = existing->second;
+					config.wallet = existing->first;
 				}
-				if (config.account.is_zero () || !wallet->exists (config.account))
+				else
 				{
-					rai::transaction transaction (wallet->store.environment, nullptr, true);
-					auto existing (wallet->store.begin (transaction));
-					if (existing != wallet->store.end ())
-					{
-						rai::uint256_union account (existing->first);
-						config.account = account;
-					}
-					else
-					{
-						config.account = wallet->deterministic_insert (transaction);
-					}
+					wallet = node->wallets.create (config.wallet);
 				}
-				assert (wallet->exists (config.account));
-				update_config (config, config_path, config_file);
-				node->start ();
-				rai::rpc rpc (service, *node, config.rpc);
-				if (config.rpc_enable)
-				{
-					rpc.start ();
-				}
-				rai::thread_runner runner (service, node->config.io_threads);
-				QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-				{
-					rpc.stop ();
-					node->stop ();
-				});
-				application.postEvent (&processor, new rai_qt::eventloop_event ([&] ()
-				{
-					gui = std::make_shared <rai_qt::wallet> (application, processor, *node, wallet, config.account);
-					splash->close();
-					gui->start ();
-					gui->client_window->show ();
-				}));
-				runner.join ();
 			}
-			else
+			if (config.account.is_zero () || !wallet->exists (config.account))
 			{
-				show_error ("Error initializing node");
+				rai::transaction transaction (wallet->store.environment, nullptr, true);
+				auto existing (wallet->store.begin (transaction));
+				if (existing != wallet->store.end ())
+				{
+					rai::uint256_union account (existing->first);
+					config.account = account;
+				}
+				else
+				{
+					config.account = wallet->deterministic_insert (transaction);
+				}
 			}
-		});
-		result = application.exec ();
-		node_thread.join ();
+			assert (wallet->exists (config.account));
+			update_config (config, config_path, config_file);
+			node->start ();
+			rai::rpc rpc (service, *node, config.rpc);
+			if (config.rpc_enable)
+			{
+				rpc.start ();
+			}
+			rai::thread_runner runner (service, node->config.io_threads);
+			QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
+			{
+				rpc.stop ();
+				node->stop ();
+			});
+			application.postEvent (&processor, new rai_qt::eventloop_event ([&] ()
+			{
+				gui = std::make_shared <rai_qt::wallet> (application, processor, *node, wallet, config.account);
+				splash->close();
+				gui->start ();
+				gui->client_window->show ();
+			}));
+			result = application.exec ();
+			runner.join ();
+		}
+		else
+		{
+			show_error ("Error initializing node");
+		}
 		update_config (config, config_path, config_file);
 	}
 	else

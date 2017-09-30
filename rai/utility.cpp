@@ -7,6 +7,8 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
+thread_local CryptoPP::AutoSeededRandomPool rai::random_pool;
+
 boost::filesystem::path rai::unique_path ()
 {
 	auto result (working_path () / boost::filesystem::unique_path ());

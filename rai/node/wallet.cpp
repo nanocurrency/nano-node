@@ -342,8 +342,7 @@ bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & pass
 		wallet_key (wallet_key_l, transaction_a);
         rai::raw_key password_l;
 		password.value (password_l);
-        (*password.values [0]) ^= password_l.data;
-        (*password.values [0]) ^= password_new.data;
+		password.value_set (password_new);
         rai::uint256_union encrypted;
 		encrypted.encrypt (wallet_key_l, password_new, salt (transaction_a).owords [0]);
 		entry_put_raw (transaction_a, rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted));
@@ -359,6 +358,44 @@ void rai::wallet_store::derive_key (rai::raw_key & prv_a, MDB_txn * transaction_
 {
 	auto salt_l (salt (transaction_a));
 	kdf.phs (prv_a, password_a, salt_l);
+}
+
+rai::fan::fan (rai::uint256_union const & key, size_t count_a)
+{
+    std::unique_ptr <rai::uint256_union> first (new rai::uint256_union (key));
+    for (auto i (1); i < count_a; ++i)
+    {
+        std::unique_ptr <rai::uint256_union> entry (new rai::uint256_union);
+        random_pool.GenerateBlock (entry->bytes.data (), entry->bytes.size ());
+        *first ^= *entry;
+        values.push_back (std::move (entry));
+    }
+    values.push_back (std::move (first));
+}
+
+void rai::fan::value (rai::raw_key & prv_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	value_get (prv_a);
+}
+
+void rai::fan::value_get (rai::raw_key & prv_a)
+{
+	assert (!mutex.try_lock ());
+    prv_a.data.clear ();
+    for (auto & i: values)
+    {
+        prv_a.data ^= *i;
+    }
+}
+
+void rai::fan::value_set (rai::raw_key const & value_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+    rai::raw_key value_l;
+	value_get (value_l);
+    *(values [0]) ^= value_l.data;
+    *(values [0]) ^= value_a.data;
 }
 
 rai::wallet_value::wallet_value (MDB_val const & val_a)
@@ -998,7 +1035,7 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block);
+		node.process_active (block);
 		auto hash (block->hash ());
 		auto this_l (shared_from_this ());
 		auto source (send_a.hashables.destination);
@@ -1036,7 +1073,7 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block);
+		node.process_active (block);
 		auto hash (block->hash ());
 		auto this_l (shared_from_this ());
 		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
@@ -1077,7 +1114,7 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_receive_republish (block);
+		node.process_active (block);
 		auto hash (block->hash ());
 		auto this_l (shared_from_this ());
 		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]

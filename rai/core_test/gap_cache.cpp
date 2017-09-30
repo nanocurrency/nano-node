@@ -56,7 +56,7 @@ TEST (gap_cache, gap_bootstrap)
 	auto send (std::make_shared <rai::send_block> (latest, key.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->process_receive_one (transaction, send).code);
+		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->block_processor.process_receive_one (transaction, send).code);
 	}
 	ASSERT_EQ (rai::genesis_amount - 100, system.nodes [0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes [1]->balance (rai::genesis_account));
@@ -83,11 +83,11 @@ TEST (gap_cache, two_dependencies)
 	auto send2 (std::make_shared <rai::send_block> (send1->hash (), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1->hash ())));
 	auto open (std::make_shared <rai::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub)));
 	ASSERT_EQ (0, system.nodes [0]->gap_cache.blocks.size ());
-	system.nodes [0]->process_receive_many (send2);
+	system.nodes [0]->block_processor.process_receive_many (send2);
 	ASSERT_EQ (1, system.nodes [0]->gap_cache.blocks.size ());
-	system.nodes [0]->process_receive_many (open);
+	system.nodes [0]->block_processor.process_receive_many (open);
 	ASSERT_EQ (2, system.nodes [0]->gap_cache.blocks.size ());
-	system.nodes [0]->process_receive_many (send1);
+	system.nodes [0]->block_processor.process_receive_many (send1);
 	ASSERT_EQ (0, system.nodes [0]->gap_cache.blocks.size ());
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 	ASSERT_TRUE (system.nodes [0]->store.block_exists (transaction, send1->hash ()));
