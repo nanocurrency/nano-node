@@ -884,6 +884,18 @@ void rai::rpc_handler::blocks ()
 
 void rai::rpc_handler::blocks_info ()
 {
+	bool pending (false);
+	boost::optional <bool> pending_optional (request.get_optional <bool> ("pending"));
+	if (pending_optional.is_initialized ())
+	{
+		pending = pending_optional.get ();
+	}
+	bool source (false);
+	boost::optional <bool> source_optional (request.get_optional <bool> ("source"));
+	if (source_optional.is_initialized ())
+	{
+		source = source_optional.get ();
+	}
 	std::vector <std::string> hashes;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree blocks;
@@ -906,6 +918,30 @@ void rai::rpc_handler::blocks_info ()
 				std::string contents;
 				block->serialize_json (contents);
 				entry.put ("contents", contents);
+				if (pending)
+				{
+					auto block_l (dynamic_cast <rai::send_block *> (block.get ()));
+					bool exists (false);
+					if (block_l != nullptr)
+					{
+						auto destination (block_l->hashables.destination);
+						exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
+					}
+					entry.put ("pending", exists ? "1" : "0");
+				}
+				if (source)
+				{
+					rai::block_hash source_hash (block->source ());
+					std::unique_ptr <rai::block> block_a (node.store.block_get (transaction, source_hash));
+					if (block_a != nullptr)
+					{
+						auto source_account (node.ledger.account (transaction, source_hash));
+						entry.put ("source_account", source_account.to_account ());
+					}
+					else {
+						entry.put ("source_account", "0");
+					}
+				}
 				blocks.push_back (std::make_pair (hash_text, entry));
 			}
 			else
