@@ -76,7 +76,7 @@ TEST (message, publish_serialization)
 TEST (message, confirm_ack_serialization)
 {
     rai::keypair key1;
-	rai::vote vote (key1.pub, key1.prv, 0, std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, key1.prv, 4, 5)));
+	auto vote (std::make_shared <rai::vote> (key1.pub, key1.prv, 0, std::unique_ptr <rai::block> (new rai::send_block (0, 1, 2, key1.prv, 4, 5))));
     rai::confirm_ack con1 (vote);
     std::vector <uint8_t> bytes;
     {

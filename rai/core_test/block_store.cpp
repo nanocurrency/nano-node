@@ -589,25 +589,28 @@ TEST (block_store, sequence_increment)
     bool init (false);
     rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-	rai::account account1 (1);
-	rai::account account2 (2);
+	rai::keypair key1;
+	rai::keypair key2;
+	auto block1 (std::make_shared <rai::open_block> (0, 1, 0, rai::keypair ().prv, 0, 0));
 	rai::transaction transaction (store.environment, nullptr, true);
-	auto seq1 (store.sequence_atomic_inc (transaction, account1));
-	ASSERT_EQ (1, seq1);
-	auto seq2 (store.sequence_atomic_inc (transaction, account1));
-	ASSERT_EQ (2, seq2);
-	auto seq3 (store.sequence_atomic_inc (transaction, account2));
-	ASSERT_EQ (1, seq3);
-	auto seq4 (store.sequence_atomic_inc (transaction, account2));
-	ASSERT_EQ (2, seq4);
-	auto seq5 (store.sequence_atomic_observe (transaction, account1, 20));
-	ASSERT_EQ (20, seq5);
-	auto seq6 (store.sequence_atomic_observe (transaction, account2, 30));
-	ASSERT_EQ (30, seq6);
-	auto seq7 (store.sequence_atomic_inc (transaction, account1));
-	ASSERT_EQ (21, seq7);
-	auto seq8 (store.sequence_atomic_inc (transaction, account2));
-	ASSERT_EQ (31, seq8);
+	auto vote1 (store.vote_generate (transaction, key1.pub, key1.prv, block1));
+	ASSERT_EQ (1, vote1->sequence);
+	auto vote2 (store.vote_generate (transaction, key1.pub, key1.prv, block1));
+	ASSERT_EQ (2, vote2->sequence);
+	auto vote3 (store.vote_generate (transaction, key2.pub, key2.prv, block1));
+	ASSERT_EQ (1, vote3->sequence);
+	auto vote4 (store.vote_generate (transaction, key2.pub, key2.prv, block1));
+	ASSERT_EQ (2, vote4->sequence);
+	vote1->sequence = 20;
+	auto seq5 (store.vote_max (transaction, vote1));
+	ASSERT_EQ (20, seq5->sequence);
+	vote3->sequence = 30;
+	auto seq6 (store.vote_max (transaction, vote3));
+	ASSERT_EQ (30, seq6->sequence);
+	auto vote5 (store.vote_generate (transaction, key1.pub, key1.prv, block1));
+	ASSERT_EQ (21, vote5->sequence);
+	auto vote6 (store.vote_generate (transaction, key2.pub, key2.prv, block1));
+	ASSERT_EQ (31, vote6->sequence);
 }
 
 TEST (block_store, upgrade_v2_v3)
@@ -743,13 +746,20 @@ TEST (vote, validate)
     ASSERT_TRUE (!init);
 	rai::keypair key1;
 	auto send1 (std::make_shared <rai::send_block> (0, key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	rai::vote vote1 (key1.pub, key1.prv, 2, send1);
+	auto vote1 (std::make_shared <rai::vote> (key1.pub, key1.prv, 2, send1));
 	rai::transaction transaction (store.environment, nullptr, true);
-	ASSERT_EQ (rai::vote_result::vote, vote1.validate (transaction, store));
-	vote1.signature.bytes [8] ^= 1;
-	ASSERT_EQ (rai::vote_result::invalid, vote1.validate (transaction, store));
-	rai::vote vote2 (key1.pub, key1.prv, 1, send1);
-	ASSERT_EQ (rai::vote_result::replay, vote2.validate (transaction, store));
+	auto vote_result1 (store.vote_validate (transaction, vote1));
+	ASSERT_EQ (rai::vote_code::vote, vote_result1.code);
+	ASSERT_EQ (*vote1, *vote_result1.vote);
+	vote1->signature.bytes [8] ^= 1;
+	auto vote_result2 (store.vote_validate (transaction, vote1));
+	ASSERT_EQ (rai::vote_code::invalid, vote_result2.code);
+	// If the signature is invalid, we don't need to take the overhead of checking the current sequence value
+	ASSERT_EQ (nullptr, vote_result2.vote);
+	auto vote2 (std::make_shared <rai::vote> (key1.pub, key1.prv, 1, send1));
+	auto vote_result3 (store.vote_validate (transaction, vote2));
+	ASSERT_EQ (rai::vote_code::replay, vote_result3.code);
+	ASSERT_EQ (*vote1, *vote_result3.vote);
 }
 
 TEST (block_store, upgrade_v5_v6)
@@ -882,11 +892,37 @@ TEST (block_store, sequence_flush)
 	rai::block_store store (init, path);
 	ASSERT_FALSE (init);
 	rai::transaction transaction (store.environment, nullptr, true);
-	rai::account account (0);
-	auto seq1 (store.sequence_atomic_inc (transaction, account));
-	auto seq2 (store.sequence_get (transaction, account));
-	ASSERT_NE (seq2, seq1);
-	store.sequence_flush(transaction);
-	auto seq3 (store.sequence_get (transaction, account));
-	ASSERT_EQ (seq3, seq1);
+	rai::keypair key1;
+	auto send1 (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto vote1 (store.vote_generate (transaction, key1.pub, key1.prv, send1));
+	auto seq2 (store.vote_get (transaction, vote1->account));
+	ASSERT_EQ (nullptr, seq2);
+	store.vote_flush (transaction);
+	auto seq3 (store.vote_get (transaction, vote1->account));
+	ASSERT_EQ (*seq3, *vote1);
+}
+
+// Upgrading tracking block sequence numbers to whole vote.
+TEST (block_store, upgrade_v8_v9)
+{
+	auto path (rai::unique_path ());
+	rai::keypair key;
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		rai::transaction transaction (store.environment, nullptr, true);
+		ASSERT_EQ (0, mdb_drop (transaction, store.vote, 1));
+		ASSERT_EQ (0, mdb_dbi_open (transaction, "sequence", MDB_CREATE, &store.vote));
+		uint64_t sequence (10);
+		ASSERT_EQ (0, mdb_put (transaction, store.vote, key.pub.val (), rai::mdb_val (sizeof (sequence), &sequence), 0));
+		store.version_put (transaction, 8);
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, nullptr, false);
+	ASSERT_EQ (9, store.version_get (transaction));
+	auto vote (store.vote_get (transaction, key.pub));
+	ASSERT_NE (nullptr, vote);
+	ASSERT_EQ (10, vote->sequence);
 }

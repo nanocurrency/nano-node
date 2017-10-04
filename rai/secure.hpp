@@ -313,6 +313,40 @@ public:
 	size_t open;
 	size_t change;
 };
+class vote
+{
+public:
+	vote () = default;
+	vote (rai::vote const &);
+	vote (bool &, rai::stream &);
+	vote (bool &, rai::stream &, rai::block_type);
+	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr <rai::block>);
+	vote (MDB_val const &);
+	rai::uint256_union hash () const;
+	bool operator == (rai::vote const &) const;
+	bool operator != (rai::vote const &) const;
+	void serialize (rai::stream &);
+	std::string to_json () const;
+	// Vote round sequence number
+	uint64_t sequence;
+	std::shared_ptr <rai::block> block;
+	// Account that's voting
+	rai::account account;
+	// Signature of sequence + block hash
+	rai::signature signature;
+};
+enum class vote_code
+{
+	invalid, // Vote is not signed correctly
+	replay, // Vote does not have the highest sequence number, it's a replay
+	vote // Vote has the highest sequence number
+};
+class vote_result
+{
+public:
+	rai::vote_code code;
+	std::shared_ptr <rai::vote> vote;
+};
 class block_store
 {
 public:
@@ -388,13 +422,20 @@ public:
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
 	
-	uint64_t sequence_get (MDB_txn *, rai::account const &);
-	uint64_t sequence_atomic_inc (MDB_txn *, rai::account const &);
-	uint64_t sequence_atomic_observe (MDB_txn *, rai::account const &, uint64_t);
-	uint64_t sequence_current (MDB_txn *, rai::account const &);
-	void sequence_flush (MDB_txn *);
-	std::mutex sequence_mutex;
-	std::unordered_map <rai::account, uint64_t> sequence_cache;
+	rai::vote_result vote_validate (MDB_txn *, std::shared_ptr <rai::vote>);
+	// Return latest vote for an account from store
+	std::shared_ptr <rai::vote> vote_get (MDB_txn *, rai::account const &);
+	// Populate vote with the next sequence number
+	std::shared_ptr <rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::shared_ptr <rai::block>);
+	// Return either vote or the stored vote with a higher sequence number
+	std::shared_ptr <rai::vote> vote_max (MDB_txn *, std::shared_ptr <rai::vote>);
+	// Return latest vote for an account considering the vote cache
+	std::shared_ptr <rai::vote> vote_current (MDB_txn *, rai::account const &);
+	void vote_flush (MDB_txn *);
+	rai::store_iterator vote_begin (MDB_txn *);
+	rai::store_iterator vote_end ();
+	std::mutex vote_mutex;
+	std::unordered_map <rai::account, std::shared_ptr <rai::vote>> vote_cache;
 	
 	void version_put (MDB_txn *, int);
 	int version_get (MDB_txn *);
@@ -406,6 +447,7 @@ public:
 	void upgrade_v5_to_v6 (MDB_txn *);
 	void upgrade_v6_to_v7 (MDB_txn *);
 	void upgrade_v7_to_v8 (MDB_txn *);
+	void upgrade_v8_to_v9 (MDB_txn *);
 	
 	void clear (MDB_dbi);
 	
@@ -432,8 +474,8 @@ public:
 	MDB_dbi unsynced;
 	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
 	MDB_dbi checksum;
-	// account -> uint64_t											// Highest vote sequence observed for account
-	MDB_dbi sequence;
+	// account -> uint64_t											// Highest vote observed for account
+	MDB_dbi vote;
 	// uint256_union -> ?											// Meta information about block store
 	MDB_dbi meta;
 };
@@ -457,29 +499,6 @@ public:
 	rai::account account;
 	rai::amount amount;
 };
-enum class vote_result
-{
-	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest sequence number, it's a replay
-	vote // Vote has the highest sequence number
-};
-class vote
-{
-public:
-	vote () = default;
-	vote (rai::vote const &);
-	vote (bool &, rai::stream &, rai::block_type);
-	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr <rai::block>);
-	rai::uint256_union hash () const;
-	rai::vote_result validate (MDB_txn *, rai::block_store &) const;
-	// Vote round sequence number
-	uint64_t sequence;
-	std::shared_ptr <rai::block> block;
-	// Account that's voting
-	rai::account account;
-	// Signature of sequence + block hash
-	rai::signature signature;
-};
 enum class tally_result
 {
 	vote,
@@ -490,7 +509,7 @@ class votes
 {
 public:
 	votes (std::shared_ptr <rai::block>);
-	rai::tally_result vote (rai::vote const &);
+	rai::tally_result vote (std::shared_ptr <rai::vote>);
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account

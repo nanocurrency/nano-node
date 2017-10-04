@@ -172,23 +172,23 @@ id (block_a->root ())
 	rep_votes.insert (std::make_pair (rai::not_an_account, block_a));
 }
 
-rai::tally_result rai::votes::vote (rai::vote const & vote_a)
+rai::tally_result rai::votes::vote (std::shared_ptr <rai::vote> vote_a)
 {
 	rai::tally_result result;
-	auto existing (rep_votes.find (vote_a.account));
+	auto existing (rep_votes.find (vote_a->account));
 	if (existing == rep_votes.end ())
 	{
 		// Vote on this block hasn't been seen from rep before
 		result = rai::tally_result::vote;
-		rep_votes.insert (std::make_pair (vote_a.account, vote_a.block));
+		rep_votes.insert (std::make_pair (vote_a->account, vote_a->block));
 	}
 	else
 	{
-		if (!(*existing->second == *vote_a.block))
+		if (!(*existing->second == *vote_a->block))
 		{
 			// Rep changed their vote
 			result = rai::tally_result::changed;
-			existing->second = vote_a.block;
+			existing->second = vote_a->block;
 		}
 		else
 		{
@@ -1534,7 +1534,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked) != 0;
 		error_a |= mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
-		error_a |= mdb_dbi_open (transaction, "sequence", MDB_CREATE, &sequence) != 0;
+		error_a |= mdb_dbi_open (transaction, "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
@@ -1590,6 +1590,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 7:
 			upgrade_v7_to_v8 (transaction_a);
 		case 8:
+			upgrade_v8_to_v9 (transaction_a);
+		case 9:
 			break;
 		default:
 		assert (false);
@@ -1770,6 +1772,33 @@ void rai::block_store::upgrade_v7_to_v8 (MDB_txn * transaction_a)
 	version_put (transaction_a, 8);
 	mdb_drop (transaction_a, unchecked, 1);
 	mdb_dbi_open (transaction_a, "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked);
+}
+
+void rai::block_store::upgrade_v8_to_v9 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 9);
+	MDB_dbi sequence;
+	mdb_dbi_open (transaction_a, "sequence", MDB_CREATE | MDB_DUPSORT, &sequence);
+	rai::genesis genesis;
+	std::shared_ptr <rai::block> block (std::move (genesis.open));
+	rai::keypair junk;
+	for (rai::store_iterator i (transaction_a, sequence), n (nullptr); i != n; ++i)
+	{
+		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+		uint64_t sequence;
+		auto error (rai::read (stream, sequence));
+		// Create a dummy vote with the same sequence number for easy upgrading.  This won't have a valid signature.
+		auto dummy (std::make_shared <rai::vote> (rai::account (i->first), junk.prv, sequence, block));
+		std::vector <uint8_t> vector;
+		{
+			rai::vectorstream stream (vector);
+			dummy->serialize (stream);
+		}
+		auto status1 (mdb_put (transaction_a, vote, &i->first, rai::mdb_val (vector.size (), vector.data ()), 0));
+		assert (status1 == 0);
+		assert (!error);
+	}
+	mdb_drop (transaction_a, sequence, 1);
 }
 
 void rai::block_store::clear (MDB_dbi db_a)
@@ -2480,70 +2509,131 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
 	assert (status == 0);
 }
 
-void rai::block_store::sequence_flush (MDB_txn * transaction_a)
+void rai::block_store::vote_flush (MDB_txn * transaction_a)
 {
-	std::unordered_map <rai::account, uint64_t> sequence_cache_l;
+	std::unordered_map <rai::account, std::shared_ptr <rai::vote>> sequence_cache_l;
 	{
-		std::lock_guard <std::mutex> lock (sequence_mutex);
-		sequence_cache_l.swap (sequence_cache);
+		std::lock_guard <std::mutex> lock (vote_mutex);
+		sequence_cache_l.swap (vote_cache);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
 	{
-		auto status1 (mdb_put (transaction_a, sequence, i->first.val (), rai::mdb_val (sizeof (i->second), &i->second), 0));
+		std::vector <uint8_t> vector;
+		{
+			rai::vectorstream stream (vector);
+			i->second->serialize (stream);
+		}
+		auto status1 (mdb_put (transaction_a, vote, i->first.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
 		assert (status1 == 0);
 	}
 }
 
-uint64_t rai::block_store::sequence_get (MDB_txn * transaction_a, rai::account const & account_a)
+rai::store_iterator rai::block_store::vote_begin (MDB_txn * transaction_a)
 {
-	uint64_t result (0);
+	return rai::store_iterator (transaction_a, vote);
+}
+
+rai::store_iterator rai::block_store::vote_end ()
+{
+	return rai::store_iterator (nullptr);
+}
+
+std::shared_ptr <rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, rai::account const & account_a)
+{
+	std::shared_ptr <rai::vote> result;
 	MDB_val value;
-	auto status (mdb_get (transaction_a, sequence, account_a.val (), &value));
+	auto status (mdb_get (transaction_a, vote, account_a.val (), &value));
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
 	{
-		rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value.mv_data), value.mv_size);
-		auto error (rai::read (stream, result));
-		assert (!error);
+		result = std::make_shared <rai::vote> (value);
+		assert (result != nullptr);
 	}
 	return result;
 }
 
-uint64_t rai::block_store::sequence_current (MDB_txn * transaction_a, rai::account const & account_a)
+std::shared_ptr <rai::vote> rai::block_store::vote_current (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	assert (!sequence_mutex.try_lock ());
-	uint64_t result (0);
-	auto existing (sequence_cache.find (account_a));
-	if (existing != sequence_cache.end ())
+	assert (!vote_mutex.try_lock ());
+	std::shared_ptr <rai::vote> result;
+	auto existing (vote_cache.find (account_a));
+	if (existing != vote_cache.end ())
 	{
 		result = existing->second;
 	}
 	else
 	{
-		result = sequence_get (transaction_a, account_a);
+		result = vote_get (transaction_a, account_a);
 	}
 	return result;
 }
 	
-uint64_t rai::block_store::sequence_atomic_inc (MDB_txn * transaction_a, rai::account const & account_a)
+std::shared_ptr <rai::vote> rai::block_store::vote_generate (MDB_txn * transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr <rai::block> block_a)
 {
-	std::lock_guard <std::mutex> lock (sequence_mutex);
-	auto result (sequence_current (transaction_a, account_a));
-	result += 1;
-	sequence_cache [account_a] = result;
+	std::shared_ptr <rai::vote> result;
+	uint64_t sequence = 0;
+	{
+		std::lock_guard <std::mutex> lock (vote_mutex);
+		result = vote_current (transaction_a, account_a);
+		sequence = (result ? result->sequence : 0) + 1;
+	}
+	result = std::make_shared <rai::vote> (account_a, key_a, sequence, block_a);
+	vote_cache [account_a] = result;
 	return result;
 }
 
-uint64_t rai::block_store::sequence_atomic_observe (MDB_txn * transaction_a, rai::account const & account_a, uint64_t sequence_a)
+std::shared_ptr <rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, std::shared_ptr <rai::vote> vote_a)
 {
-	std::lock_guard <std::mutex> lock (sequence_mutex);
-	auto current (sequence_current (transaction_a, account_a));
-	auto result (std::max (current, sequence_a));
-	if (sequence_a > current)
+	std::lock_guard <std::mutex> lock (vote_mutex);
+	auto current (vote_current (transaction_a, vote_a->account));
+	auto result (vote_a);
+	if (current != nullptr)
 	{
-		sequence_cache [account_a] = sequence_a;
+		if (current->sequence > result->sequence)
+		{
+			result = current;
+		}
+	}
+	vote_cache [vote_a->account] = result;
+	return result;
+}
+
+rai::vote_result rai::block_store::vote_validate (MDB_txn * transaction_a, std::shared_ptr <rai::vote> vote_a)
+{
+	rai::vote_result result ({rai::vote_code::invalid, 0});
+	// Reject unsigned votes
+	if (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
+	{
+		result.code = rai::vote_code::replay;
+		result.vote = vote_max (transaction_a, vote_a);		// Make sure this sequence number is > any we've seen from this account before
+		if (result.vote == vote_a)
+		{
+			result.code = rai::vote_code::vote;
+		}
 	}
 	return result;
+}
+
+bool rai::vote::operator == (rai::vote const & other_a) const
+{
+	return sequence == other_a.sequence && *block == *other_a.block && account == other_a.account && signature == other_a.signature;
+}
+
+bool rai::vote::operator != (rai::vote const & other_a) const
+{
+	return ! (*this == other_a);
+}
+
+std::string rai::vote::to_json () const
+{
+	std::stringstream stream;
+	boost::property_tree::ptree tree;
+	tree.put ("account", account.to_account ());
+	tree.put ("signature", signature.number ());
+	tree.put ("sequence", std::to_string (sequence));
+	tree.put ("block", block->to_json ());
+	boost::property_tree::write_json (stream, tree);
+	return stream.str ();
 }
 
 namespace
@@ -3301,6 +3391,27 @@ signature (other_a.signature)
 {
 }
 
+rai::vote::vote (bool & error_a, rai::stream & stream_a)
+{
+	if (!error_a)
+	{
+		error_a = rai::read (stream_a, account.bytes);
+		if (!error_a)
+		{
+			error_a = rai::read (stream_a, signature.bytes);
+			if (!error_a)
+			{
+				error_a = rai::read (stream_a, sequence);
+				if (!error_a)
+				{
+					block = rai::deserialize_block (stream_a);
+					error_a = block == nullptr;
+				}
+			}
+		}
+	}
+}
+
 rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 {
 	if (!error_a)
@@ -3330,6 +3441,19 @@ signature (rai::sign_message (prv_a, account_a, hash ()))
 {
 }
 
+rai::vote::vote (MDB_val const & value_a)
+{
+	rai::bufferstream stream (reinterpret_cast <uint8_t const *> (value_a.mv_data), value_a.mv_size);
+	auto error (rai::read (stream, account.bytes));
+	assert (!error);
+	error = rai::read (stream, signature.bytes);
+	assert (!error);
+	error = rai::read (stream, sequence);
+	assert (!error);
+	block = rai::deserialize_block (stream);
+	assert (block != nullptr);
+}
+
 rai::uint256_union rai::vote::hash () const
 {
     rai::uint256_union result;
@@ -3346,20 +3470,12 @@ rai::uint256_union rai::vote::hash () const
     return result;
 }
 
-rai::vote_result rai::vote::validate (MDB_txn * transaction_a, rai::block_store & store_a) const
+void rai::vote::serialize (rai::stream & stream_a)
 {
-	auto result (rai::vote_result::invalid);
-	// Reject unsigned votes
-	if (!rai::validate_message (account, hash (), signature))
-	{
-		result = rai::vote_result::replay;
-		// Make sure this sequence number is > any we've seen from this account before
-		if (store_a.sequence_atomic_observe (transaction_a, account, sequence) == sequence)
-		{
-			result = rai::vote_result::vote;
-		}
-	}
-	return result;
+	write (stream_a, account);
+	write (stream_a, signature);
+	write (stream_a, sequence);
+	rai::serialize_block (stream_a, *block);
 }
 
 rai::genesis::genesis ()

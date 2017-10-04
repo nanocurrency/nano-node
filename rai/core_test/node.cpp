@@ -1045,7 +1045,7 @@ TEST (node, fork_no_vote_quorum)
 	auto send2 (std::make_shared <rai::send_block> (block->hash (), key2, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ())));
 	rai::raw_key key3;
 	ASSERT_FALSE (system.wallet (1)->store.fetch (rai::transaction (system.wallet (1)->store.environment, nullptr, false), key1, key3));
-	rai::vote vote (key1, key3, 0, send2);
+	auto vote (std::make_shared <rai::vote> (key1, key3, 0, send2));
 	rai::confirm_ack confirm (vote);
 	std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
 	{
@@ -1363,4 +1363,40 @@ TEST (node, send_callback)
         ASSERT_LT (iterations, 200);
     }
     ASSERT_EQ (std::numeric_limits <rai::uint128_t>::max () - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
+}
+
+// Check that votes get replayed back to nodes if they sent an old sequence number.
+// This helps representatives continue from their last sequence number if their node is reinitialized and the old sequence number is lost
+TEST (node, vote_replay)
+{
+	rai::system system (24000, 2);
+	rai::keypair key;
+	auto open (std::make_shared <rai::open_block> (0, 1, key.pub, key.prv, key.pub, 0));
+	system.nodes [0]->generate_work (*open);
+	for (auto i (0); i < 11000; ++i)
+	{
+		rai::transaction transaction (system.nodes [1]->store.environment, nullptr, false);
+		auto vote (system.nodes [1]->store.vote_generate (transaction, rai::test_genesis_key.pub, rai::test_genesis_key.prv, open));
+	}
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		std::lock_guard <std::mutex> lock (system.nodes [0]->store.vote_mutex);
+		auto vote (system.nodes [0]->store.vote_current (transaction, rai::test_genesis_key.pub));
+		ASSERT_EQ (nullptr, vote);
+	}
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Gxrb_ratio));
+	ASSERT_NE (nullptr, block);
+	auto done (false);
+	auto iterations (0);
+	while (!done)
+	{
+		system.poll ();
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+		std::lock_guard <std::mutex> lock (system.nodes [0]->store.vote_mutex);
+		auto vote (system.nodes [0]->store.vote_current (transaction, rai::test_genesis_key.pub));
+		done = vote && (vote->sequence >= 10000);
+		++iterations;
+		ASSERT_GT (400, iterations);
+	}
 }

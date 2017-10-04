@@ -59,7 +59,7 @@ TEST (message_parser, exact_confirm_ack_size)
     test_visitor visitor;
     rai::message_parser parser (visitor, system.work);
     auto block (std::unique_ptr <rai::send_block> (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1))));
-	rai::vote vote (0, rai::keypair ().prv, 0, std::move (block));
+	auto vote (std::make_shared <rai::vote> (0, rai::keypair ().prv, 0, std::move (block)));
     rai::confirm_ack message (vote);
     std::vector <uint8_t> bytes;
     {

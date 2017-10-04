@@ -44,7 +44,7 @@ TEST (conflicts, add_existing)
 		node1.active.start (transaction, send2);
 	}
     ASSERT_EQ (1, node1.active.roots.size ());
-    rai::vote vote1 (key2.pub, key2.prv, 0, send2);
+	auto vote1 (std::make_shared <rai::vote> (key2.pub, key2.prv, 0, send2));
     node1.active.vote (vote1);
     ASSERT_EQ (1, node1.active.roots.size ());
     auto votes1 (node1.active.roots.find (send2->root ())->election);
