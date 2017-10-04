@@ -379,13 +379,30 @@ public:
     {
         if (node.config.logging.network_message_logging ())
         {
-            BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%") % sender % message_a.vote->block->hash ().to_string ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2% sequence %3%") % sender % message_a.vote->block->hash ().to_string () % std::to_string (message_a.vote->sequence));
         }
         ++node.network.incoming.confirm_ack;
         node.peers.contacted (sender, message_a.version_using);
         node.peers.insert (sender, message_a.version_using);
         node.process_active (message_a.vote->block);
-        node.vote_processor.vote (message_a.vote, sender);
+		auto vote (node.vote_processor.vote (message_a.vote, sender));
+		if (vote.code == rai::vote_code::replay)
+		{
+			assert (vote.vote->sequence > message_a.vote->sequence);
+			// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
+			// Only do this if the sequence number is significantly different to account for network reordering
+			// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
+			if (vote.vote->sequence - message_a.vote->sequence > 10000)
+			{
+				rai::confirm_ack confirm (vote.vote);
+				std::shared_ptr <std::vector <uint8_t>> bytes (new std::vector <uint8_t>);
+				{
+					rai::vectorstream stream (*bytes);
+					confirm.serialize (stream);
+				}
+				node.network.confirm_send (confirm, bytes, sender);
+			}
+		}
     }
     void bulk_pull (rai::bulk_pull const &) override
     {
@@ -1573,7 +1590,7 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 {
     if (node.config.logging.network_publish_logging ())
     {
-        BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2%") % confirm_a.vote->block->hash ().to_string () % endpoint_a);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2% sequence %3%") % confirm_a.vote->block->hash ().to_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
     }
     std::weak_ptr <rai::node> node_w (node.shared ());
 	++outgoing.confirm_ack;
