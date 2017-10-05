@@ -206,7 +206,7 @@ static inline int blake2b_init( blake2b_state *S, const uchar outlen )
   return blake2b_init_param( S, P );
 }
 
-static int blake2b_compress( blake2b_state *S, const uchar block[BLAKE2B_BLOCKBYTES] )
+static int blake2b_compress( blake2b_state *S, __private const uchar block[BLAKE2B_BLOCKBYTES] )
 {
   ulong m[16];
   ulong v[16];
