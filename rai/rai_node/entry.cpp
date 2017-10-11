@@ -5,6 +5,7 @@
 #include <argon2.h>
 
 #include <boost/program_options.hpp>
+#include <boost/lexical_cast.hpp>
 
 class xorshift128
 {
@@ -110,17 +111,21 @@ int main (int argc, char * const * argv)
 	rai::add_node_options (description);
 	description.add_options ()
 		("help", "Print out options")
-        ("daemon", "Start node daemon")
+		("daemon", "Start node daemon")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_frontier_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
+		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
-		("debug_xorshift_profile", "Profile xorshift algorithms");
+		("debug_xorshift_profile", "Profile xorshift algorithms")
+		("platform", boost::program_options::value <std::string> (), "Defines the <platform> for OpenCL commands")
+		("device", boost::program_options::value <std::string> (), "Defines <device> for OpenCL command")
+		("threads", boost::program_options::value <std::string> (), "Defines <threads> count for OpenCL command");
 	boost::program_options::variables_map vm;
 	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
 	boost::program_options::notify (vm);
@@ -262,6 +267,87 @@ int main (int argc, char * const * argv)
             auto end1 (std::chrono::high_resolution_clock::now ());
             std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
+    }
+    else if (vm.count ("debug_opencl"))
+    {
+		bool error (false);
+		rai::opencl_environment environment (error);
+		if (!error)
+		{
+			unsigned short platform (0);
+			if (vm.count ("platform") == 1)
+			{
+				try {
+					platform = boost::lexical_cast <unsigned short> (vm ["platform"].as <std::string> ());
+				}
+				catch (boost::bad_lexical_cast & e ) {
+					std::cerr << "Invalid platform id\n";
+					result = -1;
+				}
+			}
+			unsigned short device (0);
+			if (vm.count ("device") == 1)
+			{
+				try {
+					device = boost::lexical_cast <unsigned short> (vm ["device"].as <std::string> ());
+				}
+				catch (boost::bad_lexical_cast & e ) {
+					std::cerr << "Invalid device id\n";
+					result = -1;
+				}
+			}
+			unsigned threads (1024 * 1024);
+			if (vm.count ("threads") == 1)
+			{
+				try {
+					threads = boost::lexical_cast <unsigned> (vm ["threads"].as <std::string> ());
+				}
+				catch (boost::bad_lexical_cast & e ) {
+					std::cerr << "Invalid threads count\n";
+					result = -1;
+				}
+			}
+			if (!result)
+			{
+				error |= platform >= environment.platforms.size ();
+				if (!error)
+				{
+					error |= device >= environment.platforms[platform].devices.size ();
+					if (!error)
+					{
+						rai::logging logging;
+						logging.init (rai::unique_path ());
+						auto work (rai::opencl_work::create (true, {platform, device, threads}, logging));
+						rai::work_pool work_pool (std::numeric_limits <unsigned>::max (), std::move (work));
+						rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
+						std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%\n") % platform % device % threads);
+						for (uint64_t i (0); true; ++i)
+						{
+							block.hashables.previous.qwords [0] += 1;
+							auto begin1 (std::chrono::high_resolution_clock::now ());
+							block.block_work_set (work_pool.generate (block.root ()));
+							auto end1 (std::chrono::high_resolution_clock::now ());
+							std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+						}
+					}
+					else
+					{
+						std::cout << "Not available device id\n" << std::endl;
+						result = -1;
+					}
+				}
+				else
+				{
+					std::cout << "Not available platform id\n" << std::endl;
+					result = -1;
+				}
+			}
+		}
+		else
+		{
+			std::cout << "Error initializing OpenCL" << std::endl;
+			result = -1;
+		}
     }
     else if (vm.count ("debug_profile_verify"))
     {
