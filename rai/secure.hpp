@@ -303,6 +303,19 @@ public:
 	rai::account account;
 	rai::block_hash hash;
 };
+class block_info
+{
+public:
+	block_info ();
+	block_info (MDB_val const &);
+	block_info (rai::account const &, rai::amount const &);
+	void serialize (rai::stream &) const;
+	bool deserialize (rai::stream &);
+	bool operator == (rai::block_info const &) const;
+	rai::mdb_val val () const;
+	rai::account account;
+	rai::amount balance;
+};
 class block_counts
 {
 public:
@@ -387,6 +400,16 @@ public:
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
 	
+	void block_info_put (MDB_txn *, rai::block_hash const &, rai::block_info const &);
+	void block_info_del (MDB_txn *, rai::block_hash const &);
+	bool block_info_get (MDB_txn *, rai::block_hash const &, rai::block_info &);
+	bool block_info_exists (MDB_txn *, rai::block_hash const &);
+	rai::store_iterator block_info_begin (MDB_txn *, rai::block_hash const &);
+	rai::store_iterator block_info_begin (MDB_txn *);
+	rai::store_iterator block_info_end ();
+	rai::uint128_t block_balance (MDB_txn *, rai::block_hash const &);
+	static size_t const block_info_max = 32;
+	
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
 	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	void representation_add (MDB_txn *, rai::account const &, rai::uint128_t const &);
@@ -448,6 +471,7 @@ public:
 	void upgrade_v6_to_v7 (MDB_txn *);
 	void upgrade_v7_to_v8 (MDB_txn *);
 	void upgrade_v8_to_v9 (MDB_txn *);
+	void upgrade_v9_to_v10 (MDB_txn *);
 	
 	void clear (MDB_dbi);
 	
@@ -466,6 +490,8 @@ public:
 	MDB_dbi change_blocks;
 	// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
 	MDB_dbi pending;
+	// block_hash -> account, balance                               // Blocks info
+	MDB_dbi blocks_info;
 	// account -> weight                                            // Representation
 	MDB_dbi representation;
 	// block_hash -> block                                          // Unchecked bootstrap blocks
