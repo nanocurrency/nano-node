@@ -694,7 +694,8 @@ void rai::rpc_handler::available_supply ()
 	auto genesis_balance (node.balance (rai::genesis_account)); // Cold storage genesis
 	auto landing_balance (node.balance (rai::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (rai::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
-	auto available (rai::genesis_amount - genesis_balance - landing_balance - faucet_balance);
+	auto burned_balance ((node.balance_pending (rai::account (0))).second); // Burning 0 account
+	auto available (rai::genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	boost::property_tree::ptree response_l;
 	response_l.put ("available", available.convert_to <std::string> ());
 	response (response_l);
