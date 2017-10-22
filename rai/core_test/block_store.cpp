@@ -921,8 +921,45 @@ TEST (block_store, upgrade_v8_v9)
 	rai::block_store store (init, path);
 	ASSERT_FALSE (init);
 	rai::transaction transaction (store.environment, nullptr, false);
-	ASSERT_EQ (9, store.version_get (transaction));
+	ASSERT_LT (8, store.version_get (transaction));
 	auto vote (store.vote_get (transaction, key.pub));
 	ASSERT_NE (nullptr, vote);
 	ASSERT_EQ (10, vote->sequence);
+}
+
+TEST (block_store, upgrade_v9_v10)
+{
+	auto path (rai::unique_path ());
+	rai::block_hash hash (0);
+	{
+		bool init (false);
+		rai::block_store store (init, path);
+		ASSERT_FALSE (init);
+		rai::transaction transaction (store.environment, nullptr, true);
+		rai::genesis genesis;;
+		genesis.initialize (transaction, store);
+		rai::ledger ledger (store);
+		store.version_put (transaction, 9);
+		rai::account_info info;
+		store.account_get (transaction, rai::test_genesis_key.pub, info);
+		rai::keypair key0;
+		rai::uint128_t balance (rai::genesis_amount);
+		hash = info.head;
+		for (auto i (1); i < 32; ++i) // Making 31 send blocks (+ 1 open = 32 total)
+		{
+			balance = balance - rai::Gxrb_ratio;
+			rai::send_block block0 (hash, key0.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+			ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block0).code);
+			hash = block0.hash ();
+		}
+	}
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, nullptr, false);
+	ASSERT_LT (9, store.version_get (transaction));
+	rai::block_info block_info;
+	store.block_info_get (transaction, hash, block_info);
+	ASSERT_EQ (block_info.account, rai::test_genesis_key.pub);
+	ASSERT_EQ (block_info.balance.number (), rai::genesis_amount - rai::Gxrb_ratio * 31);
 }
