@@ -1552,19 +1552,19 @@ TEST (rpc, frontier_count)
 
 TEST (rpc, available_supply)
 {
-    rai::system system (24000, 1);
+	rai::system system (24000, 1);
 	rai::node_init init1;
-    auto & node1 (*system.nodes [0]);
-    rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	auto & node1 (*system.nodes [0]);
+	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
-    boost::property_tree::ptree request1;
+	boost::property_tree::ptree request1;
 	request1.put ("action", "available_supply");
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (200, response1.status);
+	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("0", response1.json.get <std::string> ("available"));
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
@@ -1574,8 +1574,16 @@ TEST (rpc, available_supply)
 	{
 		system.poll ();
 	}
-    ASSERT_EQ (200, response2.status);
+	ASSERT_EQ (200, response2.status);
 	ASSERT_EQ ("1", response2.json.get <std::string> ("available"));
+	auto block2 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, 100)); // Sending to burning 0 account
+	test_response response3 (request1, rpc, system.service);
+	while (response3.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response3.status);
+	ASSERT_EQ ("1", response3.json.get <std::string> ("available"));
 }
 
 TEST (rpc, mrai_to_raw)
