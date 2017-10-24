@@ -952,6 +952,13 @@ TEST (block_store, upgrade_v9_v10)
 			ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block0).code);
 			hash = block0.hash ();
 		}
+		rai::block_info block_info_auto; // Checking automatic block_info creation for block 32
+		store.block_info_get (transaction, hash, block_info_auto);
+		ASSERT_EQ (block_info_auto.account, rai::test_genesis_key.pub);
+		ASSERT_EQ (block_info_auto.balance.number (), balance);
+		ASSERT_EQ (0, mdb_drop (transaction, store.blocks_info, 0)); // Cleaning blocks_info subdatabase
+		bool block_info_exists (store.block_info_exists (transaction, hash));
+		ASSERT_EQ (block_info_exists, 0); // Checking if automatic block_info is deleted
 	}
 	bool init (false);
 	rai::block_store store (init, path);
