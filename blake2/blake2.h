@@ -187,8 +187,6 @@ extern "C" {
 
   /* This is simply an alias for blake2b */
   int blake2( void *out, size_t outlen, const void *in, size_t inlen, const void *key, size_t keylen );
-  /* alias for old blake2b */
-  int blake2b_argon( void *out, const void *in, const void *key, size_t outlen, size_t inlen, size_t keylen );
 
 #if defined(__cplusplus)
 }

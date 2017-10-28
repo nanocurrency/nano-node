@@ -314,10 +314,6 @@ int blake2( void *out, size_t outlen, const void *in, size_t inlen, const void *
   return blake2b(out, outlen, in, inlen, key, keylen);
 }
 
-int blake2b_argon( void *out, const void *in, const void *key, size_t outlen, size_t inlen, size_t keylen ) {
-  return blake2b(out, outlen, in, inlen, key, keylen);
-}
-
 #if defined(SUPERCOP)
 int crypto_hash( unsigned char *out, unsigned char *in, unsigned long long inlen )
 {

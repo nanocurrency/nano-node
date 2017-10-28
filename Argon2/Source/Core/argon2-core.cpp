@@ -124,13 +124,13 @@ int blake2b_long(uint8_t *out, const void *in, const uint32_t outlen, const uint
 		while (toproduce > BLAKE2B_OUTBYTES)
 		{
 			memcpy(in_buffer, out_buffer, BLAKE2B_OUTBYTES);
-			blake2b_argon(out_buffer, in_buffer, NULL, BLAKE2B_OUTBYTES, BLAKE2B_OUTBYTES, 0);
+			blake2b(out_buffer, BLAKE2B_OUTBYTES, in_buffer, BLAKE2B_OUTBYTES, NULL, 0);
 			memcpy(out, out_buffer, BLAKE2B_OUTBYTES / 2);
 			out += BLAKE2B_OUTBYTES / 2;
 			toproduce -= BLAKE2B_OUTBYTES / 2;
 		}
 		memcpy(in_buffer, out_buffer, BLAKE2B_OUTBYTES);
-		blake2b_argon(out_buffer, in_buffer, NULL, toproduce, BLAKE2B_OUTBYTES, 0);
+		blake2b(out_buffer, toproduce, in_buffer, BLAKE2B_OUTBYTES, NULL, 0);
 		memcpy(out, out_buffer, toproduce);
 
 	}
