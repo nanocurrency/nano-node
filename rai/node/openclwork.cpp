@@ -49,10 +49,10 @@ typedef struct __blake2b_state
 
 __constant static ulong blake2b_IV[8] =
 {
-	0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL,
-	0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
-	0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL,
-	0x1f83d9abfb41bd6bULL, 0x5be0cd19137e2179ULL
+	0x6a09e667f3bcc908UL, 0xbb67ae8584caa73bUL,
+	0x3c6ef372fe94f82bUL, 0xa54ff53a5f1d36f1UL,
+	0x510e527fade682d1UL, 0x9b05688c2b3e6c1fUL,
+	0x1f83d9abfb41bd6bUL, 0x5be0cd19137e2179UL
 };
 
 __constant static uchar blake2b_sigma[12][16] =
@@ -206,7 +206,7 @@ static inline int blake2b_init( blake2b_state *S, const uchar outlen )
   return blake2b_init_param( S, P );
 }
 
-static int blake2b_compress( blake2b_state *S, const uchar block[BLAKE2B_BLOCKBYTES] )
+static int blake2b_compress( blake2b_state *S, __private const uchar block[BLAKE2B_BLOCKBYTES] )
 {
   ulong m[16];
   ulong v[16];
@@ -382,7 +382,7 @@ __kernel void raiblocks_work (__global ulong * attempt, __global ulong * result_
 
 void printstate (blake2b_state * S)
 {
-	printf ("%llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu\n", S->h[0], S->h[1], S->h[2], S->h[3], S->h[4], S->h[5], S->h[6], S->h[7], S->t[0], S->t[1], S->f[0], S->f[1]);
+	printf ("%lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu\n", S->h[0], S->h[1], S->h[2], S->h[3], S->h[4], S->h[5], S->h[6], S->h[7], S->t[0], S->t[1], S->f[0], S->f[1]);
 	for (int i = 0; i < 256; ++i)
 	{
 		printf ("%02x", S->buf[i]);
