@@ -435,11 +435,32 @@ wallet (wallet_a)
 			else
 			{
 				show_line_error (*seed);
+				show_button_error (*import_seed);
+				if (seed->text ().toStdString ().size () > 64)
+				{
+					import_seed->setText ("Incorrect seed. Max 64 characters allowed");
+				}
+				else
+				{
+					import_seed->setText ("Incorrect seed. Only HEX characters allowed");
+				}
+				this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+				{
+					show_button_ok (*import_seed);
+					import_seed->setText ("Import seed");
+				});
 			}
 		}
 		else
 		{
 			show_line_error (*clear_line);
+			show_button_error (*import_seed);
+			import_seed->setText ("Type words 'clear keys'");
+			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			{
+				show_button_ok (*import_seed);
+				import_seed->setText ("Import seed");
+			});
 		}
 	});
 }
@@ -934,51 +955,117 @@ void rai_qt::wallet::start ()
 					auto parse_error (account_l.decode_account (account_text_narrow));
 					if (!parse_error)
 					{
-						this_l->send_blocks_send->setEnabled (false);
-						this_l->node.background ([this_w, account_l, actual] ()
+						auto balance (this_l->node.balance (this_l->account));
+						if (actual <= balance)
 						{
-							if (auto this_l = this_w.lock ())
+							rai::transaction transaction (this_l->wallet_m->store.environment, nullptr, false);
+							if (this_l->wallet_m->store.valid_password (transaction))
 							{
-								this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w] (std::shared_ptr <rai::block> block_a)
+								this_l->send_blocks_send->setEnabled (false);
+								this_l->node.background ([this_w, account_l, actual] ()
 								{
 									if (auto this_l = this_w.lock ())
 									{
-										auto succeeded (block_a != nullptr);
-										this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, succeeded] ()
+										this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w] (std::shared_ptr <rai::block> block_a)
 										{
 											if (auto this_l = this_w.lock ())
 											{
-												this_l->send_blocks_send->setEnabled (true);
-												if (succeeded)
+												auto succeeded (block_a != nullptr);
+												this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, succeeded] ()
 												{
-													this_l->send_count->clear ();
-													this_l->send_account->clear ();
-													this_l->accounts.refresh ();
-												}
-												else
-												{
-													show_line_error (*this_l->send_count);
-												}
+													if (auto this_l = this_w.lock ())
+													{
+														this_l->send_blocks_send->setEnabled (true);
+														if (succeeded)
+														{
+															this_l->send_count->clear ();
+															this_l->send_account->clear ();
+															this_l->accounts.refresh ();
+														}
+														else
+														{
+															show_line_error (*this_l->send_count);
+														}
+													}
+												}));
 											}
-										}));
+										});
 									}
 								});
 							}
-						});
+							else
+							{
+								show_button_error (*this_l->send_blocks_send);
+								this_l->send_blocks_send->setText ("Wallet is locked, unlock it to send");
+								this_l->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
+								{
+									if (auto this_l = this_w.lock ())
+									{
+										show_button_ok (*this_l->send_blocks_send);
+										this_l->send_blocks_send->setText ("Send");
+									}
+								});
+							}
+						}
+						else
+						{
+							show_line_error (*this_l->send_count);
+							show_button_error (*this_l->send_blocks_send);
+							this_l->send_blocks_send->setText ("Not enough balance");
+							this_l->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
+							{
+								if (auto this_l = this_w.lock ())
+								{
+									show_button_ok (*this_l->send_blocks_send);
+									this_l->send_blocks_send->setText ("Send");
+								}
+							});
+						}
 					}
 					else
 					{
 						show_line_error (*this_l->send_account);
+						show_button_error (*this_l->send_blocks_send);
+						this_l->send_blocks_send->setText ("Bad destination account");
+						this_l->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
+						{
+							if (auto this_l = this_w.lock ())
+							{
+								show_button_ok (*this_l->send_blocks_send);
+								this_l->send_blocks_send->setText ("Send");
+							}
+						});
 					}
 				}
 				else
 				{
-					show_line_error (*this_l->send_account);
+					show_line_error (*this_l->send_count);
+					show_button_error (*this_l->send_blocks_send);
+					this_l->send_blocks_send->setText ("Amount too big");
+					this_l->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
+					{
+						if (auto this_l = this_w.lock ())
+						{
+							show_line_ok (*this_l->send_account);
+							show_button_ok (*this_l->send_blocks_send);
+							this_l->send_blocks_send->setText ("Send");
+						}
+					});
 				}
 			}
 			else
 			{
 				show_line_error (*this_l->send_count);
+				show_button_error (*this_l->send_blocks_send);
+				this_l->send_blocks_send->setText ("Bad amount number");
+				this_l->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
+				{
+					if (auto this_l = this_w.lock ())
+					{
+						show_button_ok (*this_l->send_blocks_send);
+						this_l->send_blocks_send->setText ("Send");
+					}
+				});
 			}
 		}
     });
@@ -1150,9 +1237,10 @@ void rai_qt::wallet::update_connected ()
 
 void rai_qt::wallet::empty_password ()
 {
-	rai::raw_key empty;
-	empty.data.clear ();
-	wallet_m->store.password.value_set (empty);
+	this->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (3), [this] ()
+	{
+		wallet_m->enter_password (std::string (""));
+	});
 }
 
 void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
