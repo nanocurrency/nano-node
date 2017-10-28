@@ -436,9 +436,9 @@ wallet (wallet_a)
 			{
 				show_line_error (*seed);
 				show_button_error (*import_seed);
-				if (seed->text ().toStdString ().size () > 64)
+				if (seed->text ().toStdString ().size () != 64)
 				{
-					import_seed->setText ("Incorrect seed. Max 64 characters allowed");
+					import_seed->setText ("Incorrect seed, length must be 64");
 				}
 				else
 				{
