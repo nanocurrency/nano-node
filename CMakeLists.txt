@@ -85,15 +85,14 @@ add_library (ed25519
 	ed25519-donna/ed25519.h
 	ed25519-donna/ed25519.c)
 
-include_directories("${CMAKE_SOURCE_DIR}/Argon2/Source/Argon2")
-include_directories("${CMAKE_SOURCE_DIR}/Argon2/Source/Blake2")
-include_directories("${CMAKE_SOURCE_DIR}/Argon2/Source/Core")
+include_directories("${CMAKE_SOURCE_DIR}/phc-winner-argon2/include")
+include_directories("${CMAKE_SOURCE_DIR}/phc-winner-argon2/src")
 include_directories("${CMAKE_SOURCE_DIR}/blake2")
 
-if (CMAKE_SYSTEM_PROCESSOR EQUAL "x86_64")
-	set (ARGON_CORE Argon2/Source/Core/argon2-opt-core.cpp)
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+	set (ARGON_CORE phc-winner-argon2/src/opt.c)
 else ()
-	set (ARGON_CORE Argon2/Source/Core/argon2-ref-core.cpp)
+	set (ARGON_CORE phc-winner-argon2/src/ref.c)
 endif ()
 
 add_subdirectory (gtest)
@@ -113,11 +112,12 @@ set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
 add_subdirectory (cryptopp)
 
 add_library (argon2
-	Argon2/Source/Argon2/argon2.cpp
-	Argon2/Source/Argon2/argon2.h
-	Argon2/Source/Common/brg-endian.h
-	Argon2/Source/Core/argon2-core.cpp
-	Argon2/Source/Core/argon2-core.h
+	phc-winner-argon2/src/argon2.c
+	phc-winner-argon2/include/argon2.h
+	phc-winner-argon2/src/core.c
+	phc-winner-argon2/src/blake2/blake2b.c
+	phc-winner-argon2/src/thread.c
+	phc-winner-argon2/src/encoding.c
 	${ARGON_CORE})
 
 add_library (xxhash
@@ -248,7 +248,7 @@ add_executable (rai_node
 	rai/rai_node/daemon.hpp
 	rai/rai_node/entry.cpp)
 
-set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
+set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
 set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -D__SSE2__")
 set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (secure node rai_node PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
