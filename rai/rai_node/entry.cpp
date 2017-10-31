@@ -123,6 +123,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_xorshift_profile", "Profile xorshift algorithms")
+		("debug_blake2b_generate", "Blake2b work generation")
 		("platform", boost::program_options::value <std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value <std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value <std::string> (), "Defines <threads> count for OpenCL command");
@@ -266,6 +267,23 @@ int main (int argc, char * const * argv)
             block.block_work_set (work.generate (block.root ()));
             auto end1 (std::chrono::high_resolution_clock::now ());
             std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+        }
+    }
+    else if (vm.count ("debug_blake2b_generate"))
+    {
+		rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
+		rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
+		for (uint64_t i (0); true; ++i)
+		{
+			block.hashables.previous.qwords [0] += 1;
+			auto begin1 (std::chrono::high_resolution_clock::now ());
+			auto hash (block.hash ());
+			for (uint64_t t (0); t < 1000000; ++t)
+			{
+				work.work_value (hash, t);
+			}
+			auto end1 (std::chrono::high_resolution_clock::now ());
+			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
     }
     else if (vm.count ("debug_opencl"))
