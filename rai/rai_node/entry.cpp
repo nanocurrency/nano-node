@@ -356,9 +356,13 @@ int main (int argc, char * const * argv)
         std::cerr << "Starting verification profiling\n";
         for (uint64_t i (0); true; ++i)
         {
-            block.hashables.previous.qwords [0] += 1;
             auto begin1 (std::chrono::high_resolution_clock::now ());
-            work.work_validate (block);
+            for (uint64_t t (0); t < 1000000; ++t)
+            {
+                block.hashables.previous.qwords [0] += 1;
+                block.block_work_set (t);
+                work.work_validate (block);
+            }
             auto end1 (std::chrono::high_resolution_clock::now ());
             std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }

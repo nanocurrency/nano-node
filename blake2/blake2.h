@@ -20,8 +20,10 @@
 
 #if defined(_MSC_VER)
 #define BLAKE2_PACKED(x) __pragma(pack(push, 1)) x __pragma(pack(pop))
+#define ALIGN(x) __declspec(align(x))
 #else
 #define BLAKE2_PACKED(x) x __attribute__((packed))
+#define ALIGN(x) __attribute__((aligned(x)))
 #endif
 
 #if defined(__cplusplus)
