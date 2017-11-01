@@ -85,14 +85,14 @@ add_library (ed25519
 	ed25519-donna/ed25519.h
 	ed25519-donna/ed25519.c)
 
-include_directories("${CMAKE_SOURCE_DIR}/phc-winner-argon2/include")
-include_directories("${CMAKE_SOURCE_DIR}/phc-winner-argon2/src")
+include_directories("${CMAKE_SOURCE_DIR}/Argon2/include")
+include_directories("${CMAKE_SOURCE_DIR}/Argon2/src")
 include_directories("${CMAKE_SOURCE_DIR}/blake2")
 
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-	set (ARGON_CORE phc-winner-argon2/src/opt.c)
+	set (ARGON_CORE Argon2/src/opt.c)
 else ()
-	set (ARGON_CORE phc-winner-argon2/src/ref.c)
+	set (ARGON_CORE Argon2/src/ref.c)
 endif ()
 
 add_subdirectory (gtest)
@@ -112,12 +112,12 @@ set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
 add_subdirectory (cryptopp)
 
 add_library (argon2
-	phc-winner-argon2/src/argon2.c
-	phc-winner-argon2/include/argon2.h
-	phc-winner-argon2/src/core.c
-	phc-winner-argon2/src/blake2/blake2b.c
-	phc-winner-argon2/src/thread.c
-	phc-winner-argon2/src/encoding.c
+	Argon2/src/argon2.c
+	Argon2/include/argon2.h
+	Argon2/src/core.c
+	Argon2/src/blake2/blake2b.c
+	Argon2/src/thread.c
+	Argon2/src/encoding.c
 	${ARGON_CORE})
 
 add_library (xxhash
