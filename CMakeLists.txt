@@ -115,7 +115,6 @@ add_library (argon2
 	phc-winner-argon2/src/argon2.c
 	phc-winner-argon2/include/argon2.h
 	phc-winner-argon2/src/core.c
-	phc-winner-argon2/src/blake2/blake2b.c
 	phc-winner-argon2/src/thread.c
 	phc-winner-argon2/src/encoding.c
 	${ARGON_CORE})
