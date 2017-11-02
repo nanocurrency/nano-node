@@ -1808,7 +1808,6 @@ void rai::block_store::upgrade_v8_to_v9 (MDB_txn * transaction_a)
 void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 10);
-	mdb_dbi_open (transaction_a, "blocks_info", MDB_CREATE, &blocks_info);
 	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 	{
 		rai::account account (i->first);
