@@ -1812,23 +1812,20 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 	{
 		rai::account account (i->first);
 		rai::account_info info (i->second);
-		if (info.block_count >= block_info_max)
+		size_t block_count (1);
+		auto hash (info.open_block);
+		while (!hash.is_zero ())
 		{
-			uint64_t block_count (1);
-			auto hash (info.open_block);
-			while (!hash.is_zero ())
+			if ((block_count % block_info_max) == 0)
 			{
-				if (!(block_count % block_info_max))
-				{
-					rai::block_info block_info;
-					block_info.account = account;
-					rai::amount balance (block_balance (transaction_a, hash));
-					block_info.balance = balance;
-					block_info_put (transaction_a, hash, block_info);
-				}
-				hash = block_successor (transaction_a, hash);
-				++block_count;
+				rai::block_info block_info;
+				block_info.account = account;
+				rai::amount balance (block_balance (transaction_a, hash));
+				block_info.balance = balance;
+				block_info_put (transaction_a, hash, block_info);
 			}
+			hash = block_successor (transaction_a, hash);
+			++block_count;
 		}
 	}
 }
