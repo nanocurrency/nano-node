@@ -139,17 +139,7 @@ public:
 	mdb_env (bool &, boost::filesystem::path const &);
 	~mdb_env ();
 	operator MDB_env * () const;
-	void add_transaction ();
-	void remove_transaction ();
-	void handle_environment_sizing ();
 	MDB_env * environment;
-	std::mutex lock;
-	std::condition_variable open_notify;
-	unsigned open_transactions;
-	std::atomic_uint transaction_iteration;
-	std::condition_variable resize_notify;
-	std::atomic_bool resizing;
-	std::function <void ()> sizing_action;
 };
 class mdb_val
 {

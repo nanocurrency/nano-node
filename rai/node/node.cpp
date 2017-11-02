@@ -1309,14 +1309,6 @@ vote_processor (*this),
 warmed_up (0),
 block_processor (*this)
 {
-	store.environment.sizing_action = [this] ()
-	{
-		auto this_l (shared_from_this ());
-		background ([this_l] ()
-		{
-			this_l->store.environment.handle_environment_sizing ();
-		});
-	};
 	wallets.observer = [this] (rai::account const & account_a, bool active)
 	{
 		observers.wallet (account_a, active);
