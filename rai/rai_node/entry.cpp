@@ -122,6 +122,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
+		("debug_profile_sign", "Profile signature generation")
 		("debug_xorshift_profile", "Profile xorshift algorithms")
 		("platform", boost::program_options::value <std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value <std::string> (), "Defines <device> for OpenCL command")
@@ -376,6 +377,23 @@ int main (int argc, char * const * argv)
         }
         auto end (std::chrono::high_resolution_clock::now ());
         std::cerr << "Signature verifications " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
+    }
+    else if (vm.count ("debug_profile_sign"))
+    {
+		std::cerr << "Starting blocks signing profiling\n";
+		for (uint64_t i (0); true; ++i)
+		{
+			rai::keypair key;
+			rai::block_hash latest (0);
+			auto begin1 (std::chrono::high_resolution_clock::now ());
+			for (uint64_t balance (0); balance < 1000; ++balance)
+			{
+				rai::send_block send (latest, key.pub, balance, key.prv, key.pub, 0);
+				latest = send.hash ();
+			}
+			auto end1 (std::chrono::high_resolution_clock::now ());
+			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+        }
     }
 #if 0
     else if (vm.count ("debug_xorshift_profile"))
