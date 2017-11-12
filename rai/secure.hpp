@@ -338,6 +338,7 @@ public:
 	rai::uint256_union hash () const;
 	bool operator == (rai::vote const &) const;
 	bool operator != (rai::vote const &) const;
+	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
 	std::string to_json () const;
 	// Vote round sequence number

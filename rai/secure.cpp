@@ -3654,6 +3654,14 @@ rai::uint256_union rai::vote::hash () const
     return result;
 }
 
+void rai::vote::serialize (rai::stream & stream_a, rai::block_type)
+{
+	write (stream_a, account);
+	write (stream_a, signature);
+	write (stream_a, sequence);
+	block->serialize (stream_a);
+}
+
 void rai::vote::serialize (rai::stream & stream_a)
 {
 	write (stream_a, account);
