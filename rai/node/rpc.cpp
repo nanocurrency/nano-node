@@ -2331,10 +2331,70 @@ void rai::rpc_handler::process ()
 		if (!node.work.work_validate (*block))
 		{
 			auto hash (block->hash ());
-			node.process_active (std::move (block));
-			boost::property_tree::ptree response_l;
-			response_l.put ("hash", hash.to_string ());
-			response (response_l);
+			node.block_arrival.add (hash);
+			rai::process_return result;
+			rai::transaction transaction (node.store.environment, nullptr, true);
+			result = node.block_processor.process_receive_one (transaction, std::move (block));
+			switch (result.code)
+			{
+				case rai::process_result::progress:
+				{
+					boost::property_tree::ptree response_l;
+					response_l.put ("hash", hash.to_string ());
+					response (response_l);
+					break;
+				}
+				case rai::process_result::gap_previous:
+				{
+					error_response (response, "Gap previous block");
+					break;
+				}
+				case rai::process_result::gap_source:
+				{
+					error_response (response, "Gap source block");
+					break;
+				}
+				case rai::process_result::old:
+				{
+					error_response (response, "Old block");
+					break;
+				}
+				case rai::process_result::bad_signature:
+				{
+					error_response (response, "Bad signature");
+					break;
+				}
+				case rai::process_result::overspend:
+				{
+					error_response (response, "Overspend");
+					break;
+				}
+				case rai::process_result::unreceivable:
+				{
+					error_response (response, "Unreceivable");
+					break;
+				}
+				case rai::process_result::not_receive_from_send:
+				{
+					error_response (response, "Not receive from send");
+					break;
+				}
+				case rai::process_result::fork:
+				{
+					error_response (response, "Fork");
+					break;
+				}
+				case rai::process_result::account_mismatch:
+				{
+					error_response (response, "Account mismatch");
+					break;
+				}
+				default:
+				{
+					error_response (response, "Error processing block");
+					break;
+				}
+			}
 		}
 		else
 		{
