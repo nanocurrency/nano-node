@@ -2333,12 +2333,16 @@ void rai::rpc_handler::process ()
 			auto hash (block->hash ());
 			node.block_arrival.add (hash);
 			rai::process_return result;
-			rai::transaction transaction (node.store.environment, nullptr, true);
-			result = node.block_processor.process_receive_one (transaction, std::move (block));
+			std::shared_ptr <rai::block> block_a (std::move (block));
+			{
+				rai::transaction transaction (node.store.environment, nullptr, true);
+				result = node.block_processor.process_receive_one (transaction, block_a);
+			}
 			switch (result.code)
 			{
 				case rai::process_result::progress:
 				{
+					node.observers.blocks (block_a, result.account, result.amount);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
 					response (response_l);
