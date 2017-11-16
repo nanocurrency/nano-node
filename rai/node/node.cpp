@@ -1496,6 +1496,7 @@ rai::node::~node ()
     {
         std::cerr << "Destructing node\n";
     }
+	block_arrival.clear (); // Clear remaining arrival blocks
 }
 
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
@@ -2279,7 +2280,13 @@ bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 	{
 		arrival.erase (arrival.begin ());
 	}
-    return arrival.get <1> ().find (hash_a) != arrival.get <1> ().end ();
+	return arrival.empty () ? false : arrival.get <1> ().find (hash_a) != arrival.get <1> ().end ();
+}
+
+void rai::block_arrival::clear ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	arrival.clear ();
 }
 
 std::unordered_set <rai::endpoint> rai::peer_container::random_set (size_t count_a)

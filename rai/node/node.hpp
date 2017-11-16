@@ -280,6 +280,7 @@ class block_arrival
 public:
     void add (rai::block_hash const &);
     bool recent (rai::block_hash const &);
+    void clear ();
     boost::multi_index_container
     <
         rai::block_arrival_info,
