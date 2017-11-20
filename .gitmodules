@@ -11,3 +11,6 @@
 	path = lmdb
 	url = https://github.com/LMDB/lmdb.git
 	branch = mdb.RE/0.9
+[submodule "phc-winner-argon2"]
+	path = phc-winner-argon2
+	url = https://github.com/clemahieu/phc-winner-argon2.git

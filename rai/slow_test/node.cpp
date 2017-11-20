@@ -399,9 +399,11 @@ TEST (store, vote_load)
 {
     rai::system system (24000, 1);
 	auto & node (*system.nodes [0]);
+	auto block (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
-		node.store.sequence_atomic_observe (transaction, 0, i);
+		auto vote (std::make_shared <rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, i, block));
+		node.store.vote_validate (transaction, vote);
 	}
 }
