@@ -2952,7 +2952,7 @@ TEST (rpc, block_create)
 	boost::property_tree::read_json (block_stream5, block_l);
 	auto receive_block (rai::deserialize_block_json (block_l));
 	ASSERT_EQ (receive_hash, receive_block->hash ().to_string ());
-	system.nodes [0]->process_receive_republish (std::move (receive_block));
+	system.nodes [0]->process_active (std::move (receive_block));
 	latest = system.nodes [0]->latest (key.pub);
 	ASSERT_EQ (receive_hash, latest.to_string ());
 }
