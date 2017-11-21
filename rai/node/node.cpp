@@ -1625,6 +1625,27 @@ void rai::node::process_active (std::shared_ptr <rai::block> incoming)
 	}
 }
 
+rai::block_hash rai::node::process_active_return (std::shared_ptr <rai::block> incoming)
+{
+	rai::block_hash hash (incoming->hash ());
+	block_arrival.add (hash);
+	block_processor.add (incoming);
+	rai::process_return result;
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		result = block_processor.process_receive_one (transaction, incoming);
+	}
+	if (result.code == rai::process_result::progress)
+	{
+		observers.blocks (block_a, result.account, result.amount);
+		return hash;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 rai::process_return rai::node::process (rai::block const & block_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
