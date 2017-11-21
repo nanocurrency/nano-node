@@ -1642,6 +1642,7 @@ rai::block_hash rai::node::process_active_return (std::shared_ptr <rai::block> i
 	}
 	else
 	{
+		BOOST_LOG (log) << boost::str (boost::format ("Error processing block: %1%") % hash.to_string ());
 		return 0;
 	}
 }
