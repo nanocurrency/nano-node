@@ -1637,7 +1637,7 @@ rai::block_hash rai::node::process_active_return (std::shared_ptr <rai::block> i
 	}
 	if (result.code == rai::process_result::progress)
 	{
-		observers.blocks (block_a, result.account, result.amount);
+		observers.blocks (incoming, result.account, result.amount);
 		return hash;
 	}
 	else
