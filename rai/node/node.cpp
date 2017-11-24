@@ -2487,6 +2487,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	static auto const rfc3849_max (boost::asio::ip::address_v6::from_string ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
 	static auto const ipv6_multicast_min (boost::asio::ip::address_v6::from_string ("ff00::"));
 	static auto const ipv6_multicast_max (boost::asio::ip::address_v6::from_string ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const ipv4_localhost (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()));
     if (bytes >= rfc1700_min && bytes <= rfc1700_max)
 	{
 		result = true;
@@ -2520,6 +2521,14 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 		result = true;
 	}
 	else if (bytes >= ipv6_multicast_min && bytes <= ipv6_multicast_max)
+	{
+		result = true;
+	}
+	else if (bytes.is_loopback() && rai::rai_network != rai::rai_networks::rai_test_network)
+	{
+		result = true;
+	}
+	else if (bytes == ipv4_localhost && rai::rai_network != rai::rai_networks::rai_test_network)
 	{
 		result = true;
 	}
