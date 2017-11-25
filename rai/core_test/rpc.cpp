@@ -1288,6 +1288,27 @@ TEST (rpc, pending)
 	ASSERT_EQ (200, response1.status);
 	blocks_node = response1.json.get_child ("blocks");
 	ASSERT_EQ (0, blocks_node.size ());
+	request.put ("threshold", "0");
+	request.put ("source", "true");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	blocks_node = response2.json.get_child ("blocks");
+	ASSERT_EQ (1, blocks_node.size ());
+	std::unordered_map <rai::block_hash, rai::uint128_union> amounts;
+	std::unordered_map <rai::block_hash, rai::account> sources;
+	for (auto i (blocks_node.begin ()), j (blocks_node.end ()); i != j; ++i)
+	{
+		rai::block_hash hash;
+		hash.decode_hex (i->first);
+		amounts[hash].decode_dec (i->second.get <std::string> ("amount"));
+		sources[hash].decode_account (i->second.get <std::string> ("source"));
+	}
+	ASSERT_EQ (amounts[block1->hash ()], 100);
+	ASSERT_EQ (sources[block1->hash ()], rai::test_genesis_key.pub);
 }
 
 TEST (rpc_config, serialization)
@@ -2166,11 +2187,11 @@ TEST (rpc, accounts_pending)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
+	std::unordered_map <rai::block_hash, rai::uint128_union> blocks;
 	for (auto & pending : response1.json.get_child("blocks"))
 	{
 		std::string account_text (pending.first);
 		ASSERT_EQ (key1.pub.to_account (), account_text);
-		std::unordered_map <rai::block_hash, rai::uint128_union> blocks;
 		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
 		{
 			rai::block_hash hash;
@@ -2179,8 +2200,31 @@ TEST (rpc, accounts_pending)
 			amount.decode_dec (i->second.get <std::string> (""));
 			blocks [hash] = amount;
 		}
-		ASSERT_EQ (blocks[block1->hash ()], 100);
 	}
+	ASSERT_EQ (blocks[block1->hash ()], 100);
+	request.put ("source", "true");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	std::unordered_map <rai::block_hash, rai::uint128_union> amounts;
+	std::unordered_map <rai::block_hash, rai::account> sources;
+	for (auto & pending : response2.json.get_child("blocks"))
+	{
+		std::string account_text (pending.first);
+		ASSERT_EQ (key1.pub.to_account (), account_text);
+		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+		{
+			rai::block_hash hash;
+			hash.decode_hex (i->first);
+			amounts[hash].decode_dec (i->second.get <std::string> ("amount"));
+			sources[hash].decode_account (i->second.get <std::string> ("source"));
+		}
+	}
+	ASSERT_EQ (amounts[block1->hash ()], 100);
+	ASSERT_EQ (sources[block1->hash ()], rai::test_genesis_key.pub);
 }
 
 TEST (rpc, blocks)
@@ -2315,6 +2359,7 @@ TEST (rpc, wallet_pending)
 	rai::system system0 (24000, 1);
 	rai::keypair key1;
 	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system0.wallet (0)->insert_adhoc (key1.prv);
 	auto block1 (system0.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
 	rai::rpc rpc (system0.service, *system0.nodes [0], rai::rpc_config (true));
 	rpc.start ();
@@ -2331,10 +2376,8 @@ TEST (rpc, wallet_pending)
 	for (auto & pending : response.json.get_child("blocks"))
 	{
 		std::string account_text (pending.first);
-		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
-		auto & blocks_node (pending.second.get_child (rai::test_genesis_key.pub.to_account ()));
-		ASSERT_EQ (1, blocks_node.size ());
-		rai::block_hash hash1 (blocks_node.begin ()->second.get <std::string> (""));
+		ASSERT_EQ (key1.pub.to_account (), account_text);
+		rai::block_hash hash1 (pending.second.begin ()->second.get <std::string> (""));
 		ASSERT_EQ (block1->hash (), hash1);
 	}
 	request.put ("threshold", "100"); // Threshold test
@@ -2344,11 +2387,11 @@ TEST (rpc, wallet_pending)
 		system0.poll ();
 	}
 	ASSERT_EQ (200, response0.status);
+	std::unordered_map <rai::block_hash, rai::uint128_union> blocks;
 	for (auto & pending : response0.json.get_child("blocks"))
 	{
 		std::string account_text (pending.first);
-		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), account_text);
-		std::unordered_map <rai::block_hash, rai::uint128_union> blocks;
+		ASSERT_EQ (key1.pub.to_account (), account_text);
 		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
 		{
 			rai::block_hash hash;
@@ -2357,8 +2400,8 @@ TEST (rpc, wallet_pending)
 			amount.decode_dec (i->second.get <std::string> (""));
 			blocks [hash] = amount;
 		}
-		ASSERT_EQ (blocks[block1->hash ()], 100);
 	}
+	ASSERT_EQ (blocks[block1->hash ()], 100);
 	request.put ("threshold", "101");
 	test_response response1 (request, rpc, system0.service);
 	while (response1.status == 0)
@@ -2368,6 +2411,30 @@ TEST (rpc, wallet_pending)
 	ASSERT_EQ (200, response1.status);
 	auto & pending1 (response1.json.get_child ("blocks"));
 	ASSERT_EQ (0, pending1.size ());
+	request.put ("threshold", "0");
+	request.put ("source", "true");
+	test_response response2 (request, rpc, system0.service);
+	while (response2.status == 0)
+	{
+		system0.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	std::unordered_map <rai::block_hash, rai::uint128_union> amounts;
+	std::unordered_map <rai::block_hash, rai::account> sources;
+	for (auto & pending : response2.json.get_child("blocks"))
+	{
+		std::string account_text (pending.first);
+		ASSERT_EQ (key1.pub.to_account (), account_text);
+		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+		{
+			rai::block_hash hash;
+			hash.decode_hex (i->first);
+			amounts[hash].decode_dec (i->second.get <std::string> ("amount"));
+			sources[hash].decode_account (i->second.get <std::string> ("source"));
+		}
+	}
+	ASSERT_EQ (amounts[block1->hash ()], 100);
+	ASSERT_EQ (sources[block1->hash ()], rai::test_genesis_key.pub);
 }
 
 TEST (rpc, receive_minimum)

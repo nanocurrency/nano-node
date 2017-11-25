@@ -751,6 +751,7 @@ void rai::rpc_handler::accounts_pending ()
 {
 	uint64_t count (std::numeric_limits <uint64_t>::max ());
 	rai::uint128_union threshold (0);
+	bool source (false);
 	boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
 	if (count_text.is_initialized ())
 	{
@@ -769,6 +770,11 @@ void rai::rpc_handler::accounts_pending ()
 			error_response (response, "Bad threshold number");
 		}
 	}
+	boost::optional <bool> source_optional (request.get_optional <bool> ("source"));
+	if (source_optional.is_initialized ())
+	{
+		source = source_optional.get ();
+	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree pending;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -783,7 +789,7 @@ void rai::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				if (threshold.is_zero ())
+				if (threshold.is_zero () && !source)
 				{
 					boost::property_tree::ptree entry;
 					entry.put ("", key.hash.to_string ());
@@ -794,7 +800,17 @@ void rai::rpc_handler::accounts_pending ()
 					rai::pending_info info (i->second);
 					if (info.amount.number () >= threshold.number ())
 					{
-						peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+						if (source)
+						{
+							boost::property_tree::ptree pending_tree;
+							pending_tree.put ("amount", info.amount.number ().convert_to <std::string> ());
+							pending_tree.put ("source", info.source.to_account ());
+							peers_l.add_child (key.hash.to_string (), pending_tree);
+						}
+						else
+						{
+							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+						}
 					}
 				}
 			}
@@ -2040,6 +2056,7 @@ void rai::rpc_handler::pending ()
 	{
 		uint64_t count (std::numeric_limits <uint64_t>::max ());
 		rai::uint128_union threshold (0);
+		bool source (false);
 		boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
 		if (count_text.is_initialized ())
 		{
@@ -2058,6 +2075,11 @@ void rai::rpc_handler::pending ()
 				error_response (response, "Bad threshold number");
 			}
 		}
+		boost::optional <bool> source_optional (request.get_optional <bool> ("source"));
+		if (source_optional.is_initialized ())
+		{
+			source = source_optional.get ();
+		}
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree peers_l;
 		{
@@ -2066,7 +2088,7 @@ void rai::rpc_handler::pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size ()< count; ++i)
 			{
 				rai::pending_key key (i->first);
-				if (threshold.is_zero ())
+				if (threshold.is_zero () && !source)
 				{
 					boost::property_tree::ptree entry;
 					entry.put ("", key.hash.to_string ());
@@ -2077,7 +2099,17 @@ void rai::rpc_handler::pending ()
 					rai::pending_info info (i->second);
 					if (info.amount.number () >= threshold.number ())
 					{
-						peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+						if (source)
+						{
+							boost::property_tree::ptree pending_tree;
+							pending_tree.put ("amount", info.amount.number ().convert_to <std::string> ());
+							pending_tree.put ("source", info.source.to_account ());
+							peers_l.add_child (key.hash.to_string (), pending_tree);
+						}
+						else
+						{
+							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+						}
 					}
 				}
 			}
@@ -3520,6 +3552,7 @@ void rai::rpc_handler::wallet_pending ()
 		{
 			uint64_t count (std::numeric_limits <uint64_t>::max ());
 			rai::uint128_union threshold (0);
+			bool source (false);
 			boost::optional <std::string> count_text (request.get_optional <std::string> ("count"));
 			if (count_text.is_initialized ())
 			{
@@ -3538,6 +3571,11 @@ void rai::rpc_handler::wallet_pending ()
 					error_response (response, "Bad threshold number");
 				}
 			}
+			boost::optional <bool> source_optional (request.get_optional <bool> ("source"));
+			if (source_optional.is_initialized ())
+			{
+				source = source_optional.get ();
+			}
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree pending;
 			rai::transaction transaction (node.store.environment, nullptr, false);
@@ -3549,7 +3587,7 @@ void rai::rpc_handler::wallet_pending ()
 				for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size ()< count; ++ii)
 				{
 					rai::pending_key key (ii->first);
-					if (threshold.is_zero ())
+					if (threshold.is_zero () && !source)
 					{
 						boost::property_tree::ptree entry;
 						entry.put ("", key.hash.to_string ());
@@ -3560,7 +3598,17 @@ void rai::rpc_handler::wallet_pending ()
 						rai::pending_info info (ii->second);
 						if (info.amount.number () >= threshold.number ())
 						{
-							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+							if (source)
+							{
+								boost::property_tree::ptree pending_tree;
+								pending_tree.put ("amount", info.amount.number ().convert_to <std::string> ());
+								pending_tree.put ("source", info.source.to_account ());
+								peers_l.add_child (key.hash.to_string (), pending_tree);
+							}
+							else
+							{
+								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to <std::string> ());
+							}
 						}
 					}
 				}
