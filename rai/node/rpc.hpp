@@ -104,6 +104,7 @@ public:
 	void account_representative_set ();
 	void account_weight ();
 	void accounts_balances ();
+	void accounts_create ();
 	void accounts_frontiers ();
 	void accounts_pending ();
 	void available_supply ();
@@ -113,6 +114,7 @@ public:
 	void block_account ();
 	void block_count ();
 	void block_count_type ();
+	void block_create ();
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
@@ -127,11 +129,12 @@ public:
 	void key_expand ();
 	void krai_to_raw ();
 	void krai_from_raw ();
+	void ledger ();
 	void mrai_to_raw ();
 	void mrai_from_raw ();
 	void password_change ();
 	void password_enter ();
-	void password_valid ();
+	void password_valid (bool wallet_locked);
 	void payment_begin ();
 	void payment_init ();
 	void payment_end ();
@@ -168,6 +171,7 @@ public:
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_key_valid ();
+	void wallet_lock ();
 	void wallet_pending ();
 	void wallet_representative ();
 	void wallet_representative_set ();
