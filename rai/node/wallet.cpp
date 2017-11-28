@@ -1073,7 +1073,7 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 		node.process_active (block);
 		auto hash (block->hash ());
 		auto source (send_a.hashables.destination);
-		if (generate_work_a)
+		if (generate_work_a && !hash.is_zero ())
 		{
 			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source, rai::wallets::generate_priority, [this_l, source, hash]
@@ -1081,7 +1081,7 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 				this_l->work_generate (source, hash);
 			});
 		}
-		else
+		else if (!hash.is_zero ())
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
 			work_update (transaction, source, hash, 0);
@@ -1123,7 +1123,7 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 		assert (block != nullptr);
 		node.process_active (block);
 		auto hash (block->hash ());
-		if (generate_work_a)
+		if (generate_work_a && !hash.is_zero ())
 		{
 			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
@@ -1131,7 +1131,7 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 				this_l->work_generate (source_a, hash);
 			});
 		}
-		else
+		else if (!hash.is_zero ())
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
 			work_update (transaction, source_a, hash, 0);
@@ -1177,7 +1177,7 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 		assert (block != nullptr);
 		node.process_active (block);
 		auto hash (block->hash ());
-		if (generate_work_a)
+		if (generate_work_a && !hash.is_zero ())
 		{
 			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
@@ -1185,7 +1185,7 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 				this_l->work_generate (source_a, hash);
 			});
 		}
-		else
+		else if (!hash.is_zero ())
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
 			work_update (transaction, source_a, hash, 0);
