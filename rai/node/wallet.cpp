@@ -1035,8 +1035,7 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		auto processed (node.process_active_return (block));
-		auto hash (block->hash ());
+		auto hash (node.process_active_return (block));
 		auto this_l (shared_from_this ());
 		auto source (send_a.hashables.destination);
 		node.wallets.queue_wallet_action (source, rai::wallets::generate_priority, [this_l, source, hash]
@@ -1073,8 +1072,7 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		auto processed (node.process_active_return (block));
-		auto hash (block->hash ());
+		auto hash (node.process_active_return (block));
 		auto this_l (shared_from_this ());
 		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
 		{
@@ -1114,8 +1112,7 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		auto processed (node.process_active_return (block));
-		auto hash (block->hash ());
+		auto hash (node.process_active_return (block));
 		auto this_l (shared_from_this ());
 		node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
 		{
