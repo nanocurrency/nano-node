@@ -1086,6 +1086,10 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 			rai::transaction transaction (store.environment, nullptr, true);
 			work_update (transaction, source, hash, 0);
 		}
+		else
+		{
+			block = nullptr;
+		}
 	}
     return block;
 }
@@ -1135,6 +1139,10 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
 			work_update (transaction, source_a, hash, 0);
+		}
+		else
+		{
+			block = nullptr;
 		}
 	}
 	return block;
@@ -1189,6 +1197,10 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
 			work_update (transaction, source_a, hash, 0);
+		}
+		else
+		{
+			block = nullptr;
 		}
 	}
 	return block;
