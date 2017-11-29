@@ -141,6 +141,7 @@ if (CRYPTOPP_CUSTOM)
 	cryptopp/sha.cpp
 	cryptopp/simple.cpp
 	cryptopp/winpipes.cpp)
+	set_target_properties (cryptopp PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
 else ()
 	set (CRYPTOPP_LIBRARY cryptopp-static)
 	add_subdirectory (cryptopp)
