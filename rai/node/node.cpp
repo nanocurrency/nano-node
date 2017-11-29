@@ -1629,12 +1629,7 @@ rai::block_hash rai::node::process_active_return (std::shared_ptr <rai::block> i
 {
 	rai::block_hash hash (incoming->hash ());
 	block_arrival.add (hash);
-	block_processor.add (incoming);
-	rai::process_return result;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		result = block_processor.process_receive_one (transaction, incoming);
-	}
+	rai::process_return result (process (*incoming));
 	if (result.code == rai::process_result::progress)
 	{
 		observers.blocks (incoming, result.account, result.amount);
