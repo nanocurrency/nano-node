@@ -517,7 +517,8 @@ enum class process_result
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	not_receive_from_send, // Receive does not have a send source
-	account_mismatch // Account number in open block doesn't match send destination
+	account_mismatch, // Account number in open block doesn't match send destination
+	opened_burn_account // The impossible happened, someone found the private key associated with the public key '0'.
 };
 class process_return
 {
@@ -585,6 +586,7 @@ extern std::string const & rai_beta_genesis;
 extern std::string const & rai_live_genesis;
 extern std::string const & genesis_block;
 extern rai::account const & genesis_account;
+extern rai::account const & burn_account;
 extern rai::uint128_t const & genesis_amount;
 // A block hash that compares inequal to any real block hash
 extern rai::block_hash const & not_a_block;

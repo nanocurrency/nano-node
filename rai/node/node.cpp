@@ -1176,40 +1176,40 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 {
 	rai::process_return result;
 	result = node.ledger.process (transaction_a, *block_a);
-    switch (result.code)
-    {
-        case rai::process_result::progress:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                std::string block;
-                block_a->serialize_json (block);
-                BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a->hash ().to_string () % block);
-            }
-            break;
-        }
-        case rai::process_result::gap_previous:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % block_a->hash ().to_string ());
-            }
+	switch (result.code)
+	{
+		case rai::process_result::progress:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				std::string block;
+				block_a->serialize_json (block);
+				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a->hash ().to_string () % block);
+			}
+			break;
+		}
+		case rai::process_result::gap_previous:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % block_a->hash ().to_string ());
+			}
 			node.store.unchecked_put (transaction_a, block_a->previous (), block_a);
 			node.gap_cache.add (transaction_a, block_a);
 			break;
-        }
-        case rai::process_result::gap_source:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % block_a->hash ().to_string ());
-            }
+		}
+		case rai::process_result::gap_source:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % block_a->hash ().to_string ());
+			}
 			node.store.unchecked_put (transaction_a, block_a->source (), block_a);
 			node.gap_cache.add (transaction_a, block_a);
-            break;
-        }
-        case rai::process_result::old:
-        {
+			break;
+		}
+		case rai::process_result::old:
+		{
 			{
 				auto root (block_a->root ());
 				auto hash (block_a->hash ());
@@ -1227,61 +1227,65 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 					// Could have been rolled back, maybe
 				}
 			}
-            if (node.config.logging.ledger_duplicate_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::bad_signature:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::overspend:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Overspend for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::unreceivable:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::not_receive_from_send:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Not receive from send for: %1%") % block_a->hash ().to_string ());
-            }
-            break;
-        }
-        case rai::process_result::fork:
-        {
+			if (node.config.logging.ledger_duplicate_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
+			}
+			break;
+		}
+		case rai::process_result::bad_signature:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % block_a->hash ().to_string ());
+			}
+			break;
+		}
+		case rai::process_result::overspend:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Overspend for: %1%") % block_a->hash ().to_string ());
+			}
+			break;
+		}
+		case rai::process_result::unreceivable:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Unreceivable for: %1%") % block_a->hash ().to_string ());
+			}
+			break;
+		}
+		case rai::process_result::not_receive_from_send:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Not receive from send for: %1%") % block_a->hash ().to_string ());
+			}
+			break;
+		}
+		case rai::process_result::fork:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a->hash ().to_string () % block_a->root ().to_string ());
 			}
-            break;
-        }
-        case rai::process_result::account_mismatch:
-        {
-            if (node.config.logging.ledger_logging ())
-            {
-                BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a->hash ().to_string ());
-            }
-        }
-    }
-    return result;
+			break;
+		}
+		case rai::process_result::account_mismatch:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a->hash ().to_string ());
+			}
+		}
+		case rai::process_result::opened_burn_account:
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % block_a->hash ().to_string ());
+		}
+	}
+	return result;
 }
 
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
