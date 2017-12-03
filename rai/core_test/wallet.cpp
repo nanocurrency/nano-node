@@ -854,3 +854,13 @@ TEST (wallet, version_2_3_upgrade)
 	ASSERT_TRUE (wallet->store.exists (transaction, rai::wallet_store::seed_special));
 	ASSERT_FALSE (wallet->deterministic_insert ().is_zero ());
 }
+
+TEST (wallet, no_work)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+    rai::keypair key2;
+    auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), false));
+    ASSERT_NE (nullptr, block);
+    ASSERT_EQ (0, block->block_work ());
+}
