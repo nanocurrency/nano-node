@@ -59,7 +59,8 @@ rai_beta_genesis (beta_genesis_data),
 rai_live_genesis (live_genesis_data),
 genesis_account (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_account : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_account : rai_live_account),
 genesis_block (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_genesis : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis),
-genesis_amount (std::numeric_limits <rai::uint128_t>::max ())
+genesis_amount (std::numeric_limits <rai::uint128_t>::max ()),
+burn_account (0)
 {
 	CryptoPP::AutoSeededRandomPool random_pool;
 	// Randomly generating these mean no two nodes will ever have the same sentinal values which protects against some insecure algorithms
@@ -79,6 +80,7 @@ std::string genesis_block;
 rai::uint128_t genesis_amount;
 rai::block_hash not_a_block;
 rai::account not_an_account;
+rai::account burn_account;
 };
 ledger_constants globals;
 }
@@ -102,6 +104,7 @@ std::string const & rai::genesis_block (globals.genesis_block);
 rai::uint128_t const & rai::genesis_amount (globals.genesis_amount);
 rai::block_hash const & rai::not_a_block (globals.not_a_block);
 rai::block_hash const & rai::not_an_account (globals.not_an_account);
+rai::account const & rai::burn_account (globals.burn_account);
 
 boost::filesystem::path rai::working_path ()
 {
@@ -3151,7 +3154,8 @@ rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block co
 rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 {
 	auto unallocated (account_balance (transaction_a, rai::genesis_account));
-    auto absolute_supply (rai::genesis_amount - unallocated);
+	auto burned (account_pending (transaction_a, 0));
+	auto absolute_supply (rai::genesis_amount - unallocated - burned);
 	auto adjusted_supply (absolute_supply - inactive_supply);
 	return adjusted_supply <= absolute_supply ? adjusted_supply : 0;
 }
@@ -3544,16 +3548,20 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 					result.code = ledger.store.pending_get (transaction, key, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
 					if (result.code == rai::process_result::progress)
 					{
-						rai::account_info source_info;
-						auto error (ledger.store.account_get (transaction, pending.source, source_info));
-						assert (!error);
-						ledger.store.pending_del (transaction, key);
-						ledger.store.block_put (transaction, hash, block_a);
-						ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
-						ledger.store.representation_add (transaction, hash, pending.amount.number ());
-						ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
-						result.account = block_a.hashables.account;
-						result.amount = pending.amount;
+						result.code = block_a.hashables.account == rai::burn_account ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is it burning 0 account? (Malicious)
+						if (result.code == rai::process_result::progress)
+						{
+							rai::account_info source_info;
+							auto error (ledger.store.account_get (transaction, pending.source, source_info));
+							assert (!error);
+							ledger.store.pending_del (transaction, key);
+							ledger.store.block_put (transaction, hash, block_a);
+							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
+							ledger.store.representation_add (transaction, hash, pending.amount.number ());
+							ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
+							result.account = block_a.hashables.account;
+							result.amount = pending.amount;
+						}
 					}
 				}
 			}
@@ -3652,6 +3660,14 @@ rai::uint256_union rai::vote::hash () const
     blake2b_update (&hash, bytes.data (), sizeof (bytes));
     blake2b_final (&hash, result.bytes.data (), sizeof (result.bytes));
     return result;
+}
+
+void rai::vote::serialize (rai::stream & stream_a, rai::block_type)
+{
+	write (stream_a, account);
+	write (stream_a, signature);
+	write (stream_a, sequence);
+	block->serialize (stream_a);
 }
 
 void rai::vote::serialize (rai::stream & stream_a)

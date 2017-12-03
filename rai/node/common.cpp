@@ -363,7 +363,7 @@ bool rai::confirm_req::operator == (rai::confirm_req const & other_a) const
 
 rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a) :
 message (error_a, stream_a),
-vote (std::make_shared <rai::vote> (error_a, stream_a))
+vote (std::make_shared <rai::vote> (error_a, stream_a, block_type ()))
 {
 }
 
@@ -403,7 +403,7 @@ void rai::confirm_ack::serialize (rai::stream & stream_a)
 {
 	assert (block_type () == rai::block_type::send || block_type () == rai::block_type::receive || block_type () == rai::block_type::open || block_type () == rai::block_type::change);
 	write_header (stream_a);
-	vote->serialize (stream_a);
+	vote->serialize (stream_a, block_type ());
 }
 
 bool rai::confirm_ack::operator == (rai::confirm_ack const & other_a) const
