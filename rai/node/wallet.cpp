@@ -1041,15 +1041,24 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		auto hash (node.process_active_return (block));
-		auto this_l (shared_from_this ());
+		hash = node.process_active_return (block);
 		auto source (send_a.hashables.destination);
-		if (generate_work_a)
+		if (generate_work_a && !hash.is_zero ()) // Generating work, block is valid
 		{
+			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source, rai::wallets::generate_priority, [this_l, source, hash]
 			{
 				this_l->work_generate (source, hash);
 			});
+		}
+		else if (!hash.is_zero ()) // Not generating work, block is valid
+		{
+			rai::transaction transaction (store.environment, nullptr, true);
+			work_update (transaction, source, hash, 0);
+		}
+		else // Block is invalid
+		{
+			block = nullptr;
 		}
 	}
     return block;
@@ -1082,13 +1091,22 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	{
 		assert (block != nullptr);
 		auto hash (node.process_active_return (block));
-		auto this_l (shared_from_this ());
-		if (generate_work_a)
+		if (generate_work_a && !hash.is_zero ()) // Generating work, block is valid
 		{
+			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
 			{
 				this_l->work_generate (source_a, hash);
 			});
+		}
+		else if (!hash.is_zero ()) // Not generating work, block is valid
+		{
+			rai::transaction transaction (store.environment, nullptr, true);
+			work_update (transaction, source_a, hash, 0);
+		}
+		else // Block is invalid
+		{
+			block = nullptr;
 		}
 	}
 	return block;
@@ -1125,13 +1143,22 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	{
 		assert (block != nullptr);
 		auto hash (node.process_active_return (block));
-		auto this_l (shared_from_this ());
-		if (generate_work_a)
+		if (generate_work_a && !hash.is_zero ()) // Generating work, block is valid
 		{
+			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
 			{
 				this_l->work_generate (source_a, hash);
 			});
+		}
+		else if (!hash.is_zero ()) // Not generating work, block is valid
+		{
+			rai::transaction transaction (store.environment, nullptr, true);
+			work_update (transaction, source_a, hash, 0);
+		}
+		else // Block is invalid
+		{
+			block = nullptr;
 		}
 	}
 	return block;
