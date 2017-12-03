@@ -1280,6 +1280,13 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
                 BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a->hash ().to_string ());
             }
         }
+        case rai::process_result::fork_burning:
+        {
+            if (node.config.logging.ledger_logging ())
+            {
+                BOOST_LOG (node.log) << boost::str (boost::format ("Fork of burning 0 account for: %1%") % block_a->hash ().to_string ());
+            }
+        }
     }
     return result;
 }

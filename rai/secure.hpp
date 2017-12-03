@@ -517,7 +517,8 @@ enum class process_result
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	not_receive_from_send, // Receive does not have a send source
-	account_mismatch // Account number in open block doesn't match send destination
+	account_mismatch, // Account number in open block doesn't match send destination
+	fork_burning // Malicious fork based on spending of burned amount
 };
 class process_return
 {

@@ -3151,7 +3151,8 @@ rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block co
 rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 {
 	auto unallocated (account_balance (transaction_a, rai::genesis_account));
-    auto absolute_supply (rai::genesis_amount - unallocated);
+	auto burned (account_pending (transaction_a, 0));
+	auto absolute_supply (rai::genesis_amount - unallocated - burned);
 	auto adjusted_supply (absolute_supply - inactive_supply);
 	return adjusted_supply <= absolute_supply ? adjusted_supply : 0;
 }
@@ -3544,16 +3545,20 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 					result.code = ledger.store.pending_get (transaction, key, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
 					if (result.code == rai::process_result::progress)
 					{
-						rai::account_info source_info;
-						auto error (ledger.store.account_get (transaction, pending.source, source_info));
-						assert (!error);
-						ledger.store.pending_del (transaction, key);
-						ledger.store.block_put (transaction, hash, block_a);
-						ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
-						ledger.store.representation_add (transaction, hash, pending.amount.number ());
-						ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
-						result.account = block_a.hashables.account;
-						result.amount = pending.amount;
+						result.code = block_a.hashables.account.is_zero () ? rai::process_result::fork_burning : rai::process_result::progress; // Is it burning 0 account? (Malicious)
+						if (result.code == rai::process_result::progress)
+						{
+							rai::account_info source_info;
+							auto error (ledger.store.account_get (transaction, pending.source, source_info));
+							assert (!error);
+							ledger.store.pending_del (transaction, key);
+							ledger.store.block_put (transaction, hash, block_a);
+							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
+							ledger.store.representation_add (transaction, hash, pending.amount.number ());
+							ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
+							result.account = block_a.hashables.account;
+							result.amount = pending.amount;
+						}
 					}
 				}
 			}
