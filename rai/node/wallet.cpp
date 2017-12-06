@@ -1041,7 +1041,7 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_active (block);
+		node.block_arrival.add (block->hash ());
 		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
 		{
@@ -1083,7 +1083,7 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_active (block);
+		node.block_arrival.add (block->hash ());
 		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
 		{
@@ -1128,7 +1128,7 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	if (block != nullptr)
 	{
 		assert (block != nullptr);
-		node.process_active (block);
+		node.block_arrival.add (block->hash ());
 		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
 		{
