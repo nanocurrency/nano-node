@@ -1500,6 +1500,7 @@ rai::node::~node ()
     {
         std::cerr << "Destructing node\n";
     }
+	block_arrival.clear (); // Clear remaining arrival blocks
 }
 
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
@@ -1625,6 +1626,23 @@ void rai::node::process_active (std::shared_ptr <rai::block> incoming)
 	if (rai::rai_network == rai::rai_networks::rai_test_network)
 	{
 		block_processor.flush ();
+	}
+}
+
+rai::block_hash rai::node::process_active_return (std::shared_ptr <rai::block> incoming)
+{
+	rai::block_hash hash (incoming->hash ());
+	block_arrival.add (hash);
+	rai::process_return result (process (*incoming));
+	if (result.code == rai::process_result::progress)
+	{
+		observers.blocks (incoming, result.account, result.amount);
+		return hash;
+	}
+	else
+	{
+		BOOST_LOG (log) << boost::str (boost::format ("Error processing block: %1%") % hash.to_string ());
+		return 0;
 	}
 }
 
@@ -2283,7 +2301,13 @@ bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 	{
 		arrival.erase (arrival.begin ());
 	}
-    return arrival.get <1> ().find (hash_a) != arrival.get <1> ().end ();
+	return arrival.empty () ? false : arrival.get <1> ().find (hash_a) != arrival.get <1> ().end ();
+}
+
+void rai::block_arrival::clear ()
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	arrival.clear ();
 }
 
 std::unordered_set <rai::endpoint> rai::peer_container::random_set (size_t count_a)

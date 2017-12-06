@@ -280,6 +280,7 @@ class block_arrival
 public:
     void add (rai::block_hash const &);
     bool recent (rai::block_hash const &);
+    void clear ();
     boost::multi_index_container
     <
         rai::block_arrival_info,
@@ -473,6 +474,7 @@ public:
     void process_confirmed (std::shared_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
 	void process_active (std::shared_ptr <rai::block>);
+	rai::block_hash process_active_return (std::shared_ptr <rai::block>);
 	rai::process_return process (rai::block const &);
     void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
