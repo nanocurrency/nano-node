@@ -309,7 +309,9 @@ TEST (receivable_processor, send_with_receive)
 	ASSERT_EQ (amount, system.nodes [1]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [1]->balance (key2.pub));
     system.nodes [0]->process_active (block1);
+    system.nodes [0]->block_processor.flush ();
     system.nodes [1]->process_active (block1);
+    system.nodes [1]->block_processor.flush ();
 	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes [0]->balance (key2.pub));
 	ASSERT_EQ (amount - system.nodes [0]->config.receive_minimum.number (), system.nodes [1]->balance (rai::test_genesis_key.pub));

@@ -1042,11 +1042,12 @@ std::shared_ptr <rai::block> rai::wallet::receive_action (rai::send_block const 
 	{
 		assert (block != nullptr);
 		node.process_active (block);
-		auto hash (block->hash ());
-		auto this_l (shared_from_this ());
-		auto source (send_a.hashables.destination);
+		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
 		{
+			auto hash (block->hash ());
+			auto this_l (shared_from_this ());
+			auto source (send_a.hashables.destination);
 			node.wallets.queue_wallet_action (source, rai::wallets::generate_priority, [this_l, source, hash]
 			{
 				this_l->work_generate (source, hash);
@@ -1083,10 +1084,11 @@ std::shared_ptr <rai::block> rai::wallet::change_action (rai::account const & so
 	{
 		assert (block != nullptr);
 		node.process_active (block);
-		auto hash (block->hash ());
-		auto this_l (shared_from_this ());
+		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
 		{
+			auto hash (block->hash ());
+			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
 			{
 				this_l->work_generate (source_a, hash);
@@ -1127,10 +1129,11 @@ std::shared_ptr <rai::block> rai::wallet::send_action (rai::account const & sour
 	{
 		assert (block != nullptr);
 		node.process_active (block);
-		auto hash (block->hash ());
-		auto this_l (shared_from_this ());
+		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
 		{
+			auto hash (block->hash ());
+			auto this_l (shared_from_this ());
 			node.wallets.queue_wallet_action (source_a, rai::wallets::generate_priority, [this_l, source_a, hash]
 			{
 				this_l->work_generate (source_a, hash);

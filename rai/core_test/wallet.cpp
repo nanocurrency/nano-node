@@ -864,3 +864,22 @@ TEST (wallet, no_work)
     ASSERT_NE (nullptr, block);
     ASSERT_EQ (0, block->block_work ());
 }
+
+TEST (wallet, send_race)
+{
+    rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+    rai::keypair key2;
+    system.nodes [0]->block_processor.stop ();
+    {
+		ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::Gxrb_ratio));
+		ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::Gxrb_ratio));
+	}
+	auto iterations (0);
+	while (system.nodes [0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount - rai::Gxrb_ratio * 2)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+}
