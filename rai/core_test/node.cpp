@@ -39,6 +39,7 @@ TEST (node, inactive_supply)
 	config.inactive_supply = 10;
     auto node (std::make_shared <rai::node> (init, *service, path, alarm, config, work));
 	ASSERT_EQ (10, node->ledger.inactive_supply);
+	node->stop ();
 }
 
 TEST (node, password_fanout)
@@ -54,6 +55,7 @@ TEST (node, password_fanout)
     auto node (std::make_shared <rai::node> (init, *service, path, alarm, config, work));
 	auto wallet (node->wallets.create (100));
 	ASSERT_EQ (10, wallet->store.password.values.size ());
+	node->stop ();
 }
 
 TEST (node, balance)

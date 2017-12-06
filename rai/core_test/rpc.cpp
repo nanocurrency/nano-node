@@ -977,6 +977,7 @@ TEST (rpc, keepalive)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
+	node1->stop ();
 }
 
 TEST (rpc, payment_init)

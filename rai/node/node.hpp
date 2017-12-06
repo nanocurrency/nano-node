@@ -443,15 +443,14 @@ public:
 	void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
 	void process_receive_many (std::vector <std::shared_ptr <rai::block>>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
     rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
-private:
 	void process_blocks ();
+private:
 	bool stopped;
     bool idle;
 	std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks;
 	std::mutex mutex;
 	std::condition_variable condition;
 	rai::node & node;
-	std::thread thread;
 };
 class node : public std::enable_shared_from_this <rai::node>
 {
@@ -512,6 +511,7 @@ public:
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
     rai::block_processor block_processor;
+	std::thread block_processor_thread;
     rai::block_arrival block_arrival;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;

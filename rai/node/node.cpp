@@ -1063,15 +1063,13 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 idle (true),
-node (node_a),
-thread ([this] () { process_blocks (); })
+node (node_a)
 {
 }
 
 rai::block_processor::~block_processor ()
 {
     stop ();
-    thread.join ();
 }
 
 void rai::block_processor::stop ()
@@ -1324,7 +1322,8 @@ application_path (application_path_a),
 port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
-block_processor (*this)
+block_processor (*this),
+block_processor_thread ([this] () { block_processor.process_blocks (); })
 {
 	wallets.observer = [this] (rai::account const & account_a, bool active)
 	{
@@ -1782,6 +1781,10 @@ void rai::node::stop ()
 {
     BOOST_LOG (log) << "Node stopping";
 	block_processor.stop ();
+	if (block_processor_thread.joinable ())
+	{
+		block_processor_thread.join ();
+	}
 	active.stop ();
     network.stop ();
 	bootstrap_initiator.stop ();
