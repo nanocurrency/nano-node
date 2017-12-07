@@ -1102,42 +1102,41 @@ void rai::block_processor::process_blocks ()
 	{
 		if (!blocks.empty ())
 		{
-            {
-                auto completed (blocks.front ().second);
-				std::vector <std::shared_ptr <rai::block>> blocks_processing;
-                while (!blocks.empty () && blocks_processing.size () < rai::blocks_per_transaction)
+			{
+				std::vector <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks_processing;
+				while (!blocks.empty () && blocks_processing.size () < rai::blocks_per_transaction)
 				{
 					auto info (blocks.front ());
-					blocks_processing.push_back (info.first);
+					blocks_processing.push_back (info);
 					blocks.pop_front ();
 				}
 				// Move first blocks to the end of blocks_processing
 				std::reverse (blocks_processing.begin (), blocks_processing.end ());
-                lock.unlock ();
-                process_receive_many (blocks_processing, completed);
-            }
-            // Let other threads get an opportunity to transaction lock
-            std::this_thread::yield ();
+				lock.unlock ();
+				process_receive_many (blocks_processing);
+			}
+			// Let other threads get an opportunity to transaction lock
+			std::this_thread::yield ();
 			lock.lock ();
 		}
 		else
 		{
-            idle = true;
-            condition.notify_all ();
+			idle = true;
+			condition.notify_all ();
 			condition.wait (lock);
-            idle = false;
+			idle = false;
 		}
 	}
 }
 
 void rai::block_processor::process_receive_many (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> completed_a)
 {
-	std::vector <std::shared_ptr <rai::block>> blocks_processing;
-	blocks_processing.push_back (block_a);
-	process_receive_many (blocks_processing, completed_a);
+	std::vector <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks_processing;
+	blocks_processing.push_back (std::make_pair (block_a, completed_a));
+	process_receive_many (blocks_processing);
 }
 
-void rai::block_processor::process_receive_many (std::vector <std::shared_ptr <rai::block>> blocks_processing, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> completed_a)
+void rai::block_processor::process_receive_many (std::vector <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks_processing)
 {
     while (!blocks_processing.empty ())
 	{
@@ -1147,11 +1146,12 @@ void rai::block_processor::process_receive_many (std::vector <std::shared_ptr <r
 			auto count (0);
 			while (!blocks_processing.empty () && count < rai::blocks_per_transaction)
 			{
-				auto block (blocks_processing.back ());
+				auto block_pair (blocks_processing.back ());
 				blocks_processing.pop_back ();
+				auto block (block_pair.first);
 				auto hash (block->hash ());
 				auto process_result (process_receive_one (transaction, block));
-				completed_a (transaction, process_result, block);
+				block_pair.second (transaction, process_result, block);
 				switch (process_result.code)
 				{
 					case rai::process_result::progress:
@@ -1164,7 +1164,7 @@ void rai::block_processor::process_receive_many (std::vector <std::shared_ptr <r
 						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 						{
 							node.store.unchecked_del (transaction, hash, **i);
-							blocks_processing.push_back (std::move (*i));
+							blocks_processing.push_back (std::make_pair (std::move (*i), [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {}));
 						}
 						std::lock_guard <std::mutex> lock (node.gap_cache.mutex);
 						node.gap_cache.blocks.get <1> ().erase (hash);
