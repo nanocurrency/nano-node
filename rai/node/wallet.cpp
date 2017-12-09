@@ -907,7 +907,7 @@ bool rai::wallet::enter_password (std::string const & password_a)
 	return result;
 }
 
-rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool generate_work_a)
+rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool generate_work_a = true)
 {
 	rai::public_key key (0);
 	if (store.valid_password (transaction_a))
@@ -921,14 +921,14 @@ rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool
 	return key;
 }
 
-rai::public_key rai::wallet::deterministic_insert (bool generate_work_a)
+rai::public_key rai::wallet::deterministic_insert (bool generate_work_a = true)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
-	auto result (deterministic_insert (transaction));
+	auto result (deterministic_insert (transaction, generate_work_a));
 	return result;
 }
 
-rai::public_key rai::wallet::insert_adhoc (MDB_txn * transaction_a, rai::raw_key const & key_a, bool generate_work_a)
+rai::public_key rai::wallet::insert_adhoc (MDB_txn * transaction_a, rai::raw_key const & key_a, bool generate_work_a = true)
 {
 	rai::public_key key (0);
 	if (store.valid_password (transaction_a))
