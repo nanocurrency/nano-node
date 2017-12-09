@@ -1,5 +1,9 @@
 FROM debian:8.9
-MAINTAINER Zjeraar <gerard@meijer.gs>
+MAINTAINER Zjeraar <zjeraar@palmweb.nl>
+
+ENV BOOST_BASENAME=boost_1_63_0 \
+    BOOST_ROOT=/tmp/boost  \
+    BOOST_URL=http://sourceforge.net/projects/boost/files/boost/1.63.0/boost_1_63_0.tar.gz/download
 
 RUN \
   apt-get update && \
@@ -20,11 +24,13 @@ RUN \
 WORKDIR /tmp
 
 RUN \
-  wget -O boost_1_63_0.tar.gz http://sourceforge.net/projects/boost/files/boost/1.63.0/boost_1_63_0.tar.gz/download && \
-  tar xzvf boost_1_63_0.tar.gz && \
-  cd boost_1_63_0 && \
+  wget -O ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
+  tar xzvf ${BOOST_BASENAME}.tar.gz && \
+  cd ${BOOST_BASENAME} && \
   ./bootstrap.sh && \
-  ./b2 --prefix=../[boost] link=static install && \
+  ./b2 --prefix=${BOOST_ROOT} link=static install && \
+  rm -rf ${BOOST_BASENAME} && \
+  rm -f ${BOOST_BASENAME}.tar.gz && \
   cd .. && \
   mkdir app
 
@@ -33,16 +39,20 @@ ADD ./ /tmp/app
 RUN \
   cd app && \
   git submodule update --init --recursive && \
-  cmake -DBOOST_ROOT=../[boost] -G "Unix Makefiles" && \
+  cmake -DBOOST_ROOT=${BOOST_ROOT} -G "Unix Makefiles" && \
   make rai_node && \
   cp rai_node /usr/local/bin/rai_node &&  \
   ln -s /usr/local/bin/rai_node /usr/bin/rai_node && \
   cd .. && \
-  rm -rf rai_build && \
-  rm -rf boost_1_63_0 && \
-  rm -f boost_1_63_0.tar.gz && \
-  useradd -m -u 7075 rai
+  rm -rf app && \
+  rm -rf ${BOOST_ROOT}
 
-EXPOSE 7075  7076
+ADD ./docker_init.sh /usr/local/bin/rai_node_init.sh
 
-USER rai
+RUN chmod +x /usr/local/bin/rai_node_init.sh
+
+WORKDIR /root
+
+EXPOSE 7075 7076
+
+ENTRYPOINT ["/bin/bash", "/usr/local/bin/rai_node_init.sh"]
