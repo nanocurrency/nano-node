@@ -3481,6 +3481,11 @@ work (1, nullptr)
 	node = std::make_shared <rai::node> (init, *service, 24000, path, alarm, logging, work);
 }
 
+rai::inactive_node::~inactive_node ()
+{
+	node->stop ();
+}
+
 rai::port_mapping::port_mapping (rai::node & node_a) :
 node (node_a),
 devices (nullptr),

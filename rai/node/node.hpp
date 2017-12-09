@@ -533,6 +533,7 @@ class inactive_node
 {
 public:
 	inactive_node ();
+	~inactive_node ();
 	boost::filesystem::path path;
 	boost::shared_ptr <boost::asio::io_service> service;
 	rai::alarm alarm;
