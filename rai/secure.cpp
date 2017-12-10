@@ -1,15 +1,14 @@
 #include <rai/secure.hpp>
 
+#include <rai/interface.h>
 #include <rai/node/working.hpp>
 #include <rai/versioning.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
-#include <blake2/blake2.h>
+#include <queue>
 
 #include <ed25519-donna/ed25519.h>
-
-#include <queue>
 
 // Genesis keys for network variants
 namespace

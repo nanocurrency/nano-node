@@ -1,12 +1,13 @@
 #pragma once
 
+#include <rai/interface.h>
 #include <rai/secure.hpp>
 
 #include <boost/asio.hpp>
 
-#include <xxhash/xxhash.h>
-
 #include <bitset>
+
+#include <xxhash/xxhash.h>
 
 namespace rai
 {

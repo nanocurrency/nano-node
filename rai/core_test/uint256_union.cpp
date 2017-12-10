@@ -1,8 +1,9 @@
-#include <ed25519-donna/ed25519.h>
-
 #include <gtest/gtest.h>
 
+#include <rai/interface.h>
 #include <rai/secure.hpp>
+
+#include <ed25519-donna/ed25519.h>
 
 TEST (uint128_union, decode_dec)
 {

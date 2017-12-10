@@ -1,13 +1,14 @@
 #include <boost/property_tree/json_parser.hpp>
 
-#include <ed25519-donna/ed25519.h>
-
 #include <fstream>
 
 #include <gtest/gtest.h>
 
+#include <rai/interface.h>
 #include <rai/node/common.hpp>
 #include <rai/node/node.hpp>
+
+#include <ed25519-donna/ed25519.h>
 
 TEST (ed25519, signing)
 {
