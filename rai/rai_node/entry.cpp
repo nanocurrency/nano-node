@@ -400,8 +400,8 @@ int main (int argc, char * const * argv)
     }
     else if (vm.count ("debug_profile_unchecked"))
     {
-	unsigned block_count (100000);
-	unsigned unchecked_cache_max (0);
+	unsigned block_count (1000000);
+	unsigned unchecked_cache_max (256);
 	if (vm.count ("block_count") == 1)
 	{
 		try
