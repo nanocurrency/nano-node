@@ -317,7 +317,6 @@ int main (int argc, char * const * argv)
 					if (!error)
 					{
 						rai::logging logging;
-						logging.init (rai::unique_path ());
 						auto work (rai::opencl_work::create (true, {platform, device, threads}, logging));
 						rai::work_pool work_pool (std::numeric_limits <unsigned>::max (), std::move (work));
 						rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
