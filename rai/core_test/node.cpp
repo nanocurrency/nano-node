@@ -1406,7 +1406,7 @@ TEST (node, vote_replay)
 	}
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		std::lock_guard <std::mutex> lock (system.nodes [0]->store.vote_mutex);
+		std::lock_guard <std::mutex> lock (system.nodes [0]->store.cache_mutex);
 		auto vote (system.nodes [0]->store.vote_current (transaction, rai::test_genesis_key.pub));
 		ASSERT_EQ (nullptr, vote);
 	}
@@ -1419,7 +1419,7 @@ TEST (node, vote_replay)
 	{
 		system.poll ();
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-		std::lock_guard <std::mutex> lock (system.nodes [0]->store.vote_mutex);
+		std::lock_guard <std::mutex> lock (system.nodes [0]->store.cache_mutex);
 		auto vote (system.nodes [0]->store.vote_current (transaction, rai::test_genesis_key.pub));
 		done = vote && (vote->sequence >= 10000);
 		++iterations;

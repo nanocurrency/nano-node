@@ -2488,34 +2488,19 @@ void rai::block_store::unchecked_clear (MDB_txn * transaction_a)
 
 void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, std::shared_ptr <rai::block> const & block_a)
 {
+	std::lock_guard <std::mutex> lock (cache_mutex);
 	unchecked_cache.insert (std::make_pair (hash_a, block_a));
-	if (unchecked_cache.size () > unchecked_cache_max)
-	{
-		unchecked_cache_flush (transaction_a);
-	}
-}
-
-void rai::block_store::unchecked_cache_flush (MDB_txn * transaction_a)
-{
-	for (auto &i: unchecked_cache)
-	{
-		std::vector <uint8_t> vector;
-		{
-			rai::vectorstream stream (vector);
-			rai::serialize_block (stream, *i.second);
-		}
-		auto status (mdb_put (transaction_a, unchecked, i.first.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
-		assert (status == 0);
-	}
-	unchecked_cache.clear ();
 }
 
 std::vector <std::shared_ptr <rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector <std::shared_ptr <rai::block>> result;
-	for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
 	{
-		result.push_back (i->second);
+		std::lock_guard <std::mutex> lock (cache_mutex);
+		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
+		{
+			result.push_back (i->second);
+		}
 	}
 	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.next_dup ())
 	{
@@ -2527,15 +2512,18 @@ std::vector <std::shared_ptr <rai::block>> rai::block_store::unchecked_get (MDB_
 
 void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
 {
-	for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
 	{
-		if (*i->second == block_a)
+		std::lock_guard <std::mutex> lock (cache_mutex);
+		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
 		{
-			i = unchecked_cache.erase (i);
-		}
-		else
-		{
-			++i;
+			if (*i->second == block_a)
+			{
+				i = unchecked_cache.erase (i);
+			}
+			else
+			{
+				++i;
+			}
 		}
 	}
     std::vector <uint8_t> vector;
@@ -2645,12 +2633,24 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
 	assert (status == 0);
 }
 
-void rai::block_store::vote_flush (MDB_txn * transaction_a)
+void rai::block_store::flush (MDB_txn * transaction_a)
 {
 	std::unordered_map <rai::account, std::shared_ptr <rai::vote>> sequence_cache_l;
+	std::unordered_multimap <rai::block_hash, std::shared_ptr <rai::block>> unchecked_cache_l;
 	{
-		std::lock_guard <std::mutex> lock (vote_mutex);
+		std::lock_guard <std::mutex> lock (cache_mutex);
 		sequence_cache_l.swap (vote_cache);
+		unchecked_cache_l.swap (unchecked_cache);
+	}
+	for (auto &i: unchecked_cache_l)
+	{
+		std::vector <uint8_t> vector;
+		{
+			rai::vectorstream stream (vector);
+			rai::serialize_block (stream, *i.second);
+		}
+		auto status (mdb_put (transaction_a, unchecked, i.first.val (), rai::mdb_val (vector.size (), vector.data ()), 0));
+		assert (status == 0);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
 	{
@@ -2690,7 +2690,7 @@ std::shared_ptr <rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a,
 
 std::shared_ptr <rai::vote> rai::block_store::vote_current (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	assert (!vote_mutex.try_lock ());
+	assert (!cache_mutex.try_lock ());
 	std::shared_ptr <rai::vote> result;
 	auto existing (vote_cache.find (account_a));
 	if (existing != vote_cache.end ())
@@ -2709,7 +2709,7 @@ std::shared_ptr <rai::vote> rai::block_store::vote_generate (MDB_txn * transacti
 	std::shared_ptr <rai::vote> result;
 	uint64_t sequence = 0;
 	{
-		std::lock_guard <std::mutex> lock (vote_mutex);
+		std::lock_guard <std::mutex> lock (cache_mutex);
 		result = vote_current (transaction_a, account_a);
 		sequence = (result ? result->sequence : 0) + 1;
 	}
@@ -2720,7 +2720,7 @@ std::shared_ptr <rai::vote> rai::block_store::vote_generate (MDB_txn * transacti
 
 std::shared_ptr <rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, std::shared_ptr <rai::vote> vote_a)
 {
-	std::lock_guard <std::mutex> lock (vote_mutex);
+	std::lock_guard <std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
 	if (current != nullptr)

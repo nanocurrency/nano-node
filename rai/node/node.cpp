@@ -1753,7 +1753,7 @@ void rai::node::start ()
     network.receive ();
     ongoing_keepalive ();
 	ongoing_bootstrap ();
-	ongoing_vote_flush ();
+	ongoing_store_flush ();
 	ongoing_rep_crawl ();
     bootstrap.start ();
 	backup_wallet ();
@@ -1894,18 +1894,18 @@ void rai::node::ongoing_bootstrap ()
 	});
 }
 
-void rai::node::ongoing_vote_flush ()
+void rai::node::ongoing_store_flush ()
 {
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		store.vote_flush (transaction);
+		store.flush (transaction);
 	}
 	std::weak_ptr <rai::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w] ()
 	{
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->ongoing_vote_flush ();
+			node_l->ongoing_store_flush ();
 		}
 	});
 }

@@ -269,7 +269,7 @@ TEST (block_store, one_bootstrap)
     auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
 	rai::transaction transaction (store.environment, nullptr, true);
     store.unchecked_put (transaction, block1->hash (), block1);
-	store.unchecked_cache_flush (transaction);
+	store.flush (transaction);
     auto begin (store.unchecked_begin (transaction));
     auto end (store.unchecked_end ());
     ASSERT_NE (end, begin);
@@ -801,7 +801,7 @@ TEST (block_store, upgrade_v6_v7)
 		store.version_put (transaction, 6);
 		auto send1 (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 		store.unchecked_put (transaction, send1->hash (), send1);
-		store.unchecked_cache_flush (transaction);
+		store.flush (transaction);
 		ASSERT_NE (store.unchecked_end (), store.unchecked_begin (transaction));
 	}
 	bool init (false);
@@ -825,7 +825,7 @@ TEST (block_store, change_dupsort)
 	ASSERT_NE (send1->hash (), send2->hash ());
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.unchecked_cache_flush (transaction);
+	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -836,7 +836,7 @@ TEST (block_store, change_dupsort)
 	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.unchecked_cache_flush (transaction);
+	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -846,7 +846,7 @@ TEST (block_store, change_dupsort)
 	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.unchecked_cache_flush (transaction);
+	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -875,7 +875,7 @@ TEST (block_store, upgrade_v7_v8)
 	auto send2 (std::make_shared <rai::send_block> (1, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.unchecked_cache_flush (transaction);
+	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -897,7 +897,7 @@ TEST (block_store, sequence_flush)
 	auto vote1 (store.vote_generate (transaction, key1.pub, key1.prv, send1));
 	auto seq2 (store.vote_get (transaction, vote1->account));
 	ASSERT_EQ (nullptr, seq2);
-	store.vote_flush (transaction);
+	store.flush (transaction);
 	auto seq3 (store.vote_get (transaction, vote1->account));
 	ASSERT_EQ (*seq3, *vote1);
 }
