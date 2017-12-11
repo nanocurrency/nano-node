@@ -753,7 +753,8 @@ io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
 enable_voting (true),
 bootstrap_connections (16),
-callback_port (0)
+callback_port (0),
+unchecked_cache_multiplier (32) // 32 * 256 = 8,192
 {
 	switch (rai::rai_network)
 	{
@@ -786,7 +787,7 @@ callback_port (0)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "7");
+	tree_a.put ("version", "8");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -826,6 +827,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_address", callback_address);
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
+	tree_a.put ("unchecked_cache_multiplier", std::to_string (unchecked_cache_multiplier));
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -894,6 +896,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		result = true;
 		break;
 	case 7:
+		tree_a.put ("unchecked_cache_multiplier", std::to_string (unchecked_cache_multiplier));
+		tree_a.erase ("version");
+		tree_a.put ("version", "8");
+		result = true;
+		break;
+	case 8:
 		break;
 	default:
 		throw std::runtime_error ("Unknown node_config version");
@@ -964,6 +972,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_address = tree_a.get <std::string> ("callback_address");
 		auto callback_port_l (tree_a.get <std::string> ("callback_port"));
 		callback_target = tree_a.get <std::string> ("callback_target");
+		auto unchecked_cache_l (tree_a.get <std::string> ("unchecked_cache_multiplier"));
 		result |= parse_port (callback_port_l, callback_port);
 		try
 		{
@@ -973,6 +982,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			io_threads = std::stoul (io_threads_l);
 			work_threads = std::stoul (work_threads_l);
 			bootstrap_connections = std::stoul (bootstrap_connections_l);
+			unchecked_cache_multiplier = std::stoul (unchecked_cache_l);
 			result |= peering_port > std::numeric_limits <uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
@@ -981,6 +991,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
 			result |= work_threads == 0;
+			result |= unchecked_cache_multiplier == 0;
 		}
 		catch (std::logic_error const &)
 		{
@@ -1473,6 +1484,7 @@ block_processor_thread ([this] () { block_processor.process_blocks (); })
         {
             std::cerr << "Constructing node\n";
         }
+		store.unchecked_cache_max = config.unchecked_cache_multiplier * 256;
 		rai::transaction transaction (store.environment, nullptr, true);
         if (store.latest_begin (transaction) == store.latest_end ())
         {
