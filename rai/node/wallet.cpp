@@ -924,7 +924,7 @@ rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool
 rai::public_key rai::wallet::deterministic_insert (bool generate_work_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
-	auto result (deterministic_insert (transaction));
+	auto result (deterministic_insert (transaction, generate_work_a));
 	return result;
 }
 
