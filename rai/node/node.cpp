@@ -2481,6 +2481,8 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	auto result (false);
 	static auto const rfc1700_min (mapped_from_v4_bytes (0x00000000ul));
 	static auto const rfc1700_max (mapped_from_v4_bytes (0x00fffffful));
+	static auto const ipv4_loopback_min (mapped_from_v4_bytes (0x7f000000ul));
+	static auto const ipv4_loopback_max (mapped_from_v4_bytes (0x7ffffffful));
 	static auto const rfc5737_1_min (mapped_from_v4_bytes (0xc0000200ul));
 	static auto const rfc5737_1_max (mapped_from_v4_bytes (0xc00002fful));
 	static auto const rfc5737_2_min (mapped_from_v4_bytes (0xc6336400ul));
@@ -2530,6 +2532,14 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 		result = true;
 	}
 	else if (bytes >= ipv6_multicast_min && bytes <= ipv6_multicast_max)
+	{
+		result = true;
+	}
+	else if (bytes.is_loopback () && rai::rai_network != rai::rai_networks::rai_test_network)
+	{
+		result = true;
+	}
+	else if (bytes >= ipv4_loopback_min && bytes <= ipv4_loopback_max && rai::rai_network != rai::rai_networks::rai_test_network)
 	{
 		result = true;
 	}
