@@ -483,7 +483,7 @@ public:
     void ongoing_keepalive ();
 	void ongoing_rep_crawl ();
 	void ongoing_bootstrap ();
-	void ongoing_vote_flush ();
+	void ongoing_store_flush ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);

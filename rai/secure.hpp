@@ -425,15 +425,7 @@ public:
 	rai::store_iterator unchecked_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unchecked_end ();
 	size_t unchecked_count (MDB_txn *);
-	void unchecked_cache_flush (MDB_txn *);
 	std::unordered_multimap <rai::block_hash, std::shared_ptr <rai::block>> unchecked_cache;
-	static size_t const unchecked_cache_max = 256;
-	// IO per unchecked_cache_max profiled with store.unchecked_load
-	// 1 - 3,600,000
-	// 16 - 339,000
-	// 128 - 34,000
-	// 256 - 16,000
-	// 1024 - 4,327
 	
 	void unsynced_put (MDB_txn *, rai::block_hash const &);
 	void unsynced_del (MDB_txn *, rai::block_hash const &);
@@ -455,10 +447,10 @@ public:
 	std::shared_ptr <rai::vote> vote_max (MDB_txn *, std::shared_ptr <rai::vote>);
 	// Return latest vote for an account considering the vote cache
 	std::shared_ptr <rai::vote> vote_current (MDB_txn *, rai::account const &);
-	void vote_flush (MDB_txn *);
+	void flush (MDB_txn *);
 	rai::store_iterator vote_begin (MDB_txn *);
 	rai::store_iterator vote_end ();
-	std::mutex vote_mutex;
+	std::mutex cache_mutex;
 	std::unordered_map <rai::account, std::shared_ptr <rai::vote>> vote_cache;
 	
 	void version_put (MDB_txn *, int);
