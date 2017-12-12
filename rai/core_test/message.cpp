@@ -54,8 +54,8 @@ TEST (message, publish_serialization)
     ASSERT_EQ (8, bytes.size ());
     ASSERT_EQ (0x52, bytes [0]);
     ASSERT_EQ (0x41, bytes [1]);
-    ASSERT_EQ (0x04, bytes [2]);
-    ASSERT_EQ (0x04, bytes [3]);
+    ASSERT_EQ (0x05, bytes [2]);
+    ASSERT_EQ (0x05, bytes [3]);
     ASSERT_EQ (0x01, bytes [4]);
     ASSERT_EQ (static_cast <uint8_t> (rai::message_type::publish), bytes [5]);
     ASSERT_EQ (0x02, bytes [6]);
@@ -68,8 +68,8 @@ TEST (message, publish_serialization)
     std::bitset <16> extensions;
     ASSERT_FALSE (rai::message::read_header (stream, version_max, version_using, version_min, type, extensions));
     ASSERT_EQ (0x01, version_min);
-    ASSERT_EQ (0x04, version_using);
-    ASSERT_EQ (0x04, version_max);
+    ASSERT_EQ (0x05, version_using);
+    ASSERT_EQ (0x05, version_max);
     ASSERT_EQ (rai::message_type::publish, type);
 }
 

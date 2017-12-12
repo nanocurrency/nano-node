@@ -8,8 +8,8 @@ size_t constexpr rai::message::bootstrap_server_position;
 std::bitset <16> constexpr rai::message::block_type_mask;
 
 rai::message::message (rai::message_type type_a) :
-version_max (0x04),
-version_using (0x04),
+version_max (0x05),
+version_using (0x05),
 version_min (0x01),
 type (type_a)
 {
