@@ -1108,44 +1108,62 @@ void rai::bootstrap_listener::start ()
 
 void rai::bootstrap_listener::stop ()
 {
-    on = false;
-    acceptor.close ();
+	on = false;
+	std::lock_guard <std::mutex> lock (mutex);
+	acceptor.close ();
+	for (auto & i : connections)
+	{
+		auto connection (i.second.lock ());
+		if (connection)
+		{
+			connection->socket->close ();
+		}
+	}
 }
 
 void rai::bootstrap_listener::accept_connection ()
 {
-    auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
-    acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & ec)
-    {
-        accept_action (ec, socket);
-    });
+	auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
+	acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & ec)
+	{
+		accept_action (ec, socket);
+	});
 }
 
 void rai::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
 {
-    if (!ec)
-    {
-        accept_connection ();
-        auto connection (std::make_shared <rai::bootstrap_server> (socket_a, node.shared ()));
-        connection->receive ();
-    }
-    else
-    {
-        BOOST_LOG (node.log) << boost::str (boost::format ("Error while accepting bootstrap connections: %1%") % ec.message ());
-    }
+	if (!ec)
+	{
+		accept_connection ();
+		auto connection (std::make_shared <rai::bootstrap_server> (socket_a, node.shared ()));
+		{
+			std::lock_guard <std::mutex> lock (mutex);
+			if (acceptor.is_open ())
+			{
+				connections [connection.get ()] = connection;
+				connection->receive ();
+			}
+		}
+	}
+	else
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Error while accepting bootstrap connections: %1%") % ec.message ());
+	}
 }
 
 boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
 {
-    return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
+	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
 }
 
 rai::bootstrap_server::~bootstrap_server ()
 {
-    if (node->config.logging.network_logging ())
-    {
-        BOOST_LOG (node->log) << "Exiting bootstrap server";
-    }
+	if (node->config.logging.network_logging ())
+	{
+		BOOST_LOG (node->log) << "Exiting bootstrap server";
+	}
+	std::lock_guard <std::mutex> lock (node->bootstrap.mutex);
+	node->bootstrap.connections.erase (this);
 }
 
 rai::bootstrap_server::bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <rai::node> node_a) :

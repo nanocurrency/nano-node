@@ -174,6 +174,7 @@ private:
 	std::condition_variable condition;
 	std::vector <std::function <void (bool)>> observers;
 };
+class bootstrap_server;
 class bootstrap_listener
 {
 public:
@@ -182,6 +183,8 @@ public:
     void stop ();
     void accept_connection ();
     void accept_action (boost::system::error_code const &, std::shared_ptr <boost::asio::ip::tcp::socket>);
+    std::mutex mutex;
+    std::unordered_map <rai::bootstrap_server *, std::weak_ptr <rai::bootstrap_server>> connections;
     rai::tcp_endpoint endpoint ();
     boost::asio::ip::tcp::acceptor acceptor;
     rai::tcp_endpoint local;
