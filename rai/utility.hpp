@@ -141,14 +141,6 @@ public:
 	operator MDB_env * () const;
 	MDB_env * environment;
 };
-class mdb_val
-{
-public:
-	mdb_val (size_t, void *);
-	operator MDB_val * () const;
-	operator MDB_val const & () const;
-	MDB_val value;
-};
 class transaction
 {
 public:
@@ -177,7 +169,6 @@ public:
 	rai::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
-	rai::mdb_val val () const;
 	std::string to_string () const;
 	std::string to_string_dec () const;
 	std::array <uint8_t, 16> bytes;
@@ -201,7 +192,6 @@ union uint256_union
 	bool operator == (rai::uint256_union const &) const;
 	bool operator != (rai::uint256_union const &) const;
 	bool operator < (rai::uint256_union const &) const;
-	rai::mdb_val val () const;
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
@@ -261,6 +251,16 @@ union uint512_union
 using signature = uint512_union;
 rai::uint512_union sign_message (rai::raw_key const &, rai::public_key const &, rai::uint256_union const &);
 bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
+class mdb_val
+{
+public:
+	mdb_val (size_t, void *);
+	mdb_val (rai::uint128_union const &);
+	mdb_val (rai::uint256_union const &);
+	operator MDB_val * () const;
+	operator MDB_val const & () const;
+	MDB_val value;
+};
 }
 namespace std
 {

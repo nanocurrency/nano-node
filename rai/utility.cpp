@@ -100,6 +100,16 @@ value ({size_a, data_a})
 {
 }
 
+rai::mdb_val::mdb_val (rai::uint128_union const & val_a) :
+mdb_val (sizeof (val_a), const_cast <rai::uint128_union *> (&val_a))
+{
+}
+
+rai::mdb_val::mdb_val (rai::uint256_union const & val_a) :
+mdb_val (sizeof (val_a), const_cast <rai::uint256_union *> (&val_a))
+{
+}
+
 rai::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
@@ -218,47 +228,42 @@ bool rai::uint128_union::decode_hex (std::string const & text)
 
 void rai::uint128_union::encode_dec (std::string & text) const
 {
-    assert (text.empty ());
-    std::stringstream stream;
-    stream << std::dec << std::noshowbase;
-    stream << number ();
-    text = stream.str ();
+	assert (text.empty ());
+	std::stringstream stream;
+	stream << std::dec << std::noshowbase;
+	stream << number ();
+	text = stream.str ();
 }
 
 bool rai::uint128_union::decode_dec (std::string const & text)
 {
-    auto result (text.size () > 39);
-    if (!result)
-    {
-        std::stringstream stream (text);
-        stream << std::dec << std::noshowbase;
-        rai::uint128_t number_l;
-        try
-        {
-            stream >> number_l;
-            *this = number_l;
-        }
-        catch (std::runtime_error &)
-        {
-            result = true;
-        }
-    }
-    return result;
+	auto result (text.size () > 39);
+	if (!result)
+	{
+		std::stringstream stream (text);
+		stream << std::dec << std::noshowbase;
+		rai::uint128_t number_l;
+		try
+		{
+			stream >> number_l;
+			*this = number_l;
+		}
+		catch (std::runtime_error &)
+		{
+			result = true;
+		}
+	}
+	return result;
 }
 
 void rai::uint128_union::clear ()
 {
-    qwords.fill (0);
+	qwords.fill (0);
 }
 
 bool rai::uint128_union::is_zero () const
 {
-    return qwords [0] == 0 && qwords [1] == 0;
-}
-
-rai::mdb_val rai::uint128_union::val () const
-{
-	return rai::mdb_val (sizeof (*this), const_cast <rai::uint128_union *> (this));
+	return qwords [0] == 0 && qwords [1] == 0;
 }
 
 std::string rai::uint128_union::to_string () const
@@ -354,11 +359,6 @@ rai::uint256_t rai::uint256_union::number () const
 		shift = 8;
 	}
     return result;
-}
-
-rai::mdb_val rai::uint256_union::val () const
-{
-	return rai::mdb_val (bytes.size (), const_cast <uint8_t *> (bytes.data ()));
 }
 
 void rai::uint256_union::encode_hex (std::string & text) const

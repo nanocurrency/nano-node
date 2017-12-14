@@ -643,7 +643,7 @@ TEST (block_store, upgrade_v2_v3)
 		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
 		info.rep_block = 42;
 		rai::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
-		auto status (mdb_put (transaction, store.accounts, rai::test_genesis_key.pub.val (), info_old.val (), 0));
+		auto status (mdb_put (transaction, store.accounts, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
 		assert (status == 0);
 	}
 	bool init (false);
@@ -672,7 +672,7 @@ TEST (block_store, upgrade_v3_v4)
 		rai::transaction transaction (store.environment, nullptr, true);
 		store.version_put (transaction, 3);
 		rai::pending_info_v3 info (key1.pub, 100, key2.pub);
-		auto status (mdb_put (transaction, store.pending, key3.pub.val (), info.val (), 0));
+		auto status (mdb_put (transaction, store.pending, rai::mdb_val (key3.pub), info.val (), 0));
 		ASSERT_EQ (0, status);
 	}
 	bool init (false);
@@ -716,7 +716,7 @@ TEST (block_store, upgrade_v4_v5)
 		rai::account_info info2;
 		store.account_get (transaction, rai::test_genesis_key.pub, info2);
 		rai::account_info_v5 info_old (info2.head, info2.rep_block, info2.open_block, info2.balance, info2.modified);
-		auto status (mdb_put (transaction, store.accounts, rai::test_genesis_key.pub.val (), info_old.val (), 0));
+		auto status (mdb_put (transaction, store.accounts, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
 		assert (status == 0);
 	}
 	bool init (false);
@@ -776,7 +776,7 @@ TEST (block_store, upgrade_v5_v6)
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);
 		rai::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
-		auto status (mdb_put (transaction, store.accounts, rai::test_genesis_key.pub.val (), info_old.val (), 0));
+		auto status (mdb_put (transaction, store.accounts, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
 		assert (status == 0);
 	}
 	bool init (false);
@@ -914,7 +914,7 @@ TEST (block_store, upgrade_v8_v9)
 		ASSERT_EQ (0, mdb_drop (transaction, store.vote, 1));
 		ASSERT_EQ (0, mdb_dbi_open (transaction, "sequence", MDB_CREATE, &store.vote));
 		uint64_t sequence (10);
-		ASSERT_EQ (0, mdb_put (transaction, store.vote, key.pub.val (), rai::mdb_val (sizeof (sequence), &sequence), 0));
+		ASSERT_EQ (0, mdb_put (transaction, store.vote, rai::mdb_val (key.pub), rai::mdb_val (sizeof (sequence), &sequence), 0));
 		store.version_put (transaction, 8);
 	}
 	bool init (false);
