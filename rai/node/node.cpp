@@ -1313,7 +1313,7 @@ port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
-block_processor_thread ([this] () { block_processor.process_blocks (); })
+block_processor_thread ([this] () { this->block_processor.process_blocks (); })
 {
 	wallets.observer = [this] (rai::account const & account_a, bool active)
 	{
