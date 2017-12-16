@@ -59,7 +59,7 @@ TEST (wallet, startup_balance)
 	wallet_l->insert_adhoc (key.prv);
     auto wallet (std::make_shared <rai_qt::wallet> (*test_application, processor, *system.nodes [0], wallet_l, key.pub));
 	wallet->start ();
-	ASSERT_EQ ("Balance: 0", wallet->self.balance_label->text().toStdString ());
+	ASSERT_EQ ("Balance (XRB): 0", wallet->self.balance_label->text().toStdString ());
 }
 
 TEST (wallet, select_account)
