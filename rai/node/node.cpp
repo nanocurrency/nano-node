@@ -2729,7 +2729,7 @@ void rai::election::confirm_if_quarum (MDB_txn * transaction_a)
 
 void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 {
-	//if (tally_l.size () > 1)
+	if (node.config.logging.vote_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally weight %2% for root %1%") % votes.id.to_string () % last_winner->root ().to_string ());
 		for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
