@@ -9,8 +9,7 @@ set (RAIBLOCKS_GUI OFF CACHE BOOL "")
 set (RAIBLOCKS_TEST OFF CACHE BOOL "")
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
-      "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
 
 if (WIN32)
@@ -101,8 +100,6 @@ include_directories ("gtest/include")
 include_directories (beast/include)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
-set (WINSOCK2_LIBRARY Ws2_32 CACHE STRING "")
-set (IPHLPAPI_LIBRARY iphlpapi CACHE STRING "")
 add_subdirectory (miniupnp/miniupnpc)
 include_directories (miniupnp/miniupnpc)
 
@@ -270,7 +267,7 @@ if (RAIBLOCKS_GUI)
 	add_executable (rai_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
 		rai/rai_wallet/entry.cpp
-        ${RES})
+		${RES})
 
 	add_executable (qt_test
 		rai/qt_test/entry.cpp
@@ -297,7 +294,7 @@ set_target_properties (secure node rai_node PROPERTIES COMPILE_FLAGS "${PLATFORM
 set_target_properties (secure node rai_node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
 if (WIN32)
-	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi)
+	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi ntdll)
 else (WIN32)
 	set (PLATFORM_LIBS pthread dl)
 endif (WIN32)
