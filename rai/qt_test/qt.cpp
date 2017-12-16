@@ -32,7 +32,7 @@ TEST (wallet, status)
 	wallet_l->insert_adhoc (key.prv);
 	auto wallet (std::make_shared <rai_qt::wallet> (*test_application, processor, *system.nodes [0], wallet_l, key.pub));
 	wallet->start ();
-	ASSERT_EQ ("Status: Disconnected", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Disconnected, Block: 1", wallet->status->text ().toStdString ());
 	system.nodes [0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
 	ASSERT_NE ("Status: Synchronizing", wallet->status->text ().toStdString ());
 	auto iterations (0);
