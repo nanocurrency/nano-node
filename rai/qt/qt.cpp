@@ -247,7 +247,7 @@ void rai_qt::accounts::refresh_wallet_balance ()
 	rai::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		rai::public_key key (i->first);
+		rai::public_key key (i->first.uint256 ());
 		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
 	}
@@ -268,12 +268,12 @@ void rai_qt::accounts::refresh_wallet_balance ()
 
 void rai_qt::accounts::refresh ()
 {
-    model->removeRows (0, model->rowCount ());
+	model->removeRows (0, model->rowCount ());
 	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
 	QBrush brush;
-    for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
-    {
-        rai::public_key key (i->first);
+	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
+	{
+		rai::public_key key (i->first.uint256 ());
 		auto balance_amount (wallet.node.ledger.account_balance (transaction, key));
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))
@@ -301,7 +301,7 @@ void rai_qt::accounts::refresh ()
 			items.push_back (account);
 			model->appendRow (items);
 		}
-    }
+	}
 }
 
 rai_qt::import::import (rai_qt::wallet & wallet_a) :
@@ -1717,21 +1717,21 @@ void rai_qt::advanced_actions::refresh_peers ()
 
 void rai_qt::advanced_actions::refresh_ledger ()
 {
-    ledger_model->removeRows (0, ledger_model->rowCount ());
+	ledger_model->removeRows (0, ledger_model->rowCount ());
 	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-    for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
-    {
-        QList <QStandardItem *> items;
-        items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_account ().c_str ())));
+	for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
+	{
+		QList <QStandardItem *> items;
+		items.push_back (new QStandardItem (QString (rai::block_hash (i->first.uint256 ()).to_account ().c_str ())));
 		rai::account_info info (i->second);
 		std::string balance;
 		rai::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
-        items.push_back (new QStandardItem (QString (balance.c_str ())));
-        std::string block_hash;
-        info.head.encode_hex (block_hash);
-        items.push_back (new QStandardItem (QString (block_hash.c_str ())));
-        ledger_model->appendRow (items);
-    }
+		items.push_back (new QStandardItem (QString (balance.c_str ())));
+		std::string block_hash;
+		info.head.encode_hex (block_hash);
+		items.push_back (new QStandardItem (QString (block_hash.c_str ())));
+		ledger_model->appendRow (items);
+	}
 }
 
 rai_qt::block_entry::block_entry (rai_qt::wallet & wallet_a) :

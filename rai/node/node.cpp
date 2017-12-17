@@ -3189,7 +3189,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
 						{
-							rai::account account (i->first);
+							rai::account account (i->first.uint256 ());
 							rai::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
 							assert (!error);
@@ -3324,7 +3324,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			rai::transaction transaction (i->second->store.environment, nullptr, false);
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
 			{
-				std::cout << rai::uint256_union (j->first).to_account () << '\n';
+				std::cout << rai::uint256_union (j->first.uint256 ()).to_account () << '\n';
 			}
 		}
 	}

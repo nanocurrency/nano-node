@@ -130,6 +130,14 @@ size_t rai::mdb_val::size () const
 	return value.mv_size;
 }
 
+rai::uint256_union rai::mdb_val::uint256 () const
+{
+	rai::uint256_union result;
+	assert (size () == sizeof (result));
+	std::copy (reinterpret_cast <uint8_t const *> (data ()), reinterpret_cast <uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
+	return result;
+}
+
 rai::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
@@ -311,13 +319,6 @@ void rai::uint256_union::encrypt (rai::raw_key const & cleartext, rai::raw_key c
 	CryptoPP::AES::Encryption alg (key.data.bytes.data (), sizeof (key.data.bytes));
     CryptoPP::CTR_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
 	enc.ProcessData (bytes.data (), cleartext.data.bytes.data (), sizeof (cleartext.data.bytes));
-}
-
-rai::uint256_union::uint256_union (rai::mdb_val const & val_a)
-{
-	assert (val_a.size () == sizeof (*this));
-	static_assert (sizeof (bytes) == sizeof (*this), "Class not packed");
-	std::copy (reinterpret_cast <uint8_t const *> (val_a.data ()), reinterpret_cast <uint8_t const *> (val_a.data ()) + sizeof (*this), bytes.data ());
 }
 
 bool rai::uint256_union::is_zero () const

@@ -186,7 +186,6 @@ union uint256_union
 	uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (rai::uint256_t const &);
-	uint256_union (rai::mdb_val const &);
 	void encrypt (rai::raw_key const &, rai::raw_key const &, uint128_union const &);
 	uint256_union & operator ^= (rai::uint256_union const &);
 	uint256_union operator ^ (rai::uint256_union const &) const;
@@ -262,6 +261,7 @@ public:
 	mdb_val (rai::uint256_union const &);
 	void * data () const;
 	size_t size () const;
+	rai::uint256_union uint256 () const;
 	operator MDB_val * () const;
 	operator MDB_val const & () const;
 	MDB_val value;

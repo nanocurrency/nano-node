@@ -263,22 +263,22 @@ TEST (block_store, empty_bootstrap)
 
 TEST (block_store, one_bootstrap)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-    auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.unchecked_put (transaction, block1->hash (), block1);
+	store.unchecked_put (transaction, block1->hash (), block1);
 	store.flush (transaction);
-    auto begin (store.unchecked_begin (transaction));
-    auto end (store.unchecked_end ());
-    ASSERT_NE (end, begin);
-    auto hash1 (begin->first);
-    ASSERT_EQ (block1->hash (), hash1);
-    auto block2 (rai::deserialize_block (begin->second));
-    ASSERT_EQ (*block1, *block2);
-    ++begin;
-    ASSERT_EQ (end, begin);
+	auto begin (store.unchecked_begin (transaction));
+	auto end (store.unchecked_end ());
+	ASSERT_NE (end, begin);
+	auto hash1 (begin->first.uint256 ());
+	ASSERT_EQ (block1->hash (), hash1);
+	auto block2 (rai::deserialize_block (begin->second));
+	ASSERT_EQ (*block1, *block2);
+	++begin;
+	ASSERT_EQ (end, begin);
 }
 
 TEST (block_store, unchecked_begin_search)
@@ -293,134 +293,134 @@ TEST (block_store, unchecked_begin_search)
 
 TEST (block_store, frontier_retrieval)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-    rai::account account1 (0);
-    rai::account_info info1 (0, 0, 0, 0, 0, 0);
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::account account1 (0);
+	rai::account_info info1 (0, 0, 0, 0, 0, 0);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account1, info1);
-    rai::account_info info2;
-    store.account_get (transaction, account1, info2);
-    ASSERT_EQ (info1, info2);
+	store.account_put (transaction, account1, info1);
+	rai::account_info info2;
+	store.account_get (transaction, account1, info2);
+	ASSERT_EQ (info1, info2);
 }
 
 TEST (block_store, one_account)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-    rai::account account (0);
-    rai::block_hash hash (0);
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::account account (0);
+	rai::block_hash hash (0);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account, {hash, account, hash, 42, 100, 200});
-    auto begin (store.latest_begin (transaction));
-    auto end (store.latest_end ());
-    ASSERT_NE (end, begin);
-    ASSERT_EQ (account, begin->first);
+	store.account_put (transaction, account, {hash, account, hash, 42, 100, 200});
+	auto begin (store.latest_begin (transaction));
+	auto end (store.latest_end ());
+	ASSERT_NE (end, begin);
+	ASSERT_EQ (account, begin->first.uint256 ());
 	rai::account_info info (begin->second);
-    ASSERT_EQ (hash, info.head);
-    ASSERT_EQ (42, info.balance.number ());
-    ASSERT_EQ (100, info.modified);
+	ASSERT_EQ (hash, info.head);
+	ASSERT_EQ (42, info.balance.number ());
+	ASSERT_EQ (100, info.modified);
 	ASSERT_EQ (200, info.block_count);
-    ++begin;
-    ASSERT_EQ (end, begin);
+	++begin;
+	ASSERT_EQ (end, begin);
 }
 
 TEST (block_store, two_block)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-    rai::open_block block1 (0, 1, 1, rai::keypair ().prv, 0, 0);
-    block1.hashables.account = 1;
-    std::vector <rai::block_hash> hashes;
-    std::vector <rai::open_block> blocks;
-    hashes.push_back (block1.hash ());
-    blocks.push_back (block1);
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::open_block block1 (0, 1, 1, rai::keypair ().prv, 0, 0);
+	block1.hashables.account = 1;
+	std::vector <rai::block_hash> hashes;
+	std::vector <rai::open_block> blocks;
+	hashes.push_back (block1.hash ());
+	blocks.push_back (block1);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.block_put (transaction, hashes [0], block1);
-    rai::open_block block2 (0, 1, 2, rai::keypair ().prv, 0, 0);
-    hashes.push_back (block2.hash ());
-    blocks.push_back (block2);
-    store.block_put (transaction, hashes [1], block2);
+	store.block_put (transaction, hashes [0], block1);
+	rai::open_block block2 (0, 1, 2, rai::keypair ().prv, 0, 0);
+	hashes.push_back (block2.hash ());
+	blocks.push_back (block2);
+	store.block_put (transaction, hashes [1], block2);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
 }
 
 TEST (block_store, two_account)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-    rai::account account1 (1);
-    rai::block_hash hash1 (2);
-    rai::account account2 (3);
-    rai::block_hash hash2 (4);
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::account account1 (1);
+	rai::block_hash hash1 (2);
+	rai::account account2 (3);
+	rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account1, {hash1, account1, hash1, 42, 100, 300});
-    store.account_put (transaction, account2, {hash2, account2, hash2, 84, 200, 400});
-    auto begin (store.latest_begin (transaction));
-    auto end (store.latest_end ());
-    ASSERT_NE (end, begin);
-    ASSERT_EQ (account1, begin->first);
+	store.account_put (transaction, account1, {hash1, account1, hash1, 42, 100, 300});
+	store.account_put (transaction, account2, {hash2, account2, hash2, 84, 200, 400});
+	auto begin (store.latest_begin (transaction));
+	auto end (store.latest_end ());
+	ASSERT_NE (end, begin);
+	ASSERT_EQ (account1, begin->first.uint256 ());
 	rai::account_info info1 (begin->second);
-    ASSERT_EQ (hash1, info1.head);
-    ASSERT_EQ (42, info1.balance.number ());
-    ASSERT_EQ (100, info1.modified);
+	ASSERT_EQ (hash1, info1.head);
+	ASSERT_EQ (42, info1.balance.number ());
+	ASSERT_EQ (100, info1.modified);
 	ASSERT_EQ (300, info1.block_count);
-    ++begin;
-    ASSERT_NE (end, begin);
-    ASSERT_EQ (account2, begin->first);
+	++begin;
+	ASSERT_NE (end, begin);
+	ASSERT_EQ (account2, begin->first.uint256 ());
 	rai::account_info info2 (begin->second);
-    ASSERT_EQ (hash2, info2.head);
-    ASSERT_EQ (84, info2.balance.number ());
-    ASSERT_EQ (200, info2.modified);
+	ASSERT_EQ (hash2, info2.head);
+	ASSERT_EQ (84, info2.balance.number ());
+	ASSERT_EQ (200, info2.modified);
 	ASSERT_EQ (400, info2.block_count);
-    ++begin;
-    ASSERT_EQ (end, begin);
+	++begin;
+	ASSERT_EQ (end, begin);
 }
 
 TEST (block_store, latest_find)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
-    ASSERT_TRUE (!init);
-    rai::account account1 (1);
-    rai::block_hash hash1 (2);
-    rai::account account2 (3);
-    rai::block_hash hash2 (4);
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::account account1 (1);
+	rai::block_hash hash1 (2);
+	rai::account account2 (3);
+	rai::block_hash hash2 (4);
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, account1, {hash1, account1, hash1, 100, 0, 300});
-    store.account_put (transaction, account2, {hash2, account2, hash2, 200, 0, 400});
-    auto first (store.latest_begin (transaction));
-    auto second (store.latest_begin (transaction));
-    ++second;
-    auto find1 (store.latest_begin (transaction, 1));
-    ASSERT_EQ (first, find1);
-    auto find2 (store.latest_begin (transaction, 3));
-    ASSERT_EQ (second, find2);
-    auto find3 (store.latest_begin (transaction, 2));
-    ASSERT_EQ (second, find3);
+	store.account_put (transaction, account1, {hash1, account1, hash1, 100, 0, 300});
+	store.account_put (transaction, account2, {hash2, account2, hash2, 200, 0, 400});
+	auto first (store.latest_begin (transaction));
+	auto second (store.latest_begin (transaction));
+	++second;
+	auto find1 (store.latest_begin (transaction, 1));
+	ASSERT_EQ (first, find1);
+	auto find2 (store.latest_begin (transaction, 3));
+	ASSERT_EQ (second, find2);
+	auto find3 (store.latest_begin (transaction, 2));
+	ASSERT_EQ (second, find3);
 }
 
 TEST (block_store, bad_path)
 {
-    bool init (false);
-    rai::block_store store (init, boost::filesystem::path ("///"));
-    ASSERT_TRUE (init);
+	bool init (false);
+	rai::block_store store (init, boost::filesystem::path ("///"));
+	ASSERT_TRUE (init);
 }
 
 TEST (block_store, DISABLED_already_open) // File can be shared
 {
-    auto path (rai::unique_path ());
-    boost::filesystem::create_directories (path.parent_path ());
-    std::ofstream file;
-    file.open (path.string ().c_str ());
-    ASSERT_TRUE (file.is_open ());
-    bool init (false);
-    rai::block_store store (init, path);
-    ASSERT_TRUE (init);
+	auto path (rai::unique_path ());
+	boost::filesystem::create_directories (path.parent_path ());
+	std::ofstream file;
+	file.open (path.string ().c_str ());
+	ASSERT_TRUE (file.is_open ());
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_TRUE (init);
 }
 
 TEST (block_store, roots)
@@ -440,73 +440,73 @@ TEST (block_store, roots)
 
 TEST (block_store, pending_exists)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-    rai::pending_key two (2, 0);
-    rai::pending_info pending;
+	rai::pending_key two (2, 0);
+	rai::pending_info pending;
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.pending_put (transaction, two, pending);
-    rai::pending_key one (1, 0);
-    ASSERT_FALSE (store.pending_exists (transaction, one));
+	store.pending_put (transaction, two, pending);
+	rai::pending_key one (1, 0);
+	ASSERT_FALSE (store.pending_exists (transaction, one));
 }
 
 TEST (block_store, latest_exists)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-    rai::block_hash two (2);
-    rai::account_info info;
+	rai::block_hash two (2);
+	rai::account_info info;
 	rai::transaction transaction (store.environment, nullptr, true);
-    store.account_put (transaction, two, info);
-    rai::block_hash one (1);
-    ASSERT_FALSE (store.account_exists (transaction, one));
+	store.account_put (transaction, two, info);
+	rai::block_hash one (1);
+	ASSERT_FALSE (store.account_exists (transaction, one));
 }
 
 TEST (block_store, unsynced)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::transaction transaction (store.environment, nullptr, true);
-    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
-    rai::block_hash hash1 (0);
-    ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
-    store.unsynced_put (transaction, hash1);
-    ASSERT_TRUE (store.unsynced_exists (transaction, hash1));
-    ASSERT_NE (store.unsynced_end (), store.unsynced_begin (transaction));
-    ASSERT_EQ (hash1, rai::uint256_union (store.unsynced_begin (transaction)->first));
-    store.unsynced_del (transaction, hash1);
-    ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
-    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
+	ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
+	rai::block_hash hash1 (0);
+	ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
+	store.unsynced_put (transaction, hash1);
+	ASSERT_TRUE (store.unsynced_exists (transaction, hash1));
+	ASSERT_NE (store.unsynced_end (), store.unsynced_begin (transaction));
+	ASSERT_EQ (hash1, rai::uint256_union (store.unsynced_begin (transaction)->first.uint256 ()));
+	store.unsynced_del (transaction, hash1);
+	ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
+	ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
 }
 
 TEST (block_store, unsynced_iteration)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::transaction transaction (store.environment, nullptr, true);
-    ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
-    rai::block_hash hash1 (1);
-    store.unsynced_put (transaction, hash1);
-    rai::block_hash hash2 (2);
-    store.unsynced_put (transaction, hash2);
-    std::unordered_set <rai::block_hash> hashes;
-    for (auto i (store.unsynced_begin (transaction)), n (store.unsynced_end ()); i != n; ++i)
-    {
-        hashes.insert (rai::uint256_union (i->first));
-    }
-    ASSERT_EQ (2, hashes.size ());
-    ASSERT_TRUE (hashes.find (hash1) != hashes.end ());
-    ASSERT_TRUE (hashes.find (hash2) != hashes.end ());
+	ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
+	rai::block_hash hash1 (1);
+	store.unsynced_put (transaction, hash1);
+	rai::block_hash hash2 (2);
+	store.unsynced_put (transaction, hash2);
+	std::unordered_set <rai::block_hash> hashes;
+	for (auto i (store.unsynced_begin (transaction)), n (store.unsynced_end ()); i != n; ++i)
+	{
+		hashes.insert (rai::uint256_union (i->first.uint256 ()));
+	}
+	ASSERT_EQ (2, hashes.size ());
+	ASSERT_TRUE (hashes.find (hash1) != hashes.end ());
+	ASSERT_TRUE (hashes.find (hash2) != hashes.end ());
 }
 
 TEST (block_store, large_iteration)
 {
-    bool init (false);
-    rai::block_store store (init, rai::unique_path ());
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	std::unordered_set <rai::account> accounts1;
 	for (auto i (0); i < 1000; ++i)
@@ -522,7 +522,7 @@ TEST (block_store, large_iteration)
 	rai::transaction transaction (store.environment, nullptr, false);
 	for (auto i (store.latest_begin (transaction, 0)), n (store.latest_end ()); i != n; ++i)
 	{
-		rai::account current (i->first);
+		rai::account current (i->first.uint256 ());
 		assert (current.number () > previous.number ());
 		accounts2.insert (current);
 		previous = current;

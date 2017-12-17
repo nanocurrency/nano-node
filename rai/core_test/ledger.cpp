@@ -565,7 +565,7 @@ TEST (system, generate_send_existing)
 
 TEST (system, generate_send_new)
 {
-    rai::system system (24000, 1);
+	rai::system system (24000, 1);
 	rai::thread_runner runner (system.service, system.nodes [0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
@@ -577,32 +577,32 @@ TEST (system, generate_send_new)
 	}
 	std::vector <rai::account> accounts;
 	accounts.push_back (rai::test_genesis_key.pub);
-    system.generate_send_new (*system.nodes [0], accounts);
+	system.generate_send_new (*system.nodes [0], accounts);
 	rai::account new_account (0);
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
 		auto iterator2 (system.wallet (0)->store.begin (transaction));
-		if (rai::uint256_union (iterator2->first) != rai::test_genesis_key.pub)
+		if (iterator2->first.uint256 () != rai::test_genesis_key.pub)
 		{
-			new_account = iterator2->first;
+			new_account = iterator2->first.uint256 ();
 		}
 		++iterator2;
 		ASSERT_NE (system.wallet (0)->store.end (), iterator2);
-		if (rai::uint256_union (iterator2->first) != rai::test_genesis_key.pub)
+		if (iterator2->first.uint256 () != rai::test_genesis_key.pub)
 		{
-			new_account = iterator2->first;
+			new_account = iterator2->first.uint256 ();
 		}
 		++iterator2;
 		ASSERT_EQ (system.wallet (0)->store.end (), iterator2);
 		ASSERT_FALSE (new_account.is_zero ());
 	}
-    auto iterations (0);
-    while (system.nodes [0]->balance (new_account) == 0)
-    {
-        system.poll ();
-        ++iterations;
-        ASSERT_LT (iterations, 200);
-    }
+	auto iterations (0);
+	while (system.nodes [0]->balance (new_account) == 0)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 	system.stop ();
 	runner.join ();
 }

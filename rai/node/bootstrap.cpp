@@ -423,7 +423,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::account (iterator->first);
+		current = rai::account (iterator->first.uint256 ());
 		info = rai::account_info (iterator->second);
 	}
 	else
@@ -665,7 +665,7 @@ void rai::bulk_push_client::push (MDB_txn * transaction_a)
 		auto first (connection->node->store.unsynced_begin (transaction_a));
 		if (first != rai::store_iterator (nullptr))
 		{
-			rai::block_hash hash (first->first);
+			rai::block_hash hash (first->first.uint256 ());
 			if (!hash.is_zero ())
 			{
 				connection->node->store.unsynced_del (transaction_a, hash);
@@ -1696,7 +1696,7 @@ void rai::frontier_req_server::next ()
 	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::uint256_union (iterator->first);
+		current = rai::uint256_union (iterator->first.uint256 ());
 		info = rai::account_info (iterator->second);
 	}
 	else

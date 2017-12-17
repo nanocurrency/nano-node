@@ -145,8 +145,8 @@ int main (int argc, char * const * argv)
 		{
 			data_path = rai::working_path ();
 		}
-        rai_daemon::daemon daemon;
-        daemon.run (data_path);
+		rai_daemon::daemon daemon;
+		daemon.run (data_path);
 	}
 	else if (vm.count ("debug_block_count"))
 	{
@@ -209,7 +209,7 @@ int main (int argc, char * const * argv)
 		rai::uint128_t total;
 		for (auto i(node.node->store.representation_begin(transaction)), n(node.node->store.representation_end()); i != n; ++i)
 		{
-			rai::account account(i->first);
+			rai::account account (i->first.uint256 ());
 			auto amount (node.node->store.representation_get(transaction, account));
 			total += amount;
 			std::cout << boost::str(boost::format("%1% %2% %3%\n") % account.to_account () % amount.convert_to <std::string> () % total.convert_to<std::string> ());
@@ -217,7 +217,7 @@ int main (int argc, char * const * argv)
 		std::map <rai::account, rai::uint128_t> calculated;
 		for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 		{
-			rai::account account (i->first);
+			rai::account account (i->first.uint256 ());
 			rai::account_info info (i->second);
 			rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
 			std::unique_ptr <rai::block> block (node.node->store.block_get (transaction, rep_block));
@@ -236,41 +236,41 @@ int main (int argc, char * const * argv)
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
 		std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.frontier_count (transaction));
 	}
-    else if (vm.count ("debug_mass_activity"))
-    {
-        rai::system system (24000, 1);
-        size_t count (1000000);
-        system.generate_mass_activity (count, *system.nodes [0]);
-    }
-    else if (vm.count ("debug_profile_kdf"))
-    {
+	else if (vm.count ("debug_mass_activity"))
+	{
+		rai::system system (24000, 1);
+		size_t count (1000000);
+		system.generate_mass_activity (count, *system.nodes [0]);
+	}
+	else if (vm.count ("debug_profile_kdf"))
+	{
 		rai::uint256_union result;
 		rai::uint256_union salt (0);
 		std::string password ("");
-        for (; true;)
-        {
-            auto begin1 (std::chrono::high_resolution_clock::now ());
+		for (; true;)
+		{
+			auto begin1 (std::chrono::high_resolution_clock::now ());
 			auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
 			auto end1 (std::chrono::high_resolution_clock::now ());
-            std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
-        }
-    }
-    else if (vm.count ("debug_profile_generate"))
-    {
+			std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+		}
+	}
+	else if (vm.count ("debug_profile_generate"))
+	{
 		rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
-        rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
-        std::cerr << "Starting generation profiling\n";
-        for (uint64_t i (0); true; ++i)
-        {
-            block.hashables.previous.qwords [0] += 1;
-            auto begin1 (std::chrono::high_resolution_clock::now ());
-            block.block_work_set (work.generate (block.root ()));
-            auto end1 (std::chrono::high_resolution_clock::now ());
-            std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
-        }
-    }
-    else if (vm.count ("debug_opencl"))
-    {
+		rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
+		std::cerr << "Starting generation profiling\n";
+		for (uint64_t i (0); true; ++i)
+		{
+			block.hashables.previous.qwords [0] += 1;
+			auto begin1 (std::chrono::high_resolution_clock::now ());
+			block.block_work_set (work.generate (block.root ()));
+			auto end1 (std::chrono::high_resolution_clock::now ());
+			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+		}
+	}
+	else if (vm.count ("debug_opencl"))
+	{
 		bool error (false);
 		rai::opencl_environment environment (error);
 		if (!error)
@@ -348,42 +348,42 @@ int main (int argc, char * const * argv)
 			std::cout << "Error initializing OpenCL" << std::endl;
 			result = -1;
 		}
-    }
-    else if (vm.count ("debug_profile_verify"))
-    {
+	}
+	else if (vm.count ("debug_profile_verify"))
+	{
 		rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
-        rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
-        std::cerr << "Starting verification profiling\n";
-        for (uint64_t i (0); true; ++i)
-        {
-            block.hashables.previous.qwords [0] += 1;
-            auto begin1 (std::chrono::high_resolution_clock::now ());
-            for (uint64_t t (0); t < 1000000; ++t)
-            {
-                block.hashables.previous.qwords [0] += 1;
-                block.block_work_set (t);
-                work.work_validate (block);
-            }
-            auto end1 (std::chrono::high_resolution_clock::now ());
-            std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
-        }
-    }
-    else if (vm.count ("debug_verify_profile"))
-    {
-        rai::keypair key;
-        rai::uint256_union message;
-        rai::uint512_union signature;
-        signature = rai::sign_message (key.prv, key.pub, message);
-        auto begin (std::chrono::high_resolution_clock::now ());
-        for (auto i (0u); i < 1000; ++i)
-        {
-            rai::validate_message (key.pub, message, signature);
-        }
-        auto end (std::chrono::high_resolution_clock::now ());
-        std::cerr << "Signature verifications " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
-    }
-    else if (vm.count ("debug_profile_sign"))
-    {
+		rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
+		std::cerr << "Starting verification profiling\n";
+		for (uint64_t i (0); true; ++i)
+		{
+			block.hashables.previous.qwords [0] += 1;
+			auto begin1 (std::chrono::high_resolution_clock::now ());
+			for (uint64_t t (0); t < 1000000; ++t)
+			{
+				block.hashables.previous.qwords [0] += 1;
+				block.block_work_set (t);
+				work.work_validate (block);
+			}
+			auto end1 (std::chrono::high_resolution_clock::now ());
+			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+		}
+	}
+	else if (vm.count ("debug_verify_profile"))
+	{
+		rai::keypair key;
+		rai::uint256_union message;
+		rai::uint512_union signature;
+		signature = rai::sign_message (key.prv, key.pub, message);
+		auto begin (std::chrono::high_resolution_clock::now ());
+		for (auto i (0u); i < 1000; ++i)
+		{
+			rai::validate_message (key.pub, message, signature);
+		}
+		auto end (std::chrono::high_resolution_clock::now ());
+		std::cerr << "Signature verifications " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
+	}
+	else if (vm.count ("debug_profile_sign"))
+	{
 		std::cerr << "Starting blocks signing profiling\n";
 		for (uint64_t i (0); true; ++i)
 		{
@@ -397,69 +397,69 @@ int main (int argc, char * const * argv)
 			}
 			auto end1 (std::chrono::high_resolution_clock::now ());
 			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
-        }
-    }
-#if 0
-    else if (vm.count ("debug_xorshift_profile"))
-    {
-        auto unaligned (new uint8_t [64 * 1024 * 1024 + 16]);
-        auto aligned (reinterpret_cast <void *> (reinterpret_cast <uintptr_t> (unaligned) & ~uintptr_t (0xfu)));
-        {
-            memset (aligned, 0x0, 64 * 1024 * 1024);
-            auto begin (std::chrono::high_resolution_clock::now ());
-            for (auto i (0u); i < 1000; ++i)
-            {
-                fill_zero (aligned);
-            }
-            auto end (std::chrono::high_resolution_clock::now ());
-            std::cerr << "Memset " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
-        }
-        {
-            memset (aligned, 0x0, 64 * 1024 * 1024);
-            auto begin (std::chrono::high_resolution_clock::now ());
-            for (auto i (0u); i < 1000; ++i)
-            {
-                fill_128_reference (aligned);
-            }
-            auto end (std::chrono::high_resolution_clock::now ());
-            std::cerr << "Ref fill 128 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
-        }
-        {
-            memset (aligned, 0x0, 64 * 1024 * 1024);
-            auto begin (std::chrono::high_resolution_clock::now ());
-            for (auto i (0u); i < 1000; ++i)
-            {
-                fill_1024_reference (aligned);
-            }
-            auto end (std::chrono::high_resolution_clock::now ());
-            std::cerr << "Ref fill 1024 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
-        }
-        {
-            memset (aligned, 0x0, 64 * 1024 * 1024);
-            auto begin (std::chrono::high_resolution_clock::now ());
-            for (auto i (0u); i < 1000; ++i)
-            {
-                fill_128_sse (aligned);
-            }
-            auto end (std::chrono::high_resolution_clock::now ());
-            std::cerr << "SSE fill 128 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
-        }
-        {
-            memset (aligned, 0x0, 64 * 1024 * 1024);
-            auto begin (std::chrono::high_resolution_clock::now ());
-            for (auto i (0u); i < 1000; ++i)
-            {
-                fill_1024_sse (aligned);
-            }
-            auto end (std::chrono::high_resolution_clock::now ());
-            std::cerr << "SSE fill 1024 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
-        }
-    }
-#endif // 0
-    else
-    {
+		}
+	}
+	#if 0
+	else if (vm.count ("debug_xorshift_profile"))
+	{
+		auto unaligned (new uint8_t [64 * 1024 * 1024 + 16]);
+		auto aligned (reinterpret_cast <void *> (reinterpret_cast <uintptr_t> (unaligned) & ~uintptr_t (0xfu)));
+		{
+			memset (aligned, 0x0, 64 * 1024 * 1024);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			for (auto i (0u); i < 1000; ++i)
+			{
+				fill_zero (aligned);
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "Memset " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
+		{
+			memset (aligned, 0x0, 64 * 1024 * 1024);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			for (auto i (0u); i < 1000; ++i)
+			{
+				fill_128_reference (aligned);
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "Ref fill 128 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
+		{
+			memset (aligned, 0x0, 64 * 1024 * 1024);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			for (auto i (0u); i < 1000; ++i)
+			{
+				fill_1024_reference (aligned);
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "Ref fill 1024 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
+		{
+			memset (aligned, 0x0, 64 * 1024 * 1024);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			for (auto i (0u); i < 1000; ++i)
+			{
+				fill_128_sse (aligned);
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "SSE fill 128 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
+		{
+			memset (aligned, 0x0, 64 * 1024 * 1024);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			for (auto i (0u); i < 1000; ++i)
+			{
+				fill_1024_sse (aligned);
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "SSE fill 1024 " << std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
+	}
+	#endif // 0
+	else
+	{
 		std::cout << description << std::endl;
 		result = -1;
-    }
-    return result;
+	}
+	return result;
 }
