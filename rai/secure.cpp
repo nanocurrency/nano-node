@@ -1810,7 +1810,7 @@ void rai::block_store::upgrade_v8_to_v9 (MDB_txn * transaction_a)
 
 void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 {
-	std::cerr << boost::str (boost::format ("Performing database upgrade to version 10...\n"));
+	//std::cerr << boost::str (boost::format ("Performing database upgrade to version 10...\n"));
 	version_put (transaction_a, 10);
 	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 	{
@@ -1818,7 +1818,7 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 		if (info.block_count >= block_info_max)
 		{
 			rai::account account (i->first.uint256 ());
-			std::cerr << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
+			//std::cerr << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
 			size_t block_count (1);
 			auto hash (info.open_block);
 			while (!hash.is_zero ())
@@ -1836,7 +1836,7 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 			}
 		}
 	}
-	std::cerr << boost::str (boost::format ("Database upgrade is completed\n"));
+	//std::cerr << boost::str (boost::format ("Database upgrade is completed\n"));
 }
 
 void rai::block_store::clear (MDB_dbi db_a)
