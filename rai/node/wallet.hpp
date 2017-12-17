@@ -57,8 +57,8 @@ class wallet_value
 {
 public:
 	wallet_value () = default;
-	wallet_value (MDB_val const &);
-	wallet_value (rai::uint256_union const &);
+	wallet_value (rai::mdb_val const &);
+	wallet_value (rai::uint256_union const &, uint64_t);
 	rai::mdb_val val () const;
 	rai::private_key key;
 	uint64_t work;

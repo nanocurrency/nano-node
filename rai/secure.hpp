@@ -255,8 +255,8 @@ public:
 	store_entry ();
 	void clear ();
 	store_entry * operator -> ();
-	MDB_val first;
-	MDB_val second;
+	rai::mdb_val first;
+	rai::mdb_val second;
 };
 class store_iterator
 {

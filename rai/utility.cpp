@@ -95,6 +95,16 @@ rai::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
+rai::mdb_val::mdb_val () :
+value ({0, nullptr})
+{
+}
+
+rai::mdb_val::mdb_val (MDB_val const & value_a) :
+value (value_a)
+{
+}
+
 rai::mdb_val::mdb_val (size_t size_a, void * data_a) :
 value ({size_a, data_a})
 {
@@ -108,6 +118,16 @@ mdb_val (sizeof (val_a), const_cast <rai::uint128_union *> (&val_a))
 rai::mdb_val::mdb_val (rai::uint256_union const & val_a) :
 mdb_val (sizeof (val_a), const_cast <rai::uint256_union *> (&val_a))
 {
+}
+
+void * rai::mdb_val::data () const
+{
+	return value.mv_data;
+}
+
+size_t rai::mdb_val::size () const
+{
+	return value.mv_size;
 }
 
 rai::mdb_val::operator MDB_val * () const
@@ -293,11 +313,11 @@ void rai::uint256_union::encrypt (rai::raw_key const & cleartext, rai::raw_key c
 	enc.ProcessData (bytes.data (), cleartext.data.bytes.data (), sizeof (cleartext.data.bytes));
 }
 
-rai::uint256_union::uint256_union (MDB_val const & val_a)
+rai::uint256_union::uint256_union (rai::mdb_val const & val_a)
 {
-	assert (val_a.mv_size == sizeof (*this));
+	assert (val_a.size () == sizeof (*this));
 	static_assert (sizeof (bytes) == sizeof (*this), "Class not packed");
-	std::copy (reinterpret_cast <uint8_t const *> (val_a.mv_data), reinterpret_cast <uint8_t const *> (val_a.mv_data) + sizeof (*this), bytes.data ());
+	std::copy (reinterpret_cast <uint8_t const *> (val_a.data ()), reinterpret_cast <uint8_t const *> (val_a.data ()) + sizeof (*this), bytes.data ());
 }
 
 bool rai::uint256_union::is_zero () const

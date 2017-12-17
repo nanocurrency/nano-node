@@ -3467,7 +3467,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
 		{
 			bool error (false);
-			rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.mv_data), i->second.mv_size);
+			rai::bufferstream stream (reinterpret_cast <uint8_t const *> (i->second.data ()), i->second.size ());
 			auto vote (std::make_shared <rai::vote> (error, stream));
 			assert (!error);
 			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());

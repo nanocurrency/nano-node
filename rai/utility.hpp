@@ -179,13 +179,14 @@ public:
 // Balances are 128 bit.
 using amount = uint128_union;
 class raw_key;
+class mdb_val;
 union uint256_union
 {
 	uint256_union () = default;
 	uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (rai::uint256_t const &);
-	uint256_union (MDB_val const &);
+	uint256_union (rai::mdb_val const &);
 	void encrypt (rai::raw_key const &, rai::raw_key const &, uint128_union const &);
 	uint256_union & operator ^= (rai::uint256_union const &);
 	uint256_union operator ^ (rai::uint256_union const &) const;
@@ -254,9 +255,13 @@ bool validate_message (rai::public_key const &, rai::uint256_union const &, rai:
 class mdb_val
 {
 public:
+	mdb_val ();
+	mdb_val (MDB_val const &);
 	mdb_val (size_t, void *);
 	mdb_val (rai::uint128_union const &);
 	mdb_val (rai::uint256_union const &);
+	void * data () const;
+	size_t size () const;
 	operator MDB_val * () const;
 	operator MDB_val const & () const;
 	MDB_val value;

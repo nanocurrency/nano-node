@@ -708,7 +708,7 @@ TEST (wallet, version_1_2_upgrade)
 		password_l.decrypt (value.key, kdf, wallet->store.salt (transaction).owords [0]);
 		rai::uint256_union ciphertext;
 		ciphertext.encrypt (key.prv, password_l, wallet->store.salt (transaction).owords [0]);
-		wallet->store.entry_put_raw (transaction, key.pub, rai::wallet_value (ciphertext));
+		wallet->store.entry_put_raw (transaction, key.pub, rai::wallet_value (ciphertext, 0));
 		wallet->store.version_put (transaction, 1);
 	}
 	
@@ -728,7 +728,7 @@ TEST (wallet, version_1_2_upgrade)
 		password_l.decrypt (value.key, kdf, wallet->store.salt (transaction).owords [0]);
 		rai::uint256_union ciphertext;
 		ciphertext.encrypt (key.prv, password_l, wallet->store.salt (transaction).owords [0]);
-		wallet->store.entry_put_raw (transaction, key.pub, rai::wallet_value (ciphertext));
+		wallet->store.entry_put_raw (transaction, key.pub, rai::wallet_value (ciphertext, 0));
 		wallet->store.version_put (transaction, 1);
 	}
 	wallet->enter_password ("1");
