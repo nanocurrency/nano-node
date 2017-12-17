@@ -123,10 +123,13 @@ int main (int argc, char * const * argv)
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_profile_sign", "Profile signature generation")
+		("debug_profile_unchecked", "Profile unchecked blocks processing")
 		("debug_xorshift_profile", "Profile xorshift algorithms")
 		("platform", boost::program_options::value <std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value <std::string> (), "Defines <device> for OpenCL command")
-		("threads", boost::program_options::value <std::string> (), "Defines <threads> count for OpenCL command");
+		("threads", boost::program_options::value <std::string> (), "Defines <threads> count for OpenCL command")
+		("block_count", boost::program_options::value <std::string> (), "Defines <block_count> for blocks processing commands")
+		("unchecked_cache_max", boost::program_options::value <std::string> (), "Defines <unchecked_cache_max> for unchecked blocks processing");
 	boost::program_options::variables_map vm;
 	boost::program_options::store (boost::program_options::parse_command_line(argc, argv, description), vm);
 	boost::program_options::notify (vm);
@@ -398,6 +401,79 @@ int main (int argc, char * const * argv)
 			auto end1 (std::chrono::high_resolution_clock::now ());
 			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
         }
+    }
+    else if (vm.count ("debug_profile_unchecked"))
+    {
+	unsigned block_count (1000000);
+	unsigned unchecked_cache_max (256);
+	if (vm.count ("block_count") == 1)
+	{
+		try
+		{
+			block_count = boost::lexical_cast <unsigned> (vm ["block_count"].as <std::string> ());
+		}
+		catch (boost::bad_lexical_cast & e )
+		{
+			std::cerr << "Invalid block count\n";
+			result = -1;
+		}
+	}
+	if (vm.count ("unchecked_cache_max") == 1)
+	{
+		try
+		{
+			unchecked_cache_max = boost::lexical_cast <unsigned> (vm ["unchecked_cache_max"].as <std::string> ());
+		}
+		catch (boost::bad_lexical_cast & e )
+		{
+			std::cerr << "Invalid unchecked cache max number\n";
+			result = -1;
+		}
+	}
+	std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % (block_count));
+	rai::system system (24000, 1);
+	rai::node_init init;
+	rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
+	rai::logging logging;
+	auto path (rai::unique_path ());
+	logging.init (path);
+	auto node (std::make_shared <rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
+	if (unchecked_cache_max == 0)
+	{
+		unchecked_cache_max = node->store.unchecked_cache_max;
+	}
+	rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
+	rai::uint128_t genesis_balance (std::numeric_limits <rai::uint128_t>::max ());
+	rai::send_block genesis_send (genesis_latest, rai::test_genesis_key.pub, genesis_balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	genesis_latest = genesis_send.hash ();
+	// Generating blocks
+	std::vector <std::pair <rai::block_hash, std::shared_ptr <rai::block>>> blocks;
+	for (auto i (0); i != block_count; ++i)
+	{
+		--genesis_balance;
+		auto send (std::make_shared <rai::send_block> (genesis_latest, rai::test_genesis_key.pub, genesis_balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+		blocks.push_back (std::make_pair (genesis_latest, send));
+		genesis_latest = send->hash ();
+	}
+	// Processing blocks
+	std::cerr << boost::str (boost::format ("Starting processing %1% unchecked blocks\n") % (block_count));
+	auto begin1 (std::chrono::high_resolution_clock::now ());
+	for (auto i (0); i != block_count; ++i)
+	{
+		node->store.unchecked_cache.insert (blocks[i]);
+		if (node->store.unchecked_cache.size () > unchecked_cache_max)
+		{
+			rai::transaction transaction (node->store.environment, nullptr, true);
+			node->store.unchecked_cache_flush (transaction);
+		}
+	}
+	{
+		rai::transaction transaction (node->store.environment, nullptr, true);
+		node->store.unchecked_cache_flush (transaction);
+	}
+	auto end1 (std::chrono::high_resolution_clock::now ());
+	std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());
+	node->stop ();
     }
 #if 0
     else if (vm.count ("debug_xorshift_profile"))
