@@ -8,35 +8,48 @@
 
 #include <rai/numbers.hpp>
 
+#include <cstring>
+
 extern "C" {
 void xrb_uint256_to_string (xrb_uint256 source, char * destination)
 {
-
+	auto const & number (*reinterpret_cast <rai::uint256_union *> (source));
+	strncpy (destination, number.to_string ().c_str (), 65);
 }
 
 void xrb_uint512_to_string (xrb_uint512 source, char * destination)
 {
-
+	auto const & number (*reinterpret_cast <rai::uint512_union *> (source));
+	strncpy (destination, number.to_string ().c_str (), 129);
 }
 
 int xrb_uint256_from_string (char * source, xrb_uint256 destination)
 {
-	return 1;
+	auto & number (*reinterpret_cast <rai::uint256_union *> (destination));
+	auto error (number.decode_hex (source));
+	auto result (error ? 1 : 0);
+	return result;
 }
 
 int xrb_uint512_from_string (char * source, xrb_uint512 destination)
 {
-	return 1;
+	auto & number (*reinterpret_cast <rai::uint512_union *> (destination));
+	auto error (number.decode_hex (source));
+	auto result (error ? 1 : 0);
+	return result;
 }
 
-int xrb_valid_address (char * account)
+int xrb_valid_address (char * account_a)
 {
-	return 1;
+	rai::uint256_union account;
+	auto error (account.decode_account (account_a));
+	auto result (error ? 1 : 0);
+	return result;
 }
 
-void sign_transaction (char * transaction, xrb_uint256 private_key, xrb_uint512 signature)
+char * sign_transaction (char * transaction, xrb_uint256 private_key, xrb_uint512 signature)
 {
-
+	return nullptr;
 }
 
 #include <ed25519-donna/ed25519-hash-custom.h>

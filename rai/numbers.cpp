@@ -409,6 +409,13 @@ rai::uint512_union & rai::uint512_union::operator ^= (rai::uint512_union const &
 	return *this;
 }
 
+std::string rai::uint512_union::to_string () const
+{
+	std::string result;
+	encode_hex (result);
+	return result;
+}
+
 rai::raw_key::~raw_key ()
 {
 	data.clear ();

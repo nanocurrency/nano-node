@@ -114,6 +114,7 @@ union uint512_union
 	std::array <uint256_union, 2> uint256s;
 	void clear ();
 	rai::uint512_t number () const;
+	std::string to_string () const;
 };
 // Only signatures are 512 bit.
 using signature = uint512_union;
