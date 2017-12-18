@@ -2712,13 +2712,9 @@ std::shared_ptr <rai::vote> rai::block_store::vote_current (MDB_txn * transactio
 	
 std::shared_ptr <rai::vote> rai::block_store::vote_generate (MDB_txn * transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr <rai::block> block_a)
 {
-	std::shared_ptr <rai::vote> result;
-	uint64_t sequence = 0;
-	{
-		std::lock_guard <std::mutex> lock (cache_mutex);
-		result = vote_current (transaction_a, account_a);
-		sequence = (result ? result->sequence : 0) + 1;
-	}
+	std::lock_guard <std::mutex> lock (cache_mutex);
+	auto result (vote_current (transaction_a, account_a));
+	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared <rai::vote> (account_a, key_a, sequence, block_a);
 	vote_cache [account_a] = result;
 	return result;
