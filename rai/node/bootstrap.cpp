@@ -1163,7 +1163,7 @@ boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
 
 rai::bootstrap_server::~bootstrap_server ()
 {
-	if (node->config.logging.network_logging ())
+	if (node->config.logging.bulk_pull_logging ())
 	{
 		BOOST_LOG (node->log) << "Exiting bootstrap server";
 	}
