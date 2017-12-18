@@ -10,6 +10,8 @@
 
 #include <ed25519-donna/ed25519.h>
 
+thread_local CryptoPP::AutoSeededRandomPool rai::random_pool;
+
 // Genesis keys for network variants
 namespace
 {
