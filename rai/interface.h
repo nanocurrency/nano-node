@@ -12,7 +12,7 @@ typedef void * xrb_transaction;
 // Convert public/private key bytes 'source' to a 64 byte not-null-terminated hex string 'destination'
 void xrb_uint256_to_string (const xrb_uint256 source, char * destination);
 // Convert public key bytes 'source' to a 65 byte non-null-terminated account string 'destination'
-void xrb_uint256_to_address (xrb_uint256 source, char * destination)
+void xrb_uint256_to_address (xrb_uint256 source, char * destination);
 // Convert public/private key bytes 'source' to a 128 byte not-null-terminated hex string 'destination'
 void xrb_uint512_to_string (const xrb_uint512 source, char * destination);
 
