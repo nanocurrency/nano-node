@@ -1385,9 +1385,11 @@ TEST (rpc, version)
     ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("10", response1.json.get <std::string> ("store_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR), response1.json.get <std::string> ("node_vendor"));
-	auto headers (response1.resp.find ("Access-Control-Allow-Origin"));
-	ASSERT_NE (response1.resp.end (), headers);
-	ASSERT_EQ ("*", headers->value ());
+	auto headers (response1.resp.base());
+	auto allowed_origin (headers.at ("Access-Control-Allow-Origin"));
+	auto allowed_headers (headers.at ("Access-Control-Allow-Headers"));
+	ASSERT_EQ ("*", allowed_origin);
+	ASSERT_EQ ("Accept, Accept-Language, Content-Language, Content-Type", allowed_headers);
 }
 
 TEST (rpc, work_generate)
