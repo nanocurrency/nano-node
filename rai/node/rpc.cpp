@@ -4115,8 +4115,9 @@ void rai::rpc_connection::parse_connection ()
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
 					auto body (ostream.str ());
-					this_l->res.set ("content-type", "application/json");
-					this_l->res.set ("Access-Control-Allow-Origin",  "*");
+					this_l->res.set ("Content-Type", "application/json");
+					this_l->res.set ("Access-Control-Allow-Origin", "*");
+					this_l->res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
 					this_l->res.result(boost::beast::http::status::ok);
 					this_l->res.body = body;
 					this_l->res.version = version;
