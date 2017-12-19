@@ -256,12 +256,7 @@ void rai::wallet_store::deterministic_key (rai::raw_key & prv_a, MDB_txn * trans
 	assert (valid_password (transaction_a));
 	rai::raw_key seed_l;
 	seed (seed_l, transaction_a);
-    blake2b_state hash;
-	blake2b_init (&hash, prv_a.data.bytes.size ());
-    blake2b_update (&hash, seed_l.data.bytes.data (), seed_l.data.bytes.size ());
-	rai::uint256_union index (index_a);
-    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&index.dwords [7]), sizeof (uint32_t));
-    blake2b_final (&hash, prv_a.data.bytes.data (), prv_a.data.bytes.size ());
+	rai::deterministic_key (seed_l.data, index_a, prv_a.data);
 }
 
 uint32_t rai::wallet_store::deterministic_index_get (MDB_txn * transaction_a)

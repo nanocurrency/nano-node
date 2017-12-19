@@ -439,3 +439,26 @@ void rai::raw_key::decrypt (rai::uint256_union const & ciphertext, rai::raw_key 
 	dec.ProcessData (data.bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
 }
 
+rai::uint512_union rai::sign_message (rai::raw_key const & private_key, rai::public_key const & public_key, rai::uint256_union const & message)
+{
+	rai::uint512_union result;
+	ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	return result;
+}
+
+void rai::deterministic_key (rai::uint256_union const & seed_a, uint32_t index_a, rai::uint256_union & prv_a)
+{
+	blake2b_state hash;
+	blake2b_init (&hash, prv_a.bytes.size ());
+	blake2b_update (&hash, seed_a.bytes.data (), seed_a.bytes.size ());
+	rai::uint256_union index (index_a);
+	blake2b_update (&hash, reinterpret_cast <uint8_t *> (&index.dwords [7]), sizeof (uint32_t));
+	blake2b_final (&hash, prv_a.bytes.data (), prv_a.bytes.size ());
+}
+
+bool rai::validate_message (rai::public_key const & public_key, rai::uint256_union const & message, rai::uint512_union const & signature)
+{
+	auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));
+	return result;
+}
+

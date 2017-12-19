@@ -23,7 +23,7 @@ void xrb_uint512_to_string (xrb_uint512 source, char * destination)
 	strncpy (destination, number.to_string ().c_str (), 129);
 }
 
-int xrb_uint256_from_string (char * source, xrb_uint256 destination)
+int xrb_uint256_from_string (const char * source, xrb_uint256 destination)
 {
 	auto & number (*reinterpret_cast <rai::uint256_union *> (destination));
 	auto error (number.decode_hex (source));
@@ -31,7 +31,7 @@ int xrb_uint256_from_string (char * source, xrb_uint256 destination)
 	return result;
 }
 
-int xrb_uint512_from_string (char * source, xrb_uint512 destination)
+int xrb_uint512_from_string (const char * source, xrb_uint512 destination)
 {
 	auto & number (*reinterpret_cast <rai::uint512_union *> (destination));
 	auto error (number.decode_hex (source));
@@ -39,7 +39,7 @@ int xrb_uint512_from_string (char * source, xrb_uint512 destination)
 	return result;
 }
 
-int xrb_valid_address (char * account_a)
+int xrb_valid_address (const char * account_a)
 {
 	rai::uint256_union account;
 	auto error (account.decode_account (account_a));
@@ -47,7 +47,25 @@ int xrb_valid_address (char * account_a)
 	return result;
 }
 
-char * sign_transaction (char * transaction, xrb_uint256 private_key, xrb_uint512 signature)
+void xrb_seed_create (xrb_uint256 seed)
+{
+	auto & number (*reinterpret_cast <rai::uint256_union *> (seed));
+	rai::random_pool.GenerateBlock (number.bytes.data (), number.bytes.size ());
+}
+
+void xrb_seed_key (xrb_uint256 seed, int index, xrb_uint256 destination)
+{
+	auto & seed_l (*reinterpret_cast <rai::uint256_union *> (seed));
+	auto & destination_l (*reinterpret_cast <rai::uint256_union *> (destination));
+	rai::deterministic_key (seed_l, index, destination_l);
+}
+
+void xrb_key_account (const xrb_uint256 key, xrb_uint256 pub)
+{
+	ed25519_publickey (key, pub);
+}
+
+char * sign_transaction (const char * transaction, const xrb_uint256 private_key, xrb_uint512 signature)
 {
 	return nullptr;
 }

@@ -305,19 +305,6 @@ std::string rai::uint128_union::to_string_dec () const
 	return result;
 }
 
-rai::uint512_union rai::sign_message (rai::raw_key const & private_key, rai::public_key const & public_key, rai::uint256_union const & message)
-{
-	rai::uint512_union result;
-	ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
-	return result;
-}
-
-bool rai::validate_message (rai::public_key const & public_key, rai::uint256_union const & message, rai::uint512_union const & signature)
-{
-	auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));
-	return result;
-}
-
 void rai::open_or_create (std::fstream & stream_a, std::string const & path_a)
 {
 	stream_a.open (path_a, std::ios_base::in);
