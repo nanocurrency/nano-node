@@ -14,13 +14,19 @@ extern "C" {
 void xrb_uint256_to_string (xrb_uint256 source, char * destination)
 {
 	auto const & number (*reinterpret_cast <rai::uint256_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 65);
+	strncpy (destination, number.to_string ().c_str (), 64);
+}
+
+void xrb_uint256_to_address (xrb_uint256 source, char * destination)
+{
+	auto const & number (*reinterpret_cast <rai::uint256_union *> (source));
+	strncpy (destination, number.to_account ().c_str (), 65);
 }
 
 void xrb_uint512_to_string (xrb_uint512 source, char * destination)
 {
 	auto const & number (*reinterpret_cast <rai::uint512_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 129);
+	strncpy (destination, number.to_string ().c_str (), 128);
 }
 
 int xrb_uint256_from_string (const char * source, xrb_uint256 destination)
