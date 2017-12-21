@@ -6,6 +6,9 @@
 
 #include <blake2/blake2.h>
 
+#include <boost/property_tree/json_parser.hpp>
+
+#include <rai/blocks.hpp>
 #include <rai/numbers.hpp>
 
 #include <cstring>
@@ -53,7 +56,7 @@ int xrb_valid_address (const char * account_a)
 	return result;
 }
 
-void xrb_seed_create (xrb_uint256 seed)
+void xrb_generate_random (xrb_uint256 seed)
 {
 	auto & number (*reinterpret_cast <rai::uint256_union *> (seed));
 	rai::random_pool.GenerateBlock (number.bytes.data (), number.bytes.size ());
@@ -71,9 +74,26 @@ void xrb_key_account (const xrb_uint256 key, xrb_uint256 pub)
 	ed25519_publickey (key, pub);
 }
 
-char * sign_transaction (const char * transaction, const xrb_uint256 private_key, xrb_uint512 signature)
+char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private_key)
 {
-	return nullptr;
+	char * result (nullptr);
+	boost::property_tree::ptree block_l;
+	std::string transaction_l (transaction);
+	std::stringstream block_stream (transaction_l);
+	boost::property_tree::read_json (block_stream, block_l);
+	auto block (rai::deserialize_block_json (block_l));
+	if (block != nullptr)
+	{
+		rai::uint256_union pub;
+		ed25519_publickey (private_key, pub.bytes.data ());
+		rai::raw_key prv;
+		prv.data = *reinterpret_cast <rai::uint256_union *> (private_key);
+		block->signature_set (rai::sign_message (prv, pub, block->hash ()));
+		auto json (block->to_json ());
+		result = reinterpret_cast <char *> (malloc (json.size () + 1));
+		strncpy (result, json.c_str (), json.size () + 1);
+	}
+	return result;
 }
 
 #include <ed25519-donna/ed25519-hash-custom.h>

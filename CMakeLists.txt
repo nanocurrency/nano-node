@@ -204,6 +204,8 @@ add_library (secure
 	rai/versioning.cpp)
 
 add_library (rai_lib SHARED
+	rai/blocks.cpp
+	rai/blocks.hpp
 	rai/interface.cpp
 	rai/interface.h
 	rai/numbers.cpp
@@ -236,18 +238,19 @@ if (RAIBLOCKS_TEST)
 	add_executable (core_test
 		rai/core_test/block.cpp
 		rai/core_test/block_store.cpp
-		rai/core_test/node.cpp
+		rai/core_test/interface.cpp
 		rai/core_test/conflicts.cpp
 		rai/core_test/daemon.cpp
 		rai/core_test/entry.cpp
 		rai/core_test/gap_cache.cpp
 		rai/core_test/ledger.cpp
+		rai/core_test/network.cpp
+		rai/core_test/node.cpp
 		rai/core_test/message.cpp
 		rai/core_test/message_parser.cpp
 		rai/core_test/processor_service.cpp
 		rai/core_test/peer_container.cpp
 		rai/core_test/rpc.cpp
-		rai/core_test/network.cpp
 		rai/core_test/uint256_union.cpp
 		rai/core_test/versioning.cpp
 		rai/core_test/wallet.cpp

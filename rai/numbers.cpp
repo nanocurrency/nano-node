@@ -462,3 +462,144 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 	return result;
 }
 
+rai::uint128_union::uint128_union (std::string const & string_a)
+{
+	decode_hex (string_a);
+}
+
+rai::uint128_union::uint128_union (uint64_t value_a)
+{
+	*this = rai::uint128_t (value_a);
+}
+
+rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
+{
+	rai::uint128_t number_l (value_a);
+	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
+	{
+		*i = ((number_l) & 0xff).convert_to <uint8_t> ();
+		number_l >>= 8;
+	}
+}
+
+bool rai::uint128_union::operator == (rai::uint128_union const & other_a) const
+{
+    return qwords [0] == other_a.qwords [0] && qwords [1] == other_a.qwords [1];
+}
+
+bool rai::uint128_union::operator != (rai::uint128_union const & other_a) const
+{
+	return !(*this == other_a);
+}
+
+bool rai::uint128_union::operator < (rai::uint128_union const & other_a) const
+{
+	return number () < other_a.number ();
+}
+
+bool rai::uint128_union::operator > (rai::uint128_union const & other_a) const
+{
+	return number () > other_a.number ();
+}
+
+rai::uint128_t rai::uint128_union::number () const
+{
+	rai::uint128_t result;
+	auto shift (0);
+	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
+	{
+		result <<= shift;
+		result |= *i;
+		shift = 8;
+	}
+	return result;
+}
+
+void rai::uint128_union::encode_hex (std::string & text) const
+{
+	assert (text.empty ());
+	std::stringstream stream;
+	stream << std::hex << std::noshowbase << std::setw (32) << std::setfill ('0');
+	stream << number ();
+	text = stream.str ();
+}
+
+bool rai::uint128_union::decode_hex (std::string const & text)
+{
+	auto result (text.size () > 32);
+	if (!result)
+	{
+		std::stringstream stream (text);
+		stream << std::hex << std::noshowbase;
+		rai::uint128_t number_l;
+		try
+		{
+			stream >> number_l;
+			*this = number_l;
+			if (!stream.eof ())
+			{
+				result = true;
+			}
+		}
+		catch (std::runtime_error &)
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
+void rai::uint128_union::encode_dec (std::string & text) const
+{
+	assert (text.empty ());
+	std::stringstream stream;
+	stream << std::dec << std::noshowbase;
+	stream << number ();
+	text = stream.str ();
+}
+
+bool rai::uint128_union::decode_dec (std::string const & text)
+{
+	auto result (text.size () > 39);
+	if (!result)
+	{
+		std::stringstream stream (text);
+		stream << std::dec << std::noshowbase;
+		rai::uint128_t number_l;
+		try
+		{
+			stream >> number_l;
+			*this = number_l;
+		}
+		catch (std::runtime_error &)
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
+void rai::uint128_union::clear ()
+{
+	qwords.fill (0);
+}
+
+bool rai::uint128_union::is_zero () const
+{
+	return qwords [0] == 0 && qwords [1] == 0;
+}
+
+std::string rai::uint128_union::to_string () const
+{
+	std::string result;
+	encode_hex (result);
+	return result;
+}
+
+std::string rai::uint128_union::to_string_dec () const
+{
+	std::string result;
+	encode_dec (result);
+	return result;
+}
+

@@ -20,8 +20,6 @@
 
 namespace rai
 {
-// We operate on streams of uint8_t by convention
-using stream = std::basic_streambuf <uint8_t>;
 using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
 using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_insert_device <std::vector <uint8_t>>>;
 // OS-specific way of finding a path to a home directory.
@@ -30,21 +28,6 @@ boost::filesystem::path working_path ();
 boost::filesystem::path unique_path ();
 // Lower priority of calling work generating thread
 void work_thread_reprioritize ();
-// Read a raw byte stream the size of `T' and fill value.
-template <typename T>
-bool read (rai::stream & stream_a, T & value)
-{
-	static_assert (std::is_pod <T>::value, "Can't stream read non-standard layout types");
-	auto amount_read (stream_a.sgetn (reinterpret_cast <uint8_t *> (&value), sizeof (value)));
-	return amount_read != sizeof (value);
-}
-template <typename T>
-void write (rai::stream & stream_a, T const & value)
-{
-	static_assert (std::is_pod <T>::value, "Can't stream write non-standard layout types");
-	auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
-	assert (amount_written == sizeof (value));
-}
 // C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truntacing it.
 void open_or_create (std::fstream &, std::string const &);
 // Reads a json object from the stream and if was changed, write the object back to the stream
@@ -116,8 +99,6 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 	}
 	return error;
 }
-std::string to_string_hex (uint64_t);
-bool from_string_hex (std::string const &, uint64_t &);
 
 class mdb_env
 {

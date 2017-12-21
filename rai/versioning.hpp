@@ -1,5 +1,6 @@
 #pragma once
 
+#include <rai/blocks.hpp>
 #include <rai/utility.hpp>
 
 namespace rai

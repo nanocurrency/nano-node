@@ -27,15 +27,15 @@ int xrb_uint512_from_string (const char * source, xrb_uint512 destination);
 // Return 0 on correct, nonzero on invalid
 int xrb_valid_address (const char * account);
 
-// Create a new random seed in 'seed'
-void xrb_seed_create (xrb_uint256 seed);
+// Create a new random number in to 'destination'
+void xrb_generate_random (xrb_uint256 destination);
 // Retrieve the detereministic private key for 'seed' at 'index'
 void xrb_seed_key (const xrb_uint256 seed, int index, xrb_uint256);
 // Derive the public key 'pub' from 'key'
 void xrb_key_account (xrb_uint256 key, xrb_uint256 pub);
 
 // Sign 'transaction' using 'private_key' and write to 'signature'
-char * sign_transaction (const char * transaction, const xrb_uint256 private_key, xrb_uint512 signature);
+char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private_key);
 
 #if __cplusplus
 } // extern "C"
