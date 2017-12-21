@@ -158,7 +158,7 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function 
 	boost::optional <uint64_t> result;
 	if (opencl != nullptr)
 	{
-		result = opencl->generate_work (*this, root_a);
+		result = opencl->generate_work (root_a);
 	}
 	if (!result)
 	{

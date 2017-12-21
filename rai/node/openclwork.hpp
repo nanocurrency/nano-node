@@ -49,7 +49,7 @@ class opencl_work
 public:
 	opencl_work (bool &, rai::opencl_config const &, rai::opencl_environment &, rai::logging &);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (rai::work_pool &, rai::uint256_union const &);
+	boost::optional<uint64_t> generate_work (rai::uint256_union const &);
 	static std::unique_ptr <opencl_work> create (bool, rai::opencl_config const &, rai::logging &);
 	rai::opencl_config const & config;
 	std::mutex mutex;
