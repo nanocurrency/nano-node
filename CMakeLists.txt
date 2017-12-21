@@ -227,6 +227,8 @@ add_library (node
 	rai/node/testing.cpp
 	rai/node/wallet.hpp
 	rai/node/wallet.cpp
+	rai/node/work.hpp
+	rai/node/work.cpp
 	rai/node/working.hpp
 	rai/node/xorshift.hpp)
 

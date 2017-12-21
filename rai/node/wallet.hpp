@@ -1,13 +1,9 @@
 #pragma once
 
-#include <boost/optional.hpp>
-
 #include <rai/secure.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/openclwork.hpp>
 
-#include <atomic>
-#include <future>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -15,40 +11,14 @@
 
 namespace rai
 {
-class work_pool
-{
-public:
-	work_pool (unsigned, std::unique_ptr <rai::opencl_work>);
-	~work_pool ();
-	void loop (uint64_t);
-	void stop ();
-	void cancel (rai::uint256_union const &);
-	void generate (rai::uint256_union const &, std::function <void (boost::optional <uint64_t> const &)>);
-	uint64_t generate (rai::uint256_union const &);
-	uint64_t work_value (rai::block_hash const &, uint64_t);
-	bool work_validate (rai::block &);
-	bool work_validate (rai::block_hash const &, uint64_t);
-	std::atomic <int> ticket;
-	bool done;
-	std::vector <std::thread> threads;
-	std::list <std::pair <rai::uint256_union, std::function <void (boost::optional <uint64_t> const &)>>> pending;
-	std::mutex mutex;
-	std::condition_variable producer_condition;
-	std::unique_ptr <rai::opencl_work> opencl;
-	rai::observer_set <bool> work_observers;
-	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
-	static uint64_t const publish_test_threshold = 0xff00000000000000;
-	static uint64_t const publish_full_threshold = 0xffffffc000000000;
-	static uint64_t const publish_threshold = rai::rai_network == rai::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
-};
 // The fan spreads a key out over the heap to decrease the likelyhood of it being recovered by memory inspection
 class fan
 {
 public:
-    fan (rai::uint256_union const &, size_t);
-    void value (rai::raw_key &);
-    void value_set (rai::raw_key const &);
-    std::vector <std::unique_ptr <rai::uint256_union>> values;
+	fan (rai::uint256_union const &, size_t);
+	void value (rai::raw_key &);
+	void value_set (rai::raw_key const &);
+	std::vector <std::unique_ptr <rai::uint256_union>> values;
 private:
 	std::mutex mutex;
 	void value_get (rai::raw_key &);
@@ -80,15 +50,15 @@ enum class key_type
 class wallet_store
 {
 public:
-    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &);
-    wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &, std::string const &);
+	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &);
+	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &, std::string const &);
 	std::vector <rai::account> accounts (MDB_txn *);
-    void initialize (MDB_txn *, bool &, std::string const &);
-    rai::uint256_union check (MDB_txn *);
-    bool rekey (MDB_txn *, std::string const &);
-    bool valid_password (MDB_txn *);
-    bool attempt_password (MDB_txn *, std::string const &);
-    void wallet_key (rai::raw_key &, MDB_txn *);
+	void initialize (MDB_txn *, bool &, std::string const &);
+	rai::uint256_union check (MDB_txn *);
+	bool rekey (MDB_txn *, std::string const &);
+	bool valid_password (MDB_txn *);
+	bool attempt_password (MDB_txn *, std::string const &);
+	void wallet_key (rai::raw_key &, MDB_txn *);
 	void seed (rai::raw_key &, MDB_txn *);
 	void seed_set (MDB_txn *, rai::raw_key const &);
 	rai::key_type key_type (rai::wallet_value const &);
@@ -97,25 +67,25 @@ public:
 	uint32_t deterministic_index_get (MDB_txn *);
 	void deterministic_index_set (MDB_txn *, uint32_t);
 	void deterministic_clear (MDB_txn *);
-    rai::uint256_union salt (MDB_txn *);
-    bool is_representative (MDB_txn *);
-    rai::account representative (MDB_txn *);
-    void representative_set (MDB_txn *, rai::account const &);
-    rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &);
-    void erase (MDB_txn *, rai::public_key const &);
+	rai::uint256_union salt (MDB_txn *);
+	bool is_representative (MDB_txn *);
+	rai::account representative (MDB_txn *);
+	void representative_set (MDB_txn *, rai::account const &);
+	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &);
+	void erase (MDB_txn *, rai::public_key const &);
 	rai::wallet_value entry_get_raw (MDB_txn *, rai::public_key const &);
 	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
-    bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
-    bool exists (MDB_txn *, rai::public_key const &);
+	bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
+	bool exists (MDB_txn *, rai::public_key const &);
 	void destroy (MDB_txn *);
-    rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
-    rai::store_iterator begin (MDB_txn *, rai::uint256_union const &);
-    rai::store_iterator begin (MDB_txn *);
-    rai::store_iterator end ();
-    void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
-    void serialize_json (MDB_txn *, std::string &);
+	rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator begin (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator begin (MDB_txn *);
+	rai::store_iterator end ();
+	void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
+	void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);
-    bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
+	bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
 	bool import (MDB_txn *, rai::wallet_store &);
 	bool work_get (MDB_txn *, rai::public_key const &, uint64_t &);
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
@@ -123,25 +93,25 @@ public:
 	void version_put (MDB_txn *, unsigned);
 	void upgrade_v1_v2 ();
 	void upgrade_v2_v3 ();
-    rai::fan password;
-    static unsigned const version_1;
-    static unsigned const version_2;
-    static unsigned const version_3;
-    static unsigned const version_current;
-    static rai::uint256_union const version_special;
-    static rai::uint256_union const wallet_key_special;
-    static rai::uint256_union const salt_special;
-    static rai::uint256_union const check_special;
-    static rai::uint256_union const representative_special;
+	rai::fan password;
+	static unsigned const version_1;
+	static unsigned const version_2;
+	static unsigned const version_3;
+	static unsigned const version_current;
+	static rai::uint256_union const version_special;
+	static rai::uint256_union const wallet_key_special;
+	static rai::uint256_union const salt_special;
+	static rai::uint256_union const check_special;
+	static rai::uint256_union const representative_special;
 	static rai::uint256_union const seed_special;
 	static rai::uint256_union const deterministic_index_special;
-    static int const special_count;
-    static unsigned const kdf_full_work = 64 * 1024;
-    static unsigned const kdf_test_work = 8;
-    static unsigned const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
+	static int const special_count;
+	static unsigned const kdf_full_work = 64 * 1024;
+	static unsigned const kdf_test_work = 8;
+	static unsigned const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
 	rai::kdf & kdf;
 	rai::mdb_env & environment;
-    MDB_dbi handle;
+	MDB_dbi handle;
 };
 class node;
 // A wallet is a set of account keys encrypted by a common encryption key

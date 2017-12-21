@@ -1,6 +1,7 @@
 #include <rai/node/common.hpp>
 
 #include <rai/node/wallet.hpp>
+#include <rai/node/work.hpp>
 
 std::array <uint8_t, 2> constexpr rai::message::magic_number;
 size_t constexpr rai::message::ipv4_only_position;
