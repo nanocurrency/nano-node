@@ -1,6 +1,6 @@
 #include <rai/secure.hpp>
 
-#include <rai/interface.h>
+#include <rai/lib/interface.h>
 #include <rai/node/working.hpp>
 #include <rai/versioning.hpp>
 

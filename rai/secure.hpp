@@ -1,7 +1,7 @@
 #pragma once 
 
-#include <rai/blocks.hpp>
-#include <rai/utility.hpp>
+#include <rai/lib/blocks.hpp>
+#include <rai/node/utility.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 

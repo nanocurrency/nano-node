@@ -1,6 +1,6 @@
 #include <rai/node/node.hpp>
 
-#include <rai/interface.h>
+#include <rai/lib/interface.h>
 #include <rai/node/common.hpp>
 #include <rai/node/rpc.hpp>
 

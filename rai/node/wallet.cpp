@@ -1,6 +1,6 @@
 #include <rai/node/wallet.hpp>
 
-#include <rai/interface.h>
+#include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
 #include <rai/node/xorshift.hpp>
 

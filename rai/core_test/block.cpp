@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include <rai/interface.h>
+#include <rai/lib/interface.h>
 #include <rai/node/common.hpp>
 #include <rai/node/node.hpp>
 

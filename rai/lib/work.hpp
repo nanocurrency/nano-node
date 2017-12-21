@@ -1,8 +1,9 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <rai/node/common.hpp>
-#include <rai/numbers.hpp>
+#include <rai/config.hpp>
+#include <rai/lib/numbers.hpp>
+#include <rai/lib/utility.hpp>
 
 #include <atomic>
 #include <memory>
@@ -10,10 +11,10 @@
 
 namespace rai
 {
+class block;
 bool work_validate (rai::block_hash const &, uint64_t);
 bool work_validate (rai::block const &);
 uint64_t work_value (rai::block_hash const &, uint64_t);
-class block;
 class opencl_work;
 class work_pool
 {

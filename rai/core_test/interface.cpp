@@ -2,9 +2,9 @@
 
 #include <memory>
 
-#include <rai/blocks.hpp>
-#include <rai/numbers.hpp>
-#include <rai/interface.h>
+#include <rai/lib/blocks.hpp>
+#include <rai/lib/numbers.hpp>
+#include <rai/lib/interface.h>
 
 TEST (interface, xrb_uint256_to_string)
 {

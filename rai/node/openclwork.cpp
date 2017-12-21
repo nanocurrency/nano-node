@@ -1,6 +1,6 @@
 #include <rai/node/openclwork.hpp>
 
-#include <rai/utility.hpp>
+#include <rai/lib/utility.hpp>
 #include <rai/node/node.hpp>
 #include <rai/node/wallet.hpp>
 

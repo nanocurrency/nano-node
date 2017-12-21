@@ -1,5 +1,6 @@
-#include <rai/node/work.hpp>
+#include <rai/lib/work.hpp>
 
+#include <rai/lib/blocks.hpp>
 #include <rai/node/xorshift.hpp>
 
 #include <future>

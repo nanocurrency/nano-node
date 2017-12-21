@@ -15,8 +15,8 @@
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <rai/config.hpp>
-#include <rai/interface.h>
-#include <rai/numbers.hpp>
+#include <rai/lib/interface.h>
+#include <rai/lib/numbers.hpp>
 
 namespace rai
 {
@@ -26,8 +26,6 @@ using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_ins
 boost::filesystem::path working_path ();
 // Get a unique path within the home directory, used for testing
 boost::filesystem::path unique_path ();
-// Lower priority of calling work generating thread
-void work_thread_reprioritize ();
 // C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truntacing it.
 void open_or_create (std::fstream &, std::string const &);
 // Reads a json object from the stream and if was changed, write the object back to the stream

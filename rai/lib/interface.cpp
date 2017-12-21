@@ -1,4 +1,4 @@
-#include <rai/interface.h>
+#include <rai/lib/interface.h>
 
 #include <xxhash/xxhash.h>
 
@@ -8,8 +8,8 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
-#include <rai/blocks.hpp>
-#include <rai/numbers.hpp>
+#include <rai/lib/blocks.hpp>
+#include <rai/lib/numbers.hpp>
 
 #include <cstring>
 

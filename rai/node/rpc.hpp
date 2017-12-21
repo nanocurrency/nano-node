@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/utility.hpp>
+#include <rai/node/utility.hpp>
 
 //#include <boost/beast/http.hpp>
 //#include <boost/beast/core/flat_buffer.hpp>

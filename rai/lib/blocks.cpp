@@ -1,4 +1,4 @@
-#include <rai/blocks.hpp>
+#include <rai/lib/blocks.hpp>
 
 std::string rai::to_string_hex (uint64_t value_a)
 {

@@ -175,18 +175,22 @@ add_library (blake2
 	${BLAKE2_IMPLEMENTATION})
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm rai/plat/default/priority.cpp)
+	set (PLATFORM_LIB_SOURCE rai/plat/default/priority.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp rai/plat/windows/priority.cpp)
+	set (PLATFORM_LIB_SOURCE rai/plat/windows/priority.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp)
 	set (PLATFORM_NODE_SOURCE rai/plat/windows/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/linux/priority.cpp)
+	set (PLATFORM_LIB_SOURCE rai/plat/linux/priority.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
 	set (PLATFORM_NODE_SOURCE rai/plat/posix/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp rai/plat/default/priority.cpp)
+	set (PLATFORM_LIB_SOURCE rai/plat/default/priority.cpp)
+	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
 	set (PLATFORM_NODE_SOURCE rai/plat/posix/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 else ()
@@ -198,18 +202,23 @@ add_library (secure
 	rai/config.hpp
 	rai/secure.cpp
 	rai/secure.hpp
-	rai/utility.cpp
-	rai/utility.hpp
+	rai/node/utility.cpp
+	rai/node/utility.hpp
 	rai/versioning.hpp
 	rai/versioning.cpp)
 
 add_library (rai_lib SHARED
-	rai/blocks.cpp
-	rai/blocks.hpp
-	rai/interface.cpp
-	rai/interface.h
-	rai/numbers.cpp
-	rai/numbers.hpp)
+	${PLATFORM_LIB_SOURCE}
+	rai/lib/blocks.cpp
+	rai/lib/blocks.hpp
+	rai/lib/interface.cpp
+	rai/lib/interface.h
+	rai/lib/numbers.cpp
+	rai/lib/numbers.hpp
+	rai/lib/utility.cpp
+	rai/lib/utility.hpp
+	rai/lib/work.hpp
+	rai/lib/work.cpp)
 
 add_library (node
 	${PLATFORM_NODE_SOURCE}
@@ -227,8 +236,6 @@ add_library (node
 	rai/node/testing.cpp
 	rai/node/wallet.hpp
 	rai/node/wallet.cpp
-	rai/node/work.hpp
-	rai/node/work.cpp
 	rai/node/working.hpp
 	rai/node/xorshift.hpp)
 

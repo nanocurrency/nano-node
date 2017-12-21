@@ -2,7 +2,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include <rai/interface.h>
+#include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
 
 #include <ed25519-donna/ed25519.h>

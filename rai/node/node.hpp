@@ -1,8 +1,8 @@
 #pragma once
 
+#include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
 #include <rai/node/wallet.hpp>
-#include <rai/node/work.hpp>
 
 #include <unordered_set>
 #include <memory>
