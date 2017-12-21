@@ -10,6 +10,9 @@
 
 namespace rai
 {
+bool work_validate (rai::block_hash const &, uint64_t);
+bool work_validate (rai::block const &);
+uint64_t work_value (rai::block_hash const &, uint64_t);
 class block;
 class opencl_work;
 class work_pool
@@ -22,9 +25,6 @@ public:
 	void cancel (rai::uint256_union const &);
 	void generate (rai::uint256_union const &, std::function <void (boost::optional <uint64_t> const &)>);
 	uint64_t generate (rai::uint256_union const &);
-	uint64_t work_value (rai::block_hash const &, uint64_t);
-	bool work_validate (rai::block &);
-	bool work_validate (rai::block_hash const &, uint64_t);
 	std::atomic <int> ticket;
 	bool done;
 	std::vector <std::thread> threads;

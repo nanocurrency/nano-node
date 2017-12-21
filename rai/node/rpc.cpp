@@ -578,7 +578,7 @@ void rai::rpc_handler::account_representative_set ()
 							rai::account_info info;
 							if (!node.store.account_get (transaction, account, info))
 							{
-								if (!node.work.work_validate (info.head, work))
+								if (!rai::work_validate (info.head, work))
 								{
 									existing->second->store.work_put (transaction, account, work);
 								}
@@ -2363,7 +2363,7 @@ void rai::rpc_handler::process ()
 	auto block (rai::deserialize_block_json (block_l));
 	if (block != nullptr)
 	{
-		if (!node.work.work_validate (*block))
+		if (!rai::work_validate (*block))
 		{
 			auto hash (block->hash ());
 			node.block_arrival.add (hash);
@@ -2540,7 +2540,7 @@ void rai::rpc_handler::receive ()
 										{
 											head = account;
 										}
-										if (!node.work.work_validate (head, work))
+										if (!rai::work_validate (head, work))
 										{
 											rai::transaction transaction_a (node.store.environment, nullptr, true);
 											existing->second->store.work_put (transaction_a, account, work);
@@ -2912,7 +2912,7 @@ void rai::rpc_handler::send ()
 								}
 								if (work)
 								{
-									if (!node.work.work_validate (info.head, work))
+									if (!rai::work_validate (info.head, work))
 									{
 										existing->second->store.work_put (transaction, source, work);
 									}
@@ -3997,7 +3997,7 @@ void rai::rpc_handler::work_validate ()
 		auto work_error (rai::from_string_hex (work_text, work));
 		if (!work_error)
 		{
-			auto validate (node.work.work_validate (hash, work));
+			auto validate (rai::work_validate (hash, work));
 			boost::property_tree::ptree response_l;
 			response_l.put ("valid", validate ? "0" : "1");
 			response (response_l);

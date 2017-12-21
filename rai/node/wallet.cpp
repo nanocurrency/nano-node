@@ -1028,7 +1028,7 @@ void rai::wallet::send_async (rai::account const & source_a, rai::account const 
 // Update work for account if latest root is root_a
 void rai::wallet::work_update (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & root_a, uint64_t work_a)
 {
-    assert (!node.work.work_validate (root_a, work_a));
+    assert (!rai::work_validate (root_a, work_a));
     assert (store.exists (transaction_a, account_a));
     auto latest (node.ledger.latest_root (transaction_a, account_a));
     if (latest == root_a)
@@ -1052,7 +1052,7 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
     }
 	else
 	{
-		if (node.work.work_validate (root_a, result))
+		if (rai::work_validate (root_a, result))
 		{
 			BOOST_LOG (node.log) << "Cached work invalid, regenerating";
 			result = node.generate_work (root_a);
@@ -1068,7 +1068,7 @@ void rai::wallet::work_ensure (MDB_txn * transaction_a, rai::account const & acc
 	uint64_t work;
 	auto error (store.work_get (transaction_a, account_a, work));
 	assert (!error);
-	if (node.work.work_validate (root, work))
+	if (rai::work_validate (root, work))
 	{
 		auto this_l (shared_from_this ());
 		node.background ([this_l, account_a, root] () {

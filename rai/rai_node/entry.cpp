@@ -362,7 +362,7 @@ int main (int argc, char * const * argv)
 			{
 				block.hashables.previous.qwords [0] += 1;
 				block.block_work_set (t);
-				work.work_validate (block);
+				rai::work_validate (block);
 			}
 			auto end1 (std::chrono::high_resolution_clock::now ());
 			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast <std::chrono::microseconds> (end1 - begin1).count ());

@@ -1028,8 +1028,8 @@ TEST (rpc, payment_begin_end)
 	auto root1 (system.nodes [0]->ledger.latest_root (rai::transaction (wallet->store.environment, nullptr, false), account));
 	uint64_t work (0);
 	auto iteration (0);
-	ASSERT_TRUE (system.work.work_validate (root1, work));
-	while (system.work.work_validate (root1, work))
+	ASSERT_TRUE (rai::work_validate (root1, work));
+	while (rai::work_validate (root1, work))
 	{
 		system.poll ();
 		ASSERT_FALSE (wallet->store.work_get (rai::transaction (wallet->store.environment, nullptr, false), account, work));
@@ -1413,7 +1413,7 @@ TEST (rpc, work_generate)
 	auto work1 (response1.json.get <std::string> ("work"));
 	uint64_t work2;
 	ASSERT_FALSE (rai::from_string_hex (work1, work2));
-	ASSERT_FALSE (system.work.work_validate (hash1, work2));
+	ASSERT_FALSE (rai::work_validate (hash1, work2));
 }
 
 TEST (rpc, work_cancel)
@@ -1462,7 +1462,7 @@ TEST (rpc, work_peer_bad)
 	{
 		work = work_a;
 	});
-	while (system.work.work_validate (hash1, work))
+	while (rai::work_validate (hash1, work))
 	{
 		system.poll ();
 	}
@@ -1486,7 +1486,7 @@ TEST (rpc, work_peer_one)
 	{
 		work = work_a;
 	});
-	while (system.work.work_validate (key1.pub, work))
+	while (rai::work_validate (key1.pub, work))
 	{
 		system.poll ();
 	}
@@ -1527,7 +1527,7 @@ TEST (rpc, work_peer_many)
 		{
 			work = work_a;
 		});
-		while (system1.work.work_validate (key1.pub, work))
+		while (rai::work_validate (key1.pub, work))
 		{
 			system1.poll ();
 			system2.poll ();

@@ -164,7 +164,7 @@ void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t 
     auto error_l (incoming.deserialize (stream));
     if (!error_l && at_end (stream))
     {
-        if (!pool.work_validate (*incoming.block))
+        if (!rai::work_validate (*incoming.block))
         {
             visitor.publish (incoming);
         }
@@ -186,7 +186,7 @@ void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, siz
     auto error_l (incoming.deserialize (stream));
     if (!error_l && at_end (stream))
     {
-        if (!pool.work_validate (*incoming.block))
+        if (!rai::work_validate (*incoming.block))
         {
             visitor.confirm_req (incoming);
         }
@@ -208,7 +208,7 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
     rai::confirm_ack incoming (error_l, stream);
     if (!error_l && at_end (stream))
     {
-        if (!pool.work_validate (*incoming.vote->block))
+        if (!rai::work_validate (*incoming.vote->block))
         {
             visitor.confirm_ack (incoming);
         }

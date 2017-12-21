@@ -1219,7 +1219,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 				if (existing != nullptr)
 				{
 					// Replace block with one that has higher work value
-					if (node.work.work_value (root, block_a->block_work ()) > node.work.work_value (root, existing->block_work ()))
+					if (rai::work_value (root, block_a->block_work ()) > rai::work_value (root, existing->block_work ()))
 					{
 						node.store.block_put (transaction_a, hash, *block_a, node.store.block_successor (transaction_a, hash));
 					}
@@ -2096,7 +2096,7 @@ void success (std::string const & body_a, boost::asio::ip::address const & addre
 		uint64_t work;
 		if (!rai::from_string_hex (work_text, work))
 		{
-			if (!node->work.work_validate (root, work))
+			if (!rai::work_validate (root, work))
 			{
 				set_once (work);
 				stop ();

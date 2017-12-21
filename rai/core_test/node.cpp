@@ -661,7 +661,7 @@ TEST (node, block_replace)
 	auto block3 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Gxrb_ratio));
 	ASSERT_NE (nullptr, block1);
 	auto initial_work (block1->block_work ());
-	while (system.work.work_value (block1->root (), block1->block_work ()) <= system.work.work_value (block1->root (), initial_work))
+	while (rai::work_value (block1->root (), block1->block_work ()) <= rai::work_value (block1->root (), initial_work))
 	{
 		system.nodes [1]->generate_work (*block1);
 	}
@@ -694,7 +694,7 @@ TEST (node, block_replace)
 	}
 	ASSERT_NE (initial_work, block1->block_work ());
 	ASSERT_EQ (block1->block_work (), block2->block_work ());
-	ASSERT_GT (system.work.work_value (block2->root (), block2->block_work ()), system.work.work_value (block1->root (), initial_work));
+	ASSERT_GT (rai::work_value (block2->root (), block2->block_work ()), rai::work_value (block1->root (), initial_work));
 }
 
 TEST (node, fork_publish)

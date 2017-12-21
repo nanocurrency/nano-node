@@ -5,6 +5,28 @@
 
 #include <future>
 
+bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+{
+	auto result (rai::work_value (root_a, work_a) < rai::work_pool::publish_threshold);
+	return result;
+}
+
+bool rai::work_validate (rai::block const & block_a)
+{
+	return work_validate (block_a.root (), block_a.block_work ());
+}
+
+uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
+{
+	uint64_t result;
+	blake2b_state hash;
+	blake2b_init (&hash, sizeof (result));
+	blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
+	blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
+	blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
+	return result;
+}
+
 rai::work_pool::work_pool (unsigned max_threads_a, std::unique_ptr <rai::opencl_work> opencl_a) :
 ticket (0),
 done (false),
@@ -30,17 +52,6 @@ rai::work_pool::~work_pool ()
 	{
 		i.join ();
 	}
-}
-
-uint64_t rai::work_pool::work_value (rai::block_hash const & root_a, uint64_t work_a)
-{
-	uint64_t result;
-    blake2b_state hash;
-	blake2b_init (&hash, sizeof (result));
-    blake2b_update (&hash, reinterpret_cast <uint8_t *> (&work_a), sizeof (work_a));
-    blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-    blake2b_final (&hash, reinterpret_cast <uint8_t *> (&result), sizeof (result));
-	return result;
 }
 
 void rai::work_pool::loop (uint64_t thread)
@@ -132,17 +143,6 @@ void rai::work_pool::cancel (rai::uint256_union const & root_a)
 		}
 		return result;
 	});
-}
-
-bool rai::work_pool::work_validate (rai::block_hash const & root_a, uint64_t work_a)
-{
-    auto result (work_value (root_a, work_a) < rai::work_pool::publish_threshold);
-	return result;
-}
-
-bool rai::work_pool::work_validate (rai::block & block_a)
-{
-    return work_validate (block_a.root (), block_a.block_work ());
 }
 
 void rai::work_pool::stop ()
