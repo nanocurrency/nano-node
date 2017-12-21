@@ -18,7 +18,7 @@ class opencl_work;
 class work_pool
 {
 public:
-	work_pool (unsigned, std::unique_ptr <rai::opencl_work>);
+	work_pool (unsigned, std::function <boost::optional <uint64_t> (rai::uint256_union const &)> = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
@@ -31,7 +31,7 @@ public:
 	std::list <std::pair <rai::uint256_union, std::function <void (boost::optional <uint64_t> const &)>>> pending;
 	std::mutex mutex;
 	std::condition_variable producer_condition;
-	std::unique_ptr <rai::opencl_work> opencl;
+	std::function <boost::optional<uint64_t> (rai::uint256_union const &)> opencl;
 	rai::observer_set <bool> work_observers;
 	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
 	static uint64_t const publish_test_threshold = 0xff00000000000000;

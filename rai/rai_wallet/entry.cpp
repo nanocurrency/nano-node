@@ -211,7 +211,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr <rai::node> node;
 		std::shared_ptr <rai_qt::wallet> gui;
 		rai::set_application_icon (application);
-		rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		rai::work_pool work (config.node.work_threads, opencl ? [&opencl] (rai::uint256_union const & root_a)
+		{
+			return opencl->generate_work (root_a);
+		} : std::function <boost::optional <uint64_t> (rai::uint256_union const &)> (nullptr));
 		rai::alarm alarm (service);
 		rai::node_init init;
 		node = std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work);

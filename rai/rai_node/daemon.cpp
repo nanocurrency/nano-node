@@ -107,10 +107,14 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 		config.node.logging.init (data_path);
 		config_file.close ();
 		boost::asio::io_service service;
-		rai::work_pool work (config.node.work_threads, rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		rai::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl] (rai::uint256_union const & root_a)
+		{
+			return opencl->generate_work (root_a);
+		} : std::function <boost::optional <uint64_t> (rai::uint256_union const &)> (nullptr));
 		rai::alarm alarm (service);
 		rai::node_init init;
-		auto node (std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work));
+		auto node (std::make_shared <rai::node> (init, service, data_path, alarm, config.node, opencl_work));
 		if (!init.error ())
 		{
 			node->start ();

@@ -1,7 +1,6 @@
 #include <rai/node/work.hpp>
 
 #include <rai/node/xorshift.hpp>
-#include <rai/node/openclwork.hpp>
 
 #include <future>
 
@@ -27,10 +26,10 @@ uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-rai::work_pool::work_pool (unsigned max_threads_a, std::unique_ptr <rai::opencl_work> opencl_a) :
+rai::work_pool::work_pool (unsigned max_threads_a, std::function <boost::optional<uint64_t> (rai::uint256_union const &)> opencl_a) :
 ticket (0),
 done (false),
-opencl (std::move (opencl_a))
+opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::max (1u, std::min (max_threads_a, std::thread::hardware_concurrency ())));
@@ -156,9 +155,9 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function 
 {
 	assert (!root_a.is_zero ());
 	boost::optional <uint64_t> result;
-	if (opencl != nullptr)
+	if (opencl)
 	{
-		result = opencl->generate_work (root_a);
+		result = opencl (root_a);
 	}
 	if (!result)
 	{

@@ -2,7 +2,6 @@
 
 #include <rai/node/node.hpp>
 #include <rai/node/wallet.hpp>
-#include <rai/node/openclwork.hpp>
 
 TEST (work, one)
 {
@@ -56,10 +55,13 @@ TEST (work, DISABLED_opencl)
 {
 	rai::logging logging;
 	logging.init (rai::unique_path ());
-	auto work (rai::opencl_work::create (true, {0, 1, 1024 * 1024}, logging));
-	if (work != nullptr)
+	auto opencl (rai::opencl_work::create (true, {0, 1, 1024 * 1024}, logging));
+	if (opencl != nullptr)
 	{
-		rai::work_pool pool (std::numeric_limits <unsigned>::max (), std::move (work));
+		rai::work_pool pool (std::numeric_limits <unsigned>::max (), opencl ? [&opencl] (rai::uint256_union const & root_a)
+		{
+			return opencl->generate_work (root_a);
+		} : std::function <boost::optional <uint64_t> (rai::uint256_union const &)> (nullptr));
 		ASSERT_NE (nullptr, pool.opencl);
 		rai::uint256_union root;
 		for (auto i (0); i < 1; ++i)

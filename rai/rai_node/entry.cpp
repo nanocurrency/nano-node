@@ -317,8 +317,11 @@ int main (int argc, char * const * argv)
 					if (!error)
 					{
 						rai::logging logging;
-						auto work (rai::opencl_work::create (true, {platform, device, threads}, logging));
-						rai::work_pool work_pool (std::numeric_limits <unsigned>::max (), std::move (work));
+						auto opencl (rai::opencl_work::create (true, {platform, device, threads}, logging));
+						rai::work_pool work_pool (std::numeric_limits <unsigned>::max (), opencl ? [&opencl] (rai::uint256_union const & root_a)
+						{
+							return opencl->generate_work (root_a);
+						} : std::function <boost::optional <uint64_t> (rai::uint256_union const &)> (nullptr));
 						rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
 						std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%\n") % platform % device % threads);
 						for (uint64_t i (0); true; ++i)
