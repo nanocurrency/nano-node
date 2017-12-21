@@ -26,19 +26,19 @@ public:
 				boost::property_tree::write_json (ostream, request);
 				req.method (boost::beast::http::verb::post);
 				req.target ("/");
-				req.version = 11;
+				req.version (11);
 				ostream.flush ();
-				req.body = ostream.str ();
+				req.body() = ostream.str ();
 				req.prepare_payload ();
-				boost::beast::http::async_write (sock, req, [this] (boost::system::error_code const & ec)
+				boost::beast::http::async_write (sock, req, [this] (boost::system::error_code const & ec, size_t bytes_transferred)
 				{
 					if (!ec)
 					{
-						boost::beast::http::async_read(sock, sb, resp, [this] (boost::system::error_code const & ec)
+						boost::beast::http::async_read(sock, sb, resp, [this] (boost::system::error_code const & ec, size_t bytes_transferred)
 						{
 							if (!ec)
 							{
-								std::stringstream body (resp.body);
+								std::stringstream body (resp.body());
 								try
 								{
 									boost::property_tree::read_json (body, json);
