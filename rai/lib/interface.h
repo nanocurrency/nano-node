@@ -36,6 +36,8 @@ void xrb_key_account (xrb_uint256 key, xrb_uint256 pub);
 
 // Sign 'transaction' using 'private_key' and write to 'signature'
 char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private_key);
+// Generate work for 'transaction'
+char * xrb_work_transaction (const char * transaction);
 
 #if __cplusplus
 } // extern "C"

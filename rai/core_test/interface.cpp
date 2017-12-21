@@ -5,6 +5,7 @@
 #include <rai/lib/blocks.hpp>
 #include <rai/lib/numbers.hpp>
 #include <rai/lib/interface.h>
+#include <rai/lib/work.hpp>
 
 TEST (interface, xrb_uint256_to_string)
 {
@@ -96,5 +97,23 @@ TEST (interface, sign_transaction)
 	auto send1 (dynamic_cast <rai::send_block *> (block.get ()));
 	ASSERT_NE (nullptr, send1);
 	ASSERT_FALSE (rai::validate_message (pub, send.hash (), send1->signature));
+	free (transaction);
+}
+
+TEST (interface, work_transaction)
+{
+	rai::raw_key key;
+	xrb_generate_random (key.data.bytes.data ());
+	rai::uint256_union pub;
+	xrb_key_account (key.data.bytes.data (), pub.bytes.data ());
+	rai::send_block send (1, 0, 0, key, pub, 0);
+	auto transaction (xrb_work_transaction (send.to_json ().c_str ()));
+	boost::property_tree::ptree block_l;
+	std::string transaction_l (transaction);
+	std::stringstream block_stream (transaction_l);
+	boost::property_tree::read_json (block_stream, block_l);
+	auto block (rai::deserialize_block_json (block_l));
+	ASSERT_NE (nullptr, block);
+	ASSERT_FALSE (rai::work_validate (*block));
 	free (transaction);
 }
