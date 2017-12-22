@@ -1,0 +1,123 @@
+## Raiblocks CI config
+
+image: ubuntu:zesty
+
+stages:
+  - build
+  - test
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+.linux_template: &linux_cfg
+  variables:
+    CC: clang
+    CXX: clang++
+
+  artifacts:
+    expire_in: 2d
+    paths:
+    - build*/*.tar*
+    - build*/*_test
+    - csa_results
+
+  script:
+    - ./ci/build.sh
+
+  after_script:
+    - ./ci/test.sh
+
+
+Arch Linux:
+  <<: *linux_cfg
+  stage: build
+  image: pritunl/archlinux:latest
+
+  before_script:
+    - pacman --noconfirm -Syu base-devel qt5-tools xorg-server-xvfb clang clang-tools-extra cmake boost boost-libs ninja lsb-release
+
+  script:
+    - mkdir -p csa_results/
+    - scan-build -o csa_results/ ./ci/build.sh
+
+
+Ubuntu Linux Trusty:
+  <<: *linux_cfg
+  stage: build
+  image: ubuntu:trusty
+  variables:
+    BOOST_ROOT: /usr/local/boost
+    CC: gcc
+    CXX: g++
+    NO_SIMD: 1
+    FLAVOR: trusty_no_simd
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+    - ./ci/bootstrap_boost.sh
+
+
+Ubuntu Linux Zesty:
+  <<: *linux_cfg
+  stage: build
+  image: ubuntu:zesty
+  variables:
+    FLAVOR: zesty
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+
+
+Ubuntu Linux:ASAN:
+  <<: *linux_cfg
+  stage: build
+  variables:
+    ASAN: 1
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+
+  variables:
+    FLAVOR: zesty_asan
+
+
+Ubuntu Linux:TSAN:
+  <<: *linux_cfg
+  stage: build
+  variables:
+    TSAN: 1
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+
+  variables:
+    FLAVOR: zesty_tsan
+
+
+# DISABLED: Shared runners avail for gitlab CI
+#   don't include OS X
+.OS X:
+  stage: build
+  variables:
+    CC: clang
+    CXX: clang++
+  tags:
+    - clang
+    - osx
+
+  script:
+    - ./ci/build.sh
+
+# DISABLED for now
+.Alpine Linux:
+  stage: build
+  image: alpine:latest
+  variables:
+    BUSYBOX_BASH: 1
+
+  before_script:
+    - apk add --update alpine-sdk autoconf automake libtool clang-dev cmake ninja qt5-qtbase-dev qt5-qttools-dev boost-dev ttf-freefont xvfb
+
+  script:
+    - ./ci/build.sh
+
