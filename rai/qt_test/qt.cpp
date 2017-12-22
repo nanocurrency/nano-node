@@ -9,10 +9,10 @@
 #include <QTest>
 
 extern QApplication * test_application;
-rai_qt::eventloop_processor processor;
 
 TEST (wallet, construction)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
 	auto key (wallet_l->deterministic_insert ());
@@ -26,6 +26,7 @@ TEST (wallet, construction)
 
 TEST (wallet, status)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
     rai::keypair key;
@@ -53,6 +54,7 @@ TEST (wallet, status)
 
 TEST (wallet, startup_balance)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
     rai::keypair key;
@@ -64,6 +66,7 @@ TEST (wallet, startup_balance)
 
 TEST (wallet, select_account)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
 	rai::public_key key1 (wallet_l->deterministic_insert ());
@@ -84,6 +87,7 @@ TEST (wallet, select_account)
 
 TEST (wallet, main)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
     auto wallet_l (system.nodes [0]->wallets.create (rai::uint256_union ()));
     rai::keypair key;
@@ -114,6 +118,7 @@ TEST (wallet, main)
 
 TEST (wallet, password_change)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	rai::account account;
 	system.wallet (0)->insert_adhoc (rai::keypair ().prv);
@@ -149,6 +154,7 @@ TEST (wallet, password_change)
 
 TEST (client, password_nochange)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	rai::account account;
 	system.wallet (0)->insert_adhoc (rai::keypair ().prv);
@@ -194,6 +200,7 @@ TEST (client, password_nochange)
 
 TEST (wallet, enter_password)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 2);
 	rai::account account;
 	system.wallet (0)->insert_adhoc (rai::keypair ().prv);
@@ -230,6 +237,7 @@ TEST (wallet, enter_password)
 
 TEST (wallet, send)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::public_key key1 (system.wallet (1)->insert_adhoc (rai::keypair ().prv));
@@ -261,6 +269,7 @@ TEST (wallet, send)
 
 TEST (wallet, send_locked)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
@@ -284,6 +293,7 @@ TEST (wallet, send_locked)
 
 TEST (wallet, process_block)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	rai::account account;
 	rai::block_hash latest (system.nodes [0]->latest (rai::genesis_account));
@@ -318,6 +328,7 @@ TEST (wallet, process_block)
 
 TEST (wallet, create_send)
 {
+    rai_qt::eventloop_processor processor;
 	rai::keypair key;
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
@@ -347,6 +358,7 @@ TEST (wallet, create_send)
 
 TEST (wallet, create_open_receive)
 {
+    rai_qt::eventloop_processor processor;
 	rai::keypair key;
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
@@ -395,6 +407,7 @@ TEST (wallet, create_open_receive)
 
 TEST (wallet, create_change)
 {
+    rai_qt::eventloop_processor processor;
 	rai::keypair key;
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
@@ -445,6 +458,7 @@ TEST (history, short_text)
 
 TEST (wallet, startup_work)
 {
+    rai_qt::eventloop_processor processor;
 	rai::keypair key;
     rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (key.prv);
@@ -478,6 +492,7 @@ TEST (wallet, startup_work)
 
 TEST (wallet, block_viewer)
 {
+    rai_qt::eventloop_processor processor;
 	rai::keypair key;
     rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (key.prv);
@@ -502,6 +517,7 @@ TEST (wallet, block_viewer)
 
 TEST (wallet, import)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 2);
 	std::string json;
 	rai::keypair key1;
@@ -535,6 +551,7 @@ TEST (wallet, import)
 
 TEST (wallet, republish)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
@@ -566,6 +583,7 @@ TEST (wallet, republish)
 
 TEST (wallet, ignore_empty_adhoc)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	rai::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
@@ -590,6 +608,7 @@ TEST (wallet, ignore_empty_adhoc)
 
 TEST (wallet, change_seed)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	auto key3 (system.wallet (0)->deterministic_insert ());
@@ -635,6 +654,7 @@ TEST (wallet, change_seed)
 
 TEST (wallet, seed_work_generation)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
     auto wallet (std::make_shared <rai_qt::wallet> (*test_application, processor, *system.nodes [0], system.wallet (0), key1));
@@ -666,6 +686,7 @@ TEST (wallet, seed_work_generation)
 
 TEST (wallet, backup_seed)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
     auto wallet (std::make_shared <rai_qt::wallet> (*test_application, processor, *system.nodes [0], system.wallet (0), key1));
@@ -682,6 +703,7 @@ TEST (wallet, backup_seed)
 
 TEST (wallet, import_locked)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	system.wallet (0)->store.rekey (rai::transaction (system.wallet (0)->store.environment, nullptr, true), "1");
@@ -709,6 +731,7 @@ TEST (wallet, import_locked)
 
 TEST (wallet, synchronizing)
 {
+    rai_qt::eventloop_processor processor;
     rai::system system0 (24000, 1);
     rai::system system1 (24001, 1);
 	auto key1 (system0.wallet (0)->deterministic_insert ());
