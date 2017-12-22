@@ -100,6 +100,12 @@ TEST (interface, sign_transaction)
 	free (transaction);
 }
 
+TEST (interface, fail_sign_transaction)
+{
+	rai::uint256_union data (0);
+	xrb_sign_transaction ("", data.bytes.data ());
+}
+
 TEST (interface, work_transaction)
 {
 	rai::raw_key key;
@@ -116,4 +122,10 @@ TEST (interface, work_transaction)
 	ASSERT_NE (nullptr, block);
 	ASSERT_FALSE (rai::work_validate (*block));
 	free (transaction);
+}
+
+TEST (interface, fail_work_transaction)
+{
+	rai::uint256_union data (0);
+	xrb_work_transaction ("");
 }
