@@ -8,6 +8,7 @@
 #include <atomic>
 #include <memory>
 #include <thread>
+#include <condition_variable>
 
 namespace rai
 {
