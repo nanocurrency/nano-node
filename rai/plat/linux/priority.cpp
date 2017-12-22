@@ -1,4 +1,4 @@
-#include <rai/utility.cpp>
+#include <rai/node/utility.cpp>
 
 #include <pthread.h>
 
