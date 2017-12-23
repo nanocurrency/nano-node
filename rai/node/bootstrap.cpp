@@ -1104,11 +1104,19 @@ node (node_a)
 
 void rai::bootstrap_listener::start ()
 {
-    acceptor.open (local.protocol ());
-    acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-    acceptor.bind (local);
-    acceptor.listen ();
-    accept_connection ();
+	acceptor.open (local.protocol ());
+	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+
+	boost::system::error_code ec;
+	acceptor.bind (local, ec);
+	if (ec)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for bootstrap on port %1%: %2%") % local.port() % ec.message ());
+		throw std::runtime_error (ec.message());
+	}
+
+	acceptor.listen ();
+	accept_connection ();
 }
 
 void rai::bootstrap_listener::stop ()
