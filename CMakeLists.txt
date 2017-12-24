@@ -425,6 +425,7 @@ if (RAIBLOCKS_GUI)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
 		install (TARGETS rai_wallet DESTINATION .)
+		install (TARGETS rai_node DESTINATION .)
 	endif ()
 endif (RAIBLOCKS_GUI)
 
