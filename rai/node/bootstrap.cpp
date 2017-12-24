@@ -438,12 +438,18 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr <rai::bootstrap_client> connection_a) :
 connection (connection_a)
 {
+	assert (!connection->attempt->mutex.try_lock ());
 	++connection->attempt->pulling;
+	connection->attempt->condition.notify_all ();
 }
 
 rai::bulk_pull_client::~bulk_pull_client ()
 {
-	--connection->attempt->pulling;
+	{
+		std::lock_guard <std::mutex> mutex (connection->attempt->mutex);
+		--connection->attempt->pulling;
+		connection->attempt->condition.notify_all ();
+	}
 	if (!pull.account.is_zero ())
 	{
 		connection->attempt->requeue_pull (pull);
