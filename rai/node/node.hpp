@@ -431,24 +431,35 @@ public:
 	std::mutex mutex;
 	std::unordered_set <rai::block_hash> active;
 };
+class block_processor_item
+{
+public:
+	block_processor_item (std::shared_ptr <rai::block>);
+	block_processor_item (std::shared_ptr <rai::block>, bool);
+	block_processor_item (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>);
+	block_processor_item (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>, bool);
+	std::shared_ptr <rai::block> block;
+	std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> callback;
+	bool force;
+};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
 {
 public:
 	block_processor (rai::node &);
-    ~block_processor ();
-    void stop ();
-    void flush ();
-	void add (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
-	void process_receive_many (std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> = [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {});
-	void process_receive_many (std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> &);
-    rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
+	~block_processor ();
+	void stop ();
+	void flush ();
+	void add (rai::block_processor_item const &);
+	void process_receive_many (rai::block_processor_item const &);
+	void process_receive_many (std::deque <rai::block_processor_item> &);
+	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr <rai::block>);
 	void process_blocks ();
 private:
 	bool stopped;
-    bool idle;
-	std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks;
+	bool idle;
+	std::deque <rai::block_processor_item> blocks;
 	std::mutex mutex;
 	std::condition_variable condition;
 	rai::node & node;

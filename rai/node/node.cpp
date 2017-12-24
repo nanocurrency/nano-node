@@ -1061,6 +1061,28 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 	return active.count (hash_a) != 0;
 }
 
+rai::block_processor_item::block_processor_item (std::shared_ptr <rai::block> block_a) :
+block_processor_item (block_a, nullptr, false)
+{
+}
+
+rai::block_processor_item::block_processor_item (std::shared_ptr <rai::block> block_a, bool force_a) :
+block_processor_item (block_a, nullptr, force_a)
+{
+}
+
+rai::block_processor_item::block_processor_item (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> callback_a) :
+block_processor_item (block_a, callback_a, false)
+{
+}
+
+rai::block_processor_item::block_processor_item (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> callback_a, bool force_a) :
+block (block_a),
+callback (callback_a),
+force (force_a)
+{
+}
+
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 idle (true),
@@ -1089,10 +1111,10 @@ void rai::block_processor::flush ()
     }
 }
 
-void rai::block_processor::add (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> action_a)
+void rai::block_processor::add (rai::block_processor_item const & item_a)
 {
     std::lock_guard <std::mutex> lock (mutex);
-    blocks.push_back (std::make_pair (block_a, action_a));
+    blocks.push_back (item_a);
     condition.notify_all ();
 }
 
@@ -1103,7 +1125,7 @@ void rai::block_processor::process_blocks ()
 	{
 		if (!blocks.empty ())
 		{
-			std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks_processing;
+			std::deque <rai::block_processor_item> blocks_processing;
 			std::swap (blocks, blocks_processing);
 			lock.unlock ();
 			process_receive_many (blocks_processing);
@@ -1121,14 +1143,14 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
-void rai::block_processor::process_receive_many (std::shared_ptr <rai::block> block_a, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)> completed_a)
+void rai::block_processor::process_receive_many (rai::block_processor_item const & item_a)
 {
-	std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> blocks_processing;
-	blocks_processing.push_back (std::make_pair (block_a, completed_a));
+	std::deque <rai::block_processor_item> blocks_processing;
+	blocks_processing.push_back (item_a);
 	process_receive_many (blocks_processing);
 }
 
-void rai::block_processor::process_receive_many (std::deque <std::pair <std::shared_ptr <rai::block>, std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>>> & blocks_processing)
+void rai::block_processor::process_receive_many (std::deque <rai::block_processor_item> & blocks_processing)
 {
     while (!blocks_processing.empty ())
 	{
@@ -1140,14 +1162,27 @@ void rai::block_processor::process_receive_many (std::deque <std::pair <std::sha
 			{
 				auto item (blocks_processing.front ());
 				blocks_processing.pop_front ();
-				auto hash (item.first->hash ());
-				auto process_result (process_receive_one (transaction, item.first));
-				item.second (transaction, process_result, item.first);
+				auto hash (item.block->hash ());
+				if (item.force)
+				{
+					auto successor (node.ledger.successor (transaction, item.block->root ()));
+					if (successor != nullptr && successor->hash () != hash)
+					{
+						// Replace our block with the winner and roll back any dependent blocks
+						BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
+						node.ledger.rollback (transaction, successor->hash ());
+					}
+				}
+				auto process_result (process_receive_one (transaction, item.block));
+				if (item.callback)
+				{
+					item.callback (transaction, process_result, item.block);
+				}
 				switch (process_result.code)
 				{
 					case rai::process_result::progress:
 					{
-						progress.push_back (std::make_pair (item.first, process_result));
+						progress.push_back (std::make_pair (item.block, process_result));
 					}
 					case rai::process_result::old:
 					{
@@ -1155,7 +1190,7 @@ void rai::block_processor::process_receive_many (std::deque <std::pair <std::sha
 						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 						{
 							node.store.unchecked_del (transaction, hash, **i);
-							blocks_processing.push_front (std::make_pair (*i, [] (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>) {}));
+							blocks_processing.push_front (rai::block_processor_item (*i));
 						}
 						std::lock_guard <std::mutex> lock (node.gap_cache.mutex);
 						node.gap_cache.blocks.get <1> ().erase (hash);
@@ -1662,14 +1697,22 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 {
     rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
     std::lock_guard <std::mutex> lock (mutex);
-	auto first (peers.get <4> ().begin ());
-	if (first != peers.get <4> ().end ())
+	;
+	for (auto i (peers.get <4> ().begin ()), n (peers.get <4> ().end ()); i != n;)
 	{
-		result = first->endpoint;
-		peers.get <4> ().modify (first, [] (rai::peer_information & peer_a)
+		if (i->network_version >= 0x5)
 		{
-			peer_a.last_bootstrap_attempt = std::chrono::system_clock::now ();
-		});
+			result = i->endpoint;
+			peers.get <4> ().modify (i, [] (rai::peer_information & peer_a)
+			{
+				peer_a.last_bootstrap_attempt = std::chrono::system_clock::now ();
+			});
+			i = n;
+		}
+		else
+		{
+			++i;
+		}
     }
     return result;
 }
@@ -2684,16 +2727,17 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);
 		auto winner (tally_l.begin ());
-		if (!(*winner->second == *last_winner))
+		auto block_l (winner->second);
+		if (!(*block_l == *last_winner))
 		{
 			if (winner->first > minimum_treshold (transaction_a, node.ledger))
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % last_winner->hash ().to_string () % winner->second->hash ().to_string ());
-				// Replace our block with the winner and roll back any dependent blocks
-				node.ledger.rollback (transaction_a, last_winner->hash ());
-				node.ledger.process (transaction_a, *winner->second);
-				node.block_processor.add (winner->second);
-				last_winner = std::move (winner->second);
+				auto node_l (node.shared ());
+				node.background ([node_l, block_l] ()
+				{
+					node_l->block_processor.process_receive_many (rai::block_processor_item (block_l, true));
+				});
+				last_winner = block_l;
 			}
 			else
 			{

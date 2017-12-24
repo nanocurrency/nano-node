@@ -173,7 +173,7 @@ void rai::bootstrap_client::start_timeout ()
 			auto this_l (this_w.lock ());
 			if (this_l != nullptr)
 			{
-                BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->endpoint);
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->endpoint);
 				this_l->socket.close ();
 			}
 		}
@@ -573,19 +573,19 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 		std::shared_ptr <rai::block> block (rai::deserialize_block (stream));
 		if (block != nullptr)
 		{
-            auto hash (block->hash ());
-            if (connection->node->config.logging.bulk_pull_logging ())
-            {
-                std::string block_l;
-                block->serialize_json (block_l);
-                BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
-            }
+			auto hash (block->hash ());
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				std::string block_l;
+				block->serialize_json (block_l);
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
+			}
 			if (hash == expected)
 			{
 				expected = block->previous ();
 			}
 			auto attempt_l (connection->attempt);
-			attempt_l->node->block_processor.add (block, [attempt_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
+			attempt_l->node->block_processor.add (rai::block_processor_item (block, [attempt_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
 			{
 				switch (result_a.code)
 				{
@@ -605,13 +605,13 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 					default:
 						break;
 				}
-			});
-            receive_block ();
+			}));
+			receive_block ();
 		}
-        else
-        {
-            BOOST_LOG (connection->node->log) << "Error deserializing block received from pull request";
-        }
+		else
+		{
+			BOOST_LOG (connection->node->log) << "Error deserializing block received from pull request";
+		}
 	}
 	else
 	{
@@ -1040,7 +1040,7 @@ void rai::bootstrap_initiator::bootstrap ()
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 {
-    node.peers.insert (endpoint_a, 0);
+    node.peers.insert (endpoint_a, 0x5);
 	bootstrap ();
 	std::lock_guard <std::mutex> lock (mutex);
 	if (attempt != nullptr)
