@@ -5,6 +5,10 @@ set (CPACK_PACKAGE_VERSION_MAJOR "9")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib:\$ORIGIN/")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 set (RAIBLOCKS_GUI OFF CACHE BOOL "")
 set (RAIBLOCKS_TEST OFF CACHE BOOL "")
 option(RAIBLOCKS_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
@@ -441,8 +445,11 @@ if (RAIBLOCKS_GUI)
 		install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
-		install (TARGETS rai_wallet DESTINATION .)
-		install (TARGETS rai_node DESTINATION .)
+		install(TARGETS rai_wallet rai_node rai_lib
+				RUNTIME DESTINATION bin
+				LIBRARY DESTINATION lib
+				ARCHIVE DESTINATION lib
+		)
 	endif ()
 endif (RAIBLOCKS_GUI)
 
