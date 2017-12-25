@@ -860,6 +860,15 @@ bool rai::bootstrap_attempt::request_push (std::unique_lock <std::mutex> & lock_
     return result;
 }
 
+bool rai::bootstrap_attempt::still_pulling ()
+{
+	assert (!mutex.try_lock ());
+	auto running (!stopped);
+	auto more_pulls (!pulls.empty ());
+	auto still_pulling (pulling > 0);
+	return running && (more_pulls || still_pulling);
+}
+
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
@@ -869,16 +878,21 @@ void rai::bootstrap_attempt::run ()
 	{
 		frontier_failure = request_frontier (lock);
 	}
-	while (!stopped && (!pulls.empty () || pulling > 0))
+	while (still_pulling ())
 	{
-		if (!pulls.empty ())
+		while (still_pulling ())
 		{
-			request_pull (lock);
+			if (!pulls.empty ())
+			{
+				request_pull (lock);
+			}
+			else
+			{
+				condition.wait (lock);
+			}
 		}
-		else
-		{
-			condition.wait (lock);
-		}
+		// Flushing may resolve forks which can add more pulls
+		node->block_processor.flush ();
 	}
 	if (!stopped)
 	{
@@ -1041,7 +1055,6 @@ void rai::bootstrap_initiator::bootstrap ()
 		attempt_thread.reset (new std::thread ([this] ()
         {
             attempt->run ();
-			this->node.block_processor.flush ();
 			std::lock_guard <std::mutex> lock (mutex);
 			attempt.reset ();
 			condition.notify_all ();
@@ -1064,6 +1077,20 @@ void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const &
 {
 	std::lock_guard <std::mutex> lock (mutex);
 	observers.push_back (observer_a);
+}
+
+void rai::bootstrap_initiator::request_account (rai::account const & account_a, rai::block_hash const & hash_a)
+{
+	std::shared_ptr <rai::bootstrap_attempt> attempt_l;
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		attempt_l = attempt;
+	}
+	if (attempt_l != nullptr)
+	{
+		std::lock_guard <std::mutex> lock (mutex);
+		attempt_l->pulls.push_back (rai::pull_info (account_a, hash_a, hash_a));
+	}
 }
 
 bool rai::bootstrap_initiator::in_progress ()

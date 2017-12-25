@@ -77,6 +77,7 @@ public:
 	void pool_connection (std::shared_ptr <rai::bootstrap_client>);
 	void stop ();
 	void requeue_pull (rai::pull_info const &);
+	bool still_pulling ();
 	std::deque <std::weak_ptr <rai::bootstrap_client>> clients;
 	std::weak_ptr <rai::frontier_req_client> frontiers;
 	std::weak_ptr <rai::bulk_push_client> push;
@@ -162,14 +163,15 @@ public:
     void bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function <void (bool)> const &);
+	void request_account (rai::account const &, rai::block_hash const &);
 	bool in_progress ();
 	void stop ();
-    void stop_attempt (std::unique_lock <std::mutex> &);
 	rai::node & node;
 	std::shared_ptr <rai::bootstrap_attempt> attempt;
 	std::unique_ptr <std::thread> attempt_thread;
 	bool stopped;
 private:
+    void stop_attempt (std::unique_lock <std::mutex> &);
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::vector <std::function <void (bool)>> observers;

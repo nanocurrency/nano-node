@@ -1170,6 +1170,7 @@ void rai::block_processor::process_receive_many (std::deque <rai::block_processo
 					{
 						// Replace our block with the winner and roll back any dependent blocks
 						BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
+						node.bootstrap_initiator.request_account (node.ledger.account (transaction, successor->hash ()), hash);
 						node.ledger.rollback (transaction, successor->hash ());
 					}
 				}
