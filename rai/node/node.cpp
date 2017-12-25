@@ -1152,13 +1152,13 @@ void rai::block_processor::process_receive_many (rai::block_processor_item const
 
 void rai::block_processor::process_receive_many (std::deque <rai::block_processor_item> & blocks_processing)
 {
-    while (!blocks_processing.empty ())
+	while (!blocks_processing.empty ())
 	{
 		std::deque <std::pair <std::shared_ptr <rai::block>, rai::process_return>> progress;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, true);
-			auto count (0);
-			while (!blocks_processing.empty () && count < rai::blocks_per_transaction)
+			auto cutoff (std::chrono::system_clock::now () + rai::transaction_timeout);
+			while (!blocks_processing.empty () && std::chrono::system_clock::now () < cutoff)
 			{
 				auto item (blocks_processing.front ());
 				blocks_processing.pop_front ();
@@ -1200,14 +1200,13 @@ void rai::block_processor::process_receive_many (std::deque <rai::block_processo
 					default:
 						break;
 				}
-				++count;
 			}
 		}
 		for (auto & i : progress)
 		{
 			node.observers.blocks (i.first, i.second.account, i.second.amount);
 		}
-    }
+	}
 }
 
 rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr <rai::block> block_a)

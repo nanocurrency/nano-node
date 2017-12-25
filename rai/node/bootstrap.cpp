@@ -18,79 +18,79 @@ namespace {
 class add_dependency_visitor : public rai::block_visitor
 {
 public:
-    add_dependency_visitor (MDB_txn * transaction_a, rai::block_synchronization & sync_a) :
+	add_dependency_visitor (MDB_txn * transaction_a, rai::block_synchronization & sync_a) :
 	transaction (transaction_a),
-    sync (sync_a),
-    complete (true)
-    {
-    }
-    void send_block (rai::send_block const & block_a) override
-    {
-        add_dependency (block_a.hashables.previous);
-    }
-    void receive_block (rai::receive_block const & block_a) override
-    {
-        add_dependency (block_a.hashables.previous);
-        if (complete)
-        {
-            add_dependency (block_a.hashables.source);
-        }
-    }
-    void open_block (rai::open_block const & block_a) override
-    {
-        add_dependency (block_a.hashables.source);
-    }
-    void change_block (rai::change_block const & block_a) override
-    {
-        add_dependency (block_a.hashables.previous);
-    }
-    void add_dependency (rai::block_hash const & hash_a)
-    {
-        if (!sync.synchronized (transaction, hash_a) && sync.retrieve (transaction, hash_a) != nullptr)
-        {
-            complete = false;
-            sync.blocks.push_back (hash_a);
-        }
+	sync (sync_a),
+	complete (true)
+	{
+	}
+	void send_block (rai::send_block const & block_a) override
+	{
+		add_dependency (block_a.hashables.previous);
+	}
+	void receive_block (rai::receive_block const & block_a) override
+	{
+		add_dependency (block_a.hashables.previous);
+		if (complete)
+		{
+			add_dependency (block_a.hashables.source);
+		}
+	}
+	void open_block (rai::open_block const & block_a) override
+	{
+		add_dependency (block_a.hashables.source);
+	}
+	void change_block (rai::change_block const & block_a) override
+	{
+		add_dependency (block_a.hashables.previous);
+	}
+	void add_dependency (rai::block_hash const & hash_a)
+	{
+		if (!sync.synchronized (transaction, hash_a) && sync.retrieve (transaction, hash_a) != nullptr)
+		{
+			complete = false;
+			sync.blocks.push_back (hash_a);
+		}
 		else
 		{
 			// Block is already synchronized, normal
 		}
-    }
+	}
 	MDB_txn * transaction;
-    rai::block_synchronization & sync;
-    bool complete;
+	rai::block_synchronization & sync;
+	bool complete;
 };
 }
 
 bool rai::block_synchronization::add_dependency (MDB_txn * transaction_a, rai::block const & block_a)
 {
-    add_dependency_visitor visitor (transaction_a, *this);
-    block_a.visit (visitor);
-    return visitor.complete;
+	add_dependency_visitor visitor (transaction_a, *this);
+	block_a.visit (visitor);
+	return visitor.complete;
 }
 
 void rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
 {
-    auto done (false);
-    while (!done)
-    {
+	auto done (false);
+	while (!done)
+	{
 		auto hash (blocks.back ());
-        auto block (retrieve (transaction_a, hash));
-        if (block != nullptr)
-        {
-            done = add_dependency (transaction_a, *block);
-        }
-        else
-        {
-            done = true;
-        }
-    }
+		auto block (retrieve (transaction_a, hash));
+		if (block != nullptr)
+		{
+			done = add_dependency (transaction_a, *block);
+		}
+		else
+		{
+			done = true;
+		}
+	}
 }
 
 rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
 {
 	// Blocks that depend on multiple paths e.g. receive_blocks, need to have their dependencies recalculated each time
-    fill_dependencies (transaction_a);
+	fill_dependencies (transaction_a);
 	rai::sync_result result (rai::sync_result::success);
 	auto hash (blocks.back ());
 	blocks.pop_back ();
@@ -103,21 +103,20 @@ rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transact
 	{
 		// A block that can be the dependency of more than one other block, e.g. send blocks, can be added to the dependency list more than once.  Subsequent retrievals won't find the block but this isn't an error
 	}
-    return result;
+	return result;
 }
 
 rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    auto result (rai::sync_result::success);
+	auto result (rai::sync_result::success);
 	blocks.clear ();
-    blocks.push_back (hash_a);
-	unsigned block_count (rai::blocks_per_transaction);
-    while (block_count > 0 && result != rai::sync_result::fork && !blocks.empty ())
-    {
-        result = synchronize_one (transaction_a);
-		--block_count;
-    }
-    return result;
+	blocks.push_back (hash_a);
+	auto cutoff (std::chrono::system_clock::now () + rai::transaction_timeout);
+	while (std::chrono::system_clock::now () < cutoff && result != rai::sync_result::fork && !blocks.empty ())
+	{
+		result = synchronize_one (transaction_a);
+	}
+	return result;
 }
 
 rai::push_synchronization::push_synchronization (rai::node & node_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
@@ -129,7 +128,7 @@ node (node_a)
 
 bool rai::push_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    auto result (!node.store.unsynced_exists (transaction_a, hash_a));
+	auto result (!node.store.unsynced_exists (transaction_a, hash_a));
 	if (!result)
 	{
 		node.store.unsynced_del (transaction_a, hash_a);
@@ -139,7 +138,7 @@ bool rai::push_synchronization::synchronized (MDB_txn * transaction_a, rai::bloc
 
 std::unique_ptr <rai::block> rai::push_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-    return node.store.block_get (transaction_a, hash_a);
+	return node.store.block_get (transaction_a, hash_a);
 }
 
 rai::sync_result rai::push_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)

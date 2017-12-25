@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <chrono>
 
 namespace rai
 {
@@ -15,5 +16,5 @@ enum class rai_networks
 	rai_live_network
 };
 rai::rai_networks const rai_network = rai_networks::ACTIVE_NETWORK;
-size_t const blocks_per_transaction = rai::rai_network == rai::rai_networks::rai_test_network ? 2 : 16384;
+std::chrono::milliseconds const transaction_timeout = std::chrono::milliseconds (1000);
 }
