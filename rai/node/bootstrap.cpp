@@ -609,7 +609,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 						node_l->network.broadcast_confirm_req (block);
 						auto hash (block_a->hash ());
 						attempt_l->requeue_pull (rai::pull_info (pull_l.account, hash, hash));
-						BOOST_LOG (node_l->log) << boost::str (boost::format ("Fork received in bootstrap between: %1% and %2% root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
+						BOOST_LOG (node_l->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %2% and block %1% both with root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
 						break;
 					}
 					default:
