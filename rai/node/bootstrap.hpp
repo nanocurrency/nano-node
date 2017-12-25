@@ -163,7 +163,6 @@ public:
     void bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function <void (bool)> const &);
-	void request_account (rai::account const &, rai::block_hash const &);
 	bool in_progress ();
 	void stop ();
 	rai::node & node;
