@@ -6,6 +6,8 @@
 
 #include <set>
 
+#include <QObject>
+
 #include <QtGui>
 #include <QtWidgets>
 
@@ -152,7 +154,6 @@ public:
 	QHBoxLayout * self_layout;
 	QWidget * self_window;
 	QLabel * your_account_label;
-	QLabel * version;
 	QWidget * account_window;
 	QHBoxLayout * account_layout;
 	QLineEdit * account_text;
@@ -332,5 +333,8 @@ public:
 	rai_qt::status active_status;
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
+
+private:
+	std::unique_ptr<QObject> m_qmlgui;
 };
 }

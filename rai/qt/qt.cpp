@@ -4,6 +4,11 @@
 
 #include <sstream>
 
+#include <QQmlComponent>
+#include <QQmlContext>
+#include <QQmlEngine>
+#include <QUrl>
+
 namespace
 {
 void show_line_error (QLineEdit & line)
@@ -69,10 +74,8 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	version = new QLabel (boost::str (boost::format ("Version %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR).c_str ());
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
-	self_layout->addWidget (version);
 	self_layout->setContentsMargins (0, 0, 0, 0);
 	self_window->setLayout (self_layout);
 	account_text->setReadOnly (true);
@@ -912,6 +915,15 @@ active_status (*this)
 		QLineEdit { padding: 3px; } \
 	");
 	refresh ();
+
+	application.setAttribute (Qt::AA_EnableHighDpiScaling);
+
+	QQmlEngine * engine = new QQmlEngine;
+	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MAJOR"), int(RAIBLOCKS_VERSION_MAJOR));
+	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MINOR"), int(RAIBLOCKS_VERSION_MINOR));
+
+	QQmlComponent component (engine, QUrl (QStringLiteral ("qrc:/gui/main.qml")));
+	m_qmlgui = std::unique_ptr<QObject> (component.create ());
 }
 
 void rai_qt::wallet::start ()
