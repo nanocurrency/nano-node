@@ -1159,7 +1159,8 @@ void rai::block_processor::process_receive_many (std::deque <rai::block_processo
 			rai::transaction transaction (node.store.environment, nullptr, true);
 			std::deque <std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>> blocks_callback;
 			std::vector <std::shared_ptr <rai::block>> blocks_batch;
-			while (!blocks_processing.empty () && blocks_batch.size () < rai::blocks_per_transaction)
+			auto cutoff (std::chrono::system_clock::now () + rai::transaction_timeout);
+			while (!blocks_processing.empty () && std::chrono::system_clock::now () < cutoff)
 			{
 				auto item (blocks_processing.front ());
 				blocks_processing.pop_front ();
