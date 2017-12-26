@@ -1152,40 +1152,49 @@ void rai::block_processor::process_receive_many (rai::block_processor_item const
 
 void rai::block_processor::process_receive_many (std::deque <rai::block_processor_item> & blocks_processing)
 {
-    while (!blocks_processing.empty ())
+	while (!blocks_processing.empty ())
 	{
 		std::deque <std::pair <std::shared_ptr <rai::block>, rai::process_return>> progress;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, true);
-			auto count (0);
-			while (!blocks_processing.empty () && count < rai::blocks_per_transaction)
+			std::deque <std::function <void (MDB_txn *, rai::process_return, std::shared_ptr <rai::block>)>> blocks_callback;
+			std::vector <std::shared_ptr <rai::block>> blocks_batch;
+			while (!blocks_processing.empty () && blocks_batch.size () < rai::blocks_per_transaction)
 			{
 				auto item (blocks_processing.front ());
 				blocks_processing.pop_front ();
-				auto hash (item.block->hash ());
+				blocks_callback.push_back (item.callback);
+				blocks_batch.push_back (item.block);
 				if (item.force)
 				{
 					auto successor (node.ledger.successor (transaction, item.block->root ()));
-					if (successor != nullptr && successor->hash () != hash)
+					if (successor != nullptr && successor->hash () != item.block-> hash ())
 					{
 						// Replace our block with the winner and roll back any dependent blocks
-						BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
+						BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % item.block-> hash ().to_string ());
 						node.ledger.rollback (transaction, successor->hash ());
 					}
 				}
-				auto process_result (process_receive_one (transaction, item.block));
-				if (item.callback)
+			}
+			auto results (node.ledger.process_batch (transaction, blocks_batch));
+			for (auto i (0); i != blocks_batch.size (); ++i)
+			{
+				if (blocks_callback[i])
 				{
-					item.callback (transaction, process_result, item.block);
+					blocks_callback[i] (transaction, results[i], blocks_batch[i]);
 				}
-				switch (process_result.code)
+				switch (results[i].code)
 				{
 					case rai::process_result::progress:
 					{
-						progress.push_back (std::make_pair (item.block, process_result));
-					}
-					case rai::process_result::old:
-					{
+						if (node.config.logging.ledger_logging ())
+						{
+							std::string block;
+							blocks_batch[i]->serialize_json (block);
+							BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1% %2%") % blocks_batch[i]->hash ().to_string () % block);
+						}
+						progress.push_back (std::make_pair (blocks_batch[i], results[i]));
+						auto hash (blocks_batch[i]->hash ());
 						auto cached (node.store.unchecked_get (transaction, hash));
 						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 						{
@@ -1196,17 +1205,116 @@ void rai::block_processor::process_receive_many (std::deque <rai::block_processo
 						node.gap_cache.blocks.get <1> ().erase (hash);
 						break;
 					}
+					case rai::process_result::old:
+					{
+						auto root (blocks_batch[i]->root ());
+						auto hash (blocks_batch[i]->hash ());
+						auto existing (node.store.block_get (transaction, hash));
+						if (existing != nullptr)
+						{
+							// Replace block with one that has higher work value
+							if (rai::work_value (root, blocks_batch[i]->block_work ()) > rai::work_value (root, existing->block_work ()))
+							{
+								node.store.block_put (transaction, hash, *blocks_batch[i], node.store.block_successor (transaction, hash));
+							}
+						}
+						else
+						{
+							// Could have been rolled back, maybe
+						}
+						auto cached (node.store.unchecked_get (transaction, hash));
+						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+						{
+							node.store.unchecked_del (transaction, hash, **i);
+							blocks_processing.push_front (rai::block_processor_item (*i));
+						}
+						std::lock_guard <std::mutex> lock (node.gap_cache.mutex);
+						node.gap_cache.blocks.get <1> ().erase (hash);
+						break;
+					}
+					case rai::process_result::gap_previous:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % blocks_batch[i]->hash ().to_string ());
+						}
+						node.store.unchecked_put (transaction, blocks_batch[i]->previous (), blocks_batch[i]);
+						node.gap_cache.add (transaction, blocks_batch[i]);
+						break;
+					}
+					case rai::process_result::gap_source:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % blocks_batch[i]->hash ().to_string ());
+						}
+						node.store.unchecked_put (transaction, blocks_batch[i]->source (), blocks_batch[i]);
+						node.gap_cache.add (transaction, blocks_batch[i]);
+						break;
+					}
+					case rai::process_result::bad_signature:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % blocks_batch[i]->hash ().to_string ());
+						}
+						break;
+					}
+					case rai::process_result::overspend:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Overspend for: %1%") % blocks_batch[i]->hash ().to_string ());
+						}
+						break;
+					}
+					case rai::process_result::unreceivable:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Unreceivable for: %1%") % blocks_batch[i]->hash ().to_string ());
+						}
+						break;
+					}
+					case rai::process_result::not_receive_from_send:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Not receive from send for: %1%") % blocks_batch[i]->hash ().to_string ());
+						}
+						break;
+					}
+					case rai::process_result::fork:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % blocks_batch[i]->hash ().to_string () % blocks_batch[i]->root ().to_string ());
+						}
+						break;
+					}
+					case rai::process_result::account_mismatch:
+					{
+						if (node.config.logging.ledger_logging ())
+						{
+							BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % blocks_batch[i]->hash ().to_string ());
+						}
+						break;
+					}
+					case rai::process_result::opened_burn_account:
+					{
+						BOOST_LOG (node.log) << boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % blocks_batch[i]->hash ().to_string ());
+						break;
+					}
 					default:
 						break;
 				}
-				++count;
 			}
 		}
 		for (auto & i : progress)
 		{
 			node.observers.blocks (i.first, i.second.account, i.second.amount);
 		}
-    }
+	}
 }
 
 rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr <rai::block> block_a)

@@ -368,6 +368,10 @@ public:
 	std::string block_text (rai::block_hash const &);
 	rai::uint128_t supply (MDB_txn *);
 	rai::process_return process (MDB_txn *, rai::block const &);
+	std::vector <int> topological_sort (std::vector <std::shared_ptr <rai::block>> const &, std::vector <rai::block_hash> const &, std::vector <rai::block_type> const &);
+	std::vector <rai::process_return> process_batch (MDB_txn *, std::vector <std::shared_ptr <rai::block>> const &);
+	void ledger_process_part1 (MDB_txn *, std::vector <size_t> const &, std::vector <std::shared_ptr <rai::block>> const &, std::vector <rai::block_hash> const &, std::vector <rai::block_type> const &, std::vector <rai::account> &, std::vector <rai::process_return> &);
+	void ledger_process_part2 (MDB_txn *, std::vector <size_t> const &, std::vector <std::shared_ptr <rai::block>> const &, std::vector <rai::block_hash> const &, std::vector <rai::block_type> const &, std::vector <rai::account> const &, std::vector <rai::process_return> &);
 	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
