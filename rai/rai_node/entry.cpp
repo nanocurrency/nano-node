@@ -425,7 +425,7 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("debug_profile_process"))
 	{
-		if (rai::rai_network == rai::rai_networks::rai_test_network && rai::blocks_per_transaction > 2)
+		if (rai::rai_network == rai::rai_networks::rai_test_network)
 		{
 			size_t num_accounts (100000);
 			size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
@@ -516,7 +516,7 @@ int main (int argc, char * const * argv)
 		}
 		else
 		{
-			std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network & rai::blocks_per_transaction > 2" << std::endl;
+			std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
 		}
 	}
 	#if 0
