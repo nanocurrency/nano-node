@@ -1520,10 +1520,12 @@ block_processor_thread ([this] () { this->block_processor.process_blocks (); })
 
 rai::node::~node ()
 {
-    if (config.logging.node_lifetime_tracing ())
-    {
-        std::cerr << "Destructing node\n";
-    }
+	if (config.logging.node_lifetime_tracing ())
+	{
+		std::cerr << "Destructing node\n";
+	}
+
+	stop();
 }
 
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
