@@ -1,3 +1,9 @@
+# CMake
+*.txt.user
+
+# Compiled binary files
+*.qmlc
+
 # Compiled Object files
 *.slo
 *.lo
