@@ -3012,7 +3012,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option";
+			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
 			result = true;
 		}
 	}
@@ -3026,7 +3026,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "account comand requires one <key> option";
+			std::cerr << "account comand requires one <key> option\n";
 			result = true;
 		}
     }
@@ -3040,7 +3040,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "account_key command requires one <account> option";
+			std::cerr << "account_key command requires one <account> option\n";
 			result = true;
 		}
 	}
@@ -3089,7 +3089,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "key_expand command requires one <key> option";
+			std::cerr << "key_expand command requires one <key> option\n";
 			result = true;
 		}
 	}
@@ -3143,7 +3143,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option";
+			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
 			result = true;
 		}
 	}
@@ -3197,7 +3197,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option";
+			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
 			result = true;
 		}
 	}
@@ -3260,7 +3260,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "wallet_decrypt_unsafe requires one <wallet> option";
+			std::cerr << "wallet_decrypt_unsafe requires one <wallet> option\n";
 			result = true;
 		}
 	}
@@ -3290,7 +3290,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		else
 		{
-			std::cerr << "wallet_destroy requires one <wallet> option";
+			std::cerr << "wallet_destroy requires one <wallet> option\n";
 			result = true;
 		}
 	}
