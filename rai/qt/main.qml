@@ -2,6 +2,8 @@ import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.3
 
+import net.raiblocks 1.0
+
 ApplicationWindow {
     id: root
 
@@ -99,11 +101,12 @@ ApplicationWindow {
                             }
                             Label {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: qsTr("3547 XRB")
+                                text: rai_self_pane.balance
                             }
                             Label {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: qsTr("14235 USD")
+                                text: "(not pocketed " + rai_self_pane.pending + ")"
+                                visible: rai_self_pane.pending !== ""
                             }
                         }
                     }
@@ -139,10 +142,16 @@ ApplicationWindow {
                         RowLayout {
                             Label {
                                 Layout.fillWidth: true
-                                text: "xrb_012en12ien12iien10i2en10i2en"
+                                text: rai_self_pane.account
+                                wrapMode: Text.WrapAnywhere
                             }
                             Button {
                                 text: qsTr("Copy")
+                                onClicked: clipboard.sendText(rai_self_pane.account)
+
+                                ClipboardProxy {
+                                    id: clipboard
+                                }
                             }
                         }
                         Rectangle {

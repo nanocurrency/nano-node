@@ -328,9 +328,17 @@ if (RAIBLOCKS_GUI)
 
 	qt5_add_resources(RES resources.qrc rai/qt/gui.qrc)
 
-	add_library (qt
-		rai/qt/qt.cpp
+	set (qt_SRC
+		rai/qt/clipboardproxy.cpp
+		rai/qt/qt.cpp)
+
+	set (qt_HDR
+		rai/qt/clipboardproxy.hpp
 		rai/qt/qt.hpp)
+
+	qt5_wrap_cpp (qt_MOC ${qt_HDR})
+
+	add_library (qt ${qt_SRC} ${qt_MOC})
 
 	add_executable (nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}

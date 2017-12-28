@@ -9,6 +9,8 @@
 #include <QQmlEngine>
 #include <QUrl>
 
+#include "clipboardproxy.hpp"
+
 namespace
 {
 void show_line_error (QLineEdit & line)
@@ -59,62 +61,62 @@ action (action_a)
 }
 
 rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & account_a) :
-window (new QWidget),
-layout (new QVBoxLayout),
-self_layout (new QHBoxLayout),
-self_window (new QWidget),
-your_account_label (new QLabel ("Your Nano account:")),
-account_window (new QWidget),
-account_layout (new QHBoxLayout),
-account_text (new QLineEdit),
-copy_button (new QPushButton ("Copy")),
-balance_window (new QWidget),
-balance_layout (new QHBoxLayout),
-balance_label (new QLabel),
 wallet (wallet_a)
 {
-	your_account_label->setStyleSheet ("font-weight: bold;");
-	self_layout->addWidget (your_account_label);
-	self_layout->addStretch ();
-	self_layout->setContentsMargins (0, 0, 0, 0);
-	self_window->setLayout (self_layout);
-	account_text->setReadOnly (true);
-	account_text->setStyleSheet ("QLineEdit{ background: #ddd; }");
-	account_layout->addWidget (account_text, 9);
-	account_layout->addWidget (copy_button, 1);
-	account_layout->setContentsMargins (0, 0, 0, 0);
-	account_window->setLayout (account_layout);
-	layout->addWidget (self_window);
-	layout->addWidget (account_window);
-	balance_label->setStyleSheet ("font-weight: bold;");
-	balance_layout->addWidget (balance_label);
-	balance_layout->addStretch ();
-	balance_layout->setContentsMargins (0, 0, 0, 0);
-	balance_window->setLayout (balance_layout);
-	layout->addWidget (balance_window);
-	layout->setContentsMargins (5, 5, 5, 5);
-	window->setLayout (layout);
-
-	QObject::connect (copy_button, &QPushButton::clicked, [this]() {
-		this->wallet.application.clipboard ()->setText (QString (this->wallet.account.to_account ().c_str ()));
-		copy_button->setText ("Copied!");
-		this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (2), [this]() {
-			this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-				copy_button->setText ("Copy");
-			}));
-		});
-	});
 }
 
 void rai_qt::self_pane::refresh_balance ()
 {
 	auto balance (wallet.node.balance_pending (wallet.account));
-	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance.first));
-	if (!balance.second.is_zero ())
+
+	auto strBalance = wallet.format_balance (balance.first);
+	auto strPending = !balance.second.is_zero ()
+	? wallet.format_balance (balance.second)
+	: "";
+	this->setBalance (QString::fromStdString (strBalance));
+	this->setPending (QString::fromStdString (strPending));
+}
+
+QString rai_qt::self_pane::getAccount ()
+{
+	return m_account;
+}
+
+void rai_qt::self_pane::setAccount (QString account)
+{
+	if (account != m_account)
 	{
-		final_text += "\nPending: " + wallet.format_balance (balance.second);
+		m_account = account;
+		Q_EMIT accountChanged (account);
 	}
-	wallet.self.balance_label->setText (QString (final_text.c_str ()));
+}
+
+QString rai_qt::self_pane::getBalance ()
+{
+	return m_balance;
+}
+
+void rai_qt::self_pane::setBalance (QString balance)
+{
+	if (balance != m_balance)
+	{
+		m_balance = balance;
+		Q_EMIT balanceChanged (balance);
+	}
+}
+
+QString rai_qt::self_pane::getPending ()
+{
+	return m_pending;
+}
+
+void rai_qt::self_pane::setPending (QString pending)
+{
+	if (pending != m_pending)
+	{
+		m_pending = pending;
+		Q_EMIT pendingChanged (pending);
+	}
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
@@ -904,7 +906,6 @@ active_status (*this)
 	separator->setFrameShadow (QFrame::Sunken);
 
 	client_layout->addWidget (status);
-	client_layout->addWidget (self.window);
 	client_layout->addWidget (separator);
 	client_layout->addWidget (main_stack);
 	client_layout->setSpacing (0);
@@ -921,6 +922,9 @@ active_status (*this)
 	QQmlEngine * engine = new QQmlEngine;
 	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MAJOR"), int(RAIBLOCKS_VERSION_MAJOR));
 	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MINOR"), int(RAIBLOCKS_VERSION_MINOR));
+	engine->rootContext ()->setContextProperty (QString ("rai_self_pane"), &self);
+
+	qmlRegisterType<ClipboardProxy> ("net.raiblocks", 1, 0, "ClipboardProxy");
 
 	QQmlComponent component (engine, QUrl (QStringLiteral ("qrc:/gui/main.qml")));
 	m_qmlgui = std::unique_ptr<QObject> (component.create ());
@@ -1238,7 +1242,7 @@ void rai_qt::wallet::refresh ()
 		rai::transaction transaction (wallet_m->store.environment, nullptr, false);
 		assert (wallet_m->store.exists (transaction, account));
 	}
-	self.account_text->setText (QString (account.to_account ().c_str ()));
+	self.setAccount (QString (account.to_account ().c_str ()));
 	self.refresh_balance ();
 	accounts.refresh ();
 	history.refresh ();

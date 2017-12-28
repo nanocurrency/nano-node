@@ -20,9 +20,7 @@ TEST (wallet, construction)
 	auto key (wallet_l->deterministic_insert ());
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key));
 	wallet->start ();
-	std::string account (key.to_account_split ());
-	account.erase (std::remove (account.begin (), account.end (), '\n'), account.end ());
-	ASSERT_EQ (account, wallet->self.account_text->text ().toStdString ());
+	ASSERT_EQ (key.to_account (), wallet->self.getAccount ().toStdString ());
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
 	auto item1 (wallet->accounts.model->item (0, 1));
 	ASSERT_EQ (key.to_account (), item1->text ().toStdString ());
@@ -70,7 +68,8 @@ TEST (wallet, startup_balance)
 	wallet_l->insert_adhoc (key.prv);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	ASSERT_EQ ("Balance: 0 XRB", wallet->self.balance_label->text ().toStdString ());
+	ASSERT_EQ ("0 XRB", wallet->self.getBalance ().toStdString ());
+	ASSERT_EQ ("", wallet->self.getPending ().toStdString ());
 }
 
 TEST (wallet, select_account)

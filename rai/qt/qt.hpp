@@ -144,24 +144,34 @@ public:
 	QPushButton * back;
 	rai_qt::wallet & wallet;
 };
-class self_pane
+class self_pane : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString account READ getAccount NOTIFY accountChanged)
+	Q_PROPERTY (QString balance READ getBalance NOTIFY balanceChanged)
+	Q_PROPERTY (QString pending READ getPending NOTIFY pendingChanged)
 public:
 	self_pane (rai_qt::wallet &, rai::account const &);
 	void refresh_balance ();
-	QWidget * window;
-	QVBoxLayout * layout;
-	QHBoxLayout * self_layout;
-	QWidget * self_window;
-	QLabel * your_account_label;
-	QWidget * account_window;
-	QHBoxLayout * account_layout;
-	QLineEdit * account_text;
-	QPushButton * copy_button;
-	QWidget * balance_window;
-	QHBoxLayout * balance_layout;
-	QLabel * balance_label;
 	rai_qt::wallet & wallet;
+
+	QString getAccount ();
+	void setAccount (QString account);
+
+	QString getBalance ();
+	QString getPending ();
+
+	Q_SIGNAL void accountChanged (QString account);
+	Q_SIGNAL void balanceChanged (QString balance);
+	Q_SIGNAL void pendingChanged (QString pending);
+
+private:
+	QString m_account;
+	QString m_balance;
+	QString m_pending;
+
+	void setBalance (QString balance);
+	void setPending (QString pending);
 };
 class accounts
 {
