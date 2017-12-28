@@ -11,7 +11,7 @@
 
 namespace rai
 {
-// The fan spreads a key out over the heap to decrease the likelyhood of it being recovered by memory inspection
+// The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
 class fan
 {
 public:
