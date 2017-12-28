@@ -114,21 +114,28 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 		} : std::function <boost::optional <uint64_t> (rai::uint256_union const &)> (nullptr));
 		rai::alarm alarm (service);
 		rai::node_init init;
-		auto node (std::make_shared <rai::node> (init, service, data_path, alarm, config.node, opencl_work));
-		if (!init.error ())
+		try
 		{
-			node->start ();
-			rai::rpc rpc (service, *node, config.rpc);
-			if (config.rpc_enable)
+			auto node (std::make_shared <rai::node> (init, service, data_path, alarm, config.node, opencl_work));
+			if (!init.error ())
 			{
-				rpc.start ();
+				node->start ();
+				rai::rpc rpc (service, *node, config.rpc);
+				if (config.rpc_enable)
+				{
+					rpc.start ();
+				}
+				runner.reset (new rai::thread_runner (service, node->config.io_threads));
+				runner->join ();
 			}
-			runner.reset (new rai::thread_runner (service, node->config.io_threads));
-			runner->join ();
+			else
+			{
+				std::cerr << "Error initializing node\n";
+			}
 		}
-		else
+		catch(const std::runtime_error& e)
 		{
-			std::cerr << "Error initializing node\n";
+			std::cerr << "Error while running node (" << e.what() << ")\n";
 		}
 	}
 	else
