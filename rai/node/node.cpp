@@ -1500,31 +1500,30 @@ block_processor_thread ([this] () { this->block_processor.process_blocks (); })
 			}
 		}
 	});
-    BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR;
+	BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR;
 	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
-    if (!init_a.error ())
-    {
-        if (config.logging.node_lifetime_tracing ())
-        {
-            std::cerr << "Constructing node\n";
-        }
+	if (!init_a.error ())
+	{
+		if (config.logging.node_lifetime_tracing ())
+		{
+			BOOST_LOG (log) << "Constructing node";
+		}
 		rai::transaction transaction (store.environment, nullptr, true);
-        if (store.latest_begin (transaction) == store.latest_end ())
-        {
-            // Store was empty meaning we just created it, add the genesis block
-            rai::genesis genesis;
-            genesis.initialize (transaction, store);
-        }
-    }
+		if (store.latest_begin (transaction) == store.latest_end ())
+		{
+			// Store was empty meaning we just created it, add the genesis block
+			rai::genesis genesis;
+			genesis.initialize (transaction, store);
+		}
+	}
 }
 
 rai::node::~node ()
 {
 	if (config.logging.node_lifetime_tracing ())
 	{
-		std::cerr << "Destructing node\n";
+		BOOST_LOG (log) << "Destructing node";
 	}
-
 	stop();
 }
 

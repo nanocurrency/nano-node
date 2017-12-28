@@ -76,8 +76,16 @@ node (node_a)
 {
 	auto endpoint (rai::tcp_endpoint (config_a.address, config_a.port));
 	acceptor.open (endpoint.protocol ());
-    acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-	acceptor.bind (endpoint);
+	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+
+	boost::system::error_code ec;
+	acceptor.bind (endpoint, ec);
+	if (ec)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port() % ec.message ());
+		throw std::runtime_error (ec.message());
+	}
+
 	acceptor.listen ();
 	node_a.observers.blocks.add ([this] (std::shared_ptr <rai::block> block_a, rai::account const & account_a, rai::amount const &)
 	{
