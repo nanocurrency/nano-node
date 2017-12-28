@@ -38,7 +38,7 @@ TEST (wallet, status)
 	auto wallet_has = [wallet](rai_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
-	ASSERT_EQ ("Status: Disconnected, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Disconnected, Block: 1", wallet->active_status.getText ().toStdString ());
 	system.nodes[0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
@@ -226,7 +226,7 @@ TEST (wallet, enter_password)
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Wallet password empty, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Wallet password empty, Block: 1", wallet->active_status.getText ().toStdString ());
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
 		ASSERT_FALSE (system.wallet (0)->store.rekey (transaction, "abc"));
@@ -234,12 +234,12 @@ TEST (wallet, enter_password)
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Wallet locked, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Wallet locked, Block: 1", wallet->active_status.getText ().toStdString ());
 	wallet->settings.new_password->setText ("");
 	QTest::keyClicks (wallet->settings.password, "abc");
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Running, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Running, Block: 1", wallet->active_status.getText ().toStdString ());
 	ASSERT_EQ ("", wallet->settings.password->text ());
 }
 

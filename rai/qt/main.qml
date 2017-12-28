@@ -213,7 +213,11 @@ ApplicationWindow {
                     Label {
                         Layout.alignment: Qt.AlignLeft
                         anchors.left: parent.left
-                        text: qsTr("Block 15965 (1984035)")
+                        text: rai_status.text
+                        color: rai_status.color
+                        ToolTip {
+                            text: qsTr("Wallet status, block count (blocks downloaded)")
+                        }
                     }
                     Label {
                         Layout.alignment: Qt.AlignRight

@@ -277,17 +277,31 @@ enum class status_types
 	synchronizing,
 	nominal
 };
-class status
+class status : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString text READ getText NOTIFY textChanged)
+	Q_PROPERTY (QColor color READ getColor NOTIFY colorChanged)
 public:
 	status (rai_qt::wallet &);
 	void erase (rai_qt::status_types);
 	void insert (rai_qt::status_types);
-	void set_text ();
-	std::string text ();
-	std::string color ();
 	std::set<rai_qt::status_types> active;
 	rai_qt::wallet & wallet;
+
+	QString getText ();
+	QColor getColor ();
+
+	Q_SIGNAL void textChanged (QString text);
+	Q_SIGNAL void colorChanged (QColor color);
+
+private:
+	QString m_text;
+	QColor m_color;
+
+	QString text ();
+	QColor color ();
+	void set_text ();
 };
 class wallet : public std::enable_shared_from_this<rai_qt::wallet>
 {
@@ -316,7 +330,6 @@ public:
 	rai_qt::import import;
 
 	QApplication & application;
-	QLabel * status;
 	QStackedWidget * main_stack;
 
 	QWidget * client_window;

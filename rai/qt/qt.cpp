@@ -724,7 +724,6 @@ wallet (wallet_a)
 rai_qt::status::status (rai_qt::wallet & wallet_a) :
 wallet (wallet_a)
 {
-	wallet.status->setToolTip ("Wallet status, block count (blocks downloaded)");
 	active.insert (rai_qt::status_types::nominal);
 	set_text ();
 }
@@ -744,13 +743,35 @@ void rai_qt::status::insert (rai_qt::status_types status_a)
 	set_text ();
 }
 
-void rai_qt::status::set_text ()
+QColor rai_qt::status::getColor ()
 {
-	wallet.status->setText (text ().c_str ());
-	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
+	return m_color;
 }
 
-std::string rai_qt::status::text ()
+QString rai_qt::status::getText ()
+{
+	return m_text;
+}
+
+void rai_qt::status::set_text ()
+{
+	QString aText = text ();
+	QColor aColor = color ();
+
+	if (m_text != aText)
+	{
+		m_text = aText;
+		Q_EMIT textChanged (aText);
+	}
+
+	if (m_color != aColor)
+	{
+		m_color = aColor;
+		Q_EMIT colorChanged (aColor);
+	}
+}
+
+QString rai_qt::status::text ()
 {
 	assert (!active.empty ());
 	std::string result;
@@ -798,41 +819,41 @@ std::string rai_qt::status::text ()
 	}
 	result += count_string.c_str ();
 
-	return result;
+	return QString::fromStdString (result);
 }
 
-std::string rai_qt::status::color ()
+QColor rai_qt::status::color ()
 {
 	assert (!active.empty ());
 	std::string result;
 	switch (*active.begin ())
 	{
 		case rai_qt::status_types::disconnected:
-			result = "color: red";
+			result = "red";
 			break;
 		case rai_qt::status_types::working:
-			result = "color: blue";
+			result = "blue";
 			break;
 		case rai_qt::status_types::synchronizing:
-			result = "color: blue";
+			result = "blue";
 			break;
 		case rai_qt::status_types::locked:
-			result = "color: orange";
+			result = "orange";
 			break;
 		case rai_qt::status_types::vulnerable:
-			result = "color: blue";
+			result = "blue";
 			break;
 		case rai_qt::status_types::active:
-			result = "color: black";
+			result = "black";
 			break;
 		case rai_qt::status_types::nominal:
-			result = "color: black";
+			result = "black";
 			break;
 		default:
 			assert (false);
 			break;
 	}
-	return result;
+	return QColor (QString::fromStdString (result));
 }
 
 rai_qt::wallet::wallet (QApplication & application_a, rai_qt::eventloop_processor & processor_a, rai::node & node_a, std::shared_ptr<rai::wallet> wallet_a, rai::account & account_a) :
@@ -852,7 +873,6 @@ block_viewer (*this),
 account_viewer (*this),
 import (*this),
 application (application_a),
-status (new QLabel),
 main_stack (new QStackedWidget),
 client_window (new QWidget),
 client_layout (new QVBoxLayout),
@@ -900,12 +920,9 @@ active_status (*this)
 	entry_window->setLayout (entry_window_layout);
 
 	main_stack->addWidget (entry_window);
-	status->setContentsMargins (5, 5, 5, 5);
-	status->setAlignment (Qt::AlignHCenter);
 	separator->setFrameShape (QFrame::HLine);
 	separator->setFrameShadow (QFrame::Sunken);
 
-	client_layout->addWidget (status);
 	client_layout->addWidget (separator);
 	client_layout->addWidget (main_stack);
 	client_layout->setSpacing (0);
@@ -923,6 +940,7 @@ active_status (*this)
 	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MAJOR"), int(RAIBLOCKS_VERSION_MAJOR));
 	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MINOR"), int(RAIBLOCKS_VERSION_MINOR));
 	engine->rootContext ()->setContextProperty (QString ("rai_self_pane"), &self);
+	engine->rootContext ()->setContextProperty (QString ("rai_status"), &active_status);
 
 	qmlRegisterType<ClipboardProxy> ("net.raiblocks", 1, 0, "ClipboardProxy");
 
