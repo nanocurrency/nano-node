@@ -119,7 +119,7 @@ view (new QTableView),
 use_account (new QPushButton ("Use account")),
 create_account (new QPushButton ("Create account")),
 import_wallet (new QPushButton ("Import wallet")),
-backup_seed (new QPushButton ("Backup/Clipboard wallet seed")),
+backup_seed (new QPushButton ("Copy wallet seed to clipboard")),
 separator (new QFrame),
 account_key_line (new QLineEdit),
 account_key_button (new QPushButton ("Import adhoc key")),
@@ -221,7 +221,7 @@ wallet (wallet_a)
 			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 			{
 				show_button_ok (*backup_seed);
-				backup_seed->setText ("Backup/Clipboard wallet seed");
+				backup_seed->setText ("Copy wallet seed to clipboard");
 			});
 		}
 		else
@@ -232,7 +232,7 @@ wallet (wallet_a)
 			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
 			{
 				show_button_ok (*backup_seed);
-				backup_seed->setText ("Backup/Clipboard wallet seed");
+				backup_seed->setText ("Copy wallet seed to clipboard");
 			});
 		}
 	});
