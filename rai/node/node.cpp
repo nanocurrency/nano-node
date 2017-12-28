@@ -2714,7 +2714,7 @@ rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::le
     return ledger_a.supply (transaction_a) / 2;
 }
 
-rai::uint128_t rai::election::minimum_treshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
+rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
 	// Minimum number of votes needed to change our ledger, underwhich we're probably disconnected
 	return ledger_a.supply (transaction_a) / 16;
@@ -2730,7 +2730,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		auto block_l (winner->second);
 		if (!(*block_l == *last_winner))
 		{
-			if (winner->first > minimum_treshold (transaction_a, node.ledger))
+			if (winner->first > minimum_threshold (transaction_a, node.ledger))
 			{
 				auto node_l (node.shared ());
 				node.background ([node_l, block_l] ()
@@ -2763,10 +2763,10 @@ bool rai::election::have_quorum (MDB_txn * transaction_a)
 	return result;
 }
 
-void rai::election::confirm_if_quarum (MDB_txn * transaction_a)
+void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 {
-	auto quarum (have_quorum (transaction_a));
-	if (quarum)
+	auto quorum (have_quorum (transaction_a));
+	if (quorum)
 	{
 		confirm_once (transaction_a);
 	}
@@ -2792,7 +2792,7 @@ void rai::election::vote (std::shared_ptr <rai::vote> vote_a)
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	assert (node.store.vote_validate (transaction, vote_a).code != rai::vote_code::invalid);
 	votes.vote (vote_a);
-	confirm_if_quarum (transaction);
+	confirm_if_quorum (transaction);
 }
 
 void rai::active_transactions::announce_votes ()

@@ -50,12 +50,12 @@ public:
 	void broadcast_winner ();
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
-	// Confirmation method 1, uncontested quarum
-	void confirm_if_quarum (MDB_txn *);
+	// Confirmation method 1, uncontested quorum
+	void confirm_if_quorum (MDB_txn *);
 	// Confirmation method 2, settling time
 	void confirm_cutoff (MDB_txn *);
     rai::uint128_t quorum_threshold (MDB_txn *, rai::ledger &);
-	rai::uint128_t minimum_treshold (MDB_txn *, rai::ledger &);
+	rai::uint128_t minimum_threshold (MDB_txn *, rai::ledger &);
     rai::votes votes;
     rai::node & node;
     std::chrono::system_clock::time_point last_vote;
