@@ -32,10 +32,7 @@ namespace rai_qt {
         QWidget * window;
         QVBoxLayout * layout;
         QLineEdit * password;
-		QWidget * lock_window;
-		QHBoxLayout * lock_layout;
-        QPushButton * unlock;
-        QPushButton * lock;
+		QPushButton * lock_toggle;
 		QFrame * sep1;
         QLineEdit * new_password;
         QLineEdit * retype_password;

@@ -1267,10 +1267,7 @@ rai_qt::settings::settings (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 password (new QLineEdit),
-lock_window (new QWidget),
-lock_layout (new QHBoxLayout),
-unlock (new QPushButton ("Unlock")),
-lock (new QPushButton ("Lock")),
+lock_toggle (new QPushButton ("Unlock")),
 sep1 (new QFrame),
 new_password (new QLineEdit),
 retype_password (new QLineEdit),
@@ -1286,10 +1283,7 @@ wallet (wallet_a)
 	password->setPlaceholderText("Password");
     password->setEchoMode (QLineEdit::EchoMode::Password);
     layout->addWidget (password);
-	layout->addWidget (lock_window);
-    lock_layout->addWidget (unlock);
-    lock_layout->addWidget (lock);
-	lock_window->setLayout (lock_layout);
+    layout->addWidget(lock_toggle);
 	sep1->setFrameShape (QFrame::HLine);
 	sep1->setFrameShadow (QFrame::Sunken);
 	layout->addWidget (sep1);
@@ -1413,52 +1407,49 @@ wallet (wallet_a)
 		assert (this->wallet.main_stack->currentWidget () == window);
 		this->wallet.pop_main_stack ();
 	});
-	QObject::connect (unlock, &QPushButton::released, [this] ()
+	QObject::connect (lock_toggle, &QPushButton::released, [this] ()
 	{
-		if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+		if (this->wallet.wallet_m->store.valid_password (transaction)) 
 		{
-			password->clear ();
-		}
-		else
-		{
-			show_line_error (*password);
-			show_button_error (*unlock);
-			unlock->setText ("Invalid password");
-			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
-			{
-				show_line_ok (*password);
-				show_button_ok (*unlock);
-				unlock->setText ("Unlock");
-			});
-		}
-	});
-	QObject::connect (lock, &QPushButton::released, [this] ()
-	{
-		if (password->text ().isEmpty())
-		{
+			// lock wallet
 			rai::raw_key empty;
 			empty.data.clear ();
 			this->wallet.wallet_m->store.password.value_set (empty);
-			update_locked (true, true);
-		}
+			update_locked (true, true);	
+			lock_toggle->setText ("Unlock");
+			password->setEnabled(1);
+		} 
 		else
 		{
-			show_line_error (*password);
-			show_button_error (*lock);
-			lock->setText ("Error");
-			show_line_success (*new_password);
-			show_button_success (*change);
-			this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+			// try to unlock wallet
+			if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
 			{
-				show_line_ok (*password);
 				password->clear ();
-				show_button_ok (*lock);
-				lock->setText ("Lock");
-				show_line_ok (*new_password);
-				show_button_ok (*change);
-			});
+				lock_toggle->setText("Lock");
+				password->setDisabled(1);
+			}
+			else
+			{
+				show_line_error (*password);
+				show_button_error (*lock_toggle);
+				lock_toggle->setText ("Invalid password");
+				this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this] ()
+				{
+					show_line_ok (*password);
+					show_button_ok (*lock_toggle);
+
+					// if wallet is still not unlocked by now, change button text
+					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+					if (! this->wallet.wallet_m->store.valid_password (transaction)) 
+					{
+						lock_toggle->setText ("Unlock");
+					}
+					
+				});
+			}
 		}
-    });
+	});
 	representative->setToolTip ("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.");
 	refresh_representative ();
 }
