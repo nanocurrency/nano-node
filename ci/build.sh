@@ -57,6 +57,7 @@ run_build() {
     mkdir ${build_dir}
     cd ${build_dir}
     cmake -GNinja \
+       -DACTIVE_NETWORK=rai_test_network \
        -DRAIBLOCKS_TEST=ON \
        -DRAIBLOCKS_GUI=ON \
        -DCMAKE_BUILD_TYPE=Debug \
