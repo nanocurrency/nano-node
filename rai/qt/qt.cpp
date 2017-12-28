@@ -68,6 +68,7 @@ balance_layout (new QHBoxLayout),
 balance_label (new QLabel),
 wallet (wallet_a)
 {
+	your_account_label->setStyleSheet("font-weight: bold;");
 	version = new QLabel (boost::str (boost::format ("Version %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR).c_str ());
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
@@ -79,12 +80,13 @@ wallet (wallet_a)
 	font.setPointSize (account_text->font().pointSize());
 	account_text->setFont (font);
 	account_text->setTextInteractionFlags(Qt::TextSelectableByMouse);
-	account_layout->addWidget (account_text);
-	account_layout->addWidget (copy_button);
+	account_layout->addWidget (account_text, 9);
+	account_layout->addWidget (copy_button, 1);
 	account_layout->setContentsMargins (0, 0, 0, 0);
 	account_window->setLayout (account_layout);
 	layout->addWidget (self_window);
 	layout->addWidget (account_window);
+	balance_label->setStyleSheet("font-weight: bold;");
 	balance_layout->addWidget (balance_label);
 	balance_layout->addStretch ();
 	balance_layout->setContentsMargins (0, 0, 0, 0);
@@ -897,7 +899,7 @@ active_status (*this)
 	entry_window->setLayout (entry_window_layout);
 
 	main_stack->addWidget (entry_window);
-
+	status->setContentsMargins(5, 5, 5, 5);
 	status->setAlignment (Qt::AlignHCenter);
 	separator->setFrameShape (QFrame::HLine);
 	separator->setFrameShadow (QFrame::Sunken);
@@ -910,6 +912,9 @@ active_status (*this)
 	client_layout->setContentsMargins (0, 0, 0, 0);
 	client_window->setLayout (client_layout);
 	client_window->resize (320, 480);
+	client_window->setStyleSheet("\
+		QLineEdit { padding: 3px; } \
+	");
 	refresh ();
 }
 
