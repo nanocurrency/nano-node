@@ -1,9 +1,9 @@
 FROM debian:8.9
 MAINTAINER Zjeraar <zjeraar@palmweb.nl>
 
-ENV BOOST_BASENAME=boost_1_63_0 \
+ENV BOOST_BASENAME=boost_1_66_0 \
     BOOST_ROOT=/tmp/boost  \
-    BOOST_URL=http://sourceforge.net/projects/boost/files/boost/1.63.0/boost_1_63_0.tar.gz/download
+    BOOST_URL=http://sourceforge.net/projects/boost/files/boost/1.66.0/boost_1_66_0.tar.gz/download
 
 RUN \
   apt-get update && \

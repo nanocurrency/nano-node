@@ -1408,19 +1408,19 @@ block_processor_thread ([this] () { this->block_processor.process_blocks (); })
 										auto req (std::make_shared <boost::beast::http::request<boost::beast::http::string_body>> ());
 										req->method (boost::beast::http::verb::post);
 										req->target (*target);
-										req->version = 11;
+										req->version (11);
 										req->insert(boost::beast::http::field::host, address);
-										req->body = *body;
+										req->body() = *body;
 										//req->prepare (*req);
 										//boost::beast::http::prepare(req);
 										req->prepare_payload();
-										boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req] (boost::system::error_code const & ec)
+										boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req] (boost::system::error_code const & ec, size_t bytes_transferred)
 										{
 											if (!ec)
 											{
 												auto sb (std::make_shared <boost::beast::flat_buffer> ());
 												auto resp (std::make_shared <boost::beast::http::response <boost::beast::http::string_body>> ());
-												boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port] (boost::system::error_code const & ec)
+												boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port] (boost::system::error_code const & ec, size_t bytes_transferred)
 												{
 													if (!ec)
 													{
@@ -2045,20 +2045,20 @@ void start ()
 						auto request (std::make_shared <boost::beast::http::request <boost::beast::http::string_body>> ());
 						request->method (boost::beast::http::verb::post);
 						request->target ("/");
-						request->version = 11;
-						request->body = request_string;
+						request->version (11);
+						request->body() = request_string;
 						request->prepare_payload ();
-						boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request] (boost::system::error_code const & ec)
+						boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request] (boost::system::error_code const & ec, size_t bytes_transferred)
 						{
 							if (!ec)
 							{
-								boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection] (boost::system::error_code const & ec)
+								boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection] (boost::system::error_code const & ec, size_t bytes_transferred)
 								{
 									if (!ec)
 									{
 										if (connection->response.result() == boost::beast::http::status::ok)
 										{
-											this_l->success (connection->response.body, connection->address);
+											this_l->success (connection->response.body(), connection->address);
 										}
 										else
 										{
@@ -2116,11 +2116,11 @@ void stop ()
 			boost::beast::http::request <boost::beast::http::string_body> request;
 			request.method (boost::beast::http::verb::post);
 			request.target ("/");
-			request.version = 11;
-			request.body = request_string;
+			request.version (11);
+			request.body() = request_string;
 			request.prepare_payload();
 			auto socket (std::make_shared <boost::asio::ip::tcp::socket> (this_l->node->service));
-			boost::beast::http::async_write (*socket, request, [socket] (boost::system::error_code const & ec)
+			boost::beast::http::async_write (*socket, request, [socket] (boost::system::error_code const & ec, size_t bytes_transferred)
 			{
 			});
 		});
