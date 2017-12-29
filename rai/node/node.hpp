@@ -23,7 +23,18 @@
 
 #include <miniupnpc.h>
 
-std::ostream & operator << (std::ostream &, std::chrono::system_clock::time_point const &);
+namespace rai
+{
+// time_point_wrapper - Used to provide an overload for `std::iostream`
+// for passing `std::chrono::system_clock::time_point`. Overloading
+// it directly would be undefined behavior as per [namespace.std]/1.
+struct time_point_wrapper
+{
+	std::chrono::system_clock::time_point time;
+};
+}
+
+std::ostream & operator << (std::ostream &, rai::time_point_wrapper const &);
 
 namespace boost
 {
@@ -349,7 +360,7 @@ public:
     bool work_generation_time () const;
     bool log_to_cerr () const;
 	void init (boost::filesystem::path const &);
-	
+
 	bool ledger_logging_value;
 	bool ledger_duplicate_logging_value;
 	bool vote_logging_value;

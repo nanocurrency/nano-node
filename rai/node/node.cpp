@@ -2631,9 +2631,9 @@ void rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 	insert (endpoint_l, version_a);
 }
 
-std::ostream & operator << (std::ostream & stream_a, std::chrono::system_clock::time_point const & time_a)
+std::ostream & operator << (std::ostream & stream_a, rai::time_point_wrapper const & time_a)
 {
-    time_t last_contact (std::chrono::system_clock::to_time_t (time_a));
+    time_t last_contact (std::chrono::system_clock::to_time_t (time_a.time));
     std::string string (ctime (&last_contact));
     string.pop_back ();
     stream_a << string;
