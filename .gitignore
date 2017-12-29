@@ -20,3 +20,6 @@
 *.out
 *.app
 *.DS_Store
+
+# IDEs
+.idea
