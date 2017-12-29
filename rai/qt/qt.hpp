@@ -233,22 +233,48 @@ public:
 	QPushButton * back;
 	rai_qt::wallet & wallet;
 };
-class history
+class history_item : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString type READ getType NOTIFY typeChanged)
+	Q_PROPERTY (QString account READ getAccount NOTIFY accountChanged)
+	Q_PROPERTY (QString amount READ getAmount NOTIFY amountChanged)
+	Q_PROPERTY (QString hash READ getHash NOTIFY hashChanged)
+public:
+	history_item (QString type, QString account, QString amount, QString hash, QObject * parent = nullptr);
+	QString getType ();
+	QString getAccount ();
+	QString getAmount ();
+	QString getHash ();
+
+	Q_SIGNAL void typeChanged (QString type);
+	Q_SIGNAL void accountChanged (QString account);
+	Q_SIGNAL void amountChanged (QString amount);
+	Q_SIGNAL void hashChanged (QString hash);
+
+private:
+	QString m_type;
+	QString m_account;
+	QString m_amount;
+	QString m_hash;
+};
+class history : public QObject
+{
+	Q_OBJECT
+	Q_PROPERTY (QList<QObject *> model READ getModel NOTIFY modelChanged)
 public:
 	history (rai::ledger &, rai::account const &, rai_qt::wallet &);
 	void refresh ();
-	QWidget * window;
-	QVBoxLayout * layout;
-	QStandardItemModel * model;
-	QTableView * view;
-	QWidget * tx_window;
-	QHBoxLayout * tx_layout;
-	QLabel * tx_label;
-	QSpinBox * tx_count;
 	rai::ledger & ledger;
 	rai::account const & account;
 	rai_qt::wallet & wallet;
+
+	QList<QObject *> getModel ();
+
+	Q_SIGNAL void modelChanged (QList<QObject *> model);
+
+private:
+	QList<QObject *> m_model;
 };
 class block_viewer
 {
@@ -359,7 +385,6 @@ public:
 	QWidget * entry_window;
 	QVBoxLayout * entry_window_layout;
 	QFrame * separator;
-	QLabel * account_history_label;
 	QPushButton * settings_button;
 	QPushButton * accounts_button;
 	QPushButton * show_advanced;

@@ -470,37 +470,45 @@ wallet (wallet_a)
 	});
 }
 
+rai_qt::history_item::history_item (QString type, QString account, QString amount, QString hash, QObject * parent) :
+m_type (type),
+m_account (account),
+m_amount (amount),
+m_hash (hash)
+{
+	Q_UNUSED (parent);
+}
+
+QString rai_qt::history_item::getType ()
+{
+	return m_type;
+}
+
+QString rai_qt::history_item::getAccount ()
+{
+	return m_account;
+}
+
+QString rai_qt::history_item::getAmount ()
+{
+	return m_amount;
+}
+
+QString rai_qt::history_item::getHash ()
+{
+	return m_hash;
+}
+
 rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai_qt::wallet & wallet_a) :
-window (new QWidget),
-layout (new QVBoxLayout),
-model (new QStandardItemModel),
-view (new QTableView),
-tx_window (new QWidget),
-tx_layout (new QHBoxLayout),
-tx_label (new QLabel ("Account history count:")),
-tx_count (new QSpinBox),
 ledger (ledger_a),
 account (account_a),
 wallet (wallet_a)
-{ /*
-	tx_count->setRange (1, 256);
-	tx_layout->addWidget (tx_label);
-	tx_layout->addWidget (tx_count);
-	tx_layout->setContentsMargins (0, 0, 0, 0);
-	tx_window->setLayout (tx_layout);*/
-	model->setHorizontalHeaderItem (0, new QStandardItem ("Type"));
-	model->setHorizontalHeaderItem (1, new QStandardItem ("Account"));
-	model->setHorizontalHeaderItem (2, new QStandardItem ("Amount"));
-	model->setHorizontalHeaderItem (3, new QStandardItem ("Hash"));
-	view->setModel (model);
-	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
-	view->verticalHeader ()->hide ();
-	view->horizontalHeader ()->setStretchLastSection (true);
-	//	layout->addWidget (tx_window);
-	layout->addWidget (view);
-	layout->setContentsMargins (0, 0, 0, 0);
-	window->setLayout (layout);
-	tx_count->setValue (32);
+{
+}
+
+QList<QObject *> rai_qt::history::getModel ()
+{
+	return m_model;
 }
 
 namespace
@@ -556,24 +564,23 @@ public:
 void rai_qt::history::refresh ()
 {
 	rai::transaction transaction (ledger.store.environment, nullptr, false);
-	model->removeRows (0, model->rowCount ());
+	m_model.clear ();
 	auto hash (ledger.latest (transaction, account));
 	short_text_visitor visitor (transaction, ledger);
-	for (auto i (0), n (tx_count->value ()); i < n && !hash.is_zero (); ++i)
+	while (!hash.is_zero ())
 	{
-		QList<QStandardItem *> items;
 		auto block (ledger.store.block_get (transaction, hash));
 		assert (block != nullptr);
 		block->visit (visitor);
-		items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
-		items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
-		auto balanceItem = new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str ()));
-		balanceItem->setData (Qt::AlignRight, Qt::TextAlignmentRole);
-		items.push_back (balanceItem);
-		items.push_back (new QStandardItem (QString (hash.to_string ().c_str ())));
+		auto item = new history_item (
+		QString (visitor.type.c_str ()),
+		QString (visitor.account.to_account ().c_str ()),
+		QString (wallet.format_balance (visitor.amount).c_str ()),
+		QString (hash.to_string ().c_str ()));
 		hash = block->previous ();
-		model->appendRow (items);
+		m_model.append (item);
 	}
+	Q_EMIT modelChanged (m_model);
 }
 
 rai_qt::block_viewer::block_viewer (rai_qt::wallet & wallet_a) :
@@ -693,7 +700,6 @@ wallet (wallet_a)
 	balance_layout->setContentsMargins (0, 0, 0, 0);
 	balance_window->setLayout (balance_layout);
 	layout->addWidget (balance_window);
-	layout->addWidget (history.window);
 	layout->addWidget (back);
 	window->setLayout (layout);
 	QObject::connect (back, &QPushButton::released, [this]() {
@@ -879,7 +885,6 @@ client_layout (new QVBoxLayout),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
 separator (new QFrame),
-account_history_label (new QLabel ("Account history:")),
 settings_button (new QPushButton ("Settings")),
 accounts_button (new QPushButton ("Accounts")),
 show_advanced (new QPushButton ("Advanced")),
@@ -889,8 +894,6 @@ active_status (*this)
 	empty_password ();
 	settings.update_locked (true, true);
 
-	entry_window_layout->addWidget (account_history_label);
-	entry_window_layout->addWidget (history.window);
 	entry_window_layout->addWidget (settings_button);
 	entry_window_layout->addWidget (accounts_button);
 	entry_window_layout->addWidget (show_advanced);
@@ -920,6 +923,7 @@ active_status (*this)
 	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MINOR"), int(RAIBLOCKS_VERSION_MINOR));
 	engine->rootContext ()->setContextProperty (QString ("rai_self_pane"), &self);
 	engine->rootContext ()->setContextProperty (QString ("rai_status"), &active_status);
+	engine->rootContext ()->setContextProperty (QString ("rai_history"), &history);
 	engine->rootContext ()->setContextProperty (QString ("rai_wallet"), this);
 
 	qmlRegisterType<ClipboardProxy> ("net.raiblocks", 1, 0, "ClipboardProxy");

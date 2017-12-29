@@ -474,7 +474,7 @@ TEST (history, short_text)
 	}
 	rai_qt::history history (ledger, rai::test_genesis_key.pub, *wallet);
 	history.refresh ();
-	ASSERT_EQ (4, history.model->rowCount ());
+	ASSERT_EQ (4, history.getModel ().count ());
 }
 
 TEST (wallet, startup_work)
