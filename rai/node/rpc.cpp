@@ -4101,14 +4101,14 @@ socket (node_a.service)
 void rai::rpc_connection::parse_connection ()
 {
 	auto this_l (shared_from_this ());
-	boost::beast::http::async_read (socket, buffer, request, [this_l] (boost::system::error_code const & ec)
+	boost::beast::http::async_read (socket, buffer, request, [this_l] (boost::system::error_code const & ec, size_t bytes_transferred)
 	{
 		if (!ec)
 		{
 			this_l->node->background ([this_l] ()
 			{
 				auto start (std::chrono::system_clock::now ());
-				auto version (this_l->request.version);
+				auto version (this_l->request.version());
 				auto response_handler ([this_l, version, start] (boost::property_tree::ptree const & tree_a)
 				{
 					std::stringstream ostream;
@@ -4119,11 +4119,11 @@ void rai::rpc_connection::parse_connection ()
 					this_l->res.set ("Access-Control-Allow-Origin", "*");
 					this_l->res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
 					this_l->res.result(boost::beast::http::status::ok);
-					this_l->res.body = body;
-					this_l->res.version = version;
+					this_l->res.body() = body;
+					this_l->res.version (version);
 					this_l->res.prepare_payload();
 					//boost::beast::http::prepare (this_l->res);
-					boost::beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec)
+					boost::beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec, size_t bytes_transferred)
 					{
 					});
 					if (this_l->node->config.logging.log_rpc ())
@@ -4133,7 +4133,7 @@ void rai::rpc_connection::parse_connection ()
 				});
 				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
-					auto handler (std::make_shared <rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body, response_handler));
+					auto handler (std::make_shared <rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body(), response_handler));
 					handler->process_request ();
 				}
 				else
