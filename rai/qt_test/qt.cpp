@@ -103,9 +103,6 @@ TEST (wallet, main)
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
 	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
-	ASSERT_EQ (wallet->send_blocks_window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->send_blocks_back, Qt::LeftButton);
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->settings.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->settings.back, Qt::LeftButton);
@@ -252,10 +249,7 @@ TEST (wallet, send)
 	auto account (rai::test_genesis_key.pub);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
-	QTest::keyClicks (wallet->send_account, key1.to_account ().c_str ());
-	QTest::keyClicks (wallet->send_count, "2");
-	QTest::mouseClick (wallet->send_blocks_send, Qt::LeftButton);
+	wallet->send ("2", QString::fromStdString (key1.to_account ()));
 	auto iterations1 (0);
 	while (wallet->node.balance (key1).is_zero ())
 	{
@@ -265,7 +259,6 @@ TEST (wallet, send)
 	}
 	rai::uint128_t amount (wallet->node.balance (key1));
 	ASSERT_EQ (2 * wallet->rendering_ratio, amount);
-	QTest::mouseClick (wallet->send_blocks_back, Qt::LeftButton);
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.show_ledger, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.ledger_refresh, Qt::LeftButton);
@@ -287,12 +280,9 @@ TEST (wallet, send_locked)
 	auto account (rai::test_genesis_key.pub);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
-	QTest::keyClicks (wallet->send_account, key1.pub.to_account ().c_str ());
-	QTest::keyClicks (wallet->send_count, "2");
-	QTest::mouseClick (wallet->send_blocks_send, Qt::LeftButton);
+	wallet->send ("2", QString::fromStdString (key1.pub.to_account ()));
 	auto iterations1 (0);
-	while (!wallet->send_blocks_send->isEnabled ())
+	while (wallet->isProcessingSend ())
 	{
 		test_application->processEvents ();
 		system.poll ();

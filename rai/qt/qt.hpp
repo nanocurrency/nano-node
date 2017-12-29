@@ -11,6 +11,25 @@
 #include <QtGui>
 #include <QtWidgets>
 
+class SendResult : public QObject
+{
+	Q_OBJECT
+public:
+	SendResult (QObject * parent = nullptr);
+	enum class Type
+	{
+		WalletIsLocked,
+		NotEnoughBalance,
+		BadDestinationAccount,
+		AmountTooBig,
+		BadAmountNumber,
+		BlockSendFailed,
+		Success
+	};
+	Q_ENUMS (Type)
+};
+Q_DECLARE_METATYPE (SendResult::Type)
+
 namespace rai_qt
 {
 class wallet;
@@ -303,8 +322,10 @@ private:
 	QColor color ();
 	void set_text ();
 };
-class wallet : public std::enable_shared_from_this<rai_qt::wallet>
+class wallet : public QObject, public std::enable_shared_from_this<rai_qt::wallet>
 {
+	Q_OBJECT
+	Q_PROPERTY (bool processingSend READ isProcessingSend NOTIFY processingSendChanged)
 public:
 	wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr<rai::wallet>, rai::account &);
 	void start ();
@@ -339,25 +360,24 @@ public:
 	QVBoxLayout * entry_window_layout;
 	QFrame * separator;
 	QLabel * account_history_label;
-	QPushButton * send_blocks;
 	QPushButton * settings_button;
 	QPushButton * accounts_button;
 	QPushButton * show_advanced;
-
-	QWidget * send_blocks_window;
-	QVBoxLayout * send_blocks_layout;
-	QLabel * send_account_label;
-	QLineEdit * send_account;
-	QLabel * send_count_label;
-	QLineEdit * send_count;
-	QPushButton * send_blocks_send;
-	QPushButton * send_blocks_back;
 
 	rai_qt::status active_status;
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
 
+	Q_INVOKABLE void send (QString amount, QString address);
+	bool isProcessingSend ();
+
+	Q_SIGNAL void sendFinished (SendResult::Type result);
+	Q_SIGNAL void processingSendChanged (bool processingSend);
+
 private:
 	std::unique_ptr<QObject> m_qmlgui;
+	bool m_processingSend = false;
+
+	void setProcessingSend (bool processingSend);
 };
 }

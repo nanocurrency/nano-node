@@ -880,38 +880,17 @@ entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
 separator (new QFrame),
 account_history_label (new QLabel ("Account history:")),
-send_blocks (new QPushButton ("Send")),
 settings_button (new QPushButton ("Settings")),
 accounts_button (new QPushButton ("Accounts")),
 show_advanced (new QPushButton ("Advanced")),
-send_blocks_window (new QWidget),
-send_blocks_layout (new QVBoxLayout),
-send_account_label (new QLabel ("Destination account:")),
-send_account (new QLineEdit),
-send_count_label (new QLabel ("Amount:")),
-send_count (new QLineEdit),
-send_blocks_send (new QPushButton ("Send")),
-send_blocks_back (new QPushButton ("Back")),
 active_status (*this)
 {
 	update_connected ();
 	empty_password ();
 	settings.update_locked (true, true);
-	send_blocks_layout->addWidget (send_account_label);
-	send_account->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
-	send_blocks_layout->addWidget (send_account);
-	send_blocks_layout->addWidget (send_count_label);
-	send_count->setPlaceholderText ("0");
-	send_blocks_layout->addWidget (send_count);
-	send_blocks_layout->addWidget (send_blocks_send);
-	send_blocks_layout->addStretch ();
-	send_blocks_layout->addWidget (send_blocks_back);
-	send_blocks_layout->setContentsMargins (0, 0, 0, 0);
-	send_blocks_window->setLayout (send_blocks_layout);
 
 	entry_window_layout->addWidget (account_history_label);
 	entry_window_layout->addWidget (history.window);
-	entry_window_layout->addWidget (send_blocks);
 	entry_window_layout->addWidget (settings_button);
 	entry_window_layout->addWidget (accounts_button);
 	entry_window_layout->addWidget (show_advanced);
@@ -941,8 +920,12 @@ active_status (*this)
 	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MINOR"), int(RAIBLOCKS_VERSION_MINOR));
 	engine->rootContext ()->setContextProperty (QString ("rai_self_pane"), &self);
 	engine->rootContext ()->setContextProperty (QString ("rai_status"), &active_status);
+	engine->rootContext ()->setContextProperty (QString ("rai_wallet"), this);
 
 	qmlRegisterType<ClipboardProxy> ("net.raiblocks", 1, 0, "ClipboardProxy");
+
+	qmlRegisterUncreatableType<SendResult> (
+	"net.raiblocks", 1, 0, "SendResult", "SendResult is not instantiable");
 
 	QQmlComponent component (engine, QUrl (QStringLiteral ("qrc:/gui/main.qml")));
 	m_qmlgui = std::unique_ptr<QObject> (component.create ());
@@ -969,168 +952,8 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->advanced.window);
 		}
 	});
-	QObject::connect (send_blocks_send, &QPushButton::released, [this_w]() {
-		if (auto this_l = this_w.lock ())
-		{
-			show_line_ok (*this_l->send_count);
-			show_line_ok (*this_l->send_account);
-			rai::amount amount;
-			if (!amount.decode_dec (this_l->send_count->text ().toStdString ()))
-			{
-				rai::uint128_t actual (amount.number () * this_l->rendering_ratio);
-				if (actual / this_l->rendering_ratio == amount.number ())
-				{
-					QString account_text (this_l->send_account->text ());
-					std::string account_text_narrow (account_text.toLocal8Bit ());
-					rai::account account_l;
-					auto parse_error (account_l.decode_account (account_text_narrow));
-					if (!parse_error)
-					{
-						auto balance (this_l->node.balance (this_l->account));
-						if (actual <= balance)
-						{
-							rai::transaction transaction (this_l->wallet_m->store.environment, nullptr, false);
-							if (this_l->wallet_m->store.valid_password (transaction))
-							{
-								this_l->send_blocks_send->setEnabled (false);
-								this_l->node.background ([this_w, account_l, actual]() {
-									if (auto this_l = this_w.lock ())
-									{
-										this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<rai::block> block_a) {
-											if (auto this_l = this_w.lock ())
-											{
-												auto succeeded (block_a != nullptr);
-												this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, succeeded]() {
-													if (auto this_l = this_w.lock ())
-													{
-														this_l->send_blocks_send->setEnabled (true);
-														if (succeeded)
-														{
-															this_l->send_count->clear ();
-															this_l->send_account->clear ();
-															this_l->accounts.refresh ();
-														}
-														else
-														{
-															show_line_error (*this_l->send_count);
-														}
-													}
-												}));
-											}
-										});
-									}
-								});
-							}
-							else
-							{
-								show_button_error (*this_l->send_blocks_send);
-								this_l->send_blocks_send->setText ("Wallet is locked, unlock it to send");
-								this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
-									if (auto this_l = this_w.lock ())
-									{
-										this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
-											if (auto this_l = this_w.lock ())
-											{
-												show_button_ok (*this_l->send_blocks_send);
-												this_l->send_blocks_send->setText ("Send");
-											}
-										}));
-									}
-								});
-							}
-						}
-						else
-						{
-							show_line_error (*this_l->send_count);
-							show_button_error (*this_l->send_blocks_send);
-							this_l->send_blocks_send->setText ("Not enough balance");
-							this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
-								if (auto this_l = this_w.lock ())
-								{
-									this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
-										if (auto this_l = this_w.lock ())
-										{
-											show_button_ok (*this_l->send_blocks_send);
-											this_l->send_blocks_send->setText ("Send");
-										}
-									}));
-								}
-							});
-						}
-					}
-					else
-					{
-						show_line_error (*this_l->send_account);
-						show_button_error (*this_l->send_blocks_send);
-						this_l->send_blocks_send->setText ("Bad destination account");
-						this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
-							if (auto this_l = this_w.lock ())
-							{
-								this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
-									if (auto this_l = this_w.lock ())
-									{
-										show_button_ok (*this_l->send_blocks_send);
-										this_l->send_blocks_send->setText ("Send");
-									}
-								}));
-							}
-						});
-					}
-				}
-				else
-				{
-					show_line_error (*this_l->send_count);
-					show_button_error (*this_l->send_blocks_send);
-					this_l->send_blocks_send->setText ("Amount too big");
-					this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
-						if (auto this_l = this_w.lock ())
-						{
-							show_line_ok (*this_l->send_account);
-							show_button_ok (*this_l->send_blocks_send);
-							this_l->send_blocks_send->setText ("Send");
-							this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
-								if (auto this_l = this_w.lock ())
-								{
-									show_line_ok (*this_l->send_account);
-									show_button_ok (*this_l->send_blocks_send);
-									this_l->send_blocks_send->setText ("Send");
-								}
-							}));
-						}
-					});
-				}
-			}
-			else
-			{
-				show_line_error (*this_l->send_count);
-				show_button_error (*this_l->send_blocks_send);
-				this_l->send_blocks_send->setText ("Bad amount number");
-				this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
-					if (auto this_l = this_w.lock ())
-					{
-						this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
-							if (auto this_l = this_w.lock ())
-							{
-								show_button_ok (*this_l->send_blocks_send);
-								this_l->send_blocks_send->setText ("Send");
-							}
-						}));
-					}
-				});
-			}
-		}
-	});
-	QObject::connect (send_blocks_back, &QPushButton::released, [this_w]() {
-		if (auto this_l = this_w.lock ())
-		{
-			this_l->pop_main_stack ();
-		}
-	});
-	QObject::connect (send_blocks, &QPushButton::released, [this_w]() {
-		if (auto this_l = this_w.lock ())
-		{
-			this_l->push_main_stack (this_l->send_blocks_window);
-		}
+	QObject::connect (this, &rai_qt::wallet::sendFinished, [=]() {
+		this->setProcessingSend (false);
 	});
 	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
 		if (auto this_l = this_w.lock ())
@@ -1319,6 +1142,84 @@ void rai_qt::wallet::push_main_stack (QWidget * widget_a)
 void rai_qt::wallet::pop_main_stack ()
 {
 	main_stack->removeWidget (main_stack->currentWidget ());
+}
+
+void rai_qt::wallet::send (QString amount_text, QString account_text)
+{
+	this->setProcessingSend (true);
+
+	rai::amount amount;
+	if (amount.decode_dec (amount_text.toStdString ()))
+	{
+		Q_EMIT sendFinished (SendResult::Type::BadAmountNumber);
+		return;
+	}
+
+	rai::uint128_t actual (amount.number () * this->rendering_ratio);
+	if (actual / this->rendering_ratio != amount.number ())
+	{
+		Q_EMIT sendFinished (SendResult::Type::AmountTooBig);
+		return;
+	}
+
+	std::string account_text_narrow (account_text.toLocal8Bit ());
+	rai::account account_l;
+	auto parse_error (account_l.decode_account (account_text_narrow));
+	if (parse_error)
+	{
+		Q_EMIT sendFinished (SendResult::Type::BadDestinationAccount);
+		return;
+	}
+
+	auto balance (this->node.balance (this->account));
+	if (actual > balance)
+	{
+		Q_EMIT sendFinished (SendResult::Type::NotEnoughBalance);
+		return;
+	}
+
+	rai::transaction transaction (this->wallet_m->store.environment, nullptr, false);
+	if (!this->wallet_m->store.valid_password (transaction))
+	{
+		Q_EMIT sendFinished (SendResult::Type::WalletIsLocked);
+		return;
+	}
+
+	std::weak_ptr<rai_qt::wallet> this_w (shared_from_this ());
+	this->node.background ([this_w, account_l, actual]() {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<rai::block> block_a) {
+				if (auto this_l = this_w.lock ())
+				{
+					auto succeeded (block_a != nullptr);
+					this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, succeeded]() {
+						if (auto this_l = this_w.lock ())
+						{
+							this_l->accounts.refresh ();
+							Q_EMIT this_l->sendFinished (
+							succeeded ? SendResult::Type::Success
+							          : SendResult::Type::BlockSendFailed);
+						}
+					}));
+				}
+			});
+		}
+	});
+}
+
+void rai_qt::wallet::setProcessingSend (bool processingSend)
+{
+	if (m_processingSend != processingSend)
+	{
+		m_processingSend = processingSend;
+		Q_EMIT processingSendChanged (processingSend);
+	}
+}
+
+bool rai_qt::wallet::isProcessingSend ()
+{
+	return m_processingSend;
 }
 
 rai_qt::settings::settings (rai_qt::wallet & wallet_a) :
