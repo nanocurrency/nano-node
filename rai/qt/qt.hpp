@@ -207,7 +207,7 @@ namespace rai_qt {
 	class history
 	{
 	public:
-		history (rai::ledger &, rai::account const &, rai::uint128_t const &);
+		history (rai::ledger &, rai::account const &, rai_qt::wallet &);
 		void refresh ();
 		QWidget * window;
 		QVBoxLayout * layout;
@@ -219,7 +219,7 @@ namespace rai_qt {
 		QSpinBox * tx_count;
 		rai::ledger & ledger;
 		rai::account const & account;
-		rai::uint128_t const & rendering_ratio;
+		rai_qt::wallet & wallet;
 	};
 	class block_viewer
 	{
@@ -288,6 +288,7 @@ namespace rai_qt {
 		void update_connected ();
 		void empty_password ();
 		void change_rendering_ratio (rai::uint128_t const &);
+		std::string format_balance (rai::uint128_t const &) const;
 		rai::uint128_t rendering_ratio;
 		rai::node & node;
 		std::shared_ptr <rai::wallet> wallet_m;

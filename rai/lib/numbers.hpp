@@ -35,6 +35,8 @@ public:
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &);
+	std::string format_balance (rai::uint128_t scale, int precision, bool group_digits);
+	std::string format_balance (rai::uint128_t scale, int precision, bool group_digits, const std::locale & locale);
 	rai::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;

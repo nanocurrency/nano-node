@@ -104,10 +104,10 @@ wallet (wallet_a)
 void rai_qt::self_pane::refresh_balance ()
 {
 	auto balance (wallet.node.balance_pending (wallet.account));
-	auto final_text (std::string ("Balance (XRB): ") + (balance.first / wallet.rendering_ratio).convert_to <std::string> ());
+	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance.first));
 	if (!balance.second.is_zero ())
 	{
-		final_text += "\nPending: " + (balance.second / wallet.rendering_ratio).convert_to <std::string> ();
+		final_text += "\nPending: " + wallet.format_balance (balance.second);
 	}
 	wallet.self.balance_label->setText (QString (final_text.c_str ()));
 }
@@ -253,10 +253,10 @@ void rai_qt::accounts::refresh_wallet_balance ()
 		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
 	}
-	auto final_text (std::string ("Wallet balance (XRB): ") + (balance / this->wallet.rendering_ratio).convert_to <std::string> ());
+	auto final_text (std::string ("Wallet balance (XRB): ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())
 	{
-		final_text += "\nWallet pending: " + (pending / this->wallet.rendering_ratio).convert_to <std::string> ();
+		final_text += "\nWallet pending: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
 	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this] ()
@@ -295,8 +295,7 @@ void rai_qt::accounts::refresh ()
 		if (display)
 		{
 			QList <QStandardItem *> items;
-			std::string balance;
-			rai::amount (balance_amount / wallet.rendering_ratio).encode_dec (balance);
+			std::string balance = wallet.format_balance (balance_amount);
 			items.push_back (new QStandardItem (balance.c_str ()));
 			auto account (new QStandardItem (QString (key.to_account ().c_str ())));
 			account->setForeground (brush);
@@ -467,7 +466,7 @@ wallet (wallet_a)
 	});
 }
 
-rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai::uint128_t const & rendering_ratio_a) :
+rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 model (new QStandardItemModel),
@@ -478,7 +477,7 @@ tx_label (new QLabel ("Account history count:")),
 tx_count (new QSpinBox),
 ledger (ledger_a),
 account (account_a),
-rendering_ratio (rendering_ratio_a)
+wallet (wallet_a)
 {/*
 	tx_count->setRange (1, 256);
 	tx_layout->addWidget (tx_label);
@@ -564,7 +563,7 @@ void rai_qt::history::refresh ()
 		block->visit (visitor);
 		items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
 		items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
-		items.push_back (new QStandardItem (QString (rai::amount (visitor.amount / rendering_ratio).to_string_dec ().c_str ())));
+		items.push_back (new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str())));
 		items.push_back (new QStandardItem (QString (hash.to_string ().c_str ())));
 		hash = block->previous ();
 		model->appendRow (items);
@@ -678,7 +677,7 @@ refresh (new QPushButton ("Refresh")),
 balance_window (new QWidget),
 balance_layout (new QHBoxLayout),
 balance_label (new QLabel),
-history (wallet_a.wallet_m->node.ledger, account, wallet_a.rendering_ratio),
+history (wallet_a.wallet_m->node.ledger, account, wallet_a),
 back (new QPushButton ("Back")),
 account (wallet_a.account),
 wallet (wallet_a)
@@ -706,10 +705,10 @@ wallet (wallet_a)
 			show_line_ok (*account_line);
 			this->history.refresh ();
 			auto balance (this->wallet.node.balance_pending (account));
-			auto final_text (std::string ("Balance (XRB): ") + (balance.first / this->wallet.rendering_ratio).convert_to <std::string> ());
+			auto final_text (std::string ("Balance (XRB): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{
-				final_text += "\nPending: " + (balance.second / this->wallet.rendering_ratio).convert_to <std::string> ();
+				final_text += "\nPending: " + wallet.format_balance (balance.second);
 			}
 			balance_label->setText (QString (final_text.c_str ()));
 		}
@@ -840,7 +839,7 @@ node (node_a),
 wallet_m (wallet_a),
 account (account_a),
 processor (processor_a),
-history (node.ledger, account, rendering_ratio),
+history (node.ledger, account, *this),
 accounts (*this),
 self (*this, account_a),
 settings (*this),
@@ -1255,6 +1254,18 @@ void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ra
 		this->rendering_ratio = rendering_ratio_a;
 		this->refresh ();
 	}));
+}
+
+std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) const
+{
+	auto balance_str = rai::amount (balance).format_balance (rendering_ratio, 2, true, std::locale (""));
+	auto unit = std::string ("XRB");
+	if (rendering_ratio == rai::kxrb_ratio) {
+		unit = std::string ("kxrb");
+	} else if (rendering_ratio == rai::xrb_ratio) {
+		unit = std::string ("xrb");
+	}
+	return balance_str + " " + unit;
 }
 
 void rai_qt::wallet::push_main_stack (QWidget * widget_a)
