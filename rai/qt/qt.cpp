@@ -145,7 +145,6 @@ rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 import_wallet (new QPushButton ("Import wallet")),
-backup_seed (new QPushButton ("Copy wallet seed to clipboard")),
 separator (new QFrame),
 account_key_line (new QLineEdit),
 account_key_button (new QPushButton ("Import adhoc key")),
@@ -155,7 +154,6 @@ wallet (wallet_a)
 	separator->setFrameShape (QFrame::HLine);
 	separator->setFrameShadow (QFrame::Sunken);
 	layout->addWidget (import_wallet);
-	layout->addWidget (backup_seed);
 	layout->addWidget (separator);
 	layout->addWidget (account_key_line);
 	layout->addWidget (account_key_button);
@@ -184,35 +182,6 @@ wallet (wallet_a)
 	});
 	QObject::connect (import_wallet, &QPushButton::released, [this]() {
 		this->wallet.push_main_stack (this->wallet.import.window);
-	});
-	QObject::connect (backup_seed, &QPushButton::released, [this]() {
-		rai::raw_key seed;
-		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
-		if (this->wallet.wallet_m->store.valid_password (transaction))
-		{
-			this->wallet.wallet_m->store.seed (seed, transaction);
-			this->wallet.application.clipboard ()->setText (QString (seed.data.to_string ().c_str ()));
-			show_button_success (*backup_seed);
-			backup_seed->setText ("Seed was copied to clipboard");
-			this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-					show_button_ok (*backup_seed);
-					backup_seed->setText ("Copy wallet seed to clipboard");
-				}));
-			});
-		}
-		else
-		{
-			this->wallet.application.clipboard ()->setText ("");
-			show_button_error (*backup_seed);
-			backup_seed->setText ("Wallet is locked, unlock it to enable the backup");
-			this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-					show_button_ok (*backup_seed);
-					backup_seed->setText ("Copy wallet seed to clipboard");
-				}));
-			});
-		}
 	});
 	refresh_wallet_balance ();
 }
@@ -259,6 +228,22 @@ void rai_qt::accounts::refresh ()
 		}
 	}
 	Q_EMIT modelChanged (m_model);
+}
+
+void rai_qt::accounts::backupSeed ()
+{
+	rai::raw_key seed;
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+	if (this->wallet.wallet_m->store.valid_password (transaction))
+	{
+		this->wallet.wallet_m->store.seed (seed, transaction);
+		this->wallet.application.clipboard ()->setText (QString (seed.data.to_string ().c_str ()));
+		Q_EMIT backupSeedSuccess ();
+	}
+	else
+	{
+		Q_EMIT backupSeedFailure ("Wallet is locked, unlock it to enable the backup");
+	}
 }
 
 void rai_qt::accounts::createAccount ()

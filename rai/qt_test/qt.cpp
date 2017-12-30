@@ -712,11 +712,7 @@ TEST (wallet, backup_seed)
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
-	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
-	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->accounts.backup_seed, Qt::LeftButton);
+	wallet->accounts.backupSeed ();
 	rai::raw_key seed;
 	system.wallet (0)->store.seed (seed, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
 	ASSERT_EQ (seed.data.to_string (), test_application->clipboard ()->text ().toStdString ());

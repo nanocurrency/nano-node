@@ -226,12 +226,15 @@ public:
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * import_wallet;
-	QPushButton * backup_seed;
 	QFrame * separator;
 	QLineEdit * account_key_line;
 	QPushButton * account_key_button;
 	QPushButton * back;
 	rai_qt::wallet & wallet;
+
+	Q_INVOKABLE void backupSeed ();
+	Q_SIGNAL void backupSeedSuccess ();
+	Q_SIGNAL void backupSeedFailure (QString msg);
 
 	Q_INVOKABLE void createAccount ();
 	Q_SIGNAL void createAccountSuccess ();
