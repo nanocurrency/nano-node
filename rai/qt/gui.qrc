@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/gui">
         <file>main.qml</file>
+        <file>common/PopupMessage.qml</file>
     </qresource>
 </RCC>

@@ -4,6 +4,8 @@ import QtQuick.Layouts 1.3
 
 import net.raiblocks 1.0
 
+import "common" as Common
+
 ApplicationWindow {
     id: root
 
@@ -49,78 +51,72 @@ ApplicationWindow {
                 Button {
                     Layout.fillWidth: true
                     id: btnCreateAccount
-                    property string lastMsg: ""
                     property int lastCount: 0
                     text: qsTr("Create account")
                     onClicked: {
                         lastCount = rai_accounts.model.length
                         rai_accounts.createAccount()
                     }
-                    state: "normal"
-                    states: [
-                        State {
-                            name: "normal"
-                        },
-                        State {
-                            name: "processing"
-                            PropertyChanges {
-                                target: timerCreateAccount
-                                interval: 500
-                                running: true
-                                onTriggered: {
-                                    rai_accounts.refresh()
-                                    if (rai_accounts.model.length > btnCreateAccount.lastCount) {
-                                        btnCreateAccount.state = "success"
+                    Common.PopupMessage {
+                        id: popup
+                        property string errorMsg: "unknown error"
+                        state: "hidden"
+                        states: [
+                            State {
+                                name: "hidden"
+                                PropertyChanges {
+                                    target: popup
+                                    visible: false
+                                }
+                            },
+                            State {
+                                name: "processing"
+                                PropertyChanges {
+                                    target: popup
+                                    text: qsTr("Processing...")
+                                    interval: 500
+                                    visible: true
+                                    onTriggered: {
+                                        rai_accounts.refresh()
+                                        if (rai_accounts.model.length > btnCreateAccount.lastCount) {
+                                            popup.state = "success"
+                                        }
                                     }
                                 }
+                            },
+                            State {
+                                name: "success"
+                                PropertyChanges {
+                                    target: popup
+                                    text: qsTr("New account was created!")
+                                    color: "green"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popup.state = "hidden"
+                                }
+                            },
+                            State {
+                                name: "failure"
+                                PropertyChanges {
+                                    target: popup
+                                    text: errorMsg
+                                    color: "red"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popup.state = "hidden"
+                                }
                             }
-                            PropertyChanges {
-                                target: btnCreateAccount
-                                text: qsTr("Processing...")
-                                enabled: false
-                            }
-                        },
-                        State {
-                            name: "success"
-                            PropertyChanges {
-                                target: timerCreateAccount
-                                interval: 2000
-                                running: true
-                                onTriggered: btnCreateAccount.state = "normal"
-                            }
-                            PropertyChanges {
-                                target: btnCreateAccount
-                                text: qsTr("New account was created")
-                                enabled: false
-                            }
-                        },
-                        State {
-                            name: "failure"
-                            PropertyChanges {
-                                target: timerCreateAccount
-                                interval: 2000
-                                running: true
-                                onTriggered: btnCreateAccount.state = "normal"
-                            }
-                            PropertyChanges {
-                                target: btnCreateAccount
-                                text: lastMsg
-                                enabled: false
-                            }
-                        }
-                    ]
-                    Timer {
-                        id: timerCreateAccount
+                        ]
                     }
                     Connections {
                         target: rai_accounts
                         onCreateAccountSuccess: {
                             // FIXME: wait until new account appears (workaround)
-                            btnCreateAccount.state = "processing"
+                            popup.state = "processing"
                         }
                         onCreateAccountFailure: {
-                            btnCreateAccount.lastMsg = msg
-                            btnCreateAccount.state = "failure"
+                            popup.errorMsg = msg
+                            popup.state = "failure"
                         }
                     }
                 }
