@@ -53,6 +53,8 @@ RUN chmod +x /usr/local/bin/rai_node_init.sh
 
 WORKDIR /root
 
+VOLUME /root/RaiBlocks
+
 EXPOSE 7075 7076
 
 ENTRYPOINT ["/bin/bash", "/usr/local/bin/rai_node_init.sh"]
