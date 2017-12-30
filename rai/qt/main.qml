@@ -30,22 +30,122 @@ ApplicationWindow {
                 anchors.fill: parent
 
                 Label {
+                    Layout.fillWidth: true
                     text: "RaiBlocks"
                     Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                 }
 
-                ScrollView {
-                    Layout.fillHeight: true
-                    Layout.fillWidth: false
-                    ListView {
-                        model: 20
-                        delegate: ItemDelegate {
-                            text: "Item " + index
+                Label {
+                    Layout.fillWidth: true
+                    text: "Total Balance: " + rai_accounts.totalBalance + " XRB"
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: "Total Pending: " + rai_accounts.totalPending + " XRB"
+                    visible: rai_accounts.totalPending !== ""
+                }
+
+                Button {
+                    Layout.fillWidth: true
+                    id: btnCreateAccount
+                    property string lastMsg: ""
+                    property int lastCount: 0
+                    text: qsTr("Create account")
+                    onClicked: {
+                        lastCount = rai_accounts.model.length
+                        rai_accounts.createAccount()
+                    }
+                    state: "normal"
+                    states: [
+                        State {
+                            name: "normal"
+                        },
+                        State {
+                            name: "processing"
+                            PropertyChanges {
+                                target: timerCreateAccount
+                                interval: 500
+                                running: true
+                                onTriggered: {
+                                    rai_accounts.refresh()
+                                    if (rai_accounts.model.length > btnCreateAccount.lastCount) {
+                                        btnCreateAccount.state = "success"
+                                    }
+                                }
+                            }
+                            PropertyChanges {
+                                target: btnCreateAccount
+                                text: qsTr("Processing...")
+                                enabled: false
+                            }
+                        },
+                        State {
+                            name: "success"
+                            PropertyChanges {
+                                target: timerCreateAccount
+                                interval: 2000
+                                running: true
+                                onTriggered: btnCreateAccount.state = "normal"
+                            }
+                            PropertyChanges {
+                                target: btnCreateAccount
+                                text: qsTr("New account was created")
+                                enabled: false
+                            }
+                        },
+                        State {
+                            name: "failure"
+                            PropertyChanges {
+                                target: timerCreateAccount
+                                interval: 2000
+                                running: true
+                                onTriggered: btnCreateAccount.state = "normal"
+                            }
+                            PropertyChanges {
+                                target: btnCreateAccount
+                                text: lastMsg
+                                enabled: false
+                            }
+                        }
+                    ]
+                    Timer {
+                        id: timerCreateAccount
+                    }
+                    Connections {
+                        target: rai_accounts
+                        onCreateAccountSuccess: {
+                            // FIXME: wait until new account appears (workaround)
+                            btnCreateAccount.state = "processing"
+                        }
+                        onCreateAccountFailure: {
+                            btnCreateAccount.lastMsg = msg
+                            btnCreateAccount.state = "failure"
                         }
                     }
                 }
 
                 Button {
+                    Layout.fillWidth: true
+                    text: qsTr("Refresh")
+                    onClicked: rai_accounts.refresh()
+                    visible: false
+                }
+
+                ScrollView {
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+                    ListView {
+                        model: rai_accounts.model
+                        delegate: ItemDelegate {
+                            text: "Account " + index
+                            onClicked: rai_accounts.useAccount(model.modelData.account)
+                        }
+                    }
+                }
+
+                Button {
+                    Layout.fillWidth: true
                     text: "Settings"
                 }
             }

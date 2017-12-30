@@ -21,9 +21,9 @@ TEST (wallet, construction)
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key));
 	wallet->start ();
 	ASSERT_EQ (key.to_account (), wallet->self.getAccount ().toStdString ());
-	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
-	auto item1 (wallet->accounts.model->item (0, 1));
-	ASSERT_EQ (key.to_account (), item1->text ().toStdString ());
+	ASSERT_EQ (1, wallet->accounts.getModel ().count ());
+	auto item1 = static_cast<rai_qt::account_item *> (wallet->accounts.getModel ().at (0));
+	ASSERT_EQ (key.to_account (), item1->getAccount ().toStdString ());
 }
 
 TEST (wallet, status)
@@ -82,13 +82,11 @@ TEST (wallet, select_account)
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1));
 	wallet->start ();
 	ASSERT_EQ (key1, wallet->account);
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
-	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
-	wallet->accounts.view->selectionModel ()->setCurrentIndex (wallet->accounts.model->index (0, 0), QItemSelectionModel::SelectionFlag::Select);
-	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
+	auto account1 = QString::fromStdString (key1.to_account ());
+	wallet->accounts.useAccount (account1);
 	auto key3 (wallet->account);
-	wallet->accounts.view->selectionModel ()->setCurrentIndex (wallet->accounts.model->index (1, 0), QItemSelectionModel::SelectionFlag::Select);
-	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
+	auto account2 = QString::fromStdString (key2.to_account ());
+	wallet->accounts.useAccount (account2);
 	auto key4 (wallet->account);
 	ASSERT_NE (key3, key4);
 }
@@ -616,17 +614,17 @@ TEST (wallet, ignore_empty_adhoc)
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::keyClicks (wallet->accounts.account_key_line, rai::test_genesis_key.prv.data.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
-	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
+	ASSERT_EQ (1, wallet->accounts.getModel ().count ());
 	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
 	rai::keypair key;
 	QTest::keyClicks (wallet->accounts.account_key_line, key.prv.data.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
-	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
+	ASSERT_EQ (1, wallet->accounts.getModel ().count ());
 	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
-	QTest::mouseClick (wallet->accounts.create_account, Qt::LeftButton);
+	wallet->accounts.createAccount ();
 	test_application->processEvents ();
 	test_application->processEvents ();
-	ASSERT_EQ (2, wallet->accounts.model->rowCount ());
+	ASSERT_EQ (2, wallet->accounts.getModel ().count ());
 }
 
 TEST (wallet, change_seed)
@@ -653,12 +651,12 @@ TEST (wallet, change_seed)
 	system.wallet (0)->store.seed (seed1, rai::transaction (system.wallet (0)->store.environment, nullptr, false));
 	ASSERT_NE (seed, seed1);
 	ASSERT_TRUE (system.wallet (0)->exists (key1));
-	ASSERT_EQ (2, wallet->accounts.model->rowCount ());
+	ASSERT_EQ (2, wallet->accounts.getModel ().count ());
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
-	ASSERT_EQ (2, wallet->accounts.model->rowCount ());
+	ASSERT_EQ (2, wallet->accounts.getModel ().count ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
-	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
+	ASSERT_EQ (1, wallet->accounts.getModel ().count ());
 	ASSERT_TRUE (wallet->import.clear_line->text ().toStdString ().empty ());
 	rai::raw_key seed2;
 	system.wallet (0)->store.seed (seed2, rai::transaction (system.wallet (0)->store.environment, nullptr, false));

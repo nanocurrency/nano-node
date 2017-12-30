@@ -192,19 +192,39 @@ private:
 	void setBalance (QString balance);
 	void setPending (QString pending);
 };
-class accounts
+class account_item : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString balance READ getBalance NOTIFY balanceChanged)
+	Q_PROPERTY (QString account READ getAccount NOTIFY accountChanged)
+	Q_PROPERTY (bool isAdhoc READ isAdhoc NOTIFY isAdhocChanged)
+public:
+	account_item (QString balance, QString account, bool isAdhoc, QObject * parent = nullptr);
+	QString getBalance ();
+	QString getAccount ();
+	bool isAdhoc ();
+
+	Q_SIGNAL void balanceChanged (QString balance);
+	Q_SIGNAL void accountChanged (QString account);
+	Q_SIGNAL void isAdhocChanged (bool isAdhoc);
+
+private:
+	QString m_balance;
+	QString m_account;
+	bool m_isAdhoc;
+};
+class accounts : public QObject
+{
+	Q_OBJECT
+	Q_PROPERTY (QList<QObject *> model READ getModel NOTIFY modelChanged)
+	Q_PROPERTY (QString totalBalance READ getTotalBalance NOTIFY totalBalanceChanged)
+	Q_PROPERTY (QString totalPending READ getTotalPending NOTIFY totalPendingChanged)
 public:
 	accounts (rai_qt::wallet &);
-	void refresh ();
 	void refresh_wallet_balance ();
-	QLabel * wallet_balance_label;
+	Q_INVOKABLE void refresh ();
 	QWidget * window;
 	QVBoxLayout * layout;
-	QStandardItemModel * model;
-	QTableView * view;
-	QPushButton * use_account;
-	QPushButton * create_account;
 	QPushButton * import_wallet;
 	QPushButton * backup_seed;
 	QFrame * separator;
@@ -212,6 +232,28 @@ public:
 	QPushButton * account_key_button;
 	QPushButton * back;
 	rai_qt::wallet & wallet;
+
+	Q_INVOKABLE void createAccount ();
+	Q_SIGNAL void createAccountSuccess ();
+	Q_SIGNAL void createAccountFailure (QString msg);
+
+	Q_INVOKABLE void useAccount (QString account);
+
+	QList<QObject *> getModel ();
+	QString getTotalBalance ();
+	QString getTotalPending ();
+
+	Q_SIGNAL void modelChanged (QList<QObject *> model);
+	Q_SIGNAL void totalBalanceChanged (QString totalBalance);
+	Q_SIGNAL void totalPendingChanged (QString totalPending);
+
+private:
+	QList<QObject *> m_model;
+	QString m_totalBalance = "";
+	QString m_totalPending = "";
+
+	void setTotalBalance (QString totalBalance);
+	void setTotalPending (QString totalPending);
 };
 class import
 {
@@ -322,6 +364,7 @@ enum class status_types
 	synchronizing,
 	nominal
 };
+
 class status : public QObject
 {
 	Q_OBJECT
