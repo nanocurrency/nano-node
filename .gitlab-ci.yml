@@ -73,12 +73,11 @@ Ubuntu Linux:ASAN:
   stage: build
   variables:
     ASAN: 1
+    FLAVOR: zesty_asan
 
   before_script:
     - ./ci/ubuntu_prep.sh
 
-  variables:
-    FLAVOR: zesty_asan
 
 
 Ubuntu Linux:TSAN:
@@ -86,12 +85,11 @@ Ubuntu Linux:TSAN:
   stage: build
   variables:
     TSAN: 1
+    FLAVOR: zesty_tsan
 
   before_script:
     - ./ci/ubuntu_prep.sh
 
-  variables:
-    FLAVOR: zesty_tsan
 
 
 # DISABLED: Shared runners avail for gitlab CI
