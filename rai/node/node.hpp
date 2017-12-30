@@ -544,7 +544,7 @@ bool handle_node_options (boost::program_options::variables_map &);
 class inactive_node
 {
 public:
-	inactive_node ();
+	inactive_node (boost::filesystem::path const &);
 	~inactive_node ();
 	boost::filesystem::path path;
 	boost::shared_ptr <boost::asio::io_service> service;
