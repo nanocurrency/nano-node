@@ -226,9 +226,6 @@ public:
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * import_wallet;
-	QFrame * separator;
-	QLineEdit * account_key_line;
-	QPushButton * account_key_button;
 	QPushButton * back;
 	rai_qt::wallet & wallet;
 
@@ -239,6 +236,9 @@ public:
 	Q_INVOKABLE void createAccount ();
 	Q_SIGNAL void createAccountSuccess ();
 	Q_SIGNAL void createAccountFailure (QString msg);
+
+	Q_INVOKABLE void insertAdhocKey (QString key_text_wide);
+	Q_SIGNAL void insertAdhocKeyFinished (bool success);
 
 	Q_INVOKABLE void useAccount (QString account);
 

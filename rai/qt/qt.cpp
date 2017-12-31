@@ -145,38 +145,12 @@ rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 import_wallet (new QPushButton ("Import wallet")),
-separator (new QFrame),
-account_key_line (new QLineEdit),
-account_key_button (new QPushButton ("Import adhoc key")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	separator->setFrameShape (QFrame::HLine);
-	separator->setFrameShadow (QFrame::Sunken);
 	layout->addWidget (import_wallet);
-	layout->addWidget (separator);
-	layout->addWidget (account_key_line);
-	layout->addWidget (account_key_button);
 	layout->addWidget (back);
 	window->setLayout (layout);
-	QObject::connect (account_key_button, &QPushButton::released, [this]() {
-		QString key_text_wide (account_key_line->text ());
-		std::string key_text (key_text_wide.toLocal8Bit ());
-		rai::raw_key key;
-		if (!key.data.decode_hex (key_text))
-		{
-			show_line_ok (*account_key_line);
-			account_key_line->clear ();
-			this->wallet.wallet_m->insert_adhoc (key);
-			this->wallet.accounts.refresh ();
-			this->wallet.accounts.refresh_wallet_balance ();
-			this->wallet.history.refresh ();
-		}
-		else
-		{
-			show_line_error (*account_key_line);
-		}
-	});
 	QObject::connect (back, &QPushButton::clicked, [this]() {
 		this->wallet.pop_main_stack ();
 	});
@@ -258,6 +232,23 @@ void rai_qt::accounts::createAccount ()
 	else
 	{
 		Q_EMIT createAccountFailure ("Wallet is locked, unlock it to create account");
+	}
+}
+
+void rai_qt::accounts::insertAdhocKey (QString key_text_wide)
+{
+	std::string key_text (key_text_wide.toLocal8Bit ());
+	rai::raw_key key;
+	if (!key.data.decode_hex (key_text))
+	{
+		Q_EMIT insertAdhocKeyFinished (true);
+		this->wallet.wallet_m->insert_adhoc (key);
+		this->wallet.accounts.refresh ();
+		this->wallet.history.refresh ();
+	}
+	else
+	{
+		Q_EMIT insertAdhocKeyFinished (false);
 	}
 }
 

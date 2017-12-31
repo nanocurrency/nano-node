@@ -8,5 +8,6 @@
         <file>PanelReceive.qml</file>
         <file>PanelSend.qml</file>
         <file>StatusBar.qml</file>
+        <file>Settings.qml</file>
     </qresource>
 </RCC>

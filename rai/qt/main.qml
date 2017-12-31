@@ -17,13 +17,37 @@ ApplicationWindow {
         anchors.fill: parent
 
         SideBar {
+            id: sidebar
+
             Layout.fillWidth: false
             Layout.fillHeight: true
+
+            onSettingsClicked: {
+                btnSettingsEnabled = false
+                stackView.push(settingsComponent, StackView.Immediate)
+            }
         }
 
-        MainView {
+        StackView {
+            id: stackView
             Layout.fillHeight: true
             Layout.fillWidth: true
+            initialItem: MainView {
+                anchors.fill: parent
+            }
+        }
+
+        Component {
+            id: settingsComponent
+
+            Settings {
+                id: settings
+                anchors.fill: parent
+                onGoBack: {
+                    sidebar.btnSettingsEnabled = true
+                    stackView.pop(StackView.Immediate)
+                }
+            }
         }
     }
 }

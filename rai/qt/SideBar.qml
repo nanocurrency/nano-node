@@ -9,6 +9,9 @@ import "common" as Common
 Pane {
     id: root
 
+    property alias btnSettingsEnabled: btnSettings.enabled
+    signal settingsClicked()
+
     background: Rectangle {
         color: "white"
     }
@@ -179,8 +182,10 @@ Pane {
         }
 
         Button {
+            id: btnSettings
             Layout.fillWidth: true
             text: "Settings"
+            onClicked: settingsClicked()
         }
     }
 }

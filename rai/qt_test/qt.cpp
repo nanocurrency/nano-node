@@ -494,9 +494,7 @@ TEST (wallet, startup_work)
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 		ASSERT_TRUE (wallet->wallet_m->store.work_get (transaction, rai::test_genesis_key.pub, work1));
 	}
-	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
-	QTest::keyClicks (wallet->accounts.account_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
-	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
+	wallet->accounts.insertAdhocKey ("34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
 	auto iterations1 (0);
 	auto again (true);
 	while (again)
@@ -612,15 +610,11 @@ TEST (wallet, ignore_empty_adhoc)
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
-	QTest::keyClicks (wallet->accounts.account_key_line, rai::test_genesis_key.prv.data.to_string ().c_str ());
-	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
+	wallet->accounts.insertAdhocKey (rai::test_genesis_key.prv.data.to_string ().c_str ());
 	ASSERT_EQ (1, wallet->accounts.getModel ().count ());
-	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
 	rai::keypair key;
-	QTest::keyClicks (wallet->accounts.account_key_line, key.prv.data.to_string ().c_str ());
-	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
+	wallet->accounts.insertAdhocKey (key.prv.data.to_string ().c_str ());
 	ASSERT_EQ (1, wallet->accounts.getModel ().count ());
-	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
 	wallet->accounts.createAccount ();
 	test_application->processEvents ();
 	test_application->processEvents ();
