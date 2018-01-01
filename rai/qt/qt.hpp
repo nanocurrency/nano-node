@@ -75,9 +75,6 @@ public:
 	QWidget * window;
 	QVBoxLayout * layout;
 	QFrame * sep1;
-	QLineEdit * new_password;
-	QLineEdit * retype_password;
-	QPushButton * change;
 	QFrame * sep2;
 	QLabel * representative;
 	QLabel * current_representative;
@@ -87,6 +84,10 @@ public:
 	rai_qt::wallet & wallet;
 
 	bool isLocked ();
+
+	Q_INVOKABLE void changePassword (QString password);
+	Q_SIGNAL void changePasswordSuccess ();
+	Q_SIGNAL void changePasswordFailure (QString errorMsg);
 
 	Q_INVOKABLE void unlock (QString password);
 	Q_INVOKABLE void lock ();

@@ -1260,11 +1260,6 @@ bool rai_qt::wallet::isProcessingSend ()
 rai_qt::settings::settings (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-sep1 (new QFrame),
-new_password (new QLineEdit),
-retype_password (new QLineEdit),
-change (new QPushButton ("Set/Change password")),
-sep2 (new QFrame),
 representative (new QLabel ("Account representative:")),
 current_representative (new QLabel),
 new_representative (new QLineEdit),
@@ -1272,19 +1267,6 @@ change_rep (new QPushButton ("Change representative")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	sep1->setFrameShape (QFrame::HLine);
-	sep1->setFrameShadow (QFrame::Sunken);
-	layout->addWidget (sep1);
-	new_password->setEchoMode (QLineEdit::EchoMode::Password);
-	new_password->setPlaceholderText ("New password");
-	layout->addWidget (new_password);
-	retype_password->setEchoMode (QLineEdit::EchoMode::Password);
-	retype_password->setPlaceholderText ("Retype password");
-	layout->addWidget (retype_password);
-	layout->addWidget (change);
-	sep2->setFrameShape (QFrame::HLine);
-	sep2->setFrameShadow (QFrame::Sunken);
-	layout->addWidget (sep2);
 	layout->addWidget (representative);
 	current_representative->setTextInteractionFlags (Qt::TextSelectableByMouse);
 	layout->addWidget (current_representative);
@@ -1294,54 +1276,6 @@ wallet (wallet_a)
 	layout->addStretch ();
 	layout->addWidget (back);
 	window->setLayout (layout);
-	QObject::connect (change, &QPushButton::released, [this]() {
-		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-		if (this->wallet.wallet_m->store.valid_password (transaction))
-		{
-			if (new_password->text ().isEmpty ())
-			{
-				new_password->clear ();
-				new_password->setPlaceholderText ("Empty Password - try again: New password");
-				retype_password->clear ();
-				retype_password->setPlaceholderText ("Empty Password - try again: Retype password");
-			}
-			else
-			{
-				if (new_password->text () == retype_password->text ())
-				{
-					this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
-					new_password->clear ();
-					retype_password->clear ();
-					retype_password->setPlaceholderText ("Retype password");
-					show_button_success (*change);
-					change->setText ("Password was changed");
-					update_locked (false, false);
-					this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-							show_button_ok (*change);
-							change->setText ("Set/Change password");
-						}));
-					});
-				}
-				else
-				{
-					retype_password->clear ();
-					retype_password->setPlaceholderText ("Password mismatch");
-				}
-			}
-		}
-		else
-		{
-			show_button_error (*change);
-			change->setText ("Wallet is locked, unlock it");
-			this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-					show_button_ok (*change);
-					change->setText ("Set/Change password");
-				}));
-			});
-		}
-	});
 	QObject::connect (change_rep, &QPushButton::released, [this]() {
 		rai::account representative_l;
 		if (!representative_l.decode_account (new_representative->text ().toStdString ()))
@@ -1447,6 +1381,21 @@ bool rai_qt::settings::isLocked ()
 {
 	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
 	return !this->wallet.wallet_m->store.valid_password (transaction);
+}
+
+void rai_qt::settings::changePassword (QString password)
+{
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+	if (this->wallet.wallet_m->store.valid_password (transaction))
+	{
+		this->wallet.wallet_m->store.rekey (transaction, password.toStdString ());
+		Q_EMIT changePasswordSuccess ();
+		update_locked (false, false);
+	}
+	else
+	{
+		Q_EMIT changePasswordFailure ("Wallet is locked, unlock it");
+	}
 }
 
 void rai_qt::settings::unlock (QString password)

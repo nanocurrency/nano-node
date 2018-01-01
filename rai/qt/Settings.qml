@@ -7,10 +7,88 @@ import net.raiblocks 1.0
 import "common" as Common
 
 Pane {
-    signal goBack()
-
+  signal goBack()
+  ScrollView {
+    anchors.fill: parent
+    ScrollBar.vertical.policy: ScrollBar.AlwaysOn
     ColumnLayout {
         anchors.fill: parent
+
+        GroupBox {
+            Layout.alignment: Qt.AlignHCenter
+            ColumnLayout {
+                TextField {
+                    id: tfNewPassword1
+                    placeholderText: qsTr("New password")
+                    echoMode: TextInput.Password
+                }
+
+                TextField {
+                    id: tfNewPassword2
+                    placeholderText: qsTr("Re-type password")
+                    echoMode: TextInput.Password
+                }
+
+                Button {
+                    text: qsTr("Change password")
+                    onClicked: rai_settings.changePassword(tfNewPassword1.text)
+                    enabled: tfNewPassword1.text.length > 0 && tfNewPassword1.text === tfNewPassword2.text
+                }
+
+                Connections {
+                    target: rai_settings
+                    onChangePasswordSuccess: {
+                        tfNewPassword1.clear()
+                        tfNewPassword2.clear()
+                        popupChangePassword.state = "success"
+                    }
+                    onChangePasswordFailure: {
+                        tfNewPassword1.clear()
+                        tfNewPassword2.clear()
+                        popupChangePassword.errorMsg = errorMsg
+                        popupChangePassword.state = "failure"
+                    }
+                }
+
+                Common.PopupMessage {
+                    id: popupChangePassword
+                    property string errorMsg: "unknown error"
+                    state: "hidden"
+                    states: [
+                        State {
+                            name: "hidden"
+                            PropertyChanges {
+                                target: popupChangePassword
+                                visible: false
+                            }
+                        },
+                        State {
+                            name: "success"
+                            PropertyChanges {
+                                target: popupChangePassword
+                                text: qsTr("Password was changed")
+                                color: "green"
+                                interval: 2000
+                                visible: true
+                                onTriggered: popupChangePassword.state = "hidden"
+                            }
+                        },
+                        State {
+                            name: "failure"
+                            PropertyChanges {
+                                target: popupChangePassword
+                                text: errorMsg
+                                color: "red"
+                                interval: 2000
+                                visible: true
+                                onTriggered: popupChangePassword.state = "hidden"
+                            }
+                        }
+                    ]
+                }
+
+            }
+        }
 
         GroupBox {
             Layout.alignment: Qt.AlignHCenter
@@ -172,4 +250,5 @@ Pane {
             onClicked: goBack()
         }
     }
+  }
 }
