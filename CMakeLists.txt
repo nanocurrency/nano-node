@@ -13,7 +13,7 @@ set (RAIBLOCKS_GUI OFF CACHE BOOL "")
 set (RAIBLOCKS_TEST OFF CACHE BOOL "")
 option(RAIBLOCKS_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(RAIBLOCKS_ASAN "Enable ASan+UBSan" OFF)
-option(RAIBLOCKS_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" ON)
+option(RAIBLOCKS_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
 
 
 if(NOT CMAKE_BUILD_TYPE)
