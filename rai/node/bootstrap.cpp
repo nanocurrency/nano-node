@@ -895,7 +895,9 @@ void rai::bootstrap_attempt::run ()
 		}
 		// Flushing may resolve forks which can add more pulls
 		BOOST_LOG (node->log) << "Flushing unchecked blocks";
+		lock.unlock ();
 		node->block_processor.flush ();
+		lock.lock ();
 		BOOST_LOG (node->log) << "Finished flushing unchecked blocks";
 	}
 	if (!stopped)
