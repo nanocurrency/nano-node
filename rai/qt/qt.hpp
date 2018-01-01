@@ -63,8 +63,10 @@ public:
 	eventloop_event (std::function<void()> const &);
 	std::function<void()> action;
 };
-class settings
+class settings : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (bool locked READ isLocked NOTIFY lockedChanged)
 public:
 	settings (rai_qt::wallet &);
 	void refresh_representative ();
@@ -72,8 +74,6 @@ public:
 	void update_locked (bool, bool);
 	QWidget * window;
 	QVBoxLayout * layout;
-	QLineEdit * password;
-	QPushButton * lock_toggle;
 	QFrame * sep1;
 	QLineEdit * new_password;
 	QLineEdit * retype_password;
@@ -85,6 +85,16 @@ public:
 	QPushButton * change_rep;
 	QPushButton * back;
 	rai_qt::wallet & wallet;
+
+	bool isLocked ();
+
+	Q_INVOKABLE void unlock (QString password);
+	Q_INVOKABLE void lock ();
+
+	Q_SIGNAL void unlockSuccess ();
+	Q_SIGNAL void unlockFailure (QString errorMsg);
+
+	Q_SIGNAL void lockedChanged (bool locked);
 };
 class advanced_actions
 {

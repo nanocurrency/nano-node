@@ -25,6 +25,96 @@ Pane {
             Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
         }
 
+
+        RowLayout {
+            Layout.fillWidth: true
+            Label {
+                text: rai_settings.locked ? qsTr("Locked") : qsTr("Unlocked")
+            }
+            Button {
+                text: rai_settings.locked ? qsTr("Unlock") : qsTr("Lock")
+                onClicked: {
+                    if (rai_settings.locked) {
+                        popupPassword.open()
+                    } else {
+                        rai_settings.lock()
+                    }
+                }
+
+                Popup {
+                    id: popupPassword
+                    parent: Overlay.overlay
+                    width: parent.width
+                    height: parent.height
+                    modal: true
+
+                    background: Item {}
+
+                    onClosed: tfPassword.clear()
+
+                    Pane {
+                        anchors.centerIn: parent
+                        ColumnLayout {
+                            Label {
+                                id: lblPassword
+                                text: qsTr("Type your password to unlock")
+                                Timer {
+                                    id: lblPasswordTimer
+
+                                }
+                                state: "normal"
+                                states: [
+                                    State {
+                                        name: "normal"
+                                    },
+                                    State {
+                                        name: "warning"
+                                        PropertyChanges {
+                                            target: lblPassword
+                                            text: qsTr("Invalid password. Try again.")
+                                            color: "red"
+                                        }
+                                        PropertyChanges {
+                                            target: lblPasswordTimer
+                                            interval: 5000
+                                            running: true
+                                            onTriggered: {
+                                                lblPassword.state = "normal"
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                            TextField {
+                                id: tfPassword
+                                placeholderText: qsTr("wallet password")
+                                echoMode: TextInput.Password
+                            }
+                            RowLayout {
+                                Button {
+                                    text: qsTr("Cancel")
+                                    onClicked: popupPassword.close()
+                                }
+                                Button {
+                                    text: qsTr("Accept")
+                                    onClicked: rai_settings.unlock(tfPassword.text)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Connections {
+                    target: rai_settings
+                    onUnlockSuccess: popupPassword.close()
+                    onUnlockFailure: {
+                        lblPassword.state = "warning"
+                        tfPassword.clear()
+                    }
+                }
+            }
+        }
+
         Label {
             Layout.fillWidth: true
             text: "Total Balance: " + rai_accounts.totalBalance

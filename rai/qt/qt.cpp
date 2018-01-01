@@ -941,6 +941,7 @@ active_status (*this)
 	engine->rootContext ()->setContextProperty (QString ("rai_status"), &active_status);
 	engine->rootContext ()->setContextProperty (QString ("rai_history"), &history);
 	engine->rootContext ()->setContextProperty (QString ("rai_accounts"), &accounts);
+	engine->rootContext ()->setContextProperty (QString ("rai_settings"), &settings);
 	engine->rootContext ()->setContextProperty (QString ("rai_wallet"), this);
 
 	qmlRegisterType<ClipboardProxy> ("net.raiblocks", 1, 0, "ClipboardProxy");
@@ -1259,8 +1260,6 @@ bool rai_qt::wallet::isProcessingSend ()
 rai_qt::settings::settings (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
-password (new QLineEdit),
-lock_toggle (new QPushButton ("Unlock")),
 sep1 (new QFrame),
 new_password (new QLineEdit),
 retype_password (new QLineEdit),
@@ -1273,10 +1272,6 @@ change_rep (new QPushButton ("Change representative")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	password->setPlaceholderText ("Password");
-	password->setEchoMode (QLineEdit::EchoMode::Password);
-	layout->addWidget (password);
-	layout->addWidget (lock_toggle);
 	sep1->setFrameShape (QFrame::HLine);
 	sep1->setFrameShadow (QFrame::Sunken);
 	layout->addWidget (sep1);
@@ -1402,57 +1397,6 @@ wallet (wallet_a)
 		assert (this->wallet.main_stack->currentWidget () == window);
 		this->wallet.pop_main_stack ();
 	});
-	QObject::connect (lock_toggle, &QPushButton::released, [this]() {
-		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-		if (this->wallet.wallet_m->store.valid_password (transaction))
-		{
-			// lock wallet
-			rai::raw_key empty;
-			empty.data.clear ();
-			this->wallet.wallet_m->store.password.value_set (empty);
-			update_locked (true, true);
-			lock_toggle->setText ("Unlock");
-			password->setEnabled (1);
-		}
-		else
-		{
-			// try to unlock wallet
-			if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
-			{
-				password->clear ();
-				lock_toggle->setText ("Lock");
-				password->setDisabled (1);
-			}
-			else
-			{
-				show_line_error (*password);
-				show_button_error (*lock_toggle);
-				lock_toggle->setText ("Invalid password");
-				this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-					this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-						show_line_ok (*password);
-						show_button_ok (*lock_toggle);
-
-						// if wallet is still not unlocked by now, change button text
-						rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-						if (!this->wallet.wallet_m->store.valid_password (transaction))
-						{
-							lock_toggle->setText ("Unlock");
-						}
-					}));
-				});
-			}
-		}
-	});
-
-	// initial state for lock toggle button
-	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-	if (this->wallet.wallet_m->store.valid_password (transaction))
-	{
-		lock_toggle->setText ("Lock");
-		password->setDisabled (1);
-	}
-
 	representative->setToolTip ("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.");
 	refresh_representative ();
 }
@@ -1497,6 +1441,34 @@ void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
 	{
 		this->wallet.active_status.erase (rai_qt::status_types::vulnerable);
 	}
+}
+
+bool rai_qt::settings::isLocked ()
+{
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+	return !this->wallet.wallet_m->store.valid_password (transaction);
+}
+
+void rai_qt::settings::unlock (QString password)
+{
+	if (!this->wallet.wallet_m->enter_password (password.toStdString ()))
+	{
+		Q_EMIT unlockSuccess ();
+	}
+	else
+	{
+		Q_EMIT unlockFailure ("Invalid password");
+	}
+	Q_EMIT lockedChanged (isLocked ());
+}
+
+void rai_qt::settings::lock ()
+{
+	rai::raw_key empty;
+	empty.data.clear ();
+	this->wallet.wallet_m->store.password.value_set (empty);
+	update_locked (true, true);
+	Q_EMIT lockedChanged (isLocked ());
 }
 
 rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :

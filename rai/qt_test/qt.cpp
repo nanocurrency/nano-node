@@ -213,13 +213,7 @@ TEST (wallet, enter_password)
 	}
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.password));
-	ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.lock_toggle));
-	ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.back));
-	// The wallet UI always starts as locked, so we lock it then unlock it again to update the UI.
-	// This should never be a problem in actual use, as in reality, the wallet does start locked.
-	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
-	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
+	wallet->settings.unlock ("");
 	test_application->processEvents ();
 	ASSERT_EQ ("Status: Wallet password empty, Block: 1", wallet->active_status.getText ().toStdString ());
 	{
@@ -227,15 +221,12 @@ TEST (wallet, enter_password)
 		ASSERT_FALSE (system.wallet (0)->store.rekey (transaction, "abc"));
 	}
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
-	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
+	wallet->settings.unlock ("");
 	test_application->processEvents ();
 	ASSERT_EQ ("Status: Wallet locked, Block: 1", wallet->active_status.getText ().toStdString ());
-	wallet->settings.new_password->setText ("");
-	QTest::keyClicks (wallet->settings.password, "abc");
-	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
+	wallet->settings.unlock ("abc");
 	test_application->processEvents ();
 	ASSERT_EQ ("Status: Running, Block: 1", wallet->active_status.getText ().toStdString ());
-	ASSERT_EQ ("", wallet->settings.password->text ());
 }
 
 TEST (wallet, send)
