@@ -4,11 +4,68 @@ import QtQuick.Layouts 1.3
 
 import net.raiblocks 1.0
 
+import "common" as Common
+
 Pane {
     signal goBack()
 
     ColumnLayout {
         anchors.fill: parent
+
+        GroupBox {
+            Layout.alignment: Qt.AlignHCenter
+            Button {
+                id: btnBackupSeed
+                text: qsTr("Copy wallet seed")
+                onClicked: rai_accounts.backupSeed()
+                Connections {
+                    target: rai_accounts
+                    onBackupSeedSuccess: {
+                        popupBackupSeed.state = "success"
+                    }
+                    onBackupSeedFailure: {
+                        popupBackupSeed.errorMsg = msg
+                        popupBackupSeed.state = "failure"
+                    }
+                }
+                Common.PopupMessage {
+                    id: popupBackupSeed
+                    property string errorMsg: "unknown error"
+                    state: "hidden"
+                    states: [
+                        State {
+                            name: "hidden"
+                            PropertyChanges {
+                                target: popupBackupSeed
+                                visible: false
+                            }
+                        },
+                        State {
+                            name: "success"
+                            PropertyChanges {
+                                target: popupBackupSeed
+                                text: qsTr("Seed was copied to clipboard")
+                                color: "green"
+                                interval: 2000
+                                visible: true
+                                onTriggered: popupBackupSeed.state = "hidden"
+                            }
+                        },
+                        State {
+                            name: "failure"
+                            PropertyChanges {
+                                target: popupBackupSeed
+                                text: errorMsg
+                                color: "red"
+                                interval: 2000
+                                visible: true
+                                onTriggered: popupBackupSeed.state = "hidden"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
 
         GroupBox {
             id: gbAdhocKey
