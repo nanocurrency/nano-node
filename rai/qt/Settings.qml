@@ -85,6 +85,30 @@ Pane {
             ]
         }
 
+        GroupBox {
+            Layout.alignment: Qt.AlignHCenter
+            ColumnLayout {
+                Label {
+                    text: qsTr("Preferred unit:")
+                }
+                RadioButton {
+                    checked: rai_wallet.renderingRatio === RenderingRatio.XRB
+                    text: "XRB = 10^30 raw"
+                    onClicked: rai_wallet.renderingRatio = RenderingRatio.XRB
+                }
+                RadioButton {
+                    checked: rai_wallet.renderingRatio === RenderingRatio.MilliXRB
+                    text: "mXRB = 10^27 raw"
+                    onClicked: rai_wallet.renderingRatio = RenderingRatio.MilliXRB
+                }
+                RadioButton {
+                    checked: rai_wallet.renderingRatio === RenderingRatio.MicroXRB
+                    text: "uXRB = 10^24 raw"
+                    onClicked: rai_wallet.renderingRatio = RenderingRatio.MicroXRB
+                }
+            }
+        }
+
         Button {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Back")

@@ -846,6 +846,38 @@ QColor rai_qt::status::color ()
 	return QColor (QString::fromStdString (result));
 }
 
+rai::uint128_t RenderingRatio::to_uint128 (RenderingRatio::Type ratio)
+{
+	switch (ratio)
+	{
+		case RenderingRatio::Type::XRB:
+			return rai::Mxrb_ratio;
+		case RenderingRatio::Type::MilliXRB:
+			return rai::kxrb_ratio;
+		case RenderingRatio::Type::MicroXRB:
+			return rai::xrb_ratio;
+		default:
+			assert (false);
+			break;
+	}
+}
+
+QString RenderingRatio::to_string (RenderingRatio::Type ratio)
+{
+	switch (ratio)
+	{
+		case RenderingRatio::Type::XRB:
+			return QString ("XRB");
+		case RenderingRatio::Type::MilliXRB:
+			return QString ("mXRB");
+		case RenderingRatio::Type::MicroXRB:
+			return QString ("uXRB");
+		default:
+			assert (false);
+			break;
+	}
+}
+
 rai_qt::wallet::wallet (QApplication & application_a, rai_qt::eventloop_processor & processor_a, rai::node & node_a, std::shared_ptr<rai::wallet> wallet_a, rai::account & account_a) :
 rendering_ratio (rai::Mxrb_ratio),
 node (node_a),
@@ -915,6 +947,8 @@ active_status (*this)
 
 	qmlRegisterUncreatableType<SendResult> (
 	"net.raiblocks", 1, 0, "SendResult", "SendResult is not instantiable");
+	qmlRegisterUncreatableType<RenderingRatio> (
+	"net.raiblocks", 1, 0, "RenderingRatio", "RenderingRatio is not instantiable");
 
 	QQmlComponent component (engine, QUrl (QStringLiteral ("qrc:/gui/main.qml")));
 	m_qmlgui = std::unique_ptr<QObject> (component.create ());
@@ -1100,12 +1134,22 @@ void rai_qt::wallet::empty_password ()
 	});
 }
 
-void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
+void rai_qt::wallet::setRenderingRatio (RenderingRatio::Type renderingRatio)
 {
-	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a]() {
-		this->rendering_ratio = rendering_ratio_a;
-		this->refresh ();
-	}));
+	if (m_renderingRatio != renderingRatio)
+	{
+		this->rendering_ratio = RenderingRatio::to_uint128 (renderingRatio);
+		m_renderingRatio = renderingRatio;
+		Q_EMIT renderingRatioChanged (renderingRatio);
+		application.postEvent (&processor, new eventloop_event ([this]() {
+			this->refresh ();
+		}));
+	}
+}
+
+RenderingRatio::Type rai_qt::wallet::getRenderingRatio ()
+{
+	return m_renderingRatio;
 }
 
 std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) const
@@ -1114,11 +1158,11 @@ std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) cons
 	auto unit = std::string ("XRB");
 	if (rendering_ratio == rai::kxrb_ratio)
 	{
-		unit = std::string ("kxrb");
+		unit = std::string ("mXRB");
 	}
 	else if (rendering_ratio == rai::xrb_ratio)
 	{
-		unit = std::string ("xrb");
+		unit = std::string ("uXRB");
 	}
 	return balance_str + " " + unit;
 }
@@ -1467,13 +1511,6 @@ create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 block_viewer (new QPushButton ("Block Viewer")),
 account_viewer (new QPushButton ("Account Viewer")),
-scale_window (new QWidget),
-scale_layout (new QHBoxLayout),
-scale_label (new QLabel ("Scale:")),
-ratio_group (new QButtonGroup),
-mrai (new QRadioButton ("Mxrb")),
-krai (new QRadioButton ("kxrb")),
-rai (new QRadioButton ("xrb")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1492,18 +1529,6 @@ peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	ratio_group->addButton (mrai);
-	ratio_group->addButton (krai);
-	ratio_group->addButton (rai);
-	ratio_group->setId (mrai, 0);
-	ratio_group->setId (krai, 1);
-	ratio_group->setId (rai, 2);
-	scale_layout->addWidget (scale_label);
-	scale_layout->addWidget (mrai);
-	scale_layout->addWidget (krai);
-	scale_layout->addWidget (rai);
-	scale_window->setLayout (scale_layout);
-
 	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
 	ledger_model->setHorizontalHeaderItem (1, new QStandardItem ("Balance"));
 	ledger_model->setHorizontalHeaderItem (2, new QStandardItem ("Block"));
@@ -1543,30 +1568,10 @@ wallet (wallet_a)
 	layout->addWidget (enter_block);
 	layout->addWidget (block_viewer);
 	layout->addWidget (account_viewer);
-	layout->addWidget (scale_window);
 	layout->addStretch ();
 	layout->addWidget (back);
 	window->setLayout (layout);
 
-	QObject::connect (mrai, &QRadioButton::toggled, [this]() {
-		if (mrai->isChecked ())
-		{
-			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
-		}
-	});
-	QObject::connect (krai, &QRadioButton::toggled, [this]() {
-		if (krai->isChecked ())
-		{
-			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
-		}
-	});
-	QObject::connect (rai, &QRadioButton::toggled, [this]() {
-		if (rai->isChecked ())
-		{
-			this->wallet.change_rendering_ratio (rai::xrb_ratio);
-		}
-	});
-	mrai->click ();
 	QObject::connect (show_peers, &QPushButton::released, [this]() {
 		refresh_peers ();
 		this->wallet.push_main_stack (peers_window);

@@ -30,6 +30,25 @@ public:
 };
 Q_DECLARE_METATYPE (SendResult::Type)
 
+class RenderingRatio : public QObject
+{
+	Q_OBJECT
+public:
+	enum class Type
+	{
+		XRB,
+		MilliXRB,
+		MicroXRB
+	};
+	Q_ENUM (Type)
+	static rai::uint128_t to_uint128 (RenderingRatio::Type ratio);
+	Q_INVOKABLE static QString to_string (RenderingRatio::Type ratio);
+
+private:
+	RenderingRatio (QObject * parent = nullptr);
+};
+Q_DECLARE_METATYPE (RenderingRatio::Type)
+
 namespace rai_qt
 {
 class wallet;
@@ -82,13 +101,6 @@ public:
 	QPushButton * enter_block;
 	QPushButton * block_viewer;
 	QPushButton * account_viewer;
-	QWidget * scale_window;
-	QHBoxLayout * scale_layout;
-	QLabel * scale_label;
-	QButtonGroup * ratio_group;
-	QRadioButton * mrai;
-	QRadioButton * krai;
-	QRadioButton * rai;
 	QPushButton * back;
 
 	QWidget * ledger_window;
@@ -398,13 +410,13 @@ class wallet : public QObject, public std::enable_shared_from_this<rai_qt::walle
 {
 	Q_OBJECT
 	Q_PROPERTY (bool processingSend READ isProcessingSend NOTIFY processingSendChanged)
+	Q_PROPERTY (RenderingRatio::Type renderingRatio READ getRenderingRatio WRITE setRenderingRatio NOTIFY renderingRatioChanged)
 public:
 	wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr<rai::wallet>, rai::account &);
 	void start ();
 	void refresh ();
 	void update_connected ();
 	void empty_password ();
-	void change_rendering_ratio (rai::uint128_t const &);
 	std::string format_balance (rai::uint128_t const &) const;
 	rai::uint128_t rendering_ratio;
 	rai::node & node;
@@ -439,6 +451,10 @@ public:
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
 
+	void setRenderingRatio (RenderingRatio::Type renderingRatio);
+	RenderingRatio::Type getRenderingRatio ();
+	Q_SIGNAL void renderingRatioChanged (RenderingRatio::Type renderingRatio);
+
 	Q_INVOKABLE void send (QString amount, QString address);
 	bool isProcessingSend ();
 
@@ -448,6 +464,7 @@ public:
 private:
 	std::unique_ptr<QObject> m_qmlgui;
 	bool m_processingSend = false;
+	RenderingRatio::Type m_renderingRatio = RenderingRatio::Type::XRB;
 
 	void setProcessingSend (bool processingSend);
 };
