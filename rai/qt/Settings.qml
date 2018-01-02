@@ -9,8 +9,15 @@ import "common" as Common
 Pane {
   signal goBack()
   ScrollView {
-    anchors.fill: parent
     ScrollBar.vertical.policy: ScrollBar.AlwaysOn
+    anchors {
+        top: parent.top
+        left: parent.left
+        right: parent.right
+        bottom: btnGoBack.top
+    }
+    clip: true
+
     ColumnLayout {
         anchors.fill: parent
 
@@ -325,12 +332,17 @@ Pane {
                 }
             }
         }
-
-        Button {
-            Layout.alignment: Qt.AlignHCenter
-            text: qsTr("Back")
-            onClicked: goBack()
-        }
     }
+  }
+
+  Button {
+      id: btnGoBack
+      anchors {
+          left: parent.left
+          right: parent.right
+          bottom: parent.bottom
+      }
+      text: qsTr("Back")
+      onClicked: goBack()
   }
 }
