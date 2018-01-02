@@ -1468,6 +1468,15 @@ wallet (wallet_a)
 			}
 		}
 	});
+
+	// initial state for lock toggle button
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+	if (this->wallet.wallet_m->store.valid_password (transaction)) 
+	{
+		lock_toggle->setText("Lock");
+		password->setDisabled(1);
+	}
+
 	representative->setToolTip ("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.");
 	refresh_representative ();
 }
