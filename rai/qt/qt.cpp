@@ -138,6 +138,7 @@ wallet (wallet_a)
     view->setModel (model);
     view->verticalHeader ()->hide ();
     view->setContextMenuPolicy (Qt::ContextMenuPolicy::CustomContextMenu);
+    view->horizontalHeader()->setStretchLastSection(true);
 	layout->addWidget (wallet_balance_label);
 	layout->addWidget (view);
 	layout->addWidget (use_account);
@@ -493,6 +494,7 @@ wallet (wallet_a)
     view->setModel (model);
 	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
 	view->verticalHeader ()->hide ();
+	view->horizontalHeader()->setStretchLastSection(true);
 //	layout->addWidget (tx_window);
 	layout->addWidget (view);
 	layout->setContentsMargins (0, 0, 0, 0);
@@ -1578,6 +1580,7 @@ wallet (wallet_a)
     ledger_view->setModel (ledger_model);
     ledger_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     ledger_view->verticalHeader ()->hide ();
+    ledger_view->horizontalHeader()->setStretchLastSection(true);
     ledger_layout->addWidget (ledger_view);
     ledger_layout->addWidget (ledger_refresh);
     ledger_layout->addWidget (ledger_back);
@@ -1589,8 +1592,9 @@ wallet (wallet_a)
     peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
     peers_view->verticalHeader ()->hide ();
     peers_view->setModel (peers_model);
-	peers_view->setColumnWidth(0,220);
+	peers_view->setColumnWidth(0, 220);
 	peers_view->setSortingEnabled(true);
+	peers_view->horizontalHeader()->setStretchLastSection(true);
     peers_layout->addWidget (peers_view);
 	peers_layout->addWidget (bootstrap_label);
 	peers_layout->addWidget (bootstrap_line);
