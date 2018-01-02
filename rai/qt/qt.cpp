@@ -61,7 +61,7 @@ self_window (new QWidget),
 your_account_label (new QLabel ("Your RaiBlocks account:")),
 account_window (new QWidget),
 account_layout (new QHBoxLayout),
-account_text (new QLabel),
+account_text (new QLineEdit),
 copy_button (new QPushButton ("Copy")),
 balance_window (new QWidget),
 balance_layout (new QHBoxLayout),
@@ -75,11 +75,8 @@ wallet (wallet_a)
 	self_layout->addWidget (version);
 	self_layout->setContentsMargins (0, 0, 0, 0);
 	self_window->setLayout (self_layout);
-
-	auto font (QFontDatabase::systemFont (QFontDatabase::FixedFont));
-	font.setPointSize (account_text->font().pointSize());
-	account_text->setFont (font);
-	account_text->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	account_text->setReadOnly(true);
+	account_text->setStyleSheet("QLineEdit{ background: #ddd; }");
 	account_layout->addWidget (account_text, 9);
 	account_layout->addWidget (copy_button, 1);
 	account_layout->setContentsMargins (0, 0, 0, 0);
@@ -98,6 +95,11 @@ wallet (wallet_a)
 	QObject::connect (copy_button, &QPushButton::clicked, [this] ()
 	{
 		this->wallet.application.clipboard ()->setText (QString (this->wallet.account.to_account ().c_str ()));
+		copy_button->setText("Copied!");
+		this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (2), [this] ()
+		{
+			copy_button->setText("Copy");
+		});
 	});
 }
 
@@ -1219,7 +1221,7 @@ void rai_qt::wallet::refresh ()
 		rai::transaction transaction (wallet_m->store.environment, nullptr, false);
 		assert (wallet_m->store.exists (transaction, account));
 	}
-	self.account_text->setText (QString (account.to_account_split ().c_str ()));
+	self.account_text->setText (QString (account.to_account ().c_str ()));
 	self.refresh_balance ();
 	accounts.refresh ();
 	history.refresh ();

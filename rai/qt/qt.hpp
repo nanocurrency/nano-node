@@ -153,7 +153,7 @@ namespace rai_qt {
 		QLabel * version;
 		QWidget * account_window;
 		QHBoxLayout * account_layout;
-        QLabel * account_text;
+        QLineEdit * account_text;
 		QPushButton * copy_button;
 		QWidget * balance_window;
 		QHBoxLayout * balance_layout;
