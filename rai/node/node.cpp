@@ -753,7 +753,7 @@ password_fanout (1024),
 io_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max <unsigned> (4, std::thread::hardware_concurrency ())),
 enable_voting (true),
-bootstrap_connections (16),
+bootstrap_connections (4),
 callback_port (0)
 {
 	switch (rai::rai_network)
@@ -2877,16 +2877,17 @@ void rai::active_transactions::stop ()
 	roots.clear ();
 }
 
-void rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr <rai::block> block_a, std::function <void (std::shared_ptr <rai::block>)> const & confirmation_action_a)
+bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr <rai::block> block_a, std::function <void (std::shared_ptr <rai::block>)> const & confirmation_action_a)
 {
-    std::lock_guard <std::mutex> lock (mutex);
-    auto root (block_a->root ());
-    auto existing (roots.find (root));
-    if (existing == roots.end ())
-    {
-        auto election (std::make_shared <rai::election> (transaction_a, node, block_a, confirmation_action_a));
-        roots.insert (rai::conflict_info {root, election, 0});
-    }
+	std::lock_guard <std::mutex> lock (mutex);
+	auto root (block_a->root ());
+	auto existing (roots.find (root));
+	if (existing == roots.end ())
+	{
+		auto election (std::make_shared <rai::election> (transaction_a, node, block_a, confirmation_action_a));
+		roots.insert (rai::conflict_info {root, election, 0});
+	}
+	return existing != roots.end ();
 }
 
 // Validate a vote and apply it to the current election if one exists
@@ -2904,7 +2905,7 @@ void rai::active_transactions::vote (std::shared_ptr <rai::vote> vote_a)
 	}
 	if (election)
 	{
-        election->vote (vote_a);
+		election->vote (vote_a);
 	}
 }
 

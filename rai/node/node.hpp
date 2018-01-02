@@ -75,16 +75,16 @@ public:
 class active_transactions
 {
 public:
-    active_transactions (rai::node &);
+	active_transactions (rai::node &);
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-    void start (MDB_txn *, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const & = [] (std::shared_ptr <rai::block>) {});
-    void vote (std::shared_ptr <rai::vote>);
+	bool start (MDB_txn *, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const & = [] (std::shared_ptr <rai::block>) {});
+	void vote (std::shared_ptr <rai::vote>);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
 	void stop ();
-    boost::multi_index_container
+	boost::multi_index_container
 	<
 		rai::conflict_info,
 		boost::multi_index::indexed_by
@@ -92,8 +92,8 @@ public:
 			boost::multi_index::ordered_unique <boost::multi_index::member <rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>
 		>
 	> roots;
-    rai::node & node;
-    std::mutex mutex;
+	rai::node & node;
+	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static unsigned constexpr announcements_per_interval = 32;
 	// After this many successive vote announcements, block is confirmed
