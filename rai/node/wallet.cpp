@@ -1378,7 +1378,12 @@ void rai::wallets::foreach_representative (MDB_txn * transaction_a, std::functio
 				}
 				else
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Skipping locked wallet %1% with account %2%") % i->first.to_string () % account.to_account ());
+					static auto last_log = std::chrono::system_clock::time_point ();
+					if (last_log < std::chrono::system_clock::now () - std::chrono::seconds (60))
+					{
+						last_log = std::chrono::system_clock::now ();
+						BOOST_LOG (node.log) << boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string () % account.to_account ());
+					}
 				}
 			}
 		}
