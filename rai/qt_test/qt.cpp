@@ -211,10 +211,9 @@ TEST (wallet, enter_password)
     auto wallet (std::make_shared <rai_qt::wallet> (*test_application, processor, *system.nodes [0], system.wallet (0), account));
 	wallet->start ();
     ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.password));
-    ASSERT_NE (-1, wallet->settings.lock_layout->indexOf (wallet->settings.unlock));
-    ASSERT_NE (-1, wallet->settings.lock_layout->indexOf (wallet->settings.lock));
+    ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.lock_toggle));
     ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.back));
-    QTest::mouseClick (wallet->settings.unlock, Qt::LeftButton);
+    QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents();
     ASSERT_EQ ("Status: Wallet password empty", wallet->status->text ());
 	{
@@ -223,12 +222,12 @@ TEST (wallet, enter_password)
 	}
     QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
     QTest::keyClicks (wallet->settings.new_password, "a");
-    QTest::mouseClick (wallet->settings.unlock, Qt::LeftButton);
+    QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents();
     ASSERT_EQ ("Status: Wallet locked", wallet->status->text ());
     wallet->settings.new_password->setText ("");
     QTest::keyClicks (wallet->settings.password, "abc");
-    QTest::mouseClick (wallet->settings.unlock, Qt::LeftButton);
+    QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents();
 	auto status (wallet->status->text ());
     ASSERT_EQ ("Status: Running", status);
