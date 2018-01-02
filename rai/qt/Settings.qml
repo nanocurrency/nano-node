@@ -244,6 +244,88 @@ Pane {
             }
         }
 
+        GroupBox {
+            Layout.alignment: Qt.AlignHCenter
+            ColumnLayout {
+                Label {
+                    text: qsTr("Account representative:")
+                    ToolTip {
+                        text: qsTr("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.")
+                    }
+                }
+                Label {
+                    Layout.maximumWidth: parent.width
+                    text: rai_settings.representative
+                    wrapMode: Text.WrapAnywhere
+                }
+                TextField {
+                    id: tfRepresentative
+                    placeholderText: qsTr("New address")
+                    validator: RegExpValidator {
+                        regExp: /^xrb_[a-z0-9]{60}$/
+                    }
+                }
+                Button {
+                    id: btnRepresentative
+                    text: qsTr("Change representative")
+                    onClicked: {
+                        btnRepresentative.enabled = false
+                        rai_settings.changeRepresentative(tfRepresentative)
+                    }
+                    Connections {
+                        target: rai_settings
+                        onChangeRepresentativeSuccess: {
+                            tfRepresentative.clear()
+                            popupChangeRepresentative.state = "success"
+                            btnRepresentative.enabled = true
+                        }
+                        onChangeRepresentativeFailure: {
+                            tfRepresentative.clear()
+                            popupChangeRepresentative.errorMsg = errorMsg
+                            popupChangeRepresentative.state = "failure"
+                            btnRepresentative.enabled = true
+                        }
+                    }
+                    Common.PopupMessage {
+                        id: popupChangeRepresentative
+                        property string errorMsg: "unknown error"
+                        state: "hidden"
+                        states: [
+                            State {
+                                name: "hidden"
+                                PropertyChanges {
+                                    target: popupChangeRepresentative
+                                    visible: false
+                                }
+                            },
+                            State {
+                                name: "success"
+                                PropertyChanges {
+                                    target: popupChangeRepresentative
+                                    text: qsTr("Representative was changed")
+                                    color: "green"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popupChangeRepresentative.state = "hidden"
+                                }
+                            },
+                            State {
+                                name: "failure"
+                                PropertyChanges {
+                                    target: popupChangeRepresentative
+                                    text: errorMsg
+                                    color: "red"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popupChangeRepresentative.state = "hidden"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+
         Button {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Back")

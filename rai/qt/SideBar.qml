@@ -223,6 +223,9 @@ Pane {
             Layout.fillWidth: true
             text: "Settings"
             onClicked: settingsClicked()
+            ToolTip {
+                text: qsTr("Unlock wallet, set password, change representative")
+            }
         }
     }
 }

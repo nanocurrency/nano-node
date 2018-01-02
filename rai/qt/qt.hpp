@@ -67,20 +67,11 @@ class settings : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY (bool locked READ isLocked NOTIFY lockedChanged)
+	Q_PROPERTY (QString representative READ getRepresentative NOTIFY representativeChanged)
 public:
 	settings (rai_qt::wallet &);
 	void refresh_representative ();
-	void activate ();
 	void update_locked (bool, bool);
-	QWidget * window;
-	QVBoxLayout * layout;
-	QFrame * sep1;
-	QFrame * sep2;
-	QLabel * representative;
-	QLabel * current_representative;
-	QLineEdit * new_representative;
-	QPushButton * change_rep;
-	QPushButton * back;
 	rai_qt::wallet & wallet;
 
 	bool isLocked ();
@@ -89,6 +80,13 @@ public:
 	Q_SIGNAL void changePasswordSuccess ();
 	Q_SIGNAL void changePasswordFailure (QString errorMsg);
 
+	QString getRepresentative ();
+	Q_SIGNAL void representativeChanged (QString representative);
+
+	Q_INVOKABLE void changeRepresentative (QString address);
+	Q_SIGNAL void changeRepresentativeSuccess ();
+	Q_SIGNAL void changeRepresentativeFailure (QString errorMsg);
+
 	Q_INVOKABLE void unlock (QString password);
 	Q_INVOKABLE void lock ();
 
@@ -96,6 +94,9 @@ public:
 	Q_SIGNAL void unlockFailure (QString errorMsg);
 
 	Q_SIGNAL void lockedChanged (bool locked);
+
+private:
+	QString m_representative;
 };
 class advanced_actions
 {
@@ -454,7 +455,6 @@ public:
 	QWidget * entry_window;
 	QVBoxLayout * entry_window_layout;
 	QFrame * separator;
-	QPushButton * settings_button;
 	QPushButton * accounts_button;
 	QPushButton * show_advanced;
 
