@@ -213,24 +213,22 @@ TEST (wallet, enter_password)
     ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.password));
     ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.lock_toggle));
     ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.back));
-    QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
+    QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	test_application->processEvents();
-    ASSERT_EQ ("Status: Wallet password empty", wallet->status->text ());
+    ASSERT_EQ ("Status: Wallet password empty", wallet->status->text ().toStdString ());
 	{
 		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 		ASSERT_FALSE (system.wallet (0)->store.rekey (transaction, "abc"));
 	}
     QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
-    QTest::keyClicks (wallet->settings.new_password, "a");
     QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents();
-    ASSERT_EQ ("Status: Wallet locked", wallet->status->text ());
+    ASSERT_EQ ("Status: Wallet locked", wallet->status->text ().toStdString ());
     wallet->settings.new_password->setText ("");
     QTest::keyClicks (wallet->settings.password, "abc");
     QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents();
-	auto status (wallet->status->text ());
-    ASSERT_EQ ("Status: Running", status);
+    ASSERT_EQ ("Status: Running", wallet->status->text ().toStdString ());
     ASSERT_EQ ("", wallet->settings.password->text ());
 }
 
