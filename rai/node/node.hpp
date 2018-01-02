@@ -163,6 +163,12 @@ public:
 	rai::amount rep_weight;
 	unsigned network_version;
 };
+class peer_attempt
+{
+public:
+	rai::endpoint endpoint;
+	std::chrono::system_clock::time_point last_attempt;
+};
 class peer_container
 {
 public:
@@ -191,6 +197,8 @@ public:
 	std::vector <rai::endpoint> rep_crawl ();
 	bool rep_response (rai::endpoint const &, rai::amount const &);
 	void rep_request (rai::endpoint const &);
+	// Should we reach out to this endpoint with a keepalive message
+	bool reachout (rai::endpoint const &);
 	size_t size ();
 	size_t size_sqrt ();
 	bool empty ();
@@ -210,6 +218,15 @@ public:
 			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_information, rai::amount, &peer_information::rep_weight>, std::greater <rai::amount>>
 		>
 	> peers;
+	boost::multi_index_container
+	<
+		peer_attempt,
+		boost::multi_index::indexed_by
+		<
+			boost::multi_index::hashed_unique <boost::multi_index::member <peer_attempt, rai::endpoint, &peer_attempt::endpoint>>,
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <peer_attempt, std::chrono::system_clock::time_point, &peer_attempt::last_attempt>>
+		>
+	> attempts;
 	// Called when a new peer is observed
 	std::function <void (rai::endpoint const &)> peer_observer;
 	std::function <void ()> disconnect_observer;
