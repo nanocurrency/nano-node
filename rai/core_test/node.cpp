@@ -1428,3 +1428,198 @@ TEST (node, vote_replay)
 		ASSERT_GT (400, iterations);
 	}
 }
+
+TEST (node, reconfirm_mitm)
+{
+	rai::system system (24000, 3);
+	auto & sender (*system.nodes[0]);
+	auto & receiver (*system.nodes[1]);
+	auto & rep (*system.nodes[2]);
+	auto sender_wallet (system.wallet (0));
+	auto receiver_wallet (system.wallet (1));
+	auto rep_wallet (system.wallet (2));
+	rai::keypair sender_key;
+	rai::keypair receiver_key;
+	sender_wallet->insert_adhoc (sender_key.prv);
+	receiver_wallet->insert_adhoc (receiver_key.prv);
+	rep_wallet->insert_adhoc (rai::test_genesis_key.prv);
+
+	// Genesis -> Sender
+	auto block1 = rep_wallet->send_action (rai::test_genesis_key.pub, sender_key.pub, 10 * rai::Mxrb_ratio);
+	int iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balanceOnSender = sender.balance (sender_key.pub);
+		auto balanceOnReceiver = receiver.balance (sender_key.pub);
+		if (balanceOnSender == 10 * rai::Mxrb_ratio && balanceOnReceiver == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (400, iterations);
+		iterations++;
+	}
+
+	// Simulate MITM.
+	receiver.block_processor.stop ();
+	receiver.network.packet_filter = [](uint8_t * buffer, size_t size) {
+		// In the real attack the filter would be a lot more sophisticated, but this works for this test.
+		return true;
+	};
+
+	// Sender -> Genesis (not seen by Receiver)
+	auto block2 = sender_wallet->send_action (sender_key.pub, rai::test_genesis_key.pub, 10 * rai::Mxrb_ratio);
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balanceOnSender = sender.balance (sender_key.pub);
+		auto balanceOnRep = rep.balance (sender_key.pub);
+		auto balanceOnReceiver = receiver.balance (sender_key.pub);
+		if (balanceOnSender == 0 * rai::Mxrb_ratio && balanceOnRep == 0 * rai::Mxrb_ratio && balanceOnReceiver == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (400, iterations);
+		iterations++;
+	}
+
+	// Fork block.
+	rai::send_block fork (block2->root (), receiver_key.pub, 0 * rai::Mxrb_ratio, sender_key.prv, sender_key.pub, system.work.generate (block2->root ()));
+	{
+		rai::transaction transaction (receiver.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, receiver.ledger.process (transaction, fork).code);
+	}
+
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balance = receiver.balance_pending (receiver_key.pub);
+		if (balance.second == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (400, iterations);
+		iterations++;
+	}
+
+	// Request confirmation.
+	auto fork_block = std::shared_ptr<rai::block> (&fork, [](rai::block *) {});
+	receiver.request_confirmation (fork_block);
+	iterations = 0;
+	while (iterations < 100)
+	{
+		system.poll ();
+		iterations++;
+	}
+
+	// Heard nothing, we know we may be compromised.
+	rai::election_result result;
+	ASSERT_FALSE (receiver.check_election_results (fork_block, result));
+	ASSERT_EQ (0, result.tally.number ());
+	ASSERT_FALSE (result.confirmed);
+
+	// Remove MITM.
+	receiver.network.packet_filter = [](uint8_t * buffer, size_t size) {
+		return false;
+	};
+
+	// Ask again.
+	receiver.request_confirmation (fork_block);
+	iterations = 0;
+	while (iterations < 100)
+	{
+		system.poll ();
+		iterations++;
+	}
+
+	// This time we heard about the correct block, the election check should be negative.
+	ASSERT_FALSE (receiver.check_election_results (fork_block, result));
+	ASSERT_EQ (block2->hash (), result.winner);
+	ASSERT_LT (rai::genesis_amount / 2, result.tally.number ());
+	ASSERT_FALSE (result.confirmed);
+}
+
+TEST (node, reconfirm_honest)
+{
+	rai::system system (24000, 3);
+	auto & sender (*system.nodes[0]);
+	auto & receiver (*system.nodes[1]);
+	auto & rep (*system.nodes[2]);
+	auto sender_wallet (system.wallet (0));
+	auto receiver_wallet (system.wallet (1));
+	auto rep_wallet (system.wallet (2));
+	rai::keypair sender_key;
+	rai::keypair receiver_key;
+	sender_wallet->insert_adhoc (sender_key.prv);
+	receiver_wallet->insert_adhoc (receiver_key.prv);
+	rep_wallet->insert_adhoc (rai::test_genesis_key.prv);
+
+	// Genesis -> Sender
+	auto block1 = rep_wallet->send_action (rai::test_genesis_key.pub, sender_key.pub, 10 * rai::Mxrb_ratio);
+	int iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balance = sender.balance (sender_key.pub);
+		if (balance == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (100, iterations);
+		iterations++;
+	}
+
+	// Sender -> Receiver
+	auto block2 = sender_wallet->send_action (sender_key.pub, receiver_key.pub, 5 * rai::Mxrb_ratio);
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balance = receiver.balance (sender_key.pub);
+		if (balance == 5 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (100, iterations);
+		iterations++;
+	}
+
+	// Received OK, but the receiver would like reconfirmation.
+	receiver.request_confirmation (block2);
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		rai::election_result result;
+		ASSERT_FALSE (receiver.check_election_results (block2, result));
+		ASSERT_EQ (block2->hash (), result.winner);
+		if (result.tally.number () > rai::genesis_amount / 2)
+		{
+			break;
+		}
+		ASSERT_GT (100, iterations);
+		iterations++;
+	}
+
+	rai::election_result result;
+	ASSERT_FALSE (receiver.check_election_results (block2, result));
+	ASSERT_TRUE (result.confirmed);
+	ASSERT_LT (rai::genesis_amount / 2, result.tally.number ());
+}
+
+TEST (node, election_history_lru_evict)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	for (int i = 0; i < rai::active_transactions::election_history_size * 2; i++)
+	{
+		rai::election_result r;
+		r.winner = i;
+		r.tally = i;
+		node.active.add_election_history (rai::uint256_t (i), r);
+	}
+	ASSERT_EQ (rai::active_transactions::election_history_size, node.active.election_history.size ());
+	ASSERT_EQ (rai::uint256_t (rai::active_transactions::election_history_size), node.active.election_history.get<0> ().begin ()->result.winner.number ());
+}
