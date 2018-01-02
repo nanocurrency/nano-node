@@ -26,10 +26,13 @@ Item {
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 text: rai_self_pane.balance
+                font.pixelSize: 28
+                color: "#E1F784"
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
-                text: "(not pocketed " + rai_self_pane.pending + ")"
+                text: "(pending " + rai_self_pane.pending + ")"
+                color: "#E1F784"
                 visible: rai_self_pane.pending !== ""
             }
         }
