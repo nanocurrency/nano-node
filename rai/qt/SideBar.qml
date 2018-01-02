@@ -19,12 +19,29 @@ Pane {
     ColumnLayout {
         anchors.fill: parent
 
-        Label {
-            Layout.fillWidth: true
-            text: "RaiBlocks"
-            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-        }
+        Column {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.minimumWidth: (parent.width * 2) / 3
+            Layout.maximumWidth: parent.width
+            Image {
+                id: logo
+                anchors {
+                   left: parent.left
+                   right: parent.right
+                }
+                fillMode: Image.PreserveAspectFit
+                source: "qrc:/gui/logo-mini.png"
+            }
 
+            Label {
+                id: lblLogo
+                anchors {
+                   horizontalCenter: parent.horizontalCenter
+                }
+                text: "RaiBlocks"
+                font.pixelSize: logo.height / 5
+            }
+       }
 
         RowLayout {
             Layout.fillWidth: true
