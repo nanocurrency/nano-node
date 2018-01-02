@@ -212,7 +212,9 @@ Pane {
             ListView {
                 model: rai_accounts.model
                 delegate: ItemDelegate {
-                    text: "Account " + index
+                    Label {
+                        text: "Account " + index + "\n ↳ " + model.modelData.balance
+                    }
                     onClicked: rai_accounts.useAccount(model.modelData.account)
                 }
             }
