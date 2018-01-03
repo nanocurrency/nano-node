@@ -13,6 +13,22 @@ TEST (uint128_union, decode_dec)
     ASSERT_EQ (16, value.bytes [15]);
 }
 
+TEST (uint128_union, decode_dec_zero)
+{
+    rai::uint128_union value;
+    std::string text ("0");
+    ASSERT_FALSE (value.decode_dec (text));
+    ASSERT_EQ (0, value.bytes [31]);
+}
+
+TEST (uint128_union, decode_dec_leading_zero)
+{
+    rai::uint128_union value;
+    std::string text ("010");
+    auto error (value.decode_dec (text));
+    ASSERT_TRUE (error);
+}
+
 struct test_punct : std::moneypunct<char> {
     pattern do_pos_format () const { return { {value, none, none, none} }; }
     int do_frac_digits () const { return 0; }
@@ -33,7 +49,7 @@ TEST (uint128_union, balance_format)
     ASSERT_EQ ("340282366920938463463374607431768211454", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
     ASSERT_EQ ("170,141,183", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 0, true));
     ASSERT_EQ ("170,141,183.460469231731687303715884105726", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 64, true));
-    ASSERT_EQ ("170141183460469231731687303715884105726", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));	
+    ASSERT_EQ ("170141183460469231731687303715884105726", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
     ASSERT_EQ ("1", rai::amount (rai::uint128_t ("1000000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
     ASSERT_EQ ("1.2", rai::amount (rai::uint128_t ("1200000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
     ASSERT_EQ ("1.23", rai::amount (rai::uint128_t ("1230000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
@@ -169,6 +185,22 @@ TEST (uint256_union, max_dec)
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+}
+
+TEST (uint256_union, decode_dec_zero)
+{
+    rai::uint256_union value;
+    std::string text ("0");
+    ASSERT_FALSE (value.decode_dec (text));
+    ASSERT_EQ (0, value.bytes [31]);
+}
+
+TEST (uint256_union, decode_dec_leading_zero)
+{
+    rai::uint256_union value;
+    std::string text ("010");
+    auto error (value.decode_dec (text));
+    ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, parse_error_overflow)

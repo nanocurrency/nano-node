@@ -301,7 +301,7 @@ void rai::uint256_union::encode_dec (std::string & text) const
 
 bool rai::uint256_union::decode_dec (std::string const & text)
 {
-	auto result (text.size () > 78);
+	auto result (text.size () > 78 || (text.size () > 1 && text[0] == '0'));
 	if (!result)
 	{
 		std::stringstream stream (text);
@@ -564,7 +564,7 @@ void rai::uint128_union::encode_dec (std::string & text) const
 
 bool rai::uint128_union::decode_dec (std::string const & text)
 {
-	auto result (text.size () > 39);
+	auto result (text.size () > 39 || (text.size () > 1 && text[0] == '0'));
 	if (!result)
 	{
 		std::stringstream stream (text);
@@ -718,4 +718,3 @@ std::string rai::uint128_union::to_string_dec () const
 	encode_dec (result);
 	return result;
 }
-
