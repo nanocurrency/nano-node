@@ -10,5 +10,7 @@
         <file>StatusBar.qml</file>
         <file>Settings.qml</file>
         <file>logo-mini.png</file>
+        <file>qqr/qqr.js</file>
+        <file>qqr/QRCode.qml</file>
     </qresource>
 </RCC>

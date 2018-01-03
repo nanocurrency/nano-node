@@ -4,6 +4,8 @@ import QtQuick.Layouts 1.3
 
 import net.raiblocks 1.0
 
+import "qqr" as Qr
+
 Pane {
     id: root
 
@@ -29,11 +31,11 @@ Pane {
                 }
             }
         }
-        Rectangle {
+        Qr.QRCode {
             Layout.alignment: Qt.AlignHCenter
-            Layout.minimumHeight: 128
-            Layout.minimumWidth: 128
-            color: "black"
+            Layout.minimumHeight: 192
+            Layout.minimumWidth: 192
+            value: rai_self_pane.account
         }
     }
 }
