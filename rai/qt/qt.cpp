@@ -77,7 +77,7 @@ void rai_qt::self_pane::refresh_balance ()
 	this->setPending (QString::fromStdString (strPending));
 }
 
-QString rai_qt::self_pane::getAccount ()
+QString rai_qt::self_pane::getAccount () const
 {
 	return m_account;
 }
@@ -91,7 +91,7 @@ void rai_qt::self_pane::setAccount (QString account)
 	}
 }
 
-QString rai_qt::self_pane::getBalance ()
+QString rai_qt::self_pane::getBalance () const
 {
 	return m_balance;
 }
@@ -105,7 +105,7 @@ void rai_qt::self_pane::setBalance (QString balance)
 	}
 }
 
-QString rai_qt::self_pane::getPending ()
+QString rai_qt::self_pane::getPending () const
 {
 	return m_pending;
 }
@@ -126,17 +126,17 @@ m_isAdhoc (isAdhoc){
 	Q_UNUSED (parent)
 }
 
-QString rai_qt::account_item::getAccount ()
+QString rai_qt::account_item::getAccount () const
 {
 	return m_account;
 }
 
-QString rai_qt::account_item::getBalance ()
+QString rai_qt::account_item::getBalance () const
 {
 	return m_balance;
 }
 
-bool rai_qt::account_item::isAdhoc ()
+bool rai_qt::account_item::isAdhoc () const
 {
 	return m_isAdhoc;
 }
@@ -259,17 +259,17 @@ void rai_qt::accounts::useAccount (QString account)
 	this->wallet.refresh ();
 }
 
-QList<QObject *> rai_qt::accounts::getModel ()
+QList<QObject *> rai_qt::accounts::getModel () const
 {
 	return m_model;
 }
 
-QString rai_qt::accounts::getTotalBalance ()
+QString rai_qt::accounts::getTotalBalance () const
 {
 	return m_totalBalance;
 }
 
-QString rai_qt::accounts::getTotalPending ()
+QString rai_qt::accounts::getTotalPending () const
 {
 	return m_totalPending;
 }
@@ -463,22 +463,22 @@ m_hash (hash)
 	Q_UNUSED (parent);
 }
 
-QString rai_qt::history_item::getType ()
+QString rai_qt::history_item::getType () const
 {
 	return m_type;
 }
 
-QString rai_qt::history_item::getAccount ()
+QString rai_qt::history_item::getAccount () const
 {
 	return m_account;
 }
 
-QString rai_qt::history_item::getAmount ()
+QString rai_qt::history_item::getAmount () const
 {
 	return m_amount;
 }
 
-QString rai_qt::history_item::getHash ()
+QString rai_qt::history_item::getHash () const
 {
 	return m_hash;
 }
@@ -490,7 +490,7 @@ wallet (wallet_a)
 {
 }
 
-QList<QObject *> rai_qt::history::getModel ()
+QList<QObject *> rai_qt::history::getModel () const
 {
 	return m_model;
 }
@@ -733,12 +733,12 @@ void rai_qt::status::insert (rai_qt::status_types status_a)
 	set_text ();
 }
 
-QColor rai_qt::status::getColor ()
+QColor rai_qt::status::getColor () const
 {
 	return m_color;
 }
 
-QString rai_qt::status::getText ()
+QString rai_qt::status::getText () const
 {
 	return m_text;
 }
@@ -761,7 +761,7 @@ void rai_qt::status::set_text ()
 	}
 }
 
-QString rai_qt::status::text ()
+QString rai_qt::status::text () const
 {
 	assert (!active.empty ());
 	std::string result;
@@ -812,7 +812,7 @@ QString rai_qt::status::text ()
 	return QString::fromStdString (result);
 }
 
-QColor rai_qt::status::color ()
+QColor rai_qt::status::color () const
 {
 	assert (!active.empty ());
 	std::string result;
@@ -1243,7 +1243,7 @@ void rai_qt::wallet::setProcessingSend (bool processingSend)
 	}
 }
 
-bool rai_qt::wallet::isProcessingSend ()
+bool rai_qt::wallet::isProcessingSend () const
 {
 	return m_processingSend;
 }
@@ -1298,7 +1298,7 @@ void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
 	}
 }
 
-bool rai_qt::settings::isLocked ()
+bool rai_qt::settings::isLocked () const
 {
 	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
 	return !this->wallet.wallet_m->store.valid_password (transaction);
@@ -1319,9 +1319,8 @@ void rai_qt::settings::changePassword (QString password)
 	}
 }
 
-QString rai_qt::settings::getRepresentative ()
+QString rai_qt::settings::getRepresentative () const
 {
-	refresh_representative ();
 	return m_representative;
 }
 

@@ -74,26 +74,26 @@ public:
 	void update_locked (bool, bool);
 	rai_qt::wallet & wallet;
 
-	bool isLocked ();
+	bool isLocked () const;
 
 	Q_INVOKABLE void changePassword (QString password);
-	Q_SIGNAL void changePasswordSuccess ();
-	Q_SIGNAL void changePasswordFailure (QString errorMsg);
+	Q_SIGNAL void changePasswordSuccess () const;
+	Q_SIGNAL void changePasswordFailure (QString errorMsg) const;
 
-	QString getRepresentative ();
-	Q_SIGNAL void representativeChanged (QString representative);
+	QString getRepresentative () const;
+	Q_SIGNAL void representativeChanged (QString representative) const;
 
 	Q_INVOKABLE void changeRepresentative (QString address);
-	Q_SIGNAL void changeRepresentativeSuccess ();
-	Q_SIGNAL void changeRepresentativeFailure (QString errorMsg);
+	Q_SIGNAL void changeRepresentativeSuccess () const;
+	Q_SIGNAL void changeRepresentativeFailure (QString errorMsg) const;
 
 	Q_INVOKABLE void unlock (QString password);
 	Q_INVOKABLE void lock ();
 
-	Q_SIGNAL void unlockSuccess ();
-	Q_SIGNAL void unlockFailure (QString errorMsg);
+	Q_SIGNAL void unlockSuccess () const;
+	Q_SIGNAL void unlockFailure (QString errorMsg) const;
 
-	Q_SIGNAL void lockedChanged (bool locked);
+	Q_SIGNAL void lockedChanged (bool locked) const;
 
 private:
 	QString m_representative;
@@ -198,15 +198,15 @@ public:
 	void refresh_balance ();
 	rai_qt::wallet & wallet;
 
-	QString getAccount ();
+	QString getAccount () const;
 	void setAccount (QString account);
 
-	QString getBalance ();
-	QString getPending ();
+	QString getBalance () const;
+	QString getPending () const;
 
-	Q_SIGNAL void accountChanged (QString account);
-	Q_SIGNAL void balanceChanged (QString balance);
-	Q_SIGNAL void pendingChanged (QString pending);
+	Q_SIGNAL void accountChanged (QString account) const;
+	Q_SIGNAL void balanceChanged (QString balance) const;
+	Q_SIGNAL void pendingChanged (QString pending) const;
 
 private:
 	QString m_account;
@@ -224,13 +224,13 @@ class account_item : public QObject
 	Q_PROPERTY (bool isAdhoc READ isAdhoc NOTIFY isAdhocChanged)
 public:
 	account_item (QString balance, QString account, bool isAdhoc, QObject * parent = nullptr);
-	QString getBalance ();
-	QString getAccount ();
-	bool isAdhoc ();
+	QString getBalance () const;
+	QString getAccount () const;
+	bool isAdhoc () const;
 
-	Q_SIGNAL void balanceChanged (QString balance);
-	Q_SIGNAL void accountChanged (QString account);
-	Q_SIGNAL void isAdhocChanged (bool isAdhoc);
+	Q_SIGNAL void balanceChanged (QString balance) const;
+	Q_SIGNAL void accountChanged (QString account) const;
+	Q_SIGNAL void isAdhocChanged (bool isAdhoc) const;
 
 private:
 	QString m_balance;
@@ -254,25 +254,25 @@ public:
 	rai_qt::wallet & wallet;
 
 	Q_INVOKABLE void backupSeed ();
-	Q_SIGNAL void backupSeedSuccess ();
-	Q_SIGNAL void backupSeedFailure (QString msg);
+	Q_SIGNAL void backupSeedSuccess () const;
+	Q_SIGNAL void backupSeedFailure (QString msg) const;
 
 	Q_INVOKABLE void createAccount ();
-	Q_SIGNAL void createAccountSuccess ();
-	Q_SIGNAL void createAccountFailure (QString msg);
+	Q_SIGNAL void createAccountSuccess () const;
+	Q_SIGNAL void createAccountFailure (QString msg) const;
 
 	Q_INVOKABLE void insertAdhocKey (QString key_text_wide);
 	Q_SIGNAL void insertAdhocKeyFinished (bool success);
 
 	Q_INVOKABLE void useAccount (QString account);
 
-	QList<QObject *> getModel ();
-	QString getTotalBalance ();
-	QString getTotalPending ();
+	QList<QObject *> getModel () const;
+	QString getTotalBalance () const;
+	QString getTotalPending () const;
 
-	Q_SIGNAL void modelChanged (QList<QObject *> model);
-	Q_SIGNAL void totalBalanceChanged (QString totalBalance);
-	Q_SIGNAL void totalPendingChanged (QString totalPending);
+	Q_SIGNAL void modelChanged (QList<QObject *> model) const;
+	Q_SIGNAL void totalBalanceChanged (QString totalBalance) const;
+	Q_SIGNAL void totalPendingChanged (QString totalPending) const;
 
 private:
 	QList<QObject *> m_model;
@@ -311,15 +311,15 @@ class history_item : public QObject
 	Q_PROPERTY (QString hash READ getHash NOTIFY hashChanged)
 public:
 	history_item (QString type, QString account, QString amount, QString hash, QObject * parent = nullptr);
-	QString getType ();
-	QString getAccount ();
-	QString getAmount ();
-	QString getHash ();
+	QString getType () const;
+	QString getAccount () const;
+	QString getAmount () const;
+	QString getHash () const;
 
-	Q_SIGNAL void typeChanged (QString type);
-	Q_SIGNAL void accountChanged (QString account);
-	Q_SIGNAL void amountChanged (QString amount);
-	Q_SIGNAL void hashChanged (QString hash);
+	Q_SIGNAL void typeChanged (QString type) const;
+	Q_SIGNAL void accountChanged (QString account) const;
+	Q_SIGNAL void amountChanged (QString amount) const;
+	Q_SIGNAL void hashChanged (QString hash) const;
 
 private:
 	QString m_type;
@@ -338,9 +338,9 @@ public:
 	rai::account const & account;
 	rai_qt::wallet & wallet;
 
-	QList<QObject *> getModel ();
+	QList<QObject *> getModel () const;
 
-	Q_SIGNAL void modelChanged (QList<QObject *> model);
+	Q_SIGNAL void modelChanged (QList<QObject *> model) const;
 
 private:
 	QList<QObject *> m_model;
@@ -404,18 +404,18 @@ public:
 	std::set<rai_qt::status_types> active;
 	rai_qt::wallet & wallet;
 
-	QString getText ();
-	QColor getColor ();
+	QString getText () const;
+	QColor getColor () const;
 
-	Q_SIGNAL void textChanged (QString text);
-	Q_SIGNAL void colorChanged (QColor color);
+	Q_SIGNAL void textChanged (QString text) const;
+	Q_SIGNAL void colorChanged (QColor color) const;
 
 private:
 	QString m_text;
 	QColor m_color;
 
-	QString text ();
-	QColor color ();
+	QString text () const;
+	QColor color () const;
 	void set_text ();
 };
 class wallet : public QObject, public std::enable_shared_from_this<rai_qt::wallet>
@@ -464,13 +464,13 @@ public:
 
 	void setRenderingRatio (RenderingRatio::Type renderingRatio);
 	RenderingRatio::Type getRenderingRatio ();
-	Q_SIGNAL void renderingRatioChanged (RenderingRatio::Type renderingRatio);
+	Q_SIGNAL void renderingRatioChanged (RenderingRatio::Type renderingRatio) const;
 
 	Q_INVOKABLE void send (QString amount, QString address);
-	bool isProcessingSend ();
+	bool isProcessingSend () const;
 
-	Q_SIGNAL void sendFinished (SendResult::Type result);
-	Q_SIGNAL void processingSendChanged (bool processingSend);
+	Q_SIGNAL void sendFinished (SendResult::Type result) const;
+	Q_SIGNAL void processingSendChanged (bool processingSend) const;
 
 private:
 	std::unique_ptr<QObject> m_qmlgui;
