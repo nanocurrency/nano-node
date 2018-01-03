@@ -13,6 +13,14 @@ TEST (uint128_union, decode_dec)
     ASSERT_EQ (16, value.bytes [15]);
 }
 
+TEST (uint128_union, decode_dec_negative)
+{
+    rai::uint128_union value;
+    std::string text ("-1");
+    auto error (value.decode_dec (text));
+    ASSERT_TRUE (error);
+}
+
 TEST (uint128_union, decode_dec_zero)
 {
     rai::uint128_union value;
@@ -185,6 +193,14 @@ TEST (uint256_union, max_dec)
     ASSERT_FALSE (error);
     ASSERT_EQ (input, output);
     ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+}
+
+TEST (uint256_union, decode_dec_negative)
+{
+    rai::uint256_union value;
+    std::string text ("-1");
+    auto error (value.decode_dec (text));
+    ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, decode_dec_zero)
