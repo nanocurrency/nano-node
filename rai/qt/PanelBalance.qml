@@ -49,14 +49,20 @@ Item {
         clip: true
 
         ListView {
+            id: listView
             model: rai_history.model
 
             spacing: 5
 
             delegate: Pane {
-                width: parent.width
+                width: listView.width
+                background: Rectangle {
+                    color: Qt.rgba(255, 255, 255, 0.25)
+                }
+
                 GridLayout {
                     anchors.fill: parent
+                    columns: 3
                     Label {
                         Layout.minimumWidth: 50
                         text: model.modelData.type
@@ -68,23 +74,38 @@ Item {
                         Layout.alignment: Qt.AlignRight
                         text: qsTr("Details")
                         onClicked: {
-                            lblHash.visible = !lblHash.visible
-                            lblAccount.visible = !lblAccount.visible
+                            details.visible = !details.visible
                         }
                     }
-                    Label {
-                        id: lblAccount
+                    GridLayout {
+                        id: details
+                        Layout.columnSpan: 3
                         Layout.row: 1
-                        Layout.columnSpan: 3
-                        text: "Account: " + model.modelData.account
+                        Layout.maximumWidth: parent.width
                         visible: false
-                    }
-                    Label {
-                        id: lblHash
-                        Layout.row: 2
-                        Layout.columnSpan: 3
-                        text: "Hash: " + model.modelData.hash
-                        visible: false
+                        columns: 2
+                        Label {
+                            id: lblAccount
+                            text: qsTr("Account: ")
+                        }
+                        TextField {
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: model.modelData.account
+                            wrapMode: Text.WrapAnywhere
+                        }
+                        Label {
+                            id: lblHash
+                            text: qsTr("Hash: ")
+                        }
+                        TextField {
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: model.modelData.hash
+                            wrapMode: Text.WrapAnywhere
+                        }
                     }
                 }
             }
