@@ -26,7 +26,7 @@ TEST (uint128_union, decode_dec_zero)
     rai::uint128_union value;
     std::string text ("0");
     ASSERT_FALSE (value.decode_dec (text));
-    ASSERT_EQ (0, value.bytes [31]);
+    ASSERT_TRUE (value.is_zero ());
 }
 
 TEST (uint128_union, decode_dec_leading_zero)
@@ -208,7 +208,7 @@ TEST (uint256_union, decode_dec_zero)
     rai::uint256_union value;
     std::string text ("0");
     ASSERT_FALSE (value.decode_dec (text));
-    ASSERT_EQ (0, value.bytes [31]);
+    ASSERT_TRUE (value.is_zero ());
 }
 
 TEST (uint256_union, decode_dec_leading_zero)
