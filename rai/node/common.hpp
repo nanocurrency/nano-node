@@ -200,7 +200,6 @@ public:
     void visit (rai::message_visitor &) const override;
     rai::uint256_union start;
     rai::block_hash end;
-    uint32_t count;
 };
 class bulk_push : public message
 {
