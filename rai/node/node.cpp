@@ -1410,6 +1410,7 @@ block_processor_thread ([this] () { this->block_processor.process_blocks (); })
 										req->target (*target);
 										req->version (11);
 										req->insert(boost::beast::http::field::host, address);
+										req->insert(boost::beast::http::field::content_type, "application/json");
 										req->body() = *body;
 										//req->prepare (*req);
 										//boost::beast::http::prepare(req);
