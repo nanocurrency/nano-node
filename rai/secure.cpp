@@ -1984,11 +1984,10 @@ public:
     void open_block (rai::open_block const & block_a) override
     {
 		auto hash (block_a.hash ());
-		auto representative (ledger.representative (transaction, block_a.hashables.source));
 		auto amount (ledger.amount (transaction, block_a.hashables.source));
 		auto destination_account (ledger.account (transaction, hash));
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
-		ledger.change_latest (transaction, destination_account, 0, representative, 0, 0);
+		ledger.change_latest (transaction, destination_account, 0, 0, 0, 0);
 		ledger.store.block_del (transaction, hash);
 		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), {ledger.account (transaction, block_a.hashables.source), amount});
 		ledger.store.frontier_del (transaction, hash);
