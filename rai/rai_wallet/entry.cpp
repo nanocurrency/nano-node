@@ -200,13 +200,13 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	application.processEvents();
 	qt_wallet_config config (data_path);
 	auto config_path ((data_path / "config.json"));
-    int result (0);
+	int result (0);
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
 	if (!error)
-    {
-        boost::asio::io_service service;
+	{
+		boost::asio::io_service service;
 		config.node.logging.init (data_path);
 		std::shared_ptr <rai::node> node;
 		std::shared_ptr <rai_qt::wallet> gui;

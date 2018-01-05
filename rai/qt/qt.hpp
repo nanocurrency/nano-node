@@ -10,7 +10,7 @@
 #include <QtWidgets>
 
 namespace rai_qt {
-    class wallet;
+	class wallet;
 	class eventloop_processor : public QObject
 	{
 	public:
@@ -22,32 +22,32 @@ namespace rai_qt {
 		eventloop_event (std::function <void ()> const &);
 		std::function <void ()> action;
 	};
-    class settings
-    {
-    public:
-        settings (rai_qt::wallet &);
+	class settings
+	{
+	public:
+		settings (rai_qt::wallet &);
 		void refresh_representative ();
-        void activate ();
-        void update_locked (bool, bool);
-        QWidget * window;
-        QVBoxLayout * layout;
-        QLineEdit * password;
+		void activate ();
+		void update_locked (bool, bool);
+		QWidget * window;
+		QVBoxLayout * layout;
+		QLineEdit * password;
 		QPushButton * lock_toggle;
 		QFrame * sep1;
-        QLineEdit * new_password;
-        QLineEdit * retype_password;
-        QPushButton * change;
+		QLineEdit * new_password;
+		QLineEdit * retype_password;
+		QPushButton * change;
 		QFrame * sep2;
 		QLabel * representative;
 		QLabel * current_representative;
 		QLineEdit * new_representative;
 		QPushButton * change_rep;
-        QPushButton * back;
-        rai_qt::wallet & wallet;
-    };
-    class advanced_actions
-    {
-    public:
+		QPushButton * back;
+		rai_qt::wallet & wallet;
+	};
+	class advanced_actions
+	{
+	public:
 		advanced_actions (rai_qt::wallet &);
 		QWidget * window;
 		QVBoxLayout * layout;
@@ -87,82 +87,82 @@ namespace rai_qt {
 		QPushButton * peers_back;
 				
 		rai_qt::wallet & wallet;
-    private:
-        void refresh_ledger ();
-        void refresh_peers ();
-    };
-    class block_entry
-    {
-    public:
-        block_entry (rai_qt::wallet &);
-        QWidget * window;
-        QVBoxLayout * layout;
-        QPlainTextEdit * block;
-        QLabel * status;
-        QPushButton * process;
-        QPushButton * back;
-        rai_qt::wallet & wallet;
-    };
-    class block_creation
-    {
-    public:
-        block_creation (rai_qt::wallet &);
-        void deactivate_all ();
-        void activate_send ();
-        void activate_receive ();
-        void activate_change ();
-        void activate_open ();
-        void create_send ();
-        void create_receive ();
-        void create_change ();
-        void create_open ();
-        QWidget * window;
-        QVBoxLayout * layout;
-        QButtonGroup * group;
-        QHBoxLayout * button_layout;
-        QRadioButton * send;
-        QRadioButton * receive;
-        QRadioButton * change;
-        QRadioButton * open;
-        QLabel * account_label;
-        QLineEdit * account;
-        QLabel * source_label;
-        QLineEdit * source;
-        QLabel * amount_label;
-        QLineEdit * amount;
-        QLabel * destination_label;
-        QLineEdit * destination;
-        QLabel * representative_label;
-        QLineEdit * representative;
-        QPlainTextEdit * block;
-        QLabel * status;
-        QPushButton * create;
-        QPushButton * back;
-        rai_qt::wallet & wallet;
-    };
-    class self_pane
-    {
-    public:
-        self_pane (rai_qt::wallet &, rai::account const &);
+	private:
+		void refresh_ledger ();
+		void refresh_peers ();
+	};
+	class block_entry
+	{
+	public:
+		block_entry (rai_qt::wallet &);
+		QWidget * window;
+		QVBoxLayout * layout;
+		QPlainTextEdit * block;
+		QLabel * status;
+		QPushButton * process;
+		QPushButton * back;
+		rai_qt::wallet & wallet;
+	};
+	class block_creation
+	{
+	public:
+		block_creation (rai_qt::wallet &);
+		void deactivate_all ();
+		void activate_send ();
+		void activate_receive ();
+		void activate_change ();
+		void activate_open ();
+		void create_send ();
+		void create_receive ();
+		void create_change ();
+		void create_open ();
+		QWidget * window;
+		QVBoxLayout * layout;
+		QButtonGroup * group;
+		QHBoxLayout * button_layout;
+		QRadioButton * send;
+		QRadioButton * receive;
+		QRadioButton * change;
+		QRadioButton * open;
+		QLabel * account_label;
+		QLineEdit * account;
+		QLabel * source_label;
+		QLineEdit * source;
+		QLabel * amount_label;
+		QLineEdit * amount;
+		QLabel * destination_label;
+		QLineEdit * destination;
+		QLabel * representative_label;
+		QLineEdit * representative;
+		QPlainTextEdit * block;
+		QLabel * status;
+		QPushButton * create;
+		QPushButton * back;
+		rai_qt::wallet & wallet;
+	};
+	class self_pane
+	{
+	public:
+		self_pane (rai_qt::wallet &, rai::account const &);
 		void refresh_balance ();
-        QWidget * window;
-        QVBoxLayout * layout;
+		QWidget * window;
+		QVBoxLayout * layout;
 		QHBoxLayout * self_layout;
 		QWidget * self_window;
-        QLabel * your_account_label;
+		QLabel * your_account_label;
 		QLabel * version;
 		QWidget * account_window;
 		QHBoxLayout * account_layout;
-        QLineEdit * account_text;
+		QLineEdit * account_text;
 		QPushButton * copy_button;
 		QWidget * balance_window;
 		QHBoxLayout * balance_layout;
-        QLabel * balance_label;
-        rai_qt::wallet & wallet;
-    };
-    class accounts
-    {
-    public:
+		QLabel * balance_label;
+		rai_qt::wallet & wallet;
+	};
+	class accounts
+	{
+	public:
 		accounts (rai_qt::wallet &);
 		void refresh ();
 		void refresh_wallet_balance ();
@@ -180,7 +180,7 @@ namespace rai_qt {
 		QPushButton * account_key_button;
 		QPushButton * back;
 		rai_qt::wallet & wallet;
-    };
+	};
 	class import
 	{
 	public:
@@ -228,7 +228,7 @@ namespace rai_qt {
 		QLabel * hash_label;
 		QLineEdit * hash;
 		QLabel * block_label;
-        QPlainTextEdit * block;
+		QPlainTextEdit * block;
 		QLabel * successor_label;
 		QLineEdit * successor;
 		QPushButton * retrieve;

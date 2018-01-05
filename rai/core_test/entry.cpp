@@ -2,7 +2,7 @@
 
 TEST (basic, basic)
 {
-    ASSERT_TRUE (true);
+	ASSERT_TRUE (true);
 }
 
 TEST (asan, DISABLED_memory)

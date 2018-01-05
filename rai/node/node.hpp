@@ -42,7 +42,7 @@ class election : public std::enable_shared_from_this <rai::election>
 	std::function <void (std::shared_ptr <rai::block>)> confirmation_action;
 	void confirm_once (MDB_txn *);
 public:
-    election (MDB_txn *, rai::node &, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const &);
+	election (MDB_txn *, rai::node &, std::shared_ptr <rai::block>, std::function <void (std::shared_ptr <rai::block>)> const &);
 	void vote (std::shared_ptr <rai::vote>);
 	// Check if we have vote quorum
 	bool have_quorum (MDB_txn *);
@@ -54,13 +54,13 @@ public:
 	void confirm_if_quorum (MDB_txn *);
 	// Confirmation method 2, settling time
 	void confirm_cutoff (MDB_txn *);
-    rai::uint128_t quorum_threshold (MDB_txn *, rai::ledger &);
+	rai::uint128_t quorum_threshold (MDB_txn *, rai::ledger &);
 	rai::uint128_t minimum_threshold (MDB_txn *, rai::ledger &);
-    rai::votes votes;
-    rai::node & node;
-    std::chrono::system_clock::time_point last_vote;
+	rai::votes votes;
+	rai::node & node;
+	std::chrono::system_clock::time_point last_vote;
 	std::shared_ptr <rai::block> last_winner;
-    std::atomic_flag confirmed;
+	std::atomic_flag confirmed;
 };
 class conflict_info
 {
@@ -103,50 +103,50 @@ public:
 class operation
 {
 public:
-    bool operator > (rai::operation const &) const;
-    std::chrono::system_clock::time_point wakeup;
-    std::function <void ()> function;
+	bool operator > (rai::operation const &) const;
+	std::chrono::system_clock::time_point wakeup;
+	std::function <void ()> function;
 };
 class alarm
 {
 public:
-    alarm (boost::asio::io_service &);
+	alarm (boost::asio::io_service &);
 	~alarm ();
-    void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
+	void add (std::chrono::system_clock::time_point const &, std::function <void ()> const &);
 	void run ();
 	boost::asio::io_service & service;
-    std::mutex mutex;
-    std::condition_variable condition;
-    std::priority_queue <operation, std::vector <operation>, std::greater <operation>> operations;
+	std::mutex mutex;
+	std::condition_variable condition;
+	std::priority_queue <operation, std::vector <operation>, std::greater <operation>> operations;
 	std::thread thread;
 };
 class gap_information
 {
 public:
-    std::chrono::system_clock::time_point arrival;
-    rai::block_hash hash;
+	std::chrono::system_clock::time_point arrival;
+	rai::block_hash hash;
 	std::unique_ptr <rai::votes> votes;
 };
 class gap_cache
 {
 public:
-    gap_cache (rai::node &);
-    void add (MDB_txn *, std::shared_ptr <rai::block>);
-    void vote (std::shared_ptr <rai::vote>);
-    rai::uint128_t bootstrap_threshold (MDB_txn *);
+	gap_cache (rai::node &);
+	void add (MDB_txn *, std::shared_ptr <rai::block>);
+	void vote (std::shared_ptr <rai::vote>);
+	rai::uint128_t bootstrap_threshold (MDB_txn *);
 	void purge_old ();
-    boost::multi_index_container
-    <
-        rai::gap_information,
-        boost::multi_index::indexed_by
-        <
-            boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>,
-            boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>
-        >
-    > blocks;
-    size_t const max = 256;
-    std::mutex mutex;
-    rai::node & node;
+	boost::multi_index_container
+	<
+		rai::gap_information,
+		boost::multi_index::indexed_by
+		<
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>,
+			boost::multi_index::hashed_unique <boost::multi_index::member <gap_information, rai::block_hash, &gap_information::hash>>
+		>
+	> blocks;
+	size_t const max = 256;
+	std::mutex mutex;
+	rai::node & node;
 };
 class work_pool;
 class peer_information
@@ -174,7 +174,7 @@ class peer_container
 public:
 	peer_container (rai::endpoint const &);
 	// We were contacted by endpoint, update peers
-    void contacted (rai::endpoint const &, unsigned);
+	void contacted (rai::endpoint const &, unsigned);
 	// Unassigned, reserved, self
 	bool not_a_peer (rai::endpoint const &);
 	// Returns true if peer was already known
@@ -280,91 +280,91 @@ class message_statistics
 {
 public:
 	message_statistics ();
-    std::atomic <uint64_t> keepalive;
-    std::atomic <uint64_t> publish;
-    std::atomic <uint64_t> confirm_req;
-    std::atomic <uint64_t> confirm_ack;
+	std::atomic <uint64_t> keepalive;
+	std::atomic <uint64_t> publish;
+	std::atomic <uint64_t> confirm_req;
+	std::atomic <uint64_t> confirm_ack;
 };
 class block_arrival_info
 {
 public:
-    std::chrono::system_clock::time_point arrival;
-    rai::block_hash hash;
+	std::chrono::system_clock::time_point arrival;
+	rai::block_hash hash;
 };
 // This class tracks blocks that are probably live because they arrived in a UDP packet
 // This gives a fairly reliable way to differentiate between blocks being inserted via bootstrap or new, live blocks.
 class block_arrival
 {
 public:
-    void add (rai::block_hash const &);
-    bool recent (rai::block_hash const &);
-    boost::multi_index_container
-    <
-        rai::block_arrival_info,
-        boost::multi_index::indexed_by
-        <
-            boost::multi_index::ordered_non_unique <boost::multi_index::member <rai::block_arrival_info, std::chrono::system_clock::time_point, &rai::block_arrival_info::arrival>>,
-            boost::multi_index::hashed_unique <boost::multi_index::member <rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>
-        >
-    > arrival;
-    std::mutex mutex;
+	void add (rai::block_hash const &);
+	bool recent (rai::block_hash const &);
+	boost::multi_index_container
+	<
+		rai::block_arrival_info,
+		boost::multi_index::indexed_by
+		<
+			boost::multi_index::ordered_non_unique <boost::multi_index::member <rai::block_arrival_info, std::chrono::system_clock::time_point, &rai::block_arrival_info::arrival>>,
+			boost::multi_index::hashed_unique <boost::multi_index::member <rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>
+		>
+	> arrival;
+	std::mutex mutex;
 };
 class network
 {
 public:
-    network (rai::node &, uint16_t);
-    void receive ();
-    void stop ();
-    void receive_action (boost::system::error_code const &, size_t);
-    void rpc_action (boost::system::error_code const &, size_t);
+	network (rai::node &, uint16_t);
+	void receive ();
+	void stop ();
+	void receive_action (boost::system::error_code const &, size_t);
+	void rpc_action (boost::system::error_code const &, size_t);
 	void rebroadcast_reps (std::shared_ptr <rai::block>);
 	void republish_vote (std::chrono::system_clock::time_point const &, std::shared_ptr <rai::vote>);
-    void republish_block (MDB_txn *, std::shared_ptr <rai::block>);
+	void republish_block (MDB_txn *, std::shared_ptr <rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint);
-    void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
+	void publish_broadcast (std::vector <rai::peer_information> &, std::unique_ptr <rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr <std::vector <uint8_t>>, rai::endpoint const &);
-    void merge_peers (std::array <rai::endpoint, 8> const &);
-    void send_keepalive (rai::endpoint const &);
+	void merge_peers (std::array <rai::endpoint, 8> const &);
+	void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (std::shared_ptr <rai::block>);
-    void send_confirm_req (rai::endpoint const &, std::shared_ptr <rai::block>);
-    void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
-    rai::endpoint endpoint ();
-    rai::endpoint remote;
-    std::array <uint8_t, 512> buffer;
-    boost::asio::ip::udp::socket socket;
-    std::mutex socket_mutex;
-    boost::asio::ip::udp::resolver resolver;
-    rai::node & node;
-    uint64_t bad_sender_count;
-    bool on;
-    uint64_t insufficient_work_count;
-    uint64_t error_count;
+	void send_confirm_req (rai::endpoint const &, std::shared_ptr <rai::block>);
+	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function <void (boost::system::error_code const &, size_t)>);
+	rai::endpoint endpoint ();
+	rai::endpoint remote;
+	std::array <uint8_t, 512> buffer;
+	boost::asio::ip::udp::socket socket;
+	std::mutex socket_mutex;
+	boost::asio::ip::udp::resolver resolver;
+	rai::node & node;
+	uint64_t bad_sender_count;
+	bool on;
+	uint64_t insufficient_work_count;
+	uint64_t error_count;
 	rai::message_statistics incoming;
 	rai::message_statistics outgoing;
-    static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
+	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
 };
 class logging
 {
 public:
 	logging ();
-    void serialize_json (boost::property_tree::ptree &) const;
+	void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (bool &, boost::property_tree::ptree &);
 	bool upgrade_json (unsigned, boost::property_tree::ptree &);
-    bool ledger_logging () const;
-    bool ledger_duplicate_logging () const;
+	bool ledger_logging () const;
+	bool ledger_duplicate_logging () const;
 	bool vote_logging () const;
-    bool network_logging () const;
-    bool network_message_logging () const;
-    bool network_publish_logging () const;
-    bool network_packet_logging () const;
-    bool network_keepalive_logging () const;
-    bool node_lifetime_tracing () const;
-    bool insufficient_work_logging () const;
-    bool log_rpc () const;
-    bool bulk_pull_logging () const;
+	bool network_logging () const;
+	bool network_message_logging () const;
+	bool network_publish_logging () const;
+	bool network_packet_logging () const;
+	bool network_keepalive_logging () const;
+	bool node_lifetime_tracing () const;
+	bool insufficient_work_logging () const;
+	bool log_rpc () const;
+	bool bulk_pull_logging () const;
 	bool callback_logging () const;
-    bool work_generation_time () const;
-    bool log_to_cerr () const;
+	bool work_generation_time () const;
+	bool log_to_cerr () const;
 	void init (boost::filesystem::path const &);
 	
 	bool ledger_logging_value;
@@ -382,22 +382,22 @@ public:
 	bool work_generation_time_value;
 	bool log_to_cerr_value;
 	uintmax_t max_size;
-    boost::log::sources::logger_mt log;
+	boost::log::sources::logger_mt log;
 };
 class node_init
 {
 public:
-    node_init ();
-    bool error ();
-    bool block_store_init;
-    bool wallet_init;
+	node_init ();
+	bool error ();
+	bool block_store_init;
+	bool wallet_init;
 };
 class node_config
 {
 public:
 	node_config ();
 	node_config (uint16_t, rai::logging const &);
-    void serialize_json (boost::property_tree::ptree &) const;
+	void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (bool &, boost::property_tree::ptree &);
 	bool upgrade_json (unsigned, boost::property_tree::ptree &);
 	rai::account random_representative ();
@@ -417,8 +417,8 @@ public:
 	std::string callback_address;
 	uint16_t callback_port;
 	std::string callback_target;
-    static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
-    static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
+	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
+	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 };
 class node_observers
@@ -484,32 +484,32 @@ private:
 class node : public std::enable_shared_from_this <rai::node>
 {
 public:
-    node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
-    node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
-    ~node ();
+	node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
+	node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
+	~node ();
 	template <typename T>
 	void background (T action_a)
 	{
 		alarm.service.post (action_a);
 	}
-    void send_keepalive (rai::endpoint const &);
+	void send_keepalive (rai::endpoint const &);
 	void keepalive (std::string const &, uint16_t);
-    void start ();
-    void stop ();
-    std::shared_ptr <rai::node> shared ();
+	void start ();
+	void stop ();
+	std::shared_ptr <rai::node> shared ();
 	int store_version ();
-    void process_confirmed (std::shared_ptr <rai::block>);
+	void process_confirmed (std::shared_ptr <rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
 	void process_active (std::shared_ptr <rai::block>);
 	rai::process_return process (rai::block const &);
-    void keepalive_preconfigured (std::vector <std::string> const &);
+	void keepalive_preconfigured (std::vector <std::string> const &);
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
 	std::unique_ptr <rai::block> block (rai::block_hash const &);
 	std::pair <rai::uint128_t, rai::uint128_t> balance_pending (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
-    void ongoing_keepalive ();
+	void ongoing_keepalive ();
 	void ongoing_rep_crawl ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
@@ -518,34 +518,34 @@ public:
 	void generate_work (rai::block &);
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function <void (uint64_t)>);
-    void add_initial_peers ();
-    boost::asio::io_service & service;
+	void add_initial_peers ();
+	boost::asio::io_service & service;
 	rai::node_config config;
-    rai::alarm & alarm;
+	rai::alarm & alarm;
 	rai::work_pool & work;
-    boost::log::sources::logger_mt log;
-    rai::block_store store;
-    rai::gap_cache gap_cache;
-    rai::ledger ledger;
-    rai::active_transactions active;
-    rai::wallets wallets;
-    rai::network network;
+	boost::log::sources::logger_mt log;
+	rai::block_store store;
+	rai::gap_cache gap_cache;
+	rai::ledger ledger;
+	rai::active_transactions active;
+	rai::wallets wallets;
+	rai::network network;
 	rai::bootstrap_initiator bootstrap_initiator;
-    rai::bootstrap_listener bootstrap;
-    rai::peer_container peers;
+	rai::bootstrap_listener bootstrap;
+	rai::peer_container peers;
 	boost::filesystem::path application_path;
 	rai::node_observers observers;
 	rai::port_mapping port_mapping;
 	rai::vote_processor vote_processor;
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
-    rai::block_processor block_processor;
+	rai::block_processor block_processor;
 	std::thread block_processor_thread;
-    rai::block_arrival block_arrival;
+	rai::block_arrival block_arrival;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-    static std::chrono::seconds constexpr period = std::chrono::seconds (60);
-    static std::chrono::seconds constexpr cutoff = period * 5;
+	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
+	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 };
 class thread_runner
