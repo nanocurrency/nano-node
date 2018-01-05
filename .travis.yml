@@ -1,41 +1,21 @@
 language: cpp
 
-os:
-  - linux
-
-cache:
-  apt: true
-  ccache: true
-  directories:
-    - $HOME/boost
-
-env:
-  global:
-    - BOOST_URL=http://ftp.osuosl.org/pub/blfs/conglomeration/boost/boost_1_63_0.tar.bz2
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      sudo: required
+      services:
+        - docker
+    - os: osx
 
 compiler:
   - gcc
-  - clang
-
-addons:
-  apt:
-    packages:
-      - qtbase5-dev
 
 before_install:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update; fi
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install qt5; fi
-
-before_script:
-  - if [ ! -f $HOME/boost/.built ]; then curl -fOL $BOOST_URL; fi
-  - if [ ! -f $HOME/boost/.built ]; then tar xjf boost_1_63_0.tar.bz2; fi
-  - if [ ! -f $HOME/boost/.built ]; then cd boost_1_63_0; fi
-  - if [ ! -f $HOME/boost/.built ]; then rm -f project-config.jam; fi
-  - if [ ! -f $HOME/boost/.built ]; then ./bootstrap.sh; fi
-  - if [ ! -f $HOME/boost/.built ]; then ./b2 --with-atomic --with-chrono --with-filesystem --with-log --with-program_options --with-regex --with-system --with-thread --no-samples --no-tests link=static threading=multi --prefix=$HOME/boost/$TRAVIS_OS_NAME/$CC install; fi
-  - if [ ! -f $HOME/boost/.built ]; then touch $HOME/boost/.built; fi
-  - cd $TRAVIS_BUILD_DIR
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cmake -DBOOST_ROOT=$HOME/boost/$TRAVIS_OS_NAME/$CC -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5 -DRAIBLOCKS_GUI=ON .; else cmake -DBOOST_ROOT=$HOME/boost/$TRAVIS_OS_NAME/$CC -DRAIBLOCKS_GUI=ON .; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew upgrade boost; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker pull lukealonso/raiblocks-ci:latest; fi
 
 script:
-  - make -j3 rai_node rai_wallet
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace lukealonso/raiblocks-ci:latest /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"; fi
