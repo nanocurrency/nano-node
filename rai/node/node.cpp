@@ -2991,6 +2991,15 @@ void rai::add_node_options (boost::program_options::options_description & descri
 bool rai::handle_node_options (boost::program_options::variables_map & vm)
 {
 	auto result (false);
+	boost::filesystem::path data_path;
+	if (vm.count ("data_path"))
+	{
+		data_path = boost::filesystem::path (vm ["data_path"].as <std::string> ());
+	}
+	else
+	{
+		data_path = rai::working_path ();
+	}
 	if (vm.count ("account_create"))
 	{
 		if (vm.count ("wallet") == 1)
@@ -3003,7 +3012,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				{
 					password = vm ["password"].as <std::string> ();
 				}
-				inactive_node node;
+				inactive_node node (data_path);
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
@@ -3067,7 +3076,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	}
 	else if (vm.count ("diagnostics"))
 	{
-		inactive_node node;
+		inactive_node node (data_path);
 		std::cout << "Testing hash function" << std::endl;
 		rai::raw_key key;
 		key.data.clear ();
@@ -3126,7 +3135,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				{
 					password = vm ["password"].as <std::string> ();
 				}
-				inactive_node node;
+				inactive_node node (data_path);
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
@@ -3180,7 +3189,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				{
 					password = vm ["password"].as <std::string> ();
 				}
-				inactive_node node;
+				inactive_node node (data_path);
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
@@ -3224,7 +3233,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	}
 	else if (vm.count ("wallet_create"))
 	{
-		inactive_node node;
+		inactive_node node (data_path);
 		rai::keypair key;
 		std::cout << key.pub.to_string () << std::endl;
 		auto wallet (node.node->wallets.create (key.pub));
@@ -3242,7 +3251,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			rai::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
 			{
-				inactive_node node;
+				inactive_node node (data_path);
 				auto existing (node.node->wallets.items.find (wallet_id));
 				if (existing != node.node->wallets.items.end ())
 				{
@@ -3292,7 +3301,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			rai::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
 			{
-				inactive_node node;
+				inactive_node node (data_path);
 				if (node.node->wallets.items.find (wallet_id) != node.node->wallets.items.end ())
 				{
 					node.node->wallets.destroy (wallet_id);
@@ -3336,7 +3345,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 					rai::uint256_union wallet_id;
 					if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
 					{
-						inactive_node node;
+						inactive_node node (data_path);
 						auto existing (node.node->wallets.items.find (wallet_id));
 						if (existing != node.node->wallets.items.end ())
 						{
@@ -3382,7 +3391,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	}
 	else if (vm.count ("wallet_list"))
 	{
-		inactive_node node;
+		inactive_node node (data_path);
 		for (auto i (node.node->wallets.items.begin ()), n (node.node->wallets.items.end ()); i != n; ++i)
 		{
 			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
@@ -3397,7 +3406,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("account") == 1)
 		{
-			inactive_node node;
+			inactive_node node (data_path);
 			rai::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
 			{
@@ -3450,7 +3459,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			rai::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm ["wallet"].as <std::string> ()))
 			{
-				inactive_node node;
+				inactive_node node (data_path);
 				auto wallet (node.node->wallets.items.find (wallet_id));
 				if (wallet != node.node->wallets.items.end ())
 				{
@@ -3488,7 +3497,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 					rai::account account;
 					if (!account.decode_account (vm ["account"].as <std::string> ()))
 					{
-						inactive_node node;
+						inactive_node node (data_path);
 						auto wallet (node.node->wallets.items.find (wallet_id));
 						if (wallet != node.node->wallets.items.end ())
 						{
@@ -3527,7 +3536,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	}
 	else if (vm.count ("vote_dump") == 1)
 	{
-		inactive_node node;
+		inactive_node node (data_path);
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
 		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
 		{
@@ -3545,8 +3554,8 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	return result;
 }
 
-rai::inactive_node::inactive_node () :
-path (rai::working_path ()),
+rai::inactive_node::inactive_node (boost::filesystem::path const & application_path_a) :
+path (application_path_a),
 service (boost::make_shared <boost::asio::io_service> ()),
 alarm (*service),
 work (1, nullptr)
