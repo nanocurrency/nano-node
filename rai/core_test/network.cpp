@@ -484,7 +484,6 @@ TEST (bulk_pull, get_next_on_open)
     ASSERT_NE (nullptr, block);
     ASSERT_TRUE (block->previous ().is_zero ());
     ASSERT_FALSE (connection->requests.empty ());
-    ASSERT_FALSE (request->current.is_zero ());
     ASSERT_EQ (request->current, request->request->end);
 }
 
