@@ -102,6 +102,7 @@ public:
     void request_account (rai::account const &, rai::block_hash const &);
 	void unsynced (MDB_txn *, rai::account const &, rai::block_hash const &);
 	void next (MDB_txn *);
+	void insert_pull (rai::pull_info const &);
     std::shared_ptr <rai::bootstrap_client> connection;
 	rai::account current;
 	rai::account_info info;

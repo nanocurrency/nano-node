@@ -288,7 +288,7 @@ void rai::frontier_req_client::request_account (rai::account const & account_a, 
 	rai::account account_2 ("FD6EE9E0E107A6A8584DB94A3F154799DD5C2A7D6ABED0889DA3B837B0E61663"); // xrb_3zdgx9ig43x8o3e6ugcc9wcnh8gxdio9ttoyt46buaxr8yrge7m5331qdwhk
 	if (account_a != landing && account_a != faucet && account_a != account_1 && account_a != account_2)
 	{
-		connection->attempt->pulls.push_back (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
+		insert_pull (rai::pull_info (account_a, latest_a, rai::block_hash (0)));
 	}
 	else
 	{
@@ -363,7 +363,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 							// They know about a block we don't.
 							if (account != rai::genesis_account && account != landing && account != faucet)
 							{
-								connection->attempt->pulls.push_back (rai::pull_info (account, latest, info.head));
+								insert_pull (rai::pull_info (account, latest, info.head));
 							}
 							else
 							{
@@ -420,6 +420,11 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 	}
 }
 
+void rai::frontier_req_client::insert_pull (rai::pull_info const & pull_a)
+{
+	connection->attempt->pulls.insert (connection->attempt->pulls.begin () + rai::random_pool.GenerateWord32 (0, connection->attempt->pulls.size ()), pull_a);
+}
+
 void rai::frontier_req_client::next (MDB_txn * transaction_a)
 {
 	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
@@ -469,11 +474,11 @@ void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% down to %2% from %3%") % req.start.to_account () % req.end.to_string () % connection->endpoint);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%") % req.start.to_account () % connection->endpoint);
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->account_count++ % 256 == 0)
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% down to %2% from %3%") % req.start.to_account () % req.end.to_string () % connection->endpoint);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%") % req.start.to_account () % connection->endpoint);
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
