@@ -3,49 +3,49 @@
 
 TEST (gap_cache, add_new)
 {
-    rai::system system (24000, 1);
-    rai::gap_cache cache (*system.nodes [0]);
-    auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
+	rai::system system (24000, 1);
+	rai::gap_cache cache (*system.nodes [0]);
+	auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    cache.add (transaction, block1);
+	cache.add (transaction, block1);
 }
 
 TEST (gap_cache, add_existing)
 {
-    rai::system system (24000, 1);
-    rai::gap_cache cache (*system.nodes [0]);
-    auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
-    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    cache.add (transaction, block1);
-    auto existing1 (cache.blocks.get <1> ().find (block1->hash ()));
-    ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
-    auto arrival (existing1->arrival);
-    while (arrival == std::chrono::system_clock::now ());
-    cache.add (transaction, block1);
-    ASSERT_EQ (1, cache.blocks.size ());
-    auto existing2 (cache.blocks.get <1> ().find (block1->hash ()));
-    ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
-    ASSERT_GT (existing2->arrival, arrival);
+	rai::system system (24000, 1);
+	rai::gap_cache cache (*system.nodes [0]);
+	auto block1 (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+	cache.add (transaction, block1);
+	auto existing1 (cache.blocks.get <1> ().find (block1->hash ()));
+	ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
+	auto arrival (existing1->arrival);
+	while (arrival == std::chrono::system_clock::now ());
+	cache.add (transaction, block1);
+	ASSERT_EQ (1, cache.blocks.size ());
+	auto existing2 (cache.blocks.get <1> ().find (block1->hash ()));
+	ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
+	ASSERT_GT (existing2->arrival, arrival);
 }
 
 TEST (gap_cache, comparison)
 {
-    rai::system system (24000, 1);
-    rai::gap_cache cache (*system.nodes [0]);
-    auto block1 (std::make_shared <rai::send_block> (1, 0, 2, rai::keypair ().prv, 4, 5));
-    rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-    cache.add (transaction, block1);
-    auto existing1 (cache.blocks.get <1> ().find (block1->hash ()));
-    ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
-    auto arrival (existing1->arrival);
-    while (std::chrono::system_clock::now () == arrival);
-    auto block3 (std::make_shared <rai::send_block> (0, 42, 1, rai::keypair ().prv, 3, 4));
-    cache.add (transaction, block3);
-    ASSERT_EQ (2, cache.blocks.size ());
-    auto existing2 (cache.blocks.get <1> ().find (block3->hash ()));
-    ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
-    ASSERT_GT (existing2->arrival, arrival);
-    ASSERT_EQ (arrival, cache.blocks.get <1> ().begin ()->arrival);
+	rai::system system (24000, 1);
+	rai::gap_cache cache (*system.nodes [0]);
+	auto block1 (std::make_shared <rai::send_block> (1, 0, 2, rai::keypair ().prv, 4, 5));
+	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+	cache.add (transaction, block1);
+	auto existing1 (cache.blocks.get <1> ().find (block1->hash ()));
+	ASSERT_NE (cache.blocks.get <1> ().end (), existing1);
+	auto arrival (existing1->arrival);
+	while (std::chrono::system_clock::now () == arrival);
+	auto block3 (std::make_shared <rai::send_block> (0, 42, 1, rai::keypair ().prv, 3, 4));
+	cache.add (transaction, block3);
+	ASSERT_EQ (2, cache.blocks.size ());
+	auto existing2 (cache.blocks.get <1> ().find (block3->hash ()));
+	ASSERT_NE (cache.blocks.get <1> ().end (), existing2);
+	ASSERT_GT (existing2->arrival, arrival);
+	ASSERT_EQ (arrival, cache.blocks.get <1> ().begin ()->arrival);
 }
 
 TEST (gap_cache, gap_bootstrap)

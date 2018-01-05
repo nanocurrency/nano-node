@@ -21,7 +21,7 @@ class rpc_config
 public:
 	rpc_config ();
 	rpc_config (bool);
-    void serialize_json (boost::property_tree::ptree &) const;
+	void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	boost::asio::ip::address_v6 address;
 	uint16_t port;
@@ -44,17 +44,17 @@ class payment_observer;
 class rpc
 {
 public:
-    rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
-    void start ();
-    void stop ();
+	rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
+	void start ();
+	void stop ();
 	void observer_action (rai::account const &);
 	boost::asio::ip::tcp::acceptor acceptor;
 	std::mutex mutex;
 	std::unordered_map <rai::account, std::shared_ptr <rai::payment_observer>> payment_observers;
 	rai::rpc_config config;
-    rai::node & node;
-    bool on;
-    static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
+	rai::node & node;
+	bool on;
+	static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
 };
 class rpc_connection : public std::enable_shared_from_this <rai::rpc_connection>
 {

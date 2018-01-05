@@ -6,18 +6,18 @@
 TEST (work, one)
 {
 	rai::work_pool pool (std::numeric_limits <unsigned>::max (), nullptr);
-    rai::change_block block (1, 1, rai::keypair ().prv, 3, 4);
-    block.block_work_set (pool.generate (block.root ()));
-    ASSERT_FALSE (rai::work_validate (block));
+	rai::change_block block (1, 1, rai::keypair ().prv, 3, 4);
+	block.block_work_set (pool.generate (block.root ()));
+	ASSERT_FALSE (rai::work_validate (block));
 }
 
 TEST (work, validate)
 {
 	rai::work_pool pool (std::numeric_limits <unsigned>::max (), nullptr);
 	rai::send_block send_block (1, 1, 2, rai::keypair ().prv, 4, 6);
-    ASSERT_TRUE (rai::work_validate (send_block));
-    send_block.block_work_set (pool.generate (send_block.root ()));
-    ASSERT_FALSE (rai::work_validate (send_block));
+	ASSERT_TRUE (rai::work_validate (send_block));
+	send_block.block_work_set (pool.generate (send_block.root ()));
+	ASSERT_FALSE (rai::work_validate (send_block));
 }
 
 TEST (work, cancel)

@@ -890,7 +890,7 @@ std::unique_ptr <rai::block> rai::deserialize_block (rai::stream & stream_a, rai
 
 void rai::receive_block::visit (rai::block_visitor & visitor_a) const
 {
-    visitor_a.receive_block (*this);
+	visitor_a.receive_block (*this);
 }
 
 bool rai::receive_block::operator == (rai::receive_block const & other_a) const
@@ -1071,7 +1071,7 @@ void rai::receive_block::signature_set (rai::uint512_union const & signature_a)
 
 rai::block_type rai::receive_block::type () const
 {
-    return rai::block_type::receive;
+	return rai::block_type::receive;
 }
 
 rai::receive_hashables::receive_hashables (rai::block_hash const & previous_a, rai::block_hash const & source_a) :

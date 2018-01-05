@@ -670,8 +670,8 @@ TEST (wallet, work_generate)
 
 TEST (wallet, unsynced_work)
 {
-    rai::system system (24000, 1);
-    auto wallet (system.wallet (0));
+	rai::system system (24000, 1);
+	auto wallet (system.wallet (0));
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
 	wallet->store.work_put (transaction, 0, 0);
 	auto work1 (wallet->work_fetch (transaction, 0, 1));
@@ -680,8 +680,8 @@ TEST (wallet, unsynced_work)
 
 TEST (wallet, insert_locked)
 {
-    rai::system system (24000, 1);
-    auto wallet (system.wallet (0));
+	rai::system system (24000, 1);
+	auto wallet (system.wallet (0));
 	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
 	ASSERT_EQ (true, wallet->valid_password ());
 	wallet->enter_password ("");
@@ -691,8 +691,8 @@ TEST (wallet, insert_locked)
 
 TEST (wallet, version_1_2_upgrade)
 {
-    rai::system system (24000, 1);
-    auto wallet (system.wallet (0));
+	rai::system system (24000, 1);
+	auto wallet (system.wallet (0));
 	wallet->enter_initial_password ();
 	ASSERT_EQ (true, wallet->valid_password ());
 	rai::keypair key;
@@ -741,12 +741,12 @@ TEST (wallet, version_1_2_upgrade)
 
 TEST (wallet, deterministic_keys)
 {
-    bool init;
+	bool init;
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
 	rai::kdf kdf;
-    rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
+	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	rai::raw_key key1;
 	wallet.deterministic_key (key1, transaction, 0);
 	rai::raw_key key2;
@@ -787,12 +787,12 @@ TEST (wallet, deterministic_keys)
 
 TEST (wallet, reseed)
 {
-    bool init;
+	bool init;
 	rai::mdb_env environment (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
 	rai::kdf kdf;
-    rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
+	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	rai::raw_key seed1;
 	seed1.data = 1;
 	rai::raw_key seed2;
@@ -820,8 +820,8 @@ TEST (wallet, reseed)
 
 TEST (wallet, insert_deterministic_locked)
 {
-    rai::system system (24000, 1);
-    auto wallet (system.wallet (0));
+	rai::system system (24000, 1);
+	auto wallet (system.wallet (0));
 	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
 	ASSERT_EQ (true, wallet->valid_password ());
 	wallet->enter_password ("");
@@ -831,8 +831,8 @@ TEST (wallet, insert_deterministic_locked)
 
 TEST (wallet, version_2_3_upgrade)
 {
-    rai::system system (24000, 1);
-    auto wallet (system.wallet (0));
+	rai::system system (24000, 1);
+	auto wallet (system.wallet (0));
 	{
 		rai::transaction transaction (wallet->store.environment, nullptr, true);
 		wallet->store.rekey (transaction, "1");
@@ -859,19 +859,19 @@ TEST (wallet, no_work)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-    rai::keypair key2;
-    auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), false));
-    ASSERT_NE (nullptr, block);
-    ASSERT_EQ (0, block->block_work ());
+	rai::keypair key2;
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, std::numeric_limits <rai::uint128_t>::max (), false));
+	ASSERT_NE (nullptr, block);
+	ASSERT_EQ (0, block->block_work ());
 }
 
 TEST (wallet, send_race)
 {
-    rai::system system (24000, 1);
+	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-    rai::keypair key2;
-    system.nodes [0]->block_processor.stop ();
-    {
+	rai::keypair key2;
+	system.nodes [0]->block_processor.stop ();
+	{
 		ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::Gxrb_ratio));
 		ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::Gxrb_ratio));
 	}

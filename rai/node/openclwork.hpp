@@ -39,7 +39,7 @@ class opencl_config
 public:
 	opencl_config ();
 	opencl_config (unsigned, unsigned, unsigned);
-    void serialize_json (boost::property_tree::ptree &) const;
+	void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	unsigned platform;
 	unsigned device;

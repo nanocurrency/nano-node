@@ -57,11 +57,11 @@ rai::work_pool::~work_pool ()
 void rai::work_pool::loop (uint64_t thread)
 {
 	// Quick RNG for work attempts.
-    xorshift1024star rng;
+	xorshift1024star rng;
 	rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rng.s.data ()),  rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
 	uint64_t output;
-    blake2b_state hash;
+	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
 	std::unique_lock <std::mutex> lock (mutex);
 	while (!done || !pending.empty())
