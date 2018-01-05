@@ -5,7 +5,7 @@ os:
 
 cache:
   apt: true
-  ccache: true
+  cache: true
   directories:
     - $HOME/boost
 
