@@ -5,16 +5,16 @@
 
 TEST (system, generate_mass_activity)
 {
-    rai::system system (24000, 1);
-    system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-    size_t count (20);
-    system.generate_mass_activity (count, *system.nodes [0]);
-    size_t accounts (0);
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	size_t count (20);
+	system.generate_mass_activity (count, *system.nodes [0]);
+	size_t accounts (0);
 	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-    for (auto i (system.nodes [0]->store.latest_begin (transaction)), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
-    {
-        ++accounts;
-    }
+	for (auto i (system.nodes [0]->store.latest_begin (transaction)), n (system.nodes [0]->store.latest_end ()); i != n; ++i)
+	{
+		++accounts;
+	}
 }
 
 TEST (system, generate_mass_activity_long)
@@ -383,7 +383,7 @@ TEST (peer_container, random_set)
 
 TEST (store, unchecked_load)
 {
-    rai::system system (24000, 1);
+	rai::system system (24000, 1);
 	auto & node (*system.nodes [0]);
 	auto block (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
@@ -397,7 +397,7 @@ TEST (store, unchecked_load)
 
 TEST (store, vote_load)
 {
-    rai::system system (24000, 1);
+	rai::system system (24000, 1);
 	auto & node (*system.nodes [0]);
 	auto block (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)

@@ -213,10 +213,10 @@ static int blake2b_compress( blake2b_state *S, __private const uchar block[BLAKE
   int i;
 
   for( i = 0; i < 16; ++i )
-    m[i] = load64( block + i * sizeof( m[i] ) );
+	m[i] = load64( block + i * sizeof( m[i] ) );
 
   for( i = 0; i < 8; ++i )
-    v[i] = S->h[i];
+	v[i] = S->h[i];
 
   v[ 8] = blake2b_IV[0];
   v[ 9] = blake2b_IV[1];
@@ -228,25 +228,25 @@ static int blake2b_compress( blake2b_state *S, __private const uchar block[BLAKE
   v[15] = S->f[1] ^ blake2b_IV[7];
 #define G(r,i,a,b,c,d) \
   do { \
-    a = a + b + m[blake2b_sigma[r][2*i+0]]; \
-    d = rotr64(d ^ a, 32); \
-    c = c + d; \
-    b = rotr64(b ^ c, 24); \
-    a = a + b + m[blake2b_sigma[r][2*i+1]]; \
-    d = rotr64(d ^ a, 16); \
-    c = c + d; \
-    b = rotr64(b ^ c, 63); \
+	a = a + b + m[blake2b_sigma[r][2*i+0]]; \
+	d = rotr64(d ^ a, 32); \
+	c = c + d; \
+	b = rotr64(b ^ c, 24); \
+	a = a + b + m[blake2b_sigma[r][2*i+1]]; \
+	d = rotr64(d ^ a, 16); \
+	c = c + d; \
+	b = rotr64(b ^ c, 63); \
   } while(0)
 #define ROUND(r)  \
   do { \
-    G(r,0,v[ 0],v[ 4],v[ 8],v[12]); \
-    G(r,1,v[ 1],v[ 5],v[ 9],v[13]); \
-    G(r,2,v[ 2],v[ 6],v[10],v[14]); \
-    G(r,3,v[ 3],v[ 7],v[11],v[15]); \
-    G(r,4,v[ 0],v[ 5],v[10],v[15]); \
-    G(r,5,v[ 1],v[ 6],v[11],v[12]); \
-    G(r,6,v[ 2],v[ 7],v[ 8],v[13]); \
-    G(r,7,v[ 3],v[ 4],v[ 9],v[14]); \
+	G(r,0,v[ 0],v[ 4],v[ 8],v[12]); \
+	G(r,1,v[ 1],v[ 5],v[ 9],v[13]); \
+	G(r,2,v[ 2],v[ 6],v[10],v[14]); \
+	G(r,3,v[ 3],v[ 7],v[11],v[15]); \
+	G(r,4,v[ 0],v[ 5],v[10],v[15]); \
+	G(r,5,v[ 1],v[ 6],v[11],v[12]); \
+	G(r,6,v[ 2],v[ 7],v[ 8],v[13]); \
+	G(r,7,v[ 3],v[ 4],v[ 9],v[14]); \
   } while(0)
   ROUND( 0 );
   ROUND( 1 );
@@ -262,7 +262,7 @@ static int blake2b_compress( blake2b_state *S, __private const uchar block[BLAKE
   ROUND( 11 );
 
   for( i = 0; i < 8; ++i )
-    S->h[i] = S->h[i] ^ v[i] ^ v[i + 8];
+	S->h[i] = S->h[i] ^ v[i] ^ v[i + 8];
 
 #undef G
 #undef ROUND
@@ -292,27 +292,27 @@ static int blake2b_update( blake2b_state *S, const uchar *in, ulong inlen )
 {
   while( inlen > 0 )
   {
-    size_t left = S->buflen;
-    size_t fill = 2 * BLAKE2B_BLOCKBYTES - left;
+	size_t left = S->buflen;
+	size_t fill = 2 * BLAKE2B_BLOCKBYTES - left;
 
-    if( inlen > fill )
-    {
-      ucharcpy( S->buf + left, in, fill ); // Fill buffer
-      S->buflen += fill;
-      blake2b_increment_counter( S, BLAKE2B_BLOCKBYTES );
-      blake2b_compress( S, S->buf ); // Compress
-      ucharcpy( S->buf, S->buf + BLAKE2B_BLOCKBYTES, BLAKE2B_BLOCKBYTES ); // Shift buffer left
-      S->buflen -= BLAKE2B_BLOCKBYTES;
-      in += fill;
-      inlen -= fill;
-    }
-    else // inlen <= fill
-    {
-      ucharcpy( S->buf + left, in, inlen );
-      S->buflen += inlen; // Be lazy, do not compress
-      in += inlen;
-      inlen -= inlen;
-    }
+	if( inlen > fill )
+	{
+	  ucharcpy( S->buf + left, in, fill ); // Fill buffer
+	  S->buflen += fill;
+	  blake2b_increment_counter( S, BLAKE2B_BLOCKBYTES );
+	  blake2b_compress( S, S->buf ); // Compress
+	  ucharcpy( S->buf, S->buf + BLAKE2B_BLOCKBYTES, BLAKE2B_BLOCKBYTES ); // Shift buffer left
+	  S->buflen -= BLAKE2B_BLOCKBYTES;
+	  in += fill;
+	  inlen -= fill;
+	}
+	else // inlen <= fill
+	{
+	  ucharcpy( S->buf + left, in, inlen );
+	  S->buflen += inlen; // Be lazy, do not compress
+	  in += inlen;
+	  inlen -= inlen;
+	}
   }
 
   return 0;
@@ -325,10 +325,10 @@ static int blake2b_final( blake2b_state *S, uchar *out, uchar outlen )
 
   if( S->buflen > BLAKE2B_BLOCKBYTES )
   {
-    blake2b_increment_counter( S, BLAKE2B_BLOCKBYTES );
-    blake2b_compress( S, S->buf );
-    S->buflen -= BLAKE2B_BLOCKBYTES;
-    ucharcpy( S->buf, S->buf + BLAKE2B_BLOCKBYTES, S->buflen );
+	blake2b_increment_counter( S, BLAKE2B_BLOCKBYTES );
+	blake2b_compress( S, S->buf );
+	S->buflen -= BLAKE2B_BLOCKBYTES;
+	ucharcpy( S->buf, S->buf + BLAKE2B_BLOCKBYTES, S->buflen );
   }
 
   //blake2b_increment_counter( S, S->buflen );
@@ -343,7 +343,7 @@ static int blake2b_final( blake2b_state *S, uchar *out, uchar outlen )
   blake2b_compress( S, S->buf );
 
   for( int i = 0; i < 8; ++i ) /* Output full hash to temp buffer */
-    store64( buffer + sizeof( S->h[i] ) * i, S->h[i] );
+	store64( buffer + sizeof( S->h[i] ) * i, S->h[i] );
 
   ucharcpy( out, buffer, outlen );
   return 0;
@@ -511,8 +511,8 @@ void rai::opencl_config::serialize_json (boost::property_tree::ptree & tree_a) c
 bool rai::opencl_config::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto result (false);
-    try
-    {
+	try
+	{
 		auto platform_l (tree_a.get <std::string> ("platform"));
 		auto device_l (tree_a.get <std::string> ("device"));
 		auto threads_l (tree_a.get <std::string> ("threads"));
@@ -526,11 +526,11 @@ bool rai::opencl_config::deserialize_json (boost::property_tree::ptree const & t
 		{
 			result = true;
 		}
-    }
-    catch (std::runtime_error const &)
-    {
-        result = true;
-    }
+	}
+	catch (std::runtime_error const &)
+	{
+		result = true;
+	}
 	return result;
 }
 

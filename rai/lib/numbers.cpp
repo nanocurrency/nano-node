@@ -186,7 +186,7 @@ void rai::uint256_union::encrypt (rai::raw_key const & cleartext, rai::raw_key c
 
 bool rai::uint256_union::is_zero () const
 {
-    return qwords [0] == 0 && qwords [1] == 0 && qwords [2] == 0 && qwords [3] == 0;
+	return qwords [0] == 0 && qwords [1] == 0 && qwords [2] == 0 && qwords [3] == 0;
 }
 
 std::string rai::uint256_union::to_string () const
@@ -488,7 +488,7 @@ rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
 
 bool rai::uint128_union::operator == (rai::uint128_union const & other_a) const
 {
-    return qwords [0] == other_a.qwords [0] && qwords [1] == other_a.qwords [1];
+	return qwords [0] == other_a.qwords [0] && qwords [1] == other_a.qwords [1];
 }
 
 bool rai::uint128_union::operator != (rai::uint128_union const & other_a) const

@@ -528,37 +528,37 @@ TEST (ledger, DISABLED_checksum_range)
 
 TEST (system, generate_send_existing)
 {
-    rai::system system (24000, 1);
+	rai::system system (24000, 1);
 	rai::thread_runner runner (system.service, system.nodes [0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-    rai::account_info info1;
+	rai::account_info info1;
 	{
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
 		ASSERT_FALSE (system.nodes [0]->store.account_get (transaction, rai::test_genesis_key.pub, info1));
 	}
 	std::vector <rai::account> accounts;
 	accounts.push_back (rai::test_genesis_key.pub);
-    system.generate_send_existing (*system.nodes [0], accounts);
-    rai::account_info info2;
+	system.generate_send_existing (*system.nodes [0], accounts);
+	rai::account_info info2;
 	{
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
 		ASSERT_FALSE (system.nodes [0]->store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	}
-    ASSERT_NE (info1.head, info2.head);
-    auto iterations1 (0);
-    while (system.nodes [0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
-    {
+	ASSERT_NE (info1.head, info2.head);
+	auto iterations1 (0);
+	while (system.nodes [0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
+	{
 		system.poll ();
-        ++iterations1;
-        ASSERT_LT (iterations1, 20);
-    }
-    auto iterations2 (0);
-    while (system.nodes [0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
-    {
+		++iterations1;
+		ASSERT_LT (iterations1, 20);
+	}
+	auto iterations2 (0);
+	while (system.nodes [0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
+	{
 		system.poll ();
-        ++iterations2;
-        ASSERT_LT (iterations2, 20);
-    }
+		++iterations2;
+		ASSERT_LT (iterations2, 20);
+	}
 	system.stop ();
 	runner.join ();
 }
