@@ -227,10 +227,19 @@ Pane {
             Layout.fillHeight: true
             Layout.fillWidth: true
             ListView {
+                id: listView
                 model: rai_accounts.model
                 delegate: ItemDelegate {
+                    width: listView.width
+                    height: childrenRect.height
                     Label {
-                        text: "Account " + index + "\n ↳ " + model.modelData.balance
+                        width: parent.width
+                        text: "Account " + index + "\n ↳ " + model.modelData.balance + (model.modelData.isAdhoc ? "\n" + qsTr("Not recoverable from seed, move funds to a new account.") : "")
+                        wrapMode: Text.WordWrap
+                        Binding on color {
+                            when: model.modelData.isAdhoc
+                            value: "red"
+                        }
                     }
                     onClicked: rai_accounts.useAccount(model.modelData.account)
                 }
