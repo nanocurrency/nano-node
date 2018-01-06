@@ -21,3 +21,9 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+---
+
+This product contains clang-format-diff.py, which is available under the
+"LLVM Release License" license. For details, see the original source
+https://github.com/llvm-mirror/clang/blob/135e2ef91ad3b7d3c99960a13f72fba01d23845a/tools/clang-format/clang-format-diff.py.
