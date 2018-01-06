@@ -3,13 +3,26 @@
 qt_dir=${1}
 src_dir=${2}
 
-set -e
+set -o errexit
+set -o nounset
+set -o xtrace
 OS=`uname`
 
 mkdir build
 pushd build
 
+if [[ ${ASAN_INT-0} -eq 1 ]]; then
+    SANITIZERS="-DRAIBLOCKS_ASAN_INT=ON"
+elif [[ ${ASAN-0} -eq 1 ]]; then
+    SANITIZERS="-DRAIBLOCKS_ASAN=ON"
+elif [[ ${TSAN-0} -eq 1 ]]; then
+    SANITIZERS="-DRAIBLOCKS_TSAN=ON"
+else
+    SANITIZERS=""
+fi
+
 cmake \
+    -G'Unix Makefiles' \
     -DACTIVE_NETWORK=rai_test_network \
     -DRAIBLOCKS_TEST=ON \
     -DRAIBLOCKS_GUI=ON \
@@ -17,13 +30,14 @@ cmake \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \
     -DQt5_DIR=${qt_dir} \
+    ${SANITIZERS} \
     ..
 
 
 if [[ "$OS" == 'Linux' ]]; then
-    make -j2
+    cmake --build ${PWD} -- -j2
 else
-    sudo make -j2
+    sudo cmake --build ${PWD} -- -j2
 fi
 
 popd
@@ -33,4 +47,4 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
     TRUE_CMD=true
 fi
-./ci/test.sh ./build || ${TRUE}
+./ci/test.sh ./build || ${TRUE_CMD}
