@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 
+build_dir=${1-${PWD}}
+
 BUSYBOX_BASH=${BUSYBOX_BASH-0}
 
 if [[ ${FLAVOR-_} == "_" ]]; then
     FLAVOR=""
 fi
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    TIMEOUT_CMD=gtimeout
+else
+    TIMEOUT_CMD=timeout
+fi
+
 set -o nounset
+set -o xtrace
 
 
 # Alpine doesn't offer an xvfb
@@ -16,7 +25,7 @@ xvfb_run_() {
     Xvfb :2 -screen 0 1024x768x24 &
     xvfb_pid=$!
     sleep ${INIT_DELAY_SEC}
-    DISPLAY=:2 timeout ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-1200} $@
+    DISPLAY=:2 ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-600} $@
     res=${?}
     kill ${xvfb_pid}
 
@@ -24,10 +33,6 @@ xvfb_run_() {
 }
 
 run_tests() {
-    build_dir=build_${FLAVOR}
-
-    cd ./${build_dir}
-
     # when busybox pretends to be bash it needs different args
     #   for the timeout builtin
     if [[ "${BUSYBOX_BASH}" -eq 1 ]]; then
@@ -36,7 +41,7 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    timeout ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-1200} ./core_test
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-600} ./core_test
     core_test_res=${?}
 
     xvfb_run_ ./qt_test
@@ -47,4 +52,5 @@ run_tests() {
     exit $((${core_test_res} + ${qt_test_res}))
 }
 
+cd ${build_dir}
 run_tests

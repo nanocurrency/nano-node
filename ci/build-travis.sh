@@ -1,4 +1,8 @@
 #!/bin/bash
+
+qt_dir=${1}
+src_dir=${2}
+
 set -e
 OS=`uname`
 
@@ -12,19 +16,21 @@ cmake \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \
-    -DQt5_DIR=$1 \
+    -DQt5_DIR=${qt_dir} \
     ..
 
-make -j2 rai_node
-make -j2 core_test
 
 if [[ "$OS" == 'Linux' ]]; then
-    make -j2 rai_wallet
+    make -j2
 else
-    sudo make -j2 rai_wallet
+    sudo make -j2
 fi
 
-# Exclude flaky or stalling tests.
-#./core_test --gtest_filter="-gap_cache.gap_bootstrap:bulk_pull.get_next_on_open:system.system_genesis"
-
 popd
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    TRUE_CMD=gtrue
+else
+    TRUE_CMD=true
+fi
+./ci/test.sh ./build || ${TRUE}
