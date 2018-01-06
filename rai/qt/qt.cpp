@@ -1067,22 +1067,19 @@ void rai_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.wallet.add ([this_w](rai::account const & account_a, bool active_a) {
+	node.observers.wallet.add ([this_w](bool active_a) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a, active_a]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, active_a]() {
 				if (auto this_l = this_w.lock ())
 				{
-					if (this_l->account == account_a)
+					if (active_a)
 					{
-						if (active_a)
-						{
-							this_l->active_status.insert (rai_qt::status_types::active);
-						}
-						else
-						{
-							this_l->active_status.erase (rai_qt::status_types::active);
-						}
+						this_l->active_status.insert (rai_qt::status_types::active);
+					}
+					else
+					{
+						this_l->active_status.erase (rai_qt::status_types::active);
 					}
 				}
 			}));

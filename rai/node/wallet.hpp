@@ -156,23 +156,27 @@ class wallets
 {
 public:
 	wallets (bool &, rai::node &);
+	~wallets ();
 	std::shared_ptr<rai::wallet> open (rai::uint256_union const &);
 	std::shared_ptr<rai::wallet> create (rai::uint256_union const &);
 	bool search_pending (rai::uint256_union const &);
 	void search_pending_all ();
 	void destroy (rai::uint256_union const &);
-	void do_wallet_actions (rai::account const &);
-	void queue_wallet_action (rai::account const &, rai::uint128_t const &, std::function<void()> const &);
+	void do_wallet_actions ();
+	void queue_wallet_action (rai::uint128_t const &, std::function<void()> const &);
 	void foreach_representative (MDB_txn *, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
 	bool exists (MDB_txn *, rai::public_key const &);
-	std::function<void(rai::account const &, bool)> observer;
+	void stop ();
+	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
-	std::unordered_map<rai::account, std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>>> pending_actions;
-	std::unordered_set<rai::account> current_actions;
-	std::mutex action_mutex;
+	std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>> actions;
+	std::mutex mutex;
+	std::condition_variable condition;
 	rai::kdf kdf;
 	MDB_dbi handle;
 	rai::node & node;
+	std::thread thread;
+	bool stopped;
 	static rai::uint128_t const generate_priority;
 	static rai::uint128_t const high_priority;
 };

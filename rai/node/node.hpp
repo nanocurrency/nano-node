@@ -411,7 +411,7 @@ class node_observers
 {
 public:
 	rai::observer_set<std::shared_ptr<rai::block>, rai::account const &, rai::amount const &> blocks;
-	rai::observer_set<rai::account const &, bool> wallet;
+	rai::observer_set<bool> wallet;
 	rai::observer_set<std::shared_ptr<rai::vote>, rai::endpoint const &> vote;
 	rai::observer_set<rai::endpoint const &> endpoint;
 	rai::observer_set<> disconnect;
@@ -515,13 +515,13 @@ public:
 	rai::gap_cache gap_cache;
 	rai::ledger ledger;
 	rai::active_transactions active;
-	rai::wallets wallets;
 	rai::network network;
 	rai::bootstrap_initiator bootstrap_initiator;
 	rai::bootstrap_listener bootstrap;
 	rai::peer_container peers;
 	boost::filesystem::path application_path;
 	rai::node_observers observers;
+	rai::wallets wallets;
 	rai::port_mapping port_mapping;
 	rai::vote_processor vote_processor;
 	rai::rep_crawler rep_crawler;

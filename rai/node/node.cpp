@@ -1343,8 +1343,8 @@ warmed_up (0),
 block_processor (*this),
 block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 {
-	wallets.observer = [this](rai::account const & account_a, bool active) {
-		observers.wallet (account_a, active);
+	wallets.observer = [this] (bool active) {
+		observers.wallet (active);
 	};
 	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
 		observers.endpoint (endpoint_a);
@@ -1796,6 +1796,7 @@ void rai::node::stop ()
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
+	wallets.stop ();
 	if (block_processor_thread.joinable ())
 	{
 		block_processor_thread.join ();
