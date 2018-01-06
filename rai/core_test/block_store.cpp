@@ -699,7 +699,7 @@ TEST (block_store, upgrade_v4_v5)
 		rai::block_store store (init, path);
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
-		rai::genesis genesis;;
+		rai::genesis genesis;
 		genesis.initialize (transaction, store);
 		rai::ledger ledger (store);
 		store.version_put (transaction, 4);
@@ -770,7 +770,7 @@ TEST (block_store, upgrade_v5_v6)
 		rai::block_store store (init, path);
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
-		rai::genesis genesis;;
+		rai::genesis genesis;
 		genesis.initialize (transaction, store);
 		store.version_put (transaction, 5);
 		rai::account_info info;
@@ -796,7 +796,7 @@ TEST (block_store, upgrade_v6_v7)
 		rai::block_store store (init, path);
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
-		rai::genesis genesis;;
+		rai::genesis genesis;
 		genesis.initialize (transaction, store);
 		store.version_put (transaction, 6);
 		auto send1 (std::make_shared <rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
@@ -936,7 +936,7 @@ TEST (block_store, upgrade_v9_v10)
 		rai::block_store store (init, path);
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
-		rai::genesis genesis;;
+		rai::genesis genesis;
 		genesis.initialize (transaction, store);
 		rai::ledger ledger (store);
 		store.version_put (transaction, 9);
