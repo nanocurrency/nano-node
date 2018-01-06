@@ -183,7 +183,28 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 			}
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.confirm_send (confirm, bytes, *j);
+				// We'd prefer if attackers didn't know that our IP is a representative.
+				// This makes DDOS attacks harder.
+				// To help accomplish this, we use a delay. The delay is procedurally generated
+				// based off our private key and the peer's address. This makes timing attacks
+				// to determine a representative's IP signficantly harder. It may appear to an
+				// attacker that several peers adjacent to the representative which got
+				// low delays are the representative itself, when in fact they are not.
+				auto endpoint = *j;
+				blake2b_state hash;
+				blake2b_init (&hash, 2);
+				blake2b_update (&hash, prv_a.data.bytes.data (), prv_a.data.bytes.size ());
+				assert (endpoint.address ().is_v6 ());
+				rai::uint128_union address;
+				address.bytes = endpoint.address ().to_v6 ().to_bytes ();
+				blake2b_update (&hash, address.bytes.data (), address.bytes.size ());
+				uint16_t peer_delay;
+				blake2b_final (&hash, &peer_delay, sizeof (peer_delay));
+				peer_delay &= (1 << 10) - 1; // maximum of 1023 milliseconds delay
+				boost::asio::deadline_timer t (node_a.service, boost::posix_time::millisec (peer_delay));
+				t.async_wait ([&node_a, &confirm, bytes, endpoint] (boost::system::error_code const & ec) {
+					node_a.network.confirm_send (confirm, bytes, endpoint);
+				});
 			}
 		});
 	}
