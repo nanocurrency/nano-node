@@ -13,9 +13,10 @@ compiler:
   - gcc
 
 before_install:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew upgrade boost; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew upgrade boost; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker pull lukealonso/raiblocks-ci:latest; fi
 
 script:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace lukealonso/raiblocks-ci:latest /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace lukealonso/raiblocks-ci:latest /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
