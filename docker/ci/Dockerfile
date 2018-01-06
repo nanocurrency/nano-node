@@ -20,8 +20,12 @@ RUN wget -O ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
     rm -f ${BOOST_BASENAME}.tar.gz && \
     cd ..
 
+
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get install -yq \
     qt5-default \
-    valgrind
+    valgrind \
+    xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic
 
 RUN rm -rf /tmp/*
