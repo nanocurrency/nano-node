@@ -2778,7 +2778,7 @@ void rai::active_transactions::announce_votes ()
 	std::lock_guard<std::mutex> lock (mutex);
 	
 	{
-        size_t announcements (0);
+        	size_t announcements (0);
 		auto i (roots.begin ());
 		auto n (roots.end ());
 		// Announce our decision for up to `announcements_per_interval' conflicts
