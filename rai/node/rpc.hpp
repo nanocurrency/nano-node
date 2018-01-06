@@ -50,28 +50,28 @@ public:
 	void observer_action (rai::account const &);
 	boost::asio::ip::tcp::acceptor acceptor;
 	std::mutex mutex;
-	std::unordered_map <rai::account, std::shared_ptr <rai::payment_observer>> payment_observers;
+	std::unordered_map<rai::account, std::shared_ptr<rai::payment_observer>> payment_observers;
 	rai::rpc_config config;
 	rai::node & node;
 	bool on;
 	static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
 };
-class rpc_connection : public std::enable_shared_from_this <rai::rpc_connection>
+class rpc_connection : public std::enable_shared_from_this<rai::rpc_connection>
 {
 public:
 	rpc_connection (rai::node &, rai::rpc &);
 	void parse_connection ();
-	std::shared_ptr <rai::node> node;
+	std::shared_ptr<rai::node> node;
 	rai::rpc & rpc;
 	boost::asio::ip::tcp::socket socket;
 	boost::beast::flat_buffer buffer;
-	boost::beast::http::request <boost::beast::http::string_body> request;
-	boost::beast::http::response <boost::beast::http::string_body> res;
+	boost::beast::http::request<boost::beast::http::string_body> request;
+	boost::beast::http::response<boost::beast::http::string_body> res;
 };
-class payment_observer : public std::enable_shared_from_this <rai::payment_observer>
+class payment_observer : public std::enable_shared_from_this<rai::payment_observer>
 {
 public:
-	payment_observer (std::function <void (boost::property_tree::ptree const &)> const &, rai::rpc &, rai::account const &, rai::amount const &);
+	payment_observer (std::function<void(boost::property_tree::ptree const &)> const &, rai::rpc &, rai::account const &, rai::amount const &);
 	~payment_observer ();
 	void start (uint64_t);
 	void observe ();
@@ -82,13 +82,13 @@ public:
 	rai::rpc & rpc;
 	rai::account account;
 	rai::amount amount;
-	std::function <void (boost::property_tree::ptree const &)> response;
+	std::function<void(boost::property_tree::ptree const &)> response;
 	std::atomic_flag completed;
 };
-class rpc_handler : public std::enable_shared_from_this <rai::rpc_handler>
+class rpc_handler : public std::enable_shared_from_this<rai::rpc_handler>
 {
 public:
-	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::function <void (boost::property_tree::ptree const &)> const &);
+	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();
@@ -189,6 +189,6 @@ public:
 	rai::node & node;
 	rai::rpc & rpc;
 	boost::property_tree::ptree request;
-	std::function <void (boost::property_tree::ptree const &)> response;
+	std::function<void(boost::property_tree::ptree const &)> response;
 };
 }

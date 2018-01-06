@@ -20,7 +20,7 @@ TEST (ed25519, signing)
 	ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
 	auto valid1 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
 	ASSERT_EQ (0, valid1);
-	signature.bytes [32] ^= 0x1;
+	signature.bytes[32] ^= 0x1;
 	auto valid2 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
 	ASSERT_NE (0, valid2);
 }
@@ -31,14 +31,14 @@ TEST (transaction_block, empty)
 	rai::send_block block (0, 1, 13, key1.prv, key1.pub, 2);
 	rai::uint256_union hash (block.hash ());
 	ASSERT_FALSE (rai::validate_message (key1.pub, hash, block.signature));
-	block.signature.bytes [32] ^= 0x1;
+	block.signature.bytes[32] ^= 0x1;
 	ASSERT_TRUE (rai::validate_message (key1.pub, hash, block.signature));
 }
 
 TEST (block, send_serialize)
 {
 	rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream1 (bytes);
 		block1.serialize (stream1);
@@ -73,7 +73,7 @@ TEST (block, receive_serialize)
 {
 	rai::receive_block block1 (0, 1, rai::keypair ().prv, 3, 4);
 	rai::keypair key1;
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream1 (bytes);
 		block1.serialize (stream1);
@@ -168,7 +168,7 @@ TEST (uint512_union, parse_error_symbol)
 	rai::uint512_union input (rai::uint512_t (1000));
 	std::string text;
 	input.encode_hex (text);
-	text [5] = '!';
+	text[5] = '!';
 	rai::uint512_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_TRUE (error);
@@ -176,7 +176,7 @@ TEST (uint512_union, parse_error_symbol)
 
 TEST (uint512_union, max)
 {
-	rai::uint512_union input (std::numeric_limits <rai::uint512_t>::max ());
+	rai::uint512_union input (std::numeric_limits<rai::uint512_t>::max ());
 	std::string text;
 	input.encode_hex (text);
 	rai::uint512_union output;
@@ -188,7 +188,7 @@ TEST (uint512_union, max)
 
 TEST (uint512_union, parse_error_overflow)
 {
-	rai::uint512_union input (std::numeric_limits <rai::uint512_t>::max ());
+	rai::uint512_union input (std::numeric_limits<rai::uint512_t>::max ());
 	std::string text;
 	input.encode_hex (text);
 	text.push_back (0);
@@ -201,7 +201,7 @@ TEST (send_block, deserialize)
 {
 	rai::send_block block1 (0, 1, 2, rai::keypair ().prv, 4, 5);
 	ASSERT_EQ (block1.hash (), block1.hash ());
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream1 (bytes);
 		block1.serialize (stream1);
@@ -220,7 +220,7 @@ TEST (receive_block, deserialize)
 	ASSERT_EQ (block1.hash (), block1.hash ());
 	block1.hashables.previous = 2;
 	block1.hashables.source = 4;
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream1 (bytes);
 		block1.serialize (stream1);
@@ -237,7 +237,7 @@ TEST (open_block, deserialize)
 {
 	rai::open_block block1 (0, 1, 0, rai::keypair ().prv, 0, 0);
 	ASSERT_EQ (block1.hash (), block1.hash ());
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
 		block1.serialize (stream);
@@ -254,7 +254,7 @@ TEST (change_block, deserialize)
 {
 	rai::change_block block1 (1, 2, rai::keypair ().prv, 4, 5);
 	ASSERT_EQ (block1.hash (), block1.hash ());
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream1 (bytes);
 		block1.serialize (stream1);
@@ -277,7 +277,7 @@ TEST (frontier_req, serialization)
 	request1.start = 1;
 	request1.age = 2;
 	request1.count = 3;
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
 		request1.serialize (stream);
@@ -292,9 +292,9 @@ TEST (block, publish_req_serialization)
 {
 	rai::keypair key1;
 	rai::keypair key2;
-	auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
+	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
 	rai::publish req (std::move (block));
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
 		req.serialize (stream);
@@ -311,9 +311,9 @@ TEST (block, confirm_req_serialization)
 {
 	rai::keypair key1;
 	rai::keypair key2;
-	auto block (std::unique_ptr <rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
+	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
 	rai::confirm_req req (std::move (block));
-	std::vector <uint8_t> bytes;
+	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
 		req.serialize (stream);

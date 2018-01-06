@@ -3,20 +3,20 @@
 
 TEST (peer_container, empty_peers)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	auto list (peers.purge_list (std::chrono::system_clock::now ()));
 	ASSERT_EQ (0, list.size ());
 }
 
 TEST (peer_container, no_recontact)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	auto observed_peer (0);
 	auto observed_disconnect (false);
 	rai::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
 	ASSERT_EQ (0, peers.size ());
-	peers.peer_observer = [&observed_peer] (rai::endpoint const &) {++observed_peer;};
-	peers.disconnect_observer = [&observed_disconnect] () {observed_disconnect = true;};
+	peers.peer_observer = [&observed_peer](rai::endpoint const &) { ++observed_peer; };
+	peers.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
 	ASSERT_FALSE (peers.insert (endpoint1, 0));
 	ASSERT_EQ (1, peers.size ());
 	ASSERT_TRUE (peers.insert (endpoint1, 0));
@@ -44,7 +44,7 @@ TEST (peer_container, no_self_contacting)
 
 TEST (peer_container, reserved_peers_no_contact)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	ASSERT_TRUE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x00000001)), 10000), 0));
 	ASSERT_TRUE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc0000201)), 10000), 0));
 	ASSERT_TRUE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc6336401)), 10000), 0));
@@ -57,7 +57,7 @@ TEST (peer_container, reserved_peers_no_contact)
 
 TEST (peer_container, split)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	auto now (std::chrono::system_clock::now ());
 	rai::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 100);
 	rai::endpoint endpoint2 (boost::asio::ip::address_v6::any (), 101);
@@ -67,35 +67,35 @@ TEST (peer_container, split)
 	auto list (peers.purge_list (now));
 	ASSERT_EQ (1, peers.peers.size ());
 	ASSERT_EQ (1, list.size ());
-	ASSERT_EQ (endpoint2, list [0].endpoint);
+	ASSERT_EQ (endpoint2, list[0].endpoint);
 }
 
 TEST (peer_container, fill_random_clear)
 {
-	rai::peer_container peers (rai::endpoint {});
-	std::array <rai::endpoint, 8> target;
+	rai::peer_container peers (rai::endpoint{});
+	std::array<rai::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	peers.random_fill (target);
-	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
+	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [](rai::endpoint const & endpoint_a) { return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
 TEST (peer_container, fill_random_full)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	for (auto i (0); i < 100; ++i)
 	{
 		peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), i), 0);
 	}
-	std::array <rai::endpoint, 8> target;
+	std::array<rai::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	peers.random_fill (target);
-	ASSERT_TRUE (std::none_of (target.begin (), target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
+	ASSERT_TRUE (std::none_of (target.begin (), target.end (), [](rai::endpoint const & endpoint_a) { return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
 }
 
 TEST (peer_container, fill_random_part)
 {
-	rai::peer_container peers (rai::endpoint {});
-	std::array <rai::endpoint, 8> target;
+	rai::peer_container peers (rai::endpoint{});
+	std::array<rai::endpoint, 8> target;
 	auto half (target.size () / 2);
 	for (auto i (0); i < half; ++i)
 	{
@@ -103,14 +103,14 @@ TEST (peer_container, fill_random_part)
 	}
 	std::fill (target.begin (), target.end (), rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	peers.random_fill (target);
-	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
-	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
-	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [] (rai::endpoint const & endpoint_a) {return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
+	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [](rai::endpoint const & endpoint_a) { return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
+	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [](rai::endpoint const & endpoint_a) { return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
+	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [](rai::endpoint const & endpoint_a) { return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
 TEST (peer_container, list_sqrt)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	auto list1 (peers.list_sqrt ());
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
@@ -123,7 +123,7 @@ TEST (peer_container, list_sqrt)
 
 TEST (peer_container, rep_weight)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 24001), 0);
 	ASSERT_TRUE (peers.representatives (1).empty ());
 	rai::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
@@ -136,14 +136,14 @@ TEST (peer_container, rep_weight)
 	peers.rep_response (endpoint0, amount);
 	auto reps (peers.representatives (1));
 	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (100, reps [0].rep_weight.number ());
-	ASSERT_EQ (endpoint0, reps [0].endpoint);
+	ASSERT_EQ (100, reps[0].rep_weight.number ());
+	ASSERT_EQ (endpoint0, reps[0].endpoint);
 }
 
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
 TEST (peer_container, reachout)
 {
-	rai::peer_container peers (rai::endpoint {});
+	rai::peer_container peers (rai::endpoint{});
 	rai::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	peers.contacted (endpoint0, 0);

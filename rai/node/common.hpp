@@ -40,29 +40,29 @@ struct endpoint_hash
 {
 };
 template <>
-struct endpoint_hash <8>
+struct endpoint_hash<8>
 {
-	size_t operator () (rai::endpoint const & endpoint_a) const
+	size_t operator() (rai::endpoint const & endpoint_a) const
 	{
 		return endpoint_hash_raw (endpoint_a);
 	}
 };
 template <>
-struct endpoint_hash <4>
+struct endpoint_hash<4>
 {
-	size_t operator () (rai::endpoint const & endpoint_a) const
+	size_t operator() (rai::endpoint const & endpoint_a) const
 	{
 		uint64_t big (endpoint_hash_raw (endpoint_a));
-		uint32_t result (static_cast <uint32_t> (big) ^ static_cast <uint32_t> (big >> 32));
+		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
 		return result;
 	}
 };
 template <>
-struct hash <rai::endpoint>
+struct hash<rai::endpoint>
 {
-	size_t operator () (rai::endpoint const & endpoint_a) const
+	size_t operator() (rai::endpoint const & endpoint_a) const
 	{
-		endpoint_hash <sizeof (size_t)> ehash;
+		endpoint_hash<sizeof (size_t)> ehash;
 		return ehash (endpoint_a);
 	}
 };
@@ -70,11 +70,11 @@ struct hash <rai::endpoint>
 namespace boost
 {
 template <>
-struct hash <rai::endpoint>
+struct hash<rai::endpoint>
 {
-	size_t operator () (rai::endpoint const & endpoint_a) const
+	size_t operator() (rai::endpoint const & endpoint_a) const
 	{
-		std::hash <rai::endpoint> hash;
+		std::hash<rai::endpoint> hash;
 		return hash (endpoint_a);
 	}
 };
@@ -102,7 +102,7 @@ public:
 	message (bool &, rai::stream &);
 	virtual ~message () = default;
 	void write_header (rai::stream &);
-	static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &, std::bitset <16> &);
+	static bool read_header (rai::stream &, uint8_t &, uint8_t &, uint8_t &, rai::message_type &, std::bitset<16> &);
 	virtual void serialize (rai::stream &) = 0;
 	virtual bool deserialize (rai::stream &) = 0;
 	virtual void visit (rai::message_visitor &) const = 0;
@@ -110,15 +110,15 @@ public:
 	void block_type_set (rai::block_type);
 	bool ipv4_only ();
 	void ipv4_only_set (bool);
-	static std::array <uint8_t, 2> constexpr magic_number = rai::rai_network == rai::rai_networks::rai_test_network ? std::array <uint8_t, 2>({ 'R', 'A' }) : rai::rai_network == rai::rai_networks::rai_beta_network ? std::array <uint8_t, 2>({ 'R', 'B' }) : std::array <uint8_t, 2>({ 'R', 'C' });
+	static std::array<uint8_t, 2> constexpr magic_number = rai::rai_network == rai::rai_networks::rai_test_network ? std::array<uint8_t, 2> ({ 'R', 'A' }) : rai::rai_network == rai::rai_networks::rai_beta_network ? std::array<uint8_t, 2> ({ 'R', 'B' }) : std::array<uint8_t, 2> ({ 'R', 'C' });
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
 	rai::message_type type;
-	std::bitset <16> extensions;
+	std::bitset<16> extensions;
 	static size_t constexpr ipv4_only_position = 1;
 	static size_t constexpr bootstrap_server_position = 2;
-	static std::bitset <16> constexpr block_type_mask = std::bitset <16> (0x0f00);
+	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
 };
 class work_pool;
 class message_parser
@@ -143,41 +143,41 @@ public:
 	void visit (rai::message_visitor &) const override;
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
-	bool operator == (rai::keepalive const &) const;
-	std::array <rai::endpoint, 8> peers;
+	bool operator== (rai::keepalive const &) const;
+	std::array<rai::endpoint, 8> peers;
 };
 class publish : public message
 {
 public:
 	publish ();
-	publish (std::shared_ptr <rai::block>);
+	publish (std::shared_ptr<rai::block>);
 	void visit (rai::message_visitor &) const override;
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
-	bool operator == (rai::publish const &) const;
-	std::shared_ptr <rai::block> block;
+	bool operator== (rai::publish const &) const;
+	std::shared_ptr<rai::block> block;
 };
 class confirm_req : public message
 {
 public:
 	confirm_req ();
-	confirm_req (std::shared_ptr <rai::block>);
+	confirm_req (std::shared_ptr<rai::block>);
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
-	bool operator == (rai::confirm_req const &) const;
-	std::shared_ptr <rai::block> block;
+	bool operator== (rai::confirm_req const &) const;
+	std::shared_ptr<rai::block> block;
 };
 class confirm_ack : public message
 {
 public:
 	confirm_ack (bool &, rai::stream &);
-	confirm_ack (std::shared_ptr <rai::vote>);
+	confirm_ack (std::shared_ptr<rai::vote>);
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
-	bool operator == (rai::confirm_ack const &) const;
-	std::shared_ptr <rai::vote> vote;
+	bool operator== (rai::confirm_ack const &) const;
+	std::shared_ptr<rai::vote> vote;
 };
 class frontier_req : public message
 {
@@ -186,7 +186,7 @@ public:
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
-	bool operator == (rai::frontier_req const &) const;
+	bool operator== (rai::frontier_req const &) const;
 	rai::account start;
 	uint32_t age;
 	uint32_t count;

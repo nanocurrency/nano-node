@@ -4,7 +4,7 @@
 
 QApplication * test_application = nullptr;
 
-int main (int argc, char **argv)
+int main (int argc, char ** argv)
 {
 	QApplication application (argc, argv);
 	test_application = &application;

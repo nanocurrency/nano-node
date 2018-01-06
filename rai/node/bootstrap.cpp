@@ -14,7 +14,8 @@ rai::block_synchronization::~block_synchronization ()
 {
 }
 
-namespace {
+namespace
+{
 class add_dependency_visitor : public rai::block_visitor
 {
 public:
@@ -119,7 +120,7 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
 	return result;
 }
 
-rai::push_synchronization::push_synchronization (rai::node & node_a, std::function <rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
+rai::push_synchronization::push_synchronization (rai::node & node_a, std::function<rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
 block_synchronization (node_a.log),
 target_m (target_a),
 node (node_a)
@@ -136,7 +137,7 @@ bool rai::push_synchronization::synchronized (MDB_txn * transaction_a, rai::bloc
 	return result;
 }
 
-std::unique_ptr <rai::block> rai::push_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+std::unique_ptr<rai::block> rai::push_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	return node.store.block_get (transaction_a, hash_a);
 }
@@ -146,7 +147,7 @@ rai::sync_result rai::push_synchronization::target (MDB_txn * transaction_a, rai
 	return target_m (transaction_a, block_a);
 }
 
-rai::bootstrap_client::bootstrap_client (std::shared_ptr <rai::node> node_a, std::shared_ptr <rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
+rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std::shared_ptr<rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
 node (node_a),
 attempt (attempt_a),
 socket (node_a->service),
@@ -164,9 +165,8 @@ rai::bootstrap_client::~bootstrap_client ()
 void rai::bootstrap_client::start_timeout ()
 {
 	timeout.expires_from_now (boost::posix_time::seconds (15));
-	std::weak_ptr <rai::bootstrap_client> this_w (shared ());
-	timeout.async_wait ([this_w] (boost::system::error_code const & ec)
-	{
+	std::weak_ptr<rai::bootstrap_client> this_w (shared ());
+	timeout.async_wait ([this_w](boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted)
 		{
 			auto this_l (this_w.lock ());
@@ -185,15 +185,14 @@ void rai::bootstrap_client::start_timeout ()
 void rai::bootstrap_client::stop_timeout ()
 {
 	size_t killed (timeout.cancel ());
-	(void) killed;
+	(void)killed;
 }
 
 void rai::bootstrap_client::run ()
 {
 	auto this_l (shared_from_this ());
 	start_timeout ();
-	socket.async_connect (endpoint, [this_l] (boost::system::error_code const & ec)
-	{
+	socket.async_connect (endpoint, [this_l](boost::system::error_code const & ec) {
 		this_l->stop_timeout ();
 		if (!ec)
 		{
@@ -204,7 +203,7 @@ void rai::bootstrap_client::run ()
 		{
 			if (this_l->node->config.logging.network_logging ())
 			{
-				switch (ec.value())
+				switch (ec.value ())
 				{
 					default:
 						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %2%: %1%") % ec.message () % this_l->endpoint);
@@ -221,19 +220,18 @@ void rai::bootstrap_client::run ()
 
 void rai::frontier_req_client::run ()
 {
-	std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
+	std::unique_ptr<rai::frontier_req> request (new rai::frontier_req);
 	request->start.clear ();
-	request->age = std::numeric_limits <decltype (request->age)>::max ();
-	request->count = std::numeric_limits <decltype (request->age)>::max ();
-	auto send_buffer (std::make_shared <std::vector <uint8_t>> ());
+	request->age = std::numeric_limits<decltype (request->age)>::max ();
+	request->count = std::numeric_limits<decltype (request->age)>::max ();
+	auto send_buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
 		rai::vectorstream stream (*send_buffer);
 		request->serialize (stream);
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
-	boost::asio::async_write (connection->socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_write (connection->socket, boost::asio::buffer (send_buffer->data (), send_buffer->size ()), [this_l, send_buffer](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
 		if (!ec)
 		{
@@ -249,12 +247,12 @@ void rai::frontier_req_client::run ()
 	});
 }
 
-std::shared_ptr <rai::bootstrap_client> rai::bootstrap_client::shared ()
+std::shared_ptr<rai::bootstrap_client> rai::bootstrap_client::shared ()
 {
 	return shared_from_this ();
 }
 
-rai::frontier_req_client::frontier_req_client (std::shared_ptr <rai::bootstrap_client> connection_a) :
+rai::frontier_req_client::frontier_req_client (std::shared_ptr<rai::bootstrap_client> connection_a) :
 connection (connection_a),
 current (0),
 count (0),
@@ -274,8 +272,7 @@ void rai::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
-	boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
 		this_l->received_frontier (ec, size_a);
 	});
@@ -439,7 +436,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	}
 }
 
-rai::bulk_pull_client::bulk_pull_client (std::shared_ptr <rai::bootstrap_client> connection_a) :
+rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a) :
 connection (connection_a)
 {
 	assert (!connection->attempt->mutex.try_lock ());
@@ -450,7 +447,7 @@ connection (connection_a)
 rai::bulk_pull_client::~bulk_pull_client ()
 {
 	{
-		std::lock_guard <std::mutex> mutex (connection->attempt->mutex);
+		std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 		--connection->attempt->pulling;
 		connection->attempt->condition.notify_all ();
 	}
@@ -467,7 +464,7 @@ void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 	rai::bulk_pull req;
 	req.start = pull_a.account;
 	req.end = pull_a.end;
-	auto buffer (std::make_shared <std::vector <uint8_t>> ());
+	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
 		rai::vectorstream stream (*buffer);
 		req.serialize (stream);
@@ -482,8 +479,7 @@ void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
-	boost::asio::async_write (connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_write (connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
 		if (!ec)
 		{
@@ -500,8 +496,7 @@ void rai::bulk_pull_client::receive_block ()
 {
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
-	boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), 1), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
 		if (!ec)
 		{
@@ -517,14 +512,13 @@ void rai::bulk_pull_client::receive_block ()
 void rai::bulk_pull_client::received_type ()
 {
 	auto this_l (shared_from_this ());
-	rai::block_type type (static_cast <rai::block_type> (connection->receive_buffer [0]));
+	rai::block_type type (static_cast<rai::block_type> (connection->receive_buffer[0]));
 	switch (type)
 	{
 		case rai::block_type::send:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::send_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::send_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
 				this_l->received_block (ec, size_a);
 			});
@@ -533,8 +527,7 @@ void rai::bulk_pull_client::received_type ()
 		case rai::block_type::receive:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::receive_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::receive_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
 				this_l->received_block (ec, size_a);
 			});
@@ -543,8 +536,7 @@ void rai::bulk_pull_client::received_type ()
 		case rai::block_type::open:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::open_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::open_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
 				this_l->received_block (ec, size_a);
 			});
@@ -553,8 +545,7 @@ void rai::bulk_pull_client::received_type ()
 		case rai::block_type::change:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::change_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
 				this_l->received_block (ec, size_a);
 			});
@@ -571,7 +562,7 @@ void rai::bulk_pull_client::received_type ()
 		}
 		default:
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unknown type received as block type: %1%") % static_cast <int> (type));
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unknown type received as block type: %1%") % static_cast<int> (type));
 			break;
 		}
 	}
@@ -582,7 +573,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 	if (!ec)
 	{
 		rai::bufferstream stream (connection->receive_buffer.data (), 1 + size_a);
-		std::shared_ptr <rai::block> block (rai::deserialize_block (stream));
+		std::shared_ptr<rai::block> block (rai::deserialize_block (stream));
 		if (block != nullptr)
 		{
 			auto hash (block->hash ());
@@ -598,8 +589,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			}
 			auto attempt_l (connection->attempt);
 			auto pull_l (pull);
-			attempt_l->node->block_processor.add (rai::block_processor_item (block, [attempt_l, pull_l] (MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr <rai::block> block_a)
-			{
+			attempt_l->node->block_processor.add (rai::block_processor_item (block, [attempt_l, pull_l](MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr<rai::block> block_a) {
 				switch (result_a.code)
 				{
 					case rai::process_result::progress:
@@ -608,7 +598,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 					case rai::process_result::fork:
 					{
 						auto node_l (attempt_l->node);
-						std::shared_ptr <rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
+						std::shared_ptr<rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
 						if (!node_l->active.start (transaction_a, block))
 						{
 							node_l->network.broadcast_confirm_req (block_a);
@@ -636,10 +626,9 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 	}
 }
 
-rai::bulk_push_client::bulk_push_client (std::shared_ptr <rai::bootstrap_client> const & connection_a) :
+rai::bulk_push_client::bulk_push_client (std::shared_ptr<rai::bootstrap_client> const & connection_a) :
 connection (connection_a),
-synchronization (*connection->node, [this] (MDB_txn * transaction_a, rai::block const & block_a)
-{
+synchronization (*connection->node, [this](MDB_txn * transaction_a, rai::block const & block_a) {
 	push_block (block_a);
 	return rai::sync_result::success;
 })
@@ -653,15 +642,14 @@ rai::bulk_push_client::~bulk_push_client ()
 void rai::bulk_push_client::start ()
 {
 	rai::bulk_push message;
-	auto buffer (std::make_shared <std::vector <uint8_t>> ());
+	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
 		rai::vectorstream stream (*buffer);
 		message.serialize (stream);
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
-	boost::asio::async_write (connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_write (connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
 		rai::transaction transaction (this_l->connection->node->store.environment, nullptr, true);
 		if (!ec)
@@ -707,15 +695,14 @@ void rai::bulk_push_client::push (MDB_txn * transaction_a)
 
 void rai::bulk_push_client::send_finished ()
 {
-	auto buffer (std::make_shared <std::vector <uint8_t>> ());
-	buffer->push_back (static_cast <uint8_t> (rai::block_type::not_a_block));
+	auto buffer (std::make_shared<std::vector<uint8_t>> ());
+	buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
 	if (connection->node->config.logging.network_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk push finished";
 	}
 	auto this_l (shared_from_this ());
-	async_write (connection->socket, boost::asio::buffer (buffer->data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
-	{
+	async_write (connection->socket, boost::asio::buffer (buffer->data (), 1), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		try
 		{
 			this_l->promise.set_value (false);
@@ -728,15 +715,14 @@ void rai::bulk_push_client::send_finished ()
 
 void rai::bulk_push_client::push_block (rai::block const & block_a)
 {
-	auto buffer (std::make_shared <std::vector <uint8_t>> ());
+	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
 		rai::vectorstream stream (*buffer);
 		rai::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
-	boost::asio::async_write (connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_write (connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
 		if (!ec)
 		{
@@ -772,7 +758,7 @@ attempts (0)
 {
 }
 
-rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr <rai::node> node_a) :
+rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<rai::node> node_a) :
 connections (0),
 pulling (0),
 node (node_a),
@@ -789,15 +775,15 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 	node->bootstrap_initiator.notify_listeners (false);
 }
 
-bool rai::bootstrap_attempt::request_frontier (std::unique_lock <std::mutex> & lock_a)
+bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lock_a)
 {
 	auto result (true);
 	auto connection_l (connection (lock_a));
 	if (connection_l)
 	{
-		std::future <bool> future;
+		std::future<bool> future;
 		{
-			auto client (std::make_shared <rai::frontier_req_client> (connection_l));
+			auto client (std::make_shared<rai::frontier_req_client> (connection_l));
 			client->run ();
 			frontiers = client;
 			future = client->promise.get_future ();
@@ -824,32 +810,31 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock <std::mutex> & l
 	return result;
 }
 
-void rai::bootstrap_attempt::request_pull (std::unique_lock <std::mutex> & lock_a)
+void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a)
 {
 	auto connection_l (connection (lock_a));
 	if (connection_l)
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
-		auto client (std::make_shared <rai::bulk_pull_client> (connection_l));
+		auto client (std::make_shared<rai::bulk_pull_client> (connection_l));
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([client, pull] ()
-		{
+		node->background ([client, pull]() {
 			client->request (pull);
 		});
 	}
 }
 
-bool rai::bootstrap_attempt::request_push (std::unique_lock <std::mutex> & lock_a)
+bool rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
 {
 	auto result (true);
 	auto connection_l (connection (lock_a));
 	if (connection_l)
 	{
-		std::future <bool> future;
+		std::future<bool> future;
 		{
-			auto client (std::make_shared <rai::bulk_push_client> (connection_l));
+			auto client (std::make_shared<rai::bulk_push_client> (connection_l));
 			client->start ();
 			push = client;
 			future = client->promise.get_future ();
@@ -881,7 +866,7 @@ bool rai::bootstrap_attempt::still_pulling ()
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
-	std::unique_lock <std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
 	{
@@ -921,13 +906,13 @@ void rai::bootstrap_attempt::run ()
 	idle.clear ();
 }
 
-std::shared_ptr <rai::bootstrap_client> rai::bootstrap_attempt::connection (std::unique_lock <std::mutex> & lock_a)
+std::shared_ptr<rai::bootstrap_client> rai::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
 {
 	while (!stopped && idle.empty ())
 	{
 		condition.wait (lock_a);
 	}
-	std::shared_ptr <rai::bootstrap_client> result;
+	std::shared_ptr<rai::bootstrap_client> result;
 	if (!idle.empty ())
 	{
 		result = idle.back ();
@@ -936,7 +921,7 @@ std::shared_ptr <rai::bootstrap_client> rai::bootstrap_attempt::connection (std:
 	return result;
 }
 
-bool rai::bootstrap_attempt::consume_future (std::future <bool> & future_a)
+bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 {
 	bool result;
 	try
@@ -957,9 +942,9 @@ void rai::bootstrap_attempt::populate_connections ()
 		auto peer (node->peers.bootstrap_peer ());
 		if (peer != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
 		{
-			auto client (std::make_shared <rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
+			auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
 			client->run ();
-			std::lock_guard <std::mutex> lock (mutex);
+			std::lock_guard<std::mutex> lock (mutex);
 			clients.push_back (client);
 		}
 		else
@@ -971,9 +956,8 @@ void rai::bootstrap_attempt::populate_connections ()
 	}
 	if (!stopped)
 	{
-		std::weak_ptr <rai::bootstrap_attempt> this_w (shared_from_this ());
-		node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w] ()
-		{
+		std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
+		node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->populate_connections ();
@@ -984,20 +968,20 @@ void rai::bootstrap_attempt::populate_connections ()
 
 void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
 {
-	auto client (std::make_shared <rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
+	auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
 	client->run ();
 }
 
-void rai::bootstrap_attempt::pool_connection (std::shared_ptr <rai::bootstrap_client> client_a)
+void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_client> client_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	idle.push_back (client_a);
 	condition.notify_all ();
 }
 
 void rai::bootstrap_attempt::stop ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 	for (auto i : clients)
@@ -1034,7 +1018,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	auto pull (pull_a);
 	if (++pull.attempts < 4)
 	{
-		std::lock_guard <std::mutex> lock (mutex);
+		std::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
@@ -1060,15 +1044,14 @@ rai::bootstrap_initiator::~bootstrap_initiator ()
 
 void rai::bootstrap_initiator::bootstrap ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && attempt == nullptr)
 	{
 		stop_attempt (lock);
-		attempt = std::make_shared <rai::bootstrap_attempt> (node.shared ());
-		attempt_thread.reset (new std::thread ([this] ()
-		{
+		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+		attempt_thread.reset (new std::thread ([this]() {
 			attempt->run ();
-			std::lock_guard <std::mutex> lock (mutex);
+			std::lock_guard<std::mutex> lock (mutex);
 			attempt.reset ();
 			condition.notify_all ();
 		}));
@@ -1079,33 +1062,33 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 {
 	node.peers.insert (endpoint_a, 0x5);
 	bootstrap ();
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	if (attempt != nullptr)
 	{
 		attempt->add_connection (endpoint_a);
 	}
 }
 
-void rai::bootstrap_initiator::add_observer (std::function <void (bool)> const & observer_a)
+void rai::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	observers.push_back (observer_a);
 }
 
 bool rai::bootstrap_initiator::in_progress ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	return attempt != nullptr;
 }
 
 void rai::bootstrap_initiator::stop ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
 	stop_attempt (lock);
 }
 
-void rai::bootstrap_initiator::stop_attempt (std::unique_lock <std::mutex> & lock_a)
+void rai::bootstrap_initiator::stop_attempt (std::unique_lock<std::mutex> & lock_a)
 {
 	assert (!mutex.try_lock ());
 	if (attempt != nullptr)
@@ -1125,7 +1108,7 @@ void rai::bootstrap_initiator::stop_attempt (std::unique_lock <std::mutex> & loc
 
 void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
 {
-	for (auto & i: observers)
+	for (auto & i : observers)
 	{
 		i (in_progress_a);
 	}
@@ -1148,8 +1131,8 @@ void rai::bootstrap_listener::start ()
 	acceptor.bind (local, ec);
 	if (ec)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for bootstrap on port %1%: %2%") % local.port() % ec.message ());
-		throw std::runtime_error (ec.message());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for bootstrap on port %1%: %2%") % local.port () % ec.message ());
+		throw std::runtime_error (ec.message ());
 	}
 
 	acceptor.listen ();
@@ -1159,7 +1142,7 @@ void rai::bootstrap_listener::start ()
 void rai::bootstrap_listener::stop ()
 {
 	on = false;
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	acceptor.close ();
 	for (auto & i : connections)
 	{
@@ -1173,24 +1156,23 @@ void rai::bootstrap_listener::stop ()
 
 void rai::bootstrap_listener::accept_connection ()
 {
-	auto socket (std::make_shared <boost::asio::ip::tcp::socket> (service));
-	acceptor.async_accept (*socket, [this, socket] (boost::system::error_code const & ec)
-	{
+	auto socket (std::make_shared<boost::asio::ip::tcp::socket> (service));
+	acceptor.async_accept (*socket, [this, socket](boost::system::error_code const & ec) {
 		accept_action (ec, socket);
 	});
 }
 
-void rai::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr <boost::asio::ip::tcp::socket> socket_a)
+void rai::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<boost::asio::ip::tcp::socket> socket_a)
 {
 	if (!ec)
 	{
 		accept_connection ();
-		auto connection (std::make_shared <rai::bootstrap_server> (socket_a, node.shared ()));
+		auto connection (std::make_shared<rai::bootstrap_server> (socket_a, node.shared ()));
 		{
-			std::lock_guard <std::mutex> lock (mutex);
+			std::lock_guard<std::mutex> lock (mutex);
 			if (acceptor.is_open ())
 			{
-				connections [connection.get ()] = connection;
+				connections[connection.get ()] = connection;
 				connection->receive ();
 			}
 		}
@@ -1212,11 +1194,11 @@ rai::bootstrap_server::~bootstrap_server ()
 	{
 		BOOST_LOG (node->log) << "Exiting bootstrap server";
 	}
-	std::lock_guard <std::mutex> lock (node->bootstrap.mutex);
+	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
 }
 
-rai::bootstrap_server::bootstrap_server (std::shared_ptr <boost::asio::ip::tcp::socket> socket_a, std::shared_ptr <rai::node> node_a) :
+rai::bootstrap_server::bootstrap_server (std::shared_ptr<boost::asio::ip::tcp::socket> socket_a, std::shared_ptr<rai::node> node_a) :
 socket (socket_a),
 node (node_a)
 {
@@ -1225,8 +1207,7 @@ node (node_a)
 void rai::bootstrap_server::receive ()
 {
 	auto this_l (shared_from_this ());
-	boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), 8), [this_l] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), 8), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->receive_header_action (ec, size_a);
 	});
 }
@@ -1241,7 +1222,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 		uint8_t version_using;
 		uint8_t version_min;
 		rai::message_type type;
-		std::bitset <16> extensions;
+		std::bitset<16> extensions;
 		if (!rai::message::read_header (type_stream, version_max, version_using, version_min, type, extensions))
 		{
 			switch (type)
@@ -1249,8 +1230,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				case rai::message_type::bulk_pull:
 				{
 					auto this_l (shared_from_this ());
-					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l] (boost::system::error_code const & ec, size_t size_a)
-					{
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a);
 					});
 					break;
@@ -1258,22 +1238,21 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				case rai::message_type::frontier_req:
 				{
 					auto this_l (shared_from_this ());
-					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l] (boost::system::error_code const & ec, size_t size_a)
-					{
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a);
 					});
 					break;
 				}
 				case rai::message_type::bulk_push:
 				{
-					add_request (std::unique_ptr <rai::message> (new rai::bulk_push));
+					add_request (std::unique_ptr<rai::message> (new rai::bulk_push));
 					break;
 				}
 				default:
 				{
 					if (node->config.logging.network_logging ())
 					{
-						BOOST_LOG (node->log) << boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast <uint8_t> (type));
+						BOOST_LOG (node->log) << boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast<uint8_t> (type));
 					}
 					break;
 				}
@@ -1293,7 +1272,7 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
 {
 	if (!ec)
 	{
-		std::unique_ptr <rai::bulk_pull> request (new rai::bulk_pull);
+		std::unique_ptr<rai::bulk_pull> request (new rai::bulk_pull);
 		rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
 		auto error (request->deserialize (stream));
 		if (!error)
@@ -1302,7 +1281,7 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
 			}
-			add_request (std::unique_ptr <rai::message> (request.release ()));
+			add_request (std::unique_ptr<rai::message> (request.release ()));
 			receive ();
 		}
 	}
@@ -1312,7 +1291,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 {
 	if (!ec)
 	{
-		std::unique_ptr <rai::frontier_req> request (new rai::frontier_req);
+		std::unique_ptr<rai::frontier_req> request (new rai::frontier_req);
 		rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
 		auto error (request->deserialize (stream));
 		if (!error)
@@ -1321,7 +1300,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age);
 			}
-			add_request (std::unique_ptr <rai::message> (request.release ()));
+			add_request (std::unique_ptr<rai::message> (request.release ()));
 			receive ();
 		}
 	}
@@ -1334,9 +1313,9 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 	}
 }
 
-void rai::bootstrap_server::add_request (std::unique_ptr <rai::message> message_a)
+void rai::bootstrap_server::add_request (std::unique_ptr<rai::message> message_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	auto start (requests.empty ());
 	requests.push (std::move (message_a));
 	if (start)
@@ -1347,7 +1326,7 @@ void rai::bootstrap_server::add_request (std::unique_ptr <rai::message> message_
 
 void rai::bootstrap_server::finish_request ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	requests.pop ();
 	if (!requests.empty ())
 	{
@@ -1360,7 +1339,7 @@ namespace
 class request_response_visitor : public rai::message_visitor
 {
 public:
-	request_response_visitor (std::shared_ptr <rai::bootstrap_server> connection_a) :
+	request_response_visitor (std::shared_ptr<rai::bootstrap_server> connection_a) :
 	connection (connection_a)
 	{
 	}
@@ -1382,20 +1361,20 @@ public:
 	}
 	void bulk_pull (rai::bulk_pull const &) override
 	{
-		auto response (std::make_shared <rai::bulk_pull_server> (connection, std::unique_ptr <rai::bulk_pull> (static_cast <rai::bulk_pull *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<rai::bulk_pull_server> (connection, std::unique_ptr<rai::bulk_pull> (static_cast<rai::bulk_pull *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
 	void bulk_push (rai::bulk_push const &) override
 	{
-		auto response (std::make_shared <rai::bulk_push_server> (connection));
+		auto response (std::make_shared<rai::bulk_push_server> (connection));
 		response->receive ();
 	}
 	void frontier_req (rai::frontier_req const &) override
 	{
-		auto response (std::make_shared <rai::frontier_req_server> (connection, std::unique_ptr <rai::frontier_req> (static_cast <rai::frontier_req *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<rai::frontier_req_server> (connection, std::unique_ptr<rai::frontier_req> (static_cast<rai::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	std::shared_ptr <rai::bootstrap_server> connection;
+	std::shared_ptr<rai::bootstrap_server> connection;
 };
 }
 
@@ -1451,7 +1430,7 @@ void rai::bulk_pull_server::set_current_end ()
 
 void rai::bulk_pull_server::send_next ()
 {
-	std::unique_ptr <rai::block> block (get_next ());
+	std::unique_ptr<rai::block> block (get_next ());
 	if (block != nullptr)
 	{
 		{
@@ -1464,8 +1443,7 @@ void rai::bulk_pull_server::send_next ()
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
 		}
-		async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
-		{
+		async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -1475,9 +1453,9 @@ void rai::bulk_pull_server::send_next ()
 	}
 }
 
-std::unique_ptr <rai::block> rai::bulk_pull_server::get_next ()
+std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 {
-	std::unique_ptr <rai::block> result;
+	std::unique_ptr<rai::block> result;
 	if (current != request->end)
 	{
 		rai::transaction transaction (connection->node->store.environment, nullptr, false);
@@ -1517,14 +1495,13 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 void rai::bulk_pull_server::send_finished ()
 {
 	send_buffer.clear ();
-	send_buffer.push_back (static_cast <uint8_t> (rai::block_type::not_a_block));
+	send_buffer.push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
 	auto this_l (shared_from_this ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk sending finished";
 	}
-	async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
-	{
+	async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }
@@ -1542,14 +1519,14 @@ void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec,
 	}
 }
 
-rai::bulk_pull_server::bulk_pull_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::bulk_pull> request_a) :
+rai::bulk_pull_server::bulk_pull_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull> request_a) :
 connection (connection_a),
 request (std::move (request_a))
 {
 	set_current_end ();
 }
 
-rai::bulk_push_server::bulk_push_server (std::shared_ptr <rai::bootstrap_server> const & connection_a) :
+rai::bulk_push_server::bulk_push_server (std::shared_ptr<rai::bootstrap_server> const & connection_a) :
 connection (connection_a)
 {
 }
@@ -1557,8 +1534,7 @@ connection (connection_a)
 void rai::bulk_push_server::receive ()
 {
 	auto this_l (shared_from_this ());
-	boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), 1), [this_l] (boost::system::error_code const & ec, size_t size_a)
-	{
+	boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), 1), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->received_type ();
@@ -1573,37 +1549,33 @@ void rai::bulk_push_server::receive ()
 void rai::bulk_push_server::received_type ()
 {
 	auto this_l (shared_from_this ());
-	rai::block_type type (static_cast <rai::block_type> (receive_buffer [0]));
+	rai::block_type type (static_cast<rai::block_type> (receive_buffer[0]));
 	switch (type)
 	{
 		case rai::block_type::send:
 		{
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
 			break;
 		}
 		case rai::block_type::receive:
 		{
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
 			break;
 		}
 		case rai::block_type::open:
 		{
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
 			break;
 		}
 		case rai::block_type::change:
 		{
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l] (boost::system::error_code const & ec, size_t size_a)
-			{
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
 			break;
@@ -1642,7 +1614,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 	}
 }
 
-rai::frontier_req_server::frontier_req_server (std::shared_ptr <rai::bootstrap_server> const & connection_a, std::unique_ptr <rai::frontier_req> request_a) :
+rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
 info (0, 0, 0, 0, 0, 0),
@@ -1680,8 +1652,7 @@ void rai::frontier_req_server::send_next ()
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % info.head.to_string ());
 		}
 		next ();
-		async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
-		{
+		async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -1705,8 +1676,7 @@ void rai::frontier_req_server::send_finished ()
 	{
 		BOOST_LOG (connection->node->log) << "Frontier sending finished";
 	}
-	async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l] (boost::system::error_code const & ec, size_t size_a)
-	{
+	async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }

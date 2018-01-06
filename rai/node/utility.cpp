@@ -58,7 +58,7 @@ rai::mdb_env::operator MDB_env * () const
 }
 
 rai::mdb_val::mdb_val () :
-value ({0, nullptr})
+value ({ 0, nullptr })
 {
 }
 
@@ -68,17 +68,17 @@ value (value_a)
 }
 
 rai::mdb_val::mdb_val (size_t size_a, void * data_a) :
-value ({size_a, data_a})
+value ({ size_a, data_a })
 {
 }
 
 rai::mdb_val::mdb_val (rai::uint128_union const & val_a) :
-mdb_val (sizeof (val_a), const_cast <rai::uint128_union *> (&val_a))
+mdb_val (sizeof (val_a), const_cast<rai::uint128_union *> (&val_a))
 {
 }
 
 rai::mdb_val::mdb_val (rai::uint256_union const & val_a) :
-mdb_val (sizeof (val_a), const_cast <rai::uint256_union *> (&val_a))
+mdb_val (sizeof (val_a), const_cast<rai::uint256_union *> (&val_a))
 {
 }
 
@@ -96,14 +96,14 @@ rai::uint256_union rai::mdb_val::uint256 () const
 {
 	rai::uint256_union result;
 	assert (size () == sizeof (result));
-	std::copy (reinterpret_cast <uint8_t const *> (data ()), reinterpret_cast <uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
+	std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
 	return result;
 }
 
 rai::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
-	return const_cast <MDB_val *> (&value);
+	return const_cast<MDB_val *> (&value);
 };
 
 rai::mdb_val::operator MDB_val const & () const

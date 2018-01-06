@@ -1,8 +1,8 @@
 #pragma once
 
-#include <rai/secure.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/openclwork.hpp>
+#include <rai/secure.hpp>
 
 #include <mutex>
 #include <queue>
@@ -18,7 +18,8 @@ public:
 	fan (rai::uint256_union const &, size_t);
 	void value (rai::raw_key &);
 	void value_set (rai::raw_key const &);
-	std::vector <std::unique_ptr <rai::uint256_union>> values;
+	std::vector<std::unique_ptr<rai::uint256_union>> values;
+
 private:
 	std::mutex mutex;
 	void value_get (rai::raw_key &);
@@ -52,7 +53,7 @@ class wallet_store
 public:
 	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &);
 	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &, std::string const &);
-	std::vector <rai::account> accounts (MDB_txn *);
+	std::vector<rai::account> accounts (MDB_txn *);
 	void initialize (MDB_txn *, bool &, std::string const &);
 	rai::uint256_union check (MDB_txn *);
 	bool rekey (MDB_txn *, std::string const &);
@@ -85,7 +86,7 @@ public:
 	void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
 	void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);
-	bool move (MDB_txn *, rai::wallet_store &, std::vector <rai::public_key> const &);
+	bool move (MDB_txn *, rai::wallet_store &, std::vector<rai::public_key> const &);
 	bool import (MDB_txn *, rai::wallet_store &);
 	bool work_get (MDB_txn *, rai::public_key const &, uint64_t &);
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
@@ -115,12 +116,12 @@ public:
 };
 class node;
 // A wallet is a set of account keys encrypted by a common encryption key
-class wallet : public std::enable_shared_from_this <rai::wallet>
+class wallet : public std::enable_shared_from_this<rai::wallet>
 {
 public:
-	std::shared_ptr <rai::block> change_action (rai::account const &, rai::account const &, bool = true);
-	std::shared_ptr <rai::block> receive_action (rai::send_block const &, rai::account const &, rai::uint128_union const &, bool = true);
-	std::shared_ptr <rai::block> send_action (rai::account const &, rai::account const &, rai::uint128_t const &, bool = true);
+	std::shared_ptr<rai::block> change_action (rai::account const &, rai::account const &, bool = true);
+	std::shared_ptr<rai::block> receive_action (rai::send_block const &, rai::account const &, rai::uint128_union const &, bool = true);
+	std::shared_ptr<rai::block> send_action (rai::account const &, rai::account const &, rai::uint128_t const &, bool = true);
 	wallet (bool &, rai::transaction &, rai::node &, std::string const &);
 	wallet (bool &, rai::transaction &, rai::node &, std::string const &, std::string const &);
 	void enter_initial_password ();
@@ -134,19 +135,19 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_sync (rai::account const &, rai::account const &);
-	void change_async (rai::account const &, rai::account const &, std::function <void (std::shared_ptr <rai::block>)> const &, bool = true);
-	bool receive_sync (std::shared_ptr <rai::block>, rai::account const &, rai::uint128_t const &);
-	void receive_async (std::shared_ptr <rai::block>, rai::account const &, rai::uint128_t const &, std::function <void (std::shared_ptr <rai::block>)> const &, bool = true);
+	void change_async (rai::account const &, rai::account const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true);
+	bool receive_sync (std::shared_ptr<rai::block>, rai::account const &, rai::uint128_t const &);
+	void receive_async (std::shared_ptr<rai::block>, rai::account const &, rai::uint128_t const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true);
 	rai::block_hash send_sync (rai::account const &, rai::account const &, rai::uint128_t const &);
-	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function <void (std::shared_ptr <rai::block>)> const &, bool = true);
+	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true);
 	void work_generate (rai::account const &, rai::block_hash const &);
 	void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
 	uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
 	void work_ensure (MDB_txn *, rai::account const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
-	std::unordered_set <rai::account> free_accounts;
-	std::function <void (bool, bool)> lock_observer;
+	std::unordered_set<rai::account> free_accounts;
+	std::function<void(bool, bool)> lock_observer;
 	rai::wallet_store store;
 	rai::node & node;
 };
@@ -155,19 +156,19 @@ class wallets
 {
 public:
 	wallets (bool &, rai::node &);
-	std::shared_ptr <rai::wallet> open (rai::uint256_union const &);
-	std::shared_ptr <rai::wallet> create (rai::uint256_union const &);
+	std::shared_ptr<rai::wallet> open (rai::uint256_union const &);
+	std::shared_ptr<rai::wallet> create (rai::uint256_union const &);
 	bool search_pending (rai::uint256_union const &);
 	void search_pending_all ();
 	void destroy (rai::uint256_union const &);
 	void do_wallet_actions (rai::account const &);
-	void queue_wallet_action (rai::account const &, rai::uint128_t const &, std::function <void ()> const &);
-	void foreach_representative (MDB_txn *, std::function <void (rai::public_key const &, rai::raw_key const &)> const &);
+	void queue_wallet_action (rai::account const &, rai::uint128_t const &, std::function<void()> const &);
+	void foreach_representative (MDB_txn *, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
 	bool exists (MDB_txn *, rai::public_key const &);
-	std::function <void (rai::account const &, bool)> observer;
-	std::unordered_map <rai::uint256_union, std::shared_ptr <rai::wallet>> items;
-	std::unordered_map <rai::account, std::multimap <rai::uint128_t, std::function <void ()>, std::greater <rai::uint128_t>>> pending_actions;
-	std::unordered_set <rai::account> current_actions;
+	std::function<void(rai::account const &, bool)> observer;
+	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
+	std::unordered_map<rai::account, std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>>> pending_actions;
+	std::unordered_set<rai::account> current_actions;
 	std::mutex action_mutex;
 	rai::kdf kdf;
 	MDB_dbi handle;
