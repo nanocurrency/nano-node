@@ -1201,8 +1201,8 @@ void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash
 rai::wallets::wallets (bool & error_a, rai::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
-thread ([this] () { do_wallet_actions (); }),
-stopped (false)
+stopped (false),
+thread ([this] () { do_wallet_actions (); })
 {
 	if (!error_a)
 	{

@@ -175,8 +175,8 @@ public:
 	rai::kdf kdf;
 	MDB_dbi handle;
 	rai::node & node;
-	std::thread thread;
 	bool stopped;
+	std::thread thread;
 	static rai::uint128_t const generate_priority;
 	static rai::uint128_t const high_priority;
 };
