@@ -191,14 +191,14 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 				// attacker that several peers adjacent to the representative which got
 				// low delays are the representative itself, when in fact they are not.
 				auto endpoint = *j;
+				uint8_t peer_delay;
 				blake2b_state hash;
-				blake2b_init (&hash, 2);
+				blake2b_init (&hash, sizeof (peer_delay));
 				blake2b_update (&hash, prv_a.data.bytes.data (), prv_a.data.bytes.size ());
 				assert (endpoint.address ().is_v6 ());
 				rai::uint128_union address;
 				address.bytes = endpoint.address ().to_v6 ().to_bytes ();
 				blake2b_update (&hash, address.bytes.data (), address.bytes.size ());
-				uint16_t peer_delay;
 				blake2b_final (&hash, &peer_delay, sizeof (peer_delay));
 				peer_delay &= (1 << 7) - 1; // maximum of 127 milliseconds delay
 				boost::asio::deadline_timer t (node_a.service, boost::posix_time::millisec (peer_delay));
