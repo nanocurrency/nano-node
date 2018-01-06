@@ -7,10 +7,24 @@ matrix:
       sudo: required
       services:
         - docker
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - TSAN=1
+      services:
+        - docker
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - ASAN=1
+      services:
+        - docker
     - os: osx
 
 compiler:
-  - gcc
+  - clang
 
 before_install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart; fi
@@ -19,4 +33,4 @@ before_install:
 
 script:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace lukealonso/raiblocks-ci:latest /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace lukealonso/raiblocks-ci:latest /bin/bash -c "cd /workspace && ASAN=${ASAN} TSAN=${TSAN} ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
