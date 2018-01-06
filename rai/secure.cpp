@@ -664,7 +664,6 @@ void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
 
 void rai::block_store::upgrade_v4_to_v5 (MDB_txn * transaction_a)
 {
-	unsigned fixes (0);
 	version_put (transaction_a, 5);
 	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 	{
@@ -678,14 +677,12 @@ void rai::block_store::upgrade_v4_to_v5 (MDB_txn * transaction_a)
 			if (block_successor (transaction_a, hash).is_zero () && !successor.is_zero ())
 			{
 				//std::cerr << boost::str (boost::format ("Adding successor for account %1%, block %2%, successor %3%\n") % account.to_account () % hash.to_string () % successor.to_string ());
-				++fixes;
 				block_put (transaction_a, hash, *block, successor);
 			}
 			successor = hash;
 			block = block_get (transaction_a, block->previous ());
 		}
 	}
-	//std::cerr << boost::str (boost::format ("Fixed up %1% blocks\n") % fixes);
 }
 
 void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)

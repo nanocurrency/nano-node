@@ -18,9 +18,9 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
 		{
 			std::stringstream stream (value_a);
 			stream << std::hex << std::noshowbase;
-			uint64_t number_l;
 			try
 			{
+                		uint64_t number_l;
 				stream >> number_l;
 				target_a = number_l;
 				if (!stream.eof ())

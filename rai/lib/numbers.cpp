@@ -630,7 +630,6 @@ void format_dec (std::ostringstream & stream, rai::uint128_t value, char group_s
 		int group_count = 0;
 		for (int i = 0; i < dec_count; i++)
 		{
-			int groupMax = groupings[group_index];
 			group_count++;
 			if (group_count > groupings[group_index])
 			{
