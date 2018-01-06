@@ -4,11 +4,11 @@
 #include <rai/node/node.hpp>
 #include <rai/node/wallet.hpp>
 
-#include <map>
-#include <vector>
-#include <string>
-#include <iostream>
 #include <array>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
 
 namespace
 {
@@ -394,15 +394,15 @@ rai::opencl_environment::opencl_environment (bool & error_a)
 {
 	cl_uint platformIdCount = 0;
 	clGetPlatformIDs (0, nullptr, &platformIdCount);
-	std::vector <cl_platform_id> platformIds (platformIdCount);
-	clGetPlatformIDs (platformIdCount, platformIds.data(), nullptr);
+	std::vector<cl_platform_id> platformIds (platformIdCount);
+	clGetPlatformIDs (platformIdCount, platformIds.data (), nullptr);
 	for (auto i (platformIds.begin ()), n (platformIds.end ()); i != n; ++i)
 	{
 		rai::opencl_platform platform;
 		platform.platform = *i;
 		cl_uint deviceIdCount = 0;
 		clGetDeviceIDs (*i, CL_DEVICE_TYPE_ALL, 0, nullptr, &deviceIdCount);
-		std::vector <cl_device_id> deviceIds (deviceIdCount);
+		std::vector<cl_device_id> deviceIds (deviceIdCount);
 		clGetDeviceIDs (*i, CL_DEVICE_TYPE_ALL, deviceIdCount, deviceIds.data (), nullptr);
 		for (auto j (deviceIds.begin ()), m (deviceIds.end ()); j != m; ++j)
 		{
@@ -416,72 +416,72 @@ void rai::opencl_environment::dump (std::ostream & stream)
 {
 	auto index (0);
 	auto device_count (0);
-	for (auto & i: platforms)
+	for (auto & i : platforms)
 	{
 		device_count += i.devices.size ();
 	}
 	stream << boost::str (boost::format ("OpenCL found %1% platforms and %2% devices\n") % platforms.size () % device_count);
 	for (auto i (platforms.begin ()), n (platforms.end ()); i != n; ++i, ++index)
 	{
-		std::vector <unsigned> queries = {CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS};
+		std::vector<unsigned> queries = { CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS };
 		stream << "Platform: " << index << std::endl;
 		for (auto j (queries.begin ()), m (queries.end ()); j != m; ++j)
 		{
 			size_t platformInfoCount = 0;
-			clGetPlatformInfo(i->platform, *j, 0, nullptr, &platformInfoCount);
-			std::vector <char> info (platformInfoCount);
-			clGetPlatformInfo(i->platform, *j, info.size (), info.data (), nullptr);
+			clGetPlatformInfo (i->platform, *j, 0, nullptr, &platformInfoCount);
+			std::vector<char> info (platformInfoCount);
+			clGetPlatformInfo (i->platform, *j, info.size (), info.data (), nullptr);
 			stream << info.data () << std::endl;
 		}
 		for (auto j (i->devices.begin ()), m (i->devices.end ()); j != m; ++j)
 		{
-			std::vector <unsigned> queries = {CL_DEVICE_NAME, CL_DEVICE_VENDOR, CL_DEVICE_PROFILE};
+			std::vector<unsigned> queries = { CL_DEVICE_NAME, CL_DEVICE_VENDOR, CL_DEVICE_PROFILE };
 			stream << "Device: " << j - i->devices.begin () << std::endl;
 			for (auto k (queries.begin ()), o (queries.end ()); k != o; ++k)
 			{
 				size_t platformInfoCount = 0;
-				clGetDeviceInfo(*j, *k, 0, nullptr, &platformInfoCount);
-				std::vector <char> info (platformInfoCount);
-				clGetDeviceInfo(*j, *k, info.size (), info.data (), nullptr);
+				clGetDeviceInfo (*j, *k, 0, nullptr, &platformInfoCount);
+				std::vector<char> info (platformInfoCount);
+				clGetDeviceInfo (*j, *k, info.size (), info.data (), nullptr);
 				stream << '\t' << info.data () << std::endl;
 			}
 			size_t deviceTypeCount = 0;
-			clGetDeviceInfo(*j, CL_DEVICE_TYPE, 0, nullptr, &deviceTypeCount);
-			std::vector <uint8_t> deviceTypeInfo (deviceTypeCount);
-			clGetDeviceInfo(*j, CL_DEVICE_TYPE, deviceTypeCount, deviceTypeInfo.data (), 0);
+			clGetDeviceInfo (*j, CL_DEVICE_TYPE, 0, nullptr, &deviceTypeCount);
+			std::vector<uint8_t> deviceTypeInfo (deviceTypeCount);
+			clGetDeviceInfo (*j, CL_DEVICE_TYPE, deviceTypeCount, deviceTypeInfo.data (), 0);
 			std::string device_type_string;
-			switch (deviceTypeInfo [0])
+			switch (deviceTypeInfo[0])
 			{
 				case CL_DEVICE_TYPE_ACCELERATOR:
-				device_type_string = "ACCELERATOR";
-				break;
+					device_type_string = "ACCELERATOR";
+					break;
 				case CL_DEVICE_TYPE_CPU:
-				device_type_string = "CPU";
-				break;
+					device_type_string = "CPU";
+					break;
 				case CL_DEVICE_TYPE_CUSTOM:
-				device_type_string = "CUSTOM";
-				break;
+					device_type_string = "CUSTOM";
+					break;
 				case CL_DEVICE_TYPE_DEFAULT:
-				device_type_string = "DEFAULT";
-				break;
+					device_type_string = "DEFAULT";
+					break;
 				case CL_DEVICE_TYPE_GPU:
-				device_type_string = "GPU";
-				break;
-			default:
-				device_type_string = "Unknown";
-				break;
+					device_type_string = "GPU";
+					break;
+				default:
+					device_type_string = "Unknown";
+					break;
 			}
 			stream << '\t' << device_type_string << std::endl;
 			size_t compilerAvailableCount = 0;
-			clGetDeviceInfo(*j, CL_DEVICE_COMPILER_AVAILABLE, 0, nullptr, &compilerAvailableCount);
-			std::vector <uint8_t> compilerAvailableInfo (compilerAvailableCount);
-			clGetDeviceInfo(*j, CL_DEVICE_COMPILER_AVAILABLE, compilerAvailableCount, compilerAvailableInfo.data (), 0);
-			stream << '\t' << "Compiler available: " << (compilerAvailableInfo [0] ? "true" : "false") << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, 0, nullptr, &compilerAvailableCount);
+			std::vector<uint8_t> compilerAvailableInfo (compilerAvailableCount);
+			clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, compilerAvailableCount, compilerAvailableInfo.data (), 0);
+			stream << '\t' << "Compiler available: " << (compilerAvailableInfo[0] ? "true" : "false") << std::endl;
 			size_t computeUnitsAvailableCount = 0;
-			clGetDeviceInfo(*j, CL_DEVICE_MAX_COMPUTE_UNITS, 0, nullptr, &computeUnitsAvailableCount);
-			std::vector <uint8_t> computeUnitsAvailableInfo (computeUnitsAvailableCount);
-			clGetDeviceInfo(*j, CL_DEVICE_MAX_COMPUTE_UNITS, computeUnitsAvailableCount, computeUnitsAvailableInfo.data (), 0);
-			uint64_t computeUnits (computeUnitsAvailableInfo [0] | (computeUnitsAvailableInfo [1] << 8) | (computeUnitsAvailableInfo [2] << 16) | (computeUnitsAvailableInfo [3] << 24));
+			clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, 0, nullptr, &computeUnitsAvailableCount);
+			std::vector<uint8_t> computeUnitsAvailableInfo (computeUnitsAvailableCount);
+			clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, computeUnitsAvailableCount, computeUnitsAvailableInfo.data (), 0);
+			uint64_t computeUnits (computeUnitsAvailableInfo[0] | (computeUnitsAvailableInfo[1] << 8) | (computeUnitsAvailableInfo[2] << 16) | (computeUnitsAvailableInfo[3] << 24));
 			stream << '\t' << "Compute units available: " << computeUnits << std::endl;
 		}
 	}
@@ -513,9 +513,9 @@ bool rai::opencl_config::deserialize_json (boost::property_tree::ptree const & t
 	auto result (false);
 	try
 	{
-		auto platform_l (tree_a.get <std::string> ("platform"));
-		auto device_l (tree_a.get <std::string> ("device"));
-		auto threads_l (tree_a.get <std::string> ("threads"));
+		auto platform_l (tree_a.get<std::string> ("platform"));
+		auto device_l (tree_a.get<std::string> ("device"));
+		auto threads_l (tree_a.get<std::string> ("threads"));
 		try
 		{
 			platform = std::stoull (platform_l);
@@ -548,15 +548,14 @@ logging (logging_a)
 	error_a |= config.platform >= environment_a.platforms.size ();
 	if (!error_a)
 	{
-		auto & platform (environment_a.platforms [config.platform]);
+		auto & platform (environment_a.platforms[config.platform]);
 		error_a |= config.device >= platform.devices.size ();
 		if (!error_a)
 		{
-			rai::random_pool.GenerateBlock (reinterpret_cast <uint8_t *> (rand.s.data ()),  rand.s.size () * sizeof (decltype (rand.s)::value_type));
-			std::array <cl_device_id, 1> selected_devices;
-			selected_devices [0] = platform.devices [config.device];
-			cl_context_properties contextProperties [] =
-			{
+			rai::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rand.s.data ()), rand.s.size () * sizeof (decltype (rand.s)::value_type));
+			std::array<cl_device_id, 1> selected_devices;
+			selected_devices[0] = platform.devices[config.device];
+			cl_context_properties contextProperties[] = {
 				CL_CONTEXT_PLATFORM,
 				reinterpret_cast<cl_context_properties> (platform.platform),
 				0, 0
@@ -567,7 +566,7 @@ logging (logging_a)
 			if (!error_a)
 			{
 				cl_int queue_error (0);
-				queue = clCreateCommandQueue (context, selected_devices [0], 0, &queue_error);
+				queue = clCreateCommandQueue (context, selected_devices[0], 0, &queue_error);
 				error_a |= queue_error != CL_SUCCESS;
 				if (!error_a)
 				{
@@ -594,7 +593,7 @@ logging (logging_a)
 								error_a |= program_error != CL_SUCCESS;
 								if (!error_a)
 								{
-									auto clBuildProgramError (clBuildProgram(program, selected_devices.size(), selected_devices.data(), "-D __APPLE__", nullptr, nullptr));
+									auto clBuildProgramError (clBuildProgram (program, selected_devices.size (), selected_devices.data (), "-D __APPLE__", nullptr, nullptr));
 									error_a |= clBuildProgramError != CL_SUCCESS;
 									if (!error_a)
 									{
@@ -643,7 +642,7 @@ logging (logging_a)
 										{
 											size_t log_size (0);
 											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
-											std::vector <char> log (log_size);
+											std::vector<char> log (log_size);
 											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
 											BOOST_LOG (logging.log) << log.data ();
 										}
@@ -706,13 +705,13 @@ rai::opencl_work::~opencl_work ()
 	}
 }
 
-boost::optional <uint64_t> rai::opencl_work::generate_work (rai::uint256_union const & root_a)
+boost::optional<uint64_t> rai::opencl_work::generate_work (rai::uint256_union const & root_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	bool error (false);
 	uint64_t result (0);
 	unsigned thread_count (config.threads);
-	size_t work_size [] = { thread_count, 0, 0 };
+	size_t work_size[] = { thread_count, 0, 0 };
 	while (rai::work_validate (root_a, result) && !error)
 	{
 		result = rand.next ();
@@ -725,7 +724,7 @@ boost::optional <uint64_t> rai::opencl_work::generate_work (rai::uint256_union c
 				cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
 				if (enqueue_error == CL_SUCCESS)
 				{
-					cl_int read_error1 = clEnqueueReadBuffer(queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
+					cl_int read_error1 = clEnqueueReadBuffer (queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
 					if (read_error1 == CL_SUCCESS)
 					{
 						cl_int finishError = clFinish (queue);
@@ -762,7 +761,7 @@ boost::optional <uint64_t> rai::opencl_work::generate_work (rai::uint256_union c
 			BOOST_LOG (logging.log) << boost::str (boost::format ("Error writing attempt %1%") % write_error1);
 		}
 	}
-	boost::optional <uint64_t> value;
+	boost::optional<uint64_t> value;
 	if (!error)
 	{
 		value = result;
@@ -770,9 +769,9 @@ boost::optional <uint64_t> rai::opencl_work::generate_work (rai::uint256_union c
 	return value;
 }
 
-std::unique_ptr <rai::opencl_work> rai::opencl_work::create (bool create_a, rai::opencl_config const & config_a, rai::logging & logging_a)
+std::unique_ptr<rai::opencl_work> rai::opencl_work::create (bool create_a, rai::opencl_config const & config_a, rai::logging & logging_a)
 {
-	std::unique_ptr <rai::opencl_work> result;
+	std::unique_ptr<rai::opencl_work> result;
 	if (create_a)
 	{
 		auto error (false);

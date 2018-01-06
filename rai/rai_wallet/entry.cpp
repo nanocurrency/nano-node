@@ -1,14 +1,14 @@
 #include <rai/qt/qt.hpp>
 
-#include <rai/node/working.hpp>
 #include <rai/icon.hpp>
 #include <rai/node/rpc.hpp>
+#include <rai/node/working.hpp>
 
 #include <boost/make_shared.hpp>
 
 #include <boost/program_options.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 class qt_wallet_config
 {
@@ -26,47 +26,47 @@ public:
 		auto result (false);
 		switch (version_a)
 		{
-		case 1:
-		{
-			rai::account account;
-			account.decode_account (tree_a.get <std::string> ("account"));
-			tree_a.erase ("account");
-			tree_a.put ("account", account.to_account ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "2");
-			result = true;
-		}
-		case 2:
-		{
-			boost::property_tree::ptree rpc_l;
-			rpc.serialize_json (rpc_l);
-			tree_a.put ("rpc_enable", "false");
-			tree_a.put_child ("rpc", rpc_l);
-			tree_a.erase ("version");
-			tree_a.put ("version", "3");
-			result = true;
-		}
-		case 3:
-		{
-			auto opencl_enable_l (tree_a.get_optional <bool> ("opencl_enable"));
-			if (!opencl_enable_l)
+			case 1:
 			{
-				tree_a.put ("opencl_enable", "false");
+				rai::account account;
+				account.decode_account (tree_a.get<std::string> ("account"));
+				tree_a.erase ("account");
+				tree_a.put ("account", account.to_account ());
+				tree_a.erase ("version");
+				tree_a.put ("version", "2");
+				result = true;
 			}
-			auto opencl_l (tree_a.get_child_optional ("opencl"));
-			if (!opencl_l)
+			case 2:
 			{
-				boost::property_tree::ptree opencl_l;
-				opencl.serialize_json (opencl_l);
-				tree_a.put_child ("opencl", opencl_l);
+				boost::property_tree::ptree rpc_l;
+				rpc.serialize_json (rpc_l);
+				tree_a.put ("rpc_enable", "false");
+				tree_a.put_child ("rpc", rpc_l);
+				tree_a.erase ("version");
+				tree_a.put ("version", "3");
+				result = true;
 			}
-			tree_a.put ("version", "4");
-			result = true;
-		}
-		case 4:
-			break;
-		default:
-			throw std::runtime_error ("Unknown qt_wallet_config version");
+			case 3:
+			{
+				auto opencl_enable_l (tree_a.get_optional<bool> ("opencl_enable"));
+				if (!opencl_enable_l)
+				{
+					tree_a.put ("opencl_enable", "false");
+				}
+				auto opencl_l (tree_a.get_child_optional ("opencl"));
+				if (!opencl_l)
+				{
+					boost::property_tree::ptree opencl_l;
+					opencl.serialize_json (opencl_l);
+					tree_a.put_child ("opencl", opencl_l);
+				}
+				tree_a.put ("version", "4");
+				result = true;
+			}
+			case 4:
+				break;
+			default:
+				throw std::runtime_error ("Unknown qt_wallet_config version");
 		}
 		return result;
 	}
@@ -75,7 +75,7 @@ public:
 		auto error (false);
 		if (!tree_a.empty ())
 		{
-			auto version_l (tree_a.get_optional <std::string> ("version"));
+			auto version_l (tree_a.get_optional<std::string> ("version"));
 			if (!version_l)
 			{
 				tree_a.put ("version", "1");
@@ -83,12 +83,12 @@ public:
 				upgraded_a = true;
 			}
 			upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
-			auto wallet_l (tree_a.get <std::string> ("wallet"));
-			auto account_l (tree_a.get <std::string> ("account"));
+			auto wallet_l (tree_a.get<std::string> ("wallet"));
+			auto account_l (tree_a.get<std::string> ("account"));
 			auto & node_l (tree_a.get_child ("node"));
-			rpc_enable = tree_a.get <bool> ("rpc_enable");
+			rpc_enable = tree_a.get<bool> ("rpc_enable");
 			auto & rpc_l (tree_a.get_child ("rpc"));
-			opencl_enable = tree_a.get <bool> ("opencl_enable");
+			opencl_enable = tree_a.get<bool> ("opencl_enable");
 			auto & opencl_l (tree_a.get_child ("opencl"));
 			try
 			{
@@ -192,12 +192,12 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 {
 	rai_qt::eventloop_processor processor;
 	boost::filesystem::create_directories (data_path);
-	QPixmap pixmap(":/logo.png");
-	QSplashScreen *splash = new QSplashScreen(pixmap);
-	splash->show();
-	application.processEvents();
-	splash->showMessage(QSplashScreen::tr("Remember - Backup Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::black);
-	application.processEvents();
+	QPixmap pixmap (":/logo.png");
+	QSplashScreen * splash = new QSplashScreen (pixmap);
+	splash->show ();
+	application.processEvents ();
+	splash->showMessage (QSplashScreen::tr ("Remember - Backup Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::black);
+	application.processEvents ();
 	qt_wallet_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	int result (0);
@@ -208,17 +208,17 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	{
 		boost::asio::io_service service;
 		config.node.logging.init (data_path);
-		std::shared_ptr <rai::node> node;
-		std::shared_ptr <rai_qt::wallet> gui;
+		std::shared_ptr<rai::node> node;
+		std::shared_ptr<rai_qt::wallet> gui;
 		rai::set_application_icon (application);
 		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::work_pool work (config.node.work_threads, opencl ? [&opencl] (rai::uint256_union const & root_a)
-		{
+		rai::work_pool work (config.node.work_threads, opencl ? [&opencl](rai::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
-		} : std::function <boost::optional <uint64_t> (rai::uint256_union const &)> (nullptr));
+		}
+		                                                      : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
 		rai::alarm alarm (service);
 		rai::node_init init;
-		node = std::make_shared <rai::node> (init, service, data_path, alarm, config.node, work);
+		node = std::make_shared<rai::node> (init, service, data_path, alarm, config.node, work);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -258,15 +258,13 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				rpc.start ();
 			}
 			rai::thread_runner runner (service, node->config.io_threads);
-			QObject::connect (&application, &QApplication::aboutToQuit, [&] ()
-			{
+			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				rpc.stop ();
 				node->stop ();
 			});
-			application.postEvent (&processor, new rai_qt::eventloop_event ([&] ()
-			{
-				gui = std::make_shared <rai_qt::wallet> (application, processor, *node, wallet, config.account);
-				splash->close();
+			application.postEvent (&processor, new rai_qt::eventloop_event ([&]() {
+				gui = std::make_shared<rai_qt::wallet> (application, processor, *node, wallet, config.account);
+				splash->close ();
 				gui->start ();
 				gui->client_window->show ();
 			}));
@@ -290,7 +288,7 @@ int main (int argc, char * const * argv)
 {
 	try
 	{
-		QApplication application (argc, const_cast <char **> (argv));
+		QApplication application (argc, const_cast<char **> (argv));
 		boost::program_options::options_description description ("Command line options");
 		description.add_options () ("help", "Print out options");
 		rai::add_node_options (description);
@@ -312,7 +310,7 @@ int main (int argc, char * const * argv)
 				boost::filesystem::path data_path;
 				if (vm.count ("data_path"))
 				{
-					auto name (vm ["data_path"].as <std::string> ());
+					auto name (vm["data_path"].as<std::string> ());
 					data_path = boost::filesystem::path (name);
 				}
 				else

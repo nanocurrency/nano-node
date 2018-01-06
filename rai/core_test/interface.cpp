@@ -3,14 +3,14 @@
 #include <memory>
 
 #include <rai/lib/blocks.hpp>
-#include <rai/lib/numbers.hpp>
 #include <rai/lib/interface.h>
+#include <rai/lib/numbers.hpp>
 #include <rai/lib/work.hpp>
 
 TEST (interface, xrb_uint256_to_string)
 {
 	rai::uint256_union zero (0);
-	char text [65] = { 0 };
+	char text[65] = { 0 };
 	xrb_uint256_to_string (zero.bytes.data (), text);
 	ASSERT_STREQ ("0000000000000000000000000000000000000000000000000000000000000000", text);
 }
@@ -18,7 +18,7 @@ TEST (interface, xrb_uint256_to_string)
 TEST (interface, xrb_uint256_to_address)
 {
 	rai::uint256_union zero (0);
-	char text [65] = { 0 };
+	char text[65] = { 0 };
 	xrb_uint256_to_address (zero.bytes.data (), text);
 	ASSERT_STREQ ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp", text);
 }
@@ -26,7 +26,7 @@ TEST (interface, xrb_uint256_to_address)
 TEST (interface, xrb_uint512_to_string)
 {
 	rai::uint512_union zero (0);
-	char text [129] = { 0 };
+	char text[129] = { 0 };
 	xrb_uint512_to_string (zero.bytes.data (), text);
 	ASSERT_STREQ ("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", text);
 }
@@ -85,7 +85,7 @@ TEST (interface, sign_transaction)
 	xrb_key_account (key.data.bytes.data (), pub.bytes.data ());
 	rai::send_block send (0, 0, 0, key, pub, 0);
 	ASSERT_FALSE (rai::validate_message (pub, send.hash (), send.signature));
-	send.signature.bytes [0] ^= 1;
+	send.signature.bytes[0] ^= 1;
 	ASSERT_TRUE (rai::validate_message (pub, send.hash (), send.signature));
 	auto transaction (xrb_sign_transaction (send.to_json ().c_str (), key.data.bytes.data ()));
 	boost::property_tree::ptree block_l;
@@ -94,7 +94,7 @@ TEST (interface, sign_transaction)
 	boost::property_tree::read_json (block_stream, block_l);
 	auto block (rai::deserialize_block_json (block_l));
 	ASSERT_NE (nullptr, block);
-	auto send1 (dynamic_cast <rai::send_block *> (block.get ()));
+	auto send1 (dynamic_cast<rai::send_block *> (block.get ()));
 	ASSERT_NE (nullptr, send1);
 	ASSERT_FALSE (rai::validate_message (pub, send.hash (), send1->signature));
 	free (transaction);

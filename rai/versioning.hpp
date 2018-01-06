@@ -28,7 +28,7 @@ public:
 	pending_info_v3 (rai::account const &, rai::amount const &, rai::account const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
-	bool operator == (rai::pending_info_v3 const &) const;
+	bool operator== (rai::pending_info_v3 const &) const;
 	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;

@@ -12,20 +12,20 @@ namespace rai
 std::string to_string_hex (uint64_t);
 bool from_string_hex (std::string const &, uint64_t &);
 // We operate on streams of uint8_t by convention
-using stream = std::basic_streambuf <uint8_t>;
+using stream = std::basic_streambuf<uint8_t>;
 // Read a raw byte stream the size of `T' and fill value.
 template <typename T>
 bool read (rai::stream & stream_a, T & value)
 {
-	static_assert (std::is_pod <T>::value, "Can't stream read non-standard layout types");
-	auto amount_read (stream_a.sgetn (reinterpret_cast <uint8_t *> (&value), sizeof (value)));
+	static_assert (std::is_pod<T>::value, "Can't stream read non-standard layout types");
+	auto amount_read (stream_a.sgetn (reinterpret_cast<uint8_t *> (&value), sizeof (value)));
 	return amount_read != sizeof (value);
 }
 template <typename T>
 void write (rai::stream & stream_a, T const & value)
 {
-	static_assert (std::is_pod <T>::value, "Can't stream write non-standard layout types");
-	auto amount_written (stream_a.sputn (reinterpret_cast <uint8_t const *> (&value), sizeof (value)));
+	static_assert (std::is_pod<T>::value, "Can't stream write non-standard layout types");
+	auto amount_written (stream_a.sputn (reinterpret_cast<uint8_t const *> (&value), sizeof (value)));
 	assert (amount_written == sizeof (value));
 }
 class block_visitor;
@@ -57,7 +57,7 @@ public:
 	virtual void serialize (rai::stream &) const = 0;
 	virtual void serialize_json (std::string &) const = 0;
 	virtual void visit (rai::block_visitor &) const = 0;
-	virtual bool operator == (rai::block const &) const = 0;
+	virtual bool operator== (rai::block const &) const = 0;
 	virtual rai::block_type type () const = 0;
 	virtual void signature_set (rai::uint512_union const &) = 0;
 };
@@ -93,8 +93,8 @@ public:
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
 	void signature_set (rai::uint512_union const &) override;
-	bool operator == (rai::block const &) const override;
-	bool operator == (rai::send_block const &) const;
+	bool operator== (rai::block const &) const override;
+	bool operator== (rai::send_block const &) const;
 	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (rai::signature) + sizeof (uint64_t);
 	send_hashables hashables;
 	rai::signature signature;
@@ -131,8 +131,8 @@ public:
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
 	void signature_set (rai::uint512_union const &) override;
-	bool operator == (rai::block const &) const override;
-	bool operator == (rai::receive_block const &) const;
+	bool operator== (rai::block const &) const override;
+	bool operator== (rai::receive_block const &) const;
 	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
 	receive_hashables hashables;
 	rai::signature signature;
@@ -171,8 +171,8 @@ public:
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
 	void signature_set (rai::uint512_union const &) override;
-	bool operator == (rai::block const &) const override;
-	bool operator == (rai::open_block const &) const;
+	bool operator== (rai::block const &) const override;
+	bool operator== (rai::open_block const &) const;
 	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::account) + sizeof (rai::signature) + sizeof (uint64_t);
 	rai::open_hashables hashables;
 	rai::signature signature;
@@ -209,8 +209,8 @@ public:
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
 	void signature_set (rai::uint512_union const &) override;
-	bool operator == (rai::block const &) const override;
-	bool operator == (rai::change_block const &) const;
+	bool operator== (rai::block const &) const override;
+	bool operator== (rai::change_block const &) const;
 	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::signature) + sizeof (uint64_t);
 	rai::change_hashables hashables;
 	rai::signature signature;
@@ -224,8 +224,8 @@ public:
 	virtual void open_block (rai::open_block const &) = 0;
 	virtual void change_block (rai::change_block const &) = 0;
 };
-std::unique_ptr <rai::block> deserialize_block (rai::stream &);
-std::unique_ptr <rai::block> deserialize_block (rai::stream &, rai::block_type);
-std::unique_ptr <rai::block> deserialize_block_json (boost::property_tree::ptree const &);
+std::unique_ptr<rai::block> deserialize_block (rai::stream &);
+std::unique_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type);
+std::unique_ptr<rai::block> deserialize_block_json (boost::property_tree::ptree const &);
 void serialize_block (rai::stream &, rai::block const &);
 }

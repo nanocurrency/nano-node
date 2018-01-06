@@ -1,7 +1,7 @@
 #include <rai/node/working.hpp>
 
-#include <sys/types.h>
 #include <pwd.h>
+#include <sys/types.h>
 
 namespace rai
 {

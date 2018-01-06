@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstddef>
 #include <chrono>
+#include <cstddef>
 
 namespace rai
 {

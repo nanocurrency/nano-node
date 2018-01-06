@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <rai/lib/blocks.hpp>
 #include <rai/node/utility.hpp>
@@ -12,11 +12,11 @@
 namespace boost
 {
 template <>
-struct hash <rai::uint256_union>
+struct hash<rai::uint256_union>
 {
-	size_t operator () (rai::uint256_union const & value_a) const
+	size_t operator() (rai::uint256_union const & value_a) const
 	{
-		std::hash <rai::uint256_union> hash;
+		std::hash<rai::uint256_union> hash;
 		return hash (value_a);
 	}
 };
@@ -34,10 +34,10 @@ public:
 class shared_ptr_block_hash
 {
 public:
-	size_t operator () (std::shared_ptr <rai::block> const &) const;
-	bool operator () (std::shared_ptr <rai::block> const &, std::shared_ptr <rai::block> const &) const;
+	size_t operator() (std::shared_ptr<rai::block> const &) const;
+	bool operator() (std::shared_ptr<rai::block> const &, std::shared_ptr<rai::block> const &) const;
 };
-std::unique_ptr <rai::block> deserialize_block (MDB_val const &);
+std::unique_ptr<rai::block> deserialize_block (MDB_val const &);
 // Latest information about an account
 class account_info
 {
@@ -48,8 +48,8 @@ public:
 	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
-	bool operator == (rai::account_info const &) const;
-	bool operator != (rai::account_info const &) const;
+	bool operator== (rai::account_info const &) const;
+	bool operator!= (rai::account_info const &) const;
 	rai::mdb_val val () const;
 	rai::block_hash head;
 	rai::block_hash rep_block;
@@ -63,7 +63,7 @@ class store_entry
 public:
 	store_entry ();
 	void clear ();
-	store_entry * operator -> ();
+	store_entry * operator-> ();
 	rai::mdb_val first;
 	rai::mdb_val second;
 };
@@ -76,13 +76,13 @@ public:
 	store_iterator (rai::store_iterator &&);
 	store_iterator (rai::store_iterator const &) = delete;
 	~store_iterator ();
-	rai::store_iterator & operator ++ ();
-	void next_dup();
-	rai::store_iterator & operator = (rai::store_iterator &&);
-	rai::store_iterator & operator = (rai::store_iterator const &) = delete;
-	rai::store_entry & operator -> ();
-	bool operator == (rai::store_iterator const &) const;
-	bool operator != (rai::store_iterator const &) const;
+	rai::store_iterator & operator++ ();
+	void next_dup ();
+	rai::store_iterator & operator= (rai::store_iterator &&);
+	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
+	rai::store_entry & operator-> ();
+	bool operator== (rai::store_iterator const &) const;
+	bool operator!= (rai::store_iterator const &) const;
 	MDB_cursor * cursor;
 	rai::store_entry current;
 };
@@ -95,7 +95,7 @@ public:
 	pending_info (rai::account const &, rai::amount const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
-	bool operator == (rai::pending_info const &) const;
+	bool operator== (rai::pending_info const &) const;
 	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
@@ -107,7 +107,7 @@ public:
 	pending_key (MDB_val const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
-	bool operator == (rai::pending_key const &) const;
+	bool operator== (rai::pending_key const &) const;
 	rai::mdb_val val () const;
 	rai::account account;
 	rai::block_hash hash;
@@ -120,7 +120,7 @@ public:
 	block_info (rai::account const &, rai::amount const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
-	bool operator == (rai::block_info const &) const;
+	bool operator== (rai::block_info const &) const;
 	rai::mdb_val val () const;
 	rai::account account;
 	rai::amount balance;
@@ -142,17 +142,17 @@ public:
 	vote (rai::vote const &);
 	vote (bool &, rai::stream &);
 	vote (bool &, rai::stream &, rai::block_type);
-	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr <rai::block>);
+	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
 	vote (MDB_val const &);
 	rai::uint256_union hash () const;
-	bool operator == (rai::vote const &) const;
-	bool operator != (rai::vote const &) const;
+	bool operator== (rai::vote const &) const;
+	bool operator!= (rai::vote const &) const;
 	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
-	std::shared_ptr <rai::block> block;
+	std::shared_ptr<rai::block> block;
 	// Account that's voting
 	rai::account account;
 	// Signature of sequence + block hash
@@ -168,32 +168,32 @@ class vote_result
 {
 public:
 	rai::vote_code code;
-	std::shared_ptr <rai::vote> vote;
+	std::shared_ptr<rai::vote> vote;
 };
 class block_store
 {
 public:
 	block_store (bool &, boost::filesystem::path const &);
 	uint64_t now ();
-	
+
 	MDB_dbi block_database (rai::block_type);
 	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
 	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0));
 	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
 	void block_successor_clear (MDB_txn *, rai::block_hash const &);
-	std::unique_ptr <rai::block> block_get (MDB_txn *, rai::block_hash const &);
-	std::unique_ptr <rai::block> block_random (MDB_txn *);
-	std::unique_ptr <rai::block> block_random (MDB_txn *, MDB_dbi);
+	std::unique_ptr<rai::block> block_get (MDB_txn *, rai::block_hash const &);
+	std::unique_ptr<rai::block> block_random (MDB_txn *);
+	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	rai::block_counts block_count (MDB_txn *);
-	
+
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);
 	void frontier_del (MDB_txn *, rai::block_hash const &);
 	size_t frontier_count (MDB_txn *);
-	
+
 	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
 	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);
 	void account_del (MDB_txn *, rai::account const &);
@@ -201,7 +201,7 @@ public:
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
-	
+
 	void pending_put (MDB_txn *, rai::pending_key const &, rai::pending_info const &);
 	void pending_del (MDB_txn *, rai::pending_key const &);
 	bool pending_get (MDB_txn *, rai::pending_key const &, rai::pending_info &);
@@ -209,7 +209,7 @@ public:
 	rai::store_iterator pending_begin (MDB_txn *, rai::pending_key const &);
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
-	
+
 	void block_info_put (MDB_txn *, rai::block_hash const &, rai::block_info const &);
 	void block_info_del (MDB_txn *, rai::block_hash const &);
 	bool block_info_get (MDB_txn *, rai::block_hash const &, rai::block_info &);
@@ -219,49 +219,49 @@ public:
 	rai::store_iterator block_info_end ();
 	rai::uint128_t block_balance (MDB_txn *, rai::block_hash const &);
 	static size_t const block_info_max = 32;
-	
+
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
 	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	void representation_add (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	rai::store_iterator representation_begin (MDB_txn *);
 	rai::store_iterator representation_end ();
-	
+
 	void unchecked_clear (MDB_txn *);
-	void unchecked_put (MDB_txn *, rai::block_hash const &, std::shared_ptr <rai::block> const &);
-	std::vector <std::shared_ptr <rai::block>> unchecked_get (MDB_txn *, rai::block_hash const &);
+	void unchecked_put (MDB_txn *, rai::block_hash const &, std::shared_ptr<rai::block> const &);
+	std::vector<std::shared_ptr<rai::block>> unchecked_get (MDB_txn *, rai::block_hash const &);
 	void unchecked_del (MDB_txn *, rai::block_hash const &, rai::block const &);
 	rai::store_iterator unchecked_begin (MDB_txn *);
 	rai::store_iterator unchecked_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unchecked_end ();
 	size_t unchecked_count (MDB_txn *);
-	std::unordered_multimap <rai::block_hash, std::shared_ptr <rai::block>> unchecked_cache;
-	
+	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
+
 	void unsynced_put (MDB_txn *, rai::block_hash const &);
 	void unsynced_del (MDB_txn *, rai::block_hash const &);
 	bool unsynced_exists (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unsynced_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unsynced_begin (MDB_txn *);
 	rai::store_iterator unsynced_end ();
-	
+
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
-	
-	rai::vote_result vote_validate (MDB_txn *, std::shared_ptr <rai::vote>);
+
+	rai::vote_result vote_validate (MDB_txn *, std::shared_ptr<rai::vote>);
 	// Return latest vote for an account from store
-	std::shared_ptr <rai::vote> vote_get (MDB_txn *, rai::account const &);
+	std::shared_ptr<rai::vote> vote_get (MDB_txn *, rai::account const &);
 	// Populate vote with the next sequence number
-	std::shared_ptr <rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::shared_ptr <rai::block>);
+	std::shared_ptr<rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>);
 	// Return either vote or the stored vote with a higher sequence number
-	std::shared_ptr <rai::vote> vote_max (MDB_txn *, std::shared_ptr <rai::vote>);
+	std::shared_ptr<rai::vote> vote_max (MDB_txn *, std::shared_ptr<rai::vote>);
 	// Return latest vote for an account considering the vote cache
-	std::shared_ptr <rai::vote> vote_current (MDB_txn *, rai::account const &);
+	std::shared_ptr<rai::vote> vote_current (MDB_txn *, rai::account const &);
 	void flush (MDB_txn *);
 	rai::store_iterator vote_begin (MDB_txn *);
 	rai::store_iterator vote_end ();
 	std::mutex cache_mutex;
-	std::unordered_map <rai::account, std::shared_ptr <rai::vote>> vote_cache;
-	
+	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
+
 	void version_put (MDB_txn *, int);
 	int version_get (MDB_txn *);
 	void do_upgrades (MDB_txn *);
@@ -274,9 +274,9 @@ public:
 	void upgrade_v7_to_v8 (MDB_txn *);
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
-	
+
 	void clear (MDB_dbi);
-	
+
 	rai::mdb_env environment;
 	// block_hash -> account                                        // Maps head blocks to owning account
 	MDB_dbi frontiers;
@@ -337,28 +337,28 @@ enum class tally_result
 class votes
 {
 public:
-	votes (std::shared_ptr <rai::block>);
-	rai::tally_result vote (std::shared_ptr <rai::vote>);
+	votes (std::shared_ptr<rai::block>);
+	rai::tally_result vote (std::shared_ptr<rai::vote>);
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account
-	std::unordered_map <rai::account, std::shared_ptr <rai::block>> rep_votes;
+	std::unordered_map<rai::account, std::shared_ptr<rai::block>> rep_votes;
 };
 class ledger
 {
 public:
 	ledger (rai::block_store &, rai::uint128_t const & = 0);
-	std::pair <rai::uint128_t, std::shared_ptr <rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
+	std::pair<rai::uint128_t, std::shared_ptr<rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
 	// Map of weight -> associated block, ordered greatest to least
-	std::map <rai::uint128_t, std::shared_ptr <rai::block>, std::greater <rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
+	std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
 	rai::uint128_t account_pending (MDB_txn *, rai::account const &);
 	rai::uint128_t weight (MDB_txn *, rai::account const &);
-	std::unique_ptr <rai::block> successor (MDB_txn *, rai::block_hash const &);
-	std::unique_ptr <rai::block> forked_block (MDB_txn *, rai::block const &);
+	std::unique_ptr<rai::block> successor (MDB_txn *, rai::block_hash const &);
+	std::unique_ptr<rai::block> forked_block (MDB_txn *, rai::block const &);
 	rai::block_hash latest (MDB_txn *, rai::account const &);
 	rai::block_hash latest_root (MDB_txn *, rai::account const &);
 	rai::block_hash representative (MDB_txn *, rai::block_hash const &);
@@ -399,6 +399,6 @@ public:
 	explicit genesis ();
 	void initialize (MDB_txn *, rai::block_store &) const;
 	rai::block_hash hash () const;
-	std::unique_ptr <rai::open_block> open;
+	std::unique_ptr<rai::open_block> open;
 };
 }

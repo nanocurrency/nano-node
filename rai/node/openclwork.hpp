@@ -23,14 +23,14 @@ class opencl_platform
 {
 public:
 	cl_platform_id platform;
-	std::vector <cl_device_id> devices;
+	std::vector<cl_device_id> devices;
 };
 class opencl_environment
 {
 public:
 	opencl_environment (bool &);
 	void dump (std::ostream & stream);
-	std::vector <rai::opencl_platform> platforms;
+	std::vector<rai::opencl_platform> platforms;
 };
 union uint256_union;
 class work_pool;
@@ -51,7 +51,7 @@ public:
 	opencl_work (bool &, rai::opencl_config const &, rai::opencl_environment &, rai::logging &);
 	~opencl_work ();
 	boost::optional<uint64_t> generate_work (rai::uint256_union const &);
-	static std::unique_ptr <opencl_work> create (bool, rai::opencl_config const &, rai::logging &);
+	static std::unique_ptr<opencl_work> create (bool, rai::opencl_config const &, rai::logging &);
 	rai::opencl_config const & config;
 	std::mutex mutex;
 	cl_context context;
