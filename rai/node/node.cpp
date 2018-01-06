@@ -200,7 +200,7 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 				blake2b_update (&hash, address.bytes.data (), address.bytes.size ());
 				uint16_t peer_delay;
 				blake2b_final (&hash, &peer_delay, sizeof (peer_delay));
-				peer_delay &= (1 << 10) - 1; // maximum of 1023 milliseconds delay
+				peer_delay &= (1 << 7) - 1; // maximum of 127 milliseconds delay
 				boost::asio::deadline_timer t (node_a.service, boost::posix_time::millisec (peer_delay));
 				t.async_wait ([&node_a, &confirm, bytes, endpoint] (boost::system::error_code const & ec) {
 					node_a.network.confirm_send (confirm, bytes, endpoint);
