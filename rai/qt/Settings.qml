@@ -1,5 +1,6 @@
 import QtQuick 2.9
 import QtQuick.Controls 2.3
+import QtQuick.Dialogs 1.2
 import QtQuick.Layouts 1.3
 
 import net.raiblocks 1.0
@@ -148,6 +149,191 @@ Pane {
                             }
                         }
                     ]
+                }
+            }
+        }
+
+        GroupBox {
+            Layout.alignment: Qt.AlignHCenter
+
+            ColumnLayout {
+                TextField {
+                    id: tfImportSeed
+                    placeholderText: qsTr("Wallet seed")
+                    validator: RegExpValidator {
+                        regExp: /^[a-fA-F0-9]{64}$/
+                    }
+                }
+
+                Label {
+                    text: qsTr("Modifying seed clears existing keys.\nType 'clear keys' below to confirm:")
+                }
+
+                TextField {
+                    id: tfImportConfirm
+                    placeholderText: qsTr("clear keys")
+                }
+
+                Button {
+                    text: qsTr("Restore wallet from seed")
+                    enabled: tfImportSeed.acceptableInput && tfImportConfirm.text == tfImportConfirm.placeholderText
+                    onClicked: {
+                        rai_import.importSeed(tfImportSeed.text)
+                        tfImportSeed.clear()
+                        tfImportConfirm.clear()
+                    }
+
+                    Connections {
+                        target: rai_import
+                        onImportSeedSuccess: {
+                            popupImportSeed.state = "success"
+                        }
+                        onImportSeedFailure: {
+                            popupImportSeed.errorMsg = errorMsg
+                            popupImportSeed.state = "failure"
+                        }
+                    }
+
+                    Common.PopupMessage {
+                        id: popupImportSeed
+                        property string errorMsg: "unknown error"
+                        state: "hidden"
+                        states: [
+                            State {
+                                name: "hidden"
+                                PropertyChanges {
+                                    target: popupImportSeed
+                                    visible: false
+                                }
+                            },
+                            State {
+                                name: "success"
+                                PropertyChanges {
+                                    target: popupImportSeed
+                                    text: qsTr("Wallet was imported")
+                                    color: "green"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popupImportSeed.state = "hidden"
+                                }
+                            },
+                            State {
+                                name: "failure"
+                                PropertyChanges {
+                                    target: popupImportSeed
+                                    text: errorMsg
+                                    color: "red"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popupImportSeed.state = "hidden"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+
+        GroupBox {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.maximumWidth: parent.width
+
+            ColumnLayout {
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                }
+
+                Label {
+                    Layout.maximumWidth: parent.width
+                    text: qsTr("Warning: accounts recovered from a file are not associated to your wallet seed, which means they cannot be recovered later with a seed backup. Move those funds to new accounts after recovering them.")
+                    color: "red"
+                    wrapMode: Text.WordWrap
+                }
+
+                TextField {
+                    id: tfImportFromFilePath
+                    placeholderText: qsTr("Wallet filepath")
+                }
+
+                Button {
+                    text: qsTr("Load wallet backup file")
+                    onClicked: fileDialog.open()
+                    FileDialog {
+                        id: fileDialog
+                        title: qsTr("Please choose a wallet backup file")
+                        onAccepted: {
+                            tfImportFromFilePath.text = rai_import.convertUrlToNativeFilePath(fileUrl)
+                            close()
+                        }
+                        onRejected: {
+                            close()
+                        }
+                    }
+                }
+
+                TextField {
+                    id: tfImportFromFilePassword
+                    placeholderText: qsTr("Password")
+                    echoMode: TextInput.Password
+                }
+
+                Button {
+                    text: qsTr("Restore wallet from file")
+                    enabled: tfImportFromFilePath.text.length > 0 && tfImportFromFilePassword.text.length > 0
+                    onClicked: {
+                        rai_import.importFromFile(tfImportFromFilePath.text, tfImportFromFilePassword.text)
+                        tfImportFromFilePath.clear()
+                        tfImportFromFilePassword.clear()
+                    }
+
+                    Connections {
+                        target: rai_import
+                        onImportFromFileSuccess: {
+                            popupImportFromFile.state = "success"
+                        }
+                        onImportFromFileFailure: {
+                            popupImportFromFile.errorMsg = errorMsg
+                            popupImportFromFile.state = "failure"
+                        }
+                    }
+
+                    Common.PopupMessage {
+                        id: popupImportFromFile
+                        property string errorMsg: "unknown error"
+                        state: "hidden"
+                        states: [
+                            State {
+                                name: "hidden"
+                                PropertyChanges {
+                                    target: popupImportFromFile
+                                    visible: false
+                                }
+                            },
+                            State {
+                                name: "success"
+                                PropertyChanges {
+                                    target: popupImportFromFile
+                                    text: qsTr("Wallet was imported")
+                                    color: "green"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popupImportFromFile.state = "hidden"
+                                }
+                            },
+                            State {
+                                name: "failure"
+                                PropertyChanges {
+                                    target: popupImportFromFile
+                                    text: errorMsg
+                                    color: "red"
+                                    interval: 2000
+                                    visible: true
+                                    onTriggered: popupImportFromFile.state = "hidden"
+                                }
+                            }
+                        ]
+                    }
                 }
             }
         }

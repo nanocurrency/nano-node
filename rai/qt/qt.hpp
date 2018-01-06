@@ -247,10 +247,6 @@ public:
 	accounts (rai_qt::wallet &);
 	void refresh_wallet_balance ();
 	Q_INVOKABLE void refresh ();
-	QWidget * window;
-	QVBoxLayout * layout;
-	QPushButton * import_wallet;
-	QPushButton * back;
 	rai_qt::wallet & wallet;
 
 	Q_INVOKABLE void backupSeed ();
@@ -282,25 +278,22 @@ private:
 	void setTotalBalance (QString totalBalance);
 	void setTotalPending (QString totalPending);
 };
-class import
+class import : public QObject
 {
+	Q_OBJECT
 public:
 	import (rai_qt::wallet &);
-	QWidget * window;
-	QVBoxLayout * layout;
-	QLabel * seed_label;
-	QLineEdit * seed;
-	QLabel * clear_label;
-	QLineEdit * clear_line;
-	QPushButton * import_seed;
-	QFrame * separator;
-	QLabel * filename_label;
-	QLineEdit * filename;
-	QLabel * password_label;
-	QLineEdit * password;
-	QPushButton * perform;
-	QPushButton * back;
 	rai_qt::wallet & wallet;
+
+	Q_INVOKABLE void importSeed (QString seed);
+	Q_SIGNAL void importSeedSuccess ();
+	Q_SIGNAL void importSeedFailure (QString errorMsg);
+
+	Q_INVOKABLE void importFromFile (QString path, QString password);
+	Q_SIGNAL void importFromFileSuccess ();
+	Q_SIGNAL void importFromFileFailure (QString errorMsg);
+
+	Q_INVOKABLE QString convertUrlToNativeFilePath (const QUrl & urlStylePath) const;
 };
 class history_item : public QObject
 {

@@ -142,21 +142,8 @@ bool rai_qt::account_item::isAdhoc () const
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
-window (new QWidget),
-layout (new QVBoxLayout),
-import_wallet (new QPushButton ("Import wallet")),
-back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	layout->addWidget (import_wallet);
-	layout->addWidget (back);
-	window->setLayout (layout);
-	QObject::connect (back, &QPushButton::clicked, [this]() {
-		this->wallet.pop_main_stack ();
-	});
-	QObject::connect (import_wallet, &QPushButton::released, [this]() {
-		this->wallet.push_main_stack (this->wallet.import.window);
-	});
 	refresh_wallet_balance ();
 }
 
@@ -293,165 +280,96 @@ void rai_qt::accounts::setTotalPending (QString totalPending)
 }
 
 rai_qt::import::import (rai_qt::wallet & wallet_a) :
-window (new QWidget),
-layout (new QVBoxLayout),
-seed_label (new QLabel ("Seed:")),
-seed (new QLineEdit),
-clear_label (new QLabel ("Modifying seed clears existing keys\nType 'clear keys' below to confirm:")),
-clear_line (new QLineEdit),
-import_seed (new QPushButton ("Import seed")),
-separator (new QFrame),
-filename_label (new QLabel ("Path to file:")),
-filename (new QLineEdit),
-password_label (new QLabel ("Password:")),
-password (new QLineEdit),
-perform (new QPushButton ("Import")),
-back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	layout->addWidget (seed_label);
-	layout->addWidget (seed);
-	layout->addWidget (clear_label);
-	layout->addWidget (clear_line);
-	clear_line->setPlaceholderText ("clear keys");
-	layout->addWidget (import_seed);
-	layout->addWidget (separator);
-	layout->addWidget (filename_label);
-	layout->addWidget (filename);
-	layout->addWidget (password_label);
-	layout->addWidget (password);
-	layout->addWidget (perform);
-	layout->addStretch ();
-	layout->addWidget (back);
-	window->setLayout (layout);
-	QObject::connect (perform, &QPushButton::released, [this]() {
-		std::ifstream stream;
-		stream.open (filename->text ().toStdString ().c_str ());
-		if (!stream.fail ())
+}
+
+void rai_qt::import::importSeed (QString seed)
+{
+	rai::raw_key seed_l;
+	if (seed_l.data.decode_hex (seed.toStdString ()))
+	{
+		Q_EMIT importSeedFailure (
+		seed.toStdString ().size () != 64
+		? "Incorrect seed, length must be 64"
+		: "Incorrect seed. Only HEX characters allowed");
+		return;
+	}
+
+	bool successful (false);
+	{
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
-			show_line_ok (*filename);
-			std::stringstream contents;
-			contents << stream.rdbuf ();
-			if (!this->wallet.wallet_m->import (contents.str (), password->text ().toStdString ().c_str ()))
-			{
-				show_line_ok (*password);
-				this->wallet.accounts.refresh ();
-				password->clear ();
-				filename->clear ();
-			}
-			else
-			{
-				show_line_error (*password);
-			}
+			this->wallet.wallet_m->store.seed_set (transaction, seed_l);
+			successful = true;
 		}
 		else
 		{
-			show_line_error (*filename);
+			Q_EMIT importSeedFailure ("Wallet is locked, unlock it to enable the import");
+			return;
 		}
-	});
-	QObject::connect (back, &QPushButton::released, [this]() {
-		this->wallet.pop_main_stack ();
-	});
-	QObject::connect (import_seed, &QPushButton::released, [this]() {
-		if (clear_line->text ().toStdString () == "clear keys")
+	}
+	if (successful)
+	{
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+		this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
+		uint32_t count (0);
+		for (uint32_t i (1), n (32); i < n; ++i)
 		{
-			show_line_ok (*clear_line);
-			rai::raw_key seed_l;
-			if (!seed_l.data.decode_hex (seed->text ().toStdString ()))
+			rai::raw_key prv;
+			this->wallet.wallet_m->store.deterministic_key (prv, transaction, i);
+			rai::keypair pair (prv.data.to_string ());
+			auto latest (this->wallet.node.ledger.latest (transaction, pair.pub));
+			if (!latest.is_zero ())
 			{
-				bool successful (false);
-				{
-					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-					if (this->wallet.wallet_m->store.valid_password (transaction))
-					{
-						this->wallet.wallet_m->store.seed_set (transaction, seed_l);
-						successful = true;
-					}
-					else
-					{
-						show_line_error (*seed);
-						show_button_error (*import_seed);
-						import_seed->setText ("Wallet is locked, unlock it to enable the import");
-						this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this]() {
-							this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-								show_line_ok (*seed);
-								show_button_ok (*import_seed);
-								import_seed->setText ("Import seed");
-							}));
-						});
-					}
-				}
-				if (successful)
-				{
-					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-					this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
-					auto count (0);
-					for (uint32_t i (1), n (32); i < n; ++i)
-					{
-						rai::raw_key prv;
-						this->wallet.wallet_m->store.deterministic_key (prv, transaction, i);
-						rai::keypair pair (prv.data.to_string ());
-						auto latest (this->wallet.node.ledger.latest (transaction, pair.pub));
-						if (!latest.is_zero ())
-						{
-							count = i;
-							n = i + 32;
-						}
-					}
-					for (uint32_t i (0); i < count; ++i)
-					{
-						this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
-					}
-				}
-				if (successful)
-				{
-					seed->clear ();
-					clear_line->clear ();
-					show_line_ok (*seed);
-					show_button_success (*import_seed);
-					import_seed->setText ("Successful import of seed");
-					this->wallet.refresh ();
-					this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-							show_button_ok (*import_seed);
-							import_seed->setText ("Import seed");
-						}));
-					});
-				}
+				count = i;
+				n = i + 32;
 			}
-			else
-			{
-				show_line_error (*seed);
-				show_button_error (*import_seed);
-				if (seed->text ().toStdString ().size () != 64)
-				{
-					import_seed->setText ("Incorrect seed, length must be 64");
-				}
-				else
-				{
-					import_seed->setText ("Incorrect seed. Only HEX characters allowed");
-				}
-				this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-					this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-						show_button_ok (*import_seed);
-						import_seed->setText ("Import seed");
-					}));
-				});
-			}
+		}
+		for (uint32_t i (0); i < count; ++i)
+		{
+			this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
+		}
+	}
+	if (successful)
+	{
+		Q_EMIT importSeedSuccess ();
+	}
+	else
+	{
+		// should not happen
+		assert (false);
+	}
+}
+
+void rai_qt::import::importFromFile (QString path, QString password)
+{
+	std::ifstream stream;
+	stream.open (path.toStdString ().c_str ());
+	if (!stream.fail ())
+	{
+		std::stringstream contents;
+		contents << stream.rdbuf ();
+		if (!this->wallet.wallet_m->import (contents.str (), password.toStdString ().c_str ()))
+		{
+			this->wallet.accounts.refresh ();
+			Q_EMIT importFromFileSuccess ();
 		}
 		else
 		{
-			show_line_error (*clear_line);
-			show_button_error (*import_seed);
-			import_seed->setText ("Type words 'clear keys'");
-			this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-					show_button_ok (*import_seed);
-					import_seed->setText ("Import seed");
-				}));
-			});
+			Q_EMIT importFromFileFailure ("Wrong password");
 		}
-	});
+	}
+	else
+	{
+		Q_EMIT importFromFileFailure ("Invalid file");
+	}
+}
+
+QString rai_qt::import::convertUrlToNativeFilePath (const QUrl & urlStylePath) const
+{
+	return QDir::toNativeSeparators (urlStylePath.toLocalFile ());
 }
 
 rai_qt::history_item::history_item (QString type, QString account, QString amount, QString hash, QObject * parent) :
@@ -901,7 +819,6 @@ client_layout (new QVBoxLayout),
 entry_window (new QWidget),
 entry_window_layout (new QVBoxLayout),
 separator (new QFrame),
-accounts_button (new QPushButton ("Accounts")),
 show_advanced (new QPushButton ("Advanced")),
 active_status (*this)
 {
@@ -909,7 +826,6 @@ active_status (*this)
 	empty_password ();
 	settings.update_locked (true, true);
 
-	entry_window_layout->addWidget (accounts_button);
 	entry_window_layout->addWidget (show_advanced);
 	entry_window_layout->setContentsMargins (0, 0, 0, 0);
 	entry_window_layout->setSpacing (5);
@@ -939,6 +855,7 @@ active_status (*this)
 	engine->rootContext ()->setContextProperty (QString ("rai_status"), &active_status);
 	engine->rootContext ()->setContextProperty (QString ("rai_history"), &history);
 	engine->rootContext ()->setContextProperty (QString ("rai_accounts"), &accounts);
+	engine->rootContext ()->setContextProperty (QString ("rai_import"), &import);
 	engine->rootContext ()->setContextProperty (QString ("rai_settings"), &settings);
 	engine->rootContext ()->setContextProperty (QString ("rai_wallet"), this);
 
@@ -956,12 +873,6 @@ active_status (*this)
 void rai_qt::wallet::start ()
 {
 	std::weak_ptr<rai_qt::wallet> this_w (shared_from_this ());
-	QObject::connect (accounts_button, &QPushButton::released, [this_w]() {
-		if (auto this_l = this_w.lock ())
-		{
-			this_l->push_main_stack (this_l->accounts.window);
-		}
-	});
 	QObject::connect (show_advanced, &QPushButton::released, [this_w]() {
 		if (auto this_l = this_w.lock ())
 		{
