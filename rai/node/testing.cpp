@@ -8,32 +8,32 @@ alarm (service),
 work (1, nullptr)
 {
 	logging.init (rai::unique_path ());
-    nodes.reserve (count_a);
-    for (size_t i (0); i < count_a; ++i)
-    {
-        rai::node_init init;
+	nodes.reserve (count_a);
+	for (size_t i (0); i < count_a; ++i)
+	{
+		rai::node_init init;
 		rai::node_config config (port_a + i, logging);
-        auto node (std::make_shared <rai::node> (init, service, rai::unique_path (), alarm, config, work));
-        assert (!init.error ());
-        node->start ();
+		auto node (std::make_shared <rai::node> (init, service, rai::unique_path (), alarm, config, work));
+		assert (!init.error ());
+		node->start ();
 		rai::uint256_union wallet;
 		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		node->wallets.create (wallet);
-        nodes.push_back (node);
-    }
-    for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
-    {
-        auto starting1 ((*i)->peers.size ());
-        auto new1 (starting1);
-        auto starting2 ((*j)->peers.size ());
-        auto new2 (starting2);
-        (*j)->network.send_keepalive ((*i)->network.endpoint ());
-        do {
-            poll ();
-            new1 = (*i)->peers.size ();
-            new2 = (*j)->peers.size ();
-        } while (new1 == starting1 || new2 == starting2);
-    }
+		nodes.push_back (node);
+	}
+	for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
+	{
+		auto starting1 ((*i)->peers.size ());
+		auto new1 (starting1);
+		auto starting2 ((*j)->peers.size ());
+		auto new2 (starting2);
+		(*j)->network.send_keepalive ((*i)->network.endpoint ());
+		do {
+			poll ();
+			new1 = (*i)->peers.size ();
+			new2 = (*j)->peers.size ();
+		} while (new1 == starting1 || new2 == starting2);
+	}
 	auto iterations1 (0);
 	while (std::any_of (nodes.begin (), nodes.end (), [] (std::shared_ptr <rai::node> const & node_a) {return node_a->bootstrap_initiator.in_progress ();}))
 	{
@@ -45,28 +45,28 @@ work (1, nullptr)
 
 rai::system::~system ()
 {
-    for (auto & i: nodes)
-    {
-        i->stop ();
-    }
+	for (auto & i: nodes)
+	{
+		i->stop ();
+	}
 }
 
 std::shared_ptr <rai::wallet> rai::system::wallet (size_t index_a)
 {
-    assert (nodes.size () > index_a);
+	assert (nodes.size () > index_a);
 	auto size (nodes [index_a]->wallets.items.size ());
-    assert (size == 1);
-    return nodes [index_a]->wallets.items.begin ()->second;
+	assert (size == 1);
+	return nodes [index_a]->wallets.items.begin ()->second;
 }
 
 rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
 {
-    auto wallet_l (wallet (index_a));
-    auto keys (wallet_l->store.begin (transaction_a));
-    assert (keys != wallet_l->store.end ());
-    auto result (keys->first);
-    assert (++keys == wallet_l->store.end ());
-    return result.uint256 ();
+	auto wallet_l (wallet (index_a));
+	auto keys (wallet_l->store.begin (transaction_a));
+	assert (keys != wallet_l->store.end ());
+	auto result (keys->first);
+	assert (++keys == wallet_l->store.end ());
+	return result.uint256 ();
 }
 
 void rai::system::poll ()
@@ -84,46 +84,46 @@ namespace
 class traffic_generator : public std::enable_shared_from_this <traffic_generator>
 {
 public:
-    traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <rai::node> node_a, rai::system & system_a) :
-    count (count_a),
-    wait (wait_a),
-    node (node_a),
-    system (system_a)
-    {
-    }
-    void run ()
-    {
-        auto count_l (count - 1);
-        count = count_l - 1;
-        system.generate_activity (*node, accounts);
-        if (count_l > 0)
-        {
-            auto this_l (shared_from_this ());
-            node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
-        }
-    }
+	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr <rai::node> node_a, rai::system & system_a) :
+	count (count_a),
+	wait (wait_a),
+	node (node_a),
+	system (system_a)
+	{
+	}
+	void run ()
+	{
+		auto count_l (count - 1);
+		count = count_l - 1;
+		system.generate_activity (*node, accounts);
+		if (count_l > 0)
+		{
+			auto this_l (shared_from_this ());
+			node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l] () {this_l->run ();});
+		}
+	}
 	std::vector <rai::account> accounts;
-    uint32_t count;
-    uint32_t wait;
-    std::shared_ptr <rai::node> node;
-    rai::system & system;
+	uint32_t count;
+	uint32_t wait;
+	std::shared_ptr <rai::node> node;
+	rai::system & system;
 };
 }
 
 void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
 {
-    for (size_t i (0), n (nodes.size ()); i != n; ++i)
-    {
-        generate_usage_traffic (count_a, wait_a, i);
-    }
+	for (size_t i (0), n (nodes.size ()); i != n; ++i)
+	{
+		generate_usage_traffic (count_a, wait_a, i);
+	}
 }
 
 void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, size_t index_a)
 {
-    assert (nodes.size () > index_a);
-    assert (count_a > 0);
-    auto generate (std::make_shared <traffic_generator> (count_a, wait_a, nodes [index_a], *this));
-    generate->run ();
+	assert (nodes.size () > index_a);
+	assert (count_a > 0);
+	auto generate (std::make_shared <traffic_generator> (count_a, wait_a, nodes [index_a], *this));
+	generate->run ();
 }
 
 void rai::system::generate_rollback (rai::node & node_a, std::vector <rai::account> & accounts_a)
@@ -185,7 +185,7 @@ void rai::system::generate_receive (rai::node & node_a)
 
 void rai::system::generate_activity (rai::node & node_a, std::vector <rai::account> & accounts_a)
 {
-    auto what (random_pool.GenerateByte ());
+	auto what (random_pool.GenerateByte ());
 	if (what < 0x10)
 	{
 		generate_rollback (node_a, accounts_a);
@@ -202,14 +202,14 @@ void rai::system::generate_activity (rai::node & node_a, std::vector <rai::accou
 	{
 		generate_receive (node_a);
 	}
-    else if (what < 0xc0)
-    {
-        generate_send_existing (node_a, accounts_a);
-    }
-    else
-    {
-        generate_send_new (node_a, accounts_a);
-    }
+	else if (what < 0xc0)
+	{
+		generate_send_existing (node_a, accounts_a);
+	}
+	else
+	{
+		generate_send_new (node_a, accounts_a);
+	}
 }
 
 rai::account rai::system::get_random_account (std::vector <rai::account> & accounts_a)
@@ -221,13 +221,13 @@ rai::account rai::system::get_random_account (std::vector <rai::account> & accou
 
 rai::uint128_t rai::system::get_random_amount (MDB_txn * transaction_a, rai::node & node_a, rai::account const & account_a)
 {
-    rai::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
-    std::string balance_text (balance.convert_to <std::string> ());
-    rai::uint128_union random_amount;
-    random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
-    auto result (((rai::uint256_t {random_amount.number ()} * balance) / rai::uint256_t {std::numeric_limits <rai::uint128_t>::max ()}).convert_to <rai::uint128_t> ());
-    std::string text (result.convert_to <std::string> ());
-    return result;
+	rai::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
+	std::string balance_text (balance.convert_to <std::string> ());
+	rai::uint128_union random_amount;
+	random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
+	auto result (((rai::uint256_t {random_amount.number ()} * balance) / rai::uint256_t {std::numeric_limits <rai::uint128_t>::max ()}).convert_to <rai::uint128_t> ());
+	std::string text (result.convert_to <std::string> ());
+	return result;
 }
 
 void rai::system::generate_send_existing (rai::node & node_a, std::vector <rai::account> & accounts_a)
@@ -281,7 +281,7 @@ void rai::system::generate_change_unknown (rai::node & node_a, std::vector <rai:
 
 void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::account> & accounts_a)
 {
-    assert (node_a.wallets.items.size () == 1);
+	assert (node_a.wallets.items.size () == 1);
 	rai::uint128_t amount;
 	rai::account source;
 	{
@@ -301,20 +301,20 @@ void rai::system::generate_send_new (rai::node & node_a, std::vector <rai::accou
 void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 {
 	std::vector <rai::account> accounts;
-    wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	accounts.push_back (rai::test_genesis_key.pub);
-    auto previous (std::chrono::system_clock::now ());
-    for (uint32_t i (0); i < count_a; ++i)
-    {
-        if ((i & 0xfff) == 0)
-        {
-            auto now (std::chrono::system_clock::now ());
-            auto us (std::chrono::duration_cast <std::chrono::microseconds> (now - previous).count ());
-            std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3%\n") % i % us % (us / 256));
-            previous = now;
-        }
-        generate_activity (node_a, accounts);
-    }
+	auto previous (std::chrono::system_clock::now ());
+	for (uint32_t i (0); i < count_a; ++i)
+	{
+		if ((i & 0xfff) == 0)
+		{
+			auto now (std::chrono::system_clock::now ());
+			auto us (std::chrono::duration_cast <std::chrono::microseconds> (now - previous).count ());
+			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3%\n") % i % us % (us / 256));
+			previous = now;
+		}
+		generate_activity (node_a, accounts);
+	}
 }
 
 void rai::system::stop ()

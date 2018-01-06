@@ -25,28 +25,28 @@ modified (modified_a)
 
 void rai::account_info_v1::serialize (rai::stream & stream_a) const
 {
-    write (stream_a, head.bytes);
-    write (stream_a, rep_block.bytes);
-    write (stream_a, balance.bytes);
-    write (stream_a, modified);
+	write (stream_a, head.bytes);
+	write (stream_a, rep_block.bytes);
+	write (stream_a, balance.bytes);
+	write (stream_a, modified);
 }
 
 bool rai::account_info_v1::deserialize (rai::stream & stream_a)
 {
-    auto result (read (stream_a, head.bytes));
-    if (!result)
-    {
-        result = read (stream_a, rep_block.bytes);
-        if (!result)
-        {
+	auto result (read (stream_a, head.bytes));
+	if (!result)
+	{
+		result = read (stream_a, rep_block.bytes);
+		if (!result)
+		{
 			result = read (stream_a, balance.bytes);
 			if (!result)
 			{
 				result = read (stream_a, modified);
 			}
-        }
-    }
-    return result;
+		}
+	}
+	return result;
 }
 
 rai::mdb_val rai::account_info_v1::val () const
@@ -77,28 +77,28 @@ destination (destination_a)
 
 void rai::pending_info_v3::serialize (rai::stream & stream_a) const
 {
-    rai::write (stream_a, source.bytes);
-    rai::write (stream_a, amount.bytes);
-    rai::write (stream_a, destination.bytes);
+	rai::write (stream_a, source.bytes);
+	rai::write (stream_a, amount.bytes);
+	rai::write (stream_a, destination.bytes);
 }
 
 bool rai::pending_info_v3::deserialize (rai::stream & stream_a)
 {
-    auto result (rai::read (stream_a, source.bytes));
-    if (!result)
-    {
-        result = rai::read (stream_a, amount.bytes);
-        if (!result)
-        {
-            result = rai::read (stream_a, destination.bytes);
-        }
-    }
-    return result;
+	auto result (rai::read (stream_a, source.bytes));
+	if (!result)
+	{
+		result = rai::read (stream_a, amount.bytes);
+		if (!result)
+		{
+			result = rai::read (stream_a, destination.bytes);
+		}
+	}
+	return result;
 }
 
 bool rai::pending_info_v3::operator == (rai::pending_info_v3 const & other_a) const
 {
-    return source == other_a.source && amount == other_a.amount && destination == other_a.destination;
+	return source == other_a.source && amount == other_a.amount && destination == other_a.destination;
 }
 
 rai::mdb_val rai::pending_info_v3::val () const
@@ -133,21 +133,21 @@ modified (modified_a)
 
 void rai::account_info_v5::serialize (rai::stream & stream_a) const
 {
-    write (stream_a, head.bytes);
-    write (stream_a, rep_block.bytes);
+	write (stream_a, head.bytes);
+	write (stream_a, rep_block.bytes);
 	write (stream_a, open_block.bytes);
-    write (stream_a, balance.bytes);
-    write (stream_a, modified);
+	write (stream_a, balance.bytes);
+	write (stream_a, modified);
 }
 
 bool rai::account_info_v5::deserialize (rai::stream & stream_a)
 {
-    auto result (read (stream_a, head.bytes));
-    if (!result)
-    {
-        result = read (stream_a, rep_block.bytes);
-        if (!result)
-        {
+	auto result (read (stream_a, head.bytes));
+	if (!result)
+	{
+		result = read (stream_a, rep_block.bytes);
+		if (!result)
+		{
 			result = read (stream_a, open_block.bytes);
 			if (!result)
 			{
@@ -157,9 +157,9 @@ bool rai::account_info_v5::deserialize (rai::stream & stream_a)
 					result = read (stream_a, modified);
 				}
 			}
-        }
-    }
-    return result;
+		}
+	}
+	return result;
 }
 
 rai::mdb_val rai::account_info_v5::val () const

@@ -7,71 +7,71 @@
 
 TEST (uint128_union, decode_dec)
 {
-    rai::uint128_union value;
-    std::string text ("16");
-    ASSERT_FALSE (value.decode_dec (text));
-    ASSERT_EQ (16, value.bytes [15]);
+	rai::uint128_union value;
+	std::string text ("16");
+	ASSERT_FALSE (value.decode_dec (text));
+	ASSERT_EQ (16, value.bytes [15]);
 }
 
 TEST (uint128_union, decode_dec_negative)
 {
-    rai::uint128_union value;
-    std::string text ("-1");
-    auto error (value.decode_dec (text));
-    ASSERT_TRUE (error);
+	rai::uint128_union value;
+	std::string text ("-1");
+	auto error (value.decode_dec (text));
+	ASSERT_TRUE (error);
 }
 
 TEST (uint128_union, decode_dec_zero)
 {
-    rai::uint128_union value;
-    std::string text ("0");
-    ASSERT_FALSE (value.decode_dec (text));
-    ASSERT_TRUE (value.is_zero ());
+	rai::uint128_union value;
+	std::string text ("0");
+	ASSERT_FALSE (value.decode_dec (text));
+	ASSERT_TRUE (value.is_zero ());
 }
 
 TEST (uint128_union, decode_dec_leading_zero)
 {
-    rai::uint128_union value;
-    std::string text ("010");
-    auto error (value.decode_dec (text));
-    ASSERT_TRUE (error);
+	rai::uint128_union value;
+	std::string text ("010");
+	auto error (value.decode_dec (text));
+	ASSERT_TRUE (error);
 }
 
 struct test_punct : std::moneypunct<char> {
-    pattern do_pos_format () const { return { {value, none, none, none} }; }
-    int do_frac_digits () const { return 0; }
-    char_type do_decimal_point () const { return '+'; }
-    char_type do_thousands_sep () const { return '-'; }
-    string_type do_grouping () const { return "\3\4"; }
+	pattern do_pos_format () const { return { {value, none, none, none} }; }
+	int do_frac_digits () const { return 0; }
+	char_type do_decimal_point () const { return '+'; }
+	char_type do_thousands_sep () const { return '-'; }
+	string_type do_grouping () const { return "\3\4"; }
 };
 
 TEST (uint128_union, balance_format)
 {
-    ASSERT_EQ ("0", rai::amount (rai::uint128_t ("0")).format_balance (rai::Mxrb_ratio, 0, false));
-    ASSERT_EQ ("0", rai::amount (rai::uint128_t ("0")).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("340,282,366", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (rai::Mxrb_ratio, 0, true));
-    ASSERT_EQ ("340,282,366.920938463463374607431768211455", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (rai::Mxrb_ratio, 64, true));
-    ASSERT_EQ ("340,282,366,920,938,463,463,374,607,431,768,211,455", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (1, 4, true));
-    ASSERT_EQ ("340,282,366", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 0, true));
-    ASSERT_EQ ("340,282,366.920938463463374607431768211454", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 64, true));
-    ASSERT_EQ ("340282366920938463463374607431768211454", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
-    ASSERT_EQ ("170,141,183", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 0, true));
-    ASSERT_EQ ("170,141,183.460469231731687303715884105726", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 64, true));
-    ASSERT_EQ ("170141183460469231731687303715884105726", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
-    ASSERT_EQ ("1", rai::amount (rai::uint128_t ("1000000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("1.2", rai::amount (rai::uint128_t ("1200000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("1.23", rai::amount (rai::uint128_t ("1230000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("1.2", rai::amount (rai::uint128_t ("1230000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 1, true));
-    ASSERT_EQ ("1", rai::amount (rai::uint128_t ("1230000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 0, true));
-    ASSERT_EQ ("< 0.01", rai::amount (rai::xrb_ratio * 10).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("< 0.1", rai::amount (rai::xrb_ratio * 10).format_balance (rai::Mxrb_ratio, 1, true));
-    ASSERT_EQ ("< 1", rai::amount (rai::xrb_ratio * 10).format_balance (rai::Mxrb_ratio, 0, true));
-    ASSERT_EQ ("< 0.01", rai::amount (rai::xrb_ratio * 9999).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("0.01", rai::amount (rai::xrb_ratio * 10000).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("123456789", rai::amount (rai::Mxrb_ratio * 123456789).format_balance (rai::Mxrb_ratio, 2, false));
-    ASSERT_EQ ("123,456,789", rai::amount (rai::Mxrb_ratio * 123456789).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("123,456,789.12", rai::amount (rai::Mxrb_ratio * 123456789 + rai::kxrb_ratio * 123).format_balance (rai::Mxrb_ratio, 2, true));
-    ASSERT_EQ ("12-3456-789+123", rai::amount (rai::Mxrb_ratio * 123456789 + rai::kxrb_ratio * 123).format_balance (rai::Mxrb_ratio, 4, true, std::locale (std::cout.getloc (), new test_punct)));
+	ASSERT_EQ ("0", rai::amount (rai::uint128_t ("0")).format_balance (rai::Mxrb_ratio, 0, false));
+	ASSERT_EQ ("0", rai::amount (rai::uint128_t ("0")).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("340,282,366", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (rai::Mxrb_ratio, 0, true));
+	ASSERT_EQ ("340,282,366.920938463463374607431768211455", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (rai::Mxrb_ratio, 64, true));
+	ASSERT_EQ ("340,282,366,920,938,463,463,374,607,431,768,211,455", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (1, 4, true));
+	ASSERT_EQ ("340,282,366", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 0, true));
+	ASSERT_EQ ("340,282,366.920938463463374607431768211454", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 64, true));
+	ASSERT_EQ ("340282366920938463463374607431768211454", rai::amount (rai::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
+	ASSERT_EQ ("170,141,183", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 0, true));
+	ASSERT_EQ ("170,141,183.460469231731687303715884105726", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (rai::Mxrb_ratio, 64, true));
+	ASSERT_EQ ("170141183460469231731687303715884105726", rai::amount (rai::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
+	ASSERT_EQ ("1", rai::amount (rai::uint128_t ("1000000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("1.2", rai::amount (rai::uint128_t ("1200000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("1.23", rai::amount (rai::uint128_t ("1230000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("1.2", rai::amount (rai::uint128_t ("1230000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 1, true));
+	ASSERT_EQ ("1", rai::amount (rai::uint128_t ("1230000000000000000000000000000")).format_balance (rai::Mxrb_ratio, 0, true));
+	ASSERT_EQ ("< 0.01", rai::amount (rai::xrb_ratio * 10).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("< 0.1", rai::amount (rai::xrb_ratio * 10).format_balance (rai::Mxrb_ratio, 1, true));
+	ASSERT_EQ ("< 1", rai::amount (rai::xrb_ratio * 10).format_balance (rai::Mxrb_ratio, 0, true));
+	ASSERT_EQ ("< 0.01", rai::amount (rai::xrb_ratio * 9999).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("0.01", rai::amount (rai::xrb_ratio * 10000).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("123456789", rai::amount (rai::Mxrb_ratio * 123456789).format_balance (rai::Mxrb_ratio, 2, false));
+	ASSERT_EQ ("123,456,789", rai::amount (rai::Mxrb_ratio * 123456789).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("123,456,789.12", rai::amount (rai::Mxrb_ratio * 123456789 + rai::kxrb_ratio * 123).format_balance (rai::Mxrb_ratio, 2, true));
+	ASSERT_EQ ("12-3456-789+123", rai::amount (rai::Mxrb_ratio * 123456789 + rai::kxrb_ratio * 123).format_balance (rai::Mxrb_ratio, 4, true, std::locale (std::cout.getloc (), new test_punct)));
 }
 
 TEST (unions, identity)
@@ -83,151 +83,151 @@ TEST (unions, identity)
 
 TEST (uint256_union, key_encryption)
 {
-    rai::keypair key1;
-    rai::raw_key secret_key;
-    secret_key.data.bytes.fill (0);
-    rai::uint256_union encrypted;
+	rai::keypair key1;
+	rai::raw_key secret_key;
+	secret_key.data.bytes.fill (0);
+	rai::uint256_union encrypted;
 	encrypted.encrypt (key1.prv, secret_key, key1.pub.owords [0]);
-    rai::raw_key key4;
+	rai::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords [0]);
-    ASSERT_EQ (key1.prv, key4);
-    rai::public_key pub;
-    ed25519_publickey (key4.data.bytes.data (), pub.bytes.data ());
-    ASSERT_EQ (key1.pub, pub);
+	ASSERT_EQ (key1.prv, key4);
+	rai::public_key pub;
+	ed25519_publickey (key4.data.bytes.data (), pub.bytes.data ());
+	ASSERT_EQ (key1.pub, pub);
 }
 
 TEST (uint256_union, encryption)
 {
-    rai::raw_key key;
+	rai::raw_key key;
 	key.data.clear ();
-    rai::raw_key number1;
+	rai::raw_key number1;
 	number1.data = 1;
-    rai::uint256_union encrypted1;
+	rai::uint256_union encrypted1;
 	encrypted1.encrypt (number1, key, key.data.owords [0]);
-    rai::uint256_union encrypted2;
+	rai::uint256_union encrypted2;
 	encrypted2.encrypt (number1, key, key.data.owords [0]);
-    ASSERT_EQ (encrypted1, encrypted2);
-    rai::raw_key number2;
+	ASSERT_EQ (encrypted1, encrypted2);
+	rai::raw_key number2;
 	number2.decrypt (encrypted1, key, key.data.owords [0]);
-    ASSERT_EQ (number1, number2);
+	ASSERT_EQ (number1, number2);
 }
 
 TEST (uint256_union, decode_empty)
 {
-    std::string text;
-    rai::uint256_union val;
-    ASSERT_TRUE (val.decode_hex (text));
+	std::string text;
+	rai::uint256_union val;
+	ASSERT_TRUE (val.decode_hex (text));
 }
 
 TEST (uint256_union, parse_zero)
 {
-    rai::uint256_union input (rai::uint256_t (0));
-    std::string text;
-    input.encode_hex (text);
-    rai::uint256_union output;
-    auto error (output.decode_hex (text));
-    ASSERT_FALSE (error);
-    ASSERT_EQ (input, output);
-    ASSERT_TRUE (output.number ().is_zero ());
+	rai::uint256_union input (rai::uint256_t (0));
+	std::string text;
+	input.encode_hex (text);
+	rai::uint256_union output;
+	auto error (output.decode_hex (text));
+	ASSERT_FALSE (error);
+	ASSERT_EQ (input, output);
+	ASSERT_TRUE (output.number ().is_zero ());
 }
 
 TEST (uint256_union, parse_zero_short)
 {
-    std::string text ("0");
-    rai::uint256_union output;
-    auto error (output.decode_hex (text));
-    ASSERT_FALSE (error);
-    ASSERT_TRUE (output.number ().is_zero ());
+	std::string text ("0");
+	rai::uint256_union output;
+	auto error (output.decode_hex (text));
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (output.number ().is_zero ());
 }
 
 TEST (uint256_union, parse_one)
 {
-    rai::uint256_union input (rai::uint256_t (1));
-    std::string text;
-    input.encode_hex (text);
-    rai::uint256_union output;
-    auto error (output.decode_hex (text));
-    ASSERT_FALSE (error);
-    ASSERT_EQ (input, output);
-    ASSERT_EQ (1, output.number ());
+	rai::uint256_union input (rai::uint256_t (1));
+	std::string text;
+	input.encode_hex (text);
+	rai::uint256_union output;
+	auto error (output.decode_hex (text));
+	ASSERT_FALSE (error);
+	ASSERT_EQ (input, output);
+	ASSERT_EQ (1, output.number ());
 }
 
 TEST (uint256_union, parse_error_symbol)
 {
-    rai::uint256_union input (rai::uint256_t (1000));
-    std::string text;
-    input.encode_hex (text);
-    text [5] = '!';
-    rai::uint256_union output;
-    auto error (output.decode_hex (text));
-    ASSERT_TRUE (error);
+	rai::uint256_union input (rai::uint256_t (1000));
+	std::string text;
+	input.encode_hex (text);
+	text [5] = '!';
+	rai::uint256_union output;
+	auto error (output.decode_hex (text));
+	ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, max_hex)
 {
-    rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
-    std::string text;
-    input.encode_hex (text);
-    rai::uint256_union output;
-    auto error (output.decode_hex (text));
-    ASSERT_FALSE (error);
-    ASSERT_EQ (input, output);
-    ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+	rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
+	std::string text;
+	input.encode_hex (text);
+	rai::uint256_union output;
+	auto error (output.decode_hex (text));
+	ASSERT_FALSE (error);
+	ASSERT_EQ (input, output);
+	ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint256_union, decode_dec)
 {
-    rai::uint256_union value;
-    std::string text ("16");
-    ASSERT_FALSE (value.decode_dec (text));
-    ASSERT_EQ (16, value.bytes [31]);
+	rai::uint256_union value;
+	std::string text ("16");
+	ASSERT_FALSE (value.decode_dec (text));
+	ASSERT_EQ (16, value.bytes [31]);
 }
 
 TEST (uint256_union, max_dec)
 {
-    rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
-    std::string text;
-    input.encode_dec (text);
-    rai::uint256_union output;
-    auto error (output.decode_dec (text));
-    ASSERT_FALSE (error);
-    ASSERT_EQ (input, output);
-    ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+	rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
+	std::string text;
+	input.encode_dec (text);
+	rai::uint256_union output;
+	auto error (output.decode_dec (text));
+	ASSERT_FALSE (error);
+	ASSERT_EQ (input, output);
+	ASSERT_EQ (rai::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint256_union, decode_dec_negative)
 {
-    rai::uint256_union value;
-    std::string text ("-1");
-    auto error (value.decode_dec (text));
-    ASSERT_TRUE (error);
+	rai::uint256_union value;
+	std::string text ("-1");
+	auto error (value.decode_dec (text));
+	ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, decode_dec_zero)
 {
-    rai::uint256_union value;
-    std::string text ("0");
-    ASSERT_FALSE (value.decode_dec (text));
-    ASSERT_TRUE (value.is_zero ());
+	rai::uint256_union value;
+	std::string text ("0");
+	ASSERT_FALSE (value.decode_dec (text));
+	ASSERT_TRUE (value.is_zero ());
 }
 
 TEST (uint256_union, decode_dec_leading_zero)
 {
-    rai::uint256_union value;
-    std::string text ("010");
-    auto error (value.decode_dec (text));
-    ASSERT_TRUE (error);
+	rai::uint256_union value;
+	std::string text ("010");
+	auto error (value.decode_dec (text));
+	ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, parse_error_overflow)
 {
-    rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
-    std::string text;
-    input.encode_hex (text);
-    text.push_back (0);
-    rai::uint256_union output;
-    auto error (output.decode_hex (text));
-    ASSERT_TRUE (error);
+	rai::uint256_union input (std::numeric_limits <rai::uint256_t>::max ());
+	std::string text;
+	input.encode_hex (text);
+	text.push_back (0);
+	rai::uint256_union output;
+	auto error (output.decode_hex (text));
+	ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, big_endian_union_constructor)
@@ -292,10 +292,10 @@ TEST (uint256_union, decode_account_v1)
 
 TEST (uint256_union, account_transcode)
 {
-    rai::uint256_union value;
+	rai::uint256_union value;
 	auto text (rai::test_genesis_key.pub.to_account ());
-    ASSERT_FALSE (value.decode_account (text));
-    ASSERT_EQ (rai::test_genesis_key.pub, value);
+	ASSERT_FALSE (value.decode_account (text));
+	ASSERT_EQ (rai::test_genesis_key.pub, value);
 	ASSERT_EQ ('_', text [3]);
 	text [3] = '-';
 	rai::uint256_union value2;
@@ -305,8 +305,8 @@ TEST (uint256_union, account_transcode)
 
 TEST (uint256_union, account_encode_lex)
 {
-    rai::uint256_union min ("0000000000000000000000000000000000000000000000000000000000000000");
-    rai::uint256_union max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+	rai::uint256_union min ("0000000000000000000000000000000000000000000000000000000000000000");
+	rai::uint256_union max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	auto min_text (min.to_account ());
 	ASSERT_EQ (64, min_text.size ());
 	auto max_text (max.to_account ());

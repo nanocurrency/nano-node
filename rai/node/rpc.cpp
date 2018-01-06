@@ -37,8 +37,8 @@ void rai::rpc_config::serialize_json (boost::property_tree::ptree & tree_a) cons
 bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto result (false);
-    try
-    {
+	try
+	{
 		auto address_l (tree_a.get <std::string> ("address"));
 		auto port_l (tree_a.get <std::string> ("port"));
 		enable_control = tree_a.get <bool> ("enable_control");
@@ -61,11 +61,11 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 		{
 			result = true;
 		}
-    }
-    catch (std::runtime_error const &)
-    {
-        result = true;
-    }
+	}
+	catch (std::runtime_error const &)
+	{
+		result = true;
+	}
 	return result;
 }
 

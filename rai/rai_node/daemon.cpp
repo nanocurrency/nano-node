@@ -29,7 +29,7 @@ void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tr
 
 bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
-    auto error (false);
+	auto error (false);
 	try
 	{
 		if (!tree_a.empty ())
@@ -97,10 +97,10 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 {
 	boost::filesystem::create_directories (data_path);
-    rai_daemon::daemon_config config (data_path);
-    auto config_path ((data_path / "config.json"));
-    std::fstream config_file;
-    std::unique_ptr <rai::thread_runner> runner;
+	rai_daemon::daemon_config config (data_path);
+	auto config_path ((data_path / "config.json"));
+	std::fstream config_file;
+	std::unique_ptr <rai::thread_runner> runner;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	if (!error)
 	{
