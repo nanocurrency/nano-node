@@ -451,9 +451,14 @@ rai::bulk_pull_client::~bulk_pull_client ()
 		--connection->attempt->pulling;
 		connection->attempt->condition.notify_all ();
 	}
-	if (!pull.account.is_zero ())
+	// If received end block is not expected end block
+	else if (expected != pull.end)
 	{
-		connection->attempt->requeue_pull (pull);
+		connection->attempt->requeue_pull (rai::pull_info (pull.account, expected, pull.end));
+		if (connection->node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ());
+		}
 	}
 }
 
@@ -554,10 +559,6 @@ void rai::bulk_pull_client::received_type ()
 		case rai::block_type::not_a_block:
 		{
 			connection->attempt->pool_connection (connection);
-			if (expected == pull.end)
-			{
-				pull = rai::pull_info ();
-			}
 			break;
 		}
 		default:
