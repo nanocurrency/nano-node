@@ -1,4 +1,7 @@
-<img src="logo.png" width="200"/>
+[![Build Status](https://travis-ci.org/clemahieu/raiblocks.svg?branch=master)](https://travis-ci.org/clemahieu/raiblocks) 
+___
+
+![Logo of RaiBlocks](https://github.com/clemahieu/raiblocks/blob/master/logo.png)
 
 # What is RaiBlocks?
 RaiBlocks is designed to be a feeless, instant, high throughput cryptocurrency.
