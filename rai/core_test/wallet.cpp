@@ -882,3 +882,27 @@ TEST (wallet, send_race)
 		ASSERT_LT (iterations, 200);
 	}
 }
+
+TEST (wallet, password_race)
+{
+	rai::system system (24000, 1);
+	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	auto wallet = system.wallet (0);
+	system.nodes[0]->background ([&wallet]() {
+		for (int i = 0; i < 100; i++) {
+			rai::transaction transaction (wallet->store.environment, nullptr, true);
+			wallet->store.rekey (transaction, std::to_string(i));
+		}
+	});
+	for (int i = 0; i < 100; i++) {
+		rai::transaction transaction (wallet->store.environment, nullptr, false);
+		// Password should always be valid, the rekey operation should be atomic.
+		bool ok = wallet->store.valid_password (transaction);
+		EXPECT_TRUE (ok);
+		if (!ok) {
+			break;
+		}
+	}
+	system.stop ();
+	runner.join ();
+}
