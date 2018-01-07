@@ -587,6 +587,34 @@ TEST (rpc, wallet_destroy)
 	ASSERT_EQ (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.find (wallet_id));
 }
 
+TEST (rpc, wallet_list)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	rai::keypair key2;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
+	boost::property_tree::ptree request;
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+
+	request.put ("action", "wallet_list");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto & wallets_node (response.json.get_child ("wallets"));
+	bool contains_wallet = false;
+	for (auto i (wallets_node.begin ()), j (wallets_node.end ()); i != j && !contains_wallet; ++i)
+	{
+		auto wallet_id (i->second.get<std::string> (""));
+		ASSERT_NE(system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.find (wallet_id));
+	}
+}
+
 TEST (rpc, account_move)
 {
 	rai::system system (24000, 1);
