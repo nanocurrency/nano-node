@@ -171,6 +171,7 @@ public:
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_key_valid ();
+	void wallet_list ();
 	void wallet_lock ();
 	void wallet_pending ();
 	void wallet_representative ();

@@ -3516,6 +3516,23 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
+void rai::rpc_handler::wallet_list ()
+{
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree wallets;
+
+	for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+	{
+		boost::property_tree::ptree entry;
+		auto wallet_id = i->first.to_string ();
+		entry.put ("", wallet_id);
+		wallets.push_back (std::make_pair ("", entry));
+	}
+
+	response_l.add_child ("wallets", wallets);
+	response (response_l);
+}
+
 void rai::rpc_handler::wallet_lock ()
 {
 	if (rpc.config.enable_control)
@@ -4503,6 +4520,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_key_valid")
 		{
 			wallet_key_valid ();
+		}
+		else if (action == "wallet_list")
+		{
+			wallet_list ();
 		}
 		else if (action == "wallet_lock")
 		{
