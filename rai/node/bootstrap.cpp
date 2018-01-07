@@ -452,7 +452,7 @@ rai::bulk_pull_client::~bulk_pull_client ()
 		connection->attempt->condition.notify_all ();
 	}
 	// If received end block is not expected end block
-	else if (expected != pull.end)
+	if (expected != pull.end)
 	{
 		connection->attempt->requeue_pull (rai::pull_info (pull.account, expected, pull.end));
 		if (connection->node->config.logging.bulk_pull_logging ())
