@@ -31,6 +31,7 @@ std::chrono::minutes constexpr rai::node::backup_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
+unsigned constexpr rai::active_transactions::election_history_size;
 
 rai::message_statistics::message_statistics () :
 keepalive (0),
@@ -421,20 +422,23 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 	{
 		if (!rai::reserved_address (remote) && remote != endpoint ())
 		{
-			network_message_visitor visitor (node, remote);
-			rai::message_parser parser (visitor, node.work);
-			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.error)
+			if (!packet_filter || !packet_filter (buffer.data (), size_a))
 			{
-				++error_count;
-			}
-			else if (parser.insufficient_work)
-			{
-				if (node.config.logging.insufficient_work_logging ())
+				network_message_visitor visitor (node, remote);
+				rai::message_parser parser (visitor, node.work);
+				parser.deserialize_buffer (buffer.data (), size_a);
+				if (parser.error)
 				{
-					BOOST_LOG (node.log) << "Insufficient work in message";
+					++error_count;
 				}
-				++insufficient_work_count;
+				else if (parser.insufficient_work)
+				{
+					if (node.config.logging.insufficient_work_logging ())
+					{
+						BOOST_LOG (node.log) << "Insufficient work in message";
+					}
+					++insufficient_work_count;
+				}
 			}
 		}
 		else
@@ -2252,6 +2256,21 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> confirmed_a)
 	confirmed_a->visit (visitor);
 }
 
+void rai::node::request_confirmation (std::shared_ptr<rai::block> block_a)
+{
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		active.start (transaction, block_a);
+	}
+	network.broadcast_confirm_req (block_a);
+}
+
+bool rai::node::check_election_results (std::shared_ptr<rai::block> block_a, election_result & result)
+{
+	rai::transaction transaction (store.environment, nullptr, true);
+	return active.check_election_results (transaction, block_a, result);
+}
+
 void rai::node::process_message (rai::message & message_a, rai::endpoint const & sender_a)
 {
 	network_message_visitor visitor (*this, sender_a);
@@ -2662,10 +2681,10 @@ confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
 last_vote (std::chrono::system_clock::now ()),
-last_winner (block_a)
+last_winner (block_a),
+finished (false)
 {
 	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));
-	confirmed.clear ();
 	compute_rep_votes (transaction_a);
 }
 
@@ -2701,7 +2720,7 @@ rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::l
 
 void rai::election::confirm_once (MDB_txn * transaction_a)
 {
-	if (!confirmed.test_and_set ())
+	if (!finished.exchange (true))
 	{
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);
@@ -2730,6 +2749,16 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 			confirmation_action_l (winner_l);
 		});
 	}
+}
+
+void rai::election::get_progress (MDB_txn * transaction_a, rai::election_result & result)
+{
+	auto tally_l (node.ledger.tally (transaction_a, votes));
+	assert (tally_l.size () > 0);
+	auto results (tally_l.begin ());
+	result.winner = results->second->hash ();
+	result.tally = rai::amount (results->first);
+	result.confirmed = finished.load () && results->first > minimum_threshold (transaction_a, node.ledger);
 }
 
 bool rai::election::have_quorum (MDB_txn * transaction_a)
@@ -2793,6 +2822,9 @@ void rai::active_transactions::announce_votes ()
 				i->election->confirm_cutoff (transaction);
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
+				election_result result;
+				election_l->get_progress (transaction, result);
+				add_election_history (root_l, result);
 			}
 			else
 			{
@@ -2845,6 +2877,56 @@ bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<r
 		roots.insert (rai::conflict_info{ root, election, 0 });
 	}
 	return existing != roots.end ();
+}
+
+bool rai::active_transactions::check_election_results (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, rai::election_result & result)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto root (block_a->root ());
+	auto existing (roots.find (root));
+	bool failed = true;
+
+	if (existing != roots.end ())
+	{
+		existing->election->get_progress (transaction_a, result);
+		failed = false;
+	}
+	else
+	{
+		auto historical (election_history.get<1> ().find (root));
+		if (historical != election_history.get<1> ().end ())
+		{
+			result = historical->result;
+			failed = false;
+		}
+	}
+
+	if (failed || result.winner != block_a->hash ())
+	{
+		// Just to avoid any possible confusion, if a different block won the election,be very clear that
+		// this particular request was not "confirmed", even though the winning block was confirmed.
+		result.confirmed = false;
+	}
+
+	return failed;
+}
+
+void rai::active_transactions::add_election_history (const rai::block_hash & root, const election_result & result)
+{
+	// The mutex MUST be held by the caller.
+	rai::election_history history;
+	history.root = root;
+	history.result = result;
+	auto existing_history (election_history.get<1> ().find (root));
+	if (existing_history != election_history.get<1> ().end ())
+	{
+		election_history.get<1> ().erase (existing_history);
+	}
+	election_history.insert (election_history.get<0> ().end (), history);
+	if (election_history.size () > election_history_size)
+	{
+		election_history.erase (election_history.get<0> ().begin ());
+	}
 }
 
 // Validate a vote and apply it to the current election if one exists
