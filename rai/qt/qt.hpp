@@ -98,8 +98,9 @@ public:
 private:
 	QString m_representative;
 };
-class advanced_actions
+class advanced_actions : public QObject
 {
+	Q_OBJECT
 public:
 	advanced_actions (rai_qt::wallet &);
 	QWidget * window;
@@ -133,6 +134,8 @@ public:
 	QPushButton * peers_back;
 
 	rai_qt::wallet & wallet;
+
+	Q_INVOKABLE void show ();
 
 private:
 	void refresh_ledger ();
@@ -444,12 +447,6 @@ public:
 
 	QWidget * client_window;
 	QVBoxLayout * client_layout;
-
-	QWidget * entry_window;
-	QVBoxLayout * entry_window_layout;
-	QFrame * separator;
-	QPushButton * accounts_button;
-	QPushButton * show_advanced;
 
 	rai_qt::status active_status;
 	void pop_main_stack ();

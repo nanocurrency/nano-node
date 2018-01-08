@@ -100,8 +100,7 @@ TEST (wallet, main)
 	wallet_l->insert_adhoc (key.prv);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->advanced.show_ledger, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.ledger_window, wallet->main_stack->currentWidget ());
@@ -111,8 +110,6 @@ TEST (wallet, main)
 	ASSERT_EQ (wallet->advanced.peers_window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->advanced.peers_back, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->advanced.back, Qt::LeftButton);
-	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
 }
 
 TEST (wallet, password_change)
@@ -192,7 +189,7 @@ TEST (wallet, send)
 	}
 	rai::uint128_t amount (wallet->node.balance (key1));
 	ASSERT_EQ (2 * wallet->rendering_ratio, amount);
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	QTest::mouseClick (wallet->advanced.show_ledger, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.ledger_refresh, Qt::LeftButton);
 	ASSERT_EQ (2, wallet->advanced.ledger_model->rowCount ());
@@ -240,8 +237,7 @@ TEST (wallet, process_block)
 	ASSERT_EQ ("Process", wallet->block_entry.process->text ());
 	ASSERT_EQ ("Back", wallet->block_entry.back->text ());
 	rai::keypair key1;
-	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	QTest::mouseClick (wallet->advanced.enter_block, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_entry.window, wallet->main_stack->currentWidget ());
 	rai::send_block send (latest, key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest));
@@ -280,8 +276,7 @@ TEST (wallet, create_send)
 	auto account (rai::test_genesis_key.pub);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	wallet->client_window->show ();
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet->block_creation.send, Qt::LeftButton);
 	QTest::keyClicks (wallet->block_creation.account, rai::test_genesis_key.pub.to_account ().c_str ());
@@ -315,8 +310,7 @@ TEST (wallet, create_open_receive)
 	auto account (rai::test_genesis_key.pub);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	wallet->client_window->show ();
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet->block_creation.open, Qt::LeftButton);
 	QTest::keyClicks (wallet->block_creation.source, latest1.to_string ().c_str ());
@@ -358,8 +352,7 @@ TEST (wallet, create_change)
 	auto account (rai::test_genesis_key.pub);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	wallet->client_window->show ();
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet->block_creation.change, Qt::LeftButton);
 	QTest::keyClicks (wallet->block_creation.account, rai::test_genesis_key.pub.to_account ().c_str ());
@@ -423,7 +416,7 @@ TEST (wallet, startup_work)
 	}
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	uint64_t work1;
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
@@ -455,7 +448,7 @@ TEST (wallet, block_viewer)
 	}
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	ASSERT_NE (-1, wallet->advanced.layout->indexOf (wallet->advanced.block_viewer));
 	QTest::mouseClick (wallet->advanced.block_viewer, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_viewer.window, wallet->main_stack->currentWidget ());
@@ -509,7 +502,7 @@ TEST (wallet, republish)
 	auto account (rai::test_genesis_key.pub);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	wallet->advanced.show ();
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->advanced.block_viewer, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_viewer.window, wallet->main_stack->currentWidget ());

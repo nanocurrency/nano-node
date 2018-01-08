@@ -816,26 +816,14 @@ application (application_a),
 main_stack (new QStackedWidget),
 client_window (new QWidget),
 client_layout (new QVBoxLayout),
-entry_window (new QWidget),
-entry_window_layout (new QVBoxLayout),
-separator (new QFrame),
-show_advanced (new QPushButton ("Advanced")),
 active_status (*this)
 {
 	update_connected ();
 	empty_password ();
 	settings.update_locked (true, true);
 
-	entry_window_layout->addWidget (show_advanced);
-	entry_window_layout->setContentsMargins (0, 0, 0, 0);
-	entry_window_layout->setSpacing (5);
-	entry_window->setLayout (entry_window_layout);
+	main_stack->addWidget (advanced.window);
 
-	main_stack->addWidget (entry_window);
-	separator->setFrameShape (QFrame::HLine);
-	separator->setFrameShadow (QFrame::Sunken);
-
-	client_layout->addWidget (separator);
 	client_layout->addWidget (main_stack);
 	client_layout->setSpacing (0);
 	client_layout->setContentsMargins (0, 0, 0, 0);
@@ -855,6 +843,7 @@ active_status (*this)
 	engine->rootContext ()->setContextProperty (QString ("rai_status"), &active_status);
 	engine->rootContext ()->setContextProperty (QString ("rai_history"), &history);
 	engine->rootContext ()->setContextProperty (QString ("rai_accounts"), &accounts);
+	engine->rootContext ()->setContextProperty (QString ("rai_advanced"), &advanced);
 	engine->rootContext ()->setContextProperty (QString ("rai_import"), &import);
 	engine->rootContext ()->setContextProperty (QString ("rai_settings"), &settings);
 	engine->rootContext ()->setContextProperty (QString ("rai_wallet"), this);
@@ -873,12 +862,6 @@ active_status (*this)
 void rai_qt::wallet::start ()
 {
 	std::weak_ptr<rai_qt::wallet> this_w (shared_from_this ());
-	QObject::connect (show_advanced, &QPushButton::released, [this_w]() {
-		if (auto this_l = this_w.lock ())
-		{
-			this_l->push_main_stack (this_l->advanced.window);
-		}
-	});
 	QObject::connect (this, &rai_qt::wallet::sendFinished, [=]() {
 		this->setProcessingSend (false);
 	});
@@ -1296,7 +1279,7 @@ create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 block_viewer (new QPushButton ("Block Viewer")),
 account_viewer (new QPushButton ("Account Viewer")),
-back (new QPushButton ("Back")),
+back (new QPushButton ("Close")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
 ledger_model (new QStandardItemModel),
@@ -1365,7 +1348,7 @@ wallet (wallet_a)
 		this->wallet.push_main_stack (ledger_window);
 	});
 	QObject::connect (back, &QPushButton::released, [this]() {
-		this->wallet.pop_main_stack ();
+		this->wallet.client_window->close ();
 	});
 	QObject::connect (peers_back, &QPushButton::released, [this]() {
 		this->wallet.pop_main_stack ();
@@ -1415,6 +1398,11 @@ wallet (wallet_a)
 	search_for_receivables->setToolTip ("Search for pending blocks");
 	create_block->setToolTip ("Create block in JSON format");
 	enter_block->setToolTip ("Enter block in JSON format");
+}
+
+void rai_qt::advanced_actions::show ()
+{
+	wallet.client_window->show ();
 }
 
 void rai_qt::advanced_actions::refresh_peers ()

@@ -518,6 +518,15 @@ Pane {
                 }
             }
         }
+
+        GroupBox {
+            Layout.alignment: Qt.AlignHCenter
+            Button {
+                palette.buttonText: "red"
+                text: qsTr("Advanced tools")
+                onClicked: rai_advanced.show()
+            }
+        }
     }
   }
 
