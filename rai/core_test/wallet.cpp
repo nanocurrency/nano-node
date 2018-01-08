@@ -889,20 +889,92 @@ TEST (wallet, password_race)
 	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	system.nodes[0]->background ([&wallet]() {
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < 100; i++)
+		{
 			rai::transaction transaction (wallet->store.environment, nullptr, true);
-			wallet->store.rekey (transaction, std::to_string(i));
+			wallet->store.rekey (transaction, std::to_string (i));
 		}
 	});
-	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < 100; i++)
+	{
 		rai::transaction transaction (wallet->store.environment, nullptr, false);
 		// Password should always be valid, the rekey operation should be atomic.
 		bool ok = wallet->store.valid_password (transaction);
 		EXPECT_TRUE (ok);
-		if (!ok) {
+		if (!ok)
+		{
 			break;
 		}
 	}
 	system.stop ();
 	runner.join ();
+}
+
+TEST (wallet, password_race_corrupt_seed)
+{
+	rai::system system (24000, 1);
+	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	auto wallet = system.wallet (0);
+	rai::raw_key seed;
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, true);
+		ASSERT_FALSE (wallet->store.rekey (transaction, "4567"));
+		wallet->store.seed (seed, transaction);
+	}
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, false);
+		ASSERT_FALSE (wallet->store.attempt_password (transaction, "4567"));
+	}
+	for (int i = 0; i < 100; i++)
+	{
+		system.nodes[0]->background ([&wallet]() {
+			for (int i = 0; i < 10; i++)
+			{
+				rai::transaction transaction (wallet->store.environment, nullptr, true);
+				wallet->store.rekey (transaction, "0000");
+			}
+		});
+		system.nodes[0]->background ([&wallet]() {
+			for (int i = 0; i < 10; i++)
+			{
+				rai::transaction transaction (wallet->store.environment, nullptr, true);
+				wallet->store.rekey (transaction, "1234");
+			}
+		});
+		system.nodes[0]->background ([&wallet]() {
+			for (int i = 0; i < 10; i++)
+			{
+				rai::transaction transaction (wallet->store.environment, nullptr, false);
+				wallet->store.attempt_password (transaction, "1234");
+			}
+		});
+	}
+	system.stop ();
+	runner.join ();
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, true);
+		bool ok = false;
+		if (!wallet->store.attempt_password (transaction, "1234"))
+		{
+			rai::raw_key seed_now;
+			wallet->store.seed (seed_now, transaction);
+			ASSERT_TRUE (seed_now == seed);
+		}
+		else if (!wallet->store.attempt_password (transaction, "0000"))
+		{
+			rai::raw_key seed_now;
+			wallet->store.seed (seed_now, transaction);
+			ASSERT_TRUE (seed_now == seed);
+		}
+		else if (!wallet->store.attempt_password (transaction, "4567"))
+		{
+			rai::raw_key seed_now;
+			wallet->store.seed (seed_now, transaction);
+			ASSERT_TRUE (seed_now == seed);
+		}
+		else
+		{
+			ASSERT_FALSE (true);
+		}
+	}
 }
