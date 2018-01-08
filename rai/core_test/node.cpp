@@ -939,7 +939,7 @@ TEST (node, fork_bootstrap_flip)
 		system0.poll ();
 		system1.poll ();
 		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_LT (iterations2, 1000);
 		rai::transaction transaction (node2.store.environment, nullptr, false);
 		again = !node2.store.block_exists (transaction, send1->hash ());
 	}

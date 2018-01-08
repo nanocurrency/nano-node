@@ -27,10 +27,12 @@ rai::uint256_union rai::wallet_store::salt (MDB_txn * transaction_a)
 
 void rai::wallet_store::wallet_key (rai::raw_key & prv_a, MDB_txn * transaction_a)
 {
-	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::wallet_key_special));
+	std::lock_guard<std::recursive_mutex> lock (mutex);
+	rai::raw_key wallet_l;
+	wallet_key_mem.value (wallet_l);
 	rai::raw_key password_l;
 	password.value (password_l);
-	prv_a.decrypt (value.key, password_l, salt (transaction_a).owords[0]);
+	prv_a.decrypt (wallet_l.data, password_l, salt (transaction_a).owords[0]);
 }
 
 void rai::wallet_store::seed (rai::raw_key & prv_a, MDB_txn * transaction_a)
@@ -126,15 +128,20 @@ bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
 	wallet_key (wallet_key_l, transaction_a);
 	rai::uint256_union check_l;
 	check_l.encrypt (zero, wallet_key_l, salt (transaction_a).owords[0]);
-	return check (transaction_a) == check_l;
+	bool ok = check (transaction_a) == check_l;
+	return ok;
 }
 
 bool rai::wallet_store::attempt_password (MDB_txn * transaction_a, std::string const & password_a)
 {
-	rai::raw_key password_l;
-	derive_key (password_l, transaction_a, password_a);
-	password.value_set (password_l);
-	auto result (!valid_password (transaction_a));
+	bool result = false;
+	{
+		std::lock_guard<std::recursive_mutex> lock (mutex);
+		rai::raw_key password_l;
+		derive_key (password_l, transaction_a, password_a);
+		password.value_set (password_l);
+		result = !valid_password (transaction_a);
+	}
 	if (!result)
 	{
 		if (version (transaction_a) == version_1)
@@ -151,6 +158,7 @@ bool rai::wallet_store::attempt_password (MDB_txn * transaction_a, std::string c
 
 bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & password_a)
 {
+	std::lock_guard<std::recursive_mutex> lock (mutex);
 	bool result (false);
 	if (valid_password (transaction_a))
 	{
@@ -163,6 +171,9 @@ bool rai::wallet_store::rekey (MDB_txn * transaction_a, std::string const & pass
 		password.value_set (password_new);
 		rai::uint256_union encrypted;
 		encrypted.encrypt (wallet_key_l, password_new, salt (transaction_a).owords[0]);
+		rai::raw_key wallet_enc;
+		wallet_enc.data = encrypted;
+		wallet_key_mem.value_set (wallet_enc);
 		entry_put_raw (transaction_a, rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted, 0));
 	}
 	else
@@ -257,6 +268,7 @@ int const rai::wallet_store::special_count (7);
 
 rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::transaction & transaction_a, rai::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
 password (0, fanout_a),
+wallet_key_mem (0, fanout_a),
 kdf (kdf_a),
 environment (transaction_a.environment)
 {
@@ -306,11 +318,14 @@ environment (transaction_a.environment)
 		rai::raw_key key;
 		key.data.clear ();
 		password.value_set (key);
+		key.data = entry_get_raw (transaction_a, rai::wallet_store::wallet_key_special).key;
+		wallet_key_mem.value_set (key);
 	}
 }
 
 rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::transaction & transaction_a, rai::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
 password (0, fanout_a),
+wallet_key_mem (0, fanout_a),
 kdf (kdf_a),
 environment (transaction_a.environment)
 {
@@ -339,6 +354,9 @@ environment (transaction_a.environment)
 			rai::uint256_union encrypted;
 			encrypted.encrypt (wallet_key, zero, salt_l.owords[0]);
 			entry_put_raw (transaction_a, rai::wallet_store::wallet_key_special, rai::wallet_value (encrypted, 0));
+			rai::raw_key wallet_key_enc;
+			wallet_key_enc.data = encrypted;
+			wallet_key_mem.value_set (wallet_key_enc);
 			rai::uint256_union check;
 			check.encrypt (zero, wallet_key, salt_l.owords[0]);
 			entry_put_raw (transaction_a, rai::wallet_store::check_special, rai::wallet_value (check, 0));
@@ -349,6 +367,9 @@ environment (transaction_a.environment)
 			entry_put_raw (transaction_a, rai::wallet_store::deterministic_index_special, rai::wallet_value (rai::uint256_union (0), 0));
 		}
 	}
+	rai::raw_key key;
+	key.data = entry_get_raw (transaction_a, rai::wallet_store::wallet_key_special).key;
+	wallet_key_mem.value_set (key);
 }
 
 std::vector<rai::account> rai::wallet_store::accounts (MDB_txn * transaction_a)
@@ -689,13 +710,14 @@ node (node_a)
 
 void rai::wallet::enter_initial_password ()
 {
+	rai::transaction transaction (store.environment, nullptr, true);
+	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::raw_key password_l;
 	store.password.value (password_l);
 	if (password_l.data.is_zero ())
 	{
 		if (valid_password ())
 		{
-			rai::transaction transaction (store.environment, nullptr, true);
 			// Newly created wallets have a zero key
 			store.rekey (transaction, "");
 		}
@@ -1202,7 +1224,7 @@ rai::wallets::wallets (bool & error_a, rai::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
 stopped (false),
-thread ([this] () { do_wallet_actions (); })
+thread ([this]() { do_wallet_actions (); })
 {
 	if (!error_a)
 	{
@@ -1303,7 +1325,7 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
 
 void rai::wallets::do_wallet_actions ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
 	{
 		if (!actions.empty ())
@@ -1326,7 +1348,7 @@ void rai::wallets::do_wallet_actions ()
 
 void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::function<void()> const & action_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	actions.insert (std::make_pair (amount_a, std::move (action_a)));
 	condition.notify_all ();
 }
@@ -1374,7 +1396,7 @@ bool rai::wallets::exists (MDB_txn * transaction_a, rai::public_key const & acco
 
 void rai::wallets::stop ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 }

@@ -1343,7 +1343,7 @@ warmed_up (0),
 block_processor (*this),
 block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 {
-	wallets.observer = [this] (bool active) {
+	wallets.observer = [this](bool active) {
 		observers.wallet (active);
 	};
 	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
@@ -2777,9 +2777,9 @@ void rai::active_transactions::announce_votes ()
 	std::vector<rai::block_hash> inactive;
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	std::lock_guard<std::mutex> lock (mutex);
-	
+
 	{
-        	size_t announcements (0);
+		size_t announcements (0);
 		auto i (roots.begin ());
 		auto n (roots.end ());
 		// Announce our decision for up to `announcements_per_interval' conflicts
