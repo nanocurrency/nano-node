@@ -1057,7 +1057,7 @@ TEST (node, fork_no_vote_quorum)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_LT (iterations, 600);
 	}
 	ASSERT_EQ (node1.config.receive_minimum.number (), node1.weight (key1));
 	ASSERT_EQ (node1.config.receive_minimum.number (), node2.weight (key1));

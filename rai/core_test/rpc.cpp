@@ -2711,7 +2711,7 @@ TEST (rpc, account_info)
 	std::string balance (response.json.get<std::string> ("balance"));
 	ASSERT_EQ ("100", balance);
 	std::string modified_timestamp (response.json.get<std::string> ("modified_timestamp"));
-	ASSERT_EQ (std::to_string (time), modified_timestamp);
+	ASSERT_TRUE (abs (time - stol (modified_timestamp)) < 5);
 	std::string block_count (response.json.get<std::string> ("block_count"));
 	ASSERT_EQ ("2", block_count);
 }
