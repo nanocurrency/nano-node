@@ -3301,7 +3301,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				}
 				else
 				{
-					std::cerr << "wallet_destroy requires one <wallet> option\n";
+					std::cerr << "wallet_import requires one <wallet> option\n";
 					result = true;
 				}
 			}
