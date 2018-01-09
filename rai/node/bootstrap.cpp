@@ -476,11 +476,11 @@ void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%") % req.start.to_account () % connection->endpoint);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->account_count++ % 256 == 0)
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%") % req.start.to_account () % connection->endpoint);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
