@@ -2,13 +2,13 @@
 
 #include <rai/node/testing.hpp>
 
-TEST (wallets, DISABLED_open_create)
+TEST (wallets, open_create)
 {
 	rai::system system (24000, 1);
 	bool error (false);
 	rai::wallets wallets (error, *system.nodes[0]);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (0, wallets.items.size ());
+	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
 	rai::uint256_union id;
 	ASSERT_EQ (nullptr, wallets.open (id));
 	auto wallet (wallets.create (id));
@@ -16,7 +16,7 @@ TEST (wallets, DISABLED_open_create)
 	ASSERT_EQ (wallet, wallets.open (id));
 }
 
-TEST (wallets, DISABLED_open_existing)
+TEST (wallets, open_existing)
 {
 	rai::system system (24000, 1);
 	rai::uint256_union id;
@@ -24,7 +24,7 @@ TEST (wallets, DISABLED_open_existing)
 		bool error (false);
 		rai::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
-		ASSERT_EQ (0, wallets.items.size ());
+		ASSERT_EQ (1, wallets.items.size ());
 		auto wallet (wallets.create (id));
 		ASSERT_NE (nullptr, wallet);
 		ASSERT_EQ (wallet, wallets.open (id));
@@ -43,12 +43,12 @@ TEST (wallets, DISABLED_open_existing)
 		bool error (false);
 		rai::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
-		ASSERT_EQ (1, wallets.items.size ());
+		ASSERT_EQ (2, wallets.items.size ());
 		ASSERT_NE (nullptr, wallets.open (id));
 	}
 }
 
-TEST (wallets, DISABLED_remove)
+TEST (wallets, remove)
 {
 	rai::system system (24000, 1);
 	rai::uint256_union one (1);
@@ -56,17 +56,17 @@ TEST (wallets, DISABLED_remove)
 		bool error (false);
 		rai::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
-		ASSERT_EQ (0, wallets.items.size ());
+		ASSERT_EQ (1, wallets.items.size ());
 		auto wallet (wallets.create (one));
 		ASSERT_NE (nullptr, wallet);
-		ASSERT_EQ (1, wallets.items.size ());
+		ASSERT_EQ (2, wallets.items.size ());
 		wallets.destroy (one);
-		ASSERT_EQ (0, wallets.items.size ());
+		ASSERT_EQ (1, wallets.items.size ());
 	}
 	{
 		bool error (false);
 		rai::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
-		ASSERT_EQ (0, wallets.items.size ());
+		ASSERT_EQ (1, wallets.items.size ());
 	}
 }
