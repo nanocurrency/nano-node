@@ -1197,6 +1197,14 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 		for (auto & i : progress)
 		{
 			node.observers.blocks (i.first, i.second.account, i.second.amount);
+			if (i.second.amount > 0)
+			{
+				node.observers.account_balance (i.second.account, false);
+				if (!i.second.pending_account.is_zero ())
+				{
+					node.observers.account_balance (i.second.pending_account, true);
+				}
+			}
 		}
 	}
 }

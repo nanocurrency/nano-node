@@ -327,6 +327,7 @@ public:
 	rai::process_result code;
 	rai::account account;
 	rai::amount amount;
+	rai::account pending_account;
 };
 enum class tally_result
 {
