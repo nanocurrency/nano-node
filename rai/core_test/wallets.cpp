@@ -70,3 +70,26 @@ TEST (wallets, remove)
 		ASSERT_EQ (1, wallets.items.size ());
 	}
 }
+
+TEST (wallets, wallet_create_max)
+{
+	rai::system system (24000, 1);
+	bool error (false);
+	rai::wallets wallets (error, *system.nodes[0]);
+	// lmdb_max_dbs should be removed once the wallet store is refactored to support more wallets.
+	for (int i = 0; i < 113; i++)
+	{
+		rai::keypair key;
+		auto wallet = wallets.create (key.pub);
+		auto existing = wallets.items.find (key.pub);
+		ASSERT_TRUE (existing != wallets.items.end ());
+		rai::raw_key seed;
+		seed.data = 0;
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		existing->second->store.seed_set (transaction, seed);
+	}
+	rai::keypair key;
+	wallets.create (key.pub);
+	auto existing = wallets.items.find (key.pub);
+	ASSERT_TRUE (existing == wallets.items.end ());
+}

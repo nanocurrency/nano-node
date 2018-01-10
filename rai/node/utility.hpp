@@ -101,7 +101,7 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 class mdb_env
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &);
+	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
 	~mdb_env ();
 	operator MDB_env * () const;
 	MDB_env * environment;

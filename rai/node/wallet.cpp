@@ -1281,10 +1281,10 @@ std::shared_ptr<rai::wallet> rai::wallets::create (rai::uint256_union const & id
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		result = std::make_shared<rai::wallet> (error, transaction, node, id_a.to_string ());
-		items[id_a] = result;
 	}
 	if (!error)
 	{
+		items[id_a] = result;
 		node.background ([result]() {
 			result->enter_initial_password ();
 		});

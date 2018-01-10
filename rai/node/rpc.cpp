@@ -3382,10 +3382,19 @@ void rai::rpc_handler::wallet_create ()
 	if (rpc.config.enable_control)
 	{
 		rai::keypair wallet_id;
-		auto wallet (node.wallets.create (wallet_id.pub));
-		boost::property_tree::ptree response_l;
-		response_l.put ("wallet", wallet_id.pub.to_string ());
-		response (response_l);
+		node.wallets.create (wallet_id.pub);
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto existing (node.wallets.items.find (wallet_id.pub));
+		if (existing != node.wallets.items.end ())
+		{
+			boost::property_tree::ptree response_l;
+			response_l.put ("wallet", wallet_id.pub.to_string ());
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Failed to create wallet. Increase lmdb_max_dbs in node config.");
+		}
 	}
 	else
 	{
