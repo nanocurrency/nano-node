@@ -162,20 +162,20 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (rai::endpoint const &);
 	void bootstrap ();
-	void run_bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
 	void stop ();
 	rai::node & node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
+	std::unique_ptr<std::thread> attempt_thread;
 	bool stopped;
 
 private:
+	void stop_attempt (std::unique_lock<std::mutex> &);
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
-	std::thread thread;
 };
 class bootstrap_server;
 class bootstrap_listener
