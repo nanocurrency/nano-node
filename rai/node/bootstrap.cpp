@@ -1033,13 +1033,15 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
-stopped (false)
+stopped (false),
+thread ([this] () {run_bootstrap ();})
 {
 }
 
 rai::bootstrap_initiator::~bootstrap_initiator ()
 {
 	stop ();
+	thread.join ();
 }
 
 void rai::bootstrap_initiator::bootstrap ()
@@ -1047,25 +1049,45 @@ void rai::bootstrap_initiator::bootstrap ()
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && attempt == nullptr)
 	{
-		stop_attempt (lock);
 		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
-		attempt_thread.reset (new std::thread ([this]() {
-			attempt->run ();
-			std::lock_guard<std::mutex> lock (mutex);
-			attempt.reset ();
-			condition.notify_all ();
-		}));
+		condition.notify_all ();
 	}
 }
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 {
 	node.peers.insert (endpoint_a, 0x5);
-	bootstrap ();
-	std::lock_guard<std::mutex> lock (mutex);
-	if (attempt != nullptr)
+	std::unique_lock<std::mutex> lock (mutex);
+	if (!stopped)
 	{
+		while (attempt != nullptr)
+		{
+			attempt->stop ();
+			condition.wait (lock);
+		}
+		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
 		attempt->add_connection (endpoint_a);
+		condition.notify_all ();
+	}
+}
+
+void rai::bootstrap_initiator::run_bootstrap ()
+{
+	std::unique_lock <std::mutex> lock (mutex);
+	while (!stopped)
+	{
+		if (attempt != nullptr)
+		{
+			lock.unlock ();
+			attempt->run ();
+			lock.lock ();
+			attempt = nullptr;
+			condition.notify_all ();
+		}
+		else
+		{
+			condition.wait (lock);
+		}
 	}
 }
 
@@ -1085,25 +1107,11 @@ void rai::bootstrap_initiator::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
-	stop_attempt (lock);
-}
-
-void rai::bootstrap_initiator::stop_attempt (std::unique_lock<std::mutex> & lock_a)
-{
-	assert (!mutex.try_lock ());
 	if (attempt != nullptr)
 	{
 		attempt->stop ();
 	}
-	while (attempt != nullptr)
-	{
-		condition.wait (lock_a);
-	}
-	if (attempt_thread)
-	{
-		attempt_thread->join ();
-		attempt_thread.reset ();
-	}
+	condition.notify_all ();
 }
 
 void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
