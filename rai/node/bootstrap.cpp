@@ -1036,7 +1036,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
 stopped (false),
-thread ([this] () { run_bootstrap (); })
+thread ([this]() { run_bootstrap (); })
 {
 }
 
