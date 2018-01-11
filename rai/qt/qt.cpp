@@ -243,10 +243,10 @@ void rai_qt::accounts::refresh_wallet_balance ()
 		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
 	}
-	auto final_text (std::string ("Wallet balance (XRB): ") + wallet.format_balance (balance));
+	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())
 	{
-		final_text += "\nWallet pending: " + wallet.format_balance (pending);
+		final_text += "\nPending: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
 	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this]() {
@@ -544,7 +544,9 @@ void rai_qt::history::refresh ()
 		block->visit (visitor);
 		items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
 		items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
-		items.push_back (new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str ())));
+		auto balanceItem = new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str ()));
+		balanceItem->setData (Qt::AlignRight, Qt::TextAlignmentRole);
+		items.push_back (balanceItem);
 		items.push_back (new QStandardItem (QString (hash.to_string ().c_str ())));
 		hash = block->previous ();
 		model->appendRow (items);
