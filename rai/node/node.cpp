@@ -3008,15 +3008,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	{
 		try
 		{
-			boost::filesystem::path data_path;
-			if (vm.count ("data_path"))
-			{
-				data_path = boost::filesystem::path (vm["data_path"].as <std::string> ());
-			}
-			else
-			{
-				data_path = rai::working_path ();
-			}
+			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
 			
 			auto vacuum_path = data_path / "vacuumed.ldb";
 			auto source_path = data_path / "data.ldb";
@@ -3045,11 +3037,11 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		catch (const boost::filesystem::filesystem_error& ex)
 		{
-			std::cout << "Vacuum failed during a file operation: " << ex.what() << std::endl;
+			std::cerr << "Vacuum failed during a file operation: " << ex.what() << std::endl;
 		}
 		catch (...)
 		{
-			std::cout << "Vacuum failed" << std::endl;
+			std::cerr << "Vacuum failed" << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))
