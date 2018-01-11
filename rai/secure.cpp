@@ -453,8 +453,8 @@ size_t rai::block_counts::sum ()
 	return send + receive + open + change;
 }
 
-rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a) :
-environment (error_a, path_a),
+rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+environment (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
 accounts (0),
 send_blocks (0),

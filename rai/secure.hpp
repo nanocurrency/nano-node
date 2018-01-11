@@ -173,7 +173,7 @@ public:
 class block_store
 {
 public:
-	block_store (bool &, boost::filesystem::path const &);
+	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 	uint64_t now ();
 
 	MDB_dbi block_database (rai::block_type);
