@@ -406,8 +406,7 @@ TEST (json, fetch_object)
 	stream1.close ();
 	rai::open_or_create (stream1, path1.string ());
 	json_upgrade_test object1;
-	auto error1 (rai::fetch_object (object1, path1, stream1));
-	ASSERT_FALSE (error1);
+	ASSERT_NO_THROW (rai::fetch_object (object1, path1, stream1));
 	ASSERT_EQ ("changed", object1.text);
 	boost::property_tree::ptree tree1;
 	stream1.close ();
@@ -417,21 +416,18 @@ TEST (json, fetch_object)
 	std::string string2 ("{ \"thing\": \"junktest2\" }");
 	std::stringstream stream2 (string2);
 	json_upgrade_test object2;
-	auto error2 (rai::fetch_object (object2, stream2));
-	ASSERT_FALSE (error2);
+	ASSERT_NO_THROW (rai::fetch_object (object2, stream2));
 	ASSERT_EQ ("junktest2", object2.text);
 	ASSERT_EQ ("{ \"thing\": \"junktest2\" }", string2);
 	std::string string3 ("{ \"thing\": \"error\" }");
 	std::stringstream stream3 (string3);
 	json_upgrade_test object3;
-	auto error3 (rai::fetch_object (object3, stream3));
-	ASSERT_TRUE (error3);
+	ASSERT_ANY_THROW (rai::fetch_object (object3, stream3));
 	auto path2 (rai::unique_path ());
 	std::fstream stream4;
 	rai::open_or_create (stream4, path2.string ());
 	json_upgrade_test object4;
-	auto error4 (rai::fetch_object (object4, path2, stream4));
-	ASSERT_FALSE (error4);
+	ASSERT_NO_THROW (rai::fetch_object (object4, path2, stream4));
 	ASSERT_EQ ("created", object4.text);
 	boost::property_tree::ptree tree2;
 	stream4.close ();
@@ -445,8 +441,7 @@ TEST (json, DISABLED_fetch_write_fail)
 	std::string string4 ("");
 	std::stringstream stream4 (string4, std::ios_base::in);
 	json_upgrade_test object4;
-	auto error4 (rai::fetch_object (object4, stream4));
-	ASSERT_TRUE (error4);
+	ASSERT_NO_THROW (rai::fetch_object (object4, stream4));
 }
 
 TEST (uint64_t, parse)
