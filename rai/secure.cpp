@@ -2411,6 +2411,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 						ledger.store.frontier_put (transaction, hash, account);
 						result.account = account;
 						result.amount = amount;
+						result.pending_account = block_a.hashables.destination;
 					}
 				}
 			}

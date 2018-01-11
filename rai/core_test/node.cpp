@@ -1428,3 +1428,32 @@ TEST (node, vote_replay)
 		ASSERT_GT (400, iterations);
 	}
 }
+
+TEST (node, balance_observer)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	std::atomic<int> balances (0);
+	rai::keypair key;
+	node1.observers.account_balance.add ([&node1, &key, &balances](rai::account const & account_a, bool is_pending) {
+		if (key.pub == account_a && is_pending)
+		{
+			balances++;
+		}
+		else if (rai::test_genesis_key.pub == account_a && !is_pending)
+		{
+			balances++;
+		}
+	});
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1);
+	auto iterations (0);
+	auto done (false);
+	while (!done)
+	{
+		system.poll ();
+		done = balances.load () == 2;
+		++iterations;
+		ASSERT_GT (200, iterations);
+	}
+}
