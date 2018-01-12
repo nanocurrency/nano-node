@@ -27,3 +27,10 @@ ___
 
 ### Build instructions: 
 https://github.com/clemahieu/raiblocks/wiki/Build-Instructions
+
+***
+
+### Contact us
+
+We want to hear about any trouble, success, delight, or pain you experience when
+using RaiBlocks. Let us know by [filing an issue](https://github.com/clemahieu/raiblocks/issues), joining us in [reddit](https://www.reddit.com/r/RaiBlocks), or joining us in [Discord](https://chat.raiblocks.net).
