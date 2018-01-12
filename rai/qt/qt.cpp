@@ -243,10 +243,10 @@ void rai_qt::accounts::refresh_wallet_balance ()
 		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
 	}
-	auto final_text (std::string ("Wallet balance (XRB): ") + wallet.format_balance (balance));
+	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())
 	{
-		final_text += "\nWallet pending: " + wallet.format_balance (pending);
+		final_text += "\nPending: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
 	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this]() {
@@ -302,7 +302,7 @@ clear_label (new QLabel ("Modifying seed clears existing keys\nType 'clear keys'
 clear_line (new QLineEdit),
 import_seed (new QPushButton ("Import seed")),
 separator (new QFrame),
-filename_label (new QLabel ("Filename:")),
+filename_label (new QLabel ("Path to file:")),
 filename (new QLineEdit),
 password_label (new QLabel ("Password:")),
 password (new QLineEdit),
@@ -544,7 +544,9 @@ void rai_qt::history::refresh ()
 		block->visit (visitor);
 		items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
 		items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
-		items.push_back (new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str ())));
+		auto balanceItem = new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str ()));
+		balanceItem->setData (Qt::AlignRight, Qt::TextAlignmentRole);
+		items.push_back (balanceItem);
 		items.push_back (new QStandardItem (QString (hash.to_string ().c_str ())));
 		hash = block->previous ();
 		model->appendRow (items);
@@ -1048,10 +1050,10 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block>, rai::account const & account_a, rai::amount const &) {
+	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
 				if (auto this_l = this_w.lock ())
 				{
 					if (this_l->wallet_m->exists (account_a))
@@ -1061,6 +1063,19 @@ void rai_qt::wallet::start ()
 					if (account_a == this_l->account)
 					{
 						this_l->history.refresh ();
+					}
+				}
+			}));
+		}
+	});
+	node.observers.account_balance.add ([this_w](rai::account const & account_a, bool is_pending) {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a]() {
+				if (auto this_l = this_w.lock ())
+				{
+					if (account_a == this_l->account)
+					{
 						this_l->self.refresh_balance ();
 					}
 				}

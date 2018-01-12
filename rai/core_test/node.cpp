@@ -494,6 +494,7 @@ TEST (node_config, serialization)
 	config1.callback_address = "test";
 	config1.callback_port = 10;
 	config1.callback_target = "test";
+	config1.lmdb_max_dbs = 256;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -522,6 +523,7 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.callback_address, config1.callback_address);
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
 	ASSERT_EQ (config2.callback_target, config1.callback_target);
+	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
 }
 
 TEST (node_config, v1_v2_upgrade)
@@ -939,7 +941,7 @@ TEST (node, fork_bootstrap_flip)
 		system0.poll ();
 		system1.poll ();
 		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_LT (iterations2, 1000);
 		rai::transaction transaction (node2.store.environment, nullptr, false);
 		again = !node2.store.block_exists (transaction, send1->hash ());
 	}
@@ -1057,7 +1059,7 @@ TEST (node, fork_no_vote_quorum)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_LT (iterations, 600);
 	}
 	ASSERT_EQ (node1.config.receive_minimum.number (), node1.weight (key1));
 	ASSERT_EQ (node1.config.receive_minimum.number (), node2.weight (key1));
@@ -1426,5 +1428,34 @@ TEST (node, vote_replay)
 		done = vote && (vote->sequence >= 10000);
 		++iterations;
 		ASSERT_GT (400, iterations);
+	}
+}
+
+TEST (node, balance_observer)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	std::atomic<int> balances (0);
+	rai::keypair key;
+	node1.observers.account_balance.add ([&node1, &key, &balances](rai::account const & account_a, bool is_pending) {
+		if (key.pub == account_a && is_pending)
+		{
+			balances++;
+		}
+		else if (rai::test_genesis_key.pub == account_a && !is_pending)
+		{
+			balances++;
+		}
+	});
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1);
+	auto iterations (0);
+	auto done (false);
+	while (!done)
+	{
+		system.poll ();
+		done = balances.load () == 2;
+		++iterations;
+		ASSERT_GT (200, iterations);
 	}
 }

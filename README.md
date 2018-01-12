@@ -30,3 +30,8 @@ https://github.com/clemahieu/raiblocks/wiki/Build-Instructions
 ### Need help?
 - See the documentation at the [RaiBlocks wiki](https://github.com/clemahieu/raiblocks/wiki) for help and more information.
 - Ask for help in the [Discord #development](https://discordapp.com/channels/370266023905198083/370285507185344524) channel.
+
+### Contact us
+
+We want to hear about any trouble, success, delight, or pain you experience when
+using RaiBlocks. Let us know by [filing an issue](https://github.com/clemahieu/raiblocks/issues), joining us in [reddit](https://www.reddit.com/r/RaiBlocks), or joining us in [Discord](https://chat.raiblocks.net).

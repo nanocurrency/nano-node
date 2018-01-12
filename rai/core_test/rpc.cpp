@@ -2711,7 +2711,7 @@ TEST (rpc, account_info)
 	std::string balance (response.json.get<std::string> ("balance"));
 	ASSERT_EQ ("100", balance);
 	std::string modified_timestamp (response.json.get<std::string> ("modified_timestamp"));
-	ASSERT_EQ (std::to_string (time), modified_timestamp);
+	ASSERT_TRUE (abs (time - stol (modified_timestamp)) < 5);
 	std::string block_count (response.json.get<std::string> ("block_count"));
 	ASSERT_EQ ("2", block_count);
 }
@@ -3065,4 +3065,26 @@ TEST (rpc, wallet_locked)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("locked"));
 	ASSERT_EQ (account_text1, "0");
+}
+
+TEST (rpc, wallet_create_fail)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	auto node = system.nodes[0];
+	// lmdb_max_dbs should be removed once the wallet store is refactored to support more wallets.
+	for (int i = 0; i < 113; i++)
+	{
+		rai::keypair key;
+		node->wallets.create (key.pub);
+	}
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_create");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config.", response.json.get<std::string> ("error"));
 }

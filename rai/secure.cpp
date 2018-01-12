@@ -453,8 +453,8 @@ size_t rai::block_counts::sum ()
 	return send + receive + open + change;
 }
 
-rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a) :
-environment (error_a, path_a),
+rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+environment (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
 accounts (0),
 send_blocks (0),
@@ -2411,6 +2411,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 						ledger.store.frontier_put (transaction, hash, account);
 						result.account = account;
 						result.amount = amount;
+						result.pending_account = block_a.hashables.destination;
 					}
 				}
 			}

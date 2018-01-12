@@ -12,7 +12,7 @@ boost::filesystem::path rai::unique_path ()
 	return result;
 }
 
-rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
+rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
 {
 	boost::system::error_code error;
 	if (path_a.has_parent_path ())
@@ -22,7 +22,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 		{
 			auto status1 (mdb_env_create (&environment));
 			assert (status1 == 0);
-			auto status2 (mdb_env_set_maxdbs (environment, 128));
+			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
 			assert (status2 == 0);
 			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 1024)); // 1 Terabyte
 			assert (status3 == 0);

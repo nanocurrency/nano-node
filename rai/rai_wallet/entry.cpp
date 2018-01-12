@@ -196,7 +196,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
 	application.processEvents ();
-	splash->showMessage (QSplashScreen::tr ("Remember - Backup Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::black);
+	splash->showMessage (QSplashScreen::tr ("Remember—Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::black);
 	application.processEvents ();
 	qt_wallet_config config (data_path);
 	auto config_path ((data_path / "config.json"));

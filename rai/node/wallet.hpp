@@ -95,6 +95,7 @@ public:
 	void upgrade_v1_v2 ();
 	void upgrade_v2_v3 ();
 	rai::fan password;
+	rai::fan wallet_key_mem;
 	static unsigned const version_1;
 	static unsigned const version_2;
 	static unsigned const version_3;
@@ -113,6 +114,7 @@ public:
 	rai::kdf & kdf;
 	rai::mdb_env & environment;
 	MDB_dbi handle;
+	std::recursive_mutex mutex;
 };
 class node;
 // A wallet is a set of account keys encrypted by a common encryption key

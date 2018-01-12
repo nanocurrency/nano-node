@@ -747,7 +747,8 @@ io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 enable_voting (true),
 bootstrap_connections (4),
-callback_port (0)
+callback_port (0),
+lmdb_max_dbs (128)
 {
 	switch (rai::rai_network)
 	{
@@ -780,7 +781,7 @@ callback_port (0)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "7");
+	tree_a.put ("version", "8");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -820,6 +821,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_address", callback_address);
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
+	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -888,6 +890,11 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			result = true;
 			break;
 		case 7:
+			tree_a.put ("lmdb_max_dbs", "128");
+			tree_a.put ("version", "8");
+			result = true;
+			break;
+		case 8:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -958,6 +965,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_address = tree_a.get<std::string> ("callback_address");
 		auto callback_port_l (tree_a.get<std::string> ("callback_port"));
 		callback_target = tree_a.get<std::string> ("callback_target");
+		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
 		try
 		{
@@ -967,6 +975,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			io_threads = std::stoul (io_threads_l);
 			work_threads = std::stoul (work_threads_l);
 			bootstrap_connections = std::stoul (bootstrap_connections_l);
+			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
 			result |= peering_port > std::numeric_limits<uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
@@ -1197,6 +1206,14 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 		for (auto & i : progress)
 		{
 			node.observers.blocks (i.first, i.second.account, i.second.amount);
+			if (i.second.amount > 0)
+			{
+				node.observers.account_balance (i.second.account, false);
+				if (!i.second.pending_account.is_zero ())
+				{
+					node.observers.account_balance (i.second.pending_account, true);
+				}
+			}
 		}
 	}
 }
@@ -1327,7 +1344,7 @@ service (service_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
-store (init_a.block_store_init, application_path_a / "data.ldb"),
+store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
 ledger (store, config_a.inactive_supply.number ()),
 active (*this),
@@ -1343,7 +1360,7 @@ warmed_up (0),
 block_processor (*this),
 block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 {
-	wallets.observer = [this] (bool active) {
+	wallets.observer = [this](bool active) {
 		observers.wallet (active);
 	};
 	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
@@ -2777,9 +2794,9 @@ void rai::active_transactions::announce_votes ()
 	std::vector<rai::block_hash> inactive;
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	std::lock_guard<std::mutex> lock (mutex);
-	
+
 	{
-        	size_t announcements (0);
+		size_t announcements (0);
 		auto i (roots.begin ());
 		auto n (roots.end ());
 		// Announce our decision for up to `announcements_per_interval' conflicts
@@ -3301,7 +3318,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				}
 				else
 				{
-					std::cerr << "wallet_destroy requires one <wallet> option\n";
+					std::cerr << "wallet_import requires one <wallet> option\n";
 					result = true;
 				}
 			}

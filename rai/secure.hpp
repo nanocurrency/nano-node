@@ -173,7 +173,7 @@ public:
 class block_store
 {
 public:
-	block_store (bool &, boost::filesystem::path const &);
+	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 	uint64_t now ();
 
 	MDB_dbi block_database (rai::block_type);
@@ -327,6 +327,7 @@ public:
 	rai::process_result code;
 	rai::account account;
 	rai::amount amount;
+	rai::account pending_account;
 };
 enum class tally_result
 {
