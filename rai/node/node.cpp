@@ -1343,7 +1343,7 @@ warmed_up (0),
 block_processor (*this),
 block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 {
-	wallets.observer = [this] (bool active) {
+	wallets.observer = [this](bool active) {
 		observers.wallet (active);
 	};
 	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
@@ -1510,7 +1510,7 @@ rai::node::~node ()
 bool rai::node::copy_with_compaction (boost::filesystem::path const & destination_file)
 {
 	return !mdb_env_copy2 (store.environment.environment,
-						   destination_file.string ().c_str (), MDB_CP_COMPACT);
+	destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
@@ -2783,9 +2783,9 @@ void rai::active_transactions::announce_votes ()
 	std::vector<rai::block_hash> inactive;
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	std::lock_guard<std::mutex> lock (mutex);
-	
+
 	{
-        	size_t announcements (0);
+		size_t announcements (0);
 		auto i (roots.begin ());
 		auto n (roots.end ());
 		// Announce our decision for up to `announcements_per_interval' conflicts
@@ -3009,13 +3009,13 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		try
 		{
 			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
-			
+
 			auto vacuum_path = data_path / "vacuumed.ldb";
 			auto source_path = data_path / "data.ldb";
 			auto backup_path = data_path / "backup.vacuum.ldb";
 
 			std::cout << "Vacuuming database copy in " << data_path << std::endl;
-			std::cout << "This may take a while..."  << std::endl;
+			std::cout << "This may take a while..." << std::endl;
 
 			// Scope the node so the mdb environment gets cleaned up properly before
 			// the original file is replaced with the vacuumed file.
@@ -3035,9 +3035,9 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 				std::cout << "Vacuum completed" << std::endl;
 			}
 		}
-		catch (const boost::filesystem::filesystem_error& ex)
+		catch (const boost::filesystem::filesystem_error & ex)
 		{
-			std::cerr << "Vacuum failed during a file operation: " << ex.what() << std::endl;
+			std::cerr << "Vacuum failed during a file operation: " << ex.what () << std::endl;
 		}
 		catch (...)
 		{
@@ -3530,7 +3530,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 
 rai::inactive_node::inactive_node (boost::filesystem::path const & path) :
 path (path),
-service (boost::make_shared <boost::asio::io_service> ()),
+service (boost::make_shared<boost::asio::io_service> ()),
 alarm (*service),
 work (1, nullptr)
 {

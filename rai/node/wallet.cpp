@@ -1202,7 +1202,7 @@ rai::wallets::wallets (bool & error_a, rai::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
 stopped (false),
-thread ([this] () { do_wallet_actions (); })
+thread ([this]() { do_wallet_actions (); })
 {
 	if (!error_a)
 	{
@@ -1303,7 +1303,7 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
 
 void rai::wallets::do_wallet_actions ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
 	{
 		if (!actions.empty ())
@@ -1326,7 +1326,7 @@ void rai::wallets::do_wallet_actions ()
 
 void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::function<void()> const & action_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	actions.insert (std::make_pair (amount_a, std::move (action_a)));
 	condition.notify_all ();
 }
@@ -1374,7 +1374,7 @@ bool rai::wallets::exists (MDB_txn * transaction_a, rai::public_key const & acco
 
 void rai::wallets::stop ()
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 }
