@@ -482,6 +482,7 @@ public:
 		alarm.service.post (action_a);
 	}
 	void send_keepalive (rai::endpoint const &);
+	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
 	void start ();
 	void stop ();
@@ -550,7 +551,7 @@ bool handle_node_options (boost::program_options::variables_map &);
 class inactive_node
 {
 public:
-	inactive_node ();
+	inactive_node (boost::filesystem::path const & path = rai::working_path ());
 	~inactive_node ();
 	boost::filesystem::path path;
 	boost::shared_ptr<boost::asio::io_service> service;

@@ -1524,6 +1524,12 @@ rai::node::~node ()
 	stop ();
 }
 
+bool rai::node::copy_with_compaction (boost::filesystem::path const & destination_file)
+{
+	return !mdb_env_copy2 (store.environment.environment,
+	destination_file.string ().c_str (), MDB_CP_COMPACT);
+}
+
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 {
 	auto endpoint_l (endpoint_a);
@@ -2935,7 +2941,7 @@ void rai::thread_runner::join ()
 
 void rai::add_node_options (boost::program_options::options_description & description_a)
 {
-	description_a.add_options () ("account_create", "Insert next deterministic key in to <wallet>") ("account_get", "Get account number for the <key>") ("account_key", "Get the public key for <account>") ("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory") ("diagnostics", "Run internal diagnostics") ("key_create", "Generates a adhoc random keypair and prints it to stdout") ("key_expand", "Derive public key and account number from <key>") ("wallet_add_adhoc", "Insert <key> in to <wallet>") ("wallet_create", "Creates a new wallet and prints the ID") ("wallet_change_seed", "Changes seed for <wallet> to <key>") ("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!") ("wallet_destroy", "Destroys <wallet> and all keys it contains") ("wallet_import", "Imports keys in <file> using <password> in to <wallet>") ("wallet_list", "Dumps wallet IDs and public keys") ("wallet_remove", "Remove <account> from <wallet>") ("wallet_representative_get", "Prints default representative for <wallet>") ("wallet_representative_set", "Set <account> as default representative for <wallet>") ("vote_dump", "Dump most recent votes from representatives") ("account", boost::program_options::value<std::string> (), "Defines <account> for other commands") ("file", boost::program_options::value<std::string> (), "Defines <file> for other commands") ("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex") ("password", boost::program_options::value<std::string> (), "Defines <password> for other commands") ("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
+	description_a.add_options () ("account_create", "Insert next deterministic key in to <wallet>") ("account_get", "Get account number for the <key>") ("account_key", "Get the public key for <account>") ("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.") ("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory") ("diagnostics", "Run internal diagnostics") ("key_create", "Generates a adhoc random keypair and prints it to stdout") ("key_expand", "Derive public key and account number from <key>") ("wallet_add_adhoc", "Insert <key> in to <wallet>") ("wallet_create", "Creates a new wallet and prints the ID") ("wallet_change_seed", "Changes seed for <wallet> to <key>") ("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!") ("wallet_destroy", "Destroys <wallet> and all keys it contains") ("wallet_import", "Imports keys in <file> using <password> in to <wallet>") ("wallet_list", "Dumps wallet IDs and public keys") ("wallet_remove", "Remove <account> from <wallet>") ("wallet_representative_get", "Prints default representative for <wallet>") ("wallet_representative_set", "Set <account> as default representative for <wallet>") ("vote_dump", "Dump most recent votes from representatives") ("account", boost::program_options::value<std::string> (), "Defines <account> for other commands") ("file", boost::program_options::value<std::string> (), "Defines <file> for other commands") ("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex") ("password", boost::program_options::value<std::string> (), "Defines <password> for other commands") ("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
 }
 
 bool rai::handle_node_options (boost::program_options::variables_map & vm)
@@ -3013,6 +3019,46 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		{
 			std::cerr << "account_key command requires one <account> option\n";
 			result = true;
+		}
+	}
+	else if (vm.count ("vacuum") > 0)
+	{
+		try
+		{
+			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+
+			auto vacuum_path = data_path / "vacuumed.ldb";
+			auto source_path = data_path / "data.ldb";
+			auto backup_path = data_path / "backup.vacuum.ldb";
+
+			std::cout << "Vacuuming database copy in " << data_path << std::endl;
+			std::cout << "This may take a while..." << std::endl;
+
+			// Scope the node so the mdb environment gets cleaned up properly before
+			// the original file is replaced with the vacuumed file.
+			bool success = false;
+			{
+				inactive_node node (data_path);
+				success = node.node->copy_with_compaction (vacuum_path);
+			}
+
+			if (success)
+			{
+				// Note that these throw on failure
+				std::cout << "Finalizing" << std::endl;
+				boost::filesystem::remove (backup_path);
+				boost::filesystem::rename (source_path, backup_path);
+				boost::filesystem::rename (vacuum_path, source_path);
+				std::cout << "Vacuum completed" << std::endl;
+			}
+		}
+		catch (const boost::filesystem::filesystem_error & ex)
+		{
+			std::cerr << "Vacuum failed during a file operation: " << ex.what () << std::endl;
+		}
+		catch (...)
+		{
+			std::cerr << "Vacuum failed" << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))
@@ -3499,8 +3545,8 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 	return result;
 }
 
-rai::inactive_node::inactive_node () :
-path (rai::working_path ()),
+rai::inactive_node::inactive_node (boost::filesystem::path const & path) :
+path (path),
 service (boost::make_shared<boost::asio::io_service> ()),
 alarm (*service),
 work (1, nullptr)
