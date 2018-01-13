@@ -15,6 +15,9 @@
 *.a
 *.lib
 
+# Doxygen built HTML
+/doc-build
+
 # Executables
 *.exe
 *.out
