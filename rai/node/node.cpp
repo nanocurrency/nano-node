@@ -2941,7 +2941,33 @@ void rai::thread_runner::join ()
 
 void rai::add_node_options (boost::program_options::options_description & description_a)
 {
-	description_a.add_options () ("account_create", "Insert next deterministic key in to <wallet>") ("account_get", "Get account number for the <key>") ("account_key", "Get the public key for <account>") ("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.") ("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory") ("diagnostics", "Run internal diagnostics") ("key_create", "Generates a adhoc random keypair and prints it to stdout") ("key_expand", "Derive public key and account number from <key>") ("wallet_add_adhoc", "Insert <key> in to <wallet>") ("wallet_create", "Creates a new wallet and prints the ID") ("wallet_change_seed", "Changes seed for <wallet> to <key>") ("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!") ("wallet_destroy", "Destroys <wallet> and all keys it contains") ("wallet_import", "Imports keys in <file> using <password> in to <wallet>") ("wallet_list", "Dumps wallet IDs and public keys") ("wallet_remove", "Remove <account> from <wallet>") ("wallet_representative_get", "Prints default representative for <wallet>") ("wallet_representative_set", "Set <account> as default representative for <wallet>") ("vote_dump", "Dump most recent votes from representatives") ("account", boost::program_options::value<std::string> (), "Defines <account> for other commands") ("file", boost::program_options::value<std::string> (), "Defines <file> for other commands") ("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex") ("password", boost::program_options::value<std::string> (), "Defines <password> for other commands") ("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
+	// clang-format off
+	description_a.add_options ()
+		("account_create", "Insert next deterministic key in to <wallet>")
+		("account_get", "Get account number for the <key>")
+		("account_key", "Get the public key for <account>")
+		("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
+		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
+		("diagnostics", "Run internal diagnostics")
+		("key_create", "Generates a adhoc random keypair and prints it to stdout")
+		("key_expand", "Derive public key and account number from <key>")
+		("wallet_add_adhoc", "Insert <key> in to <wallet>")
+		("wallet_create", "Creates a new wallet and prints the ID")
+		("wallet_change_seed", "Changes seed for <wallet> to <key>")
+		("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!")
+		("wallet_destroy", "Destroys <wallet> and all keys it contains")
+		("wallet_import", "Imports keys in <file> using <password> in to <wallet>")
+		("wallet_list", "Dumps wallet IDs and public keys")
+		("wallet_remove", "Remove <account> from <wallet>")
+		("wallet_representative_get", "Prints default representative for <wallet>")
+		("wallet_representative_set", "Set <account> as default representative for <wallet>")
+		("vote_dump", "Dump most recent votes from representatives")
+		("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
+		("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
+		("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
+		("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
+		("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
+	// clang-format on
 }
 
 bool rai::handle_node_options (boost::program_options::variables_map & vm)
