@@ -111,7 +111,28 @@ int main (int argc, char * const * argv)
 {
 	boost::program_options::options_description description ("Command line options");
 	rai::add_node_options (description);
-	description.add_options () ("help", "Print out options") ("daemon", "Start node daemon") ("debug_block_count", "Display the number of block") ("debug_bootstrap_generate", "Generate bootstrap sequence of blocks") ("debug_dump_representatives", "List representatives and weights") ("debug_frontier_count", "Display the number of accounts") ("debug_mass_activity", "Generates fake debug activity") ("debug_profile_generate", "Profile work generation") ("debug_opencl", "OpenCL work generation") ("debug_profile_verify", "Profile work verification") ("debug_profile_kdf", "Profile kdf function") ("debug_verify_profile", "Profile signature verification") ("debug_profile_sign", "Profile signature generation") ("debug_xorshift_profile", "Profile xorshift algorithms") ("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands") ("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command") ("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
+
+	// clang-format off
+	description.add_options ()
+		("help", "Print out options")
+		("daemon", "Start node daemon")
+		("debug_block_count", "Display the number of block")
+		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_dump_representatives", "List representatives and weights")
+		("debug_frontier_count", "Display the number of accounts")
+		("debug_mass_activity", "Generates fake debug activity")
+		("debug_profile_generate", "Profile work generation")
+		("debug_opencl", "OpenCL work generation")
+		("debug_profile_verify", "Profile work verification")
+		("debug_profile_kdf", "Profile kdf function")
+		("debug_verify_profile", "Profile signature verification")
+		("debug_profile_sign", "Profile signature generation")
+		("debug_xorshift_profile", "Profile xorshift algorithms")
+		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
+		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
+		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
+	// clang-format on
+
 	boost::program_options::variables_map vm;
 	boost::program_options::store (boost::program_options::parse_command_line (argc, argv, description), vm);
 	boost::program_options::notify (vm);
