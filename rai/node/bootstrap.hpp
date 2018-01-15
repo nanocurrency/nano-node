@@ -204,6 +204,7 @@ public:
 	void receive ();
 	void receive_header_action (boost::system::error_code const &, size_t);
 	void receive_bulk_pull_action (boost::system::error_code const &, size_t);
+	void receive_bulk_pull_blocks_action (boost::system::error_code const &, size_t);
 	void receive_frontier_req_action (boost::system::error_code const &, size_t);
 	void receive_bulk_push_action ();
 	void add_request (std::unique_ptr<rai::message>);
@@ -230,6 +231,24 @@ public:
 	std::unique_ptr<rai::bulk_pull> request;
 	std::vector<uint8_t> send_buffer;
 	rai::block_hash current;
+};
+class bulk_pull_blocks;
+class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pull_blocks_server>
+{
+public:
+	bulk_pull_blocks_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull_blocks>);
+	void set_params();
+	std::unique_ptr<rai::block> get_next ();
+	void send_next ();
+	void sent_action (boost::system::error_code const &, size_t);
+	void send_finished ();
+	void no_block_sent (boost::system::error_code const &, size_t);
+	std::shared_ptr<rai::bootstrap_server> connection;
+	std::unique_ptr<rai::bulk_pull_blocks> request;
+	std::vector<uint8_t> send_buffer;
+	rai::block_hash current;
+	rai::store_iterator stream;
+	rai::transaction stream_transaction;
 };
 class bulk_push_server : public std::enable_shared_from_this<rai::bulk_push_server>
 {
