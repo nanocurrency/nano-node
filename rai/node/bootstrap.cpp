@@ -1586,7 +1586,19 @@ void rai::bulk_pull_blocks_server::set_params ()
 
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull of block range starting, min (%1%) to max (%2%)") % request->min_hash.to_string () % request->max_hash.to_string ());
+		std::string modeName = "<unknown>";
+
+		switch (request->mode)
+		{
+			case rai::bulk_pull_blocks_mode::list_blocks:
+				modeName = "list";
+				break;
+			case rai::bulk_pull_blocks_mode::checksum_blocks:
+				modeName = "checksum";
+				break;
+		}
+
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull of block range starting, min (%1%) to max (%2%), max_count = %3%, mode = %4%") % request->min_hash.to_string () % request->max_hash.to_string () % request->max_count % modeName);
 	}
 
 	stream = connection->node->store.block_info_begin(stream_transaction, request->min_hash);
@@ -1606,23 +1618,58 @@ void rai::bulk_pull_blocks_server::send_next ()
 	std::unique_ptr<rai::block> block (get_next ());
 	if (block != nullptr)
 	{
-		{
-			send_buffer.clear ();
-			rai::vectorstream stream (send_buffer);
-			rai::serialize_block (stream, *block);
-		}
-		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
 		}
+
+		send_buffer.clear ();
+		auto this_l (shared_from_this ());
+
+		if (request->mode == rai::bulk_pull_blocks_mode::list_blocks)
+		{
+			rai::vectorstream stream (send_buffer);
+			rai::serialize_block (stream, *block);
+		}
+		else if (request->mode == rai::bulk_pull_blocks_mode::checksum_blocks)
+		{
+			checksum ^= block->hash ();
+		}
+
 		async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
 	else
 	{
-		send_finished ();
+		if (connection->node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Done sending blocks"));
+		}
+
+		if (request->mode == rai::bulk_pull_blocks_mode::checksum_blocks)
+		{
+			{
+				send_buffer.clear ();
+				rai::vectorstream stream (send_buffer);
+				write (stream, static_cast<uint8_t> (rai::block_type::not_a_block));
+				write (stream, checksum);
+			}
+
+			auto this_l (shared_from_this ());
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending checksum: %1%") % checksum.to_string ());
+			}
+
+			async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l](boost::system::error_code const & ec, size_t size_a) {
+				this_l->send_finished ();
+			});
+		}
+		else
+		{
+			send_finished ();
+		}
 	}
 }
 
@@ -1703,7 +1750,8 @@ connection (connection_a),
 request (std::move (request_a)),
 stream (nullptr),
 stream_transaction (connection_a->node->store.environment, nullptr, false),
-sent_count (0)
+sent_count (0),
+checksum (0)
 {
 	set_params ();
 }

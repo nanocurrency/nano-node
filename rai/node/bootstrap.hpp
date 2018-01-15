@@ -246,10 +246,10 @@ public:
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull_blocks> request;
 	std::vector<uint8_t> send_buffer;
-	rai::block_hash current;
 	rai::store_iterator stream;
 	rai::transaction stream_transaction;
 	uint32_t sent_count;
+	rai::block_hash checksum;
 };
 class bulk_push_server : public std::enable_shared_from_this<rai::bulk_push_server>
 {
