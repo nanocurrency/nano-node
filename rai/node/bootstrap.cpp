@@ -1629,18 +1629,33 @@ void rai::bulk_pull_blocks_server::send_next ()
 std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
 {
 	std::unique_ptr<rai::block> result;
+	bool out_of_bounds;
 
-	if (stream->first.size () != 0)
- 	{
-		auto current = stream->first.uint256 ();
-		if (current < request->max_hash)
+	out_of_bounds = false;
+	if (request->max_count != 0)
+	{
+		if (sent_count >= request->max_count)
 		{
-			rai::transaction transaction (connection->node->store.environment, nullptr, false);
-			result = connection->node->store.block_get (transaction, current);
- 
-			++stream;
+			out_of_bounds = true;
 		}
- 	}
+
+		sent_count++;
+	}
+
+	if (!out_of_bounds)
+	{
+		if (stream->first.size () != 0)
+		{
+			auto current = stream->first.uint256 ();
+			if (current < request->max_hash)
+			{
+				rai::transaction transaction (connection->node->store.environment, nullptr, false);
+				result = connection->node->store.block_get (transaction, current);
+ 
+				++stream;
+			}
+		}
+	}
 	return result;
 }
 
@@ -1687,7 +1702,8 @@ rai::bulk_pull_blocks_server::bulk_pull_blocks_server (std::shared_ptr<rai::boot
 connection (connection_a),
 request (std::move (request_a)),
 stream (nullptr),
-stream_transaction (connection_a->node->store.environment, nullptr, false)
+stream_transaction (connection_a->node->store.environment, nullptr, false),
+sent_count (0)
 {
 	set_params ();
 }

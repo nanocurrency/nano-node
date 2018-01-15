@@ -249,6 +249,7 @@ public:
 	rai::block_hash current;
 	rai::store_iterator stream;
 	rai::transaction stream_transaction;
+	uint32_t sent_count;
 };
 class bulk_push_server : public std::enable_shared_from_this<rai::bulk_push_server>
 {
