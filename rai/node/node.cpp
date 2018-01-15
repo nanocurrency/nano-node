@@ -350,7 +350,6 @@ public:
 		}
 		++node.network.incoming.publish;
 		node.peers.contacted (sender, message_a.version_using);
-		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.block);
 	}
 	void confirm_req (rai::confirm_req const & message_a) override
@@ -361,7 +360,6 @@ public:
 		}
 		++node.network.incoming.confirm_req;
 		node.peers.contacted (sender, message_a.version_using);
-		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.block);
 		rai::transaction transaction_a (node.store.environment, nullptr, false);
 		if (node.store.block_exists (transaction_a, message_a.block->hash ()))
@@ -377,7 +375,6 @@ public:
 		}
 		++node.network.incoming.confirm_ack;
 		node.peers.contacted (sender, message_a.version_using);
-		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.vote->block);
 		auto vote (node.vote_processor.vote (message_a.vote, sender));
 		if (vote.code == rai::vote_code::replay)
