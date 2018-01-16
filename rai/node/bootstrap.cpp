@@ -1601,9 +1601,10 @@ void rai::bulk_pull_blocks_server::set_params ()
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull of block range starting, min (%1%) to max (%2%), max_count = %3%, mode = %4%") % request->min_hash.to_string () % request->max_hash.to_string () % request->max_count % modeName);
 	}
 
-	stream = connection->node->store.block_info_begin(stream_transaction, request->min_hash);
+	stream = connection->node->store.block_info_begin (stream_transaction, request->min_hash);
 
-	if (request->max_hash < request->min_hash) {
+	if (request->max_hash < request->min_hash)
+	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull of block range is invalid, min (%1%) is greater than max (%2%)") % request->min_hash.to_string () % request->max_hash.to_string ());
@@ -1698,7 +1699,7 @@ std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
 			{
 				rai::transaction transaction (connection->node->store.environment, nullptr, false);
 				result = connection->node->store.block_get (transaction, current);
- 
+
 				++stream;
 			}
 		}

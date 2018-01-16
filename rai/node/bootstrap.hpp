@@ -237,7 +237,7 @@ class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pu
 {
 public:
 	bulk_pull_blocks_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull_blocks>);
-	void set_params();
+	void set_params ();
 	std::unique_ptr<rai::block> get_next ();
 	void send_next ();
 	void sent_action (boost::system::error_code const &, size_t);
