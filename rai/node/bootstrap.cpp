@@ -1427,10 +1427,10 @@ void rai::bootstrap_server::run_next ()
 	requests.front ()->visit (visitor);
 }
 
-/*
- * rai::bulk_pull_server: Handle a request for the pull of all blocks associated with an account
- *                        The account is supplied as the "start" member, and the final block to
- *                        send is the "end" member
+/**
+ * Handle a request for the pull of all blocks associated with an account
+ * The account is supplied as the "start" member, and the final block to
+ * send is the "end" member
  */
 void rai::bulk_pull_server::set_current_end ()
 {
@@ -1573,12 +1573,12 @@ request (std::move (request_a))
 	set_current_end ();
 }
 
-/*
- * rai::bulk_pull_blocks_server: Bulk pull of a range of blocks, or a checksum for a range of
- *                               blocks [min_hash, max_hash] up to a max of max_count.  mode
- *                               specifies whether the list is returned or a single checksum
- *                               of all the hashes.  The checksum is computed by XORing the
- *                               hash of all the blocks that would be returned
+/**
+ * Bulk pull of a range of blocks, or a checksum for a range of
+ * blocks [min_hash, max_hash) up to a max of max_count.  mode
+ * specifies whether the list is returned or a single checksum
+ * of all the hashes.  The checksum is computed by XORing the
+ * hash of all the blocks that would be returned
  */
 void rai::bulk_pull_blocks_server::set_params ()
 {
