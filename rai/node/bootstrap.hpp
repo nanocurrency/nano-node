@@ -21,6 +21,12 @@ enum class sync_result
 	error,
 	fork
 };
+
+/**
+ * The length of every message header, parsed by rai::message::read_header ()
+ */
+const int bootstrap_message_header_size = sizeof (rai::message::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + sizeof (std::bitset<16>);
+
 class block_synchronization
 {
 public:
