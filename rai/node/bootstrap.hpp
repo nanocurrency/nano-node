@@ -79,6 +79,7 @@ public:
 	void requeue_pull (rai::pull_info const &);
 	bool still_pulling ();
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
+	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
 	std::weak_ptr<rai::bulk_push_client> push;
 	std::deque<rai::pull_info> pulls;

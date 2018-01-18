@@ -453,9 +453,14 @@ rai::bulk_pull_client::~bulk_pull_client ()
 		--connection->attempt->pulling;
 		connection->attempt->condition.notify_all ();
 	}
-	if (!pull.account.is_zero ())
+	// If received end block is not expected end block
+	if (expected != pull.end)
 	{
-		connection->attempt->requeue_pull (pull);
+		connection->attempt->requeue_pull (rai::pull_info (pull.account, expected, pull.end));
+		if (connection->node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ());
+		}
 	}
 }
 
@@ -473,11 +478,11 @@ void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%") % req.start.to_account () % connection->endpoint);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->account_count++ % 256 == 0)
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%") % req.start.to_account () % connection->endpoint);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
@@ -556,10 +561,6 @@ void rai::bulk_pull_client::received_type ()
 		case rai::block_type::not_a_block:
 		{
 			connection->attempt->pool_connection (connection);
-			if (expected == pull.end)
-			{
-				pull = rai::pull_info ();
-			}
 			break;
 		}
 		default:
@@ -781,6 +782,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 {
 	auto result (true);
 	auto connection_l (connection (lock_a));
+	connection_frontier_request = connection_l;
 	if (connection_l)
 	{
 		std::future<bool> future;
@@ -1023,6 +1025,19 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		std::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
+	}
+	else if (pull.attempts == 4 && !connection_frontier_request.expired ())
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto connection_shared = connection_frontier_request.lock ();
+		auto client (std::make_shared<rai::bulk_pull_client> (connection_shared));
+		node->background ([client, pull]() {
+			client->request (pull);
+		});
+		if (node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Requesting pull account %1% from frontier peer after %2% attempts") % pull.account.to_account () % pull.attempts);
+		}
 	}
 	else
 	{
