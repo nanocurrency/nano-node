@@ -26,7 +26,7 @@ enum class sync_result
  * The length of every message header, parsed by rai::message::read_header ()
  * The 2 here represents the size of a std::bitset<16>, which is 2 chars long normally
  */
-const int bootstrap_message_header_size = sizeof (rai::message::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + 2;
+static const int bootstrap_message_header_size = sizeof (rai::message::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + 2;
 
 class block_synchronization
 {
