@@ -1171,7 +1171,7 @@ TEST (rpc, payment_begin_locked)
 	ASSERT_FALSE (response1.json.get<std::string> ("error").empty ());
 }
 
-TEST (rpc, DISABLED_payment_wait)
+TEST (rpc, payment_wait)
 {
 	rai::system system (24000, 1);
 	rai::node_init init1;
