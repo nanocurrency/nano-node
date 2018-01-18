@@ -1,9 +1,9 @@
-#include <rai/rai_node/daemon.hpp>
-
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <iostream>
+#include <rai/lib/exceptions.hpp>
 #include <rai/node/working.hpp>
+#include <rai/rai_node/daemon.hpp>
 
 rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
 rpc_enable (false),
@@ -29,7 +29,6 @@ void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tr
 
 bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
-	auto error (false);
 	try
 	{
 		if (!tree_a.empty ())
@@ -40,15 +39,22 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 				tree_a.put ("version", "1");
 				version_l = "1";
 			}
-			upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
+
+			upgrade_json (std::stoull (version_l.get ()), tree_a);
 			rpc_enable = tree_a.get<bool> ("rpc_enable");
+
 			auto rpc_l (tree_a.get_child ("rpc"));
-			error |= rpc.deserialize_json (rpc_l);
+			if (rpc.deserialize_json (rpc_l))
+				throw rai::config_error ("Invalid json in 'rpc'");
+
 			auto & node_l (tree_a.get_child ("node"));
-			error |= node.deserialize_json (upgraded_a, node_l);
+			if (node.deserialize_json (upgraded_a, node_l))
+				throw rai::config_error ("Invalid json in 'node'");
+
 			opencl_enable = tree_a.get<bool> ("opencl_enable");
 			auto & opencl_l (tree_a.get_child ("opencl"));
-			error |= opencl.deserialize_json (opencl_l);
+			if (opencl.deserialize_json (opencl_l))
+				throw rai::config_error ("Invalid json in 'opencl'");
 		}
 		else
 		{
@@ -56,16 +62,19 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 			serialize_json (tree_a);
 		}
 	}
-	catch (std::runtime_error const &)
+	catch (std::runtime_error const & err)
 	{
-		error = true;
+		throw rai::config_error (err.what ());
 	}
-	return error;
+
+	// TODO: The reason we return a bool here is that the deserialize_json interface isn't
+	// ported to use exceptions everywhere (for instance, send_block::deserialize_json).
+	// Once all implementations throw exceptions, deserialize_json should become a void method.
+	return false;
 }
 
-bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+void rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
-	auto result (false);
 	switch (version_a)
 	{
 		case 1:
@@ -83,14 +92,12 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 				tree_a.put_child ("opencl", opencl_l);
 			}
 			tree_a.put ("version", "2");
-			result = true;
 		}
 		case 2:
 			break;
 		default:
-			throw std::runtime_error ("Unknown daemon_config version");
+			throw rai::config_error ("Unknown daemon config file version");
 	}
-	return result;
 }
 
 void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
@@ -100,45 +107,39 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
 	std::unique_ptr<rai::thread_runner> runner;
-	auto error (rai::fetch_object (config, config_path, config_file));
-	if (!error)
+	rai::fetch_object (config, config_path, config_file);
+
+	config.node.logging.init (data_path);
+	config_file.close ();
+	boost::asio::io_service service;
+	auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+	rai::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](rai::uint256_union const & root_a) {
+		return opencl->generate_work (root_a);
+	}
+	                                                             : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
+	rai::alarm alarm (service);
+	rai::node_init init;
+	try
 	{
-		config.node.logging.init (data_path);
-		config_file.close ();
-		boost::asio::io_service service;
-		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](rai::uint256_union const & root_a) {
-			return opencl->generate_work (root_a);
-		}
-		                                                             : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-		rai::alarm alarm (service);
-		rai::node_init init;
-		try
+		auto node (std::make_shared<rai::node> (init, service, data_path, alarm, config.node, opencl_work));
+		if (!init.error ())
 		{
-			auto node (std::make_shared<rai::node> (init, service, data_path, alarm, config.node, opencl_work));
-			if (!init.error ())
+			node->start ();
+			rai::rpc rpc (service, *node, config.rpc);
+			if (config.rpc_enable)
 			{
-				node->start ();
-				rai::rpc rpc (service, *node, config.rpc);
-				if (config.rpc_enable)
-				{
-					rpc.start ();
-				}
-				runner.reset (new rai::thread_runner (service, node->config.io_threads));
-				runner->join ();
+				rpc.start ();
 			}
-			else
-			{
-				std::cerr << "Error initializing node\n";
-			}
+			runner.reset (new rai::thread_runner (service, node->config.io_threads));
+			runner->join ();
 		}
-		catch (const std::runtime_error & e)
+		else
 		{
-			std::cerr << "Error while running node (" << e.what () << ")\n";
+			std::cerr << "Error initializing node\n";
 		}
 	}
-	else
+	catch (const std::runtime_error & e)
 	{
-		std::cerr << "Error deserializing config\n";
+		std::cerr << "Error while running node (" << e.what () << ")\n";
 	}
 }

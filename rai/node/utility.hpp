@@ -15,6 +15,7 @@
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <rai/config.hpp>
+#include <rai/lib/exceptions.hpp>
 #include <rai/lib/interface.h>
 #include <rai/lib/numbers.hpp>
 
@@ -28,38 +29,44 @@ boost::filesystem::path working_path ();
 boost::filesystem::path unique_path ();
 // C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truntacing it.
 void open_or_create (std::fstream &, std::string const &);
-// Reads a json object from the stream and if was changed, write the object back to the stream
+
+/**
+ * Reads a json object from the stream and if was changed, write the object back to the stream
+ * @throws rai::config_error If the configuration is malformed or couldn't be read or updated.
+ */
 template <typename T>
-bool fetch_object (T & object, std::iostream & stream_a)
+void fetch_object (T & object, std::iostream & stream_a)
 {
 	assert (stream_a.tellg () == std::streampos (0) || stream_a.tellg () == std::streampos (-1));
 	assert (stream_a.tellp () == std::streampos (0) || stream_a.tellp () == std::streampos (-1));
-	bool error (false);
 	boost::property_tree::ptree tree;
 	try
 	{
 		boost::property_tree::read_json (stream_a, tree);
 	}
-	catch (std::runtime_error const &)
+	catch (std::runtime_error const & err)
 	{
 		auto pos (stream_a.tellg ());
 		if (pos != std::streampos (0))
 		{
-			error = true;
+			throw rai::config_error (err.what ());
 		}
 	}
-	if (!error)
+
+	auto updated (false);
+	if (object.deserialize_json (updated, tree))
 	{
-		auto updated (false);
-		error = object.deserialize_json (updated, tree);
+		throw rai::config_error ("Could not deserialize json");
 	}
-	return error;
 }
-// Reads a json object from the stream and if was changed, write the object back to the stream
+
+/**
+ * Reads a json object from the stream and if was changed, write the object back to the stream
+ * @throws rai::config_error If the configuration is malformed or couldn't be read or updated.
+ */
 template <typename T>
-bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstream & stream_a)
+void fetch_object (T & object, boost::filesystem::path const & path_a, std::fstream & stream_a)
 {
-	bool error (false);
 	rai::open_or_create (stream_a, path_a.string ());
 	if (!stream_a.fail ())
 	{
@@ -68,34 +75,30 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 		{
 			boost::property_tree::read_json (stream_a, tree);
 		}
-		catch (std::runtime_error const &)
+		catch (std::runtime_error const & err)
 		{
 			auto pos (stream_a.tellg ());
 			if (pos != std::streampos (0))
 			{
-				error = true;
+				throw rai::config_error (err.what ());
 			}
 		}
-		if (!error)
+
+		auto updated (false);
+		if (!object.deserialize_json (updated, tree) && updated)
 		{
-			auto updated (false);
-			error = object.deserialize_json (updated, tree);
-			if (!error && updated)
+			stream_a.close ();
+			stream_a.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
+			try
 			{
-				stream_a.close ();
-				stream_a.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
-				try
-				{
-					boost::property_tree::write_json (stream_a, tree);
-				}
-				catch (std::runtime_error const &)
-				{
-					error = true;
-				}
+				boost::property_tree::write_json (stream_a, tree);
+			}
+			catch (std::runtime_error const & err)
+			{
+				throw rai::config_error (err.what ());
 			}
 		}
 	}
-	return error;
 }
 
 class mdb_env
