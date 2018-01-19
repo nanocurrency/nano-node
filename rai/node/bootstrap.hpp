@@ -78,6 +78,7 @@ public:
 	void stop ();
 	void requeue_pull (rai::pull_info const &);
 	bool still_pulling ();
+	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
 	std::weak_ptr<rai::bulk_push_client> push;
@@ -166,6 +167,7 @@ public:
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
+	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	void stop ();
 	rai::node & node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;

@@ -441,10 +441,7 @@ class block_processor_item
 public:
 	block_processor_item (std::shared_ptr<rai::block>);
 	block_processor_item (std::shared_ptr<rai::block>, bool);
-	block_processor_item (std::shared_ptr<rai::block>, std::function<void(MDB_txn *, rai::process_return, std::shared_ptr<rai::block>)>);
-	block_processor_item (std::shared_ptr<rai::block>, std::function<void(MDB_txn *, rai::process_return, std::shared_ptr<rai::block>)>, bool);
 	std::shared_ptr<rai::block> block;
-	std::function<void(MDB_txn *, rai::process_return, std::shared_ptr<rai::block>)> callback;
 	bool force;
 };
 // Processing blocks is a potentially long IO operation
