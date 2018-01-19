@@ -249,8 +249,8 @@ void rai_qt::accounts::refresh_wallet_balance ()
 		final_text += "\nPending: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
-	QTimer::singleShot (std::chrono::milliseconds (60000).count (), [this]() {
-		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
+    this->wallet.node.alarm.add(std::chrono::system_clock::now() + std::chrono::seconds(60), [this]() {
+        this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
 			refresh_wallet_balance ();
 		}));
 	});
@@ -1198,11 +1198,11 @@ void rai_qt::wallet::update_connected ()
 	}
 }
 
-void rai_qt::wallet::empty_password ()
+void rai_qt::wallet::empty_password()
 {
-    QTimer::singleShot(std::chrono::milliseconds (3000).count (), [this]() {
-		wallet_m->enter_password (std::string (""));
-	});
+    this->node.alarm.add(std::chrono::system_clock::now() + std::chrono::seconds(3), [this]() {
+        wallet_m->enter_password(std::string(""));
+    });
 }
 
 void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
