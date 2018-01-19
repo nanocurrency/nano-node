@@ -219,5 +219,6 @@ public:
 	virtual void bulk_pull (rai::bulk_pull const &) = 0;
 	virtual void bulk_push (rai::bulk_push const &) = 0;
 	virtual void frontier_req (rai::frontier_req const &) = 0;
+	virtual ~message_visitor ();
 };
 }

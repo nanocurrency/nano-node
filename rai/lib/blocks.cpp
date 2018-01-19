@@ -37,6 +37,10 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
 	return result;
 }
 
+rai::block::~block ()
+{
+}
+
 std::string rai::block::to_json ()
 {
 	std::string result;
@@ -1111,4 +1115,24 @@ void rai::receive_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
+}
+
+rai::block_visitor::~block_visitor ()
+{
+}
+
+rai::open_block::~open_block ()
+{
+}
+
+rai::change_block::~change_block ()
+{
+}
+
+rai::send_block::~send_block ()
+{
+}
+
+rai::receive_block::~receive_block ()
+{
 }

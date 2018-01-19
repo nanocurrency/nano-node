@@ -60,6 +60,7 @@ public:
 	virtual bool operator== (rai::block const &) const = 0;
 	virtual rai::block_type type () const = 0;
 	virtual void signature_set (rai::uint512_union const &) = 0;
+	virtual ~block ();
 };
 class send_hashables
 {
@@ -78,6 +79,7 @@ public:
 	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	send_block (bool &, rai::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
+	virtual ~send_block ();
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
@@ -116,6 +118,7 @@ public:
 	receive_block (rai::block_hash const &, rai::block_hash const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	receive_block (bool &, rai::stream &);
 	receive_block (bool &, boost::property_tree::ptree const &);
+	virtual ~receive_block ();
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
@@ -156,6 +159,7 @@ public:
 	open_block (rai::block_hash const &, rai::account const &, rai::account const &, std::nullptr_t);
 	open_block (bool &, rai::stream &);
 	open_block (bool &, boost::property_tree::ptree const &);
+	virtual ~open_block ();
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
@@ -194,6 +198,7 @@ public:
 	change_block (rai::block_hash const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	change_block (bool &, rai::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
+	virtual ~change_block ();
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
@@ -223,6 +228,7 @@ public:
 	virtual void receive_block (rai::receive_block const &) = 0;
 	virtual void open_block (rai::open_block const &) = 0;
 	virtual void change_block (rai::change_block const &) = 0;
+	virtual ~block_visitor ();
 };
 std::unique_ptr<rai::block> deserialize_block (rai::stream &);
 std::unique_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type);
