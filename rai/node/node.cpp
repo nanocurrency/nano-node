@@ -405,6 +405,10 @@ public:
 	{
 		assert (false);
 	}
+	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
+	{
+		assert (false);
+	}
 	void bulk_push (rai::bulk_push const &) override
 	{
 		assert (false);

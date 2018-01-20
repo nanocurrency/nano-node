@@ -496,6 +496,52 @@ void rai::bulk_pull::serialize (rai::stream & stream_a)
 	write (stream_a, end);
 }
 
+rai::bulk_pull_blocks::bulk_pull_blocks () :
+message (rai::message_type::bulk_pull_blocks)
+{
+}
+
+void rai::bulk_pull_blocks::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.bulk_pull_blocks (*this);
+}
+
+bool rai::bulk_pull_blocks::deserialize (rai::stream & stream_a)
+{
+	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
+	assert (!result);
+	assert (rai::message_type::bulk_pull_blocks == type);
+	if (!result)
+	{
+		assert (type == rai::message_type::bulk_pull_blocks);
+		result = read (stream_a, min_hash);
+		if (!result)
+		{
+			result = read (stream_a, max_hash);
+		}
+
+		if (!result)
+		{
+			result = read (stream_a, mode);
+		}
+
+		if (!result)
+		{
+			result = read (stream_a, max_count);
+		}
+	}
+	return result;
+}
+
+void rai::bulk_pull_blocks::serialize (rai::stream & stream_a)
+{
+	write_header (stream_a);
+	write (stream_a, min_hash);
+	write (stream_a, max_hash);
+	write (stream_a, mode);
+	write (stream_a, max_count);
+}
+
 rai::bulk_push::bulk_push () :
 message (rai::message_type::bulk_push)
 {

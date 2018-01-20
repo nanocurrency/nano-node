@@ -1267,6 +1267,14 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 					});
 					break;
 				}
+				case rai::message_type::bulk_pull_blocks:
+				{
+					auto this_l (shared_from_this ());
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + rai::bootstrap_message_header_size, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_bulk_pull_blocks_action (ec, size_a);
+					});
+					break;
+				}
 				case rai::message_type::frontier_req:
 				{
 					auto this_l (shared_from_this ());
@@ -1312,6 +1320,25 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
+			}
+			add_request (std::unique_ptr<rai::message> (request.release ()));
+			receive ();
+		}
+	}
+}
+
+void rai::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a)
+{
+	if (!ec)
+	{
+		std::unique_ptr<rai::bulk_pull_blocks> request (new rai::bulk_pull_blocks);
+		rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
+		auto error (request->deserialize (stream));
+		if (!error)
+		{
+			if (node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull blocks for %1% to %2%") % request->min_hash.to_string () % request->max_hash.to_string ());
 			}
 			add_request (std::unique_ptr<rai::message> (request.release ()));
 			receive ();
@@ -1399,6 +1426,11 @@ public:
 		auto response (std::make_shared<rai::bulk_pull_server> (connection, std::unique_ptr<rai::bulk_pull> (static_cast<rai::bulk_pull *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
+	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
+	{
+		auto response (std::make_shared<rai::bulk_pull_blocks_server> (connection, std::unique_ptr<rai::bulk_pull_blocks> (static_cast<rai::bulk_pull_blocks *> (connection->requests.front ().release ()))));
+		response->send_next ();
+	}
 	void bulk_push (rai::bulk_push const &) override
 	{
 		auto response (std::make_shared<rai::bulk_push_server> (connection));
@@ -1420,6 +1452,11 @@ void rai::bootstrap_server::run_next ()
 	requests.front ()->visit (visitor);
 }
 
+/**
+ * Handle a request for the pull of all blocks associated with an account
+ * The account is supplied as the "start" member, and the final block to
+ * send is the "end" member
+ */
 void rai::bulk_pull_server::set_current_end ()
 {
 	assert (request != nullptr);
@@ -1559,6 +1596,190 @@ connection (connection_a),
 request (std::move (request_a))
 {
 	set_current_end ();
+}
+
+/**
+ * Bulk pull of a range of blocks, or a checksum for a range of
+ * blocks [min_hash, max_hash) up to a max of max_count.  mode
+ * specifies whether the list is returned or a single checksum
+ * of all the hashes.  The checksum is computed by XORing the
+ * hash of all the blocks that would be returned
+ */
+void rai::bulk_pull_blocks_server::set_params ()
+{
+	assert (request != nullptr);
+
+	if (connection->node->config.logging.bulk_pull_logging ())
+	{
+		std::string modeName = "<unknown>";
+
+		switch (request->mode)
+		{
+			case rai::bulk_pull_blocks_mode::list_blocks:
+				modeName = "list";
+				break;
+			case rai::bulk_pull_blocks_mode::checksum_blocks:
+				modeName = "checksum";
+				break;
+		}
+
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull of block range starting, min (%1%) to max (%2%), max_count = %3%, mode = %4%") % request->min_hash.to_string () % request->max_hash.to_string () % request->max_count % modeName);
+	}
+
+	stream = connection->node->store.block_info_begin (stream_transaction, request->min_hash);
+
+	if (request->max_hash < request->min_hash)
+	{
+		if (connection->node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull of block range is invalid, min (%1%) is greater than max (%2%)") % request->min_hash.to_string () % request->max_hash.to_string ());
+		}
+
+		request->max_hash = request->min_hash;
+	}
+}
+
+void rai::bulk_pull_blocks_server::send_next ()
+{
+	std::unique_ptr<rai::block> block (get_next ());
+	if (block != nullptr)
+	{
+		if (connection->node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
+		}
+
+		send_buffer.clear ();
+		auto this_l (shared_from_this ());
+
+		if (request->mode == rai::bulk_pull_blocks_mode::list_blocks)
+		{
+			rai::vectorstream stream (send_buffer);
+			rai::serialize_block (stream, *block);
+		}
+		else if (request->mode == rai::bulk_pull_blocks_mode::checksum_blocks)
+		{
+			checksum ^= block->hash ();
+		}
+
+		async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			this_l->sent_action (ec, size_a);
+		});
+	}
+	else
+	{
+		if (connection->node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Done sending blocks"));
+		}
+
+		if (request->mode == rai::bulk_pull_blocks_mode::checksum_blocks)
+		{
+			{
+				send_buffer.clear ();
+				rai::vectorstream stream (send_buffer);
+				write (stream, static_cast<uint8_t> (rai::block_type::not_a_block));
+				write (stream, checksum);
+			}
+
+			auto this_l (shared_from_this ());
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending checksum: %1%") % checksum.to_string ());
+			}
+
+			async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), send_buffer.size ()), [this_l](boost::system::error_code const & ec, size_t size_a) {
+				this_l->send_finished ();
+			});
+		}
+		else
+		{
+			send_finished ();
+		}
+	}
+}
+
+std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
+{
+	std::unique_ptr<rai::block> result;
+	bool out_of_bounds;
+
+	out_of_bounds = false;
+	if (request->max_count != 0)
+	{
+		if (sent_count >= request->max_count)
+		{
+			out_of_bounds = true;
+		}
+
+		sent_count++;
+	}
+
+	if (!out_of_bounds)
+	{
+		if (stream->first.size () != 0)
+		{
+			auto current = stream->first.uint256 ();
+			if (current < request->max_hash)
+			{
+				rai::transaction transaction (connection->node->store.environment, nullptr, false);
+				result = connection->node->store.block_get (transaction, current);
+
+				++stream;
+			}
+		}
+	}
+	return result;
+}
+
+void rai::bulk_pull_blocks_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+{
+	if (!ec)
+	{
+		send_next ();
+	}
+	else
+	{
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unable to bulk send block: %1%") % ec.message ());
+	}
+}
+
+void rai::bulk_pull_blocks_server::send_finished ()
+{
+	send_buffer.clear ();
+	send_buffer.push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	auto this_l (shared_from_this ());
+	if (connection->node->config.logging.bulk_pull_logging ())
+	{
+		BOOST_LOG (connection->node->log) << "Bulk sending finished";
+	}
+	async_write (*connection->socket, boost::asio::buffer (send_buffer.data (), 1), [this_l](boost::system::error_code const & ec, size_t size_a) {
+		this_l->no_block_sent (ec, size_a);
+	});
+}
+
+void rai::bulk_pull_blocks_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+{
+	if (!ec)
+	{
+		assert (size_a == 1);
+		connection->finish_request ();
+	}
+	else
+	{
+		BOOST_LOG (connection->node->log) << "Unable to send not-a-block";
+	}
+}
+
+rai::bulk_pull_blocks_server::bulk_pull_blocks_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull_blocks> request_a) :
+connection (connection_a),
+request (std::move (request_a)),
+stream (nullptr),
+stream_transaction (connection_a->node->store.environment, nullptr, false),
+sent_count (0),
+checksum (0)
+{
+	set_params ();
 }
 
 rai::bulk_push_server::bulk_push_server (std::shared_ptr<rai::bootstrap_server> const & connection_a) :
