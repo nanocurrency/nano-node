@@ -1546,6 +1546,9 @@ public:
 	hash (hash_a)
 	{
 	}
+	virtual ~history_visitor ()
+	{
+	}
 	void send_block (rai::send_block const & block_a)
 	{
 		tree.put ("type", "send");

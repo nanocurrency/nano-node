@@ -332,6 +332,9 @@ public:
 	sender (sender_a)
 	{
 	}
+	virtual ~network_message_visitor ()
+	{
+	}
 	void keepalive (rai::keepalive const & message_a) override
 	{
 		if (node.config.logging.network_keepalive_logging ())
@@ -2224,6 +2227,9 @@ public:
 	confirmed_visitor (rai::node & node_a, std::shared_ptr<rai::block> block_a) :
 	node (node_a),
 	block (block_a)
+	{
+	}
+	virtual ~confirmed_visitor ()
 	{
 	}
 	void send_block (rai::send_block const & block_a) override

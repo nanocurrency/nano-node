@@ -25,6 +25,9 @@ public:
 	complete (true)
 	{
 	}
+	virtual ~add_dependency_visitor ()
+	{
+	}
 	void send_block (rai::send_block const & block_a) override
 	{
 		add_dependency (block_a.hashables.previous);
@@ -124,6 +127,10 @@ rai::push_synchronization::push_synchronization (rai::node & node_a, std::functi
 block_synchronization (node_a.log),
 target_m (target_a),
 node (node_a)
+{
+}
+
+rai::push_synchronization::~push_synchronization ()
 {
 }
 
@@ -1366,6 +1373,9 @@ class request_response_visitor : public rai::message_visitor
 public:
 	request_response_visitor (std::shared_ptr<rai::bootstrap_server> connection_a) :
 	connection (connection_a)
+	{
+	}
+	virtual ~request_response_visitor ()
 	{
 	}
 	void keepalive (rai::keepalive const &) override

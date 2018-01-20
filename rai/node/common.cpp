@@ -518,3 +518,7 @@ void rai::bulk_push::visit (rai::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_push (*this);
 }
+
+rai::message_visitor::~message_visitor ()
+{
+}
