@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+set -o xtrace
+
 DISTRO_CFG=""
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
     CPACK_TYPE="TBZ2"
-    distro=$(lsb_release -i -s)
+    distro=$(lsb_release -i -c -s|tr '\n' '_')
     DISTRO_CFG="-DRAIBLOCKS_DISTRO_NAME=${distro}"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     CPACK_TYPE="DragNDrop"
@@ -20,11 +22,11 @@ else
     CPACK_TYPE="TBZ2"
 fi
 
-if [[ ${NO_SIMD} -eq 1 ]]; then
-    NOSIMD_CFG="-DRAIBLOCKS_SIMD_OPTIMIZATIONS=OFF"
+if [[ ${SIMD} -eq 1 ]]; then
+    SIMD_CFG="-DRAIBLOCKS_SIMD_OPTIMIZATIONS=ON"
     CRYPTOPP_CFG="-DCRYPTOPP_CUSTOM=ON"
 else
-    NOSIMD_CFG=""
+    SIMD_CFG=""
     CRYPTOPP_CFG=""
 fi
 
@@ -38,7 +40,7 @@ else
     SANITIZERS=""
 fi
 
-if [[ ${BOOST_ROOT} -ne "" ]]; then
+if [[ "${BOOST_ROOT}" -ne "" ]]; then
     BOOST_CFG="-DBOOST_ROOT='${BOOST_ROOT}'"
 else
     BOOST_CFG=""
@@ -57,15 +59,14 @@ run_build() {
     mkdir ${build_dir}
     cd ${build_dir}
     cmake -GNinja \
-       -DACTIVE_NETWORK=rai_test_network \
-       -DRAIBLOCKS_TEST=ON \
        -DRAIBLOCKS_GUI=ON \
-       -DCMAKE_BUILD_TYPE=Debug \
+       -DCMAKE_BUILD_TYPE=Release \
        -DCMAKE_VERBOSE_MAKEFILE=ON \
        -DCMAKE_INSTALL_PREFIX="../install" \
        ${CRYPTOPP_CFG} \
        ${DISTRO_CFG} \
-       ${NOSIMD_CFG} \
+       ${SIMD_CFG} \
+       -DBOOST_ROOT=/usr/local/boost \
        ${BOOST_CFG} \
        ${SANITIZERS} \
        ..
