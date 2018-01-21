@@ -896,18 +896,15 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 		if (store.valid_password (transaction))
 		{
 			auto existing (store.find (transaction, source_a));
-			if (existing != store.end ())
+			if (existing != store.end () && !node.ledger.latest (transaction, source_a).is_zero ())
 			{
-				if (!node.ledger.latest (transaction, source_a).is_zero ())
-				{
-					rai::account_info info;
-					auto error1 (node.ledger.store.account_get (transaction, source_a, info));
-					assert (!error1);
-					rai::raw_key prv;
-					auto error2 (store.fetch (transaction, source_a, prv));
-					assert (!error2);
-					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
-				}
+				rai::account_info info;
+				auto error1 (node.ledger.store.account_get (transaction, source_a, info));
+				assert (!error1);
+				rai::raw_key prv;
+				auto error2 (store.fetch (transaction, source_a, prv));
+				assert (!error2);
+				block.reset (new rai::change_block (info.head, representative_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
 			}
 		}
 	}
@@ -939,18 +936,15 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 			if (existing != store.end ())
 			{
 				auto balance (node.ledger.account_balance (transaction, source_a));
-				if (!balance.is_zero ())
+				if (!balance.is_zero () && balance >= amount_a)
 				{
-					if (balance >= amount_a)
-					{
-						rai::account_info info;
-						auto error1 (node.ledger.store.account_get (transaction, source_a, info));
-						assert (!error1);
-						rai::raw_key prv;
-						auto error2 (store.fetch (transaction, source_a, prv));
-						assert (!error2);
-						block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
-					}
+					rai::account_info info;
+					auto error1 (node.ledger.store.account_get (transaction, source_a, info));
+					assert (!error1);
+					rai::raw_key prv;
+					auto error2 (store.fetch (transaction, source_a, prv));
+					assert (!error2);
+					block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
 				}
 			}
 		}
@@ -1054,14 +1048,12 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
 	{
 		result = node.generate_work (root_a);
 	}
-	else
+	else if (rai::work_validate (root_a, result))
 	{
-		if (rai::work_validate (root_a, result))
-		{
-			BOOST_LOG (node.log) << "Cached work invalid, regenerating";
-			result = node.generate_work (root_a);
-		}
+		BOOST_LOG (node.log) << "Cached work invalid, regenerating";
+		result = node.generate_work (root_a);
 	}
+
 	return result;
 }
 

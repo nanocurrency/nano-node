@@ -257,28 +257,21 @@ void rai::uint256_union::encode_hex (std::string & text) const
 bool rai::uint256_union::decode_hex (std::string const & text)
 {
 	auto result (false);
-	if (!text.empty ())
+	if (!text.empty () && text.size () <= 64)
 	{
-		if (text.size () <= 64)
+		std::stringstream stream (text);
+		stream << std::hex << std::noshowbase;
+		rai::uint256_t number_l;
+		try
 		{
-			std::stringstream stream (text);
-			stream << std::hex << std::noshowbase;
-			rai::uint256_t number_l;
-			try
-			{
-				stream >> number_l;
-				*this = number_l;
-				if (!stream.eof ())
-				{
-					result = true;
-				}
-			}
-			catch (std::runtime_error &)
+			stream >> number_l;
+			*this = number_l;
+			if (!stream.eof ())
 			{
 				result = true;
 			}
 		}
-		else
+		catch (std::runtime_error &)
 		{
 			result = true;
 		}
