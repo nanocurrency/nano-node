@@ -279,9 +279,20 @@ void rai::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
-	boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l](boost::system::error_code const & ec, size_t size_a) {
+	size_t size_l (sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
+	boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), size_l), [this_l, size_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
-		this_l->received_frontier (ec, size_a);
+
+		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
+		// we simply get a size of 0.
+		if (size_a == size_l)
+		{
+			this_l->received_frontier (ec, size_a);
+		}
+		else
+		{
+			BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Invalid size: expected %1%, got %2%") % size_l % size_a);
+		}
 	});
 }
 
