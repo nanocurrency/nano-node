@@ -1030,17 +1030,20 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (pull.attempts == 4 && !connection_frontier_request.expired ())
+	else if (pull.attempts == 4)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		auto connection_shared = connection_frontier_request.lock ();
-		auto client (std::make_shared<rai::bulk_pull_client> (connection_shared));
-		node->background ([client, pull]() {
-			client->request (pull);
-		});
-		if (node->config.logging.bulk_pull_logging ())
+
+		if (auto connection_shared = connection_frontier_request.lock ())
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Requesting pull account %1% from frontier peer after %2% attempts") % pull.account.to_account () % pull.attempts);
+			auto client (std::make_shared<rai::bulk_pull_client> (connection_shared));
+			node->background ([client, pull]() {
+				client->request (pull);
+			});
+			if (node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (node->log) << boost::str (boost::format ("Requesting pull account %1% from frontier peer after %2% attempts") % pull.account.to_account () % pull.attempts);
+			}
 		}
 	}
 	else
