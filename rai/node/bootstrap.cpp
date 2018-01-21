@@ -597,32 +597,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				expected = block->previous ();
 			}
-			auto attempt_l (connection->attempt);
-			auto pull_l (pull);
-			attempt_l->node->block_processor.add (rai::block_processor_item (block, [attempt_l, pull_l](MDB_txn * transaction_a, rai::process_return result_a, std::shared_ptr<rai::block> block_a) {
-				switch (result_a.code)
-				{
-					case rai::process_result::progress:
-					case rai::process_result::old:
-						break;
-					case rai::process_result::fork:
-					{
-						auto node_l (attempt_l->node);
-						std::shared_ptr<rai::block> block (node_l->ledger.forked_block (transaction_a, *block_a));
-						if (!node_l->active.start (transaction_a, block))
-						{
-							node_l->network.broadcast_confirm_req (block_a);
-							node_l->network.broadcast_confirm_req (block);
-							auto hash (block_a->hash ());
-							attempt_l->requeue_pull (rai::pull_info (pull_l.account, hash, hash));
-							BOOST_LOG (node_l->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %2% and block %1% both with root %3%") % block_a->hash ().to_string () % block->hash ().to_string () % block_a->root ().to_string ());
-						}
-						break;
-					}
-					default:
-						break;
-				}
-			}));
+			connection->attempt->node->block_processor.add (rai::block_processor_item (block));
 			receive_block ();
 		}
 		else
@@ -946,6 +921,17 @@ bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 	return result;
 }
 
+void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
+{
+	std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
+	if (!node->active.start (transaction_a, ledger_block))
+	{
+		node->network.broadcast_confirm_req (ledger_block);
+		node->network.broadcast_confirm_req (block_a);
+		BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %2% and block %1% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
+	}
+}
+
 void rai::bootstrap_attempt::populate_connections ()
 {
 	if (connections < node->config.bootstrap_connections)
@@ -1143,6 +1129,15 @@ void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	for (auto & i : observers)
 	{
 		i (in_progress_a);
+	}
+}
+
+void rai::bootstrap_initiator::process_fork (MDB_txn * transaction, std::shared_ptr<rai::block> block_a)
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	if (attempt != nullptr)
+	{
+		attempt->process_fork (transaction, block_a);
 	}
 }
 

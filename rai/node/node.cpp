@@ -1071,23 +1071,12 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 }
 
 rai::block_processor_item::block_processor_item (std::shared_ptr<rai::block> block_a) :
-block_processor_item (block_a, nullptr, false)
+block_processor_item (block_a, false)
 {
 }
 
 rai::block_processor_item::block_processor_item (std::shared_ptr<rai::block> block_a, bool force_a) :
-block_processor_item (block_a, nullptr, force_a)
-{
-}
-
-rai::block_processor_item::block_processor_item (std::shared_ptr<rai::block> block_a, std::function<void(MDB_txn *, rai::process_return, std::shared_ptr<rai::block>)> callback_a) :
-block_processor_item (block_a, callback_a, false)
-{
-}
-
-rai::block_processor_item::block_processor_item (std::shared_ptr<rai::block> block_a, std::function<void(MDB_txn *, rai::process_return, std::shared_ptr<rai::block>)> callback_a, bool force_a) :
 block (block_a),
-callback (callback_a),
 force (force_a)
 {
 }
@@ -1183,10 +1172,6 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 					}
 				}
 				auto process_result (process_receive_one (transaction, item.block));
-				if (item.callback)
-				{
-					item.callback (transaction, process_result, item.block);
-				}
 				switch (process_result.code)
 				{
 					case rai::process_result::progress:
@@ -1320,6 +1305,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 		}
 		case rai::process_result::fork:
 		{
+			node.bootstrap_initiator.process_fork (transaction_a, block_a);
 			if (node.config.logging.ledger_logging ())
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % block_a->hash ().to_string () % block_a->root ().to_string ());
