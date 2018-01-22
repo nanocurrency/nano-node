@@ -186,10 +186,10 @@ wallet (wallet_a)
 			show_button_success (*create_account);
 			create_account->setText ("New account was created");
 			refresh ();
-            QTimer::singleShot (std::chrono::milliseconds (5000).count (), [this]() {
-                show_button_ok(*create_account);
-                create_account->setText("Create account");
-            });
+			QTimer::singleShot (std::chrono::milliseconds (5000).count (), [this]() {
+				show_button_ok (*create_account);
+				create_account->setText ("Create account");
+			});
 		}
 		else
 		{
@@ -249,8 +249,8 @@ void rai_qt::accounts::refresh_wallet_balance ()
 		final_text += "\nPending: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
-    this->wallet.node.alarm.add(std::chrono::system_clock::now() + std::chrono::seconds(60), [this]() {
-        this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
+	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this]() {
+		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
 			refresh_wallet_balance ();
 		}));
 	});
@@ -635,7 +635,7 @@ void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a
 		if (!successor.is_zero ())
 		{
 			done = false;
-            QTimer::singleShot(std::chrono::milliseconds (1000).count (), [this, successor]() {
+			QTimer::singleShot (std::chrono::milliseconds (1000).count (), [this, successor]() {
 				rebroadcast_action (successor);
 			});
 		}
@@ -971,7 +971,7 @@ void rai_qt::wallet::start ()
 							{
 								show_button_error (*this_l->send_blocks_send);
 								this_l->send_blocks_send->setText ("Wallet is locked, unlock it to send");
-                                QTimer::singleShot(std::chrono::milliseconds (5000).count (), [this_w]() {
+								QTimer::singleShot (std::chrono::milliseconds (5000).count (), [this_w]() {
 									if (auto this_l = this_w.lock ())
 									{
 										show_button_ok (*this_l->send_blocks_send);
@@ -985,7 +985,7 @@ void rai_qt::wallet::start ()
 							show_line_error (*this_l->send_count);
 							show_button_error (*this_l->send_blocks_send);
 							this_l->send_blocks_send->setText ("Not enough balance");
-                            QTimer::singleShot(std::chrono::milliseconds (5000).count (), [this_w]() {
+							QTimer::singleShot (std::chrono::milliseconds (5000).count (), [this_w]() {
 								if (auto this_l = this_w.lock ())
 								{
 									show_button_ok (*this_l->send_blocks_send);
@@ -999,7 +999,7 @@ void rai_qt::wallet::start ()
 						show_line_error (*this_l->send_account);
 						show_button_error (*this_l->send_blocks_send);
 						this_l->send_blocks_send->setText ("Bad destination account");
-                        QTimer::singleShot(std::chrono::milliseconds (5000).count (), [this_w]() {
+						QTimer::singleShot (std::chrono::milliseconds (5000).count (), [this_w]() {
 							if (auto this_l = this_w.lock ())
 							{
 								show_button_ok (*this_l->send_blocks_send);
@@ -1013,7 +1013,7 @@ void rai_qt::wallet::start ()
 					show_line_error (*this_l->send_count);
 					show_button_error (*this_l->send_blocks_send);
 					this_l->send_blocks_send->setText ("Amount too big");
-                    QTimer::singleShot(std::chrono::milliseconds (5000).count (), [this_w]() {
+					QTimer::singleShot (std::chrono::milliseconds (5000).count (), [this_w]() {
 						if (auto this_l = this_w.lock ())
 						{
 							show_line_ok (*this_l->send_account);
@@ -1028,7 +1028,7 @@ void rai_qt::wallet::start ()
 				show_line_error (*this_l->send_count);
 				show_button_error (*this_l->send_blocks_send);
 				this_l->send_blocks_send->setText ("Bad amount number");
-                QTimer::singleShot(std::chrono::milliseconds (5000).count (), [this_w]() {
+				QTimer::singleShot (std::chrono::milliseconds (5000).count (), [this_w]() {
 					if (auto this_l = this_w.lock ())
 					{
 						show_button_ok (*this_l->send_blocks_send);
@@ -1198,11 +1198,11 @@ void rai_qt::wallet::update_connected ()
 	}
 }
 
-void rai_qt::wallet::empty_password()
+void rai_qt::wallet::empty_password ()
 {
-    this->node.alarm.add(std::chrono::system_clock::now() + std::chrono::seconds(3), [this]() {
-        wallet_m->enter_password(std::string(""));
-    });
+	this->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (3), [this]() {
+		wallet_m->enter_password (std::string (""));
+	});
 }
 
 void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
