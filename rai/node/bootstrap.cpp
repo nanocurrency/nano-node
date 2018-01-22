@@ -1032,8 +1032,8 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	}
 	else if (pull.attempts == 4)
 	{
+		pull.attempts++;
 		std::lock_guard<std::mutex> lock (mutex);
-
 		if (auto connection_shared = connection_frontier_request.lock ())
 		{
 			auto client (std::make_shared<rai::bulk_pull_client> (connection_shared));
