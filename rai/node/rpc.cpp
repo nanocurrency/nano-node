@@ -140,6 +140,13 @@ void rai::rpc::observer_action (rai::account const & account_a)
 
 namespace
 {
+void fix_empty_array (boost::property_tree::ptree & property)
+{
+	if (property.empty ()) {
+		property.put ("", "__empty_array__");
+	}
+}
+
 void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a)
 {
 	boost::property_tree::ptree response_l;
@@ -380,6 +387,7 @@ void rai::rpc_handler::account_list ()
 				entry.put ("", rai::uint256_union (i->first.uint256 ()).to_account ());
 				accounts.push_back (std::make_pair ("", entry));
 			}
+			fix_empty_array (accounts);
 			response_l.add_child ("accounts", accounts);
 			response (response_l);
 		}
@@ -665,6 +673,7 @@ void rai::rpc_handler::accounts_balances ()
 			error_response (response, "Bad account number");
 		}
 	}
+	fix_empty_array (balances);
 	response_l.add_child ("balances", balances);
 	response (response_l);
 }
@@ -704,6 +713,7 @@ void rai::rpc_handler::accounts_create ()
 							accounts.push_back (std::make_pair ("", entry));
 						}
 					}
+					fix_empty_array (accounts);
 					response_l.add_child ("accounts", accounts);
 					response (response_l);
 				}
@@ -822,6 +832,7 @@ void rai::rpc_handler::accounts_pending ()
 					}
 				}
 			}
+			fix_empty_array (peers_l);
 			pending.add_child (account.to_account (), peers_l);
 		}
 		else
@@ -829,6 +840,7 @@ void rai::rpc_handler::accounts_pending ()
 			error_response (response, "Bad account number");
 		}
 	}
+	fix_empty_array (pending);
 	response_l.add_child ("blocks", pending);
 	response (response_l);
 }
@@ -903,6 +915,7 @@ void rai::rpc_handler::blocks ()
 			error_response (response, "Bad hash number");
 		}
 	}
+	fix_empty_array(blocks);
 	response_l.add_child ("blocks", blocks);
 	response (response_l);
 }
@@ -980,6 +993,7 @@ void rai::rpc_handler::blocks_info ()
 			error_response (response, "Bad hash number");
 		}
 	}
+	fix_empty_array (blocks);
 	response_l.add_child ("blocks", blocks);
 	response (response_l);
 }
@@ -1306,6 +1320,7 @@ void rai::rpc_handler::successors ()
 					block.clear ();
 				}
 			}
+			fix_empty_array (blocks);
 			response_l.add_child ("blocks", blocks);
 			response (response_l);
 		}
@@ -1383,6 +1398,7 @@ void rai::rpc_handler::chain ()
 					block.clear ();
 				}
 			}
+			fix_empty_array (blocks);
 			response_l.add_child ("blocks", blocks);
 			response (response_l);
 		}
@@ -1619,6 +1635,7 @@ void rai::rpc_handler::history ()
 				block = node.store.block_get (transaction, hash);
 				--count;
 			}
+			fix_empty_array (history);
 			response_l.add_child ("history", history);
 			response (response_l);
 		}
@@ -1663,6 +1680,7 @@ void rai::rpc_handler::account_history ()
 				block = node.store.block_get (transaction, hash);
 				--count;
 			}
+			fix_empty_array (history);
 			response_l.add_child ("history", history);
 			response (response_l);
 		}
@@ -1860,6 +1878,7 @@ void rai::rpc_handler::ledger ()
 				accounts.push_back (std::make_pair (account.to_account (), response_l));
 			}
 		}
+		fix_empty_array (accounts);
 		response_a.add_child ("accounts", accounts);
 		response (response_a);
 	}
@@ -2058,6 +2077,7 @@ void rai::rpc_handler::peers ()
 		text << i->first;
 		peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->second))));
 	}
+	fix_empty_array (peers_l);
 	response_l.add_child ("peers", peers_l);
 	response (response_l);
 }
@@ -2128,6 +2148,7 @@ void rai::rpc_handler::pending ()
 				}
 			}
 		}
+		fix_empty_array (peers_l);
 		response_l.add_child ("blocks", peers_l);
 		response (response_l);
 	}
@@ -2699,6 +2720,7 @@ void rai::rpc_handler::representatives ()
 			representatives.put (i->second, (i->first).number ().convert_to<std::string> ());
 		}
 	}
+	fix_empty_array (representatives);
 	response_l.add_child ("representatives", representatives);
 	response (response_l);
 }
@@ -2814,6 +2836,7 @@ void rai::rpc_handler::republish ()
 				hash = node.store.block_successor (transaction, hash);
 			}
 			response_l.put ("success", ""); // obsolete
+			fix_empty_array (blocks);
 			response_l.add_child ("blocks", blocks);
 			response (response_l);
 		}
@@ -3117,6 +3140,7 @@ void rai::rpc_handler::unchecked_keys ()
 		entry.put ("contents", contents);
 		unchecked.push_back (std::make_pair ("", entry));
 	}
+	fix_empty_array (unchecked);
 	response_l.add_child ("unchecked", unchecked);
 	response (response_l);
 }
@@ -3278,6 +3302,7 @@ void rai::rpc_handler::wallet_balances ()
 					}
 				}
 			}
+			fix_empty_array (balances);
 			response_l.add_child ("balances", balances);
 			response (response_l);
 		}
@@ -3640,6 +3665,7 @@ void rai::rpc_handler::wallet_pending ()
 					pending.add_child (account.to_account (), peers_l);
 				}
 			}
+			fix_empty_array (pending);
 			response_l.add_child ("blocks", pending);
 			response (response_l);
 		}
@@ -3767,6 +3793,7 @@ void rai::rpc_handler::wallet_republish ()
 							blocks.push_back (std::make_pair ("", entry));
 						}
 					}
+					fix_empty_array (blocks);
 					response_l.add_child ("blocks", blocks);
 					response (response_l);
 				}
@@ -4079,6 +4106,7 @@ void rai::rpc_handler::work_peers ()
 			work_peers_l.push_back (std::make_pair ("", entry));
 		}
 		boost::property_tree::ptree response_l;
+		fix_empty_array (work_peers_l);
 		response_l.add_child ("work_peers", work_peers_l);
 		response (response_l);
 	}
@@ -4124,6 +4152,7 @@ void rai::rpc_connection::parse_connection ()
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
 					auto body (ostream.str ());
+					boost::replace_all (body, "\"__empty_array__\"", "[]");
 					this_l->res.set ("Content-Type", "application/json");
 					this_l->res.set ("Access-Control-Allow-Origin", "*");
 					this_l->res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
