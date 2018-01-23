@@ -142,7 +142,8 @@ namespace
 {
 void fix_empty_array (boost::property_tree::ptree & property)
 {
-	if (property.empty ()) {
+	if (property.empty ())
+	{
 		property.put ("", "__empty_array__");
 	}
 }
@@ -915,7 +916,7 @@ void rai::rpc_handler::blocks ()
 			error_response (response, "Bad hash number");
 		}
 	}
-	fix_empty_array(blocks);
+	fix_empty_array (blocks);
 	response_l.add_child ("blocks", blocks);
 	response (response_l);
 }
