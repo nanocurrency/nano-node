@@ -115,8 +115,8 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
 	auto result (rai::sync_result::success);
 	blocks.clear ();
 	blocks.push_back (hash_a);
-	auto cutoff (std::chrono::system_clock::now () + rai::transaction_timeout);
-	while (std::chrono::system_clock::now () < cutoff && result != rai::sync_result::fork && !blocks.empty ())
+	auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
+	while (std::chrono::steady_clock::now () < cutoff && result != rai::sync_result::fork && !blocks.empty ())
 	{
 		result = synchronize_one (transaction_a);
 	}
@@ -287,7 +287,7 @@ rai::frontier_req_client::frontier_req_client (std::shared_ptr<rai::bootstrap_cl
 connection (connection_a),
 current (0),
 count (0),
-next_report (std::chrono::system_clock::now () + std::chrono::seconds (15))
+next_report (std::chrono::steady_clock::now () + std::chrono::seconds (15))
 {
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	next (transaction);
@@ -347,7 +347,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			start_time = std::chrono::steady_clock::now ();
 		}
 		++count;
-		auto now (std::chrono::system_clock::now ());
+		auto now (std::chrono::steady_clock::now ());
 		if (next_report < now)
 		{
 			next_report = now + std::chrono::seconds (15);
@@ -999,7 +999,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	if (sorted_connections.size () >= (node->config.bootstrap_connections * 2) / 3 && node->config.bootstrap_connections >= 4)
 	{
 		// 4 -> 1, 8 -> 2, 16 -> 4, arbitrary, but seems to work well.
-		auto drop = (int)roundf(sqrtf((float)node->config.bootstrap_connections - 2.0f));
+		auto drop = (int)roundf (sqrtf ((float)node->config.bootstrap_connections - 2.0f));
 		for (int i = 0; i < drop; i++)
 		{
 			auto client = sorted_connections.top ();
@@ -1040,7 +1040,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	if (!stopped)
 	{
 		std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-		node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (1), [this_w]() {
+		node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->populate_connections ();
@@ -1988,7 +1988,7 @@ void rai::frontier_req_server::skip_old ()
 {
 	if (request->age != std::numeric_limits<decltype (request->age)>::max ())
 	{
-		auto now (connection->node->store.now ());
+		auto now (rai::seconds_since_epoch ());
 		while (!current.is_zero () && (now - info.modified) >= request->age)
 		{
 			next ();

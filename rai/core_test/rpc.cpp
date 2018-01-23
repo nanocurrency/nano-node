@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <boost/beast.hpp>
+#include <rai/node/common.hpp>
 #include <rai/node/rpc.hpp>
 #include <rai/node/testing.hpp>
-
-#include <boost/beast.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -1195,7 +1195,7 @@ TEST (rpc, payment_wait)
 	ASSERT_EQ ("nothing", response1.json.get<std::string> ("status"));
 	request1.put ("timeout", "100000");
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Mxrb_ratio);
-	system.alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (500), [&]() {
+	system.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (500), [&]() {
 		system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Mxrb_ratio);
 	});
 	test_response response2 (request1, rpc, system.service);
@@ -2690,7 +2690,8 @@ TEST (rpc, account_info)
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
 	system.nodes[0]->process (send);
-	auto time (std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ()));
+	auto time (rai::seconds_since_epoch ());
+
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2711,7 +2712,7 @@ TEST (rpc, account_info)
 	std::string balance (response.json.get<std::string> ("balance"));
 	ASSERT_EQ ("100", balance);
 	std::string modified_timestamp (response.json.get<std::string> ("modified_timestamp"));
-	ASSERT_TRUE (std::abs (time - stol (modified_timestamp)) < 5);
+	ASSERT_TRUE (time - stol (modified_timestamp) < 5);
 	std::string block_count (response.json.get<std::string> ("block_count"));
 	ASSERT_EQ ("2", block_count);
 }
@@ -2844,7 +2845,7 @@ TEST (rpc, ledger)
 	system.nodes[0]->process (send);
 	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
-	auto time (std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ()));
+	auto time (rai::seconds_since_epoch ());
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;

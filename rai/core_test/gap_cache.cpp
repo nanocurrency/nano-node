@@ -20,7 +20,7 @@ TEST (gap_cache, add_existing)
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
-	while (arrival == std::chrono::system_clock::now ())
+	while (arrival == std::chrono::steady_clock::now ())
 		;
 	cache.add (transaction, block1);
 	ASSERT_EQ (1, cache.blocks.size ());
@@ -39,7 +39,7 @@ TEST (gap_cache, comparison)
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
-	while (std::chrono::system_clock::now () == arrival)
+	while (std::chrono::steady_clock::now () == arrival)
 		;
 	auto block3 (std::make_shared<rai::send_block> (0, 42, 1, rai::keypair ().prv, 3, 4));
 	cache.add (transaction, block3);

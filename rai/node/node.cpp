@@ -225,9 +225,9 @@ void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::
 // 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
 // 2) Only if a vote for this block hasn't been received in the previous X second.  This prevents rapid publishing of votes with increasing sequence numbers.
 // 3) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
-void rai::network::republish_vote (std::chrono::system_clock::time_point const & last_vote, std::shared_ptr<rai::vote> vote_a)
+void rai::network::republish_vote (std::chrono::steady_clock::time_point const & last_vote, std::shared_ptr<rai::vote> vote_a)
 {
-	if (last_vote < std::chrono::system_clock::now () - std::chrono::seconds (1))
+	if (last_vote < std::chrono::steady_clock::now () - std::chrono::seconds (1))
 	{
 		if (node.weight (vote_a->account) > rai::Mxrb_ratio * 256)
 		{
@@ -297,7 +297,7 @@ void rep_query (rai::node & node_a, T const & peers_a)
 		node_a.network.send_confirm_req (*i, block);
 	}
 	std::weak_ptr<rai::node> node_w (node_a.shared ());
-	node_a.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
+	node_a.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->rep_crawler.remove (hash);
@@ -456,7 +456,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 		}
 		if (on)
 		{
-			node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [this]() { receive (); });
+			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { receive (); });
 		}
 	}
 }
@@ -486,7 +486,7 @@ thread ([this]() { run (); })
 
 rai::alarm::~alarm ()
 {
-	add (std::chrono::system_clock::now (), nullptr);
+	add (std::chrono::steady_clock::now (), nullptr);
 	thread.join ();
 }
 
@@ -501,7 +501,7 @@ void rai::alarm::run ()
 			auto & operation (operations.top ());
 			if (operation.function)
 			{
-				if (operation.wakeup <= std::chrono::system_clock::now ())
+				if (operation.wakeup <= std::chrono::steady_clock::now ())
 				{
 					service.post (operation.function);
 					operations.pop ();
@@ -524,7 +524,7 @@ void rai::alarm::run ()
 	}
 }
 
-void rai::alarm::add (std::chrono::system_clock::time_point const & wakeup_a, std::function<void()> const & operation)
+void rai::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	operations.push (rai::operation ({ wakeup_a, operation }));
@@ -1146,8 +1146,8 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 		std::deque<std::pair<std::shared_ptr<rai::block>, rai::process_return>> progress;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, true);
-			auto cutoff (std::chrono::system_clock::now () + rai::transaction_timeout);
-			while (!blocks_processing.empty () && std::chrono::system_clock::now () < cutoff)
+			auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
+			while (!blocks_processing.empty () && std::chrono::steady_clock::now () < cutoff)
 			{
 				auto item (blocks_processing.front ());
 				blocks_processing.pop_front ();
@@ -1538,12 +1538,12 @@ void rai::gap_cache::add (MDB_txn * transaction_a, std::shared_ptr<rai::block> b
 	if (existing != blocks.get<1> ().end ())
 	{
 		blocks.get<1> ().modify (existing, [](rai::gap_information & info) {
-			info.arrival = std::chrono::system_clock::now ();
+			info.arrival = std::chrono::steady_clock::now ();
 		});
 	}
 	else
 	{
-		blocks.insert ({ std::chrono::system_clock::now (), hash, std::unique_ptr<rai::votes> (new rai::votes (block_a)) });
+		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unique_ptr<rai::votes> (new rai::votes (block_a)) });
 		if (blocks.size () > max)
 		{
 			blocks.get<0> ().erase (blocks.get<0> ().begin ());
@@ -1564,7 +1564,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 		if (winner.first > bootstrap_threshold (transaction))
 		{
 			auto node_l (node.shared ());
-			auto now (std::chrono::system_clock::now ());
+			auto now (std::chrono::steady_clock::now ());
 			node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
 				rai::transaction transaction (node_l->store.environment, nullptr, false);
 				if (!node_l->store.block_exists (transaction, hash))
@@ -1588,7 +1588,7 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 
 void rai::gap_cache::purge_old ()
 {
-	auto cutoff (std::chrono::system_clock::now () - std::chrono::seconds (10));
+	auto cutoff (std::chrono::steady_clock::now () - std::chrono::seconds (10));
 	std::lock_guard<std::mutex> lock (mutex);
 	auto done (false);
 	while (!done && !blocks.empty ())
@@ -1685,7 +1685,7 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 		{
 			result = i->endpoint;
 			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
-				peer_a.last_bootstrap_attempt = std::chrono::system_clock::now ();
+				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
 			});
 			i = n;
 		}
@@ -1863,13 +1863,13 @@ rai::account rai::node::representative (rai::account const & account_a)
 void rai::node::ongoing_keepalive ()
 {
 	keepalive_preconfigured (config.preconfigured_peers);
-	auto peers_l (peers.purge_list (std::chrono::system_clock::now () - cutoff));
-	for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::system_clock::now () - i->last_attempt > period; ++i)
+	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - cutoff));
+	for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::steady_clock::now () - i->last_attempt > period; ++i)
 	{
 		network.send_keepalive (i->endpoint);
 	}
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::system_clock::now () + period, [node_w]() {
+	alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_keepalive ();
@@ -1879,7 +1879,7 @@ void rai::node::ongoing_keepalive ()
 
 void rai::node::ongoing_rep_crawl ()
 {
-	auto now (std::chrono::system_clock::now ());
+	auto now (std::chrono::steady_clock::now ());
 	auto peers_l (peers.rep_crawl ());
 	rep_query (*this, peers_l);
 	if (network.on)
@@ -1908,7 +1908,7 @@ void rai::node::ongoing_bootstrap ()
 	}
 	bootstrap_initiator.bootstrap ();
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {
+	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
@@ -1923,7 +1923,7 @@ void rai::node::ongoing_store_flush ()
 		store.flush (transaction);
 	}
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (5), [node_w]() {
+	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_store_flush ();
@@ -1941,7 +1941,7 @@ void rai::node::backup_wallet ()
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
-	alarm.add (std::chrono::system_clock::now () + backup_interval, [this_l]() {
+	alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {
 		this_l->backup_wallet ();
 	});
 }
@@ -2279,14 +2279,14 @@ rai::endpoint rai::network::endpoint ()
 void rai::block_arrival::add (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto now (std::chrono::system_clock::now ());
+	auto now (std::chrono::steady_clock::now ());
 	arrival.insert (rai::block_arrival_info{ now, hash_a });
 }
 
 bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto now (std::chrono::system_clock::now ());
+	auto now (std::chrono::steady_clock::now ());
 	while (!arrival.empty () && arrival.begin ()->arrival + std::chrono::seconds (60) < now)
 	{
 		arrival.erase (arrival.begin ());
@@ -2352,7 +2352,7 @@ std::vector<rai::peer_information> rai::peer_container::representatives (size_t 
 	return result;
 }
 
-std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono::system_clock::time_point const & cutoff)
+std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff)
 {
 	std::vector<rai::peer_information> result;
 	{
@@ -2363,7 +2363,7 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
 		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 		{
-			peers.modify (i, [](rai::peer_information & info) { info.last_attempt = std::chrono::system_clock::now (); });
+			peers.modify (i, [](rai::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
 		}
 
 		// Remove keepalive attempt tracking for attempts older than cutoff
@@ -2433,7 +2433,7 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [weight_a, &updated](rai::peer_information & info) {
-			info.last_rep_response = std::chrono::system_clock::now ();
+			info.last_rep_response = std::chrono::steady_clock::now ();
 			if (info.rep_weight < weight_a)
 			{
 				updated = true;
@@ -2451,7 +2451,7 @@ void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [](rai::peer_information & info) {
-			info.last_rep_request = std::chrono::system_clock::now ();
+			info.last_rep_request = std::chrono::steady_clock::now ();
 		});
 	}
 }
@@ -2466,7 +2466,7 @@ bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (attempts.find (endpoint_a));
 	result |= existing != attempts.end ();
-	attempts.insert ({ endpoint_a, std::chrono::system_clock::now () });
+	attempts.insert ({ endpoint_a, std::chrono::steady_clock::now () });
 	return result;
 }
 
@@ -2481,7 +2481,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 		if (existing != peers.end ())
 		{
 			peers.modify (existing, [](rai::peer_information & info) {
-				info.last_contact = std::chrono::system_clock::now ();
+				info.last_contact = std::chrono::steady_clock::now ();
 			});
 			result = true;
 		}
@@ -2580,23 +2580,23 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 
 rai::peer_information::peer_information (rai::endpoint const & endpoint_a, unsigned network_version_a) :
 endpoint (endpoint_a),
-last_contact (std::chrono::system_clock::now ()),
+last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-last_bootstrap_attempt (std::chrono::system_clock::time_point ()),
-last_rep_request (std::chrono::system_clock::time_point ()),
-last_rep_response (std::chrono::system_clock::time_point ()),
+last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
+last_rep_request (std::chrono::steady_clock::time_point ()),
+last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
 network_version (network_version_a)
 {
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, std::chrono::system_clock::time_point const & last_contact_a, std::chrono::system_clock::time_point const & last_attempt_a) :
+rai::peer_information::peer_information (rai::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
 endpoint (endpoint_a),
 last_contact (last_contact_a),
 last_attempt (last_attempt_a),
-last_bootstrap_attempt (std::chrono::system_clock::time_point ()),
-last_rep_request (std::chrono::system_clock::time_point ()),
-last_rep_response (std::chrono::system_clock::time_point ()),
+last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
+last_rep_request (std::chrono::steady_clock::time_point ()),
+last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0)
 {
 }
@@ -2619,15 +2619,6 @@ void rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 	insert (endpoint_l, version_a);
 }
 
-std::ostream & operator<< (std::ostream & stream_a, std::chrono::system_clock::time_point const & time_a)
-{
-	time_t last_contact (std::chrono::system_clock::to_time_t (time_a));
-	std::string string (ctime (&last_contact));
-	string.pop_back ();
-	stream_a << string;
-	return stream_a;
-}
-
 void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	std::unique_lock<std::mutex> lock (socket_mutex);
@@ -2642,14 +2633,6 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 			BOOST_LOG (this->node.log) << "Packet send complete";
 		}
 	});
-}
-
-uint64_t rai::block_store::now ()
-{
-	boost::posix_time::ptime epoch (boost::gregorian::date (1970, 1, 1));
-	auto now (boost::posix_time::second_clock::universal_time ());
-	auto diff (now - epoch);
-	return diff.total_seconds ();
 }
 
 bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
@@ -2668,7 +2651,7 @@ rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::share
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
-last_vote (std::chrono::system_clock::now ()),
+last_vote (std::chrono::steady_clock::now ()),
 last_winner (block_a)
 {
 	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));
@@ -2772,7 +2755,7 @@ void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 void rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	node.network.republish_vote (last_vote, vote_a);
-	last_vote = std::chrono::system_clock::now ();
+	last_vote = std::chrono::steady_clock::now ();
 	rai::transaction transaction (node.store.environment, nullptr, true);
 	assert (node.store.vote_validate (transaction, vote_a).code != rai::vote_code::invalid);
 	votes.vote (vote_a);
@@ -2830,7 +2813,7 @@ void rai::active_transactions::announce_votes ()
 		assert (roots.find (*i) != roots.end ());
 		roots.erase (*i);
 	}
-	auto now (std::chrono::system_clock::now ());
+	auto now (std::chrono::steady_clock::now ());
 	auto node_l (node.shared ());
 	node.alarm.add (now + std::chrono::milliseconds (announce_interval_ms), [node_l]() { node_l->active.announce_votes (); });
 }
@@ -3713,7 +3696,7 @@ void rai::port_mapping::check_mapping_loop ()
 	if (on)
 	{
 		auto node_l (node.shared ());
-		node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (wait_duration), [node_l]() {
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (wait_duration), [node_l]() {
 			node_l->port_mapping.check_mapping_loop ();
 		});
 	}

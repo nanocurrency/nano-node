@@ -52,7 +52,7 @@ TEST (alarm, one)
 	std::atomic<bool> done (false);
 	std::mutex mutex;
 	std::condition_variable condition;
-	alarm.add (std::chrono::system_clock::now (), [&]() {
+	alarm.add (std::chrono::steady_clock::now (), [&]() {
 		std::lock_guard<std::mutex> lock (mutex);
 		done = true;
 		condition.notify_one ();
@@ -74,7 +74,7 @@ TEST (alarm, many)
 	std::condition_variable condition;
 	for (auto i (0); i < 50; ++i)
 	{
-		alarm.add (std::chrono::system_clock::now (), [&]() {
+		alarm.add (std::chrono::steady_clock::now (), [&]() {
 			std::lock_guard<std::mutex> lock (mutex);
 			count += 1;
 			condition.notify_one ();
@@ -103,12 +103,12 @@ TEST (alarm, top_execution)
 	int value2 (0);
 	std::mutex mutex;
 	std::promise<bool> promise;
-	alarm.add (std::chrono::system_clock::now (), [&]() {
+	alarm.add (std::chrono::steady_clock::now (), [&]() {
 		std::lock_guard<std::mutex> lock (mutex);
 		value1 = 1;
 		value2 = 1;
 	});
-	alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (1), [&]() {
+	alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&]() {
 		std::lock_guard<std::mutex> lock (mutex);
 		value2 = 2;
 		promise.set_value (false);
